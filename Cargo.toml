@@ -1,0 +1,36 @@
+[workspace]
+members = [
+    "crates/sdkwork-knowledgebase-contract",
+    "crates/sdkwork-knowledgebase-core",
+    "crates/sdkwork-knowledgebase-drive",
+    "crates/sdkwork-knowledgebase-test-support",
+    "services/sdkwork-knowledgebase-product",
+    "services/sdkwork-knowledgebase-storage-sqlx",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "AGPL-3.0-or-later"
+
+[workspace.dependencies]
+async-trait = "0.1"
+bytes = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "1"
+time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
+uuid = { version = "1", features = ["serde", "v4"] }
+
+sdkwork-knowledgebase-contract = { path = "crates/sdkwork-knowledgebase-contract" }
+sdkwork-knowledgebase-core = { path = "crates/sdkwork-knowledgebase-core" }
+sdkwork-knowledgebase-test-support = { path = "crates/sdkwork-knowledgebase-test-support" }
+sdkwork-knowledgebase-product = { path = "services/sdkwork-knowledgebase-product" }
+
+# Local workspace dependency. This keeps sdkwork-drive as the only lower-level
+# storage provider and prevents knowledgebase product crates from using object
+# storage SDKs directly.
+sdkwork-drive-storage-contract = { path = "D:/sdkwork-opensource/sdkwork-drive/crates/sdkwork-drive-storage-contract" }

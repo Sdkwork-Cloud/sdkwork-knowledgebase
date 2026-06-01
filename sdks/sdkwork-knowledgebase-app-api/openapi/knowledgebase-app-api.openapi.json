@@ -1,0 +1,130 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SDKWork Knowledgebase App API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/app/v3/api/knowledge/spaces": {
+      "post": {
+        "operationId": "spaces.create",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/spaces/{spaceId}": {
+      "get": {
+        "operationId": "spaces.retrieve",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/drive_imports": {
+      "post": {
+        "operationId": "driveImports.create",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/ingests": {
+      "post": {
+        "operationId": "ingests.create",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/ingests/{ingestId}": {
+      "get": {
+        "operationId": "ingests.retrieve",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/documents": {
+      "get": {
+        "operationId": "documents.list",
+        "tags": ["knowledge"]
+      },
+      "post": {
+        "operationId": "documents.create",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/documents/{documentId}": {
+      "get": {
+        "operationId": "documents.retrieve",
+        "tags": ["knowledge"]
+      },
+      "patch": {
+        "operationId": "documents.update",
+        "tags": ["knowledge"]
+      },
+      "delete": {
+        "operationId": "documents.delete",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/documents/{documentId}/versions": {
+      "get": {
+        "operationId": "documents.versions.list",
+        "tags": ["knowledge"]
+      },
+      "post": {
+        "operationId": "documents.versions.create",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/wiki_pages": {
+      "get": {
+        "operationId": "wiki.pages.list",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/wiki_pages/{pageId}": {
+      "get": {
+        "operationId": "wiki.pages.retrieve",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/wiki_pages/{pageId}/revisions": {
+      "get": {
+        "operationId": "wiki.pages.revisions.list",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/wiki_index": {
+      "get": {
+        "operationId": "wiki.index.retrieve",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/wiki_log": {
+      "get": {
+        "operationId": "wiki.log.retrieve",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/wiki_schema": {
+      "get": {
+        "operationId": "wiki.schema.retrieve",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/wiki_queries": {
+      "post": {
+        "operationId": "wiki.queries.create",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/wiki_queries/{queryId}/file_answer": {
+      "post": {
+        "operationId": "wiki.queries.fileAnswer",
+        "tags": ["knowledge"]
+      }
+    },
+    "/app/v3/api/knowledge/wiki_context_packs": {
+      "post": {
+        "operationId": "wiki.contextPacks.create",
+        "tags": ["knowledge"]
+      }
+    }
+  },
+  "components": {
+    "schemas": {}
+  }
+}

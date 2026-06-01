@@ -1,0 +1,15 @@
+[package]
+name = "sdkwork-knowledgebase-drive"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+sdkwork-drive-storage-contract.workspace = true
+sdkwork-knowledgebase-contract.workspace = true
+sdkwork-knowledgebase-product.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true

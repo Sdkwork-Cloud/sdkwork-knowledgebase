@@ -1,0 +1,100 @@
+use sdkwork_knowledgebase_product::ports::knowledge_drive_object_ref_store::{
+    CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore, MANAGED_DRIVE_ACCESS_MODE,
+    SDKWORK_DRIVE_PROVIDER_KIND,
+};
+use sdkwork_knowledgebase_storage_sqlx::migrations::SQLITE_CORE_MIGRATION;
+use sdkwork_knowledgebase_storage_sqlx::SqliteKnowledgeDriveObjectRefStore;
+use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::{Row, SqlitePool};
+
+#[tokio::test]
+async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_secrets() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let store = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), 9001);
+
+    let object_ref = store
+        .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
+            space_id: 7,
+            drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+            drive_bucket: "knowledgebase-source".to_string(),
+            drive_object_key: "incoming/quarterly-report.md".to_string(),
+            drive_object_version: Some("v1".to_string()),
+            drive_etag: Some("etag".to_string()),
+            content_type: Some("text/markdown; charset=utf-8".to_string()),
+            size_bytes: 128,
+            checksum_sha256_hex: Some("abc123".to_string()),
+            object_role: "original_document".to_string(),
+            access_mode: MANAGED_DRIVE_ACCESS_MODE.to_string(),
+        })
+        .await
+        .unwrap();
+
+    assert_ne!(object_ref.id, 0);
+    assert_eq!(object_ref.space_id, 7);
+    assert_eq!(object_ref.drive_provider_kind, SDKWORK_DRIVE_PROVIDER_KIND);
+    assert_eq!(object_ref.drive_object_key, "incoming/quarterly-report.md");
+    assert_eq!(object_ref.drive_object_version.as_deref(), Some("v1"));
+    assert_eq!(object_ref.drive_etag.as_deref(), Some("etag"));
+    assert_eq!(object_ref.access_mode, MANAGED_DRIVE_ACCESS_MODE);
+
+    let row = sqlx::query(
+        r#"
+        SELECT tenant_id, drive_bucket, drive_object_key, drive_object_version, drive_etag,
+               drive_metadata, status
+        FROM knowledge_drive_object_ref
+        WHERE id = ?
+        "#,
+    )
+    .bind(object_ref.id as i64)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(row.get::<i64, _>("tenant_id"), 9001);
+    assert_eq!(row.get::<String, _>("drive_bucket"), "knowledgebase-source");
+    assert_eq!(
+        row.get::<String, _>("drive_object_key"),
+        "incoming/quarterly-report.md"
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("drive_object_version")
+            .as_deref(),
+        Some("v1")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("drive_etag").as_deref(),
+        Some("etag")
+    );
+    assert_eq!(row.get::<Option<String>, _>("drive_metadata"), None);
+    assert_eq!(row.get::<i64, _>("status"), 1);
+
+    let unsafe_column_count: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM pragma_table_info('knowledge_drive_object_ref')
+        WHERE name IN ('presigned_url', 'provider_credentials', 'payload_bytes')
+        "#,
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(unsafe_column_count, 0);
+}
+
+async fn sqlite_pool() -> SqlitePool {
+    SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:")
+        .await
+        .unwrap()
+}
+
+async fn apply_sqlite_migration(pool: &SqlitePool) {
+    for statement in SQLITE_CORE_MIGRATION.split(';') {
+        let statement = statement.trim();
+        if !statement.is_empty() {
+            sqlx::query(statement).execute(pool).await.unwrap();
+        }
+    }
+}

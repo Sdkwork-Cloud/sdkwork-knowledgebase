@@ -1,0 +1,17 @@
+[package]
+name = "sdkwork-knowledgebase-storage-sqlx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres"] }
+time.workspace = true
+sdkwork-knowledgebase-contract.workspace = true
+sdkwork-knowledgebase-product.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+sdkwork-knowledgebase-test-support.workspace = true
+tokio.workspace = true
