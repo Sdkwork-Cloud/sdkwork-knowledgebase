@@ -39,7 +39,7 @@ async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
     let space_row = sqlx::query(
         r#"
         SELECT tenant_id, organization_id, name, description, llm_wiki_initialized, status
-        FROM knowledge_space
+        FROM kb_space
         WHERE id = ?
         "#,
     )
@@ -65,7 +65,7 @@ async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
         r#"
         SELECT logical_path, entry_type, artifact_role, drive_bucket, drive_object_key,
                checksum_sha256_hex
-        FROM knowledge_wiki_file_entry
+        FROM kb_wiki_file_entry
         WHERE tenant_id = ? AND space_id = ?
         ORDER BY id
         "#,

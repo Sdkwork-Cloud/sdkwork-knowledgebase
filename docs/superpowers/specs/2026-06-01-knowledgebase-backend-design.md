@@ -355,10 +355,10 @@ Drive import flow:
 existing drive object locator
   -> POST /app/v3/api/knowledge/drive_imports
   -> head_object through sdkwork-drive
-  -> create knowledge_drive_object_ref
-  -> create knowledge_document
-  -> create knowledge_document_version
-  -> enqueue knowledge_ingestion_job
+  -> create kb_drive_object_ref
+  -> create kb_document
+  -> create kb_document_version
+  -> enqueue kb_ingestion_job
 ```
 
 ### 7.4 Forbidden Storage Bypasses
@@ -1314,7 +1314,7 @@ The REST and SDK operation IDs still follow SDKWork API rules. The tool names ar
 
 ## 9. Database Design
 
-All new tables use prefix `knowledge_`.
+All database objects created by SDKWork Knowledgebase use the `kb_` prefix for tables, `idx_kb_` for non-unique indexes, and `uk_kb_` for unique indexes. Product/API names may keep `Knowledge*` terminology; physical database objects must stay under the `kb_` namespace.
 
 Common columns for core L2 tables:
 
@@ -1343,7 +1343,7 @@ API serialization:
 
 ### 9.1 Core Tables
 
-#### knowledge_space
+#### kb_space
 
 System of record for a knowledgebase space.
 
@@ -1362,12 +1362,12 @@ metadata JSON
 Indexes:
 
 ```text
-uk_knowledge_space_uuid unique(uuid)
-idx_knowledge_space_tenant_status_updated(tenant_id, organization_id, status, updated_at)
-idx_knowledge_space_owner(owner_type, owner_id, status)
+uk_kb_space_uuid unique(uuid)
+idx_kb_space_tenant_status_updated(tenant_id, organization_id, status, updated_at)
+idx_kb_space_owner(owner_type, owner_id, status)
 ```
 
-#### knowledge_collection
+#### kb_collection
 
 Tree structure inside a space.
 
@@ -1386,12 +1386,12 @@ metadata JSON
 Indexes:
 
 ```text
-uk_knowledge_collection_uuid unique(uuid)
-idx_knowledge_collection_space_parent_sort(tenant_id, space_id, parent_id, sort_order)
-idx_knowledge_collection_path(tenant_id, space_id, path)
+uk_kb_collection_uuid unique(uuid)
+idx_kb_collection_space_parent_sort(tenant_id, space_id, parent_id, sort_order)
+idx_kb_collection_path(tenant_id, space_id, path)
 ```
 
-#### knowledge_source
+#### kb_source
 
 Import source record.
 
@@ -1420,7 +1420,7 @@ connector
 api
 ```
 
-#### knowledge_drive_object_ref
+#### kb_drive_object_ref
 
 Stable reference to a `sdkwork-drive` object.
 
@@ -1443,14 +1443,14 @@ access_mode VARCHAR(64) NOT NULL
 Indexes:
 
 ```text
-uk_knowledge_drive_object_ref_uuid unique(uuid)
-idx_knowledge_drive_object_locator(tenant_id, drive_bucket, drive_object_key, drive_object_version)
-idx_knowledge_drive_object_role(tenant_id, object_role, created_at)
+uk_kb_drive_object_ref_uuid unique(uuid)
+idx_kb_drive_object_locator(tenant_id, drive_bucket, drive_object_key, drive_object_version)
+idx_kb_drive_object_role(tenant_id, object_role, created_at)
 ```
 
 Important rule: this table stores drive object references only. It does not store presigned URLs or provider credentials.
 
-#### knowledge_document
+#### kb_document
 
 Document master data.
 
@@ -1473,13 +1473,13 @@ metadata JSON
 Indexes:
 
 ```text
-uk_knowledge_document_uuid unique(uuid)
-idx_knowledge_document_space_collection_updated(tenant_id, space_id, collection_id, updated_at)
-idx_knowledge_document_source(source_id, status)
-idx_knowledge_document_title(tenant_id, space_id, title)
+uk_kb_document_uuid unique(uuid)
+idx_kb_document_space_collection_updated(tenant_id, space_id, collection_id, updated_at)
+idx_kb_document_source(source_id, status)
+idx_kb_document_title(tenant_id, space_id, title)
 ```
 
-#### knowledge_document_version
+#### kb_document_version
 
 Immutable document version.
 
@@ -1503,14 +1503,14 @@ metadata JSON
 Indexes:
 
 ```text
-uk_knowledge_document_version_uuid unique(uuid)
-uk_knowledge_document_version_no unique(document_id, version_no)
-idx_knowledge_document_version_state(tenant_id, parse_state, index_state, updated_at)
+uk_kb_document_version_uuid unique(uuid)
+uk_kb_document_version_no unique(document_id, version_no)
+idx_kb_document_version_state(tenant_id, parse_state, index_state, updated_at)
 ```
 
 ### 9.2 Processing Tables
 
-#### knowledge_ingestion_job
+#### kb_ingestion_job
 
 Async job for import, parse, embed, reindex, sync, and cleanup.
 
@@ -1537,13 +1537,13 @@ metadata JSON
 Indexes:
 
 ```text
-uk_knowledge_ingestion_job_uuid unique(uuid)
-uk_knowledge_ingestion_job_idempotency unique(tenant_id, idempotency_key)
-idx_knowledge_ingestion_job_state_priority(state, priority, created_at)
-idx_knowledge_ingestion_job_space(space_id, state, updated_at)
+uk_kb_ingestion_job_uuid unique(uuid)
+uk_kb_ingestion_job_idempotency unique(tenant_id, idempotency_key)
+idx_kb_ingestion_job_state_priority(state, priority, created_at)
+idx_kb_ingestion_job_space(space_id, state, updated_at)
 ```
 
-#### knowledge_ingestion_job_item
+#### kb_ingestion_job_item
 
 Per-document job item.
 
@@ -1563,7 +1563,7 @@ started_at TIMESTAMP
 finished_at TIMESTAMP
 ```
 
-#### knowledge_parse_artifact
+#### kb_parse_artifact
 
 Drive-backed parser output.
 
@@ -1594,7 +1594,7 @@ thumbnail
 
 ### 9.3 Index Tables
 
-#### knowledge_chunk
+#### kb_chunk
 
 Retrievable text chunk.
 
@@ -1619,14 +1619,14 @@ metadata JSON
 Indexes:
 
 ```text
-uk_knowledge_chunk_uuid unique(uuid)
-uk_knowledge_chunk_no unique(document_version_id, chunk_no)
-idx_knowledge_chunk_document(document_id, document_version_id, chunk_no)
-idx_knowledge_chunk_space_status(tenant_id, space_id, status, updated_at)
-idx_knowledge_chunk_content_hash(tenant_id, content_hash)
+uk_kb_chunk_uuid unique(uuid)
+uk_kb_chunk_no unique(document_version_id, chunk_no)
+idx_kb_chunk_document(document_id, document_version_id, chunk_no)
+idx_kb_chunk_space_status(tenant_id, space_id, status, updated_at)
+idx_kb_chunk_content_hash(tenant_id, content_hash)
 ```
 
-#### knowledge_chunk_embedding
+#### kb_chunk_embedding
 
 Embedding metadata and default pgvector read model.
 
@@ -1654,12 +1654,12 @@ Physical mapping:
 Indexes:
 
 ```text
-uk_knowledge_chunk_embedding_model unique(chunk_id, embedding_model)
-idx_knowledge_embedding_space_model(tenant_id, space_id, embedding_model, status)
-idx_knowledge_embedding_hash(tenant_id, embedding_hash)
+uk_kb_chunk_embedding_model unique(chunk_id, embedding_model)
+idx_kb_embedding_space_model(tenant_id, space_id, embedding_model, status)
+idx_kb_embedding_hash(tenant_id, embedding_hash)
 ```
 
-#### knowledge_search_projection
+#### kb_search_projection
 
 Optional denormalized read model for hybrid search.
 
@@ -1681,7 +1681,7 @@ metadata JSON
 
 ### 9.4 Retrieval Tables
 
-#### knowledge_retrieval_profile
+#### kb_retrieval_profile
 
 Query strategy configuration.
 
@@ -1710,7 +1710,7 @@ hybrid
 hybrid_rerank
 ```
 
-#### knowledge_retrieval_trace
+#### kb_retrieval_trace
 
 Auditable retrieval call record.
 
@@ -1733,7 +1733,7 @@ metadata JSON
 
 Important rule: store query hash and safe metadata by default. Raw query text storage requires an explicit privacy decision.
 
-#### knowledge_citation
+#### kb_citation
 
 Returned citation record.
 
@@ -1755,7 +1755,7 @@ metadata JSON
 
 ### 9.5 LLM Wiki Tables
 
-#### knowledge_wiki_page
+#### kb_wiki_page
 
 Stable topic page in a knowledge space.
 
@@ -1798,12 +1798,12 @@ runbook
 Indexes:
 
 ```text
-uk_knowledge_wiki_page_uuid unique(uuid)
-uk_knowledge_wiki_page_slug unique(tenant_id, space_id, slug)
-idx_knowledge_wiki_page_state(tenant_id, space_id, publish_state, updated_at)
+uk_kb_wiki_page_uuid unique(uuid)
+uk_kb_wiki_page_slug unique(tenant_id, space_id, slug)
+idx_kb_wiki_page_state(tenant_id, space_id, publish_state, updated_at)
 ```
 
-#### knowledge_wiki_page_revision
+#### kb_wiki_page_revision
 
 Immutable wiki page revision.
 
@@ -1826,7 +1826,7 @@ metadata JSON
 
 The Markdown object is stored by `sdkwork-drive`.
 
-#### knowledge_wiki_source_ref
+#### kb_wiki_source_ref
 
 Source lineage from page revisions to source documents, document versions, chunks, or external citations.
 
@@ -1855,7 +1855,7 @@ conflicting
 background
 ```
 
-#### knowledge_wiki_file_entry
+#### kb_wiki_file_entry
 
 SQL registry for LLM Wiki drive-backed files.
 
@@ -1893,7 +1893,7 @@ manifest
 
 This table makes the drive directory structure queryable and auditable without making SQL the file store.
 
-#### knowledge_wiki_schema_profile
+#### kb_wiki_schema_profile
 
 Versioned LLM Wiki schema and agent-instruction profile for a knowledge space.
 
@@ -1917,11 +1917,11 @@ metadata JSON
 Indexes:
 
 ```text
-uk_knowledge_wiki_schema_profile_version unique(space_id, profile_version)
-idx_knowledge_wiki_schema_profile_state(space_id, state, activated_at)
+uk_kb_wiki_schema_profile_version unique(space_id, profile_version)
+idx_kb_wiki_schema_profile_state(space_id, state, activated_at)
 ```
 
-#### knowledge_wiki_log_entry
+#### kb_wiki_log_entry
 
 Append-only source for the materialized `wiki/log.md` file.
 
@@ -1946,8 +1946,8 @@ metadata JSON
 Indexes:
 
 ```text
-uk_knowledge_wiki_log_sequence unique(space_id, sequence_no)
-idx_knowledge_wiki_log_event_time(space_id, event_type, event_time)
+uk_kb_wiki_log_sequence unique(space_id, sequence_no)
+idx_kb_wiki_log_event_time(space_id, event_type, event_time)
 ```
 
 Rules:
@@ -1956,7 +1956,7 @@ Rules:
 - `wiki/log.md` is generated from these rows and stored through `sdkwork-drive`.
 - Raw query text is not stored unless the space explicitly enables query retention.
 
-#### knowledge_wiki_link
+#### kb_wiki_link
 
 Explicit link graph between wiki pages.
 
@@ -1985,7 +1985,7 @@ contrasts_with
 supersedes
 ```
 
-#### knowledge_wiki_claim
+#### kb_wiki_claim
 
 Source-grounded atomic statement.
 
@@ -2011,7 +2011,7 @@ conflicting
 unknown
 ```
 
-#### knowledge_wiki_claim_citation
+#### kb_wiki_claim_citation
 
 Claim-to-source citation relation.
 
@@ -2029,7 +2029,7 @@ score DECIMAL(18,8)
 metadata JSON
 ```
 
-#### knowledge_wiki_candidate
+#### kb_wiki_candidate
 
 Draft page or revision produced by compile jobs.
 
@@ -2074,7 +2074,7 @@ schema_update
 index_rebuild
 ```
 
-#### knowledge_wiki_export
+#### kb_wiki_export
 
 Generated LLM-friendly export artifact.
 
@@ -2102,7 +2102,7 @@ context_pack_json
 jsonl
 ```
 
-#### knowledge_wiki_eval_run
+#### kb_wiki_eval_run
 
 Quality evaluation run.
 
@@ -2120,7 +2120,7 @@ finished_at TIMESTAMP
 metadata JSON
 ```
 
-#### knowledge_wiki_eval_issue
+#### kb_wiki_eval_issue
 
 Issue found by lint/evaluation.
 
@@ -2158,7 +2158,7 @@ acl_mismatch
 
 ### 9.6 Local Mirror Tables
 
-#### knowledge_local_mirror_package
+#### kb_local_mirror_package
 
 Generated local runnable package.
 
@@ -2189,7 +2189,7 @@ delta
 runtime_bundle
 ```
 
-#### knowledge_local_mirror_delta
+#### kb_local_mirror_delta
 
 Incremental update package from one snapshot version to another.
 
@@ -2212,11 +2212,11 @@ metadata JSON
 Indexes:
 
 ```text
-uk_knowledge_local_delta_versions unique(space_id, from_snapshot_version, to_snapshot_version)
-idx_knowledge_local_delta_target(space_id, to_snapshot_version, state)
+uk_kb_local_delta_versions unique(space_id, from_snapshot_version, to_snapshot_version)
+idx_kb_local_delta_target(space_id, to_snapshot_version, state)
 ```
 
-#### knowledge_local_mirror_subscription
+#### kb_local_mirror_subscription
 
 Local mirror update channel or audience registration.
 
@@ -2235,7 +2235,7 @@ state VARCHAR(64) NOT NULL
 metadata JSON
 ```
 
-#### knowledge_local_mirror_apply_log
+#### kb_local_mirror_apply_log
 
 Audit log for local or remote delta apply attempts.
 
@@ -2257,7 +2257,7 @@ metadata JSON
 
 ### 9.7 Security and Governance Tables
 
-#### knowledge_acl_entry
+#### kb_acl_entry
 
 ACL at space, collection, document, or document version level.
 
@@ -2314,7 +2314,7 @@ knowledge.retrievals.create
 knowledge.admin
 ```
 
-#### knowledge_permission_snapshot
+#### kb_permission_snapshot
 
 Optional read model for retrieval security trimming.
 
@@ -2330,7 +2330,7 @@ expires_at TIMESTAMP
 metadata JSON
 ```
 
-#### knowledge_audit_event
+#### kb_audit_event
 
 Append-oriented audit events.
 
@@ -2350,7 +2350,7 @@ user_agent_hash VARCHAR(128)
 payload JSON
 ```
 
-#### knowledge_tag
+#### kb_tag
 
 Tag dictionary.
 
@@ -2364,7 +2364,7 @@ description VARCHAR(512)
 sort_order INTEGER NOT NULL DEFAULT 0
 ```
 
-#### knowledge_document_tag
+#### kb_document_tag
 
 Document-tag relation.
 
@@ -2376,7 +2376,7 @@ document_id BIGINT NOT NULL
 tag_id BIGINT NOT NULL
 ```
 
-#### knowledge_retention_policy
+#### kb_retention_policy
 
 Retention and deletion policy.
 
@@ -2392,7 +2392,7 @@ legal_hold_supported BOOLEAN NOT NULL DEFAULT false
 metadata JSON
 ```
 
-#### knowledge_outbox_event
+#### kb_outbox_event
 
 Transactional event publication.
 
@@ -2625,12 +2625,12 @@ cancelled
 
 - Manage LLM Wiki schema profiles, `AGENTS.md`, optional `CLAUDE.md`, workflow docs, and page conventions.
 - Generate agent instruction files from the machine-readable schema profile.
-- Store all schema files through `sdkwork-drive` and register them in `knowledge_wiki_file_entry`.
+- Store all schema files through `sdkwork-drive` and register them in `kb_wiki_file_entry`.
 
 `KnowledgeWikiIndexLogService`
 
 - Maintain `wiki/index.md` and append-only `wiki/log.md` compatibility files.
-- Materialize these files from SQL page metadata, graph state, and `knowledge_wiki_log_entry`.
+- Materialize these files from SQL page metadata, graph state, and `kb_wiki_log_entry`.
 - Keep `_index.md` helper files synchronized where needed without replacing the standard files.
 
 `KnowledgeContextPackService`
@@ -3214,7 +3214,7 @@ Once OpenAPI files exist, SDK generation checks become mandatory.
 
 1. Should the first production database require PostgreSQL only, or should SQLite be an officially supported local/private runtime from v0.1?
 2. Which embedding provider should be the default test adapter: deterministic local fake only, or a real configurable provider behind a port?
-3. Should raw query text be retained in `knowledge_retrieval_trace`, or only a hash plus safe metadata by default?
+3. Should raw query text be retained in `kb_retrieval_trace`, or only a hash plus safe metadata by default?
 4. Should drive folder sync be first-phase or second-phase after direct upload and direct drive object import?
 5. Should ACL be document-only in v0.1, or support space, collection, document, and document version immediately?
 6. Should wiki compile be enabled for every ingest by default, or require an explicit compile job after document indexing?

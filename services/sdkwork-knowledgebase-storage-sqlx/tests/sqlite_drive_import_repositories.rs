@@ -46,6 +46,8 @@ async fn sqlite_repositories_persist_drive_import_metadata_chain() {
         .import_drive_object(KnowledgeDriveImportRequest {
             space_id: 7,
             title: "Quarterly Report".to_string(),
+            drive_space_id: None,
+            drive_node_id: None,
             drive_bucket: "knowledgebase-test".to_string(),
             drive_object_key: "incoming/quarterly-report.md".to_string(),
             idempotency_key: "drive-quarterly-report".to_string(),
@@ -71,7 +73,7 @@ async fn sqlite_repositories_persist_drive_import_metadata_chain() {
     let version_row = sqlx::query(
         r#"
         SELECT tenant_id, document_id, original_object_ref_id, parse_state, index_state
-        FROM knowledge_document_version
+        FROM kb_document_version
         WHERE id = ?
         "#,
     )
@@ -91,32 +93,38 @@ async fn sqlite_repositories_persist_drive_import_metadata_chain() {
     assert_eq!(version_row.get::<i64, _>("parse_state"), 0);
     assert_eq!(version_row.get::<i64, _>("index_state"), 0);
 
-    let job_state: i64 =
-        sqlx::query_scalar("SELECT state FROM knowledge_ingestion_job WHERE id = ?")
-            .bind(result.job.id as i64)
+    let current_version_id: Option<i64> =
+        sqlx::query_scalar("SELECT current_version_id FROM kb_document WHERE id = ?")
+            .bind(result.document.id as i64)
             .fetch_one(&pool)
             .await
             .unwrap();
+    assert_eq!(current_version_id, Some(result.version.id as i64));
+
+    let job_state: i64 = sqlx::query_scalar("SELECT state FROM kb_ingestion_job WHERE id = ?")
+        .bind(result.job.id as i64)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(job_state, 0);
 
-    let source_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_source")
+    let source_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_source")
         .fetch_one(&pool)
         .await
         .unwrap();
-    let document_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_document")
+    let document_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_document")
         .fetch_one(&pool)
         .await
         .unwrap();
-    let version_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_document_version")
+    let version_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_document_version")
         .fetch_one(&pool)
         .await
         .unwrap();
-    let object_ref_count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_drive_object_ref")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    let job_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_ingestion_job")
+    let object_ref_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_drive_object_ref")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let job_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_ingestion_job")
         .fetch_one(&pool)
         .await
         .unwrap();
@@ -160,6 +168,8 @@ async fn sqlite_drive_import_replay_reuses_metadata_chain() {
     let request = KnowledgeDriveImportRequest {
         space_id: 7,
         title: "Quarterly Report".to_string(),
+        drive_space_id: None,
+        drive_node_id: None,
         drive_bucket: "knowledgebase-test".to_string(),
         drive_object_key: "incoming/quarterly-report.md".to_string(),
         idempotency_key: "drive-quarterly-report".to_string(),
@@ -175,24 +185,23 @@ async fn sqlite_drive_import_replay_reuses_metadata_chain() {
     assert_eq!(first.version.id, replay.version.id);
     assert_eq!(first.original_object_ref.id, replay.original_object_ref.id);
 
-    let source_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_source")
+    let source_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_source")
         .fetch_one(&pool)
         .await
         .unwrap();
-    let document_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_document")
+    let document_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_document")
         .fetch_one(&pool)
         .await
         .unwrap();
-    let version_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_document_version")
+    let version_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_document_version")
         .fetch_one(&pool)
         .await
         .unwrap();
-    let object_ref_count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_drive_object_ref")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    let job_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_ingestion_job")
+    let object_ref_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_drive_object_ref")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let job_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_ingestion_job")
         .fetch_one(&pool)
         .await
         .unwrap();
@@ -202,6 +211,95 @@ async fn sqlite_drive_import_replay_reuses_metadata_chain() {
     assert_eq!(version_count, 1);
     assert_eq!(object_ref_count, 1);
     assert_eq!(job_count, 1);
+}
+
+#[tokio::test]
+async fn sqlite_drive_import_persists_drive_node_binding_for_browser_projection() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let tenant_id = 9001_u64;
+    let drive = FakeKnowledgeDriveStorage::default();
+    drive
+        .put_text(
+            "incoming/quarterly-report.md",
+            "original_document",
+            "# Report",
+        )
+        .await
+        .unwrap();
+
+    let sources = SqliteKnowledgeSourceStore::new(pool.clone(), tenant_id);
+    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id);
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
+    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id);
+    let jobs = SqliteIngestionJobStore::new(pool.clone(), tenant_id);
+    let service = KnowledgeDriveImportService::new(
+        &drive,
+        &sources,
+        &documents,
+        &object_refs,
+        &versions,
+        &jobs,
+    );
+
+    let result = service
+        .import_drive_object(KnowledgeDriveImportRequest {
+            space_id: 7,
+            title: "Quarterly Report".to_string(),
+            drive_space_id: Some("drv-kb-001".to_string()),
+            drive_node_id: Some("node-report".to_string()),
+            drive_bucket: "knowledgebase-test".to_string(),
+            drive_object_key: "incoming/quarterly-report.md".to_string(),
+            idempotency_key: "drive-quarterly-report".to_string(),
+            language: Some("en".to_string()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(
+        result.document.original_file_drive_node_id.as_deref(),
+        Some("node-report")
+    );
+    assert_eq!(
+        result.original_object_ref.drive_space_id.as_deref(),
+        Some("drv-kb-001")
+    );
+    assert_eq!(
+        result.original_object_ref.drive_node_id.as_deref(),
+        Some("node-report")
+    );
+
+    let document_node_id: Option<String> =
+        sqlx::query_scalar("SELECT original_file_drive_node_id FROM kb_document WHERE id = ?")
+            .bind(result.document.id as i64)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(document_node_id.as_deref(), Some("node-report"));
+
+    let object_ref_row = sqlx::query(
+        r#"
+        SELECT drive_space_id, drive_node_id
+        FROM kb_drive_object_ref
+        WHERE id = ?
+        "#,
+    )
+    .bind(result.original_object_ref.id as i64)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        object_ref_row
+            .get::<Option<String>, _>("drive_space_id")
+            .as_deref(),
+        Some("drv-kb-001")
+    );
+    assert_eq!(
+        object_ref_row
+            .get::<Option<String>, _>("drive_node_id")
+            .as_deref(),
+        Some("node-report")
+    );
 }
 
 #[tokio::test]
@@ -241,7 +339,7 @@ async fn sqlite_ingestion_jobs_are_idempotent_per_space_not_whole_tenant() {
     assert_ne!(first.job.id, other_space.job.id);
     assert_eq!(first.job.id, retry_first.job.id);
 
-    let job_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM knowledge_ingestion_job")
+    let job_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_ingestion_job")
         .fetch_one(&pool)
         .await
         .unwrap();

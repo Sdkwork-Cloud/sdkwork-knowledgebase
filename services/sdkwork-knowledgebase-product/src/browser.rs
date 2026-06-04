@@ -1,0 +1,228 @@
+use crate::ports::knowledge_browser_projection_store::{
+    KnowledgeBrowserDocumentProjection, KnowledgeBrowserProjectionStore,
+    KnowledgeBrowserProjectionStoreError, KnowledgeBrowserWikiPageProjection,
+};
+use crate::ports::knowledge_drive_node_tree::{
+    DriveNodeKind, KnowledgeDriveNodeSummary, KnowledgeDriveNodeTree, KnowledgeDriveNodeTreeError,
+    ListKnowledgeDriveNodeChildrenRequest, ResolveKnowledgeDriveNodePathRequest,
+};
+use crate::ports::knowledge_space_store::{KnowledgeSpaceStore, KnowledgeSpaceStoreError};
+use sdkwork_knowledgebase_contract::browser::{
+    KnowledgeBrowserNode, KnowledgeBrowserNodePermissions, KnowledgeBrowserNodeType,
+    KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
+};
+use std::collections::HashMap;
+use thiserror::Error;
+
+const DEFAULT_BROWSER_PAGE_SIZE: u32 = 50;
+const MAX_BROWSER_PAGE_SIZE: u32 = 200;
+const WIKI_VIEW_ROOT_PATH: &str = "wiki";
+const OUTPUTS_VIEW_ROOT_PATH: &str = "output";
+
+pub struct KnowledgeBrowserService<'a> {
+    spaces: &'a dyn KnowledgeSpaceStore,
+    drive_tree: &'a dyn KnowledgeDriveNodeTree,
+    projections: &'a dyn KnowledgeBrowserProjectionStore,
+}
+
+impl<'a> KnowledgeBrowserService<'a> {
+    pub fn new(
+        spaces: &'a dyn KnowledgeSpaceStore,
+        drive_tree: &'a dyn KnowledgeDriveNodeTree,
+        projections: &'a dyn KnowledgeBrowserProjectionStore,
+    ) -> Self {
+        Self {
+            spaces,
+            drive_tree,
+            projections,
+        }
+    }
+
+    pub async fn list(
+        &self,
+        request: ListKnowledgeBrowserRequest,
+    ) -> Result<KnowledgeBrowserPage, KnowledgeBrowserServiceError> {
+        if request.space_id == 0 {
+            return Err(KnowledgeBrowserServiceError::InvalidRequest(
+                "space_id is required".to_string(),
+            ));
+        }
+
+        let space = self.spaces.get_space(request.space_id).await?;
+        let drive_space_id = space.drive_space_id.ok_or_else(|| {
+            KnowledgeBrowserServiceError::InvalidRequest(
+                "drive space is not bound for knowledge space".to_string(),
+            )
+        })?;
+        let page_size = normalize_page_size(request.page_size);
+
+        let parent_drive_node_id = self
+            .resolve_view_parent_id(&drive_space_id, request.view, request.parent_id)
+            .await?;
+        let drive_page = self
+            .drive_tree
+            .list_children(ListKnowledgeDriveNodeChildrenRequest {
+                drive_space_id: drive_space_id.clone(),
+                parent_drive_node_id: parent_drive_node_id.clone(),
+                cursor: request.cursor,
+                page_size,
+            })
+            .await?;
+
+        let drive_node_ids = drive_page
+            .nodes
+            .iter()
+            .map(|node| node.drive_node_id.clone())
+            .collect::<Vec<_>>();
+        let document_projection_by_node = self
+            .projections
+            .batch_document_projections(request.space_id, drive_node_ids)
+            .await?
+            .into_iter()
+            .map(|projection| (projection.drive_node_id.clone(), projection))
+            .collect::<HashMap<_, _>>();
+        let wiki_projection_by_path = if request.view == KnowledgeBrowserView::Wiki {
+            let logical_paths = drive_page
+                .nodes
+                .iter()
+                .filter(|node| node.kind == DriveNodeKind::File)
+                .map(|node| node.path.trim_start_matches('/').to_string())
+                .collect::<Vec<_>>();
+            self.projections
+                .batch_wiki_page_projections(request.space_id, logical_paths)
+                .await?
+                .into_iter()
+                .map(|projection| (projection.logical_path.clone(), projection))
+                .collect::<HashMap<_, _>>()
+        } else {
+            HashMap::new()
+        };
+
+        let items = drive_page
+            .nodes
+            .into_iter()
+            .map(|node| {
+                let projection = document_projection_by_node.get(&node.drive_node_id);
+                let wiki_projection =
+                    wiki_projection_by_path.get(node.path.trim_start_matches('/'));
+                drive_node_to_browser_node(
+                    &drive_space_id,
+                    request.view,
+                    node,
+                    projection,
+                    wiki_projection,
+                )
+            })
+            .collect();
+
+        Ok(KnowledgeBrowserPage {
+            space_id: request.space_id,
+            drive_space_id,
+            parent_id: parent_drive_node_id,
+            view: request.view,
+            page_size,
+            items,
+            next_cursor: drive_page.next_cursor,
+        })
+    }
+
+    async fn resolve_view_parent_id(
+        &self,
+        drive_space_id: &str,
+        view: KnowledgeBrowserView,
+        parent_id: Option<String>,
+    ) -> Result<Option<String>, KnowledgeBrowserServiceError> {
+        if parent_id.is_some() || view == KnowledgeBrowserView::Files {
+            return Ok(parent_id);
+        }
+
+        let root_path = match view {
+            KnowledgeBrowserView::Files => return Ok(None),
+            KnowledgeBrowserView::Wiki => WIKI_VIEW_ROOT_PATH,
+            KnowledgeBrowserView::Outputs => OUTPUTS_VIEW_ROOT_PATH,
+        };
+        let root = self
+            .drive_tree
+            .resolve_path(ResolveKnowledgeDriveNodePathRequest {
+                drive_space_id: drive_space_id.to_string(),
+                logical_path: root_path.to_string(),
+            })
+            .await?;
+
+        root.map(|node| Some(node.drive_node_id)).ok_or_else(|| {
+            KnowledgeBrowserServiceError::InvalidRequest(format!(
+                "browser view root is missing in drive space: {root_path}"
+            ))
+        })
+    }
+}
+
+fn normalize_page_size(page_size: Option<u32>) -> u32 {
+    page_size
+        .unwrap_or(DEFAULT_BROWSER_PAGE_SIZE)
+        .clamp(1, MAX_BROWSER_PAGE_SIZE)
+}
+
+fn drive_node_to_browser_node(
+    drive_space_id: &str,
+    view: KnowledgeBrowserView,
+    node: KnowledgeDriveNodeSummary,
+    projection: Option<&KnowledgeBrowserDocumentProjection>,
+    wiki_projection: Option<&KnowledgeBrowserWikiPageProjection>,
+) -> KnowledgeBrowserNode {
+    let node_type = browser_node_type(view, node.kind);
+
+    KnowledgeBrowserNode {
+        id: node.drive_node_id.clone(),
+        node_type,
+        name: node.name,
+        parent_id: node.parent_drive_node_id,
+        path: node.path,
+        drive_space_id: Some(drive_space_id.to_string()),
+        drive_node_id: Some(node.drive_node_id),
+        document_id: projection.map(|projection| projection.document_id),
+        document_version_id: projection.and_then(|projection| projection.current_version_id),
+        wiki_page_id: wiki_projection.map(|projection| projection.page_id),
+        wiki_revision_id: wiki_projection.and_then(|projection| projection.current_revision_id),
+        mime_type: node.content_type,
+        size_bytes: node.size_bytes,
+        ingest_state: projection.map(|projection| projection.ingest_state.clone()),
+        parse_state: projection.map(|projection| projection.parse_state.clone()),
+        index_state: projection.map(|projection| projection.index_state.clone()),
+        wiki_state: wiki_projection
+            .map(|projection| projection.publish_state.as_str().to_string())
+            .or_else(|| projection.map(|projection| projection.wiki_state.clone())),
+        children_count: node.children_count,
+        updated_at: node.updated_at,
+        permissions: match node.kind {
+            DriveNodeKind::Folder => KnowledgeBrowserNodePermissions::file_manager(),
+            DriveNodeKind::File => KnowledgeBrowserNodePermissions::read_only(),
+        },
+    }
+}
+
+fn browser_node_type(view: KnowledgeBrowserView, kind: DriveNodeKind) -> KnowledgeBrowserNodeType {
+    match (view, kind) {
+        (_, DriveNodeKind::Folder) => match view {
+            KnowledgeBrowserView::Outputs => KnowledgeBrowserNodeType::VirtualFolder,
+            KnowledgeBrowserView::Files | KnowledgeBrowserView::Wiki => {
+                KnowledgeBrowserNodeType::Folder
+            }
+        },
+        (KnowledgeBrowserView::Wiki, DriveNodeKind::File) => KnowledgeBrowserNodeType::WikiPage,
+        (KnowledgeBrowserView::Outputs, DriveNodeKind::File) => KnowledgeBrowserNodeType::Report,
+        (KnowledgeBrowserView::Files, DriveNodeKind::File) => KnowledgeBrowserNodeType::Document,
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum KnowledgeBrowserServiceError {
+    #[error("invalid knowledge browser request: {0}")]
+    InvalidRequest(String),
+    #[error(transparent)]
+    SpaceStore(#[from] KnowledgeSpaceStoreError),
+    #[error(transparent)]
+    DriveTree(#[from] KnowledgeDriveNodeTreeError),
+    #[error(transparent)]
+    ProjectionStore(#[from] KnowledgeBrowserProjectionStoreError),
+}

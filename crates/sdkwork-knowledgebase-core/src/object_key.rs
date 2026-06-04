@@ -49,8 +49,7 @@ pub fn safe_file_name(display_name: &str) -> Result<String, ObjectKeyPlanError> 
     let last_segment = display_name
         .replace('\\', "/")
         .split('/')
-        .filter(|segment| !segment.is_empty() && *segment != "." && *segment != "..")
-        .last()
+        .rfind(|segment| !segment.is_empty() && *segment != "." && *segment != "..")
         .unwrap_or("")
         .to_string();
 
@@ -59,8 +58,6 @@ pub fn safe_file_name(display_name: &str) -> Result<String, ObjectKeyPlanError> 
     for ch in last_segment.chars() {
         let normalized = if ch.is_ascii_alphanumeric() || ch == '.' || ch == '_' {
             ch
-        } else if ch.is_ascii_whitespace() || ch == '-' || ch == ':' || ch == '?' {
-            '-'
         } else {
             '-'
         };

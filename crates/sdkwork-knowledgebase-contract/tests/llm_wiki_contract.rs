@@ -1,5 +1,6 @@
 use sdkwork_knowledgebase_contract::wiki::{
-    LlmWikiPaths, WikiCandidateType, WikiLogEventType, WikiPageType,
+    LlmWikiPaths, WikiCandidateType, WikiLogEventType, WikiPagePublishState, WikiPageType,
+    WikiRevisionReviewState,
 };
 
 #[test]
@@ -20,4 +21,10 @@ fn llm_wiki_enums_use_snake_case_wire_values() {
     assert_eq!(WikiPageType::Comparison.as_str(), "comparison");
     assert_eq!(WikiCandidateType::QueryAnswer.as_str(), "query_answer");
     assert_eq!(WikiLogEventType::DeltaUpdate.as_str(), "delta_update");
+    assert_eq!(WikiPagePublishState::Published.as_str(), "published");
+    assert_eq!(
+        WikiPagePublishState::CandidateReady.as_str(),
+        "candidate_ready"
+    );
+    assert_eq!(WikiRevisionReviewState::Approved.as_str(), "approved");
 }

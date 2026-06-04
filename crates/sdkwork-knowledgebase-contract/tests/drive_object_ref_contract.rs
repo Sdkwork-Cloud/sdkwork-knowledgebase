@@ -5,6 +5,9 @@ fn drive_object_ref_contract_serializes_stable_locator_without_delivery_secrets(
     let object_ref = KnowledgeDriveObjectRef {
         id: 91,
         space_id: 7,
+        drive_space_id: Some("drv-kb-001".to_string()),
+        drive_node_id: Some("node-001".to_string()),
+        logical_path: Some("raw/documents/report.md".to_string()),
         drive_provider_kind: "sdkwork-drive".to_string(),
         drive_bucket: "knowledgebase-source".to_string(),
         drive_object_key: "incoming/quarterly-report.md".to_string(),
@@ -20,6 +23,9 @@ fn drive_object_ref_contract_serializes_stable_locator_without_delivery_secrets(
     let json = serde_json::to_value(object_ref).unwrap();
 
     assert_eq!(json["spaceId"], 7);
+    assert_eq!(json["driveSpaceId"], "drv-kb-001");
+    assert_eq!(json["driveNodeId"], "node-001");
+    assert_eq!(json["logicalPath"], "raw/documents/report.md");
     assert_eq!(json["driveProviderKind"], "sdkwork-drive");
     assert_eq!(json["driveBucket"], "knowledgebase-source");
     assert_eq!(json["driveObjectKey"], "incoming/quarterly-report.md");

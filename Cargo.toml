@@ -4,6 +4,7 @@ members = [
     "crates/sdkwork-knowledgebase-core",
     "crates/sdkwork-knowledgebase-drive",
     "crates/sdkwork-knowledgebase-test-support",
+    "services/sdkwork-knowledgebase-app-api",
     "services/sdkwork-knowledgebase-product",
     "services/sdkwork-knowledgebase-storage-sqlx",
 ]

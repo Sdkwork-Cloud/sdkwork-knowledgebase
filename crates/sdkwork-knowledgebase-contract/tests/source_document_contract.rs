@@ -30,6 +30,7 @@ fn document_contract_keeps_metadata_and_drive_references_out_of_payload_bytes() 
         space_id: 7,
         collection_id: 0,
         source_id: Some(1),
+        original_file_drive_node_id: Some("node-api-payload".to_string()),
         title: "API payload note".to_string(),
         mime_type: Some("text/markdown; charset=utf-8".to_string()),
         language: Some("en".to_string()),
@@ -54,6 +55,7 @@ fn document_contract_keeps_metadata_and_drive_references_out_of_payload_bytes() 
     let version_json = serde_json::to_value(version).unwrap();
 
     assert_eq!(document_json["currentVersionId"], serde_json::Value::Null);
+    assert_eq!(document_json["originalFileDriveNodeId"], "node-api-payload");
     assert_eq!(document_json["visibility"], "space");
     assert_eq!(document_json["contentState"], "ready");
     assert_eq!(version_json["originalObjectRefId"], 42);

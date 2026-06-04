@@ -42,6 +42,7 @@ fn index_md_renders_categories_and_wikilinks() {
         title: "Entity Name".to_string(),
         slug: "entity-name".to_string(),
         page_type: WikiPageType::Entity,
+        logical_path: "wiki/pages/entities/entity-name/current.md".to_string(),
         summary: "One-line entity summary.".to_string(),
         source_count: 4,
         updated_at: "2026-06-01T00:00:00Z".to_string(),
@@ -52,7 +53,7 @@ fn index_md_renders_categories_and_wikilinks() {
 
     assert!(content.contains("# Index"));
     assert!(content.contains("## Entities"));
-    assert!(content.contains("[[Entity Name]]"));
+    assert!(content.contains("[[entity-name|Entity Name]]"));
     assert!(content.contains("sources: 4"));
 }
 

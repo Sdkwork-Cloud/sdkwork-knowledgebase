@@ -16,6 +16,9 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
     let object_ref = store
         .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
             space_id: 7,
+            drive_space_id: Some("drv-kb-001".to_string()),
+            drive_node_id: Some("node-001".to_string()),
+            logical_path: Some("raw/documents/report.md".to_string()),
             drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
             drive_bucket: "knowledgebase-source".to_string(),
             drive_object_key: "incoming/quarterly-report.md".to_string(),
@@ -32,6 +35,12 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
 
     assert_ne!(object_ref.id, 0);
     assert_eq!(object_ref.space_id, 7);
+    assert_eq!(object_ref.drive_space_id.as_deref(), Some("drv-kb-001"));
+    assert_eq!(object_ref.drive_node_id.as_deref(), Some("node-001"));
+    assert_eq!(
+        object_ref.logical_path.as_deref(),
+        Some("raw/documents/report.md")
+    );
     assert_eq!(object_ref.drive_provider_kind, SDKWORK_DRIVE_PROVIDER_KIND);
     assert_eq!(object_ref.drive_object_key, "incoming/quarterly-report.md");
     assert_eq!(object_ref.drive_object_version.as_deref(), Some("v1"));
@@ -40,9 +49,9 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
 
     let row = sqlx::query(
         r#"
-        SELECT tenant_id, drive_bucket, drive_object_key, drive_object_version, drive_etag,
-               drive_metadata, status
-        FROM knowledge_drive_object_ref
+        SELECT tenant_id, drive_space_id, drive_node_id, logical_path, drive_bucket,
+               drive_object_key, drive_object_version, drive_etag, drive_metadata, status
+        FROM kb_drive_object_ref
         WHERE id = ?
         "#,
     )
@@ -52,6 +61,18 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
     .unwrap();
 
     assert_eq!(row.get::<i64, _>("tenant_id"), 9001);
+    assert_eq!(
+        row.get::<Option<String>, _>("drive_space_id").as_deref(),
+        Some("drv-kb-001")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("drive_node_id").as_deref(),
+        Some("node-001")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("logical_path").as_deref(),
+        Some("raw/documents/report.md")
+    );
     assert_eq!(row.get::<String, _>("drive_bucket"), "knowledgebase-source");
     assert_eq!(
         row.get::<String, _>("drive_object_key"),
@@ -72,7 +93,7 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
     let unsafe_column_count: i64 = sqlx::query_scalar(
         r#"
         SELECT COUNT(*)
-        FROM pragma_table_info('knowledge_drive_object_ref')
+        FROM pragma_table_info('kb_drive_object_ref')
         WHERE name IN ('presigned_url', 'provider_credentials', 'payload_bytes')
         "#,
     )

@@ -45,6 +45,9 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
                 id,
                 space_id,
                 drive_provider_kind,
+                drive_space_id,
+                drive_node_id,
+                logical_path,
                 drive_bucket,
                 drive_object_key,
                 drive_object_version,
@@ -54,7 +57,7 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
                 checksum_sha256_hex,
                 object_role,
                 access_mode
-            FROM knowledge_drive_object_ref
+            FROM kb_drive_object_ref
             WHERE tenant_id = ?
               AND space_id = ?
               AND drive_bucket = ?
@@ -97,11 +100,14 @@ impl SqliteKnowledgeDriveObjectRefStore {
 
         let row = sqlx::query(
             r#"
-            INSERT INTO knowledge_drive_object_ref (
+            INSERT INTO kb_drive_object_ref (
                 uuid,
                 tenant_id,
                 space_id,
                 drive_provider_kind,
+                drive_space_id,
+                drive_node_id,
+                logical_path,
                 drive_bucket,
                 drive_object_key,
                 drive_object_version,
@@ -116,11 +122,14 @@ impl SqliteKnowledgeDriveObjectRefStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             RETURNING
                 id,
                 space_id,
                 drive_provider_kind,
+                drive_space_id,
+                drive_node_id,
+                logical_path,
                 drive_bucket,
                 drive_object_key,
                 drive_object_version,
@@ -136,6 +145,9 @@ impl SqliteKnowledgeDriveObjectRefStore {
         .bind(tenant_id)
         .bind(space_id)
         .bind(record.drive_provider_kind)
+        .bind(record.drive_space_id)
+        .bind(record.drive_node_id)
+        .bind(record.logical_path)
         .bind(record.drive_bucket)
         .bind(record.drive_object_key)
         .bind(record.drive_object_version)
@@ -162,6 +174,9 @@ fn object_ref_from_row(
     Ok(KnowledgeDriveObjectRef {
         id: from_i64("id", row.try_get("id").map_err(sqlx_error)?)?,
         space_id: from_i64("space_id", row.try_get("space_id").map_err(sqlx_error)?)?,
+        drive_space_id: row.try_get("drive_space_id").map_err(sqlx_error)?,
+        drive_node_id: row.try_get("drive_node_id").map_err(sqlx_error)?,
+        logical_path: row.try_get("logical_path").map_err(sqlx_error)?,
         drive_provider_kind: row.try_get("drive_provider_kind").map_err(sqlx_error)?,
         drive_bucket: row.try_get("drive_bucket").map_err(sqlx_error)?,
         drive_object_key: row.try_get("drive_object_key").map_err(sqlx_error)?,

@@ -9,6 +9,14 @@ pub trait KnowledgeSpaceStore: Send + Sync {
         record: CreateKnowledgeSpaceRecord,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError>;
 
+    async fn get_space(&self, space_id: u64) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError>;
+
+    async fn mark_drive_space_bound(
+        &self,
+        space_id: u64,
+        drive_space_id: String,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError>;
+
     async fn mark_llm_wiki_initialized(
         &self,
         space_id: u64,

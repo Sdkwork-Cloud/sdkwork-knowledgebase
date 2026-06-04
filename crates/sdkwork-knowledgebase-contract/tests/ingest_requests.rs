@@ -25,6 +25,8 @@ fn drive_import_request_uses_stable_drive_locator_and_idempotency_key() {
     let request = KnowledgeDriveImportRequest {
         space_id: 7,
         title: "Quarterly Report".to_string(),
+        drive_space_id: Some("drv-kb-001".to_string()),
+        drive_node_id: Some("node-report".to_string()),
         drive_bucket: "knowledgebase-source".to_string(),
         drive_object_key: "incoming/quarterly-report.md".to_string(),
         idempotency_key: "drive-quarterly-report".to_string(),
@@ -34,6 +36,8 @@ fn drive_import_request_uses_stable_drive_locator_and_idempotency_key() {
     let json = serde_json::to_value(request).unwrap();
 
     assert_eq!(json["spaceId"], 7);
+    assert_eq!(json["driveSpaceId"], "drv-kb-001");
+    assert_eq!(json["driveNodeId"], "node-report");
     assert_eq!(json["driveBucket"], "knowledgebase-source");
     assert_eq!(json["driveObjectKey"], "incoming/quarterly-report.md");
     assert_eq!(json["idempotencyKey"], "drive-quarterly-report");

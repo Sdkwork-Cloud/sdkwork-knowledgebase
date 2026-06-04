@@ -8,6 +8,7 @@ pub const DOCUMENTS_VERSIONS_LIST: &str = "documents.versions.list";
 pub const DRIVE_IMPORTS_CREATE: &str = "driveImports.create";
 pub const INGESTS_CREATE: &str = "ingests.create";
 pub const INGESTS_RETRIEVE: &str = "ingests.retrieve";
+pub const SPACES_BROWSER_LIST: &str = "spaces.browser.list";
 pub const WIKI_PAGES_LIST: &str = "wiki.pages.list";
 pub const WIKI_PAGES_RETRIEVE: &str = "wiki.pages.retrieve";
 pub const WIKI_PAGES_REVISIONS_LIST: &str = "wiki.pages.revisions.list";
@@ -43,6 +44,7 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     DRIVE_IMPORTS_CREATE,
     INGESTS_CREATE,
     INGESTS_RETRIEVE,
+    SPACES_BROWSER_LIST,
     WIKI_PAGES_LIST,
     WIKI_PAGES_RETRIEVE,
     WIKI_PAGES_REVISIONS_LIST,

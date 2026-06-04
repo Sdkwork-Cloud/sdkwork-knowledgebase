@@ -1,3 +1,7 @@
+use crate::ports::knowledge_drive_space::{
+    CreateKnowledgeDriveSpaceRequest, KnowledgeDriveSpaceProvisioner,
+    KnowledgeDriveSpaceProvisionerError,
+};
 use crate::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
 };
@@ -8,6 +12,7 @@ use thiserror::Error;
 pub struct KnowledgeSpaceService<'a> {
     store: &'a dyn KnowledgeSpaceStore,
     wiki_initializer: &'a KnowledgeWikiInitializerService<'a>,
+    drive_space_provisioner: Option<&'a dyn KnowledgeDriveSpaceProvisioner>,
 }
 
 impl<'a> KnowledgeSpaceService<'a> {
@@ -18,7 +23,16 @@ impl<'a> KnowledgeSpaceService<'a> {
         Self {
             store,
             wiki_initializer,
+            drive_space_provisioner: None,
         }
+    }
+
+    pub fn with_drive_space_provisioner(
+        mut self,
+        drive_space_provisioner: &'a dyn KnowledgeDriveSpaceProvisioner,
+    ) -> Self {
+        self.drive_space_provisioner = Some(drive_space_provisioner);
+        self
     }
 
     pub async fn create_space(
@@ -41,8 +55,29 @@ impl<'a> KnowledgeSpaceService<'a> {
             .await
             .map_err(KnowledgeSpaceServiceError::Store)?;
 
+        let space = if let Some(provisioner) = self.drive_space_provisioner {
+            let binding = provisioner
+                .create_knowledge_drive_space(CreateKnowledgeDriveSpaceRequest {
+                    tenant_id: "default".to_string(),
+                    knowledge_space_id: space.id,
+                    knowledge_space_uuid: space.uuid.clone(),
+                    display_name: space.name.clone(),
+                    owner_subject_type: "system".to_string(),
+                    owner_subject_id: "system".to_string(),
+                    operator_id: "system".to_string(),
+                })
+                .await?;
+
+            self.store
+                .mark_drive_space_bound(space.id, binding.drive_space_id)
+                .await
+                .map_err(KnowledgeSpaceServiceError::Store)?
+        } else {
+            space
+        };
+
         self.wiki_initializer
-            .initialize_standard_files(space.id, &space.name)
+            .initialize_standard_files(space.id, &space.name, space.drive_space_id.as_deref())
             .await?;
 
         self.store
@@ -60,4 +95,6 @@ pub enum KnowledgeSpaceServiceError {
     Store(#[from] KnowledgeSpaceStoreError),
     #[error(transparent)]
     WikiInitializer(#[from] KnowledgeWikiInitializerServiceError),
+    #[error(transparent)]
+    DriveSpaceProvisioner(#[from] KnowledgeDriveSpaceProvisionerError),
 }

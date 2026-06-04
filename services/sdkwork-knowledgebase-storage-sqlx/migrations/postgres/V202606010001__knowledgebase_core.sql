@@ -1,10 +1,11 @@
-CREATE TABLE IF NOT EXISTS knowledge_space (
+CREATE TABLE IF NOT EXISTS kb_space (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
     organization_id BIGINT NOT NULL DEFAULT 0,
     name VARCHAR(200) NOT NULL,
     description TEXT,
+    drive_space_id VARCHAR(128),
     status INTEGER NOT NULL,
     llm_wiki_initialized BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL,
@@ -12,7 +13,14 @@ CREATE TABLE IF NOT EXISTS knowledge_space (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_collection (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_uuid
+    ON kb_space (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_drive_space
+    ON kb_space (tenant_id, drive_space_id)
+    WHERE drive_space_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS kb_collection (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -28,7 +36,7 @@ CREATE TABLE IF NOT EXISTS knowledge_collection (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_source (
+CREATE TABLE IF NOT EXISTS kb_source (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -47,12 +55,15 @@ CREATE TABLE IF NOT EXISTS knowledge_source (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_drive_object_ref (
+CREATE TABLE IF NOT EXISTS kb_drive_object_ref (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
     space_id BIGINT NOT NULL,
     drive_provider_kind VARCHAR(64) NOT NULL,
+    drive_space_id VARCHAR(128),
+    drive_node_id VARCHAR(128),
+    logical_path TEXT,
     drive_bucket VARCHAR(256) NOT NULL,
     drive_object_key VARCHAR(2048) NOT NULL,
     drive_object_version VARCHAR(256),
@@ -69,19 +80,33 @@ CREATE TABLE IF NOT EXISTS knowledge_drive_object_ref (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_knowledge_drive_object_locator
-    ON knowledge_drive_object_ref (tenant_id, drive_bucket, drive_object_key, drive_object_version);
+CREATE INDEX IF NOT EXISTS idx_kb_drive_object_locator
+    ON kb_drive_object_ref (tenant_id, drive_bucket, drive_object_key, drive_object_version);
 
-CREATE INDEX IF NOT EXISTS idx_knowledge_drive_object_role
-    ON knowledge_drive_object_ref (tenant_id, object_role, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_drive_object_ref_locator
+    ON kb_drive_object_ref (
+        tenant_id,
+        space_id,
+        drive_bucket,
+        drive_object_key,
+        COALESCE(drive_object_version, ''),
+        object_role
+    );
 
-CREATE TABLE IF NOT EXISTS knowledge_document (
+CREATE INDEX IF NOT EXISTS idx_kb_drive_object_role
+    ON kb_drive_object_ref (tenant_id, object_role, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_kb_drive_object_drive_node
+    ON kb_drive_object_ref (tenant_id, space_id, drive_space_id, drive_node_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_document (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
     space_id BIGINT NOT NULL,
     collection_id BIGINT NOT NULL DEFAULT 0,
     source_id BIGINT,
+    original_file_drive_node_id VARCHAR(128),
     title VARCHAR(512) NOT NULL,
     mime_type VARCHAR(256),
     language VARCHAR(32),
@@ -96,7 +121,10 @@ CREATE TABLE IF NOT EXISTS knowledge_document (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_document_version (
+CREATE INDEX IF NOT EXISTS idx_kb_document_drive_node
+    ON kb_document (tenant_id, space_id, original_file_drive_node_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_document_version (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -118,7 +146,10 @@ CREATE TABLE IF NOT EXISTS knowledge_document_version (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_ingestion_job (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_version_no
+    ON kb_document_version (tenant_id, document_id, version_no);
+
+CREATE TABLE IF NOT EXISTS kb_ingestion_job (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -129,7 +160,7 @@ CREATE TABLE IF NOT EXISTS knowledge_ingestion_job (
     priority INTEGER NOT NULL DEFAULT 0,
     progress INTEGER NOT NULL DEFAULT 0,
     requested_by BIGINT,
-    idempotency_key VARCHAR(128),
+    idempotency_key VARCHAR(128) NOT NULL,
     request_id VARCHAR(64),
     trace_id VARCHAR(128),
     error_code VARCHAR(128),
@@ -143,7 +174,10 @@ CREATE TABLE IF NOT EXISTS knowledge_ingestion_job (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_ingestion_job_item (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_ingestion_job_idempotency
+    ON kb_ingestion_job (tenant_id, space_id, idempotency_key);
+
+CREATE TABLE IF NOT EXISTS kb_ingestion_job_item (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -164,7 +198,7 @@ CREATE TABLE IF NOT EXISTS knowledge_ingestion_job_item (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_wiki_page (
+CREATE TABLE IF NOT EXISTS kb_wiki_page (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -172,6 +206,10 @@ CREATE TABLE IF NOT EXISTS knowledge_wiki_page (
     slug VARCHAR(256) NOT NULL,
     title VARCHAR(512) NOT NULL,
     page_type VARCHAR(64) NOT NULL,
+    logical_path VARCHAR(2048) NOT NULL,
+    summary TEXT NOT NULL DEFAULT '',
+    source_count INTEGER NOT NULL DEFAULT 0,
+    tags JSONB,
     current_revision_id BIGINT,
     publish_state VARCHAR(64) NOT NULL,
     status INTEGER NOT NULL,
@@ -180,7 +218,16 @@ CREATE TABLE IF NOT EXISTS knowledge_wiki_page (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_wiki_page_revision (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_slug
+    ON kb_wiki_page (tenant_id, space_id, slug);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_path
+    ON kb_wiki_page (tenant_id, space_id, logical_path);
+
+CREATE INDEX IF NOT EXISTS idx_kb_wiki_page_state
+    ON kb_wiki_page (tenant_id, space_id, publish_state, updated_at);
+
+CREATE TABLE IF NOT EXISTS kb_wiki_page_revision (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -195,7 +242,7 @@ CREATE TABLE IF NOT EXISTS knowledge_wiki_page_revision (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_wiki_file_entry (
+CREATE TABLE IF NOT EXISTS kb_wiki_file_entry (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -212,7 +259,10 @@ CREATE TABLE IF NOT EXISTS knowledge_wiki_file_entry (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_wiki_schema_profile (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_file_entry_path
+    ON kb_wiki_file_entry (tenant_id, space_id, logical_path);
+
+CREATE TABLE IF NOT EXISTS kb_wiki_schema_profile (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -227,7 +277,7 @@ CREATE TABLE IF NOT EXISTS knowledge_wiki_schema_profile (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_wiki_log_entry (
+CREATE TABLE IF NOT EXISTS kb_wiki_log_entry (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -237,13 +287,17 @@ CREATE TABLE IF NOT EXISTS knowledge_wiki_log_entry (
     event_time TIMESTAMP NOT NULL,
     title VARCHAR(512) NOT NULL,
     privacy_level VARCHAR(64) NOT NULL,
+    metadata JSONB,
     status INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS knowledge_local_mirror_package (
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_log_entry_sequence
+    ON kb_wiki_log_entry (tenant_id, space_id, sequence_no);
+
+CREATE TABLE IF NOT EXISTS kb_local_mirror_package (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,

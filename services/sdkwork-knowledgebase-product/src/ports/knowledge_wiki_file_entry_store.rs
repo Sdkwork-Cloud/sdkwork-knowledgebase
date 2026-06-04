@@ -8,6 +8,13 @@ pub trait KnowledgeWikiFileEntryStore: Send + Sync {
         &self,
         record: CreateKnowledgeWikiFileEntryRecord,
     ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError>;
+
+    async fn upsert_file_entry(
+        &self,
+        record: CreateKnowledgeWikiFileEntryRecord,
+    ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
+        self.create_file_entry(record).await
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

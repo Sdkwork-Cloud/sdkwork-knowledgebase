@@ -2,4 +2,7 @@
 
 mod adapter;
 
-pub use adapter::KnowledgebaseDriveStorageAdapter;
+pub use adapter::{
+    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveStorageAdapter,
+    KnowledgebaseDriveWorkspaceAdapter,
+};

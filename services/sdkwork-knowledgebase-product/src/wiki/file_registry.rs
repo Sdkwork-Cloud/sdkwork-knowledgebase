@@ -21,7 +21,7 @@ impl<'a> KnowledgeWikiFileRegistryService<'a> {
         space_id: u64,
         files: &PersistedStandardFiles,
     ) -> Result<Vec<KnowledgeWikiFileEntry>, KnowledgeWikiFileRegistryServiceError> {
-        let mut entries = Vec::with_capacity(3);
+        let mut entries = Vec::with_capacity(4);
         entries.push(
             self.register_file(space_id, &files.agents_md, WikiFileEntryType::WikiSchema)
                 .await?,

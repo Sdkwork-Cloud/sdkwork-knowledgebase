@@ -59,6 +59,8 @@ async fn drive_import_heads_drive_object_then_creates_source_document_version_an
         .import_drive_object(KnowledgeDriveImportRequest {
             space_id: 7,
             title: "Quarterly Report".to_string(),
+            drive_space_id: None,
+            drive_node_id: None,
             drive_bucket: "knowledgebase-source".to_string(),
             drive_object_key: "incoming/quarterly-report.md".to_string(),
             idempotency_key: "drive-quarterly-report".to_string(),
@@ -86,7 +88,9 @@ async fn drive_import_heads_drive_object_then_creates_source_document_version_an
     assert_eq!(result.document.source_id, Some(result.source.id));
     assert_eq!(result.document.title, "Quarterly Report");
     assert_eq!(result.document.content_state, KnowledgeDocumentState::Ready);
+    assert_eq!(result.document.original_file_drive_node_id, None);
     assert_eq!(result.version.version_no, 1);
+    assert_eq!(result.document.current_version_id, Some(result.version.id));
     assert_eq!(result.original_object_ref.object_role, "original_document");
     assert_eq!(
         result.original_object_ref.drive_provider_kind,
@@ -147,6 +151,8 @@ async fn drive_import_replay_reuses_metadata_for_same_idempotency_key() {
     let request = KnowledgeDriveImportRequest {
         space_id: 7,
         title: "Quarterly Report".to_string(),
+        drive_space_id: None,
+        drive_node_id: None,
         drive_bucket: "knowledgebase-source".to_string(),
         drive_object_key: "incoming/quarterly-report.md".to_string(),
         idempotency_key: "drive-quarterly-report".to_string(),
@@ -165,6 +171,103 @@ async fn drive_import_replay_reuses_metadata_for_same_idempotency_key() {
     assert_eq!(documents.create_count(), 1);
     assert_eq!(versions.create_count(), 1);
     assert_eq!(object_refs.create_count(), 1);
+}
+
+#[tokio::test]
+async fn drive_import_rejects_unsafe_idempotency_key_before_side_effects() {
+    let drive = RecordingDrive::with_object(
+        "knowledgebase-source",
+        "incoming/quarterly-report.md",
+        "# Report",
+    );
+    let sources = MemorySourceStore::default();
+    let documents = MemoryDocumentStore::default();
+    let object_refs = MemoryDriveObjectRefStore::default();
+    let versions = MemoryDocumentVersionStore::default();
+    let jobs = MemoryIngestionJobStore::default();
+    let service = KnowledgeDriveImportService::new(
+        &drive,
+        &sources,
+        &documents,
+        &object_refs,
+        &versions,
+        &jobs,
+    );
+
+    let error = service
+        .import_drive_object(KnowledgeDriveImportRequest {
+            space_id: 7,
+            title: "Quarterly Report".to_string(),
+            drive_space_id: None,
+            drive_node_id: None,
+            drive_bucket: "knowledgebase-source".to_string(),
+            drive_object_key: "incoming/quarterly-report.md".to_string(),
+            idempotency_key: "../escape".to_string(),
+            language: Some("en".to_string()),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("idempotency_key"));
+    assert!(drive.heads().is_empty());
+    assert_eq!(sources.create_count(), 0);
+    assert_eq!(documents.create_count(), 0);
+    assert_eq!(versions.create_count(), 0);
+    assert_eq!(object_refs.create_count(), 0);
+    assert_eq!(jobs.create_count(), 0);
+}
+
+#[tokio::test]
+async fn drive_import_preserves_drive_node_binding_for_browser_projection() {
+    let drive = RecordingDrive::with_object(
+        "knowledgebase-source",
+        "incoming/quarterly-report.md",
+        "# Report",
+    );
+    let sources = MemorySourceStore::default();
+    let documents = MemoryDocumentStore::default();
+    let object_refs = MemoryDriveObjectRefStore::default();
+    let versions = MemoryDocumentVersionStore::default();
+    let jobs = MemoryIngestionJobStore::default();
+    let service = KnowledgeDriveImportService::new(
+        &drive,
+        &sources,
+        &documents,
+        &object_refs,
+        &versions,
+        &jobs,
+    );
+
+    let result = service
+        .import_drive_object(KnowledgeDriveImportRequest {
+            space_id: 7,
+            title: "Quarterly Report".to_string(),
+            drive_space_id: Some("drv-kb-001".to_string()),
+            drive_node_id: Some("node-report".to_string()),
+            drive_bucket: "knowledgebase-source".to_string(),
+            drive_object_key: "incoming/quarterly-report.md".to_string(),
+            idempotency_key: "drive-quarterly-report".to_string(),
+            language: Some("en".to_string()),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(
+        result.original_object_ref.drive_space_id.as_deref(),
+        Some("drv-kb-001")
+    );
+    assert_eq!(
+        result.original_object_ref.drive_node_id.as_deref(),
+        Some("node-report")
+    );
+    assert_eq!(
+        result.document.original_file_drive_node_id.as_deref(),
+        Some("node-report")
+    );
+    assert_eq!(
+        object_refs.created_refs()[0].drive_node_id.as_deref(),
+        Some("node-report")
+    );
 }
 
 #[derive(Clone)]
@@ -349,6 +452,7 @@ impl MemoryDocumentStore {
             space_id: record.space_id,
             collection_id: record.collection_id,
             source_id: record.source_id,
+            original_file_drive_node_id: record.original_file_drive_node_id,
             title: record.title,
             mime_type: record.mime_type,
             language: record.language,
@@ -429,6 +533,9 @@ impl MemoryDriveObjectRefStore {
         let object_ref = KnowledgeDriveObjectRef {
             id: *next_id,
             space_id: record.space_id,
+            drive_space_id: record.drive_space_id,
+            drive_node_id: record.drive_node_id,
+            logical_path: record.logical_path,
             drive_provider_kind: record.drive_provider_kind,
             drive_bucket: record.drive_bucket,
             drive_object_key: record.drive_object_key,
@@ -509,6 +616,12 @@ struct MemoryIngestionJobStore {
     next_id: Mutex<u64>,
     by_id: Mutex<HashMap<u64, IngestionJob>>,
     by_key: Mutex<HashMap<(u64, String), u64>>,
+}
+
+impl MemoryIngestionJobStore {
+    fn create_count(&self) -> usize {
+        self.by_id.lock().unwrap().len()
+    }
 }
 
 #[async_trait]

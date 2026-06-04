@@ -23,6 +23,9 @@ pub trait KnowledgeDriveObjectRefStore: Send + Sync {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateKnowledgeDriveObjectRefRecord {
     pub space_id: u64,
+    pub drive_space_id: Option<String>,
+    pub drive_node_id: Option<String>,
+    pub logical_path: Option<String>,
     pub drive_provider_kind: String,
     pub drive_bucket: String,
     pub drive_object_key: String,

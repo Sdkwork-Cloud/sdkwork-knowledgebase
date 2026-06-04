@@ -1,8 +1,8 @@
 use sdkwork_knowledgebase_contract::operations::{
     ALL_OPERATION_IDS, DOCUMENTS_CREATE, DOCUMENTS_LIST, DOCUMENTS_RETRIEVE,
     DOCUMENTS_VERSIONS_CREATE, DRIVE_IMPORTS_CREATE, INGESTS_CREATE, INGESTS_RETRIEVE,
-    SOURCES_CREATE, SOURCES_LIST, WIKI_INDEX_REBUILD, WIKI_INDEX_RETRIEVE, WIKI_LOG_ENTRIES_CREATE,
-    WIKI_SCHEMA_PROFILES_CREATE,
+    SOURCES_CREATE, SOURCES_LIST, SPACES_BROWSER_LIST, WIKI_INDEX_REBUILD, WIKI_INDEX_RETRIEVE,
+    WIKI_LOG_ENTRIES_CREATE, WIKI_SCHEMA_PROFILES_CREATE,
 };
 
 #[test]
@@ -42,4 +42,5 @@ fn source_document_ingest_operation_ids_follow_sdkwork_resource_tree() {
     assert_eq!(DRIVE_IMPORTS_CREATE, "driveImports.create");
     assert_eq!(INGESTS_CREATE, "ingests.create");
     assert_eq!(INGESTS_RETRIEVE, "ingests.retrieve");
+    assert_eq!(SPACES_BROWSER_LIST, "spaces.browser.list");
 }

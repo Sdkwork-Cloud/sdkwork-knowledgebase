@@ -59,7 +59,7 @@ impl KnowledgeSourceStore for SqliteKnowledgeSourceStore {
         let row = sqlx::query(
             r#"
             SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix
-            FROM knowledge_source
+            FROM kb_source
             WHERE tenant_id = ?
               AND space_id = ?
               AND source_type = ?
@@ -104,7 +104,7 @@ impl SqliteKnowledgeSourceStore {
 
         let id: i64 = sqlx::query_scalar(
             r#"
-            INSERT INTO knowledge_source (
+            INSERT INTO kb_source (
                 uuid,
                 tenant_id,
                 space_id,
@@ -181,13 +181,14 @@ impl KnowledgeDocumentStore for SqliteKnowledgeDocumentStore {
             .transpose()?;
         let row = sqlx::query(
             r#"
-            SELECT id, space_id, collection_id, source_id, title, mime_type, language,
+            SELECT id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
                    current_version_id, visibility, content_state, index_state
-            FROM knowledge_document
+            FROM kb_document
             WHERE tenant_id = ?
               AND space_id = ?
               AND collection_id = ?
               AND (source_id IS ? OR source_id = ?)
+              AND (original_file_drive_node_id IS ? OR original_file_drive_node_id = ?)
               AND status = ?
             LIMIT 1
             "#,
@@ -197,6 +198,8 @@ impl KnowledgeDocumentStore for SqliteKnowledgeDocumentStore {
         .bind(collection_id)
         .bind(source_id)
         .bind(source_id)
+        .bind(record.original_file_drive_node_id.clone())
+        .bind(record.original_file_drive_node_id.clone())
         .bind(ACTIVE_STATUS)
         .fetch_optional(&self.pool)
         .await
@@ -226,12 +229,13 @@ impl SqliteKnowledgeDocumentStore {
 
         let id: i64 = sqlx::query_scalar(
             r#"
-            INSERT INTO knowledge_document (
+            INSERT INTO kb_document (
                 uuid,
                 tenant_id,
                 space_id,
                 collection_id,
                 source_id,
+                original_file_drive_node_id,
                 title,
                 mime_type,
                 language,
@@ -243,7 +247,7 @@ impl SqliteKnowledgeDocumentStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id
             "#,
         )
@@ -252,6 +256,7 @@ impl SqliteKnowledgeDocumentStore {
         .bind(space_id)
         .bind(collection_id)
         .bind(source_id)
+        .bind(record.original_file_drive_node_id.clone())
         .bind(record.title.clone())
         .bind(record.mime_type.clone())
         .bind(record.language.clone())
@@ -271,6 +276,7 @@ impl SqliteKnowledgeDocumentStore {
             space_id: record.space_id,
             collection_id: record.collection_id,
             source_id: record.source_id,
+            original_file_drive_node_id: record.original_file_drive_node_id,
             title: record.title,
             mime_type: record.mime_type,
             language: record.language,
@@ -314,7 +320,7 @@ impl KnowledgeDocumentVersionStore for SqliteKnowledgeDocumentVersionStore {
             r#"
             SELECT id, document_id, version_no, original_object_ref_id, checksum_sha256_hex,
                    size_bytes, mime_type, parse_state, index_state
-            FROM knowledge_document_version
+            FROM kb_document_version
             WHERE tenant_id = ? AND document_id = ? AND version_no = ? AND status = ?
             LIMIT 1
             "#,
@@ -350,7 +356,7 @@ impl SqliteKnowledgeDocumentVersionStore {
 
         let id: i64 = sqlx::query_scalar(
             r#"
-            INSERT INTO knowledge_document_version (
+            INSERT INTO kb_document_version (
                 uuid,
                 tenant_id,
                 document_id,
@@ -384,9 +390,25 @@ impl SqliteKnowledgeDocumentVersionStore {
         .bind(now.clone())
         .bind(ACTIVE_STATUS)
         .bind(now.clone())
-        .bind(now)
+        .bind(now.clone())
         .bind(INITIAL_VERSION)
         .fetch_one(&self.pool)
+        .await
+        .map_err(version_sqlx_error)?;
+
+        sqlx::query(
+            r#"
+            UPDATE kb_document
+            SET current_version_id = ?, updated_at = ?, version = version + 1
+            WHERE tenant_id = ? AND id = ? AND status = ?
+            "#,
+        )
+        .bind(id)
+        .bind(now.clone())
+        .bind(tenant_id)
+        .bind(document_id)
+        .bind(ACTIVE_STATUS)
+        .execute(&self.pool)
         .await
         .map_err(version_sqlx_error)?;
 
@@ -426,7 +448,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let existing = sqlx::query(
             r#"
             SELECT id, space_id, job_type, idempotency_key, state, error_detail
-            FROM knowledge_ingestion_job
+            FROM kb_ingestion_job
             WHERE tenant_id = ? AND space_id = ? AND idempotency_key = ? AND status = ?
             LIMIT 1
             "#,
@@ -451,7 +473,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
 
         let row = sqlx::query(
             r#"
-            INSERT INTO knowledge_ingestion_job (
+            INSERT INTO kb_ingestion_job (
                 uuid,
                 tenant_id,
                 space_id,
@@ -495,7 +517,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let row = sqlx::query(
             r#"
             SELECT id, space_id, job_type, idempotency_key, state, error_detail
-            FROM knowledge_ingestion_job
+            FROM kb_ingestion_job
             WHERE tenant_id = ? AND id = ? AND status = ?
             "#,
         )
@@ -520,7 +542,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let now = job_now()?;
         let row = sqlx::query(
             r#"
-            UPDATE knowledge_ingestion_job
+            UPDATE kb_ingestion_job
             SET state = ?, error_detail = ?, updated_at = ?, version = version + 1
             WHERE tenant_id = ? AND id = ? AND status = ?
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail
@@ -588,6 +610,9 @@ fn document_from_row(row: &SqliteRow) -> Result<KnowledgeDocument, KnowledgeDocu
             .map_err(document_sqlx_error)?
             .map(|value| document_from_i64("source_id", value))
             .transpose()?,
+        original_file_drive_node_id: row
+            .try_get("original_file_drive_node_id")
+            .map_err(document_sqlx_error)?,
         title: row.try_get("title").map_err(document_sqlx_error)?,
         mime_type: row.try_get("mime_type").map_err(document_sqlx_error)?,
         language: row.try_get("language").map_err(document_sqlx_error)?,

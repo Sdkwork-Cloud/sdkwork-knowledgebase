@@ -77,6 +77,23 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 "drive_object_key is required".to_string(),
             ));
         }
+        if request.idempotency_key.trim().is_empty() {
+            return Err(KnowledgeDriveImportServiceError::InvalidRequest(
+                "idempotency_key is required".to_string(),
+            ));
+        }
+        if !is_safe_idempotency_key(&request.idempotency_key) {
+            return Err(KnowledgeDriveImportServiceError::InvalidRequest(
+                "idempotency_key contains unsafe characters".to_string(),
+            ));
+        }
+        let drive_space_id = normalize_optional_drive_id(request.drive_space_id, "drive_space_id")?;
+        let drive_node_id = normalize_optional_drive_id(request.drive_node_id, "drive_node_id")?;
+        if drive_node_id.is_some() && drive_space_id.is_none() {
+            return Err(KnowledgeDriveImportServiceError::InvalidRequest(
+                "drive_space_id is required when drive_node_id is provided".to_string(),
+            ));
+        }
 
         let original_object_ref = self
             .drive
@@ -90,6 +107,9 @@ impl<'a> KnowledgeDriveImportService<'a> {
             .object_refs
             .create_or_get_object_ref(CreateKnowledgeDriveObjectRefRecord {
                 space_id: request.space_id,
+                drive_space_id: drive_space_id.clone(),
+                drive_node_id: drive_node_id.clone(),
+                logical_path: Some(original_object_ref.logical_path.clone()),
                 drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
                 drive_bucket: original_object_ref.bucket.clone(),
                 drive_object_key: original_object_ref.object_key.clone(),
@@ -114,12 +134,13 @@ impl<'a> KnowledgeDriveImportService<'a> {
             })
             .await?;
 
-        let document = self
+        let mut document = self
             .documents
             .create_or_get_document(CreateKnowledgeDocumentRecord {
                 space_id: request.space_id,
                 collection_id: 0,
                 source_id: Some(source.id),
+                original_file_drive_node_id: drive_node_id,
                 title: request.title,
                 mime_type: Some(original_object_ref.content_type.clone()),
                 language: request.language,
@@ -137,6 +158,7 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 mime_type: original_drive_object_ref.content_type.clone(),
             })
             .await?;
+        document.current_version_id = Some(version.id);
 
         let job = KnowledgeIngestionService::new(self.jobs)
             .create_job(CreateIngestionJobRequest {
@@ -154,6 +176,36 @@ impl<'a> KnowledgeDriveImportService<'a> {
             job,
         })
     }
+}
+
+fn is_safe_idempotency_key(value: &str) -> bool {
+    let value = value.trim();
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '.')
+}
+
+fn normalize_optional_drive_id(
+    value: Option<String>,
+    field_name: &str,
+) -> Result<Option<String>, KnowledgeDriveImportServiceError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let value = value.trim().to_string();
+    if value.is_empty()
+        || value.len() > 128
+        || !value
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '.')
+    {
+        return Err(KnowledgeDriveImportServiceError::InvalidRequest(format!(
+            "{field_name} contains unsafe characters"
+        )));
+    }
+    Ok(Some(value))
 }
 
 #[derive(Debug, Clone)]

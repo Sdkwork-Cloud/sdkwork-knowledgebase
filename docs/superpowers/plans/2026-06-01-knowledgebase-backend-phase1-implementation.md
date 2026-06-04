@@ -310,12 +310,12 @@ Expected: all tests pass.
 
 Tests must assert migration text contains:
 
-- `knowledge_space`
-- `knowledge_drive_object_ref`
-- `knowledge_wiki_page`
-- `knowledge_wiki_schema_profile`
-- `knowledge_wiki_log_entry`
-- `knowledge_local_mirror_package`
+- `kb_space`
+- `kb_drive_object_ref`
+- `kb_wiki_page`
+- `kb_wiki_schema_profile`
+- `kb_wiki_log_entry`
+- `kb_local_mirror_package`
 
 - [ ] **Step 2: Add migration skeletons**
 

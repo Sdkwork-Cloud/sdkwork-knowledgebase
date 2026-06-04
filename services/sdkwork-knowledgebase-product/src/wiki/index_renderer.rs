@@ -20,9 +20,9 @@ pub fn render_index_md(space_name: &str, pages: &[WikiPageSummary]) -> String {
         let mut wrote_any = false;
         for page in pages.iter().filter(|page| page.page_type == page_type) {
             wrote_any = true;
-            output.push_str("- [[");
-            output.push_str(&page.title);
-            output.push_str("]] - ");
+            output.push_str("- ");
+            push_wikilink(&mut output, page);
+            output.push_str(" - ");
             output.push_str(&page.summary);
             output.push_str(" sources: ");
             output.push_str(&page.source_count.to_string());
@@ -37,4 +37,20 @@ pub fn render_index_md(space_name: &str, pages: &[WikiPageSummary]) -> String {
     }
 
     output
+}
+
+fn push_wikilink(output: &mut String, page: &WikiPageSummary) {
+    let slug = page.slug.trim();
+    if slug.is_empty() {
+        output.push_str("[[");
+        output.push_str(&page.title);
+        output.push_str("]]");
+        return;
+    }
+
+    output.push_str("[[");
+    output.push_str(slug);
+    output.push('|');
+    output.push_str(&page.title);
+    output.push_str("]]");
 }

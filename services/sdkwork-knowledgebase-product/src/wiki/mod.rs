@@ -2,6 +2,7 @@ mod file_registry;
 mod index_renderer;
 mod initializer;
 mod log_renderer;
+mod page_service;
 mod schema_renderer;
 
 use crate::ports::knowledge_drive_storage::{
@@ -13,6 +14,7 @@ pub use file_registry::{KnowledgeWikiFileRegistryService, KnowledgeWikiFileRegis
 pub use index_renderer::render_index_md;
 pub use initializer::{KnowledgeWikiInitializerService, KnowledgeWikiInitializerServiceError};
 pub use log_renderer::render_log_md;
+pub use page_service::{KnowledgeWikiPageService, KnowledgeWikiPageServiceError};
 pub use schema_renderer::{render_agents_md, render_wiki_schema_yaml};
 
 #[derive(Debug, Clone)]
