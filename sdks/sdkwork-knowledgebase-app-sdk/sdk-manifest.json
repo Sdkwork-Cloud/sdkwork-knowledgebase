@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "sdkName": "sdkwork-knowledgebase-app-sdk",
+  "packageName": "@sdkwork/knowledgebase-app-sdk",
+  "sdkOwner": "sdkwork-knowledgebase",
+  "apiAuthority": "sdkwork-knowledgebase.app",
+  "sdkFamily": "sdkwork-knowledgebase-app-sdk",
+  "sdkType": "app",
+  "sdkSurface": "app",
+  "language": "typescript",
+  "apiPrefix": "/app/v3/api",
+  "generationInputSpec": "openapi/knowledgebase-app-api.openapi.json",
+  "generatedOutput": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
+  "standardProfile": "sdkwork-v3",
+  "sdkDependencies": [
+    {
+      "workspace": "sdkwork-appbase-app-sdk",
+      "role": "appbase-identity-and-session-capability",
+      "required": true,
+      "dependencyMode": "consumer-sdk",
+      "apiPrefix": "/app/v3/api",
+      "apiAuthority": "sdkwork-appbase.app",
+      "generatedTransportImportPolicy": "forbidden",
+      "packageByLanguage": {
+        "typescript": "@sdkwork/appbase-app-sdk",
+        "rust": "sdkwork-appbase-app-sdk",
+        "java": "com.sdkwork:sdkwork-appbase-app-sdk",
+        "python": "sdkwork-appbase-app-sdk",
+        "go": "github.com/sdkwork/sdkwork-appbase-app-sdk"
+      }
+    },
+    {
+      "workspace": "sdkwork-drive-app-sdk",
+      "role": "drive-file-and-media-capability",
+      "required": true,
+      "dependencyMode": "consumer-sdk",
+      "apiPrefix": "/app/v3/api",
+      "apiAuthority": "sdkwork-drive.app",
+      "generatedTransportImportPolicy": "forbidden",
+      "packageByLanguage": {
+        "typescript": "@sdkwork/drive-app-sdk",
+        "rust": "sdkwork-drive-app-sdk",
+        "java": "com.sdkwork:sdkwork-drive-app-sdk",
+        "python": "sdkwork-drive-app-sdk",
+        "go": "github.com/sdkwork/sdkwork-drive-app-sdk"
+      }
+    }
+  ],
+  "ownerOnlyOperationCount": 22,
+  "standardVersion": "2026-06-06",
+  "managedBy": "sdks/standardize-knowledgebase-sdk-family.mjs"
+}

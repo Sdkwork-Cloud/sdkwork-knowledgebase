@@ -1,7 +1,7 @@
 use sdkwork_knowledgebase_contract::wiki::{WikiPagePublishState, WikiPageType};
 use sdkwork_knowledgebase_product::ports::knowledge_browser_projection_store::KnowledgeBrowserProjectionStore;
 use sdkwork_knowledgebase_product::ports::knowledge_document_store::{
-    CreateKnowledgeDocumentRecord, KnowledgeDocumentStore,
+    CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
 };
 use sdkwork_knowledgebase_product::ports::knowledge_document_version_store::{
     CreateKnowledgeDocumentVersionRecord, KnowledgeDocumentVersionStore,
@@ -57,6 +57,54 @@ async fn sqlite_space_store_persists_drive_space_binding() {
 }
 
 #[tokio::test]
+async fn sqlite_space_store_deleted_space_releases_active_drive_space_binding() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let store = SqliteKnowledgeSpaceStore::new(pool.clone(), 9001, 7001);
+
+    let first = store
+        .create_space(sdkwork_knowledgebase_product::ports::knowledge_space_store::CreateKnowledgeSpaceRecord {
+            name: "Failed Initialization".to_string(),
+            description: None,
+            llm_wiki_initialized: false,
+        })
+        .await
+        .unwrap();
+    store
+        .mark_drive_space_bound(first.id, "drv-kb-001".to_string())
+        .await
+        .unwrap();
+    store.mark_space_deleted(first.id).await.unwrap();
+
+    let second = store
+        .create_space(sdkwork_knowledgebase_product::ports::knowledge_space_store::CreateKnowledgeSpaceRecord {
+            name: "Retried Initialization".to_string(),
+            description: None,
+            llm_wiki_initialized: false,
+        })
+        .await
+        .unwrap();
+    let rebound = store
+        .mark_drive_space_bound(second.id, "drv-kb-001".to_string())
+        .await
+        .unwrap();
+
+    assert_eq!(rebound.drive_space_id.as_deref(), Some("drv-kb-001"));
+    assert!(store.get_space(first.id).await.is_err());
+
+    let statuses = sqlx::query("SELECT id, status FROM kb_space ORDER BY id")
+        .fetch_all(&pool)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| (row.get::<i64, _>("id"), row.get::<i64, _>("status")))
+        .collect::<Vec<_>>();
+    assert_eq!(statuses.len(), 2);
+    assert_eq!(statuses[0].1, 3);
+    assert_eq!(statuses[1].1, 1);
+}
+
+#[tokio::test]
 async fn sqlite_browser_projection_batches_document_status_by_drive_node_id() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
@@ -90,6 +138,7 @@ async fn sqlite_browser_projection_batches_document_status_by_drive_node_id() {
             space_id: 7,
             collection_id: 0,
             source_id: None,
+            identity_scope: KnowledgeDocumentIdentityScope::SourceAndOriginalDriveNode,
             original_file_drive_node_id: Some("node-pdf".to_string()),
             title: "Report".to_string(),
             mime_type: Some("application/pdf".to_string()),
@@ -164,6 +213,44 @@ async fn sqlite_browser_projection_batches_wiki_page_status_by_logical_path() {
     assert_eq!(batch[0].logical_path, page.logical_path);
     assert_eq!(batch[0].page_id, page.id);
     assert_eq!(batch[0].publish_state, WikiPagePublishState::Published);
+}
+
+#[tokio::test]
+async fn sqlite_browser_projection_rejects_unbounded_document_projection_batches() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, 9001);
+
+    let error = projections
+        .batch_document_projections(
+            7,
+            (0..201)
+                .map(|index| format!("drive-node-{index}"))
+                .collect(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("batch size"));
+}
+
+#[tokio::test]
+async fn sqlite_browser_projection_rejects_unbounded_wiki_projection_batches() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, 9001);
+
+    let error = projections
+        .batch_wiki_page_projections(
+            7,
+            (0..201)
+                .map(|index| format!("wiki/pages/entities/entity-{index}/current.md"))
+                .collect(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("batch size"));
 }
 
 async fn sqlite_pool() -> SqlitePool {

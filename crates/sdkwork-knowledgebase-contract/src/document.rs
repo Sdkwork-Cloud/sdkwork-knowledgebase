@@ -2,6 +2,39 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CreateKnowledgeDocumentRequest {
+    pub space_id: u64,
+    pub collection_id: Option<u64>,
+    pub source_id: Option<u64>,
+    pub title: String,
+    pub mime_type: Option<String>,
+    pub language: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateKnowledgeDocumentVersionRequest {
+    pub document_id: u64,
+    pub original_object_ref_id: u64,
+    pub checksum_sha256_hex: Option<String>,
+    pub size_bytes: u64,
+    pub mime_type: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeDocumentList {
+    pub items: Vec<KnowledgeDocument>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeDocumentVersionList {
+    pub items: Vec<KnowledgeDocumentVersion>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KnowledgeDocument {
     pub id: u64,
     pub space_id: u64,

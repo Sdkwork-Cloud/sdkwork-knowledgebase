@@ -10,22 +10,39 @@ use sdkwork_knowledgebase_product::ports::knowledge_wiki_page_store::{
 };
 use sqlx::sqlite::SqliteRow;
 use sqlx::{QueryBuilder, Row, SqlitePool};
+use std::sync::Arc;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
+
 const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
+const MAX_PROJECTION_BATCH_SIZE: usize = 200;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeWikiPageStore {
     pool: SqlitePool,
     tenant_id: u64,
+    id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeWikiPageStore {
     pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
-        Self { pool, tenant_id }
+        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    }
+
+    pub fn with_id_generator(
+        pool: SqlitePool,
+        tenant_id: u64,
+        id_generator: Arc<dyn KnowledgeIdGenerator>,
+    ) -> Self {
+        Self {
+            pool,
+            tenant_id,
+            id_generator,
+        }
     }
 
     pub async fn next_revision_no(&self, page_id: u64) -> Result<u64, KnowledgeWikiPageStoreError> {
@@ -33,11 +50,15 @@ impl SqliteKnowledgeWikiPageStore {
         let page_id = to_i64("page_id", page_id)?;
         let next: i64 = sqlx::query_scalar(
             r#"
-            SELECT COALESCE(MAX(revision_no), 0) + 1
-            FROM kb_wiki_page_revision
-            WHERE tenant_id = ? AND page_id = ? AND status = ?
+            UPDATE kb_wiki_page
+            SET revision_counter = revision_counter + 1,
+                updated_at = ?,
+                version = version + 1
+            WHERE tenant_id = ? AND id = ? AND status = ?
+            RETURNING revision_counter
             "#,
         )
+        .bind(now_rfc3339()?)
         .bind(tenant_id)
         .bind(page_id)
         .bind(ACTIVE_STATUS)
@@ -61,10 +82,12 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
         let page_type = record.page_type.as_str();
         let publish_state = record.publish_state.as_str();
         let tags = tags_to_json(&record.tags)?;
+        let id = next_i64_id(&self.id_generator).map_err(id_error)?;
 
         let row = sqlx::query(
             r#"
             INSERT INTO kb_wiki_page (
+                id,
                 uuid,
                 tenant_id,
                 space_id,
@@ -82,7 +105,7 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
             ON CONFLICT(tenant_id, space_id, slug)
             DO UPDATE SET
                 title = excluded.title,
@@ -109,6 +132,7 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
                 updated_at
             "#,
         )
+        .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
         .bind(space_id)
@@ -140,11 +164,13 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
         let revision_no = to_i64("revision_no", record.revision_no)?;
         let markdown_object_ref_id =
             to_i64("markdown_object_ref_id", record.markdown_object_ref_id)?;
+        let id = next_i64_id(&self.id_generator).map_err(id_error)?;
         let now = now_rfc3339()?;
 
         let row = sqlx::query(
             r#"
             INSERT INTO kb_wiki_page_revision (
+                id,
                 uuid,
                 tenant_id,
                 page_id,
@@ -157,7 +183,7 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING
                 id,
                 page_id,
@@ -168,6 +194,7 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
                 created_at
             "#,
         )
+        .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
         .bind(page_id)
@@ -276,13 +303,18 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
         let now = now_rfc3339()?;
         let sequence_no: i64 = sqlx::query_scalar(
             r#"
-            SELECT COALESCE(MAX(sequence_no), 0) + 1
-            FROM kb_wiki_log_entry
-            WHERE tenant_id = ? AND space_id = ?
+            UPDATE kb_space
+            SET wiki_log_sequence_counter = wiki_log_sequence_counter + 1,
+                updated_at = ?,
+                version = version + 1
+            WHERE tenant_id = ? AND id = ? AND status = ?
+            RETURNING wiki_log_sequence_counter
             "#,
         )
+        .bind(now.clone())
         .bind(tenant_id)
         .bind(space_id)
+        .bind(ACTIVE_STATUS)
         .fetch_one(&self.pool)
         .await
         .map_err(sqlx_error)?;
@@ -293,9 +325,11 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
             record.audit_event_id.as_deref(),
             &record.warnings,
         )?;
+        let id = next_i64_id(&self.id_generator).map_err(id_error)?;
         let row = sqlx::query(
             r#"
             INSERT INTO kb_wiki_log_entry (
+                id,
                 uuid,
                 tenant_id,
                 space_id,
@@ -310,7 +344,7 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING
                 event_type,
                 event_time,
@@ -318,6 +352,7 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
                 metadata
             "#,
         )
+        .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
         .bind(space_id)
@@ -372,6 +407,7 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
         if logical_paths.is_empty() {
             return Ok(vec![]);
         }
+        validate_projection_batch_size(logical_paths.len())?;
 
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", space_id)?;
@@ -402,6 +438,15 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
 
         rows.into_iter().map(projection_from_row).collect()
     }
+}
+
+fn validate_projection_batch_size(len: usize) -> Result<(), KnowledgeWikiPageStoreError> {
+    if len > MAX_PROJECTION_BATCH_SIZE {
+        return Err(KnowledgeWikiPageStoreError::Internal(format!(
+            "logical_paths batch size must be <= {MAX_PROJECTION_BATCH_SIZE}"
+        )));
+    }
+    Ok(())
 }
 
 fn page_from_row(row: &SqliteRow) -> Result<KnowledgeWikiPage, KnowledgeWikiPageStoreError> {
@@ -640,5 +685,9 @@ fn from_i64(field: &str, value: i64) -> Result<u64, KnowledgeWikiPageStoreError>
 }
 
 fn sqlx_error(error: sqlx::Error) -> KnowledgeWikiPageStoreError {
+    KnowledgeWikiPageStoreError::Internal(error.to_string())
+}
+
+fn id_error(error: crate::KnowledgeIdGeneratorError) -> KnowledgeWikiPageStoreError {
     KnowledgeWikiPageStoreError::Internal(error.to_string())
 }

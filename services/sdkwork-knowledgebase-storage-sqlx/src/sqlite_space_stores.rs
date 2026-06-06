@@ -10,9 +10,12 @@ use sdkwork_knowledgebase_product::ports::knowledge_wiki_file_entry_store::{
 };
 use sqlx::sqlite::SqliteRow;
 use sqlx::{Row, SqlitePool};
+use std::sync::Arc;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use uuid::Uuid;
+
+use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
@@ -22,14 +25,30 @@ pub struct SqliteKnowledgeSpaceStore {
     pool: SqlitePool,
     tenant_id: u64,
     organization_id: u64,
+    id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeSpaceStore {
     pub fn new(pool: SqlitePool, tenant_id: u64, organization_id: u64) -> Self {
+        Self::with_id_generator(
+            pool,
+            tenant_id,
+            organization_id,
+            default_knowledge_id_generator(),
+        )
+    }
+
+    pub fn with_id_generator(
+        pool: SqlitePool,
+        tenant_id: u64,
+        organization_id: u64,
+        id_generator: Arc<dyn KnowledgeIdGenerator>,
+    ) -> Self {
         Self {
             pool,
             tenant_id,
             organization_id,
+            id_generator,
         }
     }
 }
@@ -42,11 +61,13 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = space_to_i64("organization_id", self.organization_id)?;
+        let id = next_i64_id(&self.id_generator).map_err(space_id_error)?;
         let now = space_now()?;
 
         let row = sqlx::query(
             r#"
             INSERT INTO kb_space (
+                id,
                 uuid,
                 tenant_id,
                 organization_id,
@@ -59,10 +80,11 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized
             "#,
         )
+        .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
         .bind(organization_id)
@@ -164,17 +186,56 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
 
         space_from_row(&row)
     }
+
+    async fn mark_space_deleted(&self, space_id: u64) -> Result<(), KnowledgeSpaceStoreError> {
+        let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = space_to_i64("organization_id", self.organization_id)?;
+        let space_id_i64 = space_to_i64("space_id", space_id)?;
+        let now = space_now()?;
+
+        sqlx::query(
+            r#"
+            UPDATE kb_space
+            SET status = ?, updated_at = ?, version = version + 1
+            WHERE tenant_id = ? AND organization_id = ? AND id = ? AND status = ?
+            "#,
+        )
+        .bind(space_status_code(KnowledgeSpaceStatus::Deleted))
+        .bind(now)
+        .bind(tenant_id)
+        .bind(organization_id)
+        .bind(space_id_i64)
+        .bind(ACTIVE_STATUS)
+        .execute(&self.pool)
+        .await
+        .map_err(space_sqlx_error)?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeWikiFileEntryStore {
     pool: SqlitePool,
     tenant_id: u64,
+    id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeWikiFileEntryStore {
     pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
-        Self { pool, tenant_id }
+        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    }
+
+    pub fn with_id_generator(
+        pool: SqlitePool,
+        tenant_id: u64,
+        id_generator: Arc<dyn KnowledgeIdGenerator>,
+    ) -> Self {
+        Self {
+            pool,
+            tenant_id,
+            id_generator,
+        }
     }
 }
 
@@ -202,11 +263,13 @@ impl SqliteKnowledgeWikiFileEntryStore {
     ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
         let tenant_id = wiki_entry_to_i64("tenant_id", self.tenant_id)?;
         let space_id = wiki_entry_to_i64("space_id", record.space_id)?;
+        let id = next_i64_id(&self.id_generator).map_err(wiki_entry_id_error)?;
         let now = wiki_entry_now()?;
 
         let row = sqlx::query(
             r#"
             INSERT INTO kb_wiki_file_entry (
+                id,
                 uuid,
                 tenant_id,
                 space_id,
@@ -221,7 +284,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING
                 id,
                 space_id,
@@ -233,6 +296,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
                 checksum_sha256_hex
             "#,
         )
+        .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
         .bind(space_id)
@@ -259,11 +323,13 @@ impl SqliteKnowledgeWikiFileEntryStore {
     ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
         let tenant_id = wiki_entry_to_i64("tenant_id", self.tenant_id)?;
         let space_id = wiki_entry_to_i64("space_id", record.space_id)?;
+        let id = next_i64_id(&self.id_generator).map_err(wiki_entry_id_error)?;
         let now = wiki_entry_now()?;
 
         let row = sqlx::query(
             r#"
             INSERT INTO kb_wiki_file_entry (
+                id,
                 uuid,
                 tenant_id,
                 space_id,
@@ -278,7 +344,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(tenant_id, space_id, logical_path)
             DO UPDATE SET
                 entry_type = excluded.entry_type,
@@ -300,6 +366,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
                 checksum_sha256_hex
             "#,
         )
+        .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
         .bind(space_id)
@@ -478,7 +545,17 @@ fn space_sqlx_error(error: sqlx::Error) -> KnowledgeSpaceStoreError {
     KnowledgeSpaceStoreError::Internal(error.to_string())
 }
 
+fn space_id_error(error: crate::KnowledgeIdGeneratorError) -> KnowledgeSpaceStoreError {
+    KnowledgeSpaceStoreError::Internal(error.to_string())
+}
+
 fn wiki_entry_sqlx_error(error: sqlx::Error) -> KnowledgeWikiFileEntryStoreError {
+    KnowledgeWikiFileEntryStoreError::Internal(error.to_string())
+}
+
+fn wiki_entry_id_error(
+    error: crate::KnowledgeIdGeneratorError,
+) -> KnowledgeWikiFileEntryStoreError {
     KnowledgeWikiFileEntryStoreError::Internal(error.to_string())
 }
 

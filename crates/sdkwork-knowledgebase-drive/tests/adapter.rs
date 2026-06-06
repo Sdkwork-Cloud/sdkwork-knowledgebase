@@ -1,5 +1,7 @@
 use async_trait::async_trait;
 use sdkwork_drive_config::DatabaseEngine;
+use sdkwork_drive_product::application::space_service::{GetSpaceCommand, SqlDriveSpaceService};
+use sdkwork_drive_product::domain::space::DriveSpaceType;
 use sdkwork_drive_product::infrastructure::sql::install_any_schema;
 use sdkwork_drive_storage_contract::{
     AbortMultipartUploadRequest, CompleteMultipartUploadRequest, CompleteMultipartUploadResponse,
@@ -14,12 +16,16 @@ use sdkwork_drive_storage_contract::{
     ReadObjectRangeRequest, ReadObjectRangeResponse,
 };
 use sdkwork_knowledgebase_drive::{
-    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveStorageAdapter,
-    KnowledgebaseDriveWorkspaceAdapter,
+    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
+    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
 };
 use sdkwork_knowledgebase_product::ports::knowledge_drive_node_tree::{
     DriveNodeKind, KnowledgeDriveNodeTree, ListKnowledgeDriveNodeChildrenRequest,
     ResolveKnowledgeDriveNodePathRequest,
+};
+use sdkwork_knowledgebase_product::ports::knowledge_drive_space::{
+    CreateKnowledgeDriveSpaceRequest, DeleteKnowledgeDriveSpaceRequest,
+    KnowledgeDriveSpaceProvisioner,
 };
 use sdkwork_knowledgebase_product::ports::knowledge_drive_storage::{
     KnowledgeDriveStorage, KnowledgeStorageError, PutKnowledgeObjectRequest,
@@ -28,9 +34,130 @@ use sdkwork_knowledgebase_product::ports::knowledge_drive_workspace::{
     EnsureKnowledgeDriveNodeKind, EnsureKnowledgeDriveNodeRequest,
     EnsureKnowledgeDriveNodesRequest, KnowledgeDriveWorkspace,
 };
-use sqlx::Row;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+#[test]
+fn knowledgebase_drive_adapter_does_not_reference_drive_physical_tables() {
+    let adapter_source = include_str!("../src/adapter.rs");
+    for forbidden_reference in [
+        "dr_space",
+        "dr_node",
+        "dr_storage_object",
+        "dr_drive_space",
+        "dr_drive_node",
+        "dr_drive_storage_object",
+        "FROM drive_space",
+        "JOIN drive_space",
+        "INSERT INTO drive_space",
+        "UPDATE drive_space",
+        "FROM drive_node",
+        "JOIN drive_node",
+        "INSERT INTO drive_node",
+        "UPDATE drive_node",
+        "FROM drive_storage_object",
+        "JOIN drive_storage_object",
+        "INSERT INTO drive_storage_object",
+        "UPDATE drive_storage_object",
+        "sqlx::query(",
+        "sqlx::query_scalar(",
+        "sdkwork_drive_product::infrastructure",
+        "SqlDriveWorkspaceStore",
+    ] {
+        assert!(
+            !adapter_source.contains(forbidden_reference),
+            "knowledgebase drive adapter must call sdkwork-drive product APIs instead of referencing: {forbidden_reference}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn space_provisioner_adapter_creates_dedicated_drive_knowledge_space_idempotently() {
+    let pool = sqlite_drive_pool().await;
+    let adapter = KnowledgebaseDriveSpaceProvisionerAdapter::new(pool.clone());
+    let request = CreateKnowledgeDriveSpaceRequest {
+        tenant_id: "tenant-001".to_string(),
+        knowledge_space_id: 42,
+        knowledge_space_uuid: "space-uuid-001".to_string(),
+        display_name: "Research Space".to_string(),
+        owner_subject_type: "app".to_string(),
+        owner_subject_id: "sdkwork-knowledgebase:space-uuid-001".to_string(),
+        operator_id: "system".to_string(),
+    };
+
+    let first = adapter
+        .create_knowledge_drive_space(request.clone())
+        .await
+        .unwrap();
+    let replay = adapter.create_knowledge_drive_space(request).await.unwrap();
+
+    assert_eq!(first, replay);
+    assert_eq!(first.drive_space_id, "kb-space-uuid-001");
+
+    let drive_space = SqlDriveSpaceService::new(pool)
+        .get_space(GetSpaceCommand {
+            tenant_id: "tenant-001".to_string(),
+            space_id: first.drive_space_id.clone(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        drive_space.owner_subject_id,
+        "sdkwork-knowledgebase:space-uuid-001"
+    );
+    assert_eq!(drive_space.owner_subject_type, "app");
+    assert_eq!(drive_space.space_type, DriveSpaceType::KnowledgeBase);
+    assert_eq!(drive_space.tenant_id, "tenant-001");
+    assert_eq!(drive_space.display_name, "Research Space");
+}
+
+#[tokio::test]
+async fn space_provisioner_adapter_deletes_only_matching_knowledge_space_idempotently() {
+    let pool = sqlite_drive_pool().await;
+    let adapter = KnowledgebaseDriveSpaceProvisionerAdapter::new(pool.clone());
+    let create_request = CreateKnowledgeDriveSpaceRequest {
+        tenant_id: "tenant-001".to_string(),
+        knowledge_space_id: 42,
+        knowledge_space_uuid: "space-uuid-delete".to_string(),
+        display_name: "Research Space".to_string(),
+        owner_subject_type: "app".to_string(),
+        owner_subject_id: "sdkwork-knowledgebase:space-uuid-delete".to_string(),
+        operator_id: "system".to_string(),
+    };
+
+    let binding = adapter
+        .create_knowledge_drive_space(create_request)
+        .await
+        .unwrap();
+    let delete_request = DeleteKnowledgeDriveSpaceRequest {
+        tenant_id: "tenant-001".to_string(),
+        drive_space_id: binding.drive_space_id.clone(),
+        owner_subject_type: "app".to_string(),
+        owner_subject_id: "sdkwork-knowledgebase:space-uuid-delete".to_string(),
+        operator_id: "system".to_string(),
+    };
+
+    adapter
+        .delete_knowledge_drive_space(delete_request.clone())
+        .await
+        .unwrap();
+    adapter
+        .delete_knowledge_drive_space(delete_request)
+        .await
+        .unwrap();
+
+    let error = SqlDriveSpaceService::new(pool)
+        .get_space(GetSpaceCommand {
+            tenant_id: "tenant-001".to_string(),
+            space_id: binding.drive_space_id,
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error,
+        sdkwork_drive_product::DriveProductError::NotFound("space not found".to_string())
+    );
+}
 
 #[tokio::test]
 async fn adapter_puts_and_reads_objects_through_drive_object_store() {
@@ -81,6 +208,84 @@ async fn storage_adapter_returns_computed_checksum_when_request_omits_checksum()
 }
 
 #[tokio::test]
+async fn storage_adapter_rejects_mismatched_request_checksum_before_drive_write() {
+    let store = Arc::new(FakeDriveObjectStore::default());
+    let adapter =
+        KnowledgebaseDriveStorageAdapter::new(store.clone(), "kb-bucket", "knowledge/tenant/space");
+
+    let error = adapter
+        .put_object(PutKnowledgeObjectRequest::text(
+            "wiki/index.md",
+            "wiki_index",
+            "# Index",
+            Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
+        ))
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, KnowledgeStorageError::IntegrityFailed(_)));
+    assert!(store.objects.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn storage_adapter_synthesizes_content_version_for_versionless_drive_store() {
+    let store = Arc::new(VersionlessDriveObjectStore::default());
+    let adapter =
+        KnowledgebaseDriveStorageAdapter::new(store, "kb-bucket", "knowledge/tenant/space");
+
+    let first = adapter
+        .put_object(PutKnowledgeObjectRequest::text(
+            "wiki/index.md",
+            "wiki_index",
+            "# Index v1",
+            None,
+        ))
+        .await
+        .unwrap();
+    let second = adapter
+        .put_object(PutKnowledgeObjectRequest::text(
+            "wiki/index.md",
+            "wiki_index",
+            "# Index v2",
+            None,
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        first.version_id.as_deref(),
+        Some("sha256:3ae523fc4f79094da2a298d84b6c5bdb60c2039fe16f7e4c6b317ba07e4f78ca")
+    );
+    assert_eq!(
+        second.version_id.as_deref(),
+        Some("sha256:2d968e05caff078d47e09670f7ade6067ffd3d4a9e19aaa350c7cf7247534bb6")
+    );
+    assert_ne!(first.version_id, second.version_id);
+}
+
+#[tokio::test]
+async fn storage_adapter_treats_blank_provider_version_as_versionless() {
+    let store = Arc::new(BlankVersionDriveObjectStore::default());
+    let adapter =
+        KnowledgebaseDriveStorageAdapter::new(store, "kb-bucket", "knowledge/tenant/space");
+
+    let object_ref = adapter
+        .put_object(PutKnowledgeObjectRequest::text(
+            "wiki/log.md",
+            "wiki_log",
+            "# Log",
+            None,
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        object_ref.version_id.as_deref(),
+        Some("sha256:d92b6f58e6ce298267202e148cedb2a48c2b73afd0134e1ac5acab957a5f1195")
+    );
+}
+
+#[tokio::test]
 async fn adapter_rejects_unsafe_managed_logical_paths_before_drive_write() {
     let store = Arc::new(FakeDriveObjectStore::default());
     let adapter =
@@ -123,12 +328,12 @@ async fn adapter_reads_empty_text_object_without_requesting_invalid_range() {
 #[tokio::test]
 async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_bindings() {
     let pool = sqlite_drive_pool().await;
-    seed_drive_space(&pool, "tenant-001", "drv-kb-001").await;
+    seed_drive_space(&pool, "tenant-001", "kb-drv-kb-001").await;
     let adapter = KnowledgebaseDriveWorkspaceAdapter::new(pool.clone(), "tenant-001", "system");
 
     adapter
         .ensure_nodes(EnsureKnowledgeDriveNodesRequest {
-            drive_space_id: "drv-kb-001".to_string(),
+            drive_space_id: "kb-drv-kb-001".to_string(),
             nodes: vec![
                 folder_node("wiki"),
                 folder_node("wiki/schema"),
@@ -143,51 +348,56 @@ async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_b
         .await
         .unwrap();
 
-    let node_rows = sqlx::query(
-        "SELECT node_name, node_type, content_state
-         FROM drive_node
-         WHERE tenant_id=$1 AND space_id=$2
-         ORDER BY node_name",
-    )
-    .bind("tenant-001")
-    .bind("drv-kb-001")
-    .fetch_all(&pool)
-    .await
-    .unwrap();
-    let node_names = node_rows
-        .iter()
-        .map(|row| row.get::<String, _>("node_name"))
-        .collect::<Vec<_>>();
-    assert_eq!(node_names, vec!["AGENTS.md", "schema", "wiki"]);
-    assert_eq!(node_rows[0].get::<String, _>("node_type"), "file");
-    assert_eq!(node_rows[0].get::<String, _>("content_state"), "ready");
+    let tree = KnowledgebaseDriveNodeTreeAdapter::new(pool, "tenant-001");
+    let wiki = tree
+        .resolve_path(ResolveKnowledgeDriveNodePathRequest {
+            drive_space_id: "kb-drv-kb-001".to_string(),
+            logical_path: "wiki".to_string(),
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(wiki.kind, DriveNodeKind::Folder);
 
-    let object_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(1)
-         FROM drive_storage_object
-         WHERE tenant_id=$1
-           AND bucket=$2
-           AND object_key=$3
-           AND content_length=$4
-           AND lifecycle_status='active'",
-    )
-    .bind("tenant-001")
-    .bind("kb-bucket")
-    .bind("knowledge/space/wiki/schema/AGENTS.md")
-    .bind(64_i64)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(object_count, 1);
+    let wiki_page = tree
+        .list_children(ListKnowledgeDriveNodeChildrenRequest {
+            drive_space_id: "kb-drv-kb-001".to_string(),
+            parent_drive_node_id: Some(wiki.drive_node_id),
+            cursor: None,
+            page_size: 200,
+        })
+        .await
+        .unwrap();
+    assert_eq!(wiki_page.nodes.len(), 1);
+    assert_eq!(wiki_page.nodes[0].name, "schema");
+    assert_eq!(wiki_page.nodes[0].kind, DriveNodeKind::Folder);
+
+    let schema_page = tree
+        .list_children(ListKnowledgeDriveNodeChildrenRequest {
+            drive_space_id: "kb-drv-kb-001".to_string(),
+            parent_drive_node_id: Some(wiki_page.nodes[0].drive_node_id.clone()),
+            cursor: None,
+            page_size: 200,
+        })
+        .await
+        .unwrap();
+    assert_eq!(schema_page.nodes.len(), 1);
+    assert_eq!(schema_page.nodes[0].name, "AGENTS.md");
+    assert_eq!(schema_page.nodes[0].kind, DriveNodeKind::File);
+    assert_eq!(
+        schema_page.nodes[0].content_type.as_deref(),
+        Some("text/markdown")
+    );
+    assert_eq!(schema_page.nodes[0].size_bytes, Some(64));
 }
 
 #[tokio::test]
 async fn workspace_adapter_is_idempotent_for_repeated_initialization() {
     let pool = sqlite_drive_pool().await;
-    seed_drive_space(&pool, "tenant-001", "drv-kb-001").await;
+    seed_drive_space(&pool, "tenant-001", "kb-drv-kb-001").await;
     let adapter = KnowledgebaseDriveWorkspaceAdapter::new(pool.clone(), "tenant-001", "system");
     let request = EnsureKnowledgeDriveNodesRequest {
-        drive_space_id: "drv-kb-001".to_string(),
+        drive_space_id: "kb-drv-kb-001".to_string(),
         nodes: vec![
             folder_node("wiki"),
             folder_node("wiki/schema"),
@@ -203,26 +413,38 @@ async fn workspace_adapter_is_idempotent_for_repeated_initialization() {
     adapter.ensure_nodes(request.clone()).await.unwrap();
     adapter.ensure_nodes(request).await.unwrap();
 
-    let node_count: i64 = sqlx::query_scalar("SELECT COUNT(1) FROM drive_node")
-        .fetch_one(&pool)
+    let tree = KnowledgebaseDriveNodeTreeAdapter::new(pool, "tenant-001");
+    let schema = tree
+        .resolve_path(ResolveKnowledgeDriveNodePathRequest {
+            drive_space_id: "kb-drv-kb-001".to_string(),
+            logical_path: "wiki/schema".to_string(),
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    let schema_page = tree
+        .list_children(ListKnowledgeDriveNodeChildrenRequest {
+            drive_space_id: "kb-drv-kb-001".to_string(),
+            parent_drive_node_id: Some(schema.drive_node_id),
+            cursor: None,
+            page_size: 200,
+        })
         .await
         .unwrap();
-    let object_count: i64 = sqlx::query_scalar("SELECT COUNT(1) FROM drive_storage_object")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(node_count, 3);
-    assert_eq!(object_count, 1);
+    assert_eq!(schema_page.nodes.len(), 1);
+    assert_eq!(schema_page.nodes[0].name, "AGENTS.md");
+    assert_eq!(schema_page.nodes[0].kind, DriveNodeKind::File);
+    assert_eq!(schema_page.nodes[0].size_bytes, Some(64));
 }
 
 #[tokio::test]
 async fn node_tree_adapter_resolves_paths_and_pages_children_from_drive_nodes() {
     let pool = sqlite_drive_pool().await;
-    seed_drive_space(&pool, "tenant-001", "drv-kb-001").await;
+    seed_drive_space(&pool, "tenant-001", "kb-drv-kb-001").await;
     let workspace = KnowledgebaseDriveWorkspaceAdapter::new(pool.clone(), "tenant-001", "system");
     workspace
         .ensure_nodes(EnsureKnowledgeDriveNodesRequest {
-            drive_space_id: "drv-kb-001".to_string(),
+            drive_space_id: "kb-drv-kb-001".to_string(),
             nodes: vec![
                 folder_node("wiki"),
                 folder_node("wiki/schema"),
@@ -240,7 +462,7 @@ async fn node_tree_adapter_resolves_paths_and_pages_children_from_drive_nodes() 
 
     let root = tree
         .resolve_path(ResolveKnowledgeDriveNodePathRequest {
-            drive_space_id: "drv-kb-001".to_string(),
+            drive_space_id: "kb-drv-kb-001".to_string(),
             logical_path: "wiki".to_string(),
         })
         .await
@@ -251,7 +473,7 @@ async fn node_tree_adapter_resolves_paths_and_pages_children_from_drive_nodes() 
 
     let page = tree
         .list_children(ListKnowledgeDriveNodeChildrenRequest {
-            drive_space_id: "drv-kb-001".to_string(),
+            drive_space_id: "kb-drv-kb-001".to_string(),
             parent_drive_node_id: Some(root.drive_node_id),
             cursor: None,
             page_size: 200,
@@ -263,10 +485,7 @@ async fn node_tree_adapter_resolves_paths_and_pages_children_from_drive_nodes() 
     assert_eq!(page.nodes[0].path, "wiki/schema");
     assert_eq!(page.nodes[1].name, "index.md");
     assert_eq!(page.nodes[1].kind, DriveNodeKind::File);
-    assert_eq!(
-        page.nodes[1].content_type.as_deref(),
-        Some("text/markdown; charset=utf-8")
-    );
+    assert_eq!(page.nodes[1].content_type.as_deref(), Some("text/markdown"));
     assert_eq!(page.nodes[1].size_bytes, Some(11));
     assert_eq!(page.next_cursor, None);
 }
@@ -514,6 +733,435 @@ fn not_supported_message() -> DriveObjectStoreError {
     DriveObjectStoreError::new(DriveObjectStoreErrorKind::NotSupported, "not supported")
 }
 
+#[derive(Default)]
+struct VersionlessDriveObjectStore {
+    objects: Mutex<HashMap<String, Vec<u8>>>,
+}
+
+#[async_trait]
+impl DriveObjectStore for VersionlessDriveObjectStore {
+    fn provider_kind(&self) -> DriveStorageProviderKind {
+        DriveStorageProviderKind::LocalFilesystem
+    }
+
+    fn capabilities(&self) -> DriveStorageProviderCapabilities {
+        DriveStorageProviderCapabilities::default_local_filesystem()
+    }
+
+    async fn put_object(
+        &self,
+        request: PutObjectRequest,
+    ) -> Result<PutObjectResponse, DriveObjectStoreError> {
+        self.objects
+            .lock()
+            .unwrap()
+            .insert(request.locator.object_key.clone(), request.body);
+
+        Ok(PutObjectResponse {
+            locator: request.locator,
+            etag: None,
+            version_id: None,
+        })
+    }
+
+    async fn head_object(
+        &self,
+        request: HeadObjectRequest,
+    ) -> Result<HeadObjectResponse, DriveObjectStoreError> {
+        let objects = self.objects.lock().unwrap();
+        let body = objects.get(&request.locator.object_key).ok_or_else(|| {
+            DriveObjectStoreError::new(DriveObjectStoreErrorKind::NotFound, "missing")
+        })?;
+
+        Ok(HeadObjectResponse {
+            locator: request.locator,
+            content_length: body.len() as u64,
+            content_type: Some("text/markdown; charset=utf-8".to_string()),
+            etag: None,
+            version_id: None,
+            checksum_sha256_hex: None,
+            metadata: Default::default(),
+        })
+    }
+
+    async fn read_object_range(
+        &self,
+        request: ReadObjectRangeRequest,
+    ) -> Result<(ReadObjectRangeResponse, Box<dyn DriveObjectChunkStream>), DriveObjectStoreError>
+    {
+        let objects = self.objects.lock().unwrap();
+        let body = objects.get(&request.locator.object_key).ok_or_else(|| {
+            DriveObjectStoreError::new(DriveObjectStoreErrorKind::NotFound, "missing")
+        })?;
+
+        Ok((
+            ReadObjectRangeResponse {
+                locator: request.locator,
+                content_type: Some("text/markdown; charset=utf-8".to_string()),
+                etag: None,
+                content_length: body.len() as u64,
+            },
+            Box::new(SingleChunkStream {
+                next: Some(body.clone()),
+            }),
+        ))
+    }
+
+    async fn delete_object(
+        &self,
+        request: DeleteObjectRequest,
+    ) -> Result<DeleteObjectResponse, DriveObjectStoreError> {
+        let deleted = self
+            .objects
+            .lock()
+            .unwrap()
+            .remove(&request.locator.object_key)
+            .is_some();
+        Ok(DeleteObjectResponse {
+            locator: request.locator,
+            deleted,
+        })
+    }
+
+    async fn head_bucket(
+        &self,
+        request: HeadBucketRequest,
+    ) -> Result<HeadBucketResponse, DriveObjectStoreError> {
+        Ok(HeadBucketResponse {
+            bucket: request.bucket,
+            exists: true,
+        })
+    }
+
+    async fn create_bucket(
+        &self,
+        request: CreateBucketRequest,
+    ) -> Result<CreateBucketResponse, DriveObjectStoreError> {
+        Ok(CreateBucketResponse {
+            bucket: request.bucket,
+            created: false,
+        })
+    }
+
+    async fn delete_bucket(
+        &self,
+        request: DeleteBucketRequest,
+    ) -> Result<DeleteBucketResponse, DriveObjectStoreError> {
+        Ok(DeleteBucketResponse {
+            bucket: request.bucket,
+            deleted: false,
+        })
+    }
+
+    async fn list_objects(
+        &self,
+        request: ListObjectsRequest,
+    ) -> Result<ListObjectsResponse, DriveObjectStoreError> {
+        let prefix = request.prefix.clone().unwrap_or_default();
+        let items = self
+            .objects
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(object_key, _)| object_key.starts_with(&prefix))
+            .take(request.max_keys as usize)
+            .map(|(object_key, body)| ListedObject {
+                object_key: object_key.clone(),
+                content_length: body.len() as u64,
+                etag: None,
+                storage_class: None,
+                last_modified_epoch_ms: None,
+            })
+            .collect();
+        Ok(ListObjectsResponse {
+            bucket: request.bucket,
+            prefix: request.prefix,
+            items,
+            next_continuation_token: None,
+            is_truncated: false,
+        })
+    }
+
+    async fn copy_object(
+        &self,
+        request: CopyObjectRequest,
+    ) -> Result<CopyObjectResponse, DriveObjectStoreError> {
+        let body = self
+            .objects
+            .lock()
+            .unwrap()
+            .get(&request.source.object_key)
+            .cloned()
+            .ok_or_else(|| {
+                DriveObjectStoreError::new(DriveObjectStoreErrorKind::NotFound, "missing")
+            })?;
+        self.objects
+            .lock()
+            .unwrap()
+            .insert(request.destination.object_key.clone(), body);
+        Ok(CopyObjectResponse {
+            locator: request.destination,
+            etag: None,
+            version_id: None,
+        })
+    }
+
+    async fn create_multipart_upload(
+        &self,
+        request: CreateMultipartUploadRequest,
+    ) -> Result<CreateMultipartUploadResponse, DriveObjectStoreError> {
+        Err(not_supported(request.locator))
+    }
+
+    async fn presign_upload_part(
+        &self,
+        _request: PresignUploadPartRequest,
+    ) -> Result<PresignedUploadPartResponse, DriveObjectStoreError> {
+        Err(not_supported_message())
+    }
+
+    async fn complete_multipart_upload(
+        &self,
+        request: CompleteMultipartUploadRequest,
+    ) -> Result<CompleteMultipartUploadResponse, DriveObjectStoreError> {
+        Err(not_supported(request.locator))
+    }
+
+    async fn abort_multipart_upload(
+        &self,
+        _request: AbortMultipartUploadRequest,
+    ) -> Result<(), DriveObjectStoreError> {
+        Err(not_supported_message())
+    }
+
+    async fn presign_download(
+        &self,
+        _request: PresignDownloadRequest,
+    ) -> Result<PresignedDownloadResponse, DriveObjectStoreError> {
+        Err(not_supported_message())
+    }
+}
+
+#[derive(Default)]
+struct BlankVersionDriveObjectStore {
+    objects: Mutex<HashMap<String, Vec<u8>>>,
+}
+
+#[async_trait]
+impl DriveObjectStore for BlankVersionDriveObjectStore {
+    fn provider_kind(&self) -> DriveStorageProviderKind {
+        DriveStorageProviderKind::LocalFilesystem
+    }
+
+    fn capabilities(&self) -> DriveStorageProviderCapabilities {
+        DriveStorageProviderCapabilities::default_local_filesystem()
+    }
+
+    async fn put_object(
+        &self,
+        request: PutObjectRequest,
+    ) -> Result<PutObjectResponse, DriveObjectStoreError> {
+        self.objects
+            .lock()
+            .unwrap()
+            .insert(request.locator.object_key.clone(), request.body);
+
+        Ok(PutObjectResponse {
+            locator: request.locator,
+            etag: None,
+            version_id: Some("   ".to_string()),
+        })
+    }
+
+    async fn head_object(
+        &self,
+        request: HeadObjectRequest,
+    ) -> Result<HeadObjectResponse, DriveObjectStoreError> {
+        let objects = self.objects.lock().unwrap();
+        let body = objects.get(&request.locator.object_key).ok_or_else(|| {
+            DriveObjectStoreError::new(DriveObjectStoreErrorKind::NotFound, "missing")
+        })?;
+
+        Ok(HeadObjectResponse {
+            locator: request.locator,
+            content_length: body.len() as u64,
+            content_type: Some("text/markdown; charset=utf-8".to_string()),
+            etag: None,
+            version_id: Some(String::new()),
+            checksum_sha256_hex: Some(test_checksum_sha256_hex(body)),
+            metadata: Default::default(),
+        })
+    }
+
+    async fn read_object_range(
+        &self,
+        request: ReadObjectRangeRequest,
+    ) -> Result<(ReadObjectRangeResponse, Box<dyn DriveObjectChunkStream>), DriveObjectStoreError>
+    {
+        let objects = self.objects.lock().unwrap();
+        let body = objects.get(&request.locator.object_key).ok_or_else(|| {
+            DriveObjectStoreError::new(DriveObjectStoreErrorKind::NotFound, "missing")
+        })?;
+
+        Ok((
+            ReadObjectRangeResponse {
+                locator: request.locator,
+                content_type: Some("text/markdown; charset=utf-8".to_string()),
+                etag: None,
+                content_length: body.len() as u64,
+            },
+            Box::new(SingleChunkStream {
+                next: Some(body.clone()),
+            }),
+        ))
+    }
+
+    async fn delete_object(
+        &self,
+        request: DeleteObjectRequest,
+    ) -> Result<DeleteObjectResponse, DriveObjectStoreError> {
+        let deleted = self
+            .objects
+            .lock()
+            .unwrap()
+            .remove(&request.locator.object_key)
+            .is_some();
+        Ok(DeleteObjectResponse {
+            locator: request.locator,
+            deleted,
+        })
+    }
+
+    async fn head_bucket(
+        &self,
+        request: HeadBucketRequest,
+    ) -> Result<HeadBucketResponse, DriveObjectStoreError> {
+        Ok(HeadBucketResponse {
+            bucket: request.bucket,
+            exists: true,
+        })
+    }
+
+    async fn create_bucket(
+        &self,
+        request: CreateBucketRequest,
+    ) -> Result<CreateBucketResponse, DriveObjectStoreError> {
+        Ok(CreateBucketResponse {
+            bucket: request.bucket,
+            created: false,
+        })
+    }
+
+    async fn delete_bucket(
+        &self,
+        request: DeleteBucketRequest,
+    ) -> Result<DeleteBucketResponse, DriveObjectStoreError> {
+        Ok(DeleteBucketResponse {
+            bucket: request.bucket,
+            deleted: false,
+        })
+    }
+
+    async fn list_objects(
+        &self,
+        request: ListObjectsRequest,
+    ) -> Result<ListObjectsResponse, DriveObjectStoreError> {
+        let prefix = request.prefix.clone().unwrap_or_default();
+        let items = self
+            .objects
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(object_key, _)| object_key.starts_with(&prefix))
+            .take(request.max_keys as usize)
+            .map(|(object_key, body)| ListedObject {
+                object_key: object_key.clone(),
+                content_length: body.len() as u64,
+                etag: None,
+                storage_class: None,
+                last_modified_epoch_ms: None,
+            })
+            .collect();
+        Ok(ListObjectsResponse {
+            bucket: request.bucket,
+            prefix: request.prefix,
+            items,
+            next_continuation_token: None,
+            is_truncated: false,
+        })
+    }
+
+    async fn copy_object(
+        &self,
+        request: CopyObjectRequest,
+    ) -> Result<CopyObjectResponse, DriveObjectStoreError> {
+        let body = self
+            .objects
+            .lock()
+            .unwrap()
+            .get(&request.source.object_key)
+            .cloned()
+            .ok_or_else(|| {
+                DriveObjectStoreError::new(DriveObjectStoreErrorKind::NotFound, "missing")
+            })?;
+        self.objects
+            .lock()
+            .unwrap()
+            .insert(request.destination.object_key.clone(), body);
+        Ok(CopyObjectResponse {
+            locator: request.destination,
+            etag: None,
+            version_id: Some(String::new()),
+        })
+    }
+
+    async fn create_multipart_upload(
+        &self,
+        request: CreateMultipartUploadRequest,
+    ) -> Result<CreateMultipartUploadResponse, DriveObjectStoreError> {
+        Err(not_supported(request.locator))
+    }
+
+    async fn presign_upload_part(
+        &self,
+        _request: PresignUploadPartRequest,
+    ) -> Result<PresignedUploadPartResponse, DriveObjectStoreError> {
+        Err(not_supported_message())
+    }
+
+    async fn complete_multipart_upload(
+        &self,
+        request: CompleteMultipartUploadRequest,
+    ) -> Result<CompleteMultipartUploadResponse, DriveObjectStoreError> {
+        Err(not_supported(request.locator))
+    }
+
+    async fn abort_multipart_upload(
+        &self,
+        _request: AbortMultipartUploadRequest,
+    ) -> Result<(), DriveObjectStoreError> {
+        Err(not_supported_message())
+    }
+
+    async fn presign_download(
+        &self,
+        _request: PresignDownloadRequest,
+    ) -> Result<PresignedDownloadResponse, DriveObjectStoreError> {
+        Err(not_supported_message())
+    }
+}
+
+fn test_checksum_sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+
+    let digest = Sha256::digest(bytes);
+    let mut output = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        output.push_str(&format!("{byte:02x}"));
+    }
+    output
+}
+
 async fn sqlite_drive_pool() -> sqlx::AnyPool {
     sqlx::any::install_default_drivers();
     let pool = sqlx::any::AnyPoolOptions::new()
@@ -528,18 +1176,23 @@ async fn sqlite_drive_pool() -> sqlx::AnyPool {
 }
 
 async fn seed_drive_space(pool: &sqlx::AnyPool, tenant_id: &str, drive_space_id: &str) {
-    sqlx::query(
-        "INSERT INTO drive_space (
-            id, tenant_id, owner_subject_type, owner_subject_id, space_type, display_name,
-            lifecycle_status, version, created_by, updated_by
-         ) VALUES ($1, $2, 'app', 'sdkwork-knowledgebase', 'knowledge_base', 'Knowledge',
-            'active', 1, 'system', 'system')",
-    )
-    .bind(drive_space_id)
-    .bind(tenant_id)
-    .execute(pool)
-    .await
-    .unwrap();
+    let knowledge_space_uuid = drive_space_id
+        .strip_prefix("kb-")
+        .unwrap_or(drive_space_id)
+        .to_string();
+    let binding = KnowledgebaseDriveSpaceProvisionerAdapter::new(pool.clone())
+        .create_knowledge_drive_space(CreateKnowledgeDriveSpaceRequest {
+            tenant_id: tenant_id.to_string(),
+            knowledge_space_id: 1,
+            knowledge_space_uuid,
+            display_name: "Knowledge".to_string(),
+            owner_subject_type: "app".to_string(),
+            owner_subject_id: format!("sdkwork-knowledgebase:{drive_space_id}"),
+            operator_id: "system".to_string(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(binding.drive_space_id, drive_space_id);
 }
 
 fn folder_node(logical_path: &str) -> EnsureKnowledgeDriveNodeRequest {

@@ -1,0 +1,317 @@
+{
+  "schemaVersion": 1,
+  "generator": "@sdkwork/sdk-generator",
+  "artifacts": {
+    "stateDir": ".sdkwork",
+    "manifestPath": ".sdkwork/sdkwork-generator-manifest.json",
+    "changeSummaryPath": ".sdkwork/sdkwork-generator-changes.json",
+    "executionReportPath": ".sdkwork/sdkwork-generator-report.json",
+    "manualBackupDir": ".sdkwork/manual-backups"
+  },
+  "status": "ok",
+  "mode": "apply",
+  "hasChanges": true,
+  "hasDestructiveChanges": false,
+  "changeFingerprint": "25e5e7cca7dbaeef6b1ffc71a3e41722621f4d9273d4b6c0b6de9f82a7760d11",
+  "changeImpact": {
+    "schemaVersion": 1,
+    "areas": [
+      "build-metadata"
+    ],
+    "details": [
+      {
+        "area": "build-metadata",
+        "paths": [
+          "sdkwork-sdk.json"
+        ]
+      }
+    ],
+    "requiresVerification": true,
+    "summary": "Detected impact areas: build-metadata. Verification is required."
+  },
+  "executionDecision": {
+    "schemaVersion": 1,
+    "riskLevel": "medium",
+    "nextAction": "verify",
+    "requiresManualReview": false,
+    "applyRequiresExpectedFingerprint": false,
+    "summary": "Changes have been applied. Run the required verification plan now.",
+    "reasons": [
+      "verification-required"
+    ]
+  },
+  "executionHandoff": {
+    "schemaVersion": 1,
+    "summary": "Run the required verification commands now.",
+    "steps": [
+      {
+        "id": "verify-check",
+        "title": "Unified package check",
+        "required": true,
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: build-metadata.",
+        "workingDirectory": "D:\\sdkwork-opensource\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "check"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action check"
+      },
+      {
+        "id": "verify-build",
+        "title": "Unified package build",
+        "required": true,
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: build-metadata.",
+        "workingDirectory": "D:\\sdkwork-opensource\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "build"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action build"
+      }
+    ]
+  },
+  "verificationPlan": {
+    "shouldRun": true,
+    "runPhase": "now",
+    "summary": "Detected impact areas: build-metadata. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "steps": [
+      {
+        "id": "check",
+        "title": "Unified package check",
+        "required": true,
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: build-metadata.",
+        "workingDirectory": "D:\\sdkwork-opensource\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "check"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action check"
+      },
+      {
+        "id": "build",
+        "title": "Unified package build",
+        "required": true,
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: build-metadata.",
+        "workingDirectory": "D:\\sdkwork-opensource\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "build"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action build"
+      }
+    ]
+  },
+  "sdk": {
+    "name": "KnowledgebaseApp",
+    "version": "0.1.0",
+    "language": "typescript",
+    "sdkType": "app",
+    "outputPath": "D:\\sdkwork-opensource\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
+    "packageName": "@sdkwork/knowledgebase-app-sdk"
+  },
+  "versioning": {
+    "resolvedVersion": "0.1.0",
+    "localVersions": []
+  },
+  "stats": {
+    "totalFiles": 77,
+    "models": 53,
+    "apis": 1,
+    "types": 55
+  },
+  "warnings": [],
+  "syncSummary": {
+    "dryRun": false,
+    "writtenFiles": 1,
+    "skippedScaffoldFiles": 2,
+    "skippedUnchangedGeneratedFiles": 74,
+    "deletedGeneratedFiles": 0,
+    "changeSummaryPath": ".sdkwork/sdkwork-generator-changes.json",
+    "changeFingerprint": "25e5e7cca7dbaeef6b1ffc71a3e41722621f4d9273d4b6c0b6de9f82a7760d11",
+    "changes": {
+      "createdGeneratedFiles": [],
+      "updatedGeneratedFiles": [
+        "sdkwork-sdk.json"
+      ],
+      "unchangedGeneratedFiles": [
+        "bin/publish-core.mjs",
+        "bin/publish.ps1",
+        "bin/publish.sh",
+        "bin/sdk-gen.bat",
+        "bin/sdk-gen.sh",
+        "CHANGELOG.md",
+        "LICENSE",
+        "package.json",
+        "README.md",
+        "src/api/base.ts",
+        "src/api/index.ts",
+        "src/api/knowledge.ts",
+        "src/api/paths.ts",
+        "src/auth/index.ts",
+        "src/http/client.ts",
+        "src/http/index.ts",
+        "src/index.ts",
+        "src/sdk.ts",
+        "src/types/common.ts",
+        "src/types/create-knowledge-document-request.ts",
+        "src/types/create-knowledge-document-version-request.ts",
+        "src/types/create-knowledge-source-request.ts",
+        "src/types/create-knowledge-space-request.ts",
+        "src/types/index.ts",
+        "src/types/ingestion-job-state.ts",
+        "src/types/ingestion-job.ts",
+        "src/types/knowledge-browser-node-permissions.ts",
+        "src/types/knowledge-browser-node-type.ts",
+        "src/types/knowledge-browser-node.ts",
+        "src/types/knowledge-browser-page.ts",
+        "src/types/knowledge-browser-view.ts",
+        "src/types/knowledge-document-list.ts",
+        "src/types/knowledge-document-state.ts",
+        "src/types/knowledge-document-version-list.ts",
+        "src/types/knowledge-document-version-state.ts",
+        "src/types/knowledge-document-version.ts",
+        "src/types/knowledge-document-visibility.ts",
+        "src/types/knowledge-document.ts",
+        "src/types/knowledge-drive-import-request.ts",
+        "src/types/knowledge-drive-import-result.ts",
+        "src/types/knowledge-drive-object-ref.ts",
+        "src/types/knowledge-ingest-request.ts",
+        "src/types/knowledge-source-list.ts",
+        "src/types/knowledge-source-type.ts",
+        "src/types/knowledge-source.ts",
+        "src/types/knowledge-space-status.ts",
+        "src/types/knowledge-space.ts",
+        "src/types/knowledge-wiki-file-entry-list.ts",
+        "src/types/knowledge-wiki-file-entry.ts",
+        "src/types/knowledge-wiki-page-revision-list.ts",
+        "src/types/knowledge-wiki-page-revision.ts",
+        "src/types/knowledge-wiki-schema-profile-request.ts",
+        "src/types/list-knowledge-browser-request.ts",
+        "src/types/problem-details.ts",
+        "src/types/wiki-candidate-result.ts",
+        "src/types/wiki-candidate-review-request.ts",
+        "src/types/wiki-compile-job-request.ts",
+        "src/types/wiki-context-pack-request.ts",
+        "src/types/wiki-export-request.ts",
+        "src/types/wiki-file-answer-request.ts",
+        "src/types/wiki-file-entry-type.ts",
+        "src/types/wiki-index-document.ts",
+        "src/types/wiki-index-rebuild-request.ts",
+        "src/types/wiki-log-document.ts",
+        "src/types/wiki-log-entry.ts",
+        "src/types/wiki-page-publish-request.ts",
+        "src/types/wiki-page-summary-list.ts",
+        "src/types/wiki-page-summary.ts",
+        "src/types/wiki-quality-run-request.ts",
+        "src/types/wiki-quality-run.ts",
+        "src/types/wiki-query-request.ts",
+        "src/types/wiki-query-result.ts",
+        "src/types/wiki-schema-document.ts",
+        "tsconfig.json"
+      ],
+      "deletedGeneratedFiles": [],
+      "scaffoldedFiles": [],
+      "preservedScaffoldFiles": [
+        "custom/build-runtime.mjs",
+        "custom/README.md"
+      ],
+      "backedUpFiles": []
+    },
+    "impact": {
+      "schemaVersion": 1,
+      "areas": [
+        "build-metadata"
+      ],
+      "details": [
+        {
+          "area": "build-metadata",
+          "paths": [
+            "sdkwork-sdk.json"
+          ]
+        }
+      ],
+      "requiresVerification": true,
+      "summary": "Detected impact areas: build-metadata. Verification is required."
+    },
+    "verificationPlan": {
+      "shouldRun": true,
+      "runPhase": "now",
+      "summary": "Detected impact areas: build-metadata. Verification is required. Run the required verification commands now against the generated SDK output.",
+      "steps": [
+        {
+          "id": "check",
+          "title": "Unified package check",
+          "required": true,
+          "rationale": "Validate the generated package with the unified publish helper. Triggered by: build-metadata.",
+          "workingDirectory": "D:\\sdkwork-opensource\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
+          "command": "node",
+          "args": [
+            "./bin/publish-core.mjs",
+            "--language",
+            "typescript",
+            "--project-dir",
+            ".",
+            "--action",
+            "check"
+          ],
+          "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action check"
+        },
+        {
+          "id": "build",
+          "title": "Unified package build",
+          "required": true,
+          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: build-metadata.",
+          "workingDirectory": "D:\\sdkwork-opensource\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
+          "command": "node",
+          "args": [
+            "./bin/publish-core.mjs",
+            "--language",
+            "typescript",
+            "--project-dir",
+            ".",
+            "--action",
+            "build"
+          ],
+          "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action build"
+        }
+      ]
+    },
+    "executionDecision": {
+      "schemaVersion": 1,
+      "riskLevel": "medium",
+      "nextAction": "verify",
+      "requiresManualReview": false,
+      "applyRequiresExpectedFingerprint": false,
+      "summary": "Changes have been applied. Run the required verification plan now.",
+      "reasons": [
+        "verification-required"
+      ]
+    },
+    "backedUpFiles": [],
+    "preservedLegacyFiles": false
+  }
+}

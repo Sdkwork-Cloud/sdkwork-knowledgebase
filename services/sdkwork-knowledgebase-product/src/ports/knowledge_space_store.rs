@@ -21,6 +21,8 @@ pub trait KnowledgeSpaceStore: Send + Sync {
         &self,
         space_id: u64,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError>;
+
+    async fn mark_space_deleted(&self, space_id: u64) -> Result<(), KnowledgeSpaceStoreError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

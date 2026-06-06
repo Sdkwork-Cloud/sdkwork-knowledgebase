@@ -74,6 +74,7 @@ impl<'a> KnowledgeWikiPageService<'a> {
         drive_space_id: Option<&str>,
     ) -> Result<KnowledgeWikiPagePublication, KnowledgeWikiPageServiceError> {
         validate_publish_request(&request)?;
+        let drive_space_id = self.required_drive_space_id(drive_space_id)?;
         let page_dir = wiki_page_dir(request.page_type, &request.slug)?;
         let current_file_path = format!("{page_dir}/current.md");
 
@@ -103,7 +104,7 @@ impl<'a> KnowledgeWikiPageService<'a> {
         self.object_refs
             .create_or_get_object_ref(object_ref_record(
                 request.space_id,
-                drive_space_id,
+                drive_space_id.as_deref(),
                 None,
                 &current_ref,
             ))
@@ -112,7 +113,7 @@ impl<'a> KnowledgeWikiPageService<'a> {
             .object_refs
             .create_or_get_object_ref(object_ref_record(
                 request.space_id,
-                drive_space_id,
+                drive_space_id.as_deref(),
                 None,
                 &revision_ref,
             ))
@@ -137,7 +138,7 @@ impl<'a> KnowledgeWikiPageService<'a> {
             .await?;
 
         self.ensure_drive_nodes(
-            drive_space_id,
+            drive_space_id.as_deref(),
             [
                 folder_node(&page_dir),
                 folder_node(&format!("{page_dir}/revisions")),
@@ -160,7 +161,8 @@ impl<'a> KnowledgeWikiPageService<'a> {
                 privacy_level: "internal".to_string(),
             })
             .await?;
-        self.rebuild_standard_files(request.space_id).await?;
+        self.rebuild_standard_files(request.space_id, drive_space_id.as_deref())
+            .await?;
 
         Ok(KnowledgeWikiPagePublication {
             page,
@@ -190,6 +192,7 @@ impl<'a> KnowledgeWikiPageService<'a> {
     async fn rebuild_standard_files(
         &self,
         space_id: u64,
+        drive_space_id: Option<&str>,
     ) -> Result<(), KnowledgeWikiPageServiceError> {
         let Some(file_entries) = self.file_entries else {
             return Ok(());
@@ -209,11 +212,13 @@ impl<'a> KnowledgeWikiPageService<'a> {
         upsert_file_entry(
             file_entries,
             space_id,
-            index_ref,
+            &index_ref,
             WikiFileEntryType::WikiIndex,
         )
         .await?;
-        upsert_file_entry(file_entries, space_id, log_ref, WikiFileEntryType::WikiLog).await?;
+        upsert_file_entry(file_entries, space_id, &log_ref, WikiFileEntryType::WikiLog).await?;
+        self.ensure_drive_nodes(drive_space_id, [file_node(&index_ref), file_node(&log_ref)])
+            .await?;
         Ok(())
     }
 
@@ -242,23 +247,43 @@ impl<'a> KnowledgeWikiPageService<'a> {
             .await?;
         Ok(())
     }
+
+    fn required_drive_space_id(
+        &self,
+        drive_space_id: Option<&str>,
+    ) -> Result<Option<String>, KnowledgeWikiPageServiceError> {
+        if self.drive_workspace.is_none() {
+            return Ok(None);
+        }
+        drive_space_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .map(Some)
+            .ok_or_else(|| {
+                KnowledgeWikiPageServiceError::InvalidRequest(
+                    "drive_space_id is required when drive workspace synchronization is enabled"
+                        .to_string(),
+                )
+            })
+    }
 }
 
 async fn upsert_file_entry(
     file_entries: &dyn KnowledgeWikiFileEntryStore,
     space_id: u64,
-    object_ref: KnowledgeObjectRef,
+    object_ref: &KnowledgeObjectRef,
     entry_type: WikiFileEntryType,
 ) -> Result<(), KnowledgeWikiPageServiceError> {
     file_entries
         .upsert_file_entry(CreateKnowledgeWikiFileEntryRecord {
             space_id,
-            logical_path: object_ref.logical_path,
+            logical_path: object_ref.logical_path.clone(),
             entry_type,
-            artifact_role: object_ref.object_role,
-            drive_bucket: object_ref.bucket,
-            drive_object_key: object_ref.object_key,
-            checksum_sha256_hex: object_ref.checksum_sha256_hex,
+            artifact_role: object_ref.object_role.clone(),
+            drive_bucket: object_ref.bucket.clone(),
+            drive_object_key: object_ref.object_key.clone(),
+            checksum_sha256_hex: object_ref.checksum_sha256_hex.clone(),
         })
         .await?;
     Ok(())

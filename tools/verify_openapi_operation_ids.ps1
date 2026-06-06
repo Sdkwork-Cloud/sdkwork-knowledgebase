@@ -1,8 +1,8 @@
 $ErrorActionPreference = "Stop"
 
 $specPaths = @(
-    "sdks/sdkwork-knowledgebase-app-api/openapi/knowledgebase-app-api.openapi.json",
-    "sdks/sdkwork-knowledgebase-backend-api/openapi/knowledgebase-backend-api.openapi.json"
+    "sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json",
+    "sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
 )
 
 $required = @(
@@ -39,12 +39,57 @@ foreach ($specPath in $specPaths) {
         throw "OpenAPI spec has no component schemas: $specPath"
     }
 
+    $securitySchemes = $spec.components.securitySchemes
+    if (!$securitySchemes) {
+        throw "OpenAPI spec must define SDKWork v3 security schemes: $specPath"
+    }
+
+    $authToken = $securitySchemes.AuthToken
+    if (!$authToken -or $authToken.type -ne "http" -or $authToken.scheme -ne "bearer") {
+        throw "OpenAPI spec must define AuthToken as HTTP bearer security: $specPath"
+    }
+
+    $accessToken = $securitySchemes.AccessToken
+    if (
+        !$accessToken `
+        -or $accessToken.type -ne "apiKey" `
+        -or $accessToken.in -ne "header" `
+        -or $accessToken.name -ne "Access-Token"
+    ) {
+        throw "OpenAPI spec must define AccessToken as Access-Token header apiKey security: $specPath"
+    }
+
     foreach ($pathProperty in $spec.paths.PSObject.Properties) {
         foreach ($methodProperty in $pathProperty.Value.PSObject.Properties) {
             $operationId = $methodProperty.Value.operationId
             if ($operationId) {
+                $operation = $methodProperty.Value
+
                 if (!$methodProperty.Value.responses) {
                     throw "OpenAPI operation has no responses: $operationId"
+                }
+
+                $operationSecurity = $operation.security
+                if (!$operationSecurity -or $operationSecurity.Count -eq 0) {
+                    throw "OpenAPI operation must declare SDKWork v3 security or explicit anonymous security: $operationId"
+                }
+
+                $firstSecurity = $operationSecurity[0]
+                if (
+                    !$firstSecurity.PSObject.Properties["AuthToken"] `
+                    -or !$firstSecurity.PSObject.Properties["AccessToken"]
+                ) {
+                    throw "OpenAPI operation must require both AuthToken and AccessToken: $operationId"
+                }
+
+                foreach ($errorStatus in @("400", "404")) {
+                    $responseProperty = $operation.responses.PSObject.Properties[$errorStatus]
+                    if ($responseProperty) {
+                        $content = $responseProperty.Value.content
+                        if (!$content -or !$content.PSObject.Properties["application/problem+json"]) {
+                            throw "OpenAPI error response $errorStatus must include application/problem+json: $operationId"
+                        }
+                    }
                 }
 
                 if ($pathProperty.Name.Contains("{") -and !$methodProperty.Value.parameters) {

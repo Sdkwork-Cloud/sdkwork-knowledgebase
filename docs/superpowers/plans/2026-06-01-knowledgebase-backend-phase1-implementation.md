@@ -49,8 +49,8 @@ Create:
 - `crates/sdkwork-knowledgebase-test-support` - fake drive store and fixtures.
 - `services/sdkwork-knowledgebase-product` - product services, ports, and renderers.
 - `services/sdkwork-knowledgebase-storage-sqlx` - migration registry and SQLx-facing schema placeholders.
-- `sdks/sdkwork-knowledgebase-app-api/openapi/knowledgebase-app-api.openapi.json`
-- `sdks/sdkwork-knowledgebase-backend-api/openapi/knowledgebase-backend-api.openapi.json`
+- `sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json`
+- `sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json`
 - `tools/verify_phase1.ps1` - local verification command.
 
 Modify:
@@ -330,8 +330,8 @@ Expected: all tests pass.
 ## Task 8: OpenAPI Skeletons
 
 **Files:**
-- Create: `sdks/sdkwork-knowledgebase-app-api/openapi/knowledgebase-app-api.openapi.json`
-- Create: `sdks/sdkwork-knowledgebase-backend-api/openapi/knowledgebase-backend-api.openapi.json`
+- Create: `sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json`
+- Create: `sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json`
 - Create: `tools/verify_openapi_operation_ids.ps1`
 
 - [ ] **Step 1: Write OpenAPI skeletons**
@@ -475,7 +475,7 @@ Excluded:
 ## Task 14: OpenAPI and Verification Update
 
 **Files:**
-- Modify: `sdks/sdkwork-knowledgebase-app-api/openapi/knowledgebase-app-api.openapi.json`
+- Modify: `sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json`
 - Modify: `tools/verify_openapi_operation_ids.ps1`
 - Test: `tools/verify_phase1.ps1`
 

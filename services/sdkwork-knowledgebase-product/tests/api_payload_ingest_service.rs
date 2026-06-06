@@ -85,6 +85,39 @@ async fn api_markdown_ingest_does_not_overwrite_existing_payload_for_same_idempo
 }
 
 #[tokio::test]
+async fn api_markdown_ingest_trims_idempotency_key_before_lookup() {
+    let drive = RecordingDrive::default();
+    let jobs = MemoryIngestionJobStore::default();
+    let service = KnowledgeApiPayloadIngestService::new(&drive, &jobs);
+
+    let request = KnowledgeIngestRequest {
+        space_id: 7,
+        title: "API payload note".to_string(),
+        payload_markdown: "# Original\n\nFirst payload.".to_string(),
+        idempotency_key: "api-note-1".to_string(),
+    };
+    let replay_request = KnowledgeIngestRequest {
+        idempotency_key: " api-note-1 ".to_string(),
+        payload_markdown: "# Replacement\n\nThis must not overwrite.".to_string(),
+        ..request.clone()
+    };
+
+    let first = service.ingest_markdown_payload(request).await.unwrap();
+    let replay = service
+        .ingest_markdown_payload(replay_request)
+        .await
+        .unwrap();
+
+    assert_eq!(first.job.id, replay.job.id);
+    assert_eq!(replay.job.idempotency_key, "api-note-1");
+    assert_eq!(drive.write_count(), 1);
+    assert_eq!(
+        drive.body_at("inbox/api/1/payload.md"),
+        Some("# Original\n\nFirst payload.".to_string())
+    );
+}
+
+#[tokio::test]
 async fn api_markdown_ingest_rejects_empty_payload_and_unsafe_idempotency_key() {
     let drive = RecordingDrive::default();
     let jobs = MemoryIngestionJobStore::default();

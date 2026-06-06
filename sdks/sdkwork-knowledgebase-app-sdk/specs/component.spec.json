@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-app-sdk",
+    "displayName": "SDKWork Knowledgebase App API SDK",
+    "version": "0.1.0",
+    "type": "sdk-family",
+    "root": "sdkwork-knowledgebase/sdks/sdkwork-knowledgebase-app-sdk",
+    "domain": "knowledgebase",
+    "capability": "knowledgebase",
+    "status": "standardized",
+    "languages": [
+      "typescript"
+    ],
+    "generated": true,
+    "private": false,
+    "manifests": [
+      ".sdkwork-assembly.json",
+      "sdk-manifest.json"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "API_SPEC.md",
+      "path": "../../../../../javasource/spring-ai-plus/spring-ai-plus-business/specs/API_SPEC.md",
+      "purpose": "HTTP/OpenAPI and generated SDK contract rules."
+    },
+    {
+      "file": "SDK_SPEC.md",
+      "path": "../../../../../javasource/spring-ai-plus/spring-ai-plus-business/specs/SDK_SPEC.md",
+      "purpose": "SDK generation, SDK dependency, and SDK integration rules."
+    },
+    {
+      "file": "SDK_WORKSPACE_GENERATION_SPEC.md",
+      "path": "../../../../../javasource/spring-ai-plus/spring-ai-plus-business/specs/SDK_WORKSPACE_GENERATION_SPEC.md",
+      "purpose": "SDK workspace, SDK family naming, API authority naming, and OpenAPI generation rules."
+    }
+  ],
+  "contracts": {
+    "apiAuthority": {
+      "name": "sdkwork-knowledgebase.app",
+      "prefix": "/app/v3/api",
+      "authorityOpenApi": "openapi/knowledgebase-app-api.openapi.json",
+      "derivedOpenApi": [
+        "openapi/knowledgebase-app-api.openapi.json"
+      ],
+      "owner": "sdkwork-knowledgebase",
+      "standard": "../../../../../javasource/spring-ai-plus/spring-ai-plus-business/specs/SDK_WORKSPACE_GENERATION_SPEC.md"
+    },
+    "publicExports": [],
+    "runtimeEntrypoints": [
+      ".sdkwork-assembly.json"
+    ],
+    "sdkDependencies": [
+      {
+        "workspace": "sdkwork-appbase-app-sdk",
+        "role": "appbase-identity-and-session-capability",
+        "required": true,
+        "dependencyMode": "consumer-sdk",
+        "apiPrefix": "/app/v3/api",
+        "apiAuthority": "sdkwork-appbase.app",
+        "generatedTransportImportPolicy": "forbidden",
+        "packageByLanguage": {
+          "typescript": "@sdkwork/appbase-app-sdk",
+          "rust": "sdkwork-appbase-app-sdk",
+          "java": "com.sdkwork:sdkwork-appbase-app-sdk",
+          "python": "sdkwork-appbase-app-sdk",
+          "go": "github.com/sdkwork/sdkwork-appbase-app-sdk"
+        }
+      },
+      {
+        "workspace": "sdkwork-drive-app-sdk",
+        "role": "drive-file-and-media-capability",
+        "required": true,
+        "dependencyMode": "consumer-sdk",
+        "apiPrefix": "/app/v3/api",
+        "apiAuthority": "sdkwork-drive.app",
+        "generatedTransportImportPolicy": "forbidden",
+        "packageByLanguage": {
+          "typescript": "@sdkwork/drive-app-sdk",
+          "rust": "sdkwork-drive-app-sdk",
+          "java": "com.sdkwork:sdkwork-drive-app-sdk",
+          "python": "sdkwork-drive-app-sdk",
+          "go": "github.com/sdkwork/sdkwork-drive-app-sdk"
+        }
+      }
+    ],
+    "sdkClients": [
+      "SdkworkAppClient"
+    ],
+    "events": [],
+    "configKeys": [
+      ".sdkwork-assembly.json",
+      "sdk-manifest.json"
+    ]
+  },
+  "integration": {
+    "authority": "Root SDKWork specs remain authoritative. Local specs may extend but must not contradict them.",
+    "dependencyPolicy": "Appbase and drive capabilities are consumed through declared dependency SDKs, not copied into generated knowledgebase transports.",
+    "sdkPolicy": "Generated SDK clients are injected through service/runtime boundaries; consumers must not create raw HTTP clients or manual auth headers.",
+    "languagePolicy": "TypeScript is the current generated package for this SDK family; additional languages must use the same owner-only OpenAPI input and sdkDependencies."
+  },
+  "verification": {
+    "commands": [
+      "node sdks/standardize-knowledgebase-sdk-family.mjs --check",
+      "node sdks/test/verify-sdk-ownership-boundaries.test.mjs",
+      "powershell -ExecutionPolicy Bypass -File tools/verify_openapi_operation_ids.ps1"
+    ]
+  },
+  "metadata": {
+    "managedBy": "sdks/standardize-knowledgebase-sdk-family.mjs",
+    "standardVersion": "2026-06-06"
+  }
+}

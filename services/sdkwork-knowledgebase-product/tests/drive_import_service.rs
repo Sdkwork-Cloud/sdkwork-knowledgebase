@@ -10,7 +10,8 @@ use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceTyp
 use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
 use sdkwork_knowledgebase_product::imports::KnowledgeDriveImportService;
 use sdkwork_knowledgebase_product::ports::knowledge_document_store::{
-    CreateKnowledgeDocumentRecord, KnowledgeDocumentStore, KnowledgeDocumentStoreError,
+    CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
+    KnowledgeDocumentStoreError,
 };
 use sdkwork_knowledgebase_product::ports::knowledge_document_version_store::{
     CreateKnowledgeDocumentVersionRecord, KnowledgeDocumentVersionStore,
@@ -174,6 +175,124 @@ async fn drive_import_replay_reuses_metadata_for_same_idempotency_key() {
 }
 
 #[tokio::test]
+async fn drive_import_trims_idempotency_key_before_lookup() {
+    let drive = RecordingDrive::with_object(
+        "knowledgebase-source",
+        "incoming/quarterly-report.md",
+        "# Report",
+    );
+    let sources = MemorySourceStore::default();
+    let documents = MemoryDocumentStore::default();
+    let object_refs = MemoryDriveObjectRefStore::default();
+    let versions = MemoryDocumentVersionStore::default();
+    let jobs = MemoryIngestionJobStore::default();
+    let service = KnowledgeDriveImportService::new(
+        &drive,
+        &sources,
+        &documents,
+        &object_refs,
+        &versions,
+        &jobs,
+    );
+
+    let request = KnowledgeDriveImportRequest {
+        space_id: 7,
+        title: "Quarterly Report".to_string(),
+        drive_space_id: None,
+        drive_node_id: None,
+        drive_bucket: "knowledgebase-source".to_string(),
+        drive_object_key: "incoming/quarterly-report.md".to_string(),
+        idempotency_key: "drive-quarterly-report".to_string(),
+        language: Some("en".to_string()),
+    };
+    let replay_request = KnowledgeDriveImportRequest {
+        idempotency_key: " drive-quarterly-report ".to_string(),
+        ..request.clone()
+    };
+
+    let first = service.import_drive_object(request).await.unwrap();
+    let replay = service.import_drive_object(replay_request).await.unwrap();
+
+    assert_eq!(first.job.id, replay.job.id);
+    assert_eq!(replay.job.idempotency_key, "drive-quarterly-report");
+    assert_eq!(sources.create_count(), 1);
+    assert_eq!(documents.create_count(), 1);
+    assert_eq!(versions.create_count(), 1);
+    assert_eq!(object_refs.create_count(), 1);
+}
+
+#[tokio::test]
+async fn drive_import_rejects_same_idempotency_key_for_different_drive_object_before_side_effects()
+{
+    let drive = RecordingDrive::with_object(
+        "knowledgebase-source",
+        "incoming/quarterly-report.md",
+        "# Report",
+    );
+    drive.add_object(
+        "knowledgebase-source",
+        "incoming/other-report.md",
+        "# Other Report",
+    );
+    let sources = MemorySourceStore::default();
+    let documents = MemoryDocumentStore::default();
+    let object_refs = MemoryDriveObjectRefStore::default();
+    let versions = MemoryDocumentVersionStore::default();
+    let jobs = MemoryIngestionJobStore::default();
+    let service = KnowledgeDriveImportService::new(
+        &drive,
+        &sources,
+        &documents,
+        &object_refs,
+        &versions,
+        &jobs,
+    );
+
+    let first = service
+        .import_drive_object(KnowledgeDriveImportRequest {
+            space_id: 7,
+            title: "Quarterly Report".to_string(),
+            drive_space_id: None,
+            drive_node_id: None,
+            drive_bucket: "knowledgebase-source".to_string(),
+            drive_object_key: "incoming/quarterly-report.md".to_string(),
+            idempotency_key: "drive-quarterly-report".to_string(),
+            language: Some("en".to_string()),
+        })
+        .await
+        .unwrap();
+
+    let error = service
+        .import_drive_object(KnowledgeDriveImportRequest {
+            space_id: 7,
+            title: "Other Report".to_string(),
+            drive_space_id: None,
+            drive_node_id: None,
+            drive_bucket: "knowledgebase-source".to_string(),
+            drive_object_key: "incoming/other-report.md".to_string(),
+            idempotency_key: "drive-quarterly-report".to_string(),
+            language: Some("en".to_string()),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("idempotency_key"));
+    assert_eq!(first.job.id, 1);
+    assert_eq!(
+        drive.heads(),
+        vec![(
+            "knowledgebase-source".to_string(),
+            "incoming/quarterly-report.md".to_string()
+        )]
+    );
+    assert_eq!(sources.create_count(), 1);
+    assert_eq!(documents.create_count(), 1);
+    assert_eq!(versions.create_count(), 1);
+    assert_eq!(object_refs.create_count(), 1);
+    assert_eq!(jobs.create_count(), 1);
+}
+
+#[tokio::test]
 async fn drive_import_rejects_unsafe_idempotency_key_before_side_effects() {
     let drive = RecordingDrive::with_object(
         "knowledgebase-source",
@@ -284,7 +403,12 @@ struct RecordingDrive {
 impl RecordingDrive {
     fn with_object(bucket: &str, object_key: &str, body: &str) -> Self {
         let drive = Self::default();
-        drive.objects.lock().unwrap().insert(
+        drive.add_object(bucket, object_key, body);
+        drive
+    }
+
+    fn add_object(&self, bucket: &str, object_key: &str, body: &str) {
+        self.objects.lock().unwrap().insert(
             object_key.to_string(),
             StoredObject {
                 object_ref: KnowledgeObjectRef {
@@ -300,7 +424,6 @@ impl RecordingDrive {
                 },
             },
         );
-        drive
     }
 
     fn heads(&self) -> Vec<(String, String)> {
@@ -410,12 +533,12 @@ fn source_key(record: &CreateKnowledgeSourceRecord) -> (u64, String, String) {
 #[derive(Default)]
 struct MemoryDocumentStore {
     next_id: Mutex<u64>,
-    by_source: Mutex<HashMap<(u64, u64), KnowledgeDocument>>,
+    by_identity: Mutex<HashMap<DocumentIdentityKey, KnowledgeDocument>>,
 }
 
 impl MemoryDocumentStore {
     fn create_count(&self) -> usize {
-        self.by_source.lock().unwrap().len()
+        self.by_identity.lock().unwrap().len()
     }
 }
 
@@ -433,7 +556,16 @@ impl KnowledgeDocumentStore for MemoryDocumentStore {
         record: CreateKnowledgeDocumentRecord,
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
         let key = document_key(&record);
-        if let Some(document) = self.by_source.lock().unwrap().get(&key).cloned() {
+        if let Some(mut document) = self.by_identity.lock().unwrap().get(&key).cloned() {
+            if document.original_file_drive_node_id.is_none()
+                && record.original_file_drive_node_id.is_some()
+            {
+                document.original_file_drive_node_id = record.original_file_drive_node_id;
+                self.by_identity
+                    .lock()
+                    .unwrap()
+                    .insert(key, document.clone());
+            }
             return Ok(document);
         }
         self.insert_document(record)
@@ -445,6 +577,7 @@ impl MemoryDocumentStore {
         &self,
         record: CreateKnowledgeDocumentRecord,
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        let key = document_key(&record);
         let mut next_id = self.next_id.lock().unwrap();
         *next_id += 1;
         let document = KnowledgeDocument {
@@ -461,18 +594,36 @@ impl MemoryDocumentStore {
             content_state: KnowledgeDocumentState::Ready,
             index_state: KnowledgeDocumentVersionState::Pending,
         };
-        if let Some(source_id) = document.source_id {
-            self.by_source
-                .lock()
-                .unwrap()
-                .insert((document.space_id, source_id), document.clone());
-        }
+        self.by_identity
+            .lock()
+            .unwrap()
+            .insert(key, document.clone());
         Ok(document)
     }
 }
 
-fn document_key(record: &CreateKnowledgeDocumentRecord) -> (u64, u64) {
-    (record.space_id, record.source_id.unwrap_or_default())
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct DocumentIdentityKey {
+    space_id: u64,
+    collection_id: u64,
+    identity_scope: KnowledgeDocumentIdentityScope,
+    source_id: Option<u64>,
+    original_file_drive_node_id: Option<String>,
+}
+
+fn document_key(record: &CreateKnowledgeDocumentRecord) -> DocumentIdentityKey {
+    DocumentIdentityKey {
+        space_id: record.space_id,
+        collection_id: record.collection_id,
+        identity_scope: record.identity_scope,
+        source_id: record.source_id,
+        original_file_drive_node_id: match record.identity_scope {
+            KnowledgeDocumentIdentityScope::SourceOnly => None,
+            KnowledgeDocumentIdentityScope::SourceAndOriginalDriveNode => {
+                record.original_file_drive_node_id.clone()
+            }
+        },
+    }
 }
 
 #[derive(Default)]
@@ -616,6 +767,7 @@ struct MemoryIngestionJobStore {
     next_id: Mutex<u64>,
     by_id: Mutex<HashMap<u64, IngestionJob>>,
     by_key: Mutex<HashMap<(u64, String), u64>>,
+    fingerprint_by_id: Mutex<HashMap<u64, Option<String>>>,
 }
 
 impl MemoryIngestionJobStore {
@@ -639,6 +791,25 @@ impl IngestionJobStore for MemoryIngestionJobStore {
                 .get(&existing_id)
                 .cloned()
                 .ok_or_else(|| IngestionJobStoreError::Internal("missing job".to_string()))?;
+            if job.source_type != record.source_type {
+                return Err(IngestionJobStoreError::Conflict(
+                    "idempotency_key is already used for a different job_type".to_string(),
+                ));
+            }
+            let existing_fingerprint = self
+                .fingerprint_by_id
+                .lock()
+                .unwrap()
+                .get(&existing_id)
+                .cloned()
+                .flatten();
+            if let Some(expected_fingerprint) = &record.idempotency_fingerprint_sha256_hex {
+                if existing_fingerprint.as_deref() != Some(expected_fingerprint.as_str()) {
+                    return Err(IngestionJobStoreError::Conflict(
+                        "idempotency_key is already used for a different request".to_string(),
+                    ));
+                }
+            }
             return Ok(CreateOrGetIngestionJobResult {
                 job,
                 created: false,
@@ -656,6 +827,10 @@ impl IngestionJobStore for MemoryIngestionJobStore {
             error_message: None,
         };
         self.by_key.lock().unwrap().insert(key, job.id);
+        self.fingerprint_by_id
+            .lock()
+            .unwrap()
+            .insert(job.id, record.idempotency_fingerprint_sha256_hex);
         self.by_id.lock().unwrap().insert(job.id, job.clone());
         Ok(CreateOrGetIngestionJobResult { job, created: true })
     }

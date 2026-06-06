@@ -8,6 +8,11 @@ pub trait KnowledgeDriveNodeTree: Send + Sync {
         request: ResolveKnowledgeDriveNodePathRequest,
     ) -> Result<Option<KnowledgeDriveNodeSummary>, KnowledgeDriveNodeTreeError>;
 
+    async fn get_node(
+        &self,
+        request: GetKnowledgeDriveNodeRequest,
+    ) -> Result<Option<KnowledgeDriveNodeSummary>, KnowledgeDriveNodeTreeError>;
+
     async fn list_children(
         &self,
         request: ListKnowledgeDriveNodeChildrenRequest,
@@ -18,6 +23,12 @@ pub trait KnowledgeDriveNodeTree: Send + Sync {
 pub struct ResolveKnowledgeDriveNodePathRequest {
     pub drive_space_id: String,
     pub logical_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GetKnowledgeDriveNodeRequest {
+    pub drive_space_id: String,
+    pub drive_node_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

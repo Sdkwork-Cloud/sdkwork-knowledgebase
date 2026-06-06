@@ -28,22 +28,15 @@ impl<'a> KnowledgeIngestionService<'a> {
                 "space_id is required".to_string(),
             ));
         }
-        if request.idempotency_key.trim().is_empty() {
-            return Err(KnowledgeIngestionServiceError::InvalidRequest(
-                "idempotency_key is required".to_string(),
-            ));
-        }
-        if !is_safe_idempotency_key(&request.idempotency_key) {
-            return Err(KnowledgeIngestionServiceError::InvalidRequest(
-                "idempotency_key contains unsafe characters".to_string(),
-            ));
-        }
+        let idempotency_key = normalize_idempotency_key(&request.idempotency_key)
+            .map_err(KnowledgeIngestionServiceError::InvalidRequest)?;
 
         self.store
             .create_or_get_job(CreateIngestionJobRecord {
                 space_id: request.space_id,
                 source_type: request.source_type,
-                idempotency_key: request.idempotency_key,
+                idempotency_key,
+                idempotency_fingerprint_sha256_hex: None,
             })
             .await
             .map(|result| result.job)
@@ -119,6 +112,17 @@ fn is_safe_idempotency_key(value: &str) -> bool {
             .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '.')
 }
 
+fn normalize_idempotency_key(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err("idempotency_key is required".to_string());
+    }
+    if !is_safe_idempotency_key(value) {
+        return Err("idempotency_key contains unsafe characters".to_string());
+    }
+    Ok(value.to_string())
+}
+
 #[derive(Debug, Error)]
 pub enum KnowledgeIngestionServiceError {
     #[error("invalid ingestion request: {0}")]
@@ -161,16 +165,8 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
                 "payload_markdown is required".to_string(),
             ));
         }
-        if request.idempotency_key.trim().is_empty() {
-            return Err(KnowledgeApiPayloadIngestServiceError::InvalidRequest(
-                "idempotency_key is required".to_string(),
-            ));
-        }
-        if !is_safe_idempotency_key(&request.idempotency_key) {
-            return Err(KnowledgeApiPayloadIngestServiceError::InvalidRequest(
-                "idempotency_key contains unsafe characters".to_string(),
-            ));
-        }
+        let idempotency_key = normalize_idempotency_key(&request.idempotency_key)
+            .map_err(KnowledgeApiPayloadIngestServiceError::InvalidRequest)?;
 
         let payload_markdown = request.payload_markdown;
         let job_result = self
@@ -178,7 +174,8 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
             .create_or_get_job(CreateIngestionJobRecord {
                 space_id: request.space_id,
                 source_type: "api".to_string(),
-                idempotency_key: request.idempotency_key,
+                idempotency_key,
+                idempotency_fingerprint_sha256_hex: None,
             })
             .await
             .map_err(KnowledgeApiPayloadIngestServiceError::Store)?;

@@ -37,12 +37,17 @@ impl<'a> KnowledgeWikiInitializerService<'a> {
         self
     }
 
+    pub fn requires_drive_space_binding(&self) -> bool {
+        self.drive_workspace.is_some()
+    }
+
     pub async fn initialize_standard_files(
         &self,
         space_id: u64,
         space_name: &str,
         drive_space_id: Option<&str>,
     ) -> Result<PersistedStandardFiles, KnowledgeWikiInitializerServiceError> {
+        let drive_space_id = self.required_drive_space_id(drive_space_id)?;
         let files = self
             .standard_files
             .persist_standard_files(PersistStandardFilesRequest {
@@ -58,24 +63,34 @@ impl<'a> KnowledgeWikiInitializerService<'a> {
         }
 
         if let Some(drive_workspace) = self.drive_workspace {
-            let drive_space_id = drive_space_id
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .ok_or_else(|| {
-                    KnowledgeWikiInitializerServiceError::InvalidRequest(
-                        "drive_space_id is required when drive workspace initialization is enabled"
-                            .to_string(),
-                    )
-                })?;
             drive_workspace
                 .ensure_nodes(EnsureKnowledgeDriveNodesRequest {
-                    drive_space_id: drive_space_id.to_string(),
+                    drive_space_id,
                     nodes: standard_drive_nodes(&files),
                 })
                 .await?;
         }
 
         Ok(files)
+    }
+
+    fn required_drive_space_id(
+        &self,
+        drive_space_id: Option<&str>,
+    ) -> Result<String, KnowledgeWikiInitializerServiceError> {
+        if self.drive_workspace.is_none() {
+            return Ok(String::new());
+        }
+        drive_space_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .ok_or_else(|| {
+                KnowledgeWikiInitializerServiceError::InvalidRequest(
+                    "drive_space_id is required when drive workspace initialization is enabled"
+                        .to_string(),
+                )
+            })
     }
 }
 
@@ -108,6 +123,9 @@ fn standard_drive_nodes(files: &PersistedStandardFiles) -> Vec<EnsureKnowledgeDr
         "wiki/pages/comparisons",
         "wiki/pages/presentations",
         "wiki/pages/charts",
+        "wiki/pages/indexes",
+        "wiki/pages/policies",
+        "wiki/pages/runbooks",
         "graph",
         "candidates",
         "indexes",

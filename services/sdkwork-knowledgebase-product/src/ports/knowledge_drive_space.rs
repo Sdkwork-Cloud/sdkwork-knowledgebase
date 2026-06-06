@@ -7,6 +7,11 @@ pub trait KnowledgeDriveSpaceProvisioner: Send + Sync {
         &self,
         request: CreateKnowledgeDriveSpaceRequest,
     ) -> Result<KnowledgeDriveSpaceBinding, KnowledgeDriveSpaceProvisionerError>;
+
+    async fn delete_knowledge_drive_space(
+        &self,
+        request: DeleteKnowledgeDriveSpaceRequest,
+    ) -> Result<(), KnowledgeDriveSpaceProvisionerError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,6 +28,15 @@ pub struct CreateKnowledgeDriveSpaceRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KnowledgeDriveSpaceBinding {
     pub drive_space_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeleteKnowledgeDriveSpaceRequest {
+    pub tenant_id: String,
+    pub drive_space_id: String,
+    pub owner_subject_type: String,
+    pub owner_subject_id: String,
+    pub operator_id: String,
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

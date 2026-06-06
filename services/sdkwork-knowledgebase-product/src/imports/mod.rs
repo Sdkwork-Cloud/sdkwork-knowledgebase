@@ -1,6 +1,6 @@
-use crate::ingest::{KnowledgeIngestionService, KnowledgeIngestionServiceError};
 use crate::ports::knowledge_document_store::{
-    CreateKnowledgeDocumentRecord, KnowledgeDocumentStore, KnowledgeDocumentStoreError,
+    CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
+    KnowledgeDocumentStoreError,
 };
 use crate::ports::knowledge_document_version_store::{
     CreateKnowledgeDocumentVersionRecord, KnowledgeDocumentVersionStore,
@@ -13,16 +13,17 @@ use crate::ports::knowledge_drive_object_ref_store::{
 use crate::ports::knowledge_drive_storage::{
     HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeStorageError,
 };
-use crate::ports::knowledge_ingestion_job_store::IngestionJobStore;
+use crate::ports::knowledge_ingestion_job_store::{
+    CreateIngestionJobRecord, IngestionJobStore, IngestionJobStoreError,
+};
 use crate::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
 };
-use sdkwork_knowledgebase_contract::document::{KnowledgeDocument, KnowledgeDocumentVersion};
 use sdkwork_knowledgebase_contract::ingest::{
-    CreateIngestionJobRequest, IngestionJob, KnowledgeDriveImportRequest,
+    KnowledgeDriveImportRequest, KnowledgeDriveImportResult,
 };
-use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
-use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
+use sdkwork_knowledgebase_contract::source::KnowledgeSourceType;
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 pub struct KnowledgeDriveImportService<'a> {
@@ -77,16 +78,7 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 "drive_object_key is required".to_string(),
             ));
         }
-        if request.idempotency_key.trim().is_empty() {
-            return Err(KnowledgeDriveImportServiceError::InvalidRequest(
-                "idempotency_key is required".to_string(),
-            ));
-        }
-        if !is_safe_idempotency_key(&request.idempotency_key) {
-            return Err(KnowledgeDriveImportServiceError::InvalidRequest(
-                "idempotency_key contains unsafe characters".to_string(),
-            ));
-        }
+        let idempotency_key = normalize_idempotency_key(&request.idempotency_key)?;
         let drive_space_id = normalize_optional_drive_id(request.drive_space_id, "drive_space_id")?;
         let drive_node_id = normalize_optional_drive_id(request.drive_node_id, "drive_node_id")?;
         if drive_node_id.is_some() && drive_space_id.is_none() {
@@ -94,6 +86,26 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 "drive_space_id is required when drive_node_id is provided".to_string(),
             ));
         }
+
+        let fingerprint = drive_import_idempotency_fingerprint_sha256_hex(
+            request.space_id,
+            &request.title,
+            drive_space_id.as_deref(),
+            drive_node_id.as_deref(),
+            &request.drive_bucket,
+            &request.drive_object_key,
+            request.language.as_deref(),
+        );
+        let job = self
+            .jobs
+            .create_or_get_job(CreateIngestionJobRecord {
+                space_id: request.space_id,
+                source_type: KnowledgeSourceType::DriveObject.as_str().to_string(),
+                idempotency_key,
+                idempotency_fingerprint_sha256_hex: Some(fingerprint),
+            })
+            .await?
+            .job;
 
         let original_object_ref = self
             .drive
@@ -140,6 +152,7 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 space_id: request.space_id,
                 collection_id: 0,
                 source_id: Some(source.id),
+                identity_scope: KnowledgeDocumentIdentityScope::SourceOnly,
                 original_file_drive_node_id: drive_node_id,
                 title: request.title,
                 mime_type: Some(original_object_ref.content_type.clone()),
@@ -160,14 +173,6 @@ impl<'a> KnowledgeDriveImportService<'a> {
             .await?;
         document.current_version_id = Some(version.id);
 
-        let job = KnowledgeIngestionService::new(self.jobs)
-            .create_job(CreateIngestionJobRequest {
-                space_id: request.space_id,
-                source_type: KnowledgeSourceType::DriveObject.as_str().to_string(),
-                idempotency_key: request.idempotency_key,
-            })
-            .await?;
-
         Ok(KnowledgeDriveImportResult {
             source,
             document,
@@ -178,6 +183,46 @@ impl<'a> KnowledgeDriveImportService<'a> {
     }
 }
 
+fn drive_import_idempotency_fingerprint_sha256_hex(
+    space_id: u64,
+    title: &str,
+    drive_space_id: Option<&str>,
+    drive_node_id: Option<&str>,
+    drive_bucket: &str,
+    drive_object_key: &str,
+    language: Option<&str>,
+) -> String {
+    let mut hasher = Sha256::new();
+    hash_field(&mut hasher, "kind", Some("drive_object"));
+    hash_field(&mut hasher, "space_id", Some(&space_id.to_string()));
+    hash_field(&mut hasher, "title", Some(title));
+    hash_field(&mut hasher, "drive_space_id", drive_space_id);
+    hash_field(&mut hasher, "drive_node_id", drive_node_id);
+    hash_field(&mut hasher, "drive_bucket", Some(drive_bucket));
+    hash_field(&mut hasher, "drive_object_key", Some(drive_object_key));
+    hash_field(&mut hasher, "language", language);
+    let digest = hasher.finalize();
+    let mut output = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        output.push_str(&format!("{byte:02x}"));
+    }
+    output
+}
+
+fn hash_field(hasher: &mut Sha256, field_name: &str, value: Option<&str>) {
+    hasher.update(field_name.as_bytes());
+    hasher.update([0]);
+    match value {
+        Some(value) => {
+            hasher.update(value.len().to_string().as_bytes());
+            hasher.update([b':']);
+            hasher.update(value.as_bytes());
+        }
+        None => hasher.update(b"null"),
+    }
+    hasher.update([0xff]);
+}
+
 fn is_safe_idempotency_key(value: &str) -> bool {
     let value = value.trim();
     !value.is_empty()
@@ -185,6 +230,21 @@ fn is_safe_idempotency_key(value: &str) -> bool {
         && value
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' || ch == '.')
+}
+
+fn normalize_idempotency_key(value: &str) -> Result<String, KnowledgeDriveImportServiceError> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(KnowledgeDriveImportServiceError::InvalidRequest(
+            "idempotency_key is required".to_string(),
+        ));
+    }
+    if !is_safe_idempotency_key(value) {
+        return Err(KnowledgeDriveImportServiceError::InvalidRequest(
+            "idempotency_key contains unsafe characters".to_string(),
+        ));
+    }
+    Ok(value.to_string())
 }
 
 fn normalize_optional_drive_id(
@@ -208,15 +268,6 @@ fn normalize_optional_drive_id(
     Ok(Some(value))
 }
 
-#[derive(Debug, Clone)]
-pub struct KnowledgeDriveImportResult {
-    pub source: KnowledgeSource,
-    pub document: KnowledgeDocument,
-    pub version: KnowledgeDocumentVersion,
-    pub original_object_ref: KnowledgeDriveObjectRef,
-    pub job: IngestionJob,
-}
-
 #[derive(Debug, Error)]
 pub enum KnowledgeDriveImportServiceError {
     #[error("invalid drive import request: {0}")]
@@ -232,5 +283,5 @@ pub enum KnowledgeDriveImportServiceError {
     #[error(transparent)]
     VersionStore(#[from] KnowledgeDocumentVersionStoreError),
     #[error(transparent)]
-    Ingestion(#[from] KnowledgeIngestionServiceError),
+    IngestionJobStore(#[from] IngestionJobStoreError),
 }

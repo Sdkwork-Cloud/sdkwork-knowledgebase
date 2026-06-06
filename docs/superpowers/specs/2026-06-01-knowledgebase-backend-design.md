@@ -63,7 +63,7 @@ Relevant local reference projects:
 
 - `D:\javasource\spring-ai-plus\spring-ai-plus-business\apps\sdkwork-claw-router`
 - `D:\sdkwork-opensource\sdkwork-drive`
-- `D:\javasource\spring-ai-plus\spring-ai-plus-business\sdk\sdkwork-sdk-generator`
+- `D:\javasource\spring-ai-plus\sdk\sdkwork-sdk-generator`
 
 Industry reference points used for product and architecture alignment:
 
@@ -98,7 +98,7 @@ Domain record:
 domain: knowledge
 status: app-local-extension
 owner: sdkwork-knowledgebase
-database_prefix: knowledge
+database_prefix: kb
 api_tags:
   - knowledge
 sdk_namespaces:
@@ -167,12 +167,25 @@ sdkwork-knowledgebase/
     schema-registry/
     superpowers/specs/
     superpowers/plans/
-  generated/
-    openapi/
-    sdkgen/
   sdks/
-    knowledgebase-app-sdk/
-    knowledgebase-backend-sdk/
+    sdkwork-knowledgebase-app-sdk/
+      openapi/
+        knowledgebase-app-api.openapi.json
+      sdkwork-knowledgebase-app-sdk-typescript/
+        generated/server-openapi/
+          sdkwork-sdk.json
+          .sdkwork/
+          custom/
+        composed/
+    sdkwork-knowledgebase-backend-sdk/
+      openapi/
+        knowledgebase-backend-api.openapi.json
+      sdkwork-knowledgebase-backend-sdk-typescript/
+        generated/server-openapi/
+          sdkwork-sdk.json
+          .sdkwork/
+          custom/
+        composed/
   tests/
   tools/
 ```
@@ -297,6 +310,23 @@ pub trait KnowledgeDriveStorage: Send + Sync {
 
 Only `sdkwork-knowledgebase-drive` implements this port by calling `DriveObjectStore`.
 
+Drive workspace, space, node, and object-version metadata are owned by `sdkwork-drive`.
+Knowledgebase production code must not read from, write to, join against, or otherwise depend on drive physical tables such as `dr_drive_space`, `dr_drive_node`, or `dr_drive_storage_object`.
+When knowledgebase needs a browser-visible folder tree, file node binding, or knowledge drive space, `sdkwork-drive` must expose that operation through product services or generated SDK APIs, and `sdkwork-knowledgebase-drive` adapts those APIs into knowledgebase ports.
+Knowledgebase SQL may store stable references such as `drive_space_id`, `drive_node_id`, bucket, object key, etag, checksum, and object role inside `kb_*` tables, but those values are locators and projections, not permission to couple to drive schemas.
+
+Stable logical artifacts such as `wiki/index.md`, `wiki/log.md`, and `wiki/**/current.md` can be rewritten as materialized projections. If the underlying Drive provider does not return a native object version, or returns a blank object version, `sdkwork-knowledgebase-drive` must synthesize the object version as `sha256:<content_digest>` before persisting a `kb_drive_object_ref` locator. If a write request supplies a checksum, the Drive adapter must compute the request-body SHA-256 and reject the request before any Drive write when the supplied checksum does not match the body. When a browser-visible Drive workspace file is ensured again with the same logical path but different content metadata, the version advancement must happen inside the `sdkwork-drive` product service or generated SDK API; Knowledgebase must not patch Drive tables directly.
+
+Knowledge space creation is a compensating workflow:
+
+1. Create the local `kb_space` record in an uninitialized active state.
+2. Provision or find the dedicated Drive `knowledge_base` space through `sdkwork-drive` product services.
+3. Bind `kb_space.drive_space_id`.
+4. Persist standard LLM Wiki files and ensure browser-visible Drive workspace nodes through Drive-facing ports.
+5. Mark `kb_space.llm_wiki_initialized = true`.
+
+If any step after local space creation fails, the local `kb_space` row must be soft-deleted before the request returns. If a Drive space was created or found for this initialization attempt and a later step fails, Knowledgebase must release it through the Drive product service or generated SDK API after verifying it belongs to the expected `sdkwork-knowledgebase:<kb-space-uuid>` owner tuple. Cleanup failures must be reported explicitly; they must not be hidden behind a successful create response.
+
 ### 7.2 Object Roles
 
 Every drive object reference has an explicit role:
@@ -373,6 +403,8 @@ Knowledgebase production code must not:
 - scatter drive object keys in arbitrary metadata JSON
 - parse raw drive credentials
 - log drive credentials or presign material
+- issue SQL directly against `sdkwork-drive` physical tables
+- infer drive table names or schema columns in knowledgebase tests or production adapters
 
 ## 8. LLM Wiki and LLM-Friendly Knowledge Standard
 
@@ -1316,6 +1348,36 @@ The REST and SDK operation IDs still follow SDKWork API rules. The tool names ar
 
 All database objects created by SDKWork Knowledgebase use the `kb_` prefix for tables, `idx_kb_` for non-unique indexes, and `uk_kb_` for unique indexes. Product/API names may keep `Knowledge*` terminology; physical database objects must stay under the `kb_` namespace.
 
+### 9.0 Runtime ID Strategy
+
+All persistent `kb_*` tables use `id` as an `int64` internal primary key. Runtime insert paths MUST generate and bind `id` explicitly before executing SQL. The database MUST NOT own ID creation through SQLite rowid autogeneration, `AUTOINCREMENT`, PostgreSQL `SERIAL`/`BIGSERIAL`, identity columns, or ad hoc sequence calls in repository SQL.
+
+The default strategy is a service-side Snowflake ID generator:
+
+```yaml
+id_strategy:
+  type: snowflake
+  bit_layout: 41_bit_timestamp_delta_ms + 10_bit_node_id + 12_bit_sequence
+  epoch_utc: 2025-01-01T00:00:00Z
+  id_type: int64
+  runtime_node_id_env: SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID
+  node_id_range: 0..1023
+  clock_rollback: reject_and_surface_error
+  sequence_overflow: wait_next_millisecond
+  node_conflict: runtime_config_must_assign_unique_node_id_per_process
+  invalid_config: fail_closed_before_repository_use
+  public_id: uuid
+```
+
+SQLite migrations define `id BIGINT NOT NULL` with table-level `PRIMARY KEY (id)` so omitted IDs fail instead of falling back to implicit rowid generation. PostgreSQL migrations define `id BIGINT PRIMARY KEY` without serial or identity defaults. Repository tests must prove every `INSERT INTO kb_*` statement declares the `id` column and that SQLite rejects inserts that omit `id`.
+
+Runtime configuration:
+
+- `SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID` configures the 10-bit Snowflake node id. Valid values are integers from `0` through `1023`.
+- Local and test runs may omit the variable and use node id `0`. Production multi-instance deployments must assign a unique node id per process or pod; duplicate node ids are a deployment fault.
+- Invalid configured values fail closed during generator initialization. Runtime ID generation errors, including clock rollback and signed-int64 overflow, must propagate as repository errors instead of falling back to database-generated IDs.
+- Sequence overflow waits for the next millisecond. Operators should monitor ID generation failures, clock rollback errors, and node-id configuration drift alongside repository write errors.
+
 Common columns for core L2 tables:
 
 ```text
@@ -1352,7 +1414,10 @@ Key columns:
 ```text
 name VARCHAR(200) NOT NULL
 description VARCHAR(2000)
+drive_space_id VARCHAR(128)
 visibility INTEGER NOT NULL
+llm_wiki_initialized BOOLEAN NOT NULL DEFAULT false
+wiki_log_sequence_counter BIGINT NOT NULL DEFAULT 0
 default_collection_id BIGINT
 default_retrieval_profile_id BIGINT
 quota_policy_id BIGINT
@@ -1363,6 +1428,7 @@ Indexes:
 
 ```text
 uk_kb_space_uuid unique(uuid)
+uk_kb_space_drive_space unique(tenant_id, drive_space_id) where drive_space_id is not null and status = active
 idx_kb_space_tenant_status_updated(tenant_id, organization_id, status, updated_at)
 idx_kb_space_owner(owner_type, owner_id, status)
 ```
@@ -1420,6 +1486,12 @@ connector
 api
 ```
 
+Indexes:
+
+```text
+uk_kb_source_identity unique(tenant_id, space_id, source_type, coalesce(provider), coalesce(drive_bucket), coalesce(drive_prefix)) where status = active
+```
+
 #### kb_drive_object_ref
 
 Stable reference to a `sdkwork-drive` object.
@@ -1444,8 +1516,10 @@ Indexes:
 
 ```text
 uk_kb_drive_object_ref_uuid unique(uuid)
+uk_kb_drive_object_ref_locator unique(tenant_id, space_id, drive_bucket, drive_object_key, coalesce(drive_object_version), object_role)
 idx_kb_drive_object_locator(tenant_id, drive_bucket, drive_object_key, drive_object_version)
 idx_kb_drive_object_role(tenant_id, object_role, created_at)
+idx_kb_drive_object_drive_node(tenant_id, space_id, drive_space_id, drive_node_id, status)
 ```
 
 Important rule: this table stores drive object references only. It does not store presigned URLs or provider credentials.
@@ -1460,6 +1534,8 @@ Key columns:
 space_id BIGINT NOT NULL
 collection_id BIGINT NOT NULL DEFAULT 0
 source_id BIGINT
+identity_scope VARCHAR(64) NOT NULL DEFAULT 'source_and_original_drive_node'
+original_file_drive_node_id VARCHAR(128)
 title VARCHAR(512) NOT NULL
 mime_type VARCHAR(256)
 language VARCHAR(32)
@@ -1474,9 +1550,26 @@ Indexes:
 
 ```text
 uk_kb_document_uuid unique(uuid)
+uk_kb_document_identity unique(tenant_id, space_id, collection_id, identity_scope, coalesce(source_id), identity-dependent drive node key) where status = active
+idx_kb_document_drive_node(tenant_id, space_id, original_file_drive_node_id, status)
 idx_kb_document_space_collection_updated(tenant_id, space_id, collection_id, updated_at)
 idx_kb_document_source(source_id, status)
 idx_kb_document_title(tenant_id, space_id, title)
+```
+
+Document identity is an explicit strategy, not an accidental nullable-key side effect:
+
+- `source_only` is used for a direct single Drive object import. It requires `source_id`; the active document identity is the source itself, and a late `original_file_drive_node_id` binding may enrich the document without creating a second document.
+- `source_and_original_drive_node` is used for folder imports, connector imports, API-created documents, and other multi-document source scenarios. The same source may produce many active documents, so the original Drive node participates in identity.
+- The default is `source_and_original_drive_node` because it is the safer strategy for multi-document sources. Direct Drive object import code must opt into `source_only`.
+
+The physical unique index must include `identity_scope`, `tenant_id`, `space_id`, `collection_id`, `COALESCE(source_id, 0)`, and a conditional Drive node expression:
+
+```text
+CASE
+  WHEN identity_scope = 'source_only' THEN ''
+  ELSE COALESCE(original_file_drive_node_id, '')
+END
 ```
 
 #### kb_document_version
@@ -1524,7 +1617,7 @@ state INTEGER NOT NULL
 priority INTEGER NOT NULL DEFAULT 0
 progress INTEGER NOT NULL DEFAULT 0
 requested_by BIGINT
-idempotency_key VARCHAR(128)
+idempotency_key VARCHAR(128) NOT NULL
 request_id VARCHAR(64)
 trace_id VARCHAR(128)
 error_code VARCHAR(128)
@@ -1538,10 +1631,16 @@ Indexes:
 
 ```text
 uk_kb_ingestion_job_uuid unique(uuid)
-uk_kb_ingestion_job_idempotency unique(tenant_id, idempotency_key)
+uk_kb_ingestion_job_idempotency unique(tenant_id, space_id, idempotency_key)
 idx_kb_ingestion_job_state_priority(state, priority, created_at)
 idx_kb_ingestion_job_space(space_id, state, updated_at)
 ```
+
+Rules:
+
+- `create_or_get` insert paths use the unique idempotency key as the concurrency guard.
+- For imports with side effects, `metadata.idempotency_fingerprint_sha256_hex` stores a stable request fingerprint. Reusing the same idempotency key for a different request must return a conflict before reading drive objects or creating metadata rows.
+- `create_or_get` repository paths should try the insert first and then reread on `ON CONFLICT DO NOTHING`, so concurrent identical requests return the same row instead of leaking a unique-key error.
 
 #### kb_ingestion_job_item
 
@@ -1769,6 +1868,7 @@ title VARCHAR(512) NOT NULL
 summary VARCHAR(2000)
 page_type VARCHAR(64) NOT NULL
 current_revision_id BIGINT
+revision_counter BIGINT NOT NULL DEFAULT 0
 source_state VARCHAR(64) NOT NULL
 review_state VARCHAR(64) NOT NULL
 publish_state VARCHAR(64) NOT NULL
@@ -1800,8 +1900,13 @@ Indexes:
 ```text
 uk_kb_wiki_page_uuid unique(uuid)
 uk_kb_wiki_page_slug unique(tenant_id, space_id, slug)
+uk_kb_wiki_page_path unique(tenant_id, space_id, logical_path)
 idx_kb_wiki_page_state(tenant_id, space_id, publish_state, updated_at)
 ```
+
+Rules:
+
+- `revision_counter` is the per-page atomic reservation source for `revision_no`. Services must not compute revision numbers with an unprotected `MAX(revision_no) + 1` read.
 
 #### kb_wiki_page_revision
 
@@ -1825,6 +1930,12 @@ metadata JSON
 ```
 
 The Markdown object is stored by `sdkwork-drive`.
+
+Indexes:
+
+```text
+uk_kb_wiki_page_revision_no unique(tenant_id, page_id, revision_no)
+```
 
 #### kb_wiki_source_ref
 
@@ -1946,13 +2057,14 @@ metadata JSON
 Indexes:
 
 ```text
-uk_kb_wiki_log_sequence unique(space_id, sequence_no)
+uk_kb_wiki_log_entry_sequence unique(tenant_id, space_id, sequence_no)
 idx_kb_wiki_log_event_time(space_id, event_type, event_time)
 ```
 
 Rules:
 
 - Rows are append-only except for tombstone-style redaction metadata required by retention or privacy policy.
+- `kb_space.wiki_log_sequence_counter` is the per-space atomic reservation source for `sequence_no`. Services must not compute log sequence numbers with an unprotected `MAX(sequence_no) + 1` read.
 - `wiki/log.md` is generated from these rows and stored through `sdkwork-drive`.
 - Raw query text is not stored unless the space explicitly enables query retention.
 
@@ -2996,49 +3108,75 @@ KnowledgeAuditEvent
 
 ## 14. SDK Generation
 
-SDK roots:
+All SDKWork Knowledgebase HTTP SDKs MUST be generated by the canonical SDKWork generator:
 
 ```text
-sdks/knowledgebase-app-sdk
-sdks/knowledgebase-backend-sdk
+D:\javasource\spring-ai-plus\sdk\sdkwork-sdk-generator
 ```
 
-OpenAPI sources:
+The executable entrypoint is:
 
 ```text
-generated/openapi/knowledgebase-app.openapi.json
-generated/openapi/knowledgebase-backend.openapi.json
+D:\javasource\spring-ai-plus\sdk\sdkwork-sdk-generator\bin\sdkgen.js
 ```
 
-Generation commands should follow the local `sdkwork-sdk-generator` standard:
+SDK family roots:
+
+```text
+sdks/sdkwork-knowledgebase-app-sdk
+sdks/sdkwork-knowledgebase-backend-sdk
+```
+
+OpenAPI authority documents:
+
+```text
+sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json
+sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json
+```
+
+Generation commands must use the canonical `sdkwork-sdk-generator` entrypoint and the SDKWork v3 profile:
 
 ```powershell
-node D:\javasource\spring-ai-plus\spring-ai-plus-business\sdk\sdkwork-sdk-generator\bin\sdkgen.js generate `
-  -i generated\openapi\knowledgebase-app.openapi.json `
-  -o sdks\knowledgebase-app-sdk\knowledgebase-app-sdk-typescript `
+node D:\javasource\spring-ai-plus\sdk\sdkwork-sdk-generator\bin\sdkgen.js generate `
+  -i sdks\sdkwork-knowledgebase-app-sdk\openapi\knowledgebase-app-api.openapi.json `
+  -o sdks\sdkwork-knowledgebase-app-sdk\sdkwork-knowledgebase-app-sdk-typescript\generated\server-openapi `
   -n KnowledgebaseApp `
   -t app `
   -l typescript `
+  --sdk-name sdkwork-knowledgebase-app-sdk `
   --package-name @sdkwork/knowledgebase-app-sdk `
   --api-prefix /app/v3/api `
+  --fixed-sdk-version 0.1.0 `
   --standard-profile sdkwork-v3
 ```
 
 ```powershell
-node D:\javasource\spring-ai-plus\spring-ai-plus-business\sdk\sdkwork-sdk-generator\bin\sdkgen.js generate `
-  -i generated\openapi\knowledgebase-backend.openapi.json `
-  -o sdks\knowledgebase-backend-sdk\knowledgebase-backend-sdk-typescript `
+node D:\javasource\spring-ai-plus\sdk\sdkwork-sdk-generator\bin\sdkgen.js generate `
+  -i sdks\sdkwork-knowledgebase-backend-sdk\openapi\knowledgebase-backend-api.openapi.json `
+  -o sdks\sdkwork-knowledgebase-backend-sdk\sdkwork-knowledgebase-backend-sdk-typescript\generated\server-openapi `
   -n KnowledgebaseBackend `
   -t backend `
   -l typescript `
+  --sdk-name sdkwork-knowledgebase-backend-sdk `
   --package-name @sdkwork/knowledgebase-backend-sdk `
   --api-prefix /backend/v3/api `
+  --fixed-sdk-version 0.1.0 `
   --standard-profile sdkwork-v3
 ```
 
 Later Rust SDK generation uses the same generator with `-l rust`.
 
-Generated SDK output must not be hand-edited.
+Generated SDK output must not be hand-edited. Each `generated/server-openapi` output root must retain the generator control plane:
+
+- `sdkwork-sdk.json`
+- `.sdkwork/sdkwork-generator-manifest.json`
+- `.sdkwork/sdkwork-generator-changes.json`
+- `.sdkwork/sdkwork-generator-report.json`
+- `custom/` for handwritten extensions that survive regeneration
+
+The generated package may be checked or built locally with `bin/publish-core.mjs`. Local verification can create `node_modules/`, `dist/`, and `package-lock.json` under `generated/server-openapi`; these are build artifacts, not generator-owned source artifacts, and must stay out of repository review and release source diffs.
+
+`sdkwork-code-generator`, `openapi-generator`, `swagger-codegen`, copied generator code, local stubs, and direct edits to generated-owned files are not approved SDK generation paths for SDKWork Knowledgebase.
 
 ## 15. Security Design
 
@@ -3099,6 +3237,7 @@ worker_task_timeout_ms: config-driven
 Retrieval must avoid unbounded scans.
 High-cardinality filters must map to indexed columns.
 Full-text and vector search are read models and can be rebuilt.
+Projection stores must enforce bounded batch size even when a higher service layer already paginates requests. Directory document projections by drive node id, wiki projections by drive node id, and wiki projections by logical path are capped at 200 items per call; larger requests must fail fast with a validation error instead of building unbounded `IN (...)` queries.
 
 ## 17. Observability Design
 
@@ -3182,7 +3321,9 @@ Required tests before implementation completion:
 - SQL schema tests for PostgreSQL and SQLite where supported.
 - Repository tests for tenant predicates and index-backed queries.
 - Drive adapter tests with fake `DriveObjectStore`.
+- Drive adapter integrity tests proving caller-supplied checksums are verified against the request body, blank provider versions are treated as missing, and versionless providers produce deterministic `sha256:<content_digest>` object versions.
 - Negative tests proving no direct file storage bypass in knowledgebase code.
+- Projection store tests proving directory and wiki metadata batch lookups reject unbounded input before executing SQL.
 - Upload/import idempotency tests.
 - Parser/embedding/index worker state-machine tests.
 - Retrieval tests for keyword, vector, hybrid, rerank, and citations.
@@ -3205,7 +3346,7 @@ Verification commands will be finalized after scaffolding, but the target gate i
 ```powershell
 cargo fmt --all --check
 cargo test --workspace
-node D:\javasource\spring-ai-plus\spring-ai-plus-business\sdk\sdkwork-sdk-generator\bin\sdkgen.js generate --help
+node D:\javasource\spring-ai-plus\sdk\sdkwork-sdk-generator\bin\sdkgen.js generate --help
 ```
 
 Once OpenAPI files exist, SDK generation checks become mandatory.

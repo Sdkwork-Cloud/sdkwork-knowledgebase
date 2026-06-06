@@ -13,6 +13,12 @@ pub struct KnowledgeWikiFileEntry {
     pub checksum_sha256_hex: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeWikiFileEntryList {
+    pub items: Vec<KnowledgeWikiFileEntry>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WikiFileEntryType {

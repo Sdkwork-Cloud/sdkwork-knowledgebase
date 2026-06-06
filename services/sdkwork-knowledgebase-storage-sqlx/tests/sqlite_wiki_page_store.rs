@@ -21,6 +21,7 @@ async fn sqlite_wiki_page_store_publishes_pages_revisions_logs_and_projections()
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001;
+    insert_space(&pool, tenant_id, 7).await;
     let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
     let wiki_pages = SqliteKnowledgeWikiPageStore::new(pool, tenant_id);
 
@@ -132,6 +133,149 @@ async fn sqlite_wiki_page_store_publishes_pages_revisions_logs_and_projections()
     );
 }
 
+#[tokio::test]
+async fn sqlite_wiki_page_store_reserves_revision_numbers_before_revision_insert() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    insert_space(&pool, 9001, 7).await;
+    let wiki_pages = SqliteKnowledgeWikiPageStore::new(pool, 9001);
+
+    let page = wiki_pages
+        .upsert_page(UpsertKnowledgeWikiPageRecord {
+            space_id: 7,
+            slug: "concurrent-topic".to_string(),
+            title: "Concurrent Topic".to_string(),
+            page_type: WikiPageType::Topic,
+            logical_path: "wiki/pages/topics/concurrent-topic/current.md".to_string(),
+            summary: "Concurrency summary.".to_string(),
+            source_count: 0,
+            tags: vec![],
+            publish_state: WikiPagePublishState::CandidateReady,
+        })
+        .await
+        .unwrap();
+
+    let first_reserved = wiki_pages.next_revision_no(page.id).await.unwrap();
+    let second_reserved = wiki_pages.next_revision_no(page.id).await.unwrap();
+
+    assert_eq!(first_reserved, 1);
+    assert_eq!(second_reserved, 2);
+}
+
+#[tokio::test]
+async fn sqlite_wiki_page_store_rejects_duplicate_revision_number_for_same_page() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let tenant_id = 9001;
+    insert_space(&pool, tenant_id, 7).await;
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
+    let wiki_pages = SqliteKnowledgeWikiPageStore::new(pool, tenant_id);
+
+    let page = wiki_pages
+        .upsert_page(UpsertKnowledgeWikiPageRecord {
+            space_id: 7,
+            slug: "duplicate-revision-topic".to_string(),
+            title: "Duplicate Revision Topic".to_string(),
+            page_type: WikiPageType::Topic,
+            logical_path: "wiki/pages/topics/duplicate-revision-topic/current.md".to_string(),
+            summary: "Duplicate revision summary.".to_string(),
+            source_count: 0,
+            tags: vec![],
+            publish_state: WikiPagePublishState::CandidateReady,
+        })
+        .await
+        .unwrap();
+
+    let first_ref = object_refs
+        .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
+            space_id: 7,
+            drive_space_id: Some("drv-kb-001".to_string()),
+            drive_node_id: Some("node-revision-1".to_string()),
+            logical_path: Some(
+                "wiki/pages/topics/duplicate-revision-topic/revisions/r1.md".to_string(),
+            ),
+            drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+            drive_bucket: "knowledgebase-test".to_string(),
+            drive_object_key: "wiki/pages/topics/duplicate-revision-topic/revisions/r1.md"
+                .to_string(),
+            drive_object_version: Some("v1".to_string()),
+            drive_etag: None,
+            content_type: Some("text/markdown; charset=utf-8".to_string()),
+            size_bytes: 128,
+            checksum_sha256_hex: Some("checksum-r1".to_string()),
+            object_role: "wiki_revision".to_string(),
+            access_mode: MANAGED_DRIVE_ACCESS_MODE.to_string(),
+        })
+        .await
+        .unwrap();
+    let second_ref = object_refs
+        .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
+            space_id: 7,
+            drive_space_id: Some("drv-kb-001".to_string()),
+            drive_node_id: Some("node-revision-1-duplicate".to_string()),
+            logical_path: Some(
+                "wiki/pages/topics/duplicate-revision-topic/revisions/r1-copy.md".to_string(),
+            ),
+            drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+            drive_bucket: "knowledgebase-test".to_string(),
+            drive_object_key: "wiki/pages/topics/duplicate-revision-topic/revisions/r1-copy.md"
+                .to_string(),
+            drive_object_version: Some("v1".to_string()),
+            drive_etag: None,
+            content_type: Some("text/markdown; charset=utf-8".to_string()),
+            size_bytes: 128,
+            checksum_sha256_hex: Some("checksum-r1-copy".to_string()),
+            object_role: "wiki_revision".to_string(),
+            access_mode: MANAGED_DRIVE_ACCESS_MODE.to_string(),
+        })
+        .await
+        .unwrap();
+
+    wiki_pages
+        .create_revision(CreateKnowledgeWikiPageRevisionRecord {
+            page_id: page.id,
+            revision_no: 1,
+            markdown_object_ref_id: first_ref.id,
+            content_hash: "content-hash-1".to_string(),
+            review_state: WikiRevisionReviewState::Approved,
+        })
+        .await
+        .unwrap();
+
+    let error = wiki_pages
+        .create_revision(CreateKnowledgeWikiPageRevisionRecord {
+            page_id: page.id,
+            revision_no: 1,
+            markdown_object_ref_id: second_ref.id,
+            content_hash: "content-hash-duplicate".to_string(),
+            review_state: WikiRevisionReviewState::Approved,
+        })
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("UNIQUE"));
+}
+
+#[tokio::test]
+async fn sqlite_wiki_page_store_rejects_unbounded_projection_batches() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    insert_space(&pool, 9001, 7).await;
+    let wiki_pages = SqliteKnowledgeWikiPageStore::new(pool, 9001);
+
+    let error = wiki_pages
+        .batch_page_projections_by_paths(
+            7,
+            (0..201)
+                .map(|index| format!("wiki/pages/entities/entity-{index}/current.md"))
+                .collect(),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("batch size"));
+}
+
 async fn sqlite_pool() -> SqlitePool {
     SqlitePoolOptions::new()
         .max_connections(1)
@@ -147,4 +291,33 @@ async fn apply_sqlite_migration(pool: &SqlitePool) {
             sqlx::query(statement).execute(pool).await.unwrap();
         }
     }
+}
+
+async fn insert_space(pool: &SqlitePool, tenant_id: u64, space_id: u64) {
+    sqlx::query(
+        r#"
+        INSERT INTO kb_space (
+            id,
+            uuid,
+            tenant_id,
+            organization_id,
+            name,
+            status,
+            llm_wiki_initialized,
+            created_at,
+            updated_at,
+            version
+        )
+        VALUES (?, ?, ?, 0, ?, 1, 1, ?, ?, 0)
+        "#,
+    )
+    .bind(space_id as i64)
+    .bind(format!("space-{space_id}"))
+    .bind(tenant_id as i64)
+    .bind(format!("Knowledge Space {space_id}"))
+    .bind("2026-06-05T00:00:00Z")
+    .bind("2026-06-05T00:00:00Z")
+    .execute(pool)
+    .await
+    .unwrap();
 }

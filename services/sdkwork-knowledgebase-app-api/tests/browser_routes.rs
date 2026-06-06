@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use axum::body::{to_bytes, Body};
-use axum::http::{Request, StatusCode};
-use sdkwork_knowledgebase_app_api::{build_router_with_browser, KnowledgeBrowserApi};
+use axum::http::{header, Request, StatusCode};
+use sdkwork_knowledgebase_app_api::{
+    build_router_with_browser, KnowledgeBrowserApi, ProblemDetails,
+};
 use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserNode, KnowledgeBrowserNodePermissions, KnowledgeBrowserNodeType,
     KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
@@ -57,6 +59,20 @@ async fn app_router_rejects_invalid_browser_view() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response.headers().get(header::CONTENT_TYPE).unwrap(),
+        "application/problem+json"
+    );
+    let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    let problem: ProblemDetails = serde_json::from_slice(&body).unwrap();
+    assert_eq!(problem.r#type, "about:blank");
+    assert_eq!(problem.title, "Bad Request");
+    assert_eq!(problem.status, 400);
+    assert_eq!(problem.code.as_deref(), Some("invalid_browser_view"));
+    assert_eq!(
+        problem.detail.as_deref(),
+        Some("unsupported browser view: invalid")
+    );
 }
 
 #[derive(Clone, Default)]

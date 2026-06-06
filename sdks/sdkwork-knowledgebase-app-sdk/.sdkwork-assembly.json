@@ -1,0 +1,78 @@
+{
+  "workspace": "sdkwork-knowledgebase-app-sdk",
+  "title": "SDKWork Knowledgebase App API SDK",
+  "apiVersion": "0.1.0",
+  "openapiVersion": "3.1.0",
+  "authoritySpec": "openapi/knowledgebase-app-api.openapi.json",
+  "generationInputSpec": "openapi/knowledgebase-app-api.openapi.json",
+  "derivedSpecs": {
+    "default": "openapi/knowledgebase-app-api.openapi.json"
+  },
+  "apiAuthority": "sdkwork-knowledgebase.app",
+  "discoverySurface": {
+    "sdkTarget": "app",
+    "apiPrefix": "/app/v3/api",
+    "schemaUrl": "/app/v3/openapi.json",
+    "generatedProtocols": [
+      "http-openapi"
+    ],
+    "manualTransports": []
+  },
+  "languages": [
+    {
+      "language": "typescript",
+      "workspace": "sdkwork-knowledgebase-app-sdk-typescript",
+      "generationState": "materialized",
+      "releaseState": "not_published",
+      "generatedPath": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
+      "manifestPath": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/package.json",
+      "name": "@sdkwork/knowledgebase-app-sdk",
+      "version": "0.1.0",
+      "description": "Generator-owned TypeScript transport SDK for sdkwork-knowledgebase.app.",
+      "consumerSurface": {
+        "primaryClient": "SdkworkAppClient",
+        "apiPrefix": "/app/v3/api"
+      }
+    }
+  ],
+  "sdkOwner": "sdkwork-knowledgebase",
+  "sdkDependencies": [
+    {
+      "workspace": "sdkwork-appbase-app-sdk",
+      "role": "appbase-identity-and-session-capability",
+      "required": true,
+      "dependencyMode": "consumer-sdk",
+      "apiPrefix": "/app/v3/api",
+      "apiAuthority": "sdkwork-appbase.app",
+      "generatedTransportImportPolicy": "forbidden",
+      "packageByLanguage": {
+        "typescript": "@sdkwork/appbase-app-sdk",
+        "rust": "sdkwork-appbase-app-sdk",
+        "java": "com.sdkwork:sdkwork-appbase-app-sdk",
+        "python": "sdkwork-appbase-app-sdk",
+        "go": "github.com/sdkwork/sdkwork-appbase-app-sdk"
+      }
+    },
+    {
+      "workspace": "sdkwork-drive-app-sdk",
+      "role": "drive-file-and-media-capability",
+      "required": true,
+      "dependencyMode": "consumer-sdk",
+      "apiPrefix": "/app/v3/api",
+      "apiAuthority": "sdkwork-drive.app",
+      "generatedTransportImportPolicy": "forbidden",
+      "packageByLanguage": {
+        "typescript": "@sdkwork/drive-app-sdk",
+        "rust": "sdkwork-drive-app-sdk",
+        "java": "com.sdkwork:sdkwork-drive-app-sdk",
+        "python": "sdkwork-drive-app-sdk",
+        "go": "github.com/sdkwork/sdkwork-drive-app-sdk"
+      }
+    }
+  ],
+  "metadata": {
+    "standardVersion": "2026-06-06",
+    "ownerOnlyOperationCount": 22,
+    "managedBy": "sdks/standardize-knowledgebase-sdk-family.mjs"
+  }
+}

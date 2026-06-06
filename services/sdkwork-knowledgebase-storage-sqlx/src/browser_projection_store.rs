@@ -7,6 +7,7 @@ use sdkwork_knowledgebase_product::ports::knowledge_browser_projection_store::{
 use sqlx::{QueryBuilder, Row, SqlitePool};
 
 const ACTIVE_STATUS: i64 = 1;
+const MAX_PROJECTION_BATCH_SIZE: usize = 200;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeBrowserProjectionStore {
@@ -30,6 +31,7 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
         if drive_node_ids.is_empty() {
             return Ok(vec![]);
         }
+        validate_batch_size("drive_node_ids", drive_node_ids.len())?;
 
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", space_id)?;
@@ -120,6 +122,7 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
         if logical_paths.is_empty() {
             return Ok(vec![]);
         }
+        validate_batch_size("logical_paths", logical_paths.len())?;
 
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", space_id)?;
@@ -164,6 +167,18 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
             })
             .collect()
     }
+}
+
+fn validate_batch_size(
+    field: &str,
+    len: usize,
+) -> Result<(), KnowledgeBrowserProjectionStoreError> {
+    if len > MAX_PROJECTION_BATCH_SIZE {
+        return Err(KnowledgeBrowserProjectionStoreError::InvalidRequest(
+            format!("{field} batch size must be <= {MAX_PROJECTION_BATCH_SIZE}"),
+        ));
+    }
+    Ok(())
 }
 
 fn version_state_name(code: i64) -> &'static str {

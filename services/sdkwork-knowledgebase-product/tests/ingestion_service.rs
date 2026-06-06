@@ -37,6 +37,32 @@ async fn creating_ingest_job_is_idempotent_by_key() {
 }
 
 #[tokio::test]
+async fn creating_ingest_job_trims_idempotency_key_before_lookup() {
+    let store = MemoryIngestionJobStore::default();
+    let service = KnowledgeIngestionService::new(&store);
+
+    let first = service
+        .create_job(CreateIngestionJobRequest {
+            space_id: 1,
+            source_type: "upload".to_string(),
+            idempotency_key: "upload-1".to_string(),
+        })
+        .await
+        .unwrap();
+    let replay = service
+        .create_job(CreateIngestionJobRequest {
+            space_id: 1,
+            source_type: "upload".to_string(),
+            idempotency_key: " upload-1 ".to_string(),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(first.id, replay.id);
+    assert_eq!(replay.idempotency_key, "upload-1");
+}
+
+#[tokio::test]
 async fn ingest_job_supports_valid_state_transitions() {
     let store = MemoryIngestionJobStore::default();
     let service = KnowledgeIngestionService::new(&store);

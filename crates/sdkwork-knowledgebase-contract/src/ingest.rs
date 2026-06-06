@@ -1,3 +1,6 @@
+use crate::document::{KnowledgeDocument, KnowledgeDocumentVersion};
+use crate::drive::KnowledgeDriveObjectRef;
+use crate::source::KnowledgeSource;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,6 +31,16 @@ pub struct KnowledgeDriveImportRequest {
     pub drive_object_key: String,
     pub idempotency_key: String,
     pub language: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeDriveImportResult {
+    pub source: KnowledgeSource,
+    pub document: KnowledgeDocument,
+    pub version: KnowledgeDocumentVersion,
+    pub original_object_ref: KnowledgeDriveObjectRef,
+    pub job: IngestionJob,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

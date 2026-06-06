@@ -1236,6 +1236,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-knowledgebase-backend-api"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "sdkwork-knowledgebase-contract",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+]
+
+[[package]]
 name = "sdkwork-knowledgebase-contract"
 version = "0.1.0"
 dependencies = [
@@ -1267,7 +1280,6 @@ dependencies = [
  "sqlx",
  "thiserror 1.0.69",
  "tokio",
- "uuid",
 ]
 
 [[package]]

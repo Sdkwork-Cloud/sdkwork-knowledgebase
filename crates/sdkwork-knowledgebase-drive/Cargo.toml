@@ -6,15 +6,14 @@ license.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+sdkwork-drive-product = { path = "D:/sdkwork-opensource/sdkwork-drive/services/sdkwork-drive-product" }
 sdkwork-drive-storage-contract.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 sdkwork-knowledgebase-product.workspace = true
 sha2.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }
 thiserror.workspace = true
-uuid.workspace = true
 
 [dev-dependencies]
 sdkwork-drive-config = { path = "D:/sdkwork-opensource/sdkwork-drive/crates/sdkwork-drive-config" }
-sdkwork-drive-product = { path = "D:/sdkwork-opensource/sdkwork-drive/services/sdkwork-drive-product" }
 tokio.workspace = true

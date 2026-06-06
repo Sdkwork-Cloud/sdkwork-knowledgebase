@@ -3,8 +3,9 @@ use crate::ports::knowledge_browser_projection_store::{
     KnowledgeBrowserProjectionStoreError, KnowledgeBrowserWikiPageProjection,
 };
 use crate::ports::knowledge_drive_node_tree::{
-    DriveNodeKind, KnowledgeDriveNodeSummary, KnowledgeDriveNodeTree, KnowledgeDriveNodeTreeError,
-    ListKnowledgeDriveNodeChildrenRequest, ResolveKnowledgeDriveNodePathRequest,
+    DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodeSummary, KnowledgeDriveNodeTree,
+    KnowledgeDriveNodeTreeError, ListKnowledgeDriveNodeChildrenRequest,
+    ResolveKnowledgeDriveNodePathRequest,
 };
 use crate::ports::knowledge_space_store::{KnowledgeSpaceStore, KnowledgeSpaceStoreError};
 use sdkwork_knowledgebase_contract::browser::{
@@ -132,8 +133,13 @@ impl<'a> KnowledgeBrowserService<'a> {
         view: KnowledgeBrowserView,
         parent_id: Option<String>,
     ) -> Result<Option<String>, KnowledgeBrowserServiceError> {
-        if parent_id.is_some() || view == KnowledgeBrowserView::Files {
-            return Ok(parent_id);
+        if view == KnowledgeBrowserView::Files {
+            if let Some(parent_id) = parent_id {
+                self.validate_folder_parent(drive_space_id, &parent_id, None)
+                    .await?;
+                return Ok(Some(parent_id));
+            }
+            return Ok(None);
         }
 
         let root_path = match view {
@@ -141,6 +147,13 @@ impl<'a> KnowledgeBrowserService<'a> {
             KnowledgeBrowserView::Wiki => WIKI_VIEW_ROOT_PATH,
             KnowledgeBrowserView::Outputs => OUTPUTS_VIEW_ROOT_PATH,
         };
+
+        if let Some(parent_id) = parent_id {
+            self.validate_folder_parent(drive_space_id, &parent_id, Some((view, root_path)))
+                .await?;
+            return Ok(Some(parent_id));
+        }
+
         let root = self
             .drive_tree
             .resolve_path(ResolveKnowledgeDriveNodePathRequest {
@@ -154,6 +167,54 @@ impl<'a> KnowledgeBrowserService<'a> {
                 "browser view root is missing in drive space: {root_path}"
             ))
         })
+    }
+
+    async fn validate_folder_parent(
+        &self,
+        drive_space_id: &str,
+        parent_id: &str,
+        root_boundary: Option<(KnowledgeBrowserView, &str)>,
+    ) -> Result<(), KnowledgeBrowserServiceError> {
+        let parent = self
+            .drive_tree
+            .get_node(GetKnowledgeDriveNodeRequest {
+                drive_space_id: drive_space_id.to_string(),
+                drive_node_id: parent_id.to_string(),
+            })
+            .await?
+            .ok_or_else(|| {
+                KnowledgeBrowserServiceError::InvalidRequest(format!(
+                    "browser parent node is missing: {parent_id}"
+                ))
+            })?;
+        if parent.kind != DriveNodeKind::Folder {
+            return Err(KnowledgeBrowserServiceError::InvalidRequest(
+                "browser parent node must be a folder".to_string(),
+            ));
+        }
+        if let Some((view, root_path)) = root_boundary {
+            if !path_is_within_root(&parent.path, root_path) {
+                return Err(KnowledgeBrowserServiceError::InvalidRequest(format!(
+                    "browser parent node is outside {} view root: {}",
+                    view_name(view),
+                    parent.path
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+fn path_is_within_root(path: &str, root_path: &str) -> bool {
+    let path = path.trim_matches('/');
+    path == root_path || path.starts_with(&format!("{root_path}/"))
+}
+
+fn view_name(view: KnowledgeBrowserView) -> &'static str {
+    match view {
+        KnowledgeBrowserView::Files => "files",
+        KnowledgeBrowserView::Wiki => "wiki",
+        KnowledgeBrowserView::Outputs => "outputs",
     }
 }
 

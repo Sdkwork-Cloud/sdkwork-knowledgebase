@@ -24,6 +24,7 @@ pub struct CreateIngestionJobRecord {
     pub space_id: u64,
     pub source_type: String,
     pub idempotency_key: String,
+    pub idempotency_fingerprint_sha256_hex: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +37,8 @@ pub struct CreateOrGetIngestionJobResult {
 pub enum IngestionJobStoreError {
     #[error("ingestion job not found: {0}")]
     NotFound(u64),
+    #[error("ingestion job conflict: {0}")]
+    Conflict(String),
     #[error("ingestion job store internal error: {0}")]
     Internal(String),
 }

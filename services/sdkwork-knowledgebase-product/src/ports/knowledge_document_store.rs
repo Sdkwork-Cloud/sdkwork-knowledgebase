@@ -22,14 +22,32 @@ pub struct CreateKnowledgeDocumentRecord {
     pub space_id: u64,
     pub collection_id: u64,
     pub source_id: Option<u64>,
+    pub identity_scope: KnowledgeDocumentIdentityScope,
     pub original_file_drive_node_id: Option<String>,
     pub title: String,
     pub mime_type: Option<String>,
     pub language: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum KnowledgeDocumentIdentityScope {
+    SourceOnly,
+    SourceAndOriginalDriveNode,
+}
+
+impl KnowledgeDocumentIdentityScope {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::SourceOnly => "source_only",
+            Self::SourceAndOriginalDriveNode => "source_and_original_drive_node",
+        }
+    }
+}
+
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum KnowledgeDocumentStoreError {
+    #[error("knowledge document store invalid record: {0}")]
+    InvalidRecord(String),
     #[error("knowledge document store internal error: {0}")]
     Internal(String),
 }

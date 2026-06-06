@@ -3,6 +3,6 @@
 mod adapter;
 
 pub use adapter::{
-    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveStorageAdapter,
-    KnowledgebaseDriveWorkspaceAdapter,
+    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
+    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
 };

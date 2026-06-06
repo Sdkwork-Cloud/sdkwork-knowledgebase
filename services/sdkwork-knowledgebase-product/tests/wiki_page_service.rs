@@ -91,6 +91,8 @@ async fn wiki_page_service_publishes_page_and_rebuilds_standard_files() {
     assert!(workspace
         .paths()
         .contains(&"wiki/pages/entities/entity-name/revisions/r1.md".to_string()));
+    assert!(workspace.paths().contains(&"wiki/index.md".to_string()));
+    assert!(workspace.paths().contains(&"wiki/log.md".to_string()));
 
     let index_ref = file_entries.object_key_for("wiki/index.md").unwrap();
     let index_content = drive.body_at(&index_ref).unwrap();
@@ -101,12 +103,55 @@ async fn wiki_page_service_publishes_page_and_rebuilds_standard_files() {
     assert!(log_content.contains("publish | Published Entity Name"));
 }
 
+#[tokio::test]
+async fn wiki_page_service_requires_drive_space_before_publishing_when_workspace_enabled() {
+    let drive = MemoryDrive::default();
+    let object_refs = MemoryObjectRefStore::default();
+    let wiki_pages = MemoryWikiPageStore::default();
+    let file_entries = MemoryWikiFileEntryStore::default();
+    let workspace = MemoryDriveWorkspace::default();
+    let service = KnowledgeWikiPageService::new(&drive, &object_refs, &wiki_pages)
+        .with_file_entry_store(&file_entries)
+        .with_drive_workspace(&workspace);
+
+    let error = service
+        .publish_page(
+            PublishKnowledgeWikiPageRequest {
+                space_id: 7,
+                slug: "entity-name".to_string(),
+                title: "Entity Name".to_string(),
+                page_type: WikiPageType::Entity,
+                summary: "Entity summary.".to_string(),
+                markdown: "# Entity Name\n\nA durable synthesis.".to_string(),
+                source_count: 2,
+                tags: vec!["entity".to_string()],
+                actor: "system".to_string(),
+            },
+            None,
+        )
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("drive_space_id is required"));
+    assert_eq!(drive.object_count(), 0);
+    assert_eq!(object_refs.ref_count(), 0);
+    assert_eq!(wiki_pages.page_count(), 0);
+    assert_eq!(wiki_pages.revision_count(), 0);
+    assert_eq!(wiki_pages.log_count(), 0);
+    assert!(file_entries.paths().is_empty());
+    assert!(workspace.paths().is_empty());
+}
+
 #[derive(Default)]
 struct MemoryDrive {
     objects: Mutex<HashMap<String, (KnowledgeObjectRef, Vec<u8>)>>,
 }
 
 impl MemoryDrive {
+    fn object_count(&self) -> usize {
+        self.objects.lock().unwrap().len()
+    }
+
     fn body_at(&self, logical_path: &str) -> Option<String> {
         self.objects
             .lock()
@@ -181,6 +226,10 @@ struct MemoryObjectRefStore {
 }
 
 impl MemoryObjectRefStore {
+    fn ref_count(&self) -> usize {
+        self.refs.lock().unwrap().len()
+    }
+
     fn ref_by_path(
         &self,
         logical_path: &str,
@@ -234,6 +283,20 @@ struct MemoryWikiPageStore {
     pages: Mutex<Vec<sdkwork_knowledgebase_contract::wiki::KnowledgeWikiPage>>,
     revisions: Mutex<Vec<sdkwork_knowledgebase_contract::wiki::KnowledgeWikiPageRevision>>,
     logs: Mutex<Vec<WikiLogEntry>>,
+}
+
+impl MemoryWikiPageStore {
+    fn page_count(&self) -> usize {
+        self.pages.lock().unwrap().len()
+    }
+
+    fn revision_count(&self) -> usize {
+        self.revisions.lock().unwrap().len()
+    }
+
+    fn log_count(&self) -> usize {
+        self.logs.lock().unwrap().len()
+    }
 }
 
 #[async_trait]

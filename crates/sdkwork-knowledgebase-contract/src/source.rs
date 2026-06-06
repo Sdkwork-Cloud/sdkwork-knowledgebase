@@ -2,6 +2,22 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CreateKnowledgeSourceRequest {
+    pub space_id: u64,
+    pub source_type: KnowledgeSourceType,
+    pub provider: Option<String>,
+    pub drive_bucket: Option<String>,
+    pub drive_prefix: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeSourceList {
+    pub items: Vec<KnowledgeSource>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KnowledgeSource {
     pub id: u64,
     pub space_id: u64,

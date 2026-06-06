@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS kb_space (
     drive_space_id VARCHAR(128),
     status INTEGER NOT NULL,
     llm_wiki_initialized BOOLEAN NOT NULL DEFAULT FALSE,
+    wiki_log_sequence_counter BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
@@ -18,7 +19,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_uuid
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_drive_space
     ON kb_space (tenant_id, drive_space_id)
-    WHERE drive_space_id IS NOT NULL;
+    WHERE drive_space_id IS NOT NULL AND status = 1;
 
 CREATE TABLE IF NOT EXISTS kb_collection (
     id BIGINT PRIMARY KEY,
@@ -35,6 +36,9 @@ CREATE TABLE IF NOT EXISTS kb_collection (
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_collection_uuid
+    ON kb_collection (tenant_id, uuid);
 
 CREATE TABLE IF NOT EXISTS kb_source (
     id BIGINT PRIMARY KEY,
@@ -54,6 +58,20 @@ CREATE TABLE IF NOT EXISTS kb_source (
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_source_uuid
+    ON kb_source (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_source_identity
+    ON kb_source (
+        tenant_id,
+        space_id,
+        source_type,
+        COALESCE(provider, ''),
+        COALESCE(drive_bucket, ''),
+        COALESCE(drive_prefix, '')
+    )
+    WHERE status = 1;
 
 CREATE TABLE IF NOT EXISTS kb_drive_object_ref (
     id BIGINT PRIMARY KEY,
@@ -79,6 +97,9 @@ CREATE TABLE IF NOT EXISTS kb_drive_object_ref (
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_drive_object_ref_uuid
+    ON kb_drive_object_ref (tenant_id, uuid);
 
 CREATE INDEX IF NOT EXISTS idx_kb_drive_object_locator
     ON kb_drive_object_ref (tenant_id, drive_bucket, drive_object_key, drive_object_version);
@@ -106,6 +127,7 @@ CREATE TABLE IF NOT EXISTS kb_document (
     space_id BIGINT NOT NULL,
     collection_id BIGINT NOT NULL DEFAULT 0,
     source_id BIGINT,
+    identity_scope VARCHAR(64) NOT NULL DEFAULT 'source_and_original_drive_node',
     original_file_drive_node_id VARCHAR(128),
     title VARCHAR(512) NOT NULL,
     mime_type VARCHAR(256),
@@ -121,8 +143,25 @@ CREATE TABLE IF NOT EXISTS kb_document (
     version BIGINT NOT NULL DEFAULT 0
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_uuid
+    ON kb_document (tenant_id, uuid);
+
 CREATE INDEX IF NOT EXISTS idx_kb_document_drive_node
     ON kb_document (tenant_id, space_id, original_file_drive_node_id, status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_identity
+    ON kb_document (
+        tenant_id,
+        space_id,
+        collection_id,
+        identity_scope,
+        COALESCE(source_id, 0),
+        CASE
+            WHEN identity_scope = 'source_only' THEN ''
+            ELSE COALESCE(original_file_drive_node_id, '')
+        END
+    )
+    WHERE status = 1;
 
 CREATE TABLE IF NOT EXISTS kb_document_version (
     id BIGINT PRIMARY KEY,
@@ -145,6 +184,9 @@ CREATE TABLE IF NOT EXISTS kb_document_version (
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_version_uuid
+    ON kb_document_version (tenant_id, uuid);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_version_no
     ON kb_document_version (tenant_id, document_id, version_no);
@@ -174,6 +216,9 @@ CREATE TABLE IF NOT EXISTS kb_ingestion_job (
     version BIGINT NOT NULL DEFAULT 0
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_ingestion_job_uuid
+    ON kb_ingestion_job (tenant_id, uuid);
+
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_ingestion_job_idempotency
     ON kb_ingestion_job (tenant_id, space_id, idempotency_key);
 
@@ -198,6 +243,9 @@ CREATE TABLE IF NOT EXISTS kb_ingestion_job_item (
     version BIGINT NOT NULL DEFAULT 0
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_ingestion_job_item_uuid
+    ON kb_ingestion_job_item (tenant_id, uuid);
+
 CREATE TABLE IF NOT EXISTS kb_wiki_page (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
@@ -212,11 +260,15 @@ CREATE TABLE IF NOT EXISTS kb_wiki_page (
     tags JSONB,
     current_revision_id BIGINT,
     publish_state VARCHAR(64) NOT NULL,
+    revision_counter BIGINT NOT NULL DEFAULT 0,
     status INTEGER NOT NULL,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_uuid
+    ON kb_wiki_page (tenant_id, uuid);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_slug
     ON kb_wiki_page (tenant_id, space_id, slug);
@@ -242,6 +294,12 @@ CREATE TABLE IF NOT EXISTS kb_wiki_page_revision (
     version BIGINT NOT NULL DEFAULT 0
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_revision_uuid
+    ON kb_wiki_page_revision (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_revision_no
+    ON kb_wiki_page_revision (tenant_id, page_id, revision_no);
+
 CREATE TABLE IF NOT EXISTS kb_wiki_file_entry (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
@@ -258,6 +316,9 @@ CREATE TABLE IF NOT EXISTS kb_wiki_file_entry (
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_file_entry_uuid
+    ON kb_wiki_file_entry (tenant_id, uuid);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_file_entry_path
     ON kb_wiki_file_entry (tenant_id, space_id, logical_path);
@@ -277,6 +338,9 @@ CREATE TABLE IF NOT EXISTS kb_wiki_schema_profile (
     version BIGINT NOT NULL DEFAULT 0
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_schema_profile_uuid
+    ON kb_wiki_schema_profile (tenant_id, uuid);
+
 CREATE TABLE IF NOT EXISTS kb_wiki_log_entry (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
@@ -293,6 +357,9 @@ CREATE TABLE IF NOT EXISTS kb_wiki_log_entry (
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_log_entry_uuid
+    ON kb_wiki_log_entry (tenant_id, uuid);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_log_entry_sequence
     ON kb_wiki_log_entry (tenant_id, space_id, sequence_no);
@@ -313,3 +380,6 @@ CREATE TABLE IF NOT EXISTS kb_local_mirror_package (
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_local_mirror_package_uuid
+    ON kb_local_mirror_package (tenant_id, uuid);
