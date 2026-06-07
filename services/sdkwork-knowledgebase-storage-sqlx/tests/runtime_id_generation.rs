@@ -6,6 +6,7 @@ use sdkwork_knowledgebase_storage_sqlx::{
     KnowledgeIdGenerator, KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator,
     SqliteKnowledgeSpaceStore,
 };
+use sdkwork_id::default_snowflake_epoch_millis;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::SqlitePool;
 use std::sync::{Arc, Mutex};
@@ -119,6 +120,7 @@ fn sqlite_repository_inserts_declare_explicit_id_columns() {
 fn snowflake_generator_accepts_configured_node_id_and_rejects_invalid_values() {
     let generator = SnowflakeKnowledgeIdGenerator::from_node_id_config(Some("42")).unwrap();
     assert_eq!(generator.node_id(), 42);
+    assert_eq!(generator.epoch_millis(), default_snowflake_epoch_millis());
 
     assert!(
         SnowflakeKnowledgeIdGenerator::from_node_id_config(Some("1024"))

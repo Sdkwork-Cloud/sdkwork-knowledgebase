@@ -12,6 +12,7 @@ sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio
 time.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 sdkwork-knowledgebase-product.workspace = true
+sdkwork_id.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]

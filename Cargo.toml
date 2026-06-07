@@ -36,3 +36,9 @@ sdkwork-knowledgebase-product = { path = "services/sdkwork-knowledgebase-product
 # storage provider and prevents knowledgebase product crates from using object
 # storage SDKs directly.
 sdkwork-drive-storage-contract = { path = "../sdkwork-drive/crates/sdkwork-drive-storage-contract" }
+
+# SDKWork workspace members - declared once at workspace root
+sdkwork-knowledgebase-drive = { path = "crates/sdkwork-knowledgebase-drive" }
+sdkwork-drive-product = { path = "../sdkwork-drive/services/sdkwork-drive-product" }
+sdkwork-drive-config = { path = "../sdkwork-drive/crates/sdkwork-drive-config" }
+sdkwork_id = { path = "../sdkwork-appbase/packages/native-rust/foundation/sdkwork-id-rust" }

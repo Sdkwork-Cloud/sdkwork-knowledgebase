@@ -1206,6 +1206,8 @@ dependencies = [
  "async-trait",
  "sdkwork-drive-config",
  "sdkwork-drive-core",
+ "sdkwork-drive-storage-contract",
+ "sdkwork_id",
  "sha2",
  "sqlx",
  "tokio",
@@ -1304,6 +1306,7 @@ dependencies = [
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-product",
  "sdkwork-knowledgebase-test-support",
+ "sdkwork_id",
  "serde",
  "serde_json",
  "sqlx",
@@ -1322,6 +1325,10 @@ dependencies = [
  "sha2",
  "tokio",
 ]
+
+[[package]]
+name = "sdkwork_id"
+version = "0.1.0"
 
 [[package]]
 name = "semver"

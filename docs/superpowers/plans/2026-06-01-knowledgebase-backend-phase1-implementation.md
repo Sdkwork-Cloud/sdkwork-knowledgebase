@@ -202,7 +202,7 @@ pub trait KnowledgeDriveStorage: Send + Sync {
 `sdkwork-knowledgebase-drive` is the only Phase 1 crate that may depend on:
 
 ```toml
-sdkwork-drive-storage-contract = { path = "../../sdkwork-drive/crates/sdkwork-drive-storage-contract" }
+sdkwork-drive-storage-contract.workspace = true
 ```
 
 If that relative path does not resolve from this repo, use the absolute local path in `Cargo.toml` and document it in a comment.

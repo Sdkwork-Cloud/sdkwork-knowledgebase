@@ -1,14 +1,7 @@
 use std::fmt;
-use std::sync::{Arc, Mutex, OnceLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, OnceLock};
 
-const SDKWORK_SNOWFLAKE_EPOCH_MILLIS: u64 = 1_735_689_600_000;
-const NODE_ID_BITS: u8 = 10;
-const SEQUENCE_BITS: u8 = 12;
-const MAX_NODE_ID: u16 = (1 << NODE_ID_BITS) - 1;
-const MAX_SEQUENCE: u16 = (1 << SEQUENCE_BITS) - 1;
-const NODE_ID_SHIFT: u8 = SEQUENCE_BITS;
-const TIMESTAMP_SHIFT: u8 = NODE_ID_BITS + SEQUENCE_BITS;
+use sdkwork_id::{max_snowflake_node_id, SnowflakeIdError, SnowflakeIdGenerator};
 
 static DEFAULT_ID_GENERATOR: OnceLock<Arc<dyn KnowledgeIdGenerator>> = OnceLock::new();
 
@@ -70,25 +63,13 @@ impl KnowledgeIdGenerator for FailedKnowledgeIdGenerator {
 
 #[derive(Debug)]
 pub struct SnowflakeKnowledgeIdGenerator {
-    node_id: u16,
-    state: Mutex<SnowflakeState>,
+    inner: SnowflakeIdGenerator,
 }
 
 impl SnowflakeKnowledgeIdGenerator {
     pub fn new(node_id: u16) -> Result<Self, KnowledgeIdGeneratorError> {
-        if node_id > MAX_NODE_ID {
-            return Err(KnowledgeIdGeneratorError::InvalidNodeId {
-                node_id,
-                max_node_id: MAX_NODE_ID,
-            });
-        }
-
         Ok(Self {
-            node_id,
-            state: Mutex::new(SnowflakeState {
-                last_millis: 0,
-                sequence: 0,
-            }),
+            inner: SnowflakeIdGenerator::new(node_id).map_err(map_snowflake_error)?,
         })
     }
 
@@ -103,57 +84,30 @@ impl SnowflakeKnowledgeIdGenerator {
             ));
         }
         let node_id = value.parse::<u16>().map_err(|_| {
-            KnowledgeIdGeneratorError::Internal(
-                "snowflake node id must be an integer between 0 and 1023".to_string(),
-            )
+            KnowledgeIdGeneratorError::Internal(format!(
+                "snowflake node id must be an integer between 0 and {}",
+                max_snowflake_node_id()
+            ))
         })?;
         Self::new(node_id)
     }
 
     pub fn node_id(&self) -> u16 {
-        self.node_id
+        self.inner.node_id()
+    }
+
+    pub fn epoch_millis(&self) -> u64 {
+        self.inner.epoch_millis()
     }
 }
 
 impl KnowledgeIdGenerator for SnowflakeKnowledgeIdGenerator {
     fn next_id(&self) -> Result<u64, KnowledgeIdGeneratorError> {
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| KnowledgeIdGeneratorError::Poisoned)?;
-        let mut now_millis = current_epoch_millis()?;
-
-        if now_millis < state.last_millis {
-            return Err(KnowledgeIdGeneratorError::ClockRollback {
-                last_millis: state.last_millis,
-                now_millis,
-            });
-        }
-
-        if now_millis == state.last_millis {
-            if state.sequence == MAX_SEQUENCE {
-                now_millis = wait_next_millis(state.last_millis)?;
-                state.sequence = 0;
-            } else {
-                state.sequence += 1;
-            }
-        } else {
-            state.sequence = 0;
-        }
-
-        state.last_millis = now_millis;
-        Ok(
-            ((now_millis - SDKWORK_SNOWFLAKE_EPOCH_MILLIS) << TIMESTAMP_SHIFT)
-                | (u64::from(self.node_id) << NODE_ID_SHIFT)
-                | u64::from(state.sequence),
-        )
+        let id = self.inner.generate().map_err(map_snowflake_error)?;
+        u64::try_from(id).map_err(|_| {
+            KnowledgeIdGeneratorError::Internal("snowflake id is negative".to_string())
+        })
     }
-}
-
-#[derive(Debug)]
-struct SnowflakeState {
-    last_millis: u64,
-    sequence: u16,
 }
 
 pub(crate) fn default_knowledge_id_generator() -> Arc<dyn KnowledgeIdGenerator> {
@@ -184,34 +138,41 @@ pub(crate) fn next_i64_id(
     })
 }
 
-fn wait_next_millis(last_millis: u64) -> Result<u64, KnowledgeIdGeneratorError> {
-    loop {
-        let now_millis = current_epoch_millis()?;
-        if now_millis > last_millis {
-            return Ok(now_millis);
-        }
-        std::thread::sleep(Duration::from_micros(100));
+fn map_snowflake_error(error: SnowflakeIdError) -> KnowledgeIdGeneratorError {
+    match error {
+        SnowflakeIdError::InvalidNodeId {
+            node_id,
+            max_node_id,
+        } => KnowledgeIdGeneratorError::InvalidNodeId {
+            node_id,
+            max_node_id,
+        },
+        SnowflakeIdError::ClockBeforeEpoch {
+            now_millis,
+            epoch_millis,
+        } => KnowledgeIdGeneratorError::ClockBeforeEpoch {
+            now_millis,
+            epoch_millis,
+        },
+        SnowflakeIdError::ClockMovedBackwards {
+            last_millis,
+            now_millis,
+        } => KnowledgeIdGeneratorError::ClockRollback {
+            last_millis,
+            now_millis,
+        },
+        SnowflakeIdError::StatePoisoned => KnowledgeIdGeneratorError::Poisoned,
+        SnowflakeIdError::SequenceExhausted { millis } => KnowledgeIdGeneratorError::Internal(
+            format!("snowflake sequence exhausted at millis {millis}"),
+        ),
+        SnowflakeIdError::TimestampOverflow {
+            delta_millis,
+            max_delta_millis,
+        } => KnowledgeIdGeneratorError::Internal(format!(
+            "snowflake timestamp delta {delta_millis} exceeds max {max_delta_millis}"
+        )),
+        SnowflakeIdError::SystemTime(message) => KnowledgeIdGeneratorError::Internal(message),
     }
-}
-
-fn current_epoch_millis() -> Result<u64, KnowledgeIdGeneratorError> {
-    let duration = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|_| {
-        KnowledgeIdGeneratorError::ClockBeforeEpoch {
-            now_millis: 0,
-            epoch_millis: SDKWORK_SNOWFLAKE_EPOCH_MILLIS,
-        }
-    })?;
-    let millis = duration.as_millis();
-    let millis = u64::try_from(millis).map_err(|_| {
-        KnowledgeIdGeneratorError::Internal("system clock millis exceeds u64 range".to_string())
-    })?;
-    if millis < SDKWORK_SNOWFLAKE_EPOCH_MILLIS {
-        return Err(KnowledgeIdGeneratorError::ClockBeforeEpoch {
-            now_millis: millis,
-            epoch_millis: SDKWORK_SNOWFLAKE_EPOCH_MILLIS,
-        });
-    }
-    Ok(millis)
 }
 
 #[cfg(test)]
