@@ -17,9 +17,9 @@ function Invoke-Checked {
 $knowledgebaseDesignPath = "docs/superpowers/specs/2026-06-01-knowledgebase-backend-design.md"
 $knowledgebaseDesign = Get-Content -Raw $knowledgebaseDesignPath
 
-$canonicalSdkGeneratorRoot = "D:\javasource\spring-ai-plus\sdk\sdkwork-sdk-generator"
-$canonicalSdkGeneratorCli = "D:\javasource\spring-ai-plus\sdk\sdkwork-sdk-generator\bin\sdkgen.js"
-$staleSdkGeneratorRoot = "D:\javasource\spring-ai-plus\spring-ai-plus-business\sdk\sdkwork-sdk-generator"
+$canonicalSdkGeneratorRoot = "..\sdkwork-sdk-generator"
+$canonicalSdkGeneratorCli = "..\sdkwork-sdk-generator\bin\sdkgen.js"
+$staleSdkGeneratorRoot = "..\..\sdkwork-sdk-generator"
 
 if (!$knowledgebaseDesign.Contains($canonicalSdkGeneratorRoot) -or !$knowledgebaseDesign.Contains($canonicalSdkGeneratorCli)) {
     throw "$knowledgebaseDesignPath must document the canonical sdkwork-sdk-generator path and CLI entrypoint"

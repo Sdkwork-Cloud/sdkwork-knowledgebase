@@ -76,7 +76,7 @@
         "openapi/knowledgebase-backend-api.openapi.json"
       ],
       "owner": "sdkwork-knowledgebase",
-      "standard": "../../../../../javasource/spring-ai-plus/spring-ai-plus-business/specs/SDK_WORKSPACE_GENERATION_SPEC.md"
+      "standard": "../../../../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md"
     },
     "publicExports": [],
     "runtimeEntrypoints": [

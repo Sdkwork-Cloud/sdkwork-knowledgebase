@@ -35,4 +35,4 @@ sdkwork-knowledgebase-product = { path = "services/sdkwork-knowledgebase-product
 # Local workspace dependency. This keeps sdkwork-drive as the only lower-level
 # storage provider and prevents knowledgebase product crates from using object
 # storage SDKs directly.
-sdkwork-drive-storage-contract = { path = "D:/sdkwork-opensource/sdkwork-drive/crates/sdkwork-drive-storage-contract" }
+sdkwork-drive-storage-contract = { path = "../sdkwork-drive/crates/sdkwork-drive-storage-contract" }

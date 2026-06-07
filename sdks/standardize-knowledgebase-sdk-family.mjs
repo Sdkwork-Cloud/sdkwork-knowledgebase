@@ -295,17 +295,17 @@ function componentSpecFor(family) {
     canonicalSpecs: [
       {
         file: "API_SPEC.md",
-        path: "../../../../../javasource/spring-ai-plus/spring-ai-plus-business/specs/API_SPEC.md",
+        path: "../sdkwork-specs/API_SPEC.md",
         purpose: "HTTP/OpenAPI and generated SDK contract rules.",
       },
       {
         file: "SDK_SPEC.md",
-        path: "../../../../../javasource/spring-ai-plus/spring-ai-plus-business/specs/SDK_SPEC.md",
+        path: "../sdkwork-specs/SDK_SPEC.md",
         purpose: "SDK generation, SDK dependency, and SDK integration rules.",
       },
       {
         file: "SDK_WORKSPACE_GENERATION_SPEC.md",
-        path: "../../../../../javasource/spring-ai-plus/spring-ai-plus-business/specs/SDK_WORKSPACE_GENERATION_SPEC.md",
+        path: "../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md",
         purpose: "SDK workspace, SDK family naming, API authority naming, and OpenAPI generation rules.",
       },
     ],
@@ -316,7 +316,7 @@ function componentSpecFor(family) {
         authorityOpenApi: family.input,
         derivedOpenApi: [family.input],
         owner,
-        standard: "../../../../../javasource/spring-ai-plus/spring-ai-plus-business/specs/SDK_WORKSPACE_GENERATION_SPEC.md",
+        standard: "../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md",
       },
       publicExports: [],
       runtimeEntrypoints: [".sdkwork-assembly.json"],
