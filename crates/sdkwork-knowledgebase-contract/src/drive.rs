@@ -9,6 +9,7 @@ pub struct KnowledgeDriveObjectRef {
     pub drive_node_id: Option<String>,
     pub logical_path: Option<String>,
     pub drive_provider_kind: String,
+    pub drive_storage_provider_id: String,
     pub drive_bucket: String,
     pub drive_object_key: String,
     pub drive_object_version: Option<String>,

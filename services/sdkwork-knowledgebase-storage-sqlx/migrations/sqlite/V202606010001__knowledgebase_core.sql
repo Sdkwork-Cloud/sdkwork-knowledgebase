@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS kb_drive_object_ref (
     drive_space_id TEXT,
     drive_node_id TEXT,
     logical_path TEXT,
+    drive_storage_provider_id TEXT NOT NULL,
     drive_bucket TEXT NOT NULL,
     drive_object_key TEXT NOT NULL,
     drive_object_version TEXT,
@@ -106,12 +107,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_drive_object_ref_uuid
     ON kb_drive_object_ref (tenant_id, uuid);
 
 CREATE INDEX IF NOT EXISTS idx_kb_drive_object_locator
-    ON kb_drive_object_ref (tenant_id, drive_bucket, drive_object_key, drive_object_version);
+    ON kb_drive_object_ref (
+        tenant_id,
+        drive_storage_provider_id,
+        drive_bucket,
+        drive_object_key,
+        drive_object_version
+    );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_drive_object_ref_locator
     ON kb_drive_object_ref (
         tenant_id,
         space_id,
+        drive_storage_provider_id,
         drive_bucket,
         drive_object_key,
         COALESCE(drive_object_version, ''),
@@ -196,6 +204,234 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_version_uuid
 
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_version_no
     ON kb_document_version (tenant_id, document_id, version_no);
+
+CREATE TABLE IF NOT EXISTS kb_chunk (
+    id BIGINT NOT NULL,
+    uuid TEXT NOT NULL,
+    tenant_id INTEGER NOT NULL,
+    space_id INTEGER NOT NULL,
+    collection_id INTEGER NOT NULL DEFAULT 0,
+    document_id INTEGER NOT NULL,
+    document_version_id INTEGER NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    content_text TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    token_count INTEGER,
+    locator TEXT,
+    metadata TEXT,
+    status INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_chunk_uuid
+    ON kb_chunk (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_chunk_document_version_chunk
+    ON kb_chunk (tenant_id, document_version_id, chunk_index);
+
+CREATE INDEX IF NOT EXISTS idx_kb_chunk_document_version
+    ON kb_chunk (tenant_id, document_version_id, status, chunk_index);
+
+CREATE INDEX IF NOT EXISTS idx_kb_chunk_space_status
+    ON kb_chunk (tenant_id, space_id, collection_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_index (
+    id BIGINT NOT NULL,
+    uuid TEXT NOT NULL,
+    tenant_id INTEGER NOT NULL,
+    space_id INTEGER NOT NULL,
+    collection_id INTEGER NOT NULL DEFAULT 0,
+    index_kind TEXT NOT NULL,
+    embedding_provider_id TEXT,
+    embedding_model TEXT,
+    dimension INTEGER,
+    metric TEXT,
+    schema_version TEXT NOT NULL,
+    metadata TEXT,
+    status INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_index_uuid
+    ON kb_index (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_index_scope
+    ON kb_index (tenant_id, space_id, collection_id, index_kind, status);
+
+CREATE TABLE IF NOT EXISTS kb_embedding (
+    id BIGINT NOT NULL,
+    uuid TEXT NOT NULL,
+    tenant_id INTEGER NOT NULL,
+    index_id INTEGER NOT NULL,
+    chunk_id INTEGER NOT NULL,
+    embedding_hash TEXT NOT NULL,
+    vector_ref TEXT NOT NULL,
+    dimension INTEGER NOT NULL,
+    provider_id TEXT,
+    model TEXT,
+    metadata TEXT,
+    status INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_embedding_uuid
+    ON kb_embedding (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_embedding_index_chunk
+    ON kb_embedding (tenant_id, index_id, chunk_id);
+
+CREATE INDEX IF NOT EXISTS idx_kb_embedding_chunk
+    ON kb_embedding (tenant_id, chunk_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_retrieval_profile (
+    id BIGINT NOT NULL,
+    uuid TEXT NOT NULL,
+    tenant_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    strategy TEXT NOT NULL,
+    top_k INTEGER NOT NULL,
+    min_score REAL,
+    rerank_enabled INTEGER NOT NULL DEFAULT 0,
+    rerank_provider_id TEXT,
+    query_rewrite_enabled INTEGER NOT NULL DEFAULT 0,
+    citation_policy TEXT,
+    filter_policy TEXT,
+    context_budget_tokens INTEGER NOT NULL,
+    metadata TEXT,
+    status INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_retrieval_profile_uuid
+    ON kb_retrieval_profile (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_retrieval_profile_tenant_status
+    ON kb_retrieval_profile (tenant_id, status, updated_at);
+
+CREATE TABLE IF NOT EXISTS kb_retrieval_trace (
+    id BIGINT NOT NULL,
+    uuid TEXT NOT NULL,
+    tenant_id INTEGER NOT NULL,
+    actor_id INTEGER,
+    retrieval_profile_id INTEGER,
+    query_hash TEXT NOT NULL,
+    query_text_redacted TEXT,
+    request_payload TEXT,
+    latency_ms INTEGER,
+    result_count INTEGER NOT NULL DEFAULT 0,
+    error_code TEXT,
+    error_detail TEXT,
+    status INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_retrieval_trace_uuid
+    ON kb_retrieval_trace (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_retrieval_trace_profile_created
+    ON kb_retrieval_trace (tenant_id, retrieval_profile_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_kb_retrieval_trace_actor_created
+    ON kb_retrieval_trace (tenant_id, actor_id, created_at);
+
+CREATE TABLE IF NOT EXISTS kb_retrieval_hit (
+    id BIGINT NOT NULL,
+    uuid TEXT NOT NULL,
+    tenant_id INTEGER NOT NULL,
+    retrieval_trace_id INTEGER NOT NULL,
+    chunk_id INTEGER NOT NULL,
+    document_id INTEGER NOT NULL,
+    document_version_id INTEGER,
+    score REAL,
+    result_rank INTEGER NOT NULL,
+    match_reason TEXT,
+    citation TEXT,
+    metadata TEXT,
+    status INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_retrieval_hit_uuid
+    ON kb_retrieval_hit (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_retrieval_hit_trace_rank
+    ON kb_retrieval_hit (tenant_id, retrieval_trace_id, result_rank);
+
+CREATE INDEX IF NOT EXISTS idx_kb_retrieval_hit_chunk
+    ON kb_retrieval_hit (tenant_id, chunk_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_agent_profile (
+    id BIGINT NOT NULL,
+    uuid TEXT NOT NULL,
+    tenant_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    system_instruction TEXT NOT NULL,
+    model_provider_id TEXT NOT NULL,
+    model_id TEXT NOT NULL,
+    model_parameters TEXT,
+    retrieval_profile_id INTEGER,
+    citation_policy TEXT,
+    memory_policy_ref TEXT,
+    tool_policy_ref TEXT,
+    answer_policy TEXT,
+    metadata TEXT,
+    status INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_agent_profile_uuid
+    ON kb_agent_profile (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_agent_profile_model
+    ON kb_agent_profile (tenant_id, model_provider_id, model_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_agent_knowledge_binding (
+    id BIGINT NOT NULL,
+    uuid TEXT NOT NULL,
+    tenant_id INTEGER NOT NULL,
+    profile_id INTEGER NOT NULL,
+    space_id INTEGER NOT NULL,
+    collection_id INTEGER,
+    source_filter TEXT,
+    document_filter TEXT,
+    priority INTEGER NOT NULL DEFAULT 0,
+    top_k INTEGER,
+    min_score REAL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    status INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_agent_knowledge_binding_uuid
+    ON kb_agent_knowledge_binding (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_agent_knowledge_binding_profile
+    ON kb_agent_knowledge_binding (tenant_id, profile_id, enabled, priority);
 
 CREATE TABLE IF NOT EXISTS kb_ingestion_job (
     id BIGINT NOT NULL,

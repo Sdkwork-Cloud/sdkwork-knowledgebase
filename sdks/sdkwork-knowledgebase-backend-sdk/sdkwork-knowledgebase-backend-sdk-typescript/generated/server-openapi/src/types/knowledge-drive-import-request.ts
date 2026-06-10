@@ -7,4 +7,5 @@ export interface KnowledgeDriveImportRequest {
   language?: string | null;
   driveSpaceId?: string | null;
   driveNodeId?: string | null;
+  driveStorageProviderId: string;
 }

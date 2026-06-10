@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use axum::body::{to_bytes, Body};
 use axum::http::{header, Request, StatusCode};
 use sdkwork_knowledgebase_app_api::{
-    build_router_with_browser, KnowledgeBrowserApi, ProblemDetails,
+    build_router_with_browser, ApiResult, KnowledgeBrowserApi, ProblemDetails,
 };
 use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserNode, KnowledgeBrowserNodePermissions, KnowledgeBrowserNodeType,
@@ -91,7 +91,7 @@ impl KnowledgeBrowserApi for RecordingBrowserApi {
     async fn list_browser(
         &self,
         request: ListKnowledgeBrowserRequest,
-    ) -> Result<KnowledgeBrowserPage, String> {
+    ) -> ApiResult<KnowledgeBrowserPage> {
         *self.last_request.lock().unwrap() = Some(request.clone());
         Ok(KnowledgeBrowserPage {
             space_id: request.space_id,

@@ -194,6 +194,7 @@ impl KnowledgeDriveStorage for RecordingDrive {
         let body = String::from_utf8(request.body.clone())
             .map_err(|error| KnowledgeStorageError::InvalidRequest(error.to_string()))?;
         let object_ref = KnowledgeObjectRef {
+            storage_provider_id: "provider-kb".to_string(),
             bucket: "knowledgebase-test".to_string(),
             object_key: request.logical_path.clone(),
             logical_path: request.logical_path,

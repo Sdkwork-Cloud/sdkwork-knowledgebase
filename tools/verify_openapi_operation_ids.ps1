@@ -12,6 +12,18 @@ $required = @(
     "ingests.create",
     "ingests.retrieve",
     "spaces.browser.list",
+    "retrievals.create",
+    "retrievals.retrieve",
+    "contextPacks.create",
+    "agentProfiles.create",
+    "agentProfiles.retrieve",
+    "agentProfiles.update",
+    "agentProfiles.delete",
+    "agentProfiles.bindings.list",
+    "agentProfiles.bindings.create",
+    "agentProfiles.bindings.update",
+    "agentProfiles.bindings.delete",
+    "agentProfiles.retrievalPreview.create",
     "sources.list",
     "sources.create",
     "documents.list",
@@ -24,7 +36,16 @@ $required = @(
     "wiki.log.entries.create",
     "wiki.schema.retrieve",
     "wiki.schema.profiles.create",
-    "wiki.queries.fileAnswer"
+    "wiki.queries.fileAnswer",
+    "indexes.create",
+    "indexes.retrieve",
+    "indexes.rebuild",
+    "retrievalProfiles.create",
+    "retrievalProfiles.retrieve",
+    "retrievalProfiles.update",
+    "retrievalTraces.list",
+    "retrievalTraces.retrieve",
+    "providerHealth.retrieve"
 )
 
 $operationIds = New-Object System.Collections.Generic.List[string]
@@ -147,6 +168,17 @@ $requiredSchemas = @(
     "KnowledgeDocumentVersion",
     "KnowledgeSource",
     "KnowledgeWikiFileEntry",
+    "KnowledgeRetrievalRequest",
+    "KnowledgeRetrievalResult",
+    "KnowledgeContextPackRequest",
+    "KnowledgeContextPack",
+    "KnowledgeMemoryContextFragment",
+    "KnowledgeAgentProfile",
+    "KnowledgeAgentBinding",
+    "KnowledgeIndex",
+    "KnowledgeRetrievalProfile",
+    "KnowledgeRetrievalTrace",
+    "KnowledgeProviderHealth",
     "ProblemDetails"
 )
 

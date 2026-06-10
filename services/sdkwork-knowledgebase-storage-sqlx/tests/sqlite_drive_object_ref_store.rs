@@ -20,6 +20,7 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
             drive_node_id: Some("node-001".to_string()),
             logical_path: Some("raw/documents/report.md".to_string()),
             drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+            drive_storage_provider_id: "provider-kb".to_string(),
             drive_bucket: "knowledgebase-source".to_string(),
             drive_object_key: "incoming/quarterly-report.md".to_string(),
             drive_object_version: Some("v1".to_string()),
@@ -42,6 +43,7 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
         Some("raw/documents/report.md")
     );
     assert_eq!(object_ref.drive_provider_kind, SDKWORK_DRIVE_PROVIDER_KIND);
+    assert_eq!(object_ref.drive_storage_provider_id, "provider-kb");
     assert_eq!(object_ref.drive_object_key, "incoming/quarterly-report.md");
     assert_eq!(object_ref.drive_object_version.as_deref(), Some("v1"));
     assert_eq!(object_ref.drive_etag.as_deref(), Some("etag"));
@@ -49,7 +51,8 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
 
     let row = sqlx::query(
         r#"
-        SELECT tenant_id, drive_space_id, drive_node_id, logical_path, drive_bucket,
+        SELECT tenant_id, drive_space_id, drive_node_id, logical_path,
+               drive_storage_provider_id, drive_bucket,
                drive_object_key, drive_object_version, drive_etag, drive_metadata, status
         FROM kb_drive_object_ref
         WHERE id = ?
@@ -72,6 +75,10 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
     assert_eq!(
         row.get::<Option<String>, _>("logical_path").as_deref(),
         Some("raw/documents/report.md")
+    );
+    assert_eq!(
+        row.get::<String, _>("drive_storage_provider_id"),
+        "provider-kb"
     );
     assert_eq!(row.get::<String, _>("drive_bucket"), "knowledgebase-source");
     assert_eq!(
@@ -191,6 +198,7 @@ fn stable_wiki_object_ref_record(
         drive_node_id: Some("node-index".to_string()),
         logical_path: Some("wiki/index.md".to_string()),
         drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+        drive_storage_provider_id: "provider-kb".to_string(),
         drive_bucket: "knowledgebase-test".to_string(),
         drive_object_key: "knowledge/tenant/space/wiki/index.md".to_string(),
         drive_object_version: Some(drive_object_version.to_string()),

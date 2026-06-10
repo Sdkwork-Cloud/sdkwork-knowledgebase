@@ -1181,6 +1181,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "sdkwork-agent-kernel"
+version = "0.1.0"
+
+[[package]]
 name = "sdkwork-drive-config"
 version = "0.1.0"
 dependencies = [
@@ -1220,6 +1224,14 @@ dependencies = [
  "anyhow",
  "async-trait",
  "serde",
+]
+
+[[package]]
+name = "sdkwork-knowledgebase-agent-provider"
+version = "0.1.0"
+dependencies = [
+ "sdkwork-agent-kernel",
+ "sdkwork-knowledgebase-contract",
 ]
 
 [[package]]
@@ -1285,6 +1297,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-knowledgebase-memory"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "sdkwork-knowledgebase-contract",
+ "sdkwork-knowledgebase-product",
+ "sdkwork-memory-spi",
+ "tokio",
+]
+
+[[package]]
 name = "sdkwork-knowledgebase-product"
 version = "0.1.0"
 dependencies = [
@@ -1324,6 +1347,16 @@ dependencies = [
  "sdkwork-knowledgebase-product",
  "sha2",
  "tokio",
+]
+
+[[package]]
+name = "sdkwork-memory-spi"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

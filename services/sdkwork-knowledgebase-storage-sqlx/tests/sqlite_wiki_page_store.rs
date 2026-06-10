@@ -52,6 +52,7 @@ async fn sqlite_wiki_page_store_publishes_pages_revisions_logs_and_projections()
             drive_node_id: Some("node-entity-current".to_string()),
             logical_path: Some("wiki/pages/entities/entity-name/current.md".to_string()),
             drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+            drive_storage_provider_id: "provider-kb".to_string(),
             drive_bucket: "knowledgebase-test".to_string(),
             drive_object_key: "wiki/pages/entities/entity-name/current.md".to_string(),
             drive_object_version: Some("v1".to_string()),
@@ -195,6 +196,7 @@ async fn sqlite_wiki_page_store_rejects_duplicate_revision_number_for_same_page(
                 "wiki/pages/topics/duplicate-revision-topic/revisions/r1.md".to_string(),
             ),
             drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+            drive_storage_provider_id: "provider-kb".to_string(),
             drive_bucket: "knowledgebase-test".to_string(),
             drive_object_key: "wiki/pages/topics/duplicate-revision-topic/revisions/r1.md"
                 .to_string(),
@@ -217,6 +219,7 @@ async fn sqlite_wiki_page_store_rejects_duplicate_revision_number_for_same_page(
                 "wiki/pages/topics/duplicate-revision-topic/revisions/r1-copy.md".to_string(),
             ),
             drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+            drive_storage_provider_id: "provider-kb".to_string(),
             drive_bucket: "knowledgebase-test".to_string(),
             drive_object_key: "wiki/pages/topics/duplicate-revision-topic/revisions/r1-copy.md"
                 .to_string(),

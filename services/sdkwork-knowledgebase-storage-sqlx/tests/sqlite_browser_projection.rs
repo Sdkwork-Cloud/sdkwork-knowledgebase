@@ -121,6 +121,7 @@ async fn sqlite_browser_projection_batches_document_status_by_drive_node_id() {
             drive_node_id: Some("node-pdf".to_string()),
             logical_path: Some("raw/documents/doc-1/original/report.pdf".to_string()),
             drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+            drive_storage_provider_id: "provider-kb".to_string(),
             drive_bucket: "knowledgebase-test".to_string(),
             drive_object_key: "raw/documents/doc-1/original/report.pdf".to_string(),
             drive_object_version: None,

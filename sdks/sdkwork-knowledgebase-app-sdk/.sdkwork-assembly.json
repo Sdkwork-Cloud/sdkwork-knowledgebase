@@ -68,11 +68,27 @@
         "python": "sdkwork-drive-app-sdk",
         "go": "github.com/sdkwork/sdkwork-drive-app-sdk"
       }
+    },
+    {
+      "workspace": "sdkwork-memory-app-sdk",
+      "role": "memory-context-capability",
+      "required": true,
+      "dependencyMode": "consumer-sdk",
+      "apiPrefix": "/app/v3/api",
+      "apiAuthority": "sdkwork-memory.app",
+      "generatedTransportImportPolicy": "forbidden",
+      "packageByLanguage": {
+        "typescript": "@sdkwork/memory-app-sdk",
+        "rust": "sdkwork-memory-app-sdk",
+        "java": "com.sdkwork:sdkwork-memory-app-sdk",
+        "python": "sdkwork-memory-app-sdk",
+        "go": "github.com/sdkwork/sdkwork-memory-app-sdk"
+      }
     }
   ],
   "metadata": {
     "standardVersion": "2026-06-06",
-    "ownerOnlyOperationCount": 22,
+    "ownerOnlyOperationCount": 34,
     "managedBy": "sdks/standardize-knowledgebase-sdk-family.mjs"
   }
 }

@@ -62,6 +62,7 @@ async fn drive_import_heads_drive_object_then_creates_source_document_version_an
             title: "Quarterly Report".to_string(),
             drive_space_id: None,
             drive_node_id: None,
+            drive_storage_provider_id: "provider-kb".to_string(),
             drive_bucket: "knowledgebase-source".to_string(),
             drive_object_key: "incoming/quarterly-report.md".to_string(),
             idempotency_key: "drive-quarterly-report".to_string(),
@@ -154,6 +155,7 @@ async fn drive_import_replay_reuses_metadata_for_same_idempotency_key() {
         title: "Quarterly Report".to_string(),
         drive_space_id: None,
         drive_node_id: None,
+        drive_storage_provider_id: "provider-kb".to_string(),
         drive_bucket: "knowledgebase-source".to_string(),
         drive_object_key: "incoming/quarterly-report.md".to_string(),
         idempotency_key: "drive-quarterly-report".to_string(),
@@ -200,6 +202,7 @@ async fn drive_import_trims_idempotency_key_before_lookup() {
         title: "Quarterly Report".to_string(),
         drive_space_id: None,
         drive_node_id: None,
+        drive_storage_provider_id: "provider-kb".to_string(),
         drive_bucket: "knowledgebase-source".to_string(),
         drive_object_key: "incoming/quarterly-report.md".to_string(),
         idempotency_key: "drive-quarterly-report".to_string(),
@@ -254,6 +257,7 @@ async fn drive_import_rejects_same_idempotency_key_for_different_drive_object_be
             title: "Quarterly Report".to_string(),
             drive_space_id: None,
             drive_node_id: None,
+            drive_storage_provider_id: "provider-kb".to_string(),
             drive_bucket: "knowledgebase-source".to_string(),
             drive_object_key: "incoming/quarterly-report.md".to_string(),
             idempotency_key: "drive-quarterly-report".to_string(),
@@ -268,6 +272,7 @@ async fn drive_import_rejects_same_idempotency_key_for_different_drive_object_be
             title: "Other Report".to_string(),
             drive_space_id: None,
             drive_node_id: None,
+            drive_storage_provider_id: "provider-kb".to_string(),
             drive_bucket: "knowledgebase-source".to_string(),
             drive_object_key: "incoming/other-report.md".to_string(),
             idempotency_key: "drive-quarterly-report".to_string(),
@@ -319,6 +324,7 @@ async fn drive_import_rejects_unsafe_idempotency_key_before_side_effects() {
             title: "Quarterly Report".to_string(),
             drive_space_id: None,
             drive_node_id: None,
+            drive_storage_provider_id: "provider-kb".to_string(),
             drive_bucket: "knowledgebase-source".to_string(),
             drive_object_key: "incoming/quarterly-report.md".to_string(),
             idempotency_key: "../escape".to_string(),
@@ -334,6 +340,60 @@ async fn drive_import_rejects_unsafe_idempotency_key_before_side_effects() {
     assert_eq!(versions.create_count(), 0);
     assert_eq!(object_refs.create_count(), 0);
     assert_eq!(jobs.create_count(), 0);
+}
+
+#[tokio::test]
+async fn drive_import_rejects_provider_id_mismatch_before_import_writes() {
+    let drive = RecordingDrive::with_object(
+        "knowledgebase-source",
+        "incoming/quarterly-report.md",
+        "# Report",
+    );
+    drive.set_object_storage_provider_id("incoming/quarterly-report.md", "provider-other");
+    let sources = MemorySourceStore::default();
+    let documents = MemoryDocumentStore::default();
+    let object_refs = MemoryDriveObjectRefStore::default();
+    let versions = MemoryDocumentVersionStore::default();
+    let jobs = MemoryIngestionJobStore::default();
+    let service = KnowledgeDriveImportService::new(
+        &drive,
+        &sources,
+        &documents,
+        &object_refs,
+        &versions,
+        &jobs,
+    );
+
+    let error = service
+        .import_drive_object(KnowledgeDriveImportRequest {
+            space_id: 7,
+            title: "Quarterly Report".to_string(),
+            drive_space_id: None,
+            drive_node_id: None,
+            drive_storage_provider_id: "provider-kb".to_string(),
+            drive_bucket: "knowledgebase-source".to_string(),
+            drive_object_key: "incoming/quarterly-report.md".to_string(),
+            idempotency_key: "drive-quarterly-report".to_string(),
+            language: Some("en".to_string()),
+        })
+        .await
+        .unwrap_err();
+
+    assert!(error
+        .to_string()
+        .contains("drive_storage_provider_id does not match"));
+    assert_eq!(
+        drive.heads(),
+        vec![(
+            "knowledgebase-source".to_string(),
+            "incoming/quarterly-report.md".to_string()
+        )]
+    );
+    assert_eq!(sources.create_count(), 0);
+    assert_eq!(documents.create_count(), 0);
+    assert_eq!(versions.create_count(), 0);
+    assert_eq!(object_refs.create_count(), 0);
+    assert_eq!(jobs.create_count(), 1);
 }
 
 #[tokio::test]
@@ -363,6 +423,7 @@ async fn drive_import_preserves_drive_node_binding_for_browser_projection() {
             title: "Quarterly Report".to_string(),
             drive_space_id: Some("drv-kb-001".to_string()),
             drive_node_id: Some("node-report".to_string()),
+            drive_storage_provider_id: "provider-kb".to_string(),
             drive_bucket: "knowledgebase-source".to_string(),
             drive_object_key: "incoming/quarterly-report.md".to_string(),
             idempotency_key: "drive-quarterly-report".to_string(),
@@ -412,6 +473,7 @@ impl RecordingDrive {
             object_key.to_string(),
             StoredObject {
                 object_ref: KnowledgeObjectRef {
+                    storage_provider_id: "provider-kb".to_string(),
                     bucket: bucket.to_string(),
                     object_key: object_key.to_string(),
                     logical_path: object_key.to_string(),
@@ -424,6 +486,12 @@ impl RecordingDrive {
                 },
             },
         );
+    }
+
+    fn set_object_storage_provider_id(&self, object_key: &str, storage_provider_id: &str) {
+        if let Some(stored) = self.objects.lock().unwrap().get_mut(object_key) {
+            stored.object_ref.storage_provider_id = storage_provider_id.to_string();
+        }
     }
 
     fn heads(&self) -> Vec<(String, String)> {
@@ -660,6 +728,7 @@ impl KnowledgeDriveObjectRefStore for MemoryDriveObjectRefStore {
             .iter()
             .find(|object_ref| {
                 object_ref.space_id == record.space_id
+                    && object_ref.drive_storage_provider_id == record.drive_storage_provider_id
                     && object_ref.drive_bucket == record.drive_bucket
                     && object_ref.drive_object_key == record.drive_object_key
                     && object_ref.drive_object_version == record.drive_object_version
@@ -688,6 +757,7 @@ impl MemoryDriveObjectRefStore {
             drive_node_id: record.drive_node_id,
             logical_path: record.logical_path,
             drive_provider_kind: record.drive_provider_kind,
+            drive_storage_provider_id: record.drive_storage_provider_id,
             drive_bucket: record.drive_bucket,
             drive_object_key: record.drive_object_key,
             drive_object_version: record.drive_object_version,

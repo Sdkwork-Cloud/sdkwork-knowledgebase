@@ -1,0 +1,692 @@
+use async_trait::async_trait;
+use sdkwork_knowledgebase_contract::rag::{
+    KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentProfile,
+    KnowledgeAgentProfileRequest, KnowledgeAgentStatus, KnowledgeFilter,
+};
+use sdkwork_knowledgebase_product::ports::knowledge_agent_profile_store::{
+    KnowledgeAgentProfileStore, KnowledgeAgentProfileStoreError,
+};
+use sqlx::sqlite::SqliteRow;
+use sqlx::{Row, SqlitePool};
+use std::sync::Arc;
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
+use uuid::Uuid;
+
+use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
+
+const ACTIVE_ROW_STATUS: i64 = 1;
+const DELETED_ROW_STATUS: i64 = 0;
+const INITIAL_VERSION: i64 = 0;
+
+#[derive(Debug, Clone)]
+pub struct SqliteKnowledgeAgentProfileStore {
+    pool: SqlitePool,
+    tenant_id: u64,
+    id_generator: Arc<dyn KnowledgeIdGenerator>,
+}
+
+impl SqliteKnowledgeAgentProfileStore {
+    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    }
+
+    pub fn with_id_generator(
+        pool: SqlitePool,
+        tenant_id: u64,
+        id_generator: Arc<dyn KnowledgeIdGenerator>,
+    ) -> Self {
+        Self {
+            pool,
+            tenant_id,
+            id_generator,
+        }
+    }
+}
+
+#[async_trait]
+impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
+    async fn create_profile(
+        &self,
+        request: KnowledgeAgentProfileRequest,
+    ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
+        ensure_tenant_scope(self.tenant_id, request.tenant_id)?;
+
+        let id = next_i64_id(&self.id_generator).map_err(agent_id_error)?;
+        let tenant_id = to_i64("tenant_id", request.tenant_id)?;
+        let retrieval_profile_id = request
+            .retrieval_profile_id
+            .map(|value| to_i64("retrieval_profile_id", value))
+            .transpose()?;
+        let now = now_rfc3339()?;
+
+        let row = sqlx::query(
+            r#"
+            INSERT INTO kb_agent_profile (
+                id,
+                uuid,
+                tenant_id,
+                name,
+                description,
+                system_instruction,
+                model_provider_id,
+                model_id,
+                model_parameters,
+                retrieval_profile_id,
+                citation_policy,
+                memory_policy_ref,
+                tool_policy_ref,
+                answer_policy,
+                status,
+                created_at,
+                updated_at,
+                version
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING
+                id,
+                tenant_id,
+                name,
+                description,
+                system_instruction,
+                model_provider_id,
+                model_id,
+                model_parameters,
+                retrieval_profile_id,
+                citation_policy,
+                memory_policy_ref,
+                tool_policy_ref,
+                answer_policy,
+                status
+            "#,
+        )
+        .bind(id)
+        .bind(Uuid::new_v4().to_string())
+        .bind(tenant_id)
+        .bind(request.name)
+        .bind(request.description)
+        .bind(request.system_instruction)
+        .bind(request.model_provider_id)
+        .bind(request.model_id)
+        .bind(request.model_parameters)
+        .bind(retrieval_profile_id)
+        .bind(request.citation_policy)
+        .bind(request.memory_policy_ref)
+        .bind(request.tool_policy_ref)
+        .bind(request.answer_policy)
+        .bind(agent_status_code(request.status))
+        .bind(now.clone())
+        .bind(now)
+        .bind(INITIAL_VERSION)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(agent_sqlx_error)?;
+
+        let mut profile = profile_from_row(&row)?;
+        profile.bindings = vec![];
+        Ok(profile)
+    }
+
+    async fn retrieve_profile(
+        &self,
+        profile_id: u64,
+    ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
+        let mut profile = self.select_profile(profile_id).await?;
+        profile.bindings = self.list_bindings(profile_id).await?;
+        Ok(profile)
+    }
+
+    async fn update_profile(
+        &self,
+        profile_id: u64,
+        request: KnowledgeAgentProfileRequest,
+    ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
+        ensure_tenant_scope(self.tenant_id, request.tenant_id)?;
+
+        let profile_id_i64 = to_i64("profile_id", profile_id)?;
+        let tenant_id = to_i64("tenant_id", request.tenant_id)?;
+        let retrieval_profile_id = request
+            .retrieval_profile_id
+            .map(|value| to_i64("retrieval_profile_id", value))
+            .transpose()?;
+        let now = now_rfc3339()?;
+
+        let row = sqlx::query(
+            r#"
+            UPDATE kb_agent_profile
+            SET name = ?,
+                description = ?,
+                system_instruction = ?,
+                model_provider_id = ?,
+                model_id = ?,
+                model_parameters = ?,
+                retrieval_profile_id = ?,
+                citation_policy = ?,
+                memory_policy_ref = ?,
+                tool_policy_ref = ?,
+                answer_policy = ?,
+                status = ?,
+                updated_at = ?,
+                version = version + 1
+            WHERE tenant_id = ? AND id = ? AND status != ?
+            RETURNING
+                id,
+                tenant_id,
+                name,
+                description,
+                system_instruction,
+                model_provider_id,
+                model_id,
+                model_parameters,
+                retrieval_profile_id,
+                citation_policy,
+                memory_policy_ref,
+                tool_policy_ref,
+                answer_policy,
+                status
+            "#,
+        )
+        .bind(request.name)
+        .bind(request.description)
+        .bind(request.system_instruction)
+        .bind(request.model_provider_id)
+        .bind(request.model_id)
+        .bind(request.model_parameters)
+        .bind(retrieval_profile_id)
+        .bind(request.citation_policy)
+        .bind(request.memory_policy_ref)
+        .bind(request.tool_policy_ref)
+        .bind(request.answer_policy)
+        .bind(agent_status_code(request.status))
+        .bind(now)
+        .bind(tenant_id)
+        .bind(profile_id_i64)
+        .bind(agent_status_code(KnowledgeAgentStatus::Archived))
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(agent_sqlx_error)?
+        .ok_or(KnowledgeAgentProfileStoreError::NotFound(profile_id))?;
+
+        let mut profile = profile_from_row(&row)?;
+        profile.bindings = self.list_bindings(profile_id).await?;
+        Ok(profile)
+    }
+
+    async fn delete_profile(&self, profile_id: u64) -> Result<(), KnowledgeAgentProfileStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let profile_id_i64 = to_i64("profile_id", profile_id)?;
+        let now = now_rfc3339()?;
+
+        let result = sqlx::query(
+            r#"
+            UPDATE kb_agent_profile
+            SET status = ?,
+                updated_at = ?,
+                version = version + 1
+            WHERE tenant_id = ? AND id = ? AND status != ?
+            "#,
+        )
+        .bind(agent_status_code(KnowledgeAgentStatus::Archived))
+        .bind(now.clone())
+        .bind(tenant_id)
+        .bind(profile_id_i64)
+        .bind(agent_status_code(KnowledgeAgentStatus::Archived))
+        .execute(&self.pool)
+        .await
+        .map_err(agent_sqlx_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(KnowledgeAgentProfileStoreError::NotFound(profile_id));
+        }
+
+        sqlx::query(
+            r#"
+            UPDATE kb_agent_knowledge_binding
+            SET status = ?,
+                updated_at = ?,
+                version = version + 1
+            WHERE tenant_id = ? AND profile_id = ? AND status = ?
+            "#,
+        )
+        .bind(DELETED_ROW_STATUS)
+        .bind(now)
+        .bind(tenant_id)
+        .bind(profile_id_i64)
+        .bind(ACTIVE_ROW_STATUS)
+        .execute(&self.pool)
+        .await
+        .map_err(agent_sqlx_error)?;
+
+        Ok(())
+    }
+
+    async fn list_bindings(
+        &self,
+        profile_id: u64,
+    ) -> Result<Vec<KnowledgeAgentBinding>, KnowledgeAgentProfileStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let profile_id_i64 = to_i64("profile_id", profile_id)?;
+
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                tenant_id,
+                profile_id,
+                space_id,
+                collection_id,
+                source_filter,
+                document_filter,
+                priority,
+                top_k,
+                min_score,
+                enabled
+            FROM kb_agent_knowledge_binding
+            WHERE tenant_id = ? AND profile_id = ? AND status = ?
+            ORDER BY priority DESC, id ASC
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(profile_id_i64)
+        .bind(ACTIVE_ROW_STATUS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(agent_sqlx_error)?;
+
+        rows.into_iter().map(binding_from_row).collect()
+    }
+
+    async fn create_binding(
+        &self,
+        request: KnowledgeAgentBindingRequest,
+    ) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
+        ensure_tenant_scope(self.tenant_id, request.tenant_id)?;
+        self.select_profile(request.profile_id).await?;
+
+        let id = next_i64_id(&self.id_generator).map_err(agent_id_error)?;
+        let tenant_id = to_i64("tenant_id", request.tenant_id)?;
+        let profile_id = to_i64("profile_id", request.profile_id)?;
+        let space_id = to_i64("space_id", request.space_id)?;
+        let collection_id = request
+            .collection_id
+            .map(|value| to_i64("collection_id", value))
+            .transpose()?;
+        let source_filter = option_json(&request.source_filter)?;
+        let document_filter = option_json(&request.document_filter)?;
+        let now = now_rfc3339()?;
+
+        let row = sqlx::query(
+            r#"
+            INSERT INTO kb_agent_knowledge_binding (
+                id,
+                uuid,
+                tenant_id,
+                profile_id,
+                space_id,
+                collection_id,
+                source_filter,
+                document_filter,
+                priority,
+                top_k,
+                min_score,
+                enabled,
+                status,
+                created_at,
+                updated_at,
+                version
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING
+                id,
+                tenant_id,
+                profile_id,
+                space_id,
+                collection_id,
+                source_filter,
+                document_filter,
+                priority,
+                top_k,
+                min_score,
+                enabled
+            "#,
+        )
+        .bind(id)
+        .bind(Uuid::new_v4().to_string())
+        .bind(tenant_id)
+        .bind(profile_id)
+        .bind(space_id)
+        .bind(collection_id)
+        .bind(source_filter)
+        .bind(document_filter)
+        .bind(i64::from(request.priority))
+        .bind(request.top_k.map(i64::from))
+        .bind(request.min_score)
+        .bind(enabled_code(request.enabled))
+        .bind(ACTIVE_ROW_STATUS)
+        .bind(now.clone())
+        .bind(now)
+        .bind(INITIAL_VERSION)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(agent_sqlx_error)?;
+
+        binding_from_row(row)
+    }
+
+    async fn update_binding(
+        &self,
+        profile_id: u64,
+        binding_id: u64,
+        request: KnowledgeAgentBindingRequest,
+    ) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
+        ensure_tenant_scope(self.tenant_id, request.tenant_id)?;
+        if request.profile_id != profile_id {
+            return Err(KnowledgeAgentProfileStoreError::Internal(
+                "binding request profile_id must match path profile_id".to_string(),
+            ));
+        }
+
+        let tenant_id = to_i64("tenant_id", request.tenant_id)?;
+        let profile_id_i64 = to_i64("profile_id", profile_id)?;
+        let binding_id_i64 = to_i64("binding_id", binding_id)?;
+        let space_id = to_i64("space_id", request.space_id)?;
+        let collection_id = request
+            .collection_id
+            .map(|value| to_i64("collection_id", value))
+            .transpose()?;
+        let source_filter = option_json(&request.source_filter)?;
+        let document_filter = option_json(&request.document_filter)?;
+        let now = now_rfc3339()?;
+
+        let row = sqlx::query(
+            r#"
+            UPDATE kb_agent_knowledge_binding
+            SET space_id = ?,
+                collection_id = ?,
+                source_filter = ?,
+                document_filter = ?,
+                priority = ?,
+                top_k = ?,
+                min_score = ?,
+                enabled = ?,
+                updated_at = ?,
+                version = version + 1
+            WHERE tenant_id = ? AND profile_id = ? AND id = ? AND status = ?
+            RETURNING
+                id,
+                tenant_id,
+                profile_id,
+                space_id,
+                collection_id,
+                source_filter,
+                document_filter,
+                priority,
+                top_k,
+                min_score,
+                enabled
+            "#,
+        )
+        .bind(space_id)
+        .bind(collection_id)
+        .bind(source_filter)
+        .bind(document_filter)
+        .bind(i64::from(request.priority))
+        .bind(request.top_k.map(i64::from))
+        .bind(request.min_score)
+        .bind(enabled_code(request.enabled))
+        .bind(now)
+        .bind(tenant_id)
+        .bind(profile_id_i64)
+        .bind(binding_id_i64)
+        .bind(ACTIVE_ROW_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(agent_sqlx_error)?
+        .ok_or(KnowledgeAgentProfileStoreError::NotFound(binding_id))?;
+
+        binding_from_row(row)
+    }
+
+    async fn delete_binding(
+        &self,
+        profile_id: u64,
+        binding_id: u64,
+    ) -> Result<(), KnowledgeAgentProfileStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let profile_id_i64 = to_i64("profile_id", profile_id)?;
+        let binding_id_i64 = to_i64("binding_id", binding_id)?;
+        let now = now_rfc3339()?;
+
+        let result = sqlx::query(
+            r#"
+            UPDATE kb_agent_knowledge_binding
+            SET status = ?,
+                updated_at = ?,
+                version = version + 1
+            WHERE tenant_id = ? AND profile_id = ? AND id = ? AND status = ?
+            "#,
+        )
+        .bind(DELETED_ROW_STATUS)
+        .bind(now)
+        .bind(tenant_id)
+        .bind(profile_id_i64)
+        .bind(binding_id_i64)
+        .bind(ACTIVE_ROW_STATUS)
+        .execute(&self.pool)
+        .await
+        .map_err(agent_sqlx_error)?;
+
+        if result.rows_affected() == 0 {
+            return Err(KnowledgeAgentProfileStoreError::NotFound(binding_id));
+        }
+        Ok(())
+    }
+}
+
+impl SqliteKnowledgeAgentProfileStore {
+    async fn select_profile(
+        &self,
+        profile_id: u64,
+    ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let profile_id_i64 = to_i64("profile_id", profile_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                tenant_id,
+                name,
+                description,
+                system_instruction,
+                model_provider_id,
+                model_id,
+                model_parameters,
+                retrieval_profile_id,
+                citation_policy,
+                memory_policy_ref,
+                tool_policy_ref,
+                answer_policy,
+                status
+            FROM kb_agent_profile
+            WHERE tenant_id = ? AND id = ? AND status != ?
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(profile_id_i64)
+        .bind(agent_status_code(KnowledgeAgentStatus::Archived))
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(agent_sqlx_error)?
+        .ok_or(KnowledgeAgentProfileStoreError::NotFound(profile_id))?;
+
+        profile_from_row(&row)
+    }
+}
+
+fn profile_from_row(
+    row: &SqliteRow,
+) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
+    Ok(KnowledgeAgentProfile {
+        profile_id: u64_from_row(row, "id")?,
+        tenant_id: u64_from_row(row, "tenant_id")?,
+        name: row.try_get("name").map_err(agent_sqlx_error)?,
+        description: row.try_get("description").map_err(agent_sqlx_error)?,
+        system_instruction: row
+            .try_get("system_instruction")
+            .map_err(agent_sqlx_error)?,
+        model_provider_id: row.try_get("model_provider_id").map_err(agent_sqlx_error)?,
+        model_id: row.try_get("model_id").map_err(agent_sqlx_error)?,
+        model_parameters: row.try_get("model_parameters").map_err(agent_sqlx_error)?,
+        retrieval_profile_id: optional_u64_from_row(row, "retrieval_profile_id")?,
+        citation_policy: row.try_get("citation_policy").map_err(agent_sqlx_error)?,
+        memory_policy_ref: row.try_get("memory_policy_ref").map_err(agent_sqlx_error)?,
+        tool_policy_ref: row.try_get("tool_policy_ref").map_err(agent_sqlx_error)?,
+        answer_policy: row.try_get("answer_policy").map_err(agent_sqlx_error)?,
+        status: agent_status_from_code(row.try_get("status").map_err(agent_sqlx_error)?)?,
+        bindings: vec![],
+    })
+}
+
+fn binding_from_row(
+    row: SqliteRow,
+) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
+    Ok(KnowledgeAgentBinding {
+        binding_id: u64_from_row(&row, "id")?,
+        profile_id: u64_from_row(&row, "profile_id")?,
+        tenant_id: u64_from_row(&row, "tenant_id")?,
+        space_id: u64_from_row(&row, "space_id")?,
+        collection_id: optional_u64_from_row(&row, "collection_id")?,
+        source_filter: parse_optional_filter(
+            row.try_get("source_filter").map_err(agent_sqlx_error)?,
+        )?,
+        document_filter: parse_optional_filter(
+            row.try_get("document_filter").map_err(agent_sqlx_error)?,
+        )?,
+        priority: i32_from_row(&row, "priority")?,
+        top_k: optional_i64_from_row(&row, "top_k")?.map(|value| value as u32),
+        min_score: row.try_get("min_score").map_err(agent_sqlx_error)?,
+        enabled: enabled_from_code(row.try_get("enabled").map_err(agent_sqlx_error)?),
+    })
+}
+
+fn option_json(
+    value: &Option<Vec<KnowledgeFilter>>,
+) -> Result<Option<String>, KnowledgeAgentProfileStoreError> {
+    value
+        .as_ref()
+        .map(serde_json::to_string)
+        .transpose()
+        .map_err(|error| KnowledgeAgentProfileStoreError::Internal(error.to_string()))
+}
+
+fn parse_optional_filter(
+    value: Option<String>,
+) -> Result<Option<Vec<KnowledgeFilter>>, KnowledgeAgentProfileStoreError> {
+    value
+        .map(|value| serde_json::from_str(&value))
+        .transpose()
+        .map_err(|error| KnowledgeAgentProfileStoreError::Internal(error.to_string()))
+}
+
+fn ensure_tenant_scope(
+    store_tenant_id: u64,
+    request_tenant_id: u64,
+) -> Result<(), KnowledgeAgentProfileStoreError> {
+    if store_tenant_id != request_tenant_id {
+        return Err(KnowledgeAgentProfileStoreError::Internal(
+            "request tenant_id must match store tenant scope".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn agent_status_code(value: KnowledgeAgentStatus) -> i64 {
+    match value {
+        KnowledgeAgentStatus::Draft => 0,
+        KnowledgeAgentStatus::Active => 1,
+        KnowledgeAgentStatus::Disabled => 2,
+        KnowledgeAgentStatus::Archived => 3,
+    }
+}
+
+fn agent_status_from_code(
+    code: i64,
+) -> Result<KnowledgeAgentStatus, KnowledgeAgentProfileStoreError> {
+    match code {
+        0 => Ok(KnowledgeAgentStatus::Draft),
+        1 => Ok(KnowledgeAgentStatus::Active),
+        2 => Ok(KnowledgeAgentStatus::Disabled),
+        3 => Ok(KnowledgeAgentStatus::Archived),
+        _ => Err(KnowledgeAgentProfileStoreError::Internal(format!(
+            "unknown knowledge agent status code: {code}"
+        ))),
+    }
+}
+
+fn enabled_code(value: bool) -> i64 {
+    if value {
+        1
+    } else {
+        0
+    }
+}
+
+fn enabled_from_code(value: i64) -> bool {
+    value != 0
+}
+
+fn u64_from_row(row: &SqliteRow, column: &str) -> Result<u64, KnowledgeAgentProfileStoreError> {
+    let value: i64 = row.try_get(column).map_err(agent_sqlx_error)?;
+    u64::try_from(value).map_err(|_| {
+        KnowledgeAgentProfileStoreError::Internal(format!("{column} must not be negative"))
+    })
+}
+
+fn optional_u64_from_row(
+    row: &SqliteRow,
+    column: &str,
+) -> Result<Option<u64>, KnowledgeAgentProfileStoreError> {
+    optional_i64_from_row(row, column)?
+        .map(|value| {
+            u64::try_from(value).map_err(|_| {
+                KnowledgeAgentProfileStoreError::Internal(format!("{column} must not be negative"))
+            })
+        })
+        .transpose()
+}
+
+fn i32_from_row(row: &SqliteRow, column: &str) -> Result<i32, KnowledgeAgentProfileStoreError> {
+    let value: i64 = row.try_get(column).map_err(agent_sqlx_error)?;
+    i32::try_from(value).map_err(|_| {
+        KnowledgeAgentProfileStoreError::Internal(format!("{column} exceeds int32 range"))
+    })
+}
+
+fn optional_i64_from_row(
+    row: &SqliteRow,
+    column: &str,
+) -> Result<Option<i64>, KnowledgeAgentProfileStoreError> {
+    row.try_get(column).map_err(agent_sqlx_error)
+}
+
+fn to_i64(field_name: &str, value: u64) -> Result<i64, KnowledgeAgentProfileStoreError> {
+    i64::try_from(value).map_err(|_| {
+        KnowledgeAgentProfileStoreError::Internal(format!(
+            "{field_name} exceeds signed int64 range"
+        ))
+    })
+}
+
+fn now_rfc3339() -> Result<String, KnowledgeAgentProfileStoreError> {
+    OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .map_err(|error| KnowledgeAgentProfileStoreError::Internal(error.to_string()))
+}
+
+fn agent_sqlx_error(error: sqlx::Error) -> KnowledgeAgentProfileStoreError {
+    KnowledgeAgentProfileStoreError::Internal(error.to_string())
+}
+
+fn agent_id_error(error: crate::id::KnowledgeIdGeneratorError) -> KnowledgeAgentProfileStoreError {
+    KnowledgeAgentProfileStoreError::Internal(error.to_string())
+}

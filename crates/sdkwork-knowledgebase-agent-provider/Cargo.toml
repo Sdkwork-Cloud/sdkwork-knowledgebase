@@ -1,0 +1,9 @@
+[package]
+name = "sdkwork-knowledgebase-agent-provider"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+sdkwork-agent-kernel.workspace = true
+sdkwork-knowledgebase-contract.workspace = true

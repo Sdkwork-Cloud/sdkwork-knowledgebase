@@ -192,8 +192,10 @@ foreach ($root in $productionSourceRoots) {
 
 $packages = @(
     "sdkwork-knowledgebase-contract",
+    "sdkwork-knowledgebase-agent-provider",
     "sdkwork-knowledgebase-core",
     "sdkwork-knowledgebase-drive",
+    "sdkwork-knowledgebase-memory",
     "sdkwork-knowledgebase-app-api",
     "sdkwork-knowledgebase-backend-api",
     "sdkwork-knowledgebase-product",

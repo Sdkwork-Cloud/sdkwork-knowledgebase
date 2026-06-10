@@ -172,6 +172,7 @@ impl KnowledgeDriveStorage for MemoryDrive {
             .clone()
             .unwrap_or_else(|| checksum_sha256_hex(&request.body));
         let object_ref = KnowledgeObjectRef {
+            storage_provider_id: "provider-kb".to_string(),
             bucket: "knowledgebase-test".to_string(),
             object_key: request.logical_path.clone(),
             logical_path: request.logical_path.clone(),
@@ -261,6 +262,7 @@ impl KnowledgeDriveObjectRefStore for MemoryObjectRefStore {
             drive_node_id: record.drive_node_id,
             logical_path: record.logical_path,
             drive_provider_kind: record.drive_provider_kind,
+            drive_storage_provider_id: record.drive_storage_provider_id,
             drive_bucket: record.drive_bucket,
             drive_object_key: record.drive_object_key,
             drive_object_version: record.drive_object_version,

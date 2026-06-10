@@ -1,3 +1,4 @@
+pub mod knowledge_agent_profile_store;
 pub mod knowledge_browser_projection_store;
 pub mod knowledge_document_store;
 pub mod knowledge_document_version_store;
@@ -7,6 +8,9 @@ pub mod knowledge_drive_space;
 pub mod knowledge_drive_storage;
 pub mod knowledge_drive_workspace;
 pub mod knowledge_ingestion_job_store;
+pub mod knowledge_memory_context;
+pub mod knowledge_retrieval_backend;
+pub mod knowledge_retrieval_trace_store;
 pub mod knowledge_source_store;
 pub mod knowledge_space_store;
 pub mod knowledge_wiki_file_entry_store;

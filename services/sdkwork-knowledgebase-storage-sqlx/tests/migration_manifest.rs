@@ -3,13 +3,21 @@ use sdkwork_knowledgebase_storage_sqlx::migrations::{
 };
 use std::collections::BTreeSet;
 
-const REQUIRED_CORE_TABLES: [&str; 14] = [
+const REQUIRED_CORE_TABLES: [&str; 22] = [
     "kb_space",
     "kb_collection",
     "kb_source",
     "kb_drive_object_ref",
     "kb_document",
     "kb_document_version",
+    "kb_chunk",
+    "kb_index",
+    "kb_embedding",
+    "kb_retrieval_profile",
+    "kb_retrieval_trace",
+    "kb_retrieval_hit",
+    "kb_agent_profile",
+    "kb_agent_knowledge_binding",
     "kb_ingestion_job",
     "kb_ingestion_job_item",
     "kb_wiki_page",
@@ -20,7 +28,7 @@ const REQUIRED_CORE_TABLES: [&str; 14] = [
     "kb_local_mirror_package",
 ];
 
-const REQUIRED_CORE_INDEXES: [&str; 29] = [
+const REQUIRED_CORE_INDEXES: [&str; 49] = [
     "uk_kb_space_uuid",
     "uk_kb_space_drive_space",
     "uk_kb_collection_uuid",
@@ -36,6 +44,26 @@ const REQUIRED_CORE_INDEXES: [&str; 29] = [
     "uk_kb_document_identity",
     "uk_kb_document_version_uuid",
     "uk_kb_document_version_no",
+    "uk_kb_chunk_uuid",
+    "idx_kb_chunk_document_version",
+    "idx_kb_chunk_space_status",
+    "uk_kb_index_uuid",
+    "idx_kb_index_scope",
+    "uk_kb_embedding_uuid",
+    "uk_kb_embedding_index_chunk",
+    "idx_kb_embedding_chunk",
+    "uk_kb_retrieval_profile_uuid",
+    "idx_kb_retrieval_profile_tenant_status",
+    "uk_kb_retrieval_trace_uuid",
+    "idx_kb_retrieval_trace_profile_created",
+    "idx_kb_retrieval_trace_actor_created",
+    "uk_kb_retrieval_hit_uuid",
+    "idx_kb_retrieval_hit_trace_rank",
+    "idx_kb_retrieval_hit_chunk",
+    "uk_kb_agent_profile_uuid",
+    "idx_kb_agent_profile_model",
+    "uk_kb_agent_knowledge_binding_uuid",
+    "idx_kb_agent_knowledge_binding_profile",
     "uk_kb_ingestion_job_uuid",
     "uk_kb_ingestion_job_idempotency",
     "uk_kb_ingestion_job_item_uuid",
@@ -222,6 +250,62 @@ fn core_migrations_define_all_required_indexes_with_kb_prefix() {
         for index in REQUIRED_CORE_INDEXES {
             assert!(indexes.contains(index), "missing required index: {index}");
         }
+    }
+}
+
+#[test]
+fn rag_migrations_define_retrieval_index_trace_and_agent_binding_columns() {
+    for migration in [POSTGRES_CORE_MIGRATION, SQLITE_CORE_MIGRATION] {
+        for snippet in [
+            "CREATE TABLE IF NOT EXISTS kb_chunk",
+            "document_version_id",
+            "chunk_index",
+            "content_text",
+            "token_count",
+            "locator",
+            "CREATE TABLE IF NOT EXISTS kb_index",
+            "index_kind",
+            "embedding_provider_id",
+            "embedding_model",
+            "dimension",
+            "metric",
+            "CREATE TABLE IF NOT EXISTS kb_embedding",
+            "vector_ref",
+            "embedding_hash",
+            "CREATE TABLE IF NOT EXISTS kb_retrieval_profile",
+            "strategy",
+            "rerank_enabled",
+            "context_budget_tokens",
+            "CREATE TABLE IF NOT EXISTS kb_retrieval_trace",
+            "query_text_redacted",
+            "latency_ms",
+            "result_count",
+            "CREATE TABLE IF NOT EXISTS kb_retrieval_hit",
+            "retrieval_trace_id",
+            "match_reason",
+            "citation",
+            "CREATE TABLE IF NOT EXISTS kb_agent_profile",
+            "model_provider_id",
+            "model_id",
+            "system_instruction",
+            "CREATE TABLE IF NOT EXISTS kb_agent_knowledge_binding",
+            "profile_id",
+            "space_id",
+            "source_filter",
+            "document_filter",
+            "min_score",
+        ] {
+            assert!(
+                migration.contains(snippet),
+                "RAG migration must include snippet: {snippet}"
+            );
+        }
+
+        let lowercase = migration.to_ascii_lowercase();
+        assert!(!lowercase.contains("presigned"));
+        assert!(!lowercase.contains("access_token"));
+        assert!(!lowercase.contains("refresh_token"));
+        assert!(!lowercase.contains("api_key"));
     }
 }
 

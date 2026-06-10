@@ -1,14 +1,86 @@
 import { backendApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { CreateKnowledgeSourceRequest, IngestionJob, KnowledgeSource, KnowledgeSourceList, KnowledgeWikiFileEntry, KnowledgeWikiFileEntryList, KnowledgeWikiSchemaProfileRequest, WikiCandidateResult, WikiCandidateResultList, WikiCandidateReviewRequest, WikiCompileJobRequest, WikiExportRequest, WikiIndexDocument, WikiIndexRebuildRequest, WikiLogEntry, WikiPagePublishRequest, WikiPageSummary, WikiQualityRun, WikiQualityRunRequest } from '../types';
+import type { CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList, KnowledgeWikiFileEntry, KnowledgeWikiFileEntryList, KnowledgeWikiSchemaProfileRequest, WikiCandidateResult, WikiCandidateResultList, WikiCandidateReviewRequest, WikiCompileJobRequest, WikiExportRequest, WikiIndexDocument, WikiIndexRebuildRequest, WikiLogEntry, WikiPagePublishRequest, WikiPageSummary, WikiQualityRun, WikiQualityRunRequest } from '../types';
 
+
+export class KnowledgeProviderHealthApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+async retrieve(): Promise<KnowledgeProviderHealth> {
+    return this.client.get<KnowledgeProviderHealth>(backendApiPath(`/knowledge/provider_health`));
+  }
+}
+
+export class KnowledgeRetrievalTracesApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+async list(): Promise<KnowledgeRetrievalTraceList> {
+    return this.client.get<KnowledgeRetrievalTraceList>(backendApiPath(`/knowledge/retrieval_traces`));
+  }
+
+async retrieve(traceId: string): Promise<KnowledgeRetrievalTrace> {
+    return this.client.get<KnowledgeRetrievalTrace>(backendApiPath(`/knowledge/retrieval_traces/${serializePathParameter(traceId, { name: 'traceId', style: 'simple', explode: false })}`));
+  }
+}
+
+export class KnowledgeRetrievalProfilesApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+async create(body: KnowledgeRetrievalProfileRequest): Promise<KnowledgeRetrievalProfile> {
+    return this.client.post<KnowledgeRetrievalProfile>(backendApiPath(`/knowledge/retrieval_profiles`), body, undefined, undefined, 'application/json');
+  }
+
+async retrieve(profileId: string): Promise<KnowledgeRetrievalProfile> {
+    return this.client.get<KnowledgeRetrievalProfile>(backendApiPath(`/knowledge/retrieval_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`));
+  }
+
+async update(profileId: string, body: KnowledgeRetrievalProfileRequest): Promise<KnowledgeRetrievalProfile> {
+    return this.client.patch<KnowledgeRetrievalProfile>(backendApiPath(`/knowledge/retrieval_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
+  }
+}
+
+export class KnowledgeIndexesApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+async create(body: KnowledgeIndexRequest): Promise<KnowledgeIndex> {
+    return this.client.post<KnowledgeIndex>(backendApiPath(`/knowledge/indexes`), body, undefined, undefined, 'application/json');
+  }
+
+async retrieve(indexId: string): Promise<KnowledgeIndex> {
+    return this.client.get<KnowledgeIndex>(backendApiPath(`/knowledge/indexes/${serializePathParameter(indexId, { name: 'indexId', style: 'simple', explode: false })}`));
+  }
+
+async rebuild(indexId: string, body: WikiIndexRebuildRequest): Promise<WikiIndexDocument> {
+    return this.client.post<WikiIndexDocument>(backendApiPath(`/knowledge/indexes/${serializePathParameter(indexId, { name: 'indexId', style: 'simple', explode: false })}/rebuild`), body, undefined, undefined, 'application/json');
+  }
+}
 
 export class KnowledgeWikiEvalRunsApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -19,9 +91,9 @@ async create(body: WikiQualityRunRequest): Promise<WikiQualityRun> {
 
 export class KnowledgeWikiLintRunsApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -32,9 +104,9 @@ async create(body: WikiQualityRunRequest): Promise<WikiQualityRun> {
 
 export class KnowledgeWikiFileEntriesApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -45,9 +117,9 @@ async list(): Promise<KnowledgeWikiFileEntryList> {
 
 export class KnowledgeWikiExportsApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -62,9 +134,9 @@ async retrieve(exportId: number): Promise<KnowledgeWikiFileEntry> {
 
 export class KnowledgeWikiLogEntriesApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -76,19 +148,19 @@ async create(body: WikiLogEntry): Promise<WikiLogEntry> {
 export class KnowledgeWikiLogApi {
   private client: HttpClient;
   public readonly entries: KnowledgeWikiLogEntriesApi;
-  
-  constructor(client: HttpClient) { 
+
+  constructor(client: HttpClient) {
     this.client = client;
-    this.entries = new KnowledgeWikiLogEntriesApi(client); 
+    this.entries = new KnowledgeWikiLogEntriesApi(client);
   }
 
 }
 
 export class KnowledgeWikiIndexApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -99,9 +171,9 @@ async rebuild(body: WikiIndexRebuildRequest): Promise<WikiIndexDocument> {
 
 export class KnowledgeWikiSchemaProfilesApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -117,19 +189,19 @@ async update(profileId: number, body: KnowledgeWikiSchemaProfileRequest): Promis
 export class KnowledgeWikiSchemaApi {
   private client: HttpClient;
   public readonly profiles: KnowledgeWikiSchemaProfilesApi;
-  
-  constructor(client: HttpClient) { 
+
+  constructor(client: HttpClient) {
     this.client = client;
-    this.profiles = new KnowledgeWikiSchemaProfilesApi(client); 
+    this.profiles = new KnowledgeWikiSchemaProfilesApi(client);
   }
 
 }
 
 export class KnowledgeWikiPagesApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -140,9 +212,9 @@ async publish(pageId: number, body: WikiPagePublishRequest): Promise<WikiPageSum
 
 export class KnowledgeWikiCandidatesApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -161,9 +233,9 @@ async reject(candidateId: number, body: WikiCandidateReviewRequest): Promise<Wik
 
 export class KnowledgeWikiCompileJobsApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -184,8 +256,8 @@ export class KnowledgeWikiApi {
   public readonly fileEntries: KnowledgeWikiFileEntriesApi;
   public readonly lintRuns: KnowledgeWikiLintRunsApi;
   public readonly evalRuns: KnowledgeWikiEvalRunsApi;
-  
-  constructor(client: HttpClient) { 
+
+  constructor(client: HttpClient) {
     this.client = client;
     this.compileJobs = new KnowledgeWikiCompileJobsApi(client);
     this.candidates = new KnowledgeWikiCandidatesApi(client);
@@ -196,16 +268,16 @@ export class KnowledgeWikiApi {
     this.exports = new KnowledgeWikiExportsApi(client);
     this.fileEntries = new KnowledgeWikiFileEntriesApi(client);
     this.lintRuns = new KnowledgeWikiLintRunsApi(client);
-    this.evalRuns = new KnowledgeWikiEvalRunsApi(client); 
+    this.evalRuns = new KnowledgeWikiEvalRunsApi(client);
   }
 
 }
 
 export class KnowledgeSourcesApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -222,11 +294,19 @@ export class KnowledgeApi {
   private client: HttpClient;
   public readonly sources: KnowledgeSourcesApi;
   public readonly wiki: KnowledgeWikiApi;
-  
-  constructor(client: HttpClient) { 
+  public readonly indexes: KnowledgeIndexesApi;
+  public readonly retrievalProfiles: KnowledgeRetrievalProfilesApi;
+  public readonly retrievalTraces: KnowledgeRetrievalTracesApi;
+  public readonly providerHealth: KnowledgeProviderHealthApi;
+
+  constructor(client: HttpClient) {
     this.client = client;
     this.sources = new KnowledgeSourcesApi(client);
-    this.wiki = new KnowledgeWikiApi(client); 
+    this.wiki = new KnowledgeWikiApi(client);
+    this.indexes = new KnowledgeIndexesApi(client);
+    this.retrievalProfiles = new KnowledgeRetrievalProfilesApi(client);
+    this.retrievalTraces = new KnowledgeRetrievalTracesApi(client);
+    this.providerHealth = new KnowledgeProviderHealthApi(client);
   }
 
 }

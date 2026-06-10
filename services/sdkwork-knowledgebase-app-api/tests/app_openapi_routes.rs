@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
-use sdkwork_knowledgebase_app_api::{build_router_with_browser, KnowledgeBrowserApi};
+use sdkwork_knowledgebase_app_api::{build_router_with_browser, ApiResult, KnowledgeBrowserApi};
 use sdkwork_knowledgebase_contract::browser::{KnowledgeBrowserPage, ListKnowledgeBrowserRequest};
 use serde_json::Value;
 use tower::util::ServiceExt;
@@ -76,8 +76,147 @@ fn app_openapi_exposes_drive_bound_contract_fields() {
     assert_schema_properties(&spec, "KnowledgeDocument", &["originalFileDriveNodeId"]);
     assert_schema_properties(
         &spec,
+        "KnowledgeDriveImportRequest",
+        &["driveStorageProviderId"],
+    );
+    assert_schema_properties(
+        &spec,
         "KnowledgeDriveObjectRef",
-        &["driveSpaceId", "driveNodeId", "logicalPath"],
+        &[
+            "driveSpaceId",
+            "driveNodeId",
+            "driveStorageProviderId",
+            "logicalPath",
+        ],
+    );
+}
+
+#[test]
+fn app_openapi_exposes_standard_rag_and_knowledge_agent_operations() {
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json"
+    ))
+    .unwrap();
+
+    for (operation_id, method, path) in [
+        (
+            "retrievals.create",
+            "post",
+            "/app/v3/api/knowledge/retrievals",
+        ),
+        (
+            "retrievals.retrieve",
+            "get",
+            "/app/v3/api/knowledge/retrievals/{retrievalId}",
+        ),
+        (
+            "contextPacks.create",
+            "post",
+            "/app/v3/api/knowledge/context_packs",
+        ),
+        (
+            "agentProfiles.create",
+            "post",
+            "/app/v3/api/knowledge/agent_profiles",
+        ),
+        (
+            "agentProfiles.retrieve",
+            "get",
+            "/app/v3/api/knowledge/agent_profiles/{profileId}",
+        ),
+        (
+            "agentProfiles.update",
+            "patch",
+            "/app/v3/api/knowledge/agent_profiles/{profileId}",
+        ),
+        (
+            "agentProfiles.delete",
+            "delete",
+            "/app/v3/api/knowledge/agent_profiles/{profileId}",
+        ),
+        (
+            "agentProfiles.bindings.list",
+            "get",
+            "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
+        ),
+        (
+            "agentProfiles.bindings.create",
+            "post",
+            "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
+        ),
+        (
+            "agentProfiles.bindings.update",
+            "patch",
+            "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}",
+        ),
+        (
+            "agentProfiles.bindings.delete",
+            "delete",
+            "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}",
+        ),
+        (
+            "agentProfiles.retrievalPreview.create",
+            "post",
+            "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
+        ),
+    ] {
+        assert_eq!(
+            spec["paths"][path][method]["operationId"], operation_id,
+            "missing app RAG operation {operation_id}: {method} {path}"
+        );
+        assert_eq!(
+            spec["paths"][path][method]["x-sdkwork-owner"],
+            "sdkwork-knowledgebase"
+        );
+        assert_eq!(
+            spec["paths"][path][method]["x-sdkwork-api-authority"],
+            "sdkwork-knowledgebase.app"
+        );
+    }
+
+    for schema_name in [
+        "KnowledgeRetrievalRequest",
+        "KnowledgeRetrievalResult",
+        "KnowledgeContextPackRequest",
+        "KnowledgeContextPack",
+        "KnowledgeMemoryContextFragment",
+        "KnowledgeAgentProfile",
+        "KnowledgeAgentBinding",
+    ] {
+        assert!(
+            spec["components"]["schemas"][schema_name].is_object(),
+            "OpenAPI must define {schema_name}"
+        );
+    }
+}
+
+#[test]
+fn app_openapi_keeps_memory_context_fragments_separate_from_knowledge_chunks() {
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json"
+    ))
+    .unwrap();
+
+    assert_schema_properties(&spec, "KnowledgeContextPackRequest", &["memoryPolicyRef"]);
+    assert_schema_properties(&spec, "KnowledgeContextPack", &["memoryFragments"]);
+    assert_schema_properties(
+        &spec,
+        "KnowledgeMemoryContextFragment",
+        &["memoryId", "content", "rank", "policyRef"],
+    );
+
+    let memory_properties = spec["components"]["schemas"]["KnowledgeMemoryContextFragment"]
+        ["properties"]
+        .as_object()
+        .expect("KnowledgeMemoryContextFragment must define properties");
+    assert!(
+        !memory_properties.contains_key("chunkId"),
+        "Memory fragments must not masquerade as knowledge chunks"
+    );
+    assert_eq!(
+        spec["components"]["schemas"]["KnowledgeContextPack"]["properties"]["memoryFragments"]
+            ["items"]["$ref"],
+        "#/components/schemas/KnowledgeMemoryContextFragment"
     );
 }
 
@@ -125,6 +264,10 @@ fn concrete_uri(template_path: &str) -> String {
         .replace("{documentId}", "13")
         .replace("{pageId}", "17")
         .replace("{queryId}", "19");
+    let path = path
+        .replace("{retrievalId}", "23")
+        .replace("{profileId}", "41")
+        .replace("{bindingId}", "61");
 
     if path.ends_with("/browser") {
         format!("{path}?view=files&pageSize=1")
@@ -137,7 +280,7 @@ fn request_body(operation_id: &str) -> &'static str {
     match operation_id {
         "spaces.create" => r#"{"name":"Knowledge Space","description":"Demo"}"#,
         "driveImports.create" => {
-            r#"{"spaceId":7,"title":"Quarterly Report","driveBucket":"knowledgebase-source","driveObjectKey":"incoming/report.md","idempotencyKey":"drive-report"}"#
+            r#"{"spaceId":7,"title":"Quarterly Report","driveStorageProviderId":"provider-kb","driveBucket":"knowledgebase-source","driveObjectKey":"incoming/report.md","idempotencyKey":"drive-report"}"#
         }
         "ingests.create" => {
             r##"{"spaceId":7,"title":"API Note","payloadMarkdown":"# API Note","idempotencyKey":"api-note"}"##
@@ -151,6 +294,21 @@ fn request_body(operation_id: &str) -> &'static str {
         "wiki.queries.create" => r#"{"spaceId":7,"query":"What changed?"}"#,
         "wiki.queries.fileAnswer" => r##"{"title":"Answer","answerMarkdown":"# Answer"}"##,
         "wiki.contextPacks.create" => r#"{"spaceId":7,"query":"Quarterly report"}"#,
+        "retrievals.create" => {
+            r#"{"tenantId":"20001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
+        }
+        "contextPacks.create" => {
+            r#"{"tenantId":"20001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"contextBudgetTokens":1200,"includeCitations":true}"#
+        }
+        "agentProfiles.create" | "agentProfiles.update" => {
+            r#"{"tenantId":"20001","name":"Support Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.openai","modelId":"gpt-4.1","status":"active"}"#
+        }
+        "agentProfiles.bindings.create" | "agentProfiles.bindings.update" => {
+            r#"{"tenantId":"20001","profileId":"41","spaceId":"7","priority":10,"enabled":true}"#
+        }
+        "agentProfiles.retrievalPreview.create" => {
+            r#"{"tenantId":"20001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
+        }
         _ => "",
     }
 }
@@ -162,7 +320,7 @@ impl KnowledgeBrowserApi for EmptyBrowserApi {
     async fn list_browser(
         &self,
         request: ListKnowledgeBrowserRequest,
-    ) -> Result<KnowledgeBrowserPage, String> {
+    ) -> ApiResult<KnowledgeBrowserPage> {
         Ok(KnowledgeBrowserPage {
             space_id: request.space_id,
             drive_space_id: "drv-kb-001".to_string(),

@@ -22,6 +22,7 @@ const families = [
     dependencies: [
       ["sdkwork-appbase-app-sdk", "sdkwork-appbase.app"],
       ["sdkwork-drive-app-sdk", "sdkwork-drive.app"],
+      ["sdkwork-memory-app-sdk", "sdkwork-memory.app"],
     ],
   },
   {
@@ -37,6 +38,7 @@ const families = [
     dependencies: [
       ["sdkwork-appbase-backend-sdk", "sdkwork-appbase.backend"],
       ["sdkwork-drive-backend-sdk", "sdkwork-drive.backend"],
+      ["sdkwork-memory-backend-sdk", "sdkwork-memory.backend"],
     ],
   },
 ];
@@ -47,11 +49,14 @@ const dependencyOwnedPathPrefixes = [
   "/app/v3/api/open_platform/",
   "/app/v3/api/system/iam/",
   "/app/v3/api/drive/",
+  "/app/v3/api/memory/",
   "/backend/v3/api/auth/",
   "/backend/v3/api/iam/",
   "/backend/v3/api/open_platform/",
   "/backend/v3/api/system/iam/",
   "/backend/v3/api/drive/",
+  "/backend/v3/api/memory/",
+  "/mem/v3/api/",
 ];
 
 function readJson(relativePath) {
@@ -94,7 +99,7 @@ test("knowledgebase SDK family assemblies declare owner-only authority metadata"
         dependencyMode: "consumer-sdk",
         generatedTransportImportPolicy: "forbidden",
       })),
-      `${family.root} must declare appbase and drive as consumer SDK dependencies`,
+      `${family.root} must declare appbase, drive, and memory as consumer SDK dependencies`,
     );
   }
 });
@@ -127,7 +132,7 @@ test("knowledgebase component specs mirror SDK dependency boundaries", () => {
         dependencyMode: "consumer-sdk",
         generatedTransportImportPolicy: "forbidden",
       })),
-      `${family.root} component spec must mirror appbase and drive SDK dependencies`,
+      `${family.root} component spec must mirror appbase, drive, and memory SDK dependencies`,
     );
   }
 });
@@ -156,7 +161,7 @@ test("knowledgebase SDK manifests record owner and dependency boundaries outside
         dependencyMode: "consumer-sdk",
         generatedTransportImportPolicy: "forbidden",
       })),
-      `${family.root} manifest must mirror appbase and drive SDK dependencies`,
+      `${family.root} manifest must mirror appbase, drive, and memory SDK dependencies`,
     );
 
     const generatedMetadata = readJson(path.join("sdks", family.root, family.generatedMetadata));

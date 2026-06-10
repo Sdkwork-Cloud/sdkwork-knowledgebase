@@ -66,8 +66,132 @@ fn backend_openapi_exposes_drive_bound_contract_fields() {
     assert_schema_properties(&spec, "KnowledgeDocument", &["originalFileDriveNodeId"]);
     assert_schema_properties(
         &spec,
+        "KnowledgeDriveImportRequest",
+        &["driveStorageProviderId"],
+    );
+    assert_schema_properties(
+        &spec,
         "KnowledgeDriveObjectRef",
-        &["driveSpaceId", "driveNodeId", "logicalPath"],
+        &[
+            "driveSpaceId",
+            "driveNodeId",
+            "driveStorageProviderId",
+            "logicalPath",
+        ],
+    );
+}
+
+#[test]
+fn backend_openapi_exposes_standard_rag_admin_operations() {
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
+    ))
+    .unwrap();
+
+    for (operation_id, method, path) in [
+        (
+            "indexes.create",
+            "post",
+            "/backend/v3/api/knowledge/indexes",
+        ),
+        (
+            "indexes.retrieve",
+            "get",
+            "/backend/v3/api/knowledge/indexes/{indexId}",
+        ),
+        (
+            "indexes.rebuild",
+            "post",
+            "/backend/v3/api/knowledge/indexes/{indexId}/rebuild",
+        ),
+        (
+            "retrievalProfiles.create",
+            "post",
+            "/backend/v3/api/knowledge/retrieval_profiles",
+        ),
+        (
+            "retrievalProfiles.retrieve",
+            "get",
+            "/backend/v3/api/knowledge/retrieval_profiles/{profileId}",
+        ),
+        (
+            "retrievalProfiles.update",
+            "patch",
+            "/backend/v3/api/knowledge/retrieval_profiles/{profileId}",
+        ),
+        (
+            "retrievalTraces.list",
+            "get",
+            "/backend/v3/api/knowledge/retrieval_traces",
+        ),
+        (
+            "retrievalTraces.retrieve",
+            "get",
+            "/backend/v3/api/knowledge/retrieval_traces/{traceId}",
+        ),
+        (
+            "providerHealth.retrieve",
+            "get",
+            "/backend/v3/api/knowledge/provider_health",
+        ),
+    ] {
+        assert_eq!(
+            spec["paths"][path][method]["operationId"], operation_id,
+            "missing backend RAG operation {operation_id}: {method} {path}"
+        );
+        assert_eq!(
+            spec["paths"][path][method]["x-sdkwork-owner"],
+            "sdkwork-knowledgebase"
+        );
+        assert_eq!(
+            spec["paths"][path][method]["x-sdkwork-api-authority"],
+            "sdkwork-knowledgebase.backend"
+        );
+    }
+
+    for schema_name in [
+        "KnowledgeIndex",
+        "KnowledgeIndexRequest",
+        "KnowledgeRetrievalProfile",
+        "KnowledgeRetrievalTrace",
+        "KnowledgeRetrievalTraceList",
+        "KnowledgeMemoryContextFragment",
+        "KnowledgeProviderHealth",
+    ] {
+        assert!(
+            spec["components"]["schemas"][schema_name].is_object(),
+            "OpenAPI must define {schema_name}"
+        );
+    }
+}
+
+#[test]
+fn backend_openapi_keeps_memory_context_fragments_separate_from_knowledge_chunks() {
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
+    ))
+    .unwrap();
+
+    assert_schema_properties(&spec, "KnowledgeContextPackRequest", &["memoryPolicyRef"]);
+    assert_schema_properties(&spec, "KnowledgeContextPack", &["memoryFragments"]);
+    assert_schema_properties(
+        &spec,
+        "KnowledgeMemoryContextFragment",
+        &["memoryId", "content", "rank", "policyRef"],
+    );
+
+    let memory_properties = spec["components"]["schemas"]["KnowledgeMemoryContextFragment"]
+        ["properties"]
+        .as_object()
+        .expect("KnowledgeMemoryContextFragment must define properties");
+    assert!(
+        !memory_properties.contains_key("chunkId"),
+        "Memory fragments must not masquerade as knowledge chunks"
+    );
+    assert_eq!(
+        spec["components"]["schemas"]["KnowledgeContextPack"]["properties"]["memoryFragments"]
+            ["items"]["$ref"],
+        "#/components/schemas/KnowledgeMemoryContextFragment"
     );
 }
 
@@ -114,6 +238,8 @@ fn concrete_uri(template_path: &str) -> String {
         .replace("{pageId}", "17")
         .replace("{profileId}", "23")
         .replace("{exportId}", "29")
+        .replace("{indexId}", "37")
+        .replace("{traceId}", "41")
 }
 
 fn request_body(operation_id: &str) -> &'static str {
@@ -133,6 +259,13 @@ fn request_body(operation_id: &str) -> &'static str {
         }
         "wiki.exports.create" => r#"{"spaceId":7,"exportType":"snapshot"}"#,
         "wiki.lintRuns.create" | "wiki.evalRuns.create" => r#"{"spaceId":7}"#,
+        "indexes.create" => {
+            r#"{"tenantId":"20001","spaceId":"7","indexKind":"hybrid","embeddingProviderId":"provider.embedding.openai","embeddingModel":"text-embedding-3-large","dimension":3072,"metric":"cosine"}"#
+        }
+        "indexes.rebuild" => r#"{"spaceId":7}"#,
+        "retrievalProfiles.create" | "retrievalProfiles.update" => {
+            r#"{"tenantId":"20001","name":"Default Hybrid","strategy":"hybrid","topK":8,"minScore":0.4,"rerankEnabled":true,"contextBudgetTokens":2048,"status":"active"}"#
+        }
         _ => "",
     }
 }

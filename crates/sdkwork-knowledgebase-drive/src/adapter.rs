@@ -39,6 +39,7 @@ use std::sync::Arc;
 
 pub struct KnowledgebaseDriveStorageAdapter {
     store: Arc<dyn DriveObjectStore>,
+    storage_provider_id: String,
     bucket: String,
     object_key_root: String,
 }
@@ -93,6 +94,7 @@ impl KnowledgebaseDriveNodeTreeAdapter {
 impl KnowledgebaseDriveStorageAdapter {
     pub fn new<S>(
         store: Arc<S>,
+        storage_provider_id: impl Into<String>,
         bucket: impl Into<String>,
         object_key_root: impl Into<String>,
     ) -> Self
@@ -101,6 +103,7 @@ impl KnowledgebaseDriveStorageAdapter {
     {
         Self {
             store,
+            storage_provider_id: storage_provider_id.into(),
             bucket: bucket.into(),
             object_key_root: trim_slashes(&object_key_root.into()),
         }
@@ -272,6 +275,7 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
         let version_id = content_version_id(response.version_id, &checksum_sha256_hex);
 
         Ok(KnowledgeObjectRef {
+            storage_provider_id: self.storage_provider_id.clone(),
             bucket: response.locator.bucket,
             object_key: response.locator.object_key,
             logical_path: request.logical_path,
@@ -288,6 +292,13 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
         &self,
         request: HeadKnowledgeObjectRequest,
     ) -> Result<KnowledgeObjectRef, KnowledgeStorageError> {
+        if let Some(storage_provider_id) = request.storage_provider_id.as_deref() {
+            if storage_provider_id != self.storage_provider_id {
+                return Err(KnowledgeStorageError::InvalidRequest(format!(
+                    "storage_provider_id does not match adapter provider: {storage_provider_id}"
+                )));
+            }
+        }
         let logical_path = request
             .logical_path
             .clone()
@@ -311,6 +322,7 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
         );
 
         Ok(KnowledgeObjectRef {
+            storage_provider_id: self.storage_provider_id.clone(),
             bucket: response.locator.bucket,
             object_key: response.locator.object_key,
             logical_path,
@@ -640,6 +652,7 @@ fn knowledge_node_to_drive_node(
             Ok(EnsureDriveWorkspaceNode::file(
                 logical_path,
                 DriveWorkspaceObjectRef {
+                    storage_provider_id: object_ref.storage_provider_id,
                     bucket: object_ref.bucket,
                     object_key: object_ref.object_key,
                     content_type: object_ref.content_type,

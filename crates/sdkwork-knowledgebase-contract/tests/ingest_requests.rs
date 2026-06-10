@@ -27,6 +27,7 @@ fn drive_import_request_uses_stable_drive_locator_and_idempotency_key() {
         title: "Quarterly Report".to_string(),
         drive_space_id: Some("drv-kb-001".to_string()),
         drive_node_id: Some("node-report".to_string()),
+        drive_storage_provider_id: "provider-kb".to_string(),
         drive_bucket: "knowledgebase-source".to_string(),
         drive_object_key: "incoming/quarterly-report.md".to_string(),
         idempotency_key: "drive-quarterly-report".to_string(),

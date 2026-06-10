@@ -50,6 +50,7 @@ impl PutKnowledgeObjectRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeadKnowledgeObjectRequest {
+    pub storage_provider_id: Option<String>,
     pub bucket: String,
     pub object_key: String,
     pub logical_path: Option<String>,
@@ -57,9 +58,14 @@ pub struct HeadKnowledgeObjectRequest {
 }
 
 impl HeadKnowledgeObjectRequest {
-    pub fn original_document(bucket: impl Into<String>, object_key: impl Into<String>) -> Self {
+    pub fn original_document(
+        storage_provider_id: impl Into<String>,
+        bucket: impl Into<String>,
+        object_key: impl Into<String>,
+    ) -> Self {
         let object_key = object_key.into();
         Self {
+            storage_provider_id: Some(storage_provider_id.into()),
             bucket: bucket.into(),
             logical_path: Some(object_key.clone()),
             object_key,
@@ -73,6 +79,7 @@ impl HeadKnowledgeObjectRequest {
     ) -> Self {
         let logical_path = logical_path.into();
         Self {
+            storage_provider_id: None,
             bucket: String::new(),
             object_key: logical_path.clone(),
             logical_path: Some(logical_path),
@@ -84,6 +91,7 @@ impl HeadKnowledgeObjectRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeObjectRef {
+    pub storage_provider_id: String,
     pub bucket: String,
     pub object_key: String,
     pub logical_path: String,

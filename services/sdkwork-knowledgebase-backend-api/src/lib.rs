@@ -5,7 +5,9 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use sdkwork_knowledgebase_contract::{
-    CreateKnowledgeSourceRequest, IngestionJob, KnowledgeSource, KnowledgeSourceList,
+    CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest,
+    KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
+    KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList,
     KnowledgeWikiFileEntry, KnowledgeWikiFileEntryList, KnowledgeWikiSchemaProfileRequest,
     ProblemDetails, WikiCandidateResult, WikiCandidateResultList, WikiCandidateReviewRequest,
     WikiCompileJobRequest, WikiExportRequest, WikiIndexDocument, WikiIndexRebuildRequest,
@@ -196,6 +198,64 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
     ) -> BackendApiResult<WikiQualityRun> {
         Err(BackendApiError::not_implemented("wiki.evalRuns.create"))
     }
+
+    async fn create_index(
+        &self,
+        _request: KnowledgeIndexRequest,
+    ) -> BackendApiResult<KnowledgeIndex> {
+        Err(BackendApiError::not_implemented("indexes.create"))
+    }
+
+    async fn retrieve_index(&self, _index_id: u64) -> BackendApiResult<KnowledgeIndex> {
+        Err(BackendApiError::not_implemented("indexes.retrieve"))
+    }
+
+    async fn rebuild_index(
+        &self,
+        _index_id: u64,
+        _request: WikiIndexRebuildRequest,
+    ) -> BackendApiResult<WikiIndexDocument> {
+        Err(BackendApiError::not_implemented("indexes.rebuild"))
+    }
+
+    async fn create_retrieval_profile(
+        &self,
+        _request: KnowledgeRetrievalProfileRequest,
+    ) -> BackendApiResult<KnowledgeRetrievalProfile> {
+        Err(BackendApiError::not_implemented("retrievalProfiles.create"))
+    }
+
+    async fn retrieve_retrieval_profile(
+        &self,
+        _profile_id: u64,
+    ) -> BackendApiResult<KnowledgeRetrievalProfile> {
+        Err(BackendApiError::not_implemented(
+            "retrievalProfiles.retrieve",
+        ))
+    }
+
+    async fn update_retrieval_profile(
+        &self,
+        _profile_id: u64,
+        _request: KnowledgeRetrievalProfileRequest,
+    ) -> BackendApiResult<KnowledgeRetrievalProfile> {
+        Err(BackendApiError::not_implemented("retrievalProfiles.update"))
+    }
+
+    async fn list_retrieval_traces(&self) -> BackendApiResult<KnowledgeRetrievalTraceList> {
+        Err(BackendApiError::not_implemented("retrievalTraces.list"))
+    }
+
+    async fn retrieve_retrieval_trace(
+        &self,
+        _trace_id: u64,
+    ) -> BackendApiResult<KnowledgeRetrievalTrace> {
+        Err(BackendApiError::not_implemented("retrievalTraces.retrieve"))
+    }
+
+    async fn retrieve_provider_health(&self) -> BackendApiResult<KnowledgeProviderHealth> {
+        Err(BackendApiError::not_implemented("providerHealth.retrieve"))
+    }
 }
 
 #[derive(Clone)]
@@ -272,6 +332,35 @@ pub fn build_router_with_shared_backend_api(api: Arc<dyn KnowledgeBackendApi>) -
         .route(
             "/backend/v3/api/knowledge/wiki_eval_runs",
             post(create_wiki_eval_run),
+        )
+        .route("/backend/v3/api/knowledge/indexes", post(create_index))
+        .route(
+            "/backend/v3/api/knowledge/indexes/:index_id",
+            get(retrieve_index),
+        )
+        .route(
+            "/backend/v3/api/knowledge/indexes/:index_id/rebuild",
+            post(rebuild_index),
+        )
+        .route(
+            "/backend/v3/api/knowledge/retrieval_profiles",
+            post(create_retrieval_profile),
+        )
+        .route(
+            "/backend/v3/api/knowledge/retrieval_profiles/:profile_id",
+            get(retrieve_retrieval_profile).patch(update_retrieval_profile),
+        )
+        .route(
+            "/backend/v3/api/knowledge/retrieval_traces",
+            get(list_retrieval_traces),
+        )
+        .route(
+            "/backend/v3/api/knowledge/retrieval_traces/:trace_id",
+            get(retrieve_retrieval_trace),
+        )
+        .route(
+            "/backend/v3/api/knowledge/provider_health",
+            get(retrieve_provider_health),
         )
         .with_state(BackendState { api })
 }
@@ -399,6 +488,74 @@ async fn create_wiki_eval_run(
     Json(request): Json<WikiQualityRunRequest>,
 ) -> Result<Response, BackendApiProblem> {
     created_json(state.api.create_wiki_eval_run(request).await)
+}
+
+async fn create_index(
+    State(state): State<BackendState>,
+    Json(request): Json<KnowledgeIndexRequest>,
+) -> Result<Response, BackendApiProblem> {
+    created_json(state.api.create_index(request).await)
+}
+
+async fn retrieve_index(
+    State(state): State<BackendState>,
+    Path(index_id): Path<u64>,
+) -> Result<Response, BackendApiProblem> {
+    ok_json(state.api.retrieve_index(index_id).await)
+}
+
+async fn rebuild_index(
+    State(state): State<BackendState>,
+    Path(index_id): Path<u64>,
+    Json(request): Json<WikiIndexRebuildRequest>,
+) -> Result<Response, BackendApiProblem> {
+    ok_json(state.api.rebuild_index(index_id, request).await)
+}
+
+async fn create_retrieval_profile(
+    State(state): State<BackendState>,
+    Json(request): Json<KnowledgeRetrievalProfileRequest>,
+) -> Result<Response, BackendApiProblem> {
+    created_json(state.api.create_retrieval_profile(request).await)
+}
+
+async fn retrieve_retrieval_profile(
+    State(state): State<BackendState>,
+    Path(profile_id): Path<u64>,
+) -> Result<Response, BackendApiProblem> {
+    ok_json(state.api.retrieve_retrieval_profile(profile_id).await)
+}
+
+async fn update_retrieval_profile(
+    State(state): State<BackendState>,
+    Path(profile_id): Path<u64>,
+    Json(request): Json<KnowledgeRetrievalProfileRequest>,
+) -> Result<Response, BackendApiProblem> {
+    ok_json(
+        state
+            .api
+            .update_retrieval_profile(profile_id, request)
+            .await,
+    )
+}
+
+async fn list_retrieval_traces(
+    State(state): State<BackendState>,
+) -> Result<Response, BackendApiProblem> {
+    ok_json(state.api.list_retrieval_traces().await)
+}
+
+async fn retrieve_retrieval_trace(
+    State(state): State<BackendState>,
+    Path(trace_id): Path<u64>,
+) -> Result<Response, BackendApiProblem> {
+    ok_json(state.api.retrieve_retrieval_trace(trace_id).await)
+}
+
+async fn retrieve_provider_health(
+    State(state): State<BackendState>,
+) -> Result<Response, BackendApiProblem> {
+    ok_json(state.api.retrieve_provider_health().await)
 }
 
 fn ok_json<T>(result: BackendApiResult<T>) -> Result<Response, BackendApiProblem>

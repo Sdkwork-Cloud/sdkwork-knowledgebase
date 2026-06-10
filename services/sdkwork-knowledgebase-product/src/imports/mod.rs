@@ -73,6 +73,11 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 "drive_bucket is required".to_string(),
             ));
         }
+        if request.drive_storage_provider_id.trim().is_empty() {
+            return Err(KnowledgeDriveImportServiceError::InvalidRequest(
+                "drive_storage_provider_id is required".to_string(),
+            ));
+        }
         if request.drive_object_key.trim().is_empty() {
             return Err(KnowledgeDriveImportServiceError::InvalidRequest(
                 "drive_object_key is required".to_string(),
@@ -81,21 +86,27 @@ impl<'a> KnowledgeDriveImportService<'a> {
         let idempotency_key = normalize_idempotency_key(&request.idempotency_key)?;
         let drive_space_id = normalize_optional_drive_id(request.drive_space_id, "drive_space_id")?;
         let drive_node_id = normalize_optional_drive_id(request.drive_node_id, "drive_node_id")?;
+        let drive_storage_provider_id = normalize_required_drive_id(
+            request.drive_storage_provider_id,
+            "drive_storage_provider_id",
+        )?;
         if drive_node_id.is_some() && drive_space_id.is_none() {
             return Err(KnowledgeDriveImportServiceError::InvalidRequest(
                 "drive_space_id is required when drive_node_id is provided".to_string(),
             ));
         }
 
-        let fingerprint = drive_import_idempotency_fingerprint_sha256_hex(
-            request.space_id,
-            &request.title,
-            drive_space_id.as_deref(),
-            drive_node_id.as_deref(),
-            &request.drive_bucket,
-            &request.drive_object_key,
-            request.language.as_deref(),
-        );
+        let fingerprint_input = DriveImportFingerprintInput {
+            space_id: request.space_id,
+            title: &request.title,
+            drive_space_id: drive_space_id.as_deref(),
+            drive_node_id: drive_node_id.as_deref(),
+            drive_storage_provider_id: &drive_storage_provider_id,
+            drive_bucket: &request.drive_bucket,
+            drive_object_key: &request.drive_object_key,
+            language: request.language.as_deref(),
+        };
+        let fingerprint = drive_import_idempotency_fingerprint_sha256_hex(&fingerprint_input);
         let job = self
             .jobs
             .create_or_get_job(CreateIngestionJobRecord {
@@ -110,10 +121,17 @@ impl<'a> KnowledgeDriveImportService<'a> {
         let original_object_ref = self
             .drive
             .head_object(HeadKnowledgeObjectRequest::original_document(
+                drive_storage_provider_id.clone(),
                 request.drive_bucket.clone(),
                 request.drive_object_key.clone(),
             ))
             .await?;
+        if original_object_ref.storage_provider_id != drive_storage_provider_id {
+            return Err(KnowledgeDriveImportServiceError::InvalidRequest(format!(
+                "drive_storage_provider_id does not match resolved object provider: {}",
+                original_object_ref.storage_provider_id
+            )));
+        }
 
         let original_drive_object_ref = self
             .object_refs
@@ -123,6 +141,7 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 drive_node_id: drive_node_id.clone(),
                 logical_path: Some(original_object_ref.logical_path.clone()),
                 drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+                drive_storage_provider_id: original_object_ref.storage_provider_id.clone(),
                 drive_bucket: original_object_ref.bucket.clone(),
                 drive_object_key: original_object_ref.object_key.clone(),
                 drive_object_version: original_object_ref.version_id.clone(),
@@ -183,24 +202,38 @@ impl<'a> KnowledgeDriveImportService<'a> {
     }
 }
 
-fn drive_import_idempotency_fingerprint_sha256_hex(
+struct DriveImportFingerprintInput<'a> {
     space_id: u64,
-    title: &str,
-    drive_space_id: Option<&str>,
-    drive_node_id: Option<&str>,
-    drive_bucket: &str,
-    drive_object_key: &str,
-    language: Option<&str>,
+    title: &'a str,
+    drive_space_id: Option<&'a str>,
+    drive_node_id: Option<&'a str>,
+    drive_storage_provider_id: &'a str,
+    drive_bucket: &'a str,
+    drive_object_key: &'a str,
+    language: Option<&'a str>,
+}
+
+fn drive_import_idempotency_fingerprint_sha256_hex(
+    input: &DriveImportFingerprintInput<'_>,
 ) -> String {
     let mut hasher = Sha256::new();
     hash_field(&mut hasher, "kind", Some("drive_object"));
-    hash_field(&mut hasher, "space_id", Some(&space_id.to_string()));
-    hash_field(&mut hasher, "title", Some(title));
-    hash_field(&mut hasher, "drive_space_id", drive_space_id);
-    hash_field(&mut hasher, "drive_node_id", drive_node_id);
-    hash_field(&mut hasher, "drive_bucket", Some(drive_bucket));
-    hash_field(&mut hasher, "drive_object_key", Some(drive_object_key));
-    hash_field(&mut hasher, "language", language);
+    hash_field(&mut hasher, "space_id", Some(&input.space_id.to_string()));
+    hash_field(&mut hasher, "title", Some(input.title));
+    hash_field(&mut hasher, "drive_space_id", input.drive_space_id);
+    hash_field(&mut hasher, "drive_node_id", input.drive_node_id);
+    hash_field(
+        &mut hasher,
+        "drive_storage_provider_id",
+        Some(input.drive_storage_provider_id),
+    );
+    hash_field(&mut hasher, "drive_bucket", Some(input.drive_bucket));
+    hash_field(
+        &mut hasher,
+        "drive_object_key",
+        Some(input.drive_object_key),
+    );
+    hash_field(&mut hasher, "language", input.language);
     let digest = hasher.finalize();
     let mut output = String::with_capacity(digest.len() * 2);
     for byte in digest {
@@ -266,6 +299,15 @@ fn normalize_optional_drive_id(
         )));
     }
     Ok(Some(value))
+}
+
+fn normalize_required_drive_id(
+    value: String,
+    field_name: &str,
+) -> Result<String, KnowledgeDriveImportServiceError> {
+    normalize_optional_drive_id(Some(value), field_name)?.ok_or_else(|| {
+        KnowledgeDriveImportServiceError::InvalidRequest(format!("{field_name} is required"))
+    })
 }
 
 #[derive(Debug, Error)]

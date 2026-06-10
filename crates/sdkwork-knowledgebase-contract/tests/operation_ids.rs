@@ -1,8 +1,11 @@
 use sdkwork_knowledgebase_contract::operations::{
-    ALL_OPERATION_IDS, DOCUMENTS_CREATE, DOCUMENTS_LIST, DOCUMENTS_RETRIEVE,
+    AGENT_PROFILES_BINDINGS_CREATE, AGENT_PROFILES_BINDINGS_DELETE, AGENT_PROFILES_BINDINGS_LIST,
+    AGENT_PROFILES_BINDINGS_UPDATE, AGENT_PROFILES_CREATE, AGENT_PROFILES_DELETE,
+    AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE, AGENT_PROFILES_RETRIEVE, AGENT_PROFILES_UPDATE,
+    ALL_OPERATION_IDS, CONTEXT_PACKS_CREATE, DOCUMENTS_CREATE, DOCUMENTS_LIST, DOCUMENTS_RETRIEVE,
     DOCUMENTS_VERSIONS_CREATE, DRIVE_IMPORTS_CREATE, INGESTS_CREATE, INGESTS_RETRIEVE,
-    SOURCES_CREATE, SOURCES_LIST, SPACES_BROWSER_LIST, WIKI_INDEX_REBUILD, WIKI_INDEX_RETRIEVE,
-    WIKI_LOG_ENTRIES_CREATE, WIKI_SCHEMA_PROFILES_CREATE,
+    RETRIEVALS_CREATE, RETRIEVALS_RETRIEVE, SOURCES_CREATE, SOURCES_LIST, SPACES_BROWSER_LIST,
+    WIKI_INDEX_REBUILD, WIKI_INDEX_RETRIEVE, WIKI_LOG_ENTRIES_CREATE, WIKI_SCHEMA_PROFILES_CREATE,
 };
 
 #[test]
@@ -43,4 +46,32 @@ fn source_document_ingest_operation_ids_follow_sdkwork_resource_tree() {
     assert_eq!(INGESTS_CREATE, "ingests.create");
     assert_eq!(INGESTS_RETRIEVE, "ingests.retrieve");
     assert_eq!(SPACES_BROWSER_LIST, "spaces.browser.list");
+}
+
+#[test]
+fn rag_and_knowledge_agent_operation_ids_follow_sdkwork_resource_tree() {
+    assert_eq!(RETRIEVALS_CREATE, "retrievals.create");
+    assert_eq!(RETRIEVALS_RETRIEVE, "retrievals.retrieve");
+    assert_eq!(CONTEXT_PACKS_CREATE, "contextPacks.create");
+    assert_eq!(AGENT_PROFILES_CREATE, "agentProfiles.create");
+    assert_eq!(AGENT_PROFILES_RETRIEVE, "agentProfiles.retrieve");
+    assert_eq!(AGENT_PROFILES_UPDATE, "agentProfiles.update");
+    assert_eq!(AGENT_PROFILES_DELETE, "agentProfiles.delete");
+    assert_eq!(AGENT_PROFILES_BINDINGS_LIST, "agentProfiles.bindings.list");
+    assert_eq!(
+        AGENT_PROFILES_BINDINGS_CREATE,
+        "agentProfiles.bindings.create"
+    );
+    assert_eq!(
+        AGENT_PROFILES_BINDINGS_UPDATE,
+        "agentProfiles.bindings.update"
+    );
+    assert_eq!(
+        AGENT_PROFILES_BINDINGS_DELETE,
+        "agentProfiles.bindings.delete"
+    );
+    assert_eq!(
+        AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE,
+        "agentProfiles.retrievalPreview.create"
+    );
 }

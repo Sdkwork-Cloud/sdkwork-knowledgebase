@@ -1,14 +1,111 @@
 import { appApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeBrowserPage, KnowledgeBrowserView, KnowledgeDocument, KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeSpace, KnowledgeWikiFileEntry, KnowledgeWikiPageRevisionList, WikiContextPackRequest, WikiFileAnswerRequest, WikiIndexDocument, WikiLogDocument, WikiPageSummary, WikiPageSummaryList, WikiQueryRequest, WikiQueryResult, WikiSchemaDocument } from '../types';
+import type { CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserPage, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeWikiFileEntry, KnowledgeWikiPageRevisionList, WikiContextPackRequest, WikiFileAnswerRequest, WikiIndexDocument, WikiLogDocument, WikiPageSummary, WikiPageSummaryList, WikiQueryRequest, WikiQueryResult, WikiSchemaDocument } from '../types';
 
+
+export class KnowledgeAgentProfilesRetrievalPreviewApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+async create(profileId: string, body: KnowledgeRetrievalRequest): Promise<KnowledgeRetrievalResult> {
+    return this.client.post<KnowledgeRetrievalResult>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/retrieval_preview`), body, undefined, undefined, 'application/json');
+  }
+}
+
+export class KnowledgeAgentProfilesBindingsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+async list(profileId: string): Promise<KnowledgeAgentBindingList> {
+    return this.client.get<KnowledgeAgentBindingList>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings`));
+  }
+
+async create(profileId: string, body: KnowledgeAgentBindingRequest): Promise<KnowledgeAgentBinding> {
+    return this.client.post<KnowledgeAgentBinding>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings`), body, undefined, undefined, 'application/json');
+  }
+
+async update(profileId: string, bindingId: string, body: KnowledgeAgentBindingRequest): Promise<KnowledgeAgentBinding> {
+    return this.client.patch<KnowledgeAgentBinding>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
+  }
+
+async delete(profileId: string, bindingId: string): Promise<void> {
+    return this.client.delete<void>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`));
+  }
+}
+
+export class KnowledgeAgentProfilesApi {
+  private client: HttpClient;
+  public readonly bindings: KnowledgeAgentProfilesBindingsApi;
+  public readonly retrievalPreview: KnowledgeAgentProfilesRetrievalPreviewApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.bindings = new KnowledgeAgentProfilesBindingsApi(client);
+    this.retrievalPreview = new KnowledgeAgentProfilesRetrievalPreviewApi(client);
+  }
+
+
+async create(body: KnowledgeAgentProfileRequest): Promise<KnowledgeAgentProfile> {
+    return this.client.post<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles`), body, undefined, undefined, 'application/json');
+  }
+
+async retrieve(profileId: string): Promise<KnowledgeAgentProfile> {
+    return this.client.get<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`));
+  }
+
+async update(profileId: string, body: KnowledgeAgentProfileRequest): Promise<KnowledgeAgentProfile> {
+    return this.client.patch<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
+  }
+
+async delete(profileId: string): Promise<void> {
+    return this.client.delete<void>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`));
+  }
+}
+
+export class KnowledgeContextPacksApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+async create(body: KnowledgeContextPackRequest): Promise<KnowledgeContextPack> {
+    return this.client.post<KnowledgeContextPack>(appApiPath(`/knowledge/context_packs`), body, undefined, undefined, 'application/json');
+  }
+}
+
+export class KnowledgeRetrievalsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+async create(body: KnowledgeRetrievalRequest): Promise<KnowledgeRetrievalResult> {
+    return this.client.post<KnowledgeRetrievalResult>(appApiPath(`/knowledge/retrievals`), body, undefined, undefined, 'application/json');
+  }
+
+async retrieve(retrievalId: string): Promise<KnowledgeRetrievalResult> {
+    return this.client.get<KnowledgeRetrievalResult>(appApiPath(`/knowledge/retrievals/${serializePathParameter(retrievalId, { name: 'retrievalId', style: 'simple', explode: false })}`));
+  }
+}
 
 export class KnowledgeWikiContextPacksApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -19,9 +116,9 @@ async create(body: WikiContextPackRequest): Promise<KnowledgeWikiFileEntry> {
 
 export class KnowledgeWikiQueriesApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -36,9 +133,9 @@ async fileAnswer(queryId: number, body: WikiFileAnswerRequest): Promise<WikiQuer
 
 export class KnowledgeWikiSchemaApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -49,9 +146,9 @@ async retrieve(): Promise<WikiSchemaDocument> {
 
 export class KnowledgeWikiLogApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -62,9 +159,9 @@ async retrieve(): Promise<WikiLogDocument> {
 
 export class KnowledgeWikiIndexApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -75,9 +172,9 @@ async retrieve(): Promise<WikiIndexDocument> {
 
 export class KnowledgeWikiPagesRevisionsApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -89,10 +186,10 @@ async list(pageId: number): Promise<KnowledgeWikiPageRevisionList> {
 export class KnowledgeWikiPagesApi {
   private client: HttpClient;
   public readonly revisions: KnowledgeWikiPagesRevisionsApi;
-  
-  constructor(client: HttpClient) { 
+
+  constructor(client: HttpClient) {
     this.client = client;
-    this.revisions = new KnowledgeWikiPagesRevisionsApi(client); 
+    this.revisions = new KnowledgeWikiPagesRevisionsApi(client);
   }
 
 
@@ -113,24 +210,24 @@ export class KnowledgeWikiApi {
   public readonly schema: KnowledgeWikiSchemaApi;
   public readonly queries: KnowledgeWikiQueriesApi;
   public readonly contextPacks: KnowledgeWikiContextPacksApi;
-  
-  constructor(client: HttpClient) { 
+
+  constructor(client: HttpClient) {
     this.client = client;
     this.pages = new KnowledgeWikiPagesApi(client);
     this.index = new KnowledgeWikiIndexApi(client);
     this.log = new KnowledgeWikiLogApi(client);
     this.schema = new KnowledgeWikiSchemaApi(client);
     this.queries = new KnowledgeWikiQueriesApi(client);
-    this.contextPacks = new KnowledgeWikiContextPacksApi(client); 
+    this.contextPacks = new KnowledgeWikiContextPacksApi(client);
   }
 
 }
 
 export class KnowledgeDocumentsVersionsApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -146,10 +243,10 @@ async create(documentId: number, body: CreateKnowledgeDocumentVersionRequest): P
 export class KnowledgeDocumentsApi {
   private client: HttpClient;
   public readonly versions: KnowledgeDocumentsVersionsApi;
-  
-  constructor(client: HttpClient) { 
+
+  constructor(client: HttpClient) {
     this.client = client;
-    this.versions = new KnowledgeDocumentsVersionsApi(client); 
+    this.versions = new KnowledgeDocumentsVersionsApi(client);
   }
 
 
@@ -176,9 +273,9 @@ async delete(documentId: number): Promise<void> {
 
 export class KnowledgeIngestsApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -193,9 +290,9 @@ async retrieve(ingestId: number): Promise<IngestionJob> {
 
 export class KnowledgeDriveImportsApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -213,9 +310,9 @@ export interface KnowledgeSpacesBrowserListParams {
 
 export class KnowledgeSpacesBrowserApi {
   private client: HttpClient;
-  
-  constructor(client: HttpClient) { 
-    this.client = client; 
+
+  constructor(client: HttpClient) {
+    this.client = client;
   }
 
 
@@ -233,10 +330,10 @@ async list(spaceId: number, params: KnowledgeSpacesBrowserListParams): Promise<K
 export class KnowledgeSpacesApi {
   private client: HttpClient;
   public readonly browser: KnowledgeSpacesBrowserApi;
-  
-  constructor(client: HttpClient) { 
+
+  constructor(client: HttpClient) {
     this.client = client;
-    this.browser = new KnowledgeSpacesBrowserApi(client); 
+    this.browser = new KnowledgeSpacesBrowserApi(client);
   }
 
 
@@ -256,14 +353,20 @@ export class KnowledgeApi {
   public readonly ingests: KnowledgeIngestsApi;
   public readonly documents: KnowledgeDocumentsApi;
   public readonly wiki: KnowledgeWikiApi;
-  
-  constructor(client: HttpClient) { 
+  public readonly retrievals: KnowledgeRetrievalsApi;
+  public readonly contextPacks: KnowledgeContextPacksApi;
+  public readonly agentProfiles: KnowledgeAgentProfilesApi;
+
+  constructor(client: HttpClient) {
     this.client = client;
     this.spaces = new KnowledgeSpacesApi(client);
     this.driveImports = new KnowledgeDriveImportsApi(client);
     this.ingests = new KnowledgeIngestsApi(client);
     this.documents = new KnowledgeDocumentsApi(client);
-    this.wiki = new KnowledgeWikiApi(client); 
+    this.wiki = new KnowledgeWikiApi(client);
+    this.retrievals = new KnowledgeRetrievalsApi(client);
+    this.contextPacks = new KnowledgeContextPacksApi(client);
+    this.agentProfiles = new KnowledgeAgentProfilesApi(client);
   }
 
 }

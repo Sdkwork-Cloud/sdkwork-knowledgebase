@@ -1,3 +1,4 @@
+use sdkwork_id::default_snowflake_epoch_millis;
 use sdkwork_knowledgebase_product::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore,
 };
@@ -6,7 +7,6 @@ use sdkwork_knowledgebase_storage_sqlx::{
     KnowledgeIdGenerator, KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator,
     SqliteKnowledgeSpaceStore,
 };
-use sdkwork_id::default_snowflake_epoch_millis;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::SqlitePool;
 use std::sync::{Arc, Mutex};

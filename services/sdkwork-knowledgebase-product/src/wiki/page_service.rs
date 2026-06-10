@@ -301,6 +301,7 @@ fn object_ref_record(
         drive_node_id,
         logical_path: Some(object_ref.logical_path.clone()),
         drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+        drive_storage_provider_id: object_ref.storage_provider_id.clone(),
         drive_bucket: object_ref.bucket.clone(),
         drive_object_key: object_ref.object_key.clone(),
         drive_object_version: object_ref.version_id.clone(),

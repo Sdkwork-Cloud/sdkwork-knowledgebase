@@ -6,13 +6,19 @@
     "version": "0.1.0",
     "language": "typescript",
     "sdkType": "app",
+    "protocol": "http",
     "packageName": "@sdkwork/knowledgebase-app-sdk"
   },
-  "changeFingerprint": "25e5e7cca7dbaeef6b1ffc71a3e41722621f4d9273d4b6c0b6de9f82a7760d11",
+  "changeFingerprint": "7e6b35c4016887b7e1e4427888b0bf34ee3a4871f1412a00b7b725be11ebd864",
   "changes": {
-    "createdGeneratedFiles": [],
+    "createdGeneratedFiles": [
+      "src/types/knowledge-memory-context-fragment.ts"
+    ],
     "updatedGeneratedFiles": [
-      "sdkwork-sdk.json"
+      "README.md",
+      "src/types/index.ts",
+      "src/types/knowledge-context-pack-request.ts",
+      "src/types/knowledge-context-pack.ts"
     ],
     "unchangedGeneratedFiles": [
       "bin/publish-core.mjs",
@@ -23,7 +29,7 @@
       "CHANGELOG.md",
       "LICENSE",
       "package.json",
-      "README.md",
+      "sdkwork-sdk.json",
       "src/api/base.ts",
       "src/api/index.ts",
       "src/api/knowledge.ts",
@@ -38,14 +44,21 @@
       "src/types/create-knowledge-document-version-request.ts",
       "src/types/create-knowledge-source-request.ts",
       "src/types/create-knowledge-space-request.ts",
-      "src/types/index.ts",
       "src/types/ingestion-job-state.ts",
       "src/types/ingestion-job.ts",
+      "src/types/knowledge-agent-binding-list.ts",
+      "src/types/knowledge-agent-binding-request.ts",
+      "src/types/knowledge-agent-binding.ts",
+      "src/types/knowledge-agent-profile-request.ts",
+      "src/types/knowledge-agent-profile.ts",
+      "src/types/knowledge-agent-status.ts",
       "src/types/knowledge-browser-node-permissions.ts",
       "src/types/knowledge-browser-node-type.ts",
       "src/types/knowledge-browser-node.ts",
       "src/types/knowledge-browser-page.ts",
       "src/types/knowledge-browser-view.ts",
+      "src/types/knowledge-citation.ts",
+      "src/types/knowledge-context-fragment.ts",
       "src/types/knowledge-document-list.ts",
       "src/types/knowledge-document-state.ts",
       "src/types/knowledge-document-version-list.ts",
@@ -56,7 +69,19 @@
       "src/types/knowledge-drive-import-request.ts",
       "src/types/knowledge-drive-import-result.ts",
       "src/types/knowledge-drive-object-ref.ts",
+      "src/types/knowledge-filter.ts",
+      "src/types/knowledge-index-request.ts",
+      "src/types/knowledge-index.ts",
       "src/types/knowledge-ingest-request.ts",
+      "src/types/knowledge-provider-health.ts",
+      "src/types/knowledge-retrieval-binding.ts",
+      "src/types/knowledge-retrieval-method.ts",
+      "src/types/knowledge-retrieval-profile-request.ts",
+      "src/types/knowledge-retrieval-profile.ts",
+      "src/types/knowledge-retrieval-request.ts",
+      "src/types/knowledge-retrieval-result.ts",
+      "src/types/knowledge-retrieval-trace-list.ts",
+      "src/types/knowledge-retrieval-trace.ts",
       "src/types/knowledge-source-list.ts",
       "src/types/knowledge-source-type.ts",
       "src/types/knowledge-source.ts",
@@ -101,29 +126,39 @@
   "impact": {
     "schemaVersion": 1,
     "areas": [
-      "build-metadata"
+      "models",
+      "documentation"
     ],
     "details": [
       {
-        "area": "build-metadata",
+        "area": "models",
         "paths": [
-          "sdkwork-sdk.json"
+          "src/types/index.ts",
+          "src/types/knowledge-context-pack-request.ts",
+          "src/types/knowledge-context-pack.ts",
+          "src/types/knowledge-memory-context-fragment.ts"
+        ]
+      },
+      {
+        "area": "documentation",
+        "paths": [
+          "README.md"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: build-metadata. Verification is required."
+    "summary": "Detected impact areas: models, documentation. Verification is required."
   },
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: build-metadata. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: models, documentation. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: build-metadata.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -141,7 +176,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: build-metadata.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [

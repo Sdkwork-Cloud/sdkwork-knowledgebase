@@ -10,10 +10,11 @@ use sdkwork_drive_storage_contract::{
     DeleteBucketResponse, DeleteObjectRequest, DeleteObjectResponse, DriveObjectChunkStream,
     DriveObjectLocator, DriveObjectStore, DriveObjectStoreError, DriveObjectStoreErrorKind,
     DriveStorageProviderCapabilities, DriveStorageProviderKind, HeadBucketRequest,
-    HeadBucketResponse, HeadObjectRequest, HeadObjectResponse, ListObjectsRequest,
-    ListObjectsResponse, ListedObject, PresignDownloadRequest, PresignUploadPartRequest,
-    PresignedDownloadResponse, PresignedUploadPartResponse, PutObjectRequest, PutObjectResponse,
-    ReadObjectRangeRequest, ReadObjectRangeResponse,
+    HeadBucketResponse, HeadObjectRequest, HeadObjectResponse, ListBucketsRequest,
+    ListBucketsResponse, ListObjectsRequest, ListObjectsResponse, ListedObject,
+    PresignDownloadRequest, PresignUploadPartRequest, PresignedDownloadResponse,
+    PresignedUploadPartResponse, PutObjectRequest, PutObjectResponse, ReadObjectRangeRequest,
+    ReadObjectRangeResponse,
 };
 use sdkwork_knowledgebase_drive::{
     KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
@@ -162,8 +163,12 @@ async fn space_provisioner_adapter_deletes_only_matching_knowledge_space_idempot
 #[tokio::test]
 async fn adapter_puts_and_reads_objects_through_drive_object_store() {
     let store = Arc::new(FakeDriveObjectStore::default());
-    let adapter =
-        KnowledgebaseDriveStorageAdapter::new(store, "kb-bucket", "knowledge/tenant/space");
+    let adapter = KnowledgebaseDriveStorageAdapter::new(
+        store,
+        "provider-kb",
+        "kb-bucket",
+        "knowledge/tenant/space",
+    );
 
     let object_ref = adapter
         .put_object(PutKnowledgeObjectRequest::text(
@@ -188,8 +193,12 @@ async fn adapter_puts_and_reads_objects_through_drive_object_store() {
 #[tokio::test]
 async fn storage_adapter_returns_computed_checksum_when_request_omits_checksum() {
     let store = Arc::new(FakeDriveObjectStore::default());
-    let adapter =
-        KnowledgebaseDriveStorageAdapter::new(store, "kb-bucket", "knowledge/tenant/space");
+    let adapter = KnowledgebaseDriveStorageAdapter::new(
+        store,
+        "provider-kb",
+        "kb-bucket",
+        "knowledge/tenant/space",
+    );
 
     let object_ref = adapter
         .put_object(PutKnowledgeObjectRequest::text(
@@ -210,8 +219,12 @@ async fn storage_adapter_returns_computed_checksum_when_request_omits_checksum()
 #[tokio::test]
 async fn storage_adapter_rejects_mismatched_request_checksum_before_drive_write() {
     let store = Arc::new(FakeDriveObjectStore::default());
-    let adapter =
-        KnowledgebaseDriveStorageAdapter::new(store.clone(), "kb-bucket", "knowledge/tenant/space");
+    let adapter = KnowledgebaseDriveStorageAdapter::new(
+        store.clone(),
+        "provider-kb",
+        "kb-bucket",
+        "knowledge/tenant/space",
+    );
 
     let error = adapter
         .put_object(PutKnowledgeObjectRequest::text(
@@ -230,8 +243,12 @@ async fn storage_adapter_rejects_mismatched_request_checksum_before_drive_write(
 #[tokio::test]
 async fn storage_adapter_synthesizes_content_version_for_versionless_drive_store() {
     let store = Arc::new(VersionlessDriveObjectStore::default());
-    let adapter =
-        KnowledgebaseDriveStorageAdapter::new(store, "kb-bucket", "knowledge/tenant/space");
+    let adapter = KnowledgebaseDriveStorageAdapter::new(
+        store,
+        "provider-kb",
+        "kb-bucket",
+        "knowledge/tenant/space",
+    );
 
     let first = adapter
         .put_object(PutKnowledgeObjectRequest::text(
@@ -266,8 +283,12 @@ async fn storage_adapter_synthesizes_content_version_for_versionless_drive_store
 #[tokio::test]
 async fn storage_adapter_treats_blank_provider_version_as_versionless() {
     let store = Arc::new(BlankVersionDriveObjectStore::default());
-    let adapter =
-        KnowledgebaseDriveStorageAdapter::new(store, "kb-bucket", "knowledge/tenant/space");
+    let adapter = KnowledgebaseDriveStorageAdapter::new(
+        store,
+        "provider-kb",
+        "kb-bucket",
+        "knowledge/tenant/space",
+    );
 
     let object_ref = adapter
         .put_object(PutKnowledgeObjectRequest::text(
@@ -288,8 +309,12 @@ async fn storage_adapter_treats_blank_provider_version_as_versionless() {
 #[tokio::test]
 async fn adapter_rejects_unsafe_managed_logical_paths_before_drive_write() {
     let store = Arc::new(FakeDriveObjectStore::default());
-    let adapter =
-        KnowledgebaseDriveStorageAdapter::new(store.clone(), "kb-bucket", "knowledge/tenant/space");
+    let adapter = KnowledgebaseDriveStorageAdapter::new(
+        store.clone(),
+        "provider-kb",
+        "kb-bucket",
+        "knowledge/tenant/space",
+    );
 
     let error = adapter
         .put_object(PutKnowledgeObjectRequest::text(
@@ -308,8 +333,12 @@ async fn adapter_rejects_unsafe_managed_logical_paths_before_drive_write() {
 #[tokio::test]
 async fn adapter_reads_empty_text_object_without_requesting_invalid_range() {
     let store = Arc::new(FakeDriveObjectStore::default());
-    let adapter =
-        KnowledgebaseDriveStorageAdapter::new(store.clone(), "kb-bucket", "knowledge/tenant/space");
+    let adapter = KnowledgebaseDriveStorageAdapter::new(
+        store.clone(),
+        "provider-kb",
+        "kb-bucket",
+        "knowledge/tenant/space",
+    );
 
     let object_ref = adapter
         .put_object(PutKnowledgeObjectRequest::text(
@@ -329,6 +358,7 @@ async fn adapter_reads_empty_text_object_without_requesting_invalid_range() {
 async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_bindings() {
     let pool = sqlite_drive_pool().await;
     seed_drive_space(&pool, "tenant-001", "kb-drv-kb-001").await;
+    seed_storage_provider(&pool, "provider-kb", "kb-bucket").await;
     let adapter = KnowledgebaseDriveWorkspaceAdapter::new(pool.clone(), "tenant-001", "system");
 
     adapter
@@ -339,6 +369,7 @@ async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_b
                 folder_node("wiki/schema"),
                 file_node(
                     "wiki/schema/AGENTS.md",
+                    "provider-kb",
                     "kb-bucket",
                     "knowledge/space/wiki/schema/AGENTS.md",
                     64,
@@ -348,7 +379,7 @@ async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_b
         .await
         .unwrap();
 
-    let tree = KnowledgebaseDriveNodeTreeAdapter::new(pool, "tenant-001");
+    let tree = KnowledgebaseDriveNodeTreeAdapter::new(pool.clone(), "tenant-001");
     let wiki = tree
         .resolve_path(ResolveKnowledgeDriveNodePathRequest {
             drive_space_id: "kb-drv-kb-001".to_string(),
@@ -389,12 +420,26 @@ async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_b
         Some("text/markdown")
     );
     assert_eq!(schema_page.nodes[0].size_bytes, Some(64));
+
+    let stored_provider_id: String = sqlx::query_scalar(
+        "SELECT storage_provider_id
+         FROM dr_drive_storage_object
+         WHERE tenant_id = ?1 AND bucket = ?2 AND object_key = ?3",
+    )
+    .bind("tenant-001")
+    .bind("kb-bucket")
+    .bind("knowledge/space/wiki/schema/AGENTS.md")
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(stored_provider_id, "provider-kb");
 }
 
 #[tokio::test]
 async fn workspace_adapter_is_idempotent_for_repeated_initialization() {
     let pool = sqlite_drive_pool().await;
     seed_drive_space(&pool, "tenant-001", "kb-drv-kb-001").await;
+    seed_storage_provider(&pool, "provider-kb", "kb-bucket").await;
     let adapter = KnowledgebaseDriveWorkspaceAdapter::new(pool.clone(), "tenant-001", "system");
     let request = EnsureKnowledgeDriveNodesRequest {
         drive_space_id: "kb-drv-kb-001".to_string(),
@@ -403,6 +448,7 @@ async fn workspace_adapter_is_idempotent_for_repeated_initialization() {
             folder_node("wiki/schema"),
             file_node(
                 "wiki/schema/AGENTS.md",
+                "provider-kb",
                 "kb-bucket",
                 "knowledge/space/wiki/schema/AGENTS.md",
                 64,
@@ -441,6 +487,7 @@ async fn workspace_adapter_is_idempotent_for_repeated_initialization() {
 async fn node_tree_adapter_resolves_paths_and_pages_children_from_drive_nodes() {
     let pool = sqlite_drive_pool().await;
     seed_drive_space(&pool, "tenant-001", "kb-drv-kb-001").await;
+    seed_storage_provider(&pool, "provider-kb", "kb-bucket").await;
     let workspace = KnowledgebaseDriveWorkspaceAdapter::new(pool.clone(), "tenant-001", "system");
     workspace
         .ensure_nodes(EnsureKnowledgeDriveNodesRequest {
@@ -450,6 +497,7 @@ async fn node_tree_adapter_resolves_paths_and_pages_children_from_drive_nodes() 
                 folder_node("wiki/schema"),
                 file_node(
                     "wiki/index.md",
+                    "provider-kb",
                     "kb-bucket",
                     "knowledge/space/wiki/index.md",
                     11,
@@ -603,6 +651,13 @@ impl DriveObjectStore for FakeDriveObjectStore {
             bucket: request.bucket,
             exists: true,
         })
+    }
+
+    async fn list_buckets(
+        &self,
+        _request: ListBucketsRequest,
+    ) -> Result<ListBucketsResponse, DriveObjectStoreError> {
+        Ok(ListBucketsResponse { items: Vec::new() })
     }
 
     async fn create_bucket(
@@ -833,6 +888,13 @@ impl DriveObjectStore for VersionlessDriveObjectStore {
         })
     }
 
+    async fn list_buckets(
+        &self,
+        _request: ListBucketsRequest,
+    ) -> Result<ListBucketsResponse, DriveObjectStoreError> {
+        Ok(ListBucketsResponse { items: Vec::new() })
+    }
+
     async fn create_bucket(
         &self,
         request: CreateBucketRequest,
@@ -1042,6 +1104,13 @@ impl DriveObjectStore for BlankVersionDriveObjectStore {
         })
     }
 
+    async fn list_buckets(
+        &self,
+        _request: ListBucketsRequest,
+    ) -> Result<ListBucketsResponse, DriveObjectStoreError> {
+        Ok(ListBucketsResponse { items: Vec::new() })
+    }
+
     async fn create_bucket(
         &self,
         request: CreateBucketRequest,
@@ -1195,6 +1264,25 @@ async fn seed_drive_space(pool: &sqlx::AnyPool, tenant_id: &str, drive_space_id:
     assert_eq!(binding.drive_space_id, drive_space_id);
 }
 
+async fn seed_storage_provider(pool: &sqlx::AnyPool, provider_id: &str, bucket: &str) {
+    sqlx::query(
+        "INSERT INTO dr_drive_storage_provider (
+            id, provider_kind, name, endpoint_url, region, bucket, path_style,
+            strict_tls, credential_ref, server_side_encryption_mode, default_storage_class,
+            status, version, created_by, updated_by
+        ) VALUES (
+            ?1, 's3_compatible', ?1, 'https://s3.example.com', 'us-east-1',
+            ?2, 1, 1, 'plain:test-access:test-secret', NULL, NULL,
+            'active', 1, 'test', 'test'
+        )",
+    )
+    .bind(provider_id)
+    .bind(bucket)
+    .execute(pool)
+    .await
+    .expect("seed storage provider should succeed");
+}
+
 fn folder_node(logical_path: &str) -> EnsureKnowledgeDriveNodeRequest {
     EnsureKnowledgeDriveNodeRequest {
         logical_path: logical_path.to_string(),
@@ -1205,6 +1293,7 @@ fn folder_node(logical_path: &str) -> EnsureKnowledgeDriveNodeRequest {
 
 fn file_node(
     logical_path: &str,
+    storage_provider_id: &str,
     bucket: &str,
     object_key: &str,
     size_bytes: u64,
@@ -1214,6 +1303,7 @@ fn file_node(
         kind: EnsureKnowledgeDriveNodeKind::File,
         object_ref: Some(
             sdkwork_knowledgebase_product::ports::knowledge_drive_storage::KnowledgeObjectRef {
+                storage_provider_id: storage_provider_id.to_string(),
                 bucket: bucket.to_string(),
                 object_key: object_key.to_string(),
                 logical_path: logical_path.to_string(),

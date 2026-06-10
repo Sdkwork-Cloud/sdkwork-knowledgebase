@@ -40,6 +40,7 @@ async fn registry_records_standard_llm_wiki_files_after_drive_persistence() {
 
 fn object_ref(logical_path: &str, object_role: &str) -> KnowledgeObjectRef {
     KnowledgeObjectRef {
+        storage_provider_id: "provider-kb".to_string(),
         bucket: "kb".to_string(),
         object_key: format!("objects/{logical_path}"),
         logical_path: logical_path.to_string(),

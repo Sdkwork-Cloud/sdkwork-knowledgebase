@@ -130,6 +130,7 @@ impl KnowledgeDriveStorage for RecordingDrive {
             .unwrap()
             .push(request.logical_path.clone());
         Ok(KnowledgeObjectRef {
+            storage_provider_id: "provider-kb".to_string(),
             bucket: "test".to_string(),
             object_key: request.logical_path.clone(),
             logical_path: request.logical_path,

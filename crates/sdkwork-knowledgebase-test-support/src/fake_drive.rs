@@ -75,6 +75,7 @@ impl KnowledgeDriveStorage for FakeKnowledgeDriveStorage {
             .unwrap_or_else(|| checksum_sha256_hex(&request.body));
         let object_key = request.logical_path.clone();
         let object_ref = KnowledgeObjectRef {
+            storage_provider_id: "provider-kb".to_string(),
             bucket: self.bucket.clone(),
             object_key: object_key.clone(),
             logical_path: request.logical_path,

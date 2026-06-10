@@ -7,7 +7,7 @@
     "version": "0.1.0",
     "type": "sdk-family",
     "root": "sdkwork-knowledgebase/sdks/sdkwork-knowledgebase-backend-sdk",
-    "domain": "intelligence",
+    "domain": "knowledgebase",
     "capability": "knowledgebase",
     "status": "standardized",
     "languages": [
@@ -23,48 +23,18 @@
   "canonicalSpecs": [
     {
       "file": "API_SPEC.md",
-      "path": "../../../sdkwork-specs/API_SPEC.md",
+      "path": "../sdkwork-specs/API_SPEC.md",
       "purpose": "HTTP/OpenAPI and generated SDK contract rules."
     },
     {
       "file": "SDK_SPEC.md",
-      "path": "../../../sdkwork-specs/SDK_SPEC.md",
+      "path": "../sdkwork-specs/SDK_SPEC.md",
       "purpose": "SDK generation, SDK dependency, and SDK integration rules."
     },
     {
       "file": "SDK_WORKSPACE_GENERATION_SPEC.md",
-      "path": "../../../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md",
+      "path": "../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md",
       "purpose": "SDK workspace, SDK family naming, API authority naming, and OpenAPI generation rules."
-    },
-    {
-      "file": "COMPONENT_SPEC.md",
-      "path": "../../../sdkwork-specs/COMPONENT_SPEC.md",
-      "purpose": "Component-local contract and discovery rules."
-    },
-    {
-      "file": "CODE_STYLE_SPEC.md",
-      "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md",
-      "purpose": "Authored source structure and generated code boundaries."
-    },
-    {
-      "file": "NAMING_SPEC.md",
-      "path": "../../../sdkwork-specs/NAMING_SPEC.md",
-      "purpose": "Canonical SDKWork naming rules."
-    },
-    {
-      "file": "MODULE_SPEC.md",
-      "path": "../../../sdkwork-specs/MODULE_SPEC.md",
-      "purpose": "Reusable module and package boundary rules."
-    },
-    {
-      "file": "TEST_SPEC.md",
-      "path": "../../../sdkwork-specs/TEST_SPEC.md",
-      "purpose": "Verification and contract testing expectations."
-    },
-    {
-      "file": "TYPESCRIPT_CODE_SPEC.md",
-      "path": "../../../sdkwork-specs/TYPESCRIPT_CODE_SPEC.md",
-      "purpose": "TypeScript and Node package rules."
     }
   ],
   "contracts": {
@@ -76,7 +46,7 @@
         "openapi/knowledgebase-backend-api.openapi.json"
       ],
       "owner": "sdkwork-knowledgebase",
-      "standard": "../../../../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md"
+      "standard": "../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md"
     },
     "publicExports": [],
     "runtimeEntrypoints": [
@@ -114,6 +84,22 @@
           "python": "sdkwork-drive-backend-sdk",
           "go": "github.com/sdkwork/sdkwork-drive-backend-sdk"
         }
+      },
+      {
+        "workspace": "sdkwork-memory-backend-sdk",
+        "role": "memory-backend-management-capability",
+        "required": true,
+        "dependencyMode": "consumer-sdk",
+        "apiPrefix": "/backend/v3/api",
+        "apiAuthority": "sdkwork-memory.backend",
+        "generatedTransportImportPolicy": "forbidden",
+        "packageByLanguage": {
+          "typescript": "@sdkwork/memory-backend-sdk",
+          "rust": "sdkwork-memory-backend-sdk",
+          "java": "com.sdkwork:sdkwork-memory-backend-sdk",
+          "python": "sdkwork-memory-backend-sdk",
+          "go": "github.com/sdkwork/sdkwork-memory-backend-sdk"
+        }
       }
     ],
     "sdkClients": [
@@ -123,12 +109,11 @@
     "configKeys": [
       ".sdkwork-assembly.json",
       "sdk-manifest.json"
-    ],
-    "routeManifest": null
+    ]
   },
   "integration": {
     "authority": "Root SDKWork specs remain authoritative. Local specs may extend but must not contradict them.",
-    "dependencyPolicy": "Appbase and drive capabilities are consumed through declared dependency SDKs, not copied into generated knowledgebase transports.",
+    "dependencyPolicy": "Appbase, drive, and memory capabilities are consumed through declared dependency SDKs, not copied into generated knowledgebase transports.",
     "sdkPolicy": "Generated SDK clients are injected through service/runtime boundaries; consumers must not create raw HTTP clients or manual auth headers.",
     "languagePolicy": "TypeScript is the current generated package for this SDK family; additional languages must use the same owner-only OpenAPI input and sdkDependencies."
   },

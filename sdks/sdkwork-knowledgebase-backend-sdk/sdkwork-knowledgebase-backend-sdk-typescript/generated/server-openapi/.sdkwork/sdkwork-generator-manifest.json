@@ -6,12 +6,13 @@
     "version": "0.1.0",
     "language": "typescript",
     "sdkType": "backend",
+    "protocol": "http",
     "packageName": "@sdkwork/knowledgebase-backend-sdk"
   },
   "generatedFiles": [
     {
       "path": "bin/publish-core.mjs",
-      "sha256": "affb1f1b5400ac492e94e2d01f3104b8dd38b50329e371265d4f0945f2b0763c"
+      "sha256": "98ad0918a78bfbe22bf8f12fec709b0bed545b9e01edd40f5e4abf31a23378a5"
     },
     {
       "path": "bin/publish.ps1",
@@ -39,11 +40,11 @@
     },
     {
       "path": "package.json",
-      "sha256": "89f32aa2c39e275c3b1f4ae5a5d263b034f492eebae614c584359b2e02b4da79"
+      "sha256": "3fda84d1dcbebd188cd02f891b68d02c0e1f584d8e17a188f21150d4e81ac72f"
     },
     {
       "path": "README.md",
-      "sha256": "0ce6e77b5281fe81344df368fd5842ea241ba556b4da869404b15c7caf57a9fa"
+      "sha256": "6f1d7be062e71731d77e8c6719f89302a1a62ff696d7a25133539fbdf5a51d2d"
     },
     {
       "path": "sdkwork-sdk.json",
@@ -59,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "e5a5ee173e9ced656303693126166909641b2d4d375335cd5547fea63b7c7868"
+      "sha256": "fad2dcdcc790b871154d5472aeb1d42b21bc3fb58768873e1ea27fc0b4a94f30"
     },
     {
       "path": "src/api/paths.ts",
@@ -71,7 +72,7 @@
     },
     {
       "path": "src/http/client.ts",
-      "sha256": "0d746abe3766ca1aa52d5ec5903911ec9bb2c9e50d05f3c74ebb7803efebb9ec"
+      "sha256": "e1026e5587705492dcf32bf25ebb2584d5645b11a1046db92e9d4808f4b3edc0"
     },
     {
       "path": "src/http/index.ts",
@@ -83,11 +84,11 @@
     },
     {
       "path": "src/sdk.ts",
-      "sha256": "8ef1ca1e8c04f51f6b9e4a587184ccd54d85369e2d8bd1fd89c617c56e31d292"
+      "sha256": "20da09b2327c06d47eaa66237062ddc867bc529ee2140a52dba6252b058eaa62"
     },
     {
       "path": "src/types/common.ts",
-      "sha256": "c6adbdca8ccdb1656d1cb904e35cfc765d4a9075923190fba4b8787afd0cc710"
+      "sha256": "351d721c3c6f48f4453f92276856105120d72eb8d2fa9cd28de8e3854bf10f6c"
     },
     {
       "path": "src/types/create-knowledge-document-request.ts",
@@ -107,7 +108,7 @@
     },
     {
       "path": "src/types/index.ts",
-      "sha256": "4fb1419590d1be81bc562bd3fb09ce9d037f21763bc0f2204df6d0c3eda88782"
+      "sha256": "5f27685dfd7f6e0144c220d9c16df30874eb309aae4d731424c2ad85119047b0"
     },
     {
       "path": "src/types/ingestion-job-state.ts",
@@ -116,6 +117,46 @@
     {
       "path": "src/types/ingestion-job.ts",
       "sha256": "2c7027f4016196eab3c8f35828d592e84ca81bdb4ceaaf37e32da2d2c172133c"
+    },
+    {
+      "path": "src/types/knowledge-agent-binding-list.ts",
+      "sha256": "d7e296384b84075187999aaac3c913b83da1ab7fc4b4937c901284801a70e4c6"
+    },
+    {
+      "path": "src/types/knowledge-agent-binding-request.ts",
+      "sha256": "1dcdb337eda432d885ea1403685885ee750dbbc3bc4ccfd5c6de1ec3c8d4d875"
+    },
+    {
+      "path": "src/types/knowledge-agent-binding.ts",
+      "sha256": "7f5d47103552ebe77aefc88195a06cbdd3aadbbb16fbdd4803afa8f8a3026b6d"
+    },
+    {
+      "path": "src/types/knowledge-agent-profile-request.ts",
+      "sha256": "86f1298eb71f453f7c65c82a1ab5f9add4cc1cf971e84449e6b2d3b51352d528"
+    },
+    {
+      "path": "src/types/knowledge-agent-profile.ts",
+      "sha256": "e572b565aefacaa33a72880715e9b7d3d78e3de261e70a829ddaf6873896eff7"
+    },
+    {
+      "path": "src/types/knowledge-agent-status.ts",
+      "sha256": "30219143676ff22427a701f387006d61813aa571113775ed7830cb4f15b7f7c4"
+    },
+    {
+      "path": "src/types/knowledge-citation.ts",
+      "sha256": "5d27dbdd19738dc215ac121c8b144e50af1069b39299767786d8bfa52e8f2379"
+    },
+    {
+      "path": "src/types/knowledge-context-fragment.ts",
+      "sha256": "190463a03e525c64322836da3a295f834de23805c23f142967811009eb3be0a4"
+    },
+    {
+      "path": "src/types/knowledge-context-pack-request.ts",
+      "sha256": "d7461bcab9224063765297cbf17b8ef95ac7a0405b26c7662ebcd6b64755c467"
+    },
+    {
+      "path": "src/types/knowledge-context-pack.ts",
+      "sha256": "2ce9c7948a6cdcf5811f3a99a45f909354f9ab23dc08caad122cacaffb06cdd5"
     },
     {
       "path": "src/types/knowledge-document-list.ts",
@@ -147,7 +188,7 @@
     },
     {
       "path": "src/types/knowledge-drive-import-request.ts",
-      "sha256": "c886878db4a06055f2284be2682fc8de73b1e8abfa30bf5e48851aa810a6ac63"
+      "sha256": "ec67930086d3d66093095b452fe03b8f52368c54df94c9365290247f75873317"
     },
     {
       "path": "src/types/knowledge-drive-import-result.ts",
@@ -155,11 +196,63 @@
     },
     {
       "path": "src/types/knowledge-drive-object-ref.ts",
-      "sha256": "4d27ec45d5bdefdf0dc6e76cd6c4a146ca425e32a91c80415f8f81fc92590f28"
+      "sha256": "1fc293b3e85f7f6060b6d350a755cb55aa29d16adc8ca7a8905ae6107297a780"
+    },
+    {
+      "path": "src/types/knowledge-filter.ts",
+      "sha256": "06c1324ded60c0d0a2b292dcdef610329340caa7a8cc18acbee0bd394c8f90b6"
+    },
+    {
+      "path": "src/types/knowledge-index-request.ts",
+      "sha256": "650a1cb7aa7c43bc78e725b32544fd9ff0264106bfc4396c8ea108c15bef077c"
+    },
+    {
+      "path": "src/types/knowledge-index.ts",
+      "sha256": "455c470db3305473c0208436111e7c44cd801cab116f2df0355a9c8faf4dc0c6"
     },
     {
       "path": "src/types/knowledge-ingest-request.ts",
       "sha256": "d398798a4d17064769e82403d7e09dd68f29b515b9ec4d722bb0fb09f18af22e"
+    },
+    {
+      "path": "src/types/knowledge-memory-context-fragment.ts",
+      "sha256": "49e94696ae409656936956d5cf034af6c3140d55b23cefb6ed432907a532fa4c"
+    },
+    {
+      "path": "src/types/knowledge-provider-health.ts",
+      "sha256": "a6040dd62462b71ccc226e2fc419e69f9459e8b894d79ae4aebf4a595c4091d9"
+    },
+    {
+      "path": "src/types/knowledge-retrieval-binding.ts",
+      "sha256": "5562fc9c3bca001f36eda068570da7c778620a5f9bba1b1071d9d6a8ef4e0e20"
+    },
+    {
+      "path": "src/types/knowledge-retrieval-method.ts",
+      "sha256": "4e072bf379afbde15aef96a22cb2b33413a15293a1d35c842edf3e3b32a773a4"
+    },
+    {
+      "path": "src/types/knowledge-retrieval-profile-request.ts",
+      "sha256": "847567f1c5dfd044fea1ef4541c2b8dc6a7c7279206438b8e844cb05b1071b5f"
+    },
+    {
+      "path": "src/types/knowledge-retrieval-profile.ts",
+      "sha256": "e40d5637685ec32286f9ff365a01908765be682c6cdf8534cc953c242bcee3d2"
+    },
+    {
+      "path": "src/types/knowledge-retrieval-request.ts",
+      "sha256": "24c6ee8a0605ebe68aa5b21fe0f1c8f28e34c05e83369cfc4506654f702aaf69"
+    },
+    {
+      "path": "src/types/knowledge-retrieval-result.ts",
+      "sha256": "c73395a421bc97a1fef86b5110513e2ea56482bfbaf3bef228914cbc6dd6984b"
+    },
+    {
+      "path": "src/types/knowledge-retrieval-trace-list.ts",
+      "sha256": "04dffe4e93dc0e13dfb33fb5957b6215b88149b745793d02a5cb9c6538391da9"
+    },
+    {
+      "path": "src/types/knowledge-retrieval-trace.ts",
+      "sha256": "0c096bd3ad48b2e1e7bd1a789c72a81a85b0098e13d5645fa607a00760ce10bb"
     },
     {
       "path": "src/types/knowledge-source-list.ts",

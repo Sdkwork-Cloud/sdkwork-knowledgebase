@@ -44,6 +44,22 @@ const driveBackendPackages = {
   go: "github.com/sdkwork/sdkwork-drive-backend-sdk",
 };
 
+const memoryAppPackages = {
+  typescript: "@sdkwork/memory-app-sdk",
+  rust: "sdkwork-memory-app-sdk",
+  java: "com.sdkwork:sdkwork-memory-app-sdk",
+  python: "sdkwork-memory-app-sdk",
+  go: "github.com/sdkwork/sdkwork-memory-app-sdk",
+};
+
+const memoryBackendPackages = {
+  typescript: "@sdkwork/memory-backend-sdk",
+  rust: "sdkwork-memory-backend-sdk",
+  java: "com.sdkwork:sdkwork-memory-backend-sdk",
+  python: "sdkwork-memory-backend-sdk",
+  go: "github.com/sdkwork/sdkwork-memory-backend-sdk",
+};
+
 const families = [
   {
     root: "sdkwork-knowledgebase-app-sdk",
@@ -61,6 +77,7 @@ const families = [
     dependencies: [
       dependency("sdkwork-appbase-app-sdk", "appbase-identity-and-session-capability", "/app/v3/api", "sdkwork-appbase.app", appbasePackages),
       dependency("sdkwork-drive-app-sdk", "drive-file-and-media-capability", "/app/v3/api", "sdkwork-drive.app", driveAppPackages),
+      dependency("sdkwork-memory-app-sdk", "memory-context-capability", "/app/v3/api", "sdkwork-memory.app", memoryAppPackages),
     ],
     forbiddenPathPrefixes: [
       "/app/v3/api/auth/",
@@ -68,6 +85,8 @@ const families = [
       "/app/v3/api/open_platform/",
       "/app/v3/api/system/iam/",
       "/app/v3/api/drive/",
+      "/app/v3/api/memory/",
+      "/mem/v3/api/",
     ],
   },
   {
@@ -86,6 +105,7 @@ const families = [
     dependencies: [
       dependency("sdkwork-appbase-backend-sdk", "appbase-backend-management-capability", "/backend/v3/api", "sdkwork-appbase.backend", appbaseBackendPackages),
       dependency("sdkwork-drive-backend-sdk", "drive-backend-management-capability", "/backend/v3/api", "sdkwork-drive.backend", driveBackendPackages),
+      dependency("sdkwork-memory-backend-sdk", "memory-backend-management-capability", "/backend/v3/api", "sdkwork-memory.backend", memoryBackendPackages),
     ],
     forbiddenPathPrefixes: [
       "/backend/v3/api/auth/",
@@ -93,6 +113,8 @@ const families = [
       "/backend/v3/api/open_platform/",
       "/backend/v3/api/system/iam/",
       "/backend/v3/api/drive/",
+      "/backend/v3/api/memory/",
+      "/mem/v3/api/",
     ],
   },
 ];
@@ -327,7 +349,7 @@ function componentSpecFor(family) {
     },
     integration: {
       authority: "Root SDKWork specs remain authoritative. Local specs may extend but must not contradict them.",
-      dependencyPolicy: "Appbase and drive capabilities are consumed through declared dependency SDKs, not copied into generated knowledgebase transports.",
+      dependencyPolicy: "Appbase, drive, and memory capabilities are consumed through declared dependency SDKs, not copied into generated knowledgebase transports.",
       sdkPolicy: "Generated SDK clients are injected through service/runtime boundaries; consumers must not create raw HTTP clients or manual auth headers.",
       languagePolicy: "TypeScript is the current generated package for this SDK family; additional languages must use the same owner-only OpenAPI input and sdkDependencies.",
     },

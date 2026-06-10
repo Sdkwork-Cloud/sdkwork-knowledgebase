@@ -68,11 +68,27 @@
         "python": "sdkwork-drive-backend-sdk",
         "go": "github.com/sdkwork/sdkwork-drive-backend-sdk"
       }
+    },
+    {
+      "workspace": "sdkwork-memory-backend-sdk",
+      "role": "memory-backend-management-capability",
+      "required": true,
+      "dependencyMode": "consumer-sdk",
+      "apiPrefix": "/backend/v3/api",
+      "apiAuthority": "sdkwork-memory.backend",
+      "generatedTransportImportPolicy": "forbidden",
+      "packageByLanguage": {
+        "typescript": "@sdkwork/memory-backend-sdk",
+        "rust": "sdkwork-memory-backend-sdk",
+        "java": "com.sdkwork:sdkwork-memory-backend-sdk",
+        "python": "sdkwork-memory-backend-sdk",
+        "go": "github.com/sdkwork/sdkwork-memory-backend-sdk"
+      }
     }
   ],
   "metadata": {
     "standardVersion": "2026-06-06",
-    "ownerOnlyOperationCount": 16,
+    "ownerOnlyOperationCount": 25,
     "managedBy": "sdks/standardize-knowledgebase-sdk-family.mjs"
   }
 }

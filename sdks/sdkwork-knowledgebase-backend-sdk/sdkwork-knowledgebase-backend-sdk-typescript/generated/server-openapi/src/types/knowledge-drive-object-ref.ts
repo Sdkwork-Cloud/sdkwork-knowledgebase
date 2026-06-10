@@ -14,4 +14,5 @@ export interface KnowledgeDriveObjectRef {
   checksumSha256Hex?: string | null;
   objectRole: string;
   accessMode: string;
+  driveStorageProviderId: string;
 }

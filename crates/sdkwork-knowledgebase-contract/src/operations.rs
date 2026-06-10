@@ -9,6 +9,18 @@ pub const DRIVE_IMPORTS_CREATE: &str = "driveImports.create";
 pub const INGESTS_CREATE: &str = "ingests.create";
 pub const INGESTS_RETRIEVE: &str = "ingests.retrieve";
 pub const SPACES_BROWSER_LIST: &str = "spaces.browser.list";
+pub const RETRIEVALS_CREATE: &str = "retrievals.create";
+pub const RETRIEVALS_RETRIEVE: &str = "retrievals.retrieve";
+pub const CONTEXT_PACKS_CREATE: &str = "contextPacks.create";
+pub const AGENT_PROFILES_CREATE: &str = "agentProfiles.create";
+pub const AGENT_PROFILES_RETRIEVE: &str = "agentProfiles.retrieve";
+pub const AGENT_PROFILES_UPDATE: &str = "agentProfiles.update";
+pub const AGENT_PROFILES_DELETE: &str = "agentProfiles.delete";
+pub const AGENT_PROFILES_BINDINGS_LIST: &str = "agentProfiles.bindings.list";
+pub const AGENT_PROFILES_BINDINGS_CREATE: &str = "agentProfiles.bindings.create";
+pub const AGENT_PROFILES_BINDINGS_UPDATE: &str = "agentProfiles.bindings.update";
+pub const AGENT_PROFILES_BINDINGS_DELETE: &str = "agentProfiles.bindings.delete";
+pub const AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE: &str = "agentProfiles.retrievalPreview.create";
 pub const WIKI_PAGES_LIST: &str = "wiki.pages.list";
 pub const WIKI_PAGES_RETRIEVE: &str = "wiki.pages.retrieve";
 pub const WIKI_PAGES_REVISIONS_LIST: &str = "wiki.pages.revisions.list";
@@ -45,6 +57,18 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     INGESTS_CREATE,
     INGESTS_RETRIEVE,
     SPACES_BROWSER_LIST,
+    RETRIEVALS_CREATE,
+    RETRIEVALS_RETRIEVE,
+    CONTEXT_PACKS_CREATE,
+    AGENT_PROFILES_CREATE,
+    AGENT_PROFILES_RETRIEVE,
+    AGENT_PROFILES_UPDATE,
+    AGENT_PROFILES_DELETE,
+    AGENT_PROFILES_BINDINGS_LIST,
+    AGENT_PROFILES_BINDINGS_CREATE,
+    AGENT_PROFILES_BINDINGS_UPDATE,
+    AGENT_PROFILES_BINDINGS_DELETE,
+    AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE,
     WIKI_PAGES_LIST,
     WIKI_PAGES_RETRIEVE,
     WIKI_PAGES_REVISIONS_LIST,

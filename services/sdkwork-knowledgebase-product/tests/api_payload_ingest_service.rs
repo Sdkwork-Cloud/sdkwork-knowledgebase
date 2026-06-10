@@ -175,6 +175,7 @@ impl KnowledgeDriveStorage for RecordingDrive {
             .unwrap()
             .insert(request.logical_path.clone(), request.body.clone());
         Ok(KnowledgeObjectRef {
+            storage_provider_id: "provider-kb".to_string(),
             bucket: "test".to_string(),
             object_key: request.logical_path.clone(),
             logical_path: request.logical_path,
@@ -196,6 +197,7 @@ impl KnowledgeDriveStorage for RecordingDrive {
             .get(&request.object_key)
             .ok_or_else(|| KnowledgeStorageError::NotFound(request.object_key.clone()))?;
         Ok(KnowledgeObjectRef {
+            storage_provider_id: "provider-kb".to_string(),
             bucket: "test".to_string(),
             object_key: request.object_key.clone(),
             logical_path: request
