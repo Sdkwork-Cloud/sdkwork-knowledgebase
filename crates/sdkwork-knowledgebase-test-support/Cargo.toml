@@ -7,6 +7,6 @@ license.workspace = true
 [dependencies]
 async-trait.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
-sdkwork-knowledgebase-product.workspace = true
+sdkwork-intelligence-knowledgebase-service.workspace = true
 sha2.workspace = true
 tokio.workspace = true

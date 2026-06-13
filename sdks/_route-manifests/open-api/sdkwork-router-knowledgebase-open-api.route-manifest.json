@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.route.manifest",
+  "packageName": "sdkwork-router-knowledgebase-open-api",
+  "surface": "open-api",
+  "owner": "sdkwork-knowledgebase",
+  "domain": "intelligence",
+  "capability": "knowledgebase",
+  "apiAuthority": "sdkwork-knowledgebase-open-api",
+  "sdkFamily": "sdkwork-knowledgebase-sdk",
+  "prefix": "/knowledge/v3/api",
+  "source": {
+    "crateRoot": "crates/sdkwork-router-knowledgebase-open-api",
+    "crateImport": "sdkwork_router_knowledgebase_open_api",
+    "openApiAuthority": "sdks/sdkwork-knowledgebase-sdk/openapi/knowledgebase-open-api.openapi.json"
+  },
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/knowledge/v3/api/retrievals",
+      "operationId": "retrievals.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "api-key",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-open-api"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/knowledge/v3/api/retrievals/{retrievalId}",
+      "operationId": "retrievals.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "api-key",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-open-api"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/knowledge/v3/api/context_packs",
+      "operationId": "contextPacks.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "api-key",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-open-api"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/knowledge/v3/api/ingests",
+      "operationId": "ingests.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "api-key",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-open-api"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/knowledge/v3/api/ingests/{ingestId}",
+      "operationId": "ingests.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "api-key",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-open-api"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/knowledge/v3/api/documents",
+      "operationId": "documents.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "api-key",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-open-api"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/knowledge/v3/api/documents/{documentId}",
+      "operationId": "documents.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "api-key",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-open-api"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/knowledge/v3/api/spaces/{spaceId}/browser",
+      "operationId": "spaces.browser.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "api-key",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-open-api"
+      }
+    }
+  ]
+}

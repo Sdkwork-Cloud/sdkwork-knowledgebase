@@ -1193,31 +1193,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdkwork-drive-contract"
-version = "0.1.0"
-
-[[package]]
-name = "sdkwork-drive-core"
-version = "0.1.0"
-dependencies = [
- "sdkwork-drive-contract",
-]
-
-[[package]]
-name = "sdkwork-drive-product"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "sdkwork-drive-config",
- "sdkwork-drive-core",
- "sdkwork-drive-storage-contract",
- "sdkwork_id",
- "sha2",
- "sqlx",
- "tokio",
-]
-
-[[package]]
 name = "sdkwork-drive-storage-contract"
 version = "0.1.0"
 dependencies = [
@@ -1227,39 +1202,63 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-drive-workspace-service"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "sdkwork-drive-config",
+ "sdkwork-drive-storage-contract",
+ "sdkwork-platform-id-service",
+ "sha2",
+ "sqlx",
+ "tokio",
+]
+
+[[package]]
+name = "sdkwork-intelligence-knowledgebase-object-key-service"
+version = "0.1.0"
+dependencies = [
+ "sdkwork-knowledgebase-contract",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "sdkwork-intelligence-knowledgebase-repository-sqlx"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "sdkwork-intelligence-knowledgebase-service",
+ "sdkwork-knowledgebase-contract",
+ "sdkwork-knowledgebase-test-support",
+ "sdkwork-platform-id-service",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "time",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "sdkwork-intelligence-knowledgebase-service"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "sdkwork-knowledgebase-contract",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 1.0.69",
+ "time",
+ "tokio",
+]
+
+[[package]]
 name = "sdkwork-knowledgebase-agent-provider"
 version = "0.1.0"
 dependencies = [
  "sdkwork-agent-kernel",
  "sdkwork-knowledgebase-contract",
-]
-
-[[package]]
-name = "sdkwork-knowledgebase-app-api"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "sdkwork-knowledgebase-contract",
- "sdkwork-knowledgebase-product",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tower",
-]
-
-[[package]]
-name = "sdkwork-knowledgebase-backend-api"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "sdkwork-knowledgebase-contract",
- "serde",
- "serde_json",
- "tokio",
- "tower",
 ]
 
 [[package]]
@@ -1273,23 +1272,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdkwork-knowledgebase-core"
-version = "0.1.0"
-dependencies = [
- "sdkwork-knowledgebase-contract",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "sdkwork-knowledgebase-drive"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "sdkwork-drive-config",
- "sdkwork-drive-product",
  "sdkwork-drive-storage-contract",
+ "sdkwork-drive-workspace-service",
+ "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
- "sdkwork-knowledgebase-product",
  "sha2",
  "sqlx",
  "thiserror 1.0.69",
@@ -1301,41 +1292,10 @@ name = "sdkwork-knowledgebase-memory"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
- "sdkwork-knowledgebase-product",
  "sdkwork-memory-spi",
  "tokio",
-]
-
-[[package]]
-name = "sdkwork-knowledgebase-product"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "sdkwork-knowledgebase-contract",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 1.0.69",
- "time",
- "tokio",
-]
-
-[[package]]
-name = "sdkwork-knowledgebase-storage-sqlx"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "sdkwork-knowledgebase-contract",
- "sdkwork-knowledgebase-product",
- "sdkwork-knowledgebase-test-support",
- "sdkwork_id",
- "serde",
- "serde_json",
- "sqlx",
- "time",
- "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -1343,8 +1303,8 @@ name = "sdkwork-knowledgebase-test-support"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
- "sdkwork-knowledgebase-product",
  "sha2",
  "tokio",
 ]
@@ -1360,8 +1320,50 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdkwork_id"
+name = "sdkwork-platform-id-service"
 version = "0.1.0"
+
+[[package]]
+name = "sdkwork-router-knowledgebase-app-api"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "sdkwork-intelligence-knowledgebase-service",
+ "sdkwork-knowledgebase-contract",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tower",
+]
+
+[[package]]
+name = "sdkwork-router-knowledgebase-backend-api"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "sdkwork-knowledgebase-contract",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+]
+
+[[package]]
+name = "sdkwork-router-knowledgebase-open-api"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "sdkwork-knowledgebase-contract",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tower",
+]
 
 [[package]]
 name = "semver"

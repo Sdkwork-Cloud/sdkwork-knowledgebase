@@ -17,3 +17,4 @@ sdks/**/generated/server-openapi/package-lock.json
 .env.postgres
 .env.release.local
 config/*.local.toml
+configs/*.local.toml

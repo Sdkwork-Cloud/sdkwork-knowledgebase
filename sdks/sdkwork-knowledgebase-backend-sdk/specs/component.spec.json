@@ -6,8 +6,8 @@
     "displayName": "SDKWork Knowledgebase Backend API SDK",
     "version": "0.1.0",
     "type": "sdk-family",
-    "root": "sdkwork-knowledgebase/sdks/sdkwork-knowledgebase-backend-sdk",
-    "domain": "knowledgebase",
+    "root": "sdks/sdkwork-knowledgebase-backend-sdk",
+    "domain": "intelligence",
     "capability": "knowledgebase",
     "status": "standardized",
     "languages": [
@@ -21,6 +21,16 @@
     ]
   },
   "canonicalSpecs": [
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored source structure and generated code boundaries."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Canonical SDKWork naming rules."
+    },
     {
       "file": "API_SPEC.md",
       "path": "../sdkwork-specs/API_SPEC.md",
@@ -39,7 +49,7 @@
   ],
   "contracts": {
     "apiAuthority": {
-      "name": "sdkwork-knowledgebase.backend",
+      "name": "sdkwork-knowledgebase-backend-api",
       "prefix": "/backend/v3/api",
       "authorityOpenApi": "openapi/knowledgebase-backend-api.openapi.json",
       "derivedOpenApi": [
@@ -59,7 +69,7 @@
         "required": true,
         "dependencyMode": "consumer-sdk",
         "apiPrefix": "/backend/v3/api",
-        "apiAuthority": "sdkwork-appbase.backend",
+        "apiAuthority": "sdkwork-appbase-backend-api",
         "generatedTransportImportPolicy": "forbidden",
         "packageByLanguage": {
           "typescript": "@sdkwork/appbase-backend-sdk",
@@ -102,6 +112,8 @@
         }
       }
     ],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
     "sdkClients": [
       "SdkworkBackendClient"
     ],

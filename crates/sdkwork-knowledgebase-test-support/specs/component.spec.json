@@ -3,12 +3,13 @@
   "kind": "sdkwork.component.spec",
   "component": {
     "name": "sdkwork-knowledgebase-test-support",
-    "displayName": "Sdkwork Knowledgebase Test Support",
+    "displayName": "SDKWork Knowledgebase Test Support",
     "version": "0.1.0",
     "type": "rust-crate",
-    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-test-support",
+    "root": "crates/sdkwork-knowledgebase-test-support",
     "domain": "intelligence",
     "capability": "knowledgebase-test-support",
+    "surface": "test",
     "languages": [
       "rust"
     ],
@@ -56,6 +57,9 @@
     "runtimeEntrypoints": [],
     "routeManifest": null,
     "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
     "events": [],
     "configKeys": []
   },

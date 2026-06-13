@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sdkwork_knowledgebase_product::ports::knowledge_drive_storage::{
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::{
     HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError,
     PutKnowledgeObjectRequest,
 };

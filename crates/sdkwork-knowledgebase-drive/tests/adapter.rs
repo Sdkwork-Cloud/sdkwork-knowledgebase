@@ -1,8 +1,5 @@
 use async_trait::async_trait;
 use sdkwork_drive_config::DatabaseEngine;
-use sdkwork_drive_product::application::space_service::{GetSpaceCommand, SqlDriveSpaceService};
-use sdkwork_drive_product::domain::space::DriveSpaceType;
-use sdkwork_drive_product::infrastructure::sql::install_any_schema;
 use sdkwork_drive_storage_contract::{
     AbortMultipartUploadRequest, CompleteMultipartUploadRequest, CompleteMultipartUploadResponse,
     CopyObjectRequest, CopyObjectResponse, CreateBucketRequest, CreateBucketResponse,
@@ -16,24 +13,30 @@ use sdkwork_drive_storage_contract::{
     PresignedUploadPartResponse, PutObjectRequest, PutObjectResponse, ReadObjectRangeRequest,
     ReadObjectRangeResponse,
 };
-use sdkwork_knowledgebase_drive::{
-    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
-    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
+use sdkwork_drive_workspace_service::application::space_service::{
+    GetSpaceCommand, SqlDriveSpaceService,
 };
-use sdkwork_knowledgebase_product::ports::knowledge_drive_node_tree::{
+use sdkwork_drive_workspace_service::domain::space::DriveSpaceType;
+use sdkwork_drive_workspace_service::infrastructure::sql::install_any_schema;
+use sdkwork_drive_workspace_service::DriveServiceError;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_node_tree::{
     DriveNodeKind, KnowledgeDriveNodeTree, ListKnowledgeDriveNodeChildrenRequest,
     ResolveKnowledgeDriveNodePathRequest,
 };
-use sdkwork_knowledgebase_product::ports::knowledge_drive_space::{
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_space::{
     CreateKnowledgeDriveSpaceRequest, DeleteKnowledgeDriveSpaceRequest,
     KnowledgeDriveSpaceProvisioner,
 };
-use sdkwork_knowledgebase_product::ports::knowledge_drive_storage::{
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::{
     KnowledgeDriveStorage, KnowledgeStorageError, PutKnowledgeObjectRequest,
 };
-use sdkwork_knowledgebase_product::ports::knowledge_drive_workspace::{
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_workspace::{
     EnsureKnowledgeDriveNodeKind, EnsureKnowledgeDriveNodeRequest,
     EnsureKnowledgeDriveNodesRequest, KnowledgeDriveWorkspace,
+};
+use sdkwork_knowledgebase_drive::{
+    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
+    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -62,12 +65,12 @@ fn knowledgebase_drive_adapter_does_not_reference_drive_physical_tables() {
         "UPDATE drive_storage_object",
         "sqlx::query(",
         "sqlx::query_scalar(",
-        "sdkwork_drive_product::infrastructure",
+        "sdkwork_drive_workspace_service::infrastructure",
         "SqlDriveWorkspaceStore",
     ] {
         assert!(
             !adapter_source.contains(forbidden_reference),
-            "knowledgebase drive adapter must call sdkwork-drive product APIs instead of referencing: {forbidden_reference}"
+            "knowledgebase drive adapter must call sdkwork-drive workspace service APIs instead of referencing: {forbidden_reference}"
         );
     }
 }
@@ -156,7 +159,7 @@ async fn space_provisioner_adapter_deletes_only_matching_knowledge_space_idempot
         .unwrap_err();
     assert_eq!(
         error,
-        sdkwork_drive_product::DriveProductError::NotFound("space not found".to_string())
+        DriveServiceError::NotFound("space not found".to_string())
     );
 }
 
@@ -1302,7 +1305,7 @@ fn file_node(
         logical_path: logical_path.to_string(),
         kind: EnsureKnowledgeDriveNodeKind::File,
         object_ref: Some(
-            sdkwork_knowledgebase_product::ports::knowledge_drive_storage::KnowledgeObjectRef {
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::KnowledgeObjectRef {
                 storage_provider_id: storage_provider_id.to_string(),
                 bucket: bucket.to_string(),
                 object_key: object_key.to_string(),

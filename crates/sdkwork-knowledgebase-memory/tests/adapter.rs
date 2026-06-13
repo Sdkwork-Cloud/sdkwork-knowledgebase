@@ -1,8 +1,8 @@
 use async_trait::async_trait;
-use sdkwork_knowledgebase_memory::KnowledgebaseMemoryContextProviderAdapter;
-use sdkwork_knowledgebase_product::ports::knowledge_memory_context::{
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_memory_context::{
     KnowledgeMemoryContextProvider, KnowledgeMemoryContextRequest,
 };
+use sdkwork_knowledgebase_memory::KnowledgebaseMemoryContextProviderAdapter;
 use sdkwork_memory_spi::{
     AssembleMemoryContextCommand, MemoryContextAssemblerPort, MemoryContextPackDraft,
     MemoryRetrieverPort, MemoryRetrieverResult, MemorySpiResult, RetrieveMemoryCandidatesCommand,

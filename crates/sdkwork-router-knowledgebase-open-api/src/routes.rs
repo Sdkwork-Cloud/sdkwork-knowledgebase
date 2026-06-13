@@ -1,0 +1,182 @@
+use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::routing::{get, post};
+use axum::{Extension, Json, Router};
+use sdkwork_knowledgebase_contract::{
+    KnowledgeBrowserView, KnowledgeContextPackRequest, KnowledgeIngestRequest,
+    KnowledgeRetrievalRequest, ListKnowledgeBrowserRequest,
+};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
+use crate::{paths, ApiProblem, ApiResult, KnowledgeOpenApi, KnowledgeOpenApiRequestContext};
+
+#[derive(Clone)]
+struct OpenState {
+    api: Arc<dyn KnowledgeOpenApi>,
+}
+
+pub fn build_router_with_open_api<A>(api: A) -> Router
+where
+    A: KnowledgeOpenApi,
+{
+    build_router_with_shared_open_api(Arc::new(api))
+}
+
+pub fn build_router_with_shared_open_api(api: Arc<dyn KnowledgeOpenApi>) -> Router {
+    Router::new()
+        .route(paths::HEALTHZ, get(health))
+        .route(paths::RETRIEVALS, post(create_retrieval))
+        .route(paths::RETRIEVAL, get(retrieve_retrieval))
+        .route(paths::CONTEXT_PACKS, post(create_context_pack))
+        .route(paths::INGESTS, post(create_ingest))
+        .route(paths::INGEST, get(retrieve_ingest))
+        .route(paths::DOCUMENTS, get(list_documents))
+        .route(paths::DOCUMENT, get(retrieve_document))
+        .route(paths::SPACE_BROWSER, get(list_browser))
+        .with_state(OpenState { api })
+}
+
+async fn health() -> Json<serde_json::Value> {
+    Json(serde_json::json!({ "status": "ok" }))
+}
+
+async fn create_retrieval(
+    State(state): State<OpenState>,
+    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    Json(request): Json<KnowledgeRetrievalRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_context(context)?;
+    created_json(state.api.create_retrieval(context, request).await)
+}
+
+async fn retrieve_retrieval(
+    State(state): State<OpenState>,
+    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    Path(retrieval_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_context(context)?;
+    ok_json(state.api.retrieve_retrieval(context, retrieval_id).await)
+}
+
+async fn create_context_pack(
+    State(state): State<OpenState>,
+    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    Json(request): Json<KnowledgeContextPackRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_context(context)?;
+    created_json(state.api.create_context_pack(context, request).await)
+}
+
+async fn create_ingest(
+    State(state): State<OpenState>,
+    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    Json(request): Json<KnowledgeIngestRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_context(context)?;
+    created_json(state.api.create_ingest(context, request).await)
+}
+
+async fn retrieve_ingest(
+    State(state): State<OpenState>,
+    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    Path(ingest_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_context(context)?;
+    ok_json(state.api.retrieve_ingest(context, ingest_id).await)
+}
+
+async fn list_documents(
+    State(state): State<OpenState>,
+    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+) -> Result<Response, ApiProblem> {
+    let context = require_context(context)?;
+    ok_json(state.api.list_documents(context).await)
+}
+
+async fn retrieve_document(
+    State(state): State<OpenState>,
+    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    Path(document_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_context(context)?;
+    ok_json(state.api.retrieve_document(context, document_id).await)
+}
+
+async fn list_browser(
+    State(state): State<OpenState>,
+    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    Path(space_id): Path<u64>,
+    Query(query): Query<ListBrowserQuery>,
+) -> Result<Response, ApiProblem> {
+    let context = require_context(context)?;
+    let view = parse_view(query.view.as_deref())?;
+    ok_json(
+        state
+            .api
+            .list_browser(
+                context,
+                ListKnowledgeBrowserRequest {
+                    space_id,
+                    parent_id: query.parent_id,
+                    view,
+                    cursor: query.cursor,
+                    page_size: query.page_size,
+                },
+            )
+            .await,
+    )
+}
+
+fn require_context(
+    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+) -> Result<KnowledgeOpenApiRequestContext, ApiProblem> {
+    context.map(|Extension(context)| context).ok_or_else(|| {
+        ApiProblem::new(
+            StatusCode::UNAUTHORIZED,
+            "missing_open_api_request_context",
+            "authenticated open API key context is required",
+        )
+    })
+}
+
+fn ok_json<T>(result: ApiResult<T>) -> Result<Response, ApiProblem>
+where
+    T: Serialize,
+{
+    result
+        .map(|value| Json(value).into_response())
+        .map_err(ApiProblem::from)
+}
+
+fn created_json<T>(result: ApiResult<T>) -> Result<Response, ApiProblem>
+where
+    T: Serialize,
+{
+    result
+        .map(|value| (StatusCode::CREATED, Json(value)).into_response())
+        .map_err(ApiProblem::from)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListBrowserQuery {
+    view: Option<String>,
+    parent_id: Option<String>,
+    cursor: Option<String>,
+    page_size: Option<u32>,
+}
+
+fn parse_view(value: Option<&str>) -> Result<KnowledgeBrowserView, ApiProblem> {
+    match value.unwrap_or("files") {
+        "files" => Ok(KnowledgeBrowserView::Files),
+        "wiki" => Ok(KnowledgeBrowserView::Wiki),
+        "outputs" => Ok(KnowledgeBrowserView::Outputs),
+        value => Err(ApiProblem::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_browser_view",
+            format!("unsupported browser view: {value}"),
+        )),
+    }
+}

@@ -3,12 +3,13 @@
   "kind": "sdkwork.component.spec",
   "component": {
     "name": "sdkwork-knowledgebase-agent-provider",
-    "displayName": "Sdkwork Knowledgebase Agent Provider",
+    "displayName": "SDKWork Knowledgebase Agent Provider",
     "version": "0.1.0",
     "type": "rust-crate",
-    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-agent-provider",
+    "root": "crates/sdkwork-knowledgebase-agent-provider",
     "domain": "intelligence",
     "capability": "knowledgebase-agent-provider",
+    "surface": "backend-service",
     "languages": [
       "rust"
     ],
@@ -54,6 +55,15 @@
     ],
     "routeManifest": null,
     "sdkClients": [],
+    "sdkDependencies": [
+      {
+        "workspace": "sdkwork-knowledgebase-sdk",
+        "role": "knowledgebase-retrieval-capability",
+        "required": true
+      }
+    ],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
     "events": [],
     "configKeys": []
   },

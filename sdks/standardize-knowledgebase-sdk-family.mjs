@@ -62,10 +62,45 @@ const memoryBackendPackages = {
 
 const families = [
   {
+    root: "sdkwork-knowledgebase-sdk",
+    title: "SDKWork Knowledgebase Open API SDK",
+    apiVersion: "0.1.0",
+    authority: "sdkwork-knowledgebase-open-api",
+    sdkTarget: "open",
+    apiPrefix: "/knowledge/v3/api",
+    schemaUrl: "/knowledge/v3/openapi.json",
+    input: "openapi/knowledgebase-open-api.openapi.json",
+    packageName: "@sdkwork/knowledgebase-sdk",
+    generatedPath: "sdkwork-knowledgebase-sdk-typescript/generated/server-openapi",
+    generatedWorkspace: "sdkwork-knowledgebase-sdk-typescript",
+    primaryClient: "SdkworkKnowledgebaseClient",
+    dependencies: [],
+    materializeFrom: {
+      sourceFamilyRoot: "sdkwork-knowledgebase-app-sdk",
+      sourceInput: "openapi/knowledgebase-app-api.openapi.json",
+      operations: [
+        openOperation("post", "/app/v3/api/knowledge/retrievals", "/knowledge/v3/api/retrievals"),
+        openOperation("get", "/app/v3/api/knowledge/retrievals/{retrievalId}", "/knowledge/v3/api/retrievals/{retrievalId}"),
+        openOperation("post", "/app/v3/api/knowledge/context_packs", "/knowledge/v3/api/context_packs"),
+        openOperation("post", "/app/v3/api/knowledge/ingests", "/knowledge/v3/api/ingests"),
+        openOperation("get", "/app/v3/api/knowledge/ingests/{ingestId}", "/knowledge/v3/api/ingests/{ingestId}"),
+        openOperation("get", "/app/v3/api/knowledge/documents", "/knowledge/v3/api/documents"),
+        openOperation("get", "/app/v3/api/knowledge/documents/{documentId}", "/knowledge/v3/api/documents/{documentId}"),
+        openOperation("get", "/app/v3/api/knowledge/spaces/{spaceId}/browser", "/knowledge/v3/api/spaces/{spaceId}/browser"),
+      ],
+    },
+    forbiddenPathPrefixes: [
+      "/app/v3/api/",
+      "/backend/v3/api/",
+      "/mem/v3/api/",
+      "/open/v3/api/drive/",
+    ],
+  },
+  {
     root: "sdkwork-knowledgebase-app-sdk",
     title: "SDKWork Knowledgebase App API SDK",
     apiVersion: "0.1.0",
-    authority: "sdkwork-knowledgebase.app",
+    authority: "sdkwork-knowledgebase-app-api",
     sdkTarget: "app",
     apiPrefix: "/app/v3/api",
     schemaUrl: "/app/v3/openapi.json",
@@ -75,7 +110,7 @@ const families = [
     generatedWorkspace: "sdkwork-knowledgebase-app-sdk-typescript",
     primaryClient: "SdkworkAppClient",
     dependencies: [
-      dependency("sdkwork-appbase-app-sdk", "appbase-identity-and-session-capability", "/app/v3/api", "sdkwork-appbase.app", appbasePackages),
+      dependency("sdkwork-appbase-app-sdk", "appbase-identity-and-session-capability", "/app/v3/api", "sdkwork-appbase-app-api", appbasePackages),
       dependency("sdkwork-drive-app-sdk", "drive-file-and-media-capability", "/app/v3/api", "sdkwork-drive.app", driveAppPackages),
       dependency("sdkwork-memory-app-sdk", "memory-context-capability", "/app/v3/api", "sdkwork-memory.app", memoryAppPackages),
     ],
@@ -93,7 +128,7 @@ const families = [
     root: "sdkwork-knowledgebase-backend-sdk",
     title: "SDKWork Knowledgebase Backend API SDK",
     apiVersion: "0.1.0",
-    authority: "sdkwork-knowledgebase.backend",
+    authority: "sdkwork-knowledgebase-backend-api",
     sdkTarget: "backend",
     apiPrefix: "/backend/v3/api",
     schemaUrl: "/backend/v3/openapi.json",
@@ -103,7 +138,7 @@ const families = [
     generatedWorkspace: "sdkwork-knowledgebase-backend-sdk-typescript",
     primaryClient: "SdkworkBackendClient",
     dependencies: [
-      dependency("sdkwork-appbase-backend-sdk", "appbase-backend-management-capability", "/backend/v3/api", "sdkwork-appbase.backend", appbaseBackendPackages),
+      dependency("sdkwork-appbase-backend-sdk", "appbase-backend-management-capability", "/backend/v3/api", "sdkwork-appbase-backend-api", appbaseBackendPackages),
       dependency("sdkwork-drive-backend-sdk", "drive-backend-management-capability", "/backend/v3/api", "sdkwork-drive.backend", driveBackendPackages),
       dependency("sdkwork-memory-backend-sdk", "memory-backend-management-capability", "/backend/v3/api", "sdkwork-memory.backend", memoryBackendPackages),
     ],
@@ -118,6 +153,10 @@ const families = [
     ],
   },
 ];
+
+function openOperation(method, sourcePath, targetPath) {
+  return { method, sourcePath, targetPath };
+}
 
 function dependency(workspace, role, apiPrefix, apiAuthority, packageByLanguage) {
   return {
@@ -211,6 +250,8 @@ function removeDependencyOwnedOperations(openapi, family) {
 }
 
 async function standardizeOpenApi(family) {
+  await materializeFamilyOpenApi(family);
+
   const filePath = path.join(sdksRoot, family.root, family.input);
   const openapi = await readJson(filePath);
   const removedOperations = removeDependencyOwnedOperations(openapi, family);
@@ -248,6 +289,110 @@ async function standardizeOpenApi(family) {
     operationCount: operationEntries(openapi).length,
     removedOperations,
   };
+}
+
+async function materializeFamilyOpenApi(family) {
+  if (!family.materializeFrom) {
+    return;
+  }
+
+  const sourcePath = path.join(
+    sdksRoot,
+    family.materializeFrom.sourceFamilyRoot,
+    family.materializeFrom.sourceInput,
+  );
+  const source = await readJson(sourcePath);
+  const schemas = {};
+  const target = {
+    openapi: source.openapi || "3.1.0",
+    info: {
+      title: family.title,
+      version: family.apiVersion,
+    },
+    servers: [
+      {
+        url: family.apiPrefix,
+      },
+    ],
+    paths: {},
+    components: {
+      securitySchemes: {
+        ApiKey: {
+          type: "apiKey",
+          in: "header",
+          name: "X-API-Key",
+        },
+      },
+      schemas,
+    },
+  };
+
+  for (const operationMapping of family.materializeFrom.operations) {
+    const sourceOperation =
+      source.paths?.[operationMapping.sourcePath]?.[operationMapping.method];
+    if (!sourceOperation) {
+      throw new Error(
+        `Missing source operation for ${operationMapping.method.toUpperCase()} ${operationMapping.sourcePath}`,
+      );
+    }
+
+    const operation = structuredClone(sourceOperation);
+    operation.security = [{ ApiKey: [] }];
+    operation["x-sdkwork-auth-mode"] = "api-key";
+    operation["x-sdkwork-owner"] = owner;
+    operation["x-sdkwork-api-authority"] = family.authority;
+    operation["x-sdkwork-source"] = "sdks/standardize-knowledgebase-sdk-family.mjs";
+    operation["x-sdkwork-source-route-crate"] = "sdkwork-router-knowledgebase-open-api";
+
+    target.paths[operationMapping.targetPath] = {
+      ...(target.paths[operationMapping.targetPath] || {}),
+      [operationMapping.method]: operation,
+    };
+
+    collectReferencedSchemas(operation, source, schemas);
+  }
+
+  target["x-sdkwork-owner"] = owner;
+  target["x-sdkwork-api-authority"] = family.authority;
+  target["x-sdkwork-sdk-family"] = family.root;
+  target["x-sdkwork-owner-only-input"] = true;
+  target["x-sdkwork-standard-version"] = standardVersion;
+
+  await writeJson(path.join(sdksRoot, family.root, family.input), target);
+}
+
+function collectReferencedSchemas(value, source, targetSchemas) {
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  if (typeof value.$ref === "string") {
+    const schemaName = schemaNameFromRef(value.$ref);
+    if (schemaName && !targetSchemas[schemaName]) {
+      const sourceSchema = source.components?.schemas?.[schemaName];
+      if (!sourceSchema) {
+        throw new Error(`Missing referenced schema ${schemaName}`);
+      }
+      targetSchemas[schemaName] = structuredClone(sourceSchema);
+      collectReferencedSchemas(targetSchemas[schemaName], source, targetSchemas);
+    }
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectReferencedSchemas(item, source, targetSchemas);
+    }
+    return;
+  }
+
+  for (const child of Object.values(value)) {
+    collectReferencedSchemas(child, source, targetSchemas);
+  }
+}
+
+function schemaNameFromRef(ref) {
+  const prefix = "#/components/schemas/";
+  return ref.startsWith(prefix) ? ref.slice(prefix.length) : null;
 }
 
 function assemblyFor(family, openapi, operationCount) {

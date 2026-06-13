@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 async-trait.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
-sdkwork-knowledgebase-product.workspace = true
+sdkwork-intelligence-knowledgebase-service.workspace = true
 sdkwork-memory-spi.workspace = true
 
 [dev-dependencies]

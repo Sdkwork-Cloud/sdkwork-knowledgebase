@@ -3,12 +3,13 @@
   "kind": "sdkwork.component.spec",
   "component": {
     "name": "sdkwork-knowledgebase",
-    "displayName": "Sdkwork Knowledgebase",
+    "displayName": "SDKWork Knowledgebase",
     "version": "0.1.0",
-    "type": "rust-crate",
+    "type": "web-backend-service",
     "root": "sdkwork-knowledgebase",
     "domain": "intelligence",
     "capability": "knowledgebase",
+    "surface": "backend-service",
     "languages": [
       "rust"
     ],
@@ -47,6 +48,36 @@
       "file": "RUST_CODE_SPEC.md",
       "path": "../sdkwork-specs/RUST_CODE_SPEC.md",
       "purpose": "Rust crate and module rules."
+    },
+    {
+      "file": "API_SPEC.md",
+      "path": "../sdkwork-specs/API_SPEC.md",
+      "purpose": "HTTP API contract standard, OpenAPI profile, operationId, and security declarations."
+    },
+    {
+      "file": "WEB_BACKEND_SPEC.md",
+      "path": "../sdkwork-specs/WEB_BACKEND_SPEC.md",
+      "purpose": "Web backend implementation layering, handler/service/repository boundaries, and route crate rules."
+    },
+    {
+      "file": "SDK_SPEC.md",
+      "path": "../sdkwork-specs/SDK_SPEC.md",
+      "purpose": "SDK naming, generated client behavior, and service integration rules."
+    },
+    {
+      "file": "SDK_WORKSPACE_GENERATION_SPEC.md",
+      "path": "../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md",
+      "purpose": "Application-root sdks/ workspace layout, authority OpenAPI placement, and generated artifact placement."
+    },
+    {
+      "file": "DOMAIN_SPEC.md",
+      "path": "../sdkwork-specs/DOMAIN_SPEC.md",
+      "purpose": "Canonical domain names and bounded context rules."
+    },
+    {
+      "file": "SECURITY_SPEC.md",
+      "path": "../sdkwork-specs/SECURITY_SPEC.md",
+      "purpose": "Token model, authn/authz, tenant isolation, and secure logging rules."
     }
   ],
   "contracts": {
@@ -56,12 +87,38 @@
     "runtimeEntrypoints": [],
     "routeManifest": null,
     "sdkClients": [],
+    "sdkDependencies": [
+      {
+        "workspace": "sdkwork-appbase",
+        "role": "appbase-identity-and-session-capability",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-drive",
+        "role": "drive-file-and-media-capability",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-memory",
+        "role": "memory-context-capability",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-kernel",
+        "role": "agent-kernel-capability",
+        "required": true
+      }
+    ],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
     "events": [],
     "configKeys": []
   },
   "verification": {
     "commands": [
-      "cargo test"
+      "cargo fmt --all --check",
+      "cargo test --workspace",
+      "cargo clippy --workspace --tests -- -D warnings"
     ]
   }
 }

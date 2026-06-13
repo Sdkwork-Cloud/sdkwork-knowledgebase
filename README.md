@@ -2,35 +2,56 @@
 
 Rust backend foundation for SDKWork Knowledgebase.
 
-This repository is currently implementing backend foundation and early product services. Frontend UI and `apps` integration are intentionally out of scope for the current phase.
+This repository is currently implementing backend foundation and early business services. Frontend UI and `apps` integration are intentionally out of scope for the current phase.
 
 ## Workspace
 
 ```text
+apis/                                      Inactive placeholder for authored API contract sources.
+apps/                                      Inactive placeholder; repository root is the primary app root.
 crates/
-  sdkwork-knowledgebase-contract       Public DTOs, enums, IDs, operation IDs, and LLM Wiki/local mirror contracts.
-  sdkwork-knowledgebase-agent-provider Thin adapter from Knowledgebase retrieval contracts to sdkwork-agent-kernel KnowledgeProvider.
-  sdkwork-knowledgebase-core           Core domain helpers.
-  sdkwork-knowledgebase-drive          Adapter to sdkwork-drive storage contracts.
-  sdkwork-knowledgebase-memory         Adapter from Knowledgebase context packs to sdkwork-memory SPI.
-  sdkwork-knowledgebase-test-support   Test fakes and fixtures.
-services/
-  sdkwork-knowledgebase-app-api        App HTTP API route boundary for generated App SDK operations.
-  sdkwork-knowledgebase-backend-api    Backend HTTP API route boundary for generated Backend SDK operations.
-  sdkwork-knowledgebase-product        Product ports and pure services.
-  sdkwork-knowledgebase-storage-sqlx   SQL migration registry and SQLite SQLx repositories.
+  sdkwork-knowledgebase-contract           Public DTOs, enums, IDs, operation IDs, and LLM Wiki/local mirror contracts.
+  sdkwork-knowledgebase-agent-provider     Thin adapter from Knowledgebase retrieval contracts to sdkwork-agent-kernel KnowledgeProvider.
+  sdkwork-intelligence-knowledgebase-object-key-service
+                                             Object key planning helpers.
+  sdkwork-intelligence-knowledgebase-service
+                                             Business services, ports, and pure use cases.
+  sdkwork-intelligence-knowledgebase-repository-sqlx
+                                             SQL migration registry and SQLite SQLx repositories.
+  sdkwork-router-knowledgebase-app-api     App HTTP route boundary for generated App SDK operations.
+  sdkwork-router-knowledgebase-backend-api Backend HTTP route boundary for generated Backend SDK operations.
+  sdkwork-knowledgebase-drive              Adapter to sdkwork-drive storage contracts.
+  sdkwork-knowledgebase-memory             Adapter from Knowledgebase context packs to sdkwork-memory SPI.
+  sdkwork-knowledgebase-test-support       Test fakes and fixtures.
 sdks/
-  sdkwork-knowledgebase-app-sdk        App SDK family, app-api OpenAPI authority, and generated TypeScript SDK.
-  sdkwork-knowledgebase-backend-sdk    Backend SDK family, backend-api OpenAPI authority, and generated TypeScript SDK.
+  sdkwork-knowledgebase-app-sdk            App SDK family, app-api OpenAPI authority, and generated TypeScript SDK.
+  sdkwork-knowledgebase-backend-sdk        Backend SDK family, backend-api OpenAPI authority, and generated TypeScript SDK.
+jobs/ plugins/ examples/ configs/ deployments/ scripts/ tests/
+                                             Inactive standard root capability placeholders.
 ```
 
+This repository root is the primary SDKWork Knowledgebase application root and owns `sdkwork.app.config.json`. The `apps/` directory is intentionally a tracked placeholder for future secondary app surfaces.
+
+This workspace follows the standard project root directory dictionary from `../sdkwork-specs/SDKWORK_WORKSPACE_SPEC.md`.
+
+### apis/ vs sdks/
+
+`apis/` is the standard project-root directory for authored API contracts and API review inputs. `sdks/` contains SDK family workspaces, materialized authority OpenAPI, derived `sdkgen` inputs, and generated SDK output. Currently `apis/` is an inactive placeholder; authority OpenAPI files are materialized under `sdks/`.
+
+### plugins/ vs .sdkwork/plugins/
+
+`plugins/` stores application/runtime plugin source packages. `.sdkwork/plugins/` stores repository/application agent plugin workspaces. They are distinct directories with different purposes.
+
+### configs/ vs runtime config
+
+`configs/` stores source-controlled safe config templates, schemas, profile examples, and non-secret defaults. Runtime user/private config is governed by `RUNTIME_DIRECTORY_SPEC.md` and must not be committed.
 ## Storage Rule
 
 `sdkwork-drive` is the only lower-level file/object storage boundary.
 
 Business logic must not write source files, parsed artifacts, LLM Wiki Markdown, schema files, `wiki/index.md`, `wiki/log.md`, local mirror packages, or delta packages through direct filesystem, S3, OSS, MinIO, Azure Blob, or GCS SDKs.
 
-Product logic depends on `KnowledgeDriveStorage`. Only `crates/sdkwork-knowledgebase-drive` depends on `sdkwork-drive-storage-contract`.
+Business logic depends on `KnowledgeDriveStorage`. Only `crates/sdkwork-knowledgebase-drive` depends on `sdkwork-drive-storage-contract`.
 
 ## Memory Rule
 
@@ -82,13 +103,13 @@ $env:SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID = "42"
 
 Valid values are `0` through `1023`. Local and test runs may omit the variable and use node id `0`. Production multi-instance deployments must assign a unique node id per process or pod; invalid configured values fail closed during generator initialization.
 
-## Implemented Product Slices
+## Implemented Service Slices
 
 - Knowledge space creation can initialize LLM Wiki standard files through the drive storage port.
 - LLM Wiki standard file rendering covers `AGENTS.md`, `wiki_schema.yaml`, `wiki/index.md`, and `wiki/log.md`.
 - Ingestion jobs support idempotent creation and basic state transitions.
 - API Markdown payload ingest writes `inbox/api/{ingest_id}/payload.md` through `KnowledgeDriveStorage` and rejects empty payloads or unsafe idempotency keys.
-- Drive object import verifies the existing sdkwork-drive object with `head_object`, persists a stable `KnowledgeDriveObjectRef`, creates source/document/version metadata through product ports, and creates an idempotent ingest job.
+- Drive object import verifies the existing sdkwork-drive object with `head_object`, persists a stable `KnowledgeDriveObjectRef`, creates source/document/version metadata through service ports, and creates an idempotent ingest job.
 - Source, document, document version, ingest request, and drive import DTOs are available in the contract crate.
 - RAG retrieval, context pack, citation, retrieval trace, knowledge-agent profile, and knowledge-agent binding DTOs are available in the contract crate.
 - Context packs can include bounded `sdkwork-memory` context through an injected Memory provider and keep Memory fragments separate from retrieved knowledge chunks.
@@ -101,7 +122,7 @@ Valid values are `0` through `1023`. Local and test runs may omit the variable a
 - App and Backend OpenAPI authority files use SDKWork dotted operation IDs, including `wiki.index.retrieve`, `wiki.log.entries.create`, `driveImports.create`, `documents.versions.create`, and `sources.create`.
 - Generated App and Backend TypeScript SDKs are produced with the canonical `sdkwork-sdk-generator` using the SDKWork v3 standard profile.
 - App and Backend SDK families declare Appbase, Drive, and Memory dependency SDKs; dependency-owned Appbase, Drive, and Memory APIs are not generated into knowledgebase transports.
-- App and Backend Rust API crates mount every generated OpenAPI operation path and return SDKWork v3 `application/problem+json` errors when an operation has not yet been wired to a concrete product implementation.
+- App and Backend Rust API crates mount every generated OpenAPI operation path and return SDKWork v3 `application/problem+json` errors when an operation has not yet been wired to a concrete service implementation.
 - The agent provider crate exposes `provider.knowledge.sdkwork-knowledgebase` as a typed `sdkwork-agent-kernel::KnowledgeProvider` adapter backed by an injected retrieval client.
 
 ## SDKWork Documentation Contract

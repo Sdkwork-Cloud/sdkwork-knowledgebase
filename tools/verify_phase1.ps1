@@ -14,6 +14,8 @@ function Invoke-Checked {
     }
 }
 
+Invoke-Checked powershell -ExecutionPolicy Bypass -File tools/verify_sdkwork_structure.ps1
+
 $knowledgebaseDesignPath = "docs/superpowers/specs/2026-06-01-knowledgebase-backend-design.md"
 $knowledgebaseDesign = Get-Content -Raw $knowledgebaseDesignPath
 
@@ -50,8 +52,8 @@ foreach ($snippet in $requiredSdkStandardSnippets) {
 }
 
 $forbiddenSdkFamilyDirectories = @(
-    "sdks/sdkwork-knowledgebase-app-api",
-    "sdks/sdkwork-knowledgebase-backend-api"
+    "sdks/sdkwork-router-knowledgebase-app-api",
+    "sdks/sdkwork-router-knowledgebase-backend-api"
 )
 
 foreach ($directory in $forbiddenSdkFamilyDirectories) {
@@ -151,8 +153,7 @@ if ($generatedSdkBuildArtifacts.Count -gt 0) {
 }
 
 $productionSourceRoots = @(
-    "crates",
-    "services"
+    "crates"
 )
 
 $drivePhysicalSqlPatterns = @(
@@ -182,10 +183,10 @@ foreach ($root in $productionSourceRoots) {
         }
 
         if (
-            $content.Contains("sdkwork_drive_product::infrastructure") `
+            $content.Contains("sdkwork_drive_workspace_service::infrastructure") `
             -or $content.Contains("SqlDriveWorkspaceStore")
         ) {
-            throw "Knowledgebase production code must call sdkwork-drive product APIs instead of drive infrastructure internals: $($path.FullName)"
+            throw "Knowledgebase production code must call sdkwork-drive workspace service APIs instead of drive infrastructure internals: $($path.FullName)"
         }
     }
 }
@@ -193,13 +194,13 @@ foreach ($root in $productionSourceRoots) {
 $packages = @(
     "sdkwork-knowledgebase-contract",
     "sdkwork-knowledgebase-agent-provider",
-    "sdkwork-knowledgebase-core",
+    "sdkwork-intelligence-knowledgebase-object-key-service",
     "sdkwork-knowledgebase-drive",
     "sdkwork-knowledgebase-memory",
-    "sdkwork-knowledgebase-app-api",
-    "sdkwork-knowledgebase-backend-api",
-    "sdkwork-knowledgebase-product",
-    "sdkwork-knowledgebase-storage-sqlx",
+    "sdkwork-router-knowledgebase-app-api",
+    "sdkwork-router-knowledgebase-backend-api",
+    "sdkwork-intelligence-knowledgebase-service",
+    "sdkwork-intelligence-knowledgebase-repository-sqlx",
     "sdkwork-knowledgebase-test-support"
 )
 
@@ -221,9 +222,9 @@ if (!$llmWiki.Contains("Database objects created by SDKWork Knowledgebase use th
 }
 
 $databaseObjectSearchRoots = @(
-    "services/sdkwork-knowledgebase-storage-sqlx/migrations",
-    "services/sdkwork-knowledgebase-storage-sqlx/src",
-    "services/sdkwork-knowledgebase-storage-sqlx/tests"
+    "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations",
+    "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src",
+    "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/tests"
 )
 
 $oldDatabaseObjectPatterns = @(

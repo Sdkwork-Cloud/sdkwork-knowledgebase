@@ -6,10 +6,10 @@ license.workspace = true
 
 [dependencies]
 async-trait.workspace = true
-sdkwork-drive-product.workspace = true
+sdkwork-drive-workspace-service.workspace = true
 sdkwork-drive-storage-contract.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
-sdkwork-knowledgebase-product.workspace = true
+sdkwork-intelligence-knowledgebase-service.workspace = true
 sha2.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }
 thiserror.workspace = true

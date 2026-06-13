@@ -3,7 +3,7 @@
   "sdkName": "sdkwork-knowledgebase-backend-sdk",
   "packageName": "@sdkwork/knowledgebase-backend-sdk",
   "sdkOwner": "sdkwork-knowledgebase",
-  "apiAuthority": "sdkwork-knowledgebase.backend",
+  "apiAuthority": "sdkwork-knowledgebase-backend-api",
   "sdkFamily": "sdkwork-knowledgebase-backend-sdk",
   "sdkType": "backend",
   "sdkSurface": "backend",
@@ -19,7 +19,7 @@
       "required": true,
       "dependencyMode": "consumer-sdk",
       "apiPrefix": "/backend/v3/api",
-      "apiAuthority": "sdkwork-appbase.backend",
+      "apiAuthority": "sdkwork-appbase-backend-api",
       "generatedTransportImportPolicy": "forbidden",
       "packageByLanguage": {
         "typescript": "@sdkwork/appbase-backend-sdk",

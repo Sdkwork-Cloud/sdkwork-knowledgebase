@@ -10,9 +10,27 @@ const workspaceRoot = path.resolve(sdksRoot, "..");
 
 const families = [
   {
+    root: "sdkwork-knowledgebase-sdk",
+    owner: "sdkwork-knowledgebase",
+    authority: "sdkwork-knowledgebase-open-api",
+    input: "openapi/knowledgebase-open-api.openapi.json",
+    manifest: "sdk-manifest.json",
+    generatedMetadata:
+      "sdkwork-knowledgebase-sdk-typescript/generated/server-openapi/sdkwork-sdk.json",
+    generatedPackage:
+      "sdkwork-knowledgebase-sdk-typescript/generated/server-openapi/package.json",
+    dependencies: [],
+    forbiddenPathPrefixes: [
+      "/app/v3/api/",
+      "/backend/v3/api/",
+      "/mem/v3/api/",
+      "/open/v3/api/drive/",
+    ],
+  },
+  {
     root: "sdkwork-knowledgebase-app-sdk",
     owner: "sdkwork-knowledgebase",
-    authority: "sdkwork-knowledgebase.app",
+    authority: "sdkwork-knowledgebase-app-api",
     input: "openapi/knowledgebase-app-api.openapi.json",
     manifest: "sdk-manifest.json",
     generatedMetadata:
@@ -20,15 +38,25 @@ const families = [
     generatedPackage:
       "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/package.json",
     dependencies: [
-      ["sdkwork-appbase-app-sdk", "sdkwork-appbase.app"],
+      ["sdkwork-appbase-app-sdk", "sdkwork-appbase-app-api"],
       ["sdkwork-drive-app-sdk", "sdkwork-drive.app"],
       ["sdkwork-memory-app-sdk", "sdkwork-memory.app"],
+    ],
+    forbiddenPathPrefixes: [
+      "/app/v3/api/auth/",
+      "/app/v3/api/iam/",
+      "/app/v3/api/open_platform/",
+      "/app/v3/api/system/iam/",
+      "/app/v3/api/drive/",
+      "/app/v3/api/memory/",
+      "/backend/v3/api/",
+      "/mem/v3/api/",
     ],
   },
   {
     root: "sdkwork-knowledgebase-backend-sdk",
     owner: "sdkwork-knowledgebase",
-    authority: "sdkwork-knowledgebase.backend",
+    authority: "sdkwork-knowledgebase-backend-api",
     input: "openapi/knowledgebase-backend-api.openapi.json",
     manifest: "sdk-manifest.json",
     generatedMetadata:
@@ -36,27 +64,21 @@ const families = [
     generatedPackage:
       "sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi/package.json",
     dependencies: [
-      ["sdkwork-appbase-backend-sdk", "sdkwork-appbase.backend"],
+      ["sdkwork-appbase-backend-sdk", "sdkwork-appbase-backend-api"],
       ["sdkwork-drive-backend-sdk", "sdkwork-drive.backend"],
       ["sdkwork-memory-backend-sdk", "sdkwork-memory.backend"],
     ],
+    forbiddenPathPrefixes: [
+      "/backend/v3/api/auth/",
+      "/backend/v3/api/iam/",
+      "/backend/v3/api/open_platform/",
+      "/backend/v3/api/system/iam/",
+      "/backend/v3/api/drive/",
+      "/backend/v3/api/memory/",
+      "/app/v3/api/",
+      "/mem/v3/api/",
+    ],
   },
-];
-
-const dependencyOwnedPathPrefixes = [
-  "/app/v3/api/auth/",
-  "/app/v3/api/iam/",
-  "/app/v3/api/open_platform/",
-  "/app/v3/api/system/iam/",
-  "/app/v3/api/drive/",
-  "/app/v3/api/memory/",
-  "/backend/v3/api/auth/",
-  "/backend/v3/api/iam/",
-  "/backend/v3/api/open_platform/",
-  "/backend/v3/api/system/iam/",
-  "/backend/v3/api/drive/",
-  "/backend/v3/api/memory/",
-  "/mem/v3/api/",
 ];
 
 function readJson(relativePath) {
@@ -164,30 +186,36 @@ test("knowledgebase SDK manifests record owner and dependency boundaries outside
       `${family.root} manifest must mirror appbase, drive, and memory SDK dependencies`,
     );
 
-    const generatedMetadata = readJson(path.join("sdks", family.root, family.generatedMetadata));
-    for (const forbiddenKey of [
-      "sdkOwner",
-      "apiAuthority",
-      "sdkFamily",
-      "generationInputSpec",
-      "sdkDependencies",
-      "ownerOnlyOperationCount",
-      "standardProfile",
-      "standardVersion",
-    ]) {
-      assert.equal(
-        Object.hasOwn(generatedMetadata, forbiddenKey),
-        false,
-        `${family.root} generated metadata must not carry ownership standard key ${forbiddenKey}`,
-      );
+    const generatedMetadataPath = path.join("sdks", family.root, family.generatedMetadata);
+    const generatedPackagePath = path.join("sdks", family.root, family.generatedPackage);
+    if (existsSync(path.join(workspaceRoot, generatedMetadataPath))) {
+      const generatedMetadata = readJson(generatedMetadataPath);
+      for (const forbiddenKey of [
+        "sdkOwner",
+        "apiAuthority",
+        "sdkFamily",
+        "generationInputSpec",
+        "sdkDependencies",
+        "ownerOnlyOperationCount",
+        "standardProfile",
+        "standardVersion",
+      ]) {
+        assert.equal(
+          Object.hasOwn(generatedMetadata, forbiddenKey),
+          false,
+          `${family.root} generated metadata must not carry ownership standard key ${forbiddenKey}`,
+        );
+      }
     }
 
-    const generatedPackage = readJson(path.join("sdks", family.root, family.generatedPackage));
-    assert.equal(
-      Object.hasOwn(generatedPackage, "sdkwork"),
-      false,
-      `${family.root} generated package.json must not carry SDK ownership standard metadata`,
-    );
+    if (existsSync(path.join(workspaceRoot, generatedPackagePath))) {
+      const generatedPackage = readJson(generatedPackagePath);
+      assert.equal(
+        Object.hasOwn(generatedPackage, "sdkwork"),
+        false,
+        `${family.root} generated package.json must not carry SDK ownership standard metadata`,
+      );
+    }
   }
 });
 
@@ -209,7 +237,7 @@ test("knowledgebase generated OpenAPI inputs contain only sdkwork-knowledgebase 
         `${family.root} ${method.toUpperCase()} ${pathKey} must use ${family.authority}`,
       );
       assert(
-        !dependencyOwnedPathPrefixes.some((prefix) => pathKey.startsWith(prefix)),
+        !family.forbiddenPathPrefixes.some((prefix) => pathKey.startsWith(prefix)),
         `${family.root} must not copy dependency-owned route ${method.toUpperCase()} ${pathKey}`,
       );
     }

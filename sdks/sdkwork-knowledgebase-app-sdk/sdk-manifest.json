@@ -3,7 +3,7 @@
   "sdkName": "sdkwork-knowledgebase-app-sdk",
   "packageName": "@sdkwork/knowledgebase-app-sdk",
   "sdkOwner": "sdkwork-knowledgebase",
-  "apiAuthority": "sdkwork-knowledgebase.app",
+  "apiAuthority": "sdkwork-knowledgebase-app-api",
   "sdkFamily": "sdkwork-knowledgebase-app-sdk",
   "sdkType": "app",
   "sdkSurface": "app",
@@ -19,7 +19,7 @@
       "required": true,
       "dependencyMode": "consumer-sdk",
       "apiPrefix": "/app/v3/api",
-      "apiAuthority": "sdkwork-appbase.app",
+      "apiAuthority": "sdkwork-appbase-app-api",
       "generatedTransportImportPolicy": "forbidden",
       "packageByLanguage": {
         "typescript": "@sdkwork/appbase-app-sdk",

@@ -1,34 +1,34 @@
 use async_trait::async_trait;
-use sdkwork_drive_product::application::space_service::{
+use sdkwork_drive_storage_contract::{
+    DriveByteRange, DriveObjectLocator, DriveObjectStore, DriveObjectStoreError,
+    DriveObjectStoreErrorKind, HeadObjectRequest, PutObjectRequest, ReadObjectRangeRequest,
+};
+use sdkwork_drive_workspace_service::application::space_service::{
     CreateSpaceCommand, DeleteSpaceCommand, GetSpaceCommand, ListSpacesCommand,
     SqlDriveSpaceService,
 };
-use sdkwork_drive_product::application::workspace_service::{
+use sdkwork_drive_workspace_service::application::workspace_service::{
     DriveWorkspaceChildrenPage, DriveWorkspaceNode, DriveWorkspaceNodeKind,
     DriveWorkspaceObjectRef, EnsureDriveWorkspaceNode, EnsureDriveWorkspaceNodesCommand,
     GetDriveWorkspaceNodeCommand, ListDriveWorkspaceChildrenCommand,
     ResolveDriveWorkspacePathCommand, SqlDriveWorkspaceService,
 };
-use sdkwork_drive_product::domain::space::DriveSpaceType;
-use sdkwork_drive_product::DriveProductError;
-use sdkwork_drive_storage_contract::{
-    DriveByteRange, DriveObjectLocator, DriveObjectStore, DriveObjectStoreError,
-    DriveObjectStoreErrorKind, HeadObjectRequest, PutObjectRequest, ReadObjectRangeRequest,
-};
-use sdkwork_knowledgebase_product::ports::knowledge_drive_node_tree::{
+use sdkwork_drive_workspace_service::domain::space::DriveSpaceType;
+use sdkwork_drive_workspace_service::DriveServiceError;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_node_tree::{
     DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodePage, KnowledgeDriveNodeSummary,
     KnowledgeDriveNodeTree, KnowledgeDriveNodeTreeError, ListKnowledgeDriveNodeChildrenRequest,
     ResolveKnowledgeDriveNodePathRequest,
 };
-use sdkwork_knowledgebase_product::ports::knowledge_drive_space::{
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_space::{
     CreateKnowledgeDriveSpaceRequest, DeleteKnowledgeDriveSpaceRequest, KnowledgeDriveSpaceBinding,
     KnowledgeDriveSpaceProvisioner, KnowledgeDriveSpaceProvisionerError,
 };
-use sdkwork_knowledgebase_product::ports::knowledge_drive_storage::{
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::{
     HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError,
     PutKnowledgeObjectRequest,
 };
-use sdkwork_knowledgebase_product::ports::knowledge_drive_workspace::{
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_workspace::{
     EnsureKnowledgeDriveNodeKind, EnsureKnowledgeDriveNodeRequest,
     EnsureKnowledgeDriveNodesRequest, KnowledgeDriveWorkspace, KnowledgeDriveWorkspaceError,
 };
@@ -168,7 +168,7 @@ impl KnowledgeDriveSpaceProvisioner for KnowledgebaseDriveSpaceProvisionerAdapte
             Ok(space) => Ok(KnowledgeDriveSpaceBinding {
                 drive_space_id: space.id,
             }),
-            Err(DriveProductError::Conflict(_)) => {
+            Err(DriveServiceError::Conflict(_)) => {
                 let Some(existing) = find_existing_knowledge_space(
                     &service,
                     &tenant_id,
@@ -185,7 +185,7 @@ impl KnowledgeDriveSpaceProvisioner for KnowledgebaseDriveSpaceProvisionerAdapte
                     drive_space_id: existing,
                 })
             }
-            Err(error) => Err(map_space_product_error(error)),
+            Err(error) => Err(map_space_service_error(error)),
         }
     }
 
@@ -211,8 +211,8 @@ impl KnowledgeDriveSpaceProvisioner for KnowledgebaseDriveSpaceProvisionerAdapte
             .await
         {
             Ok(space) => space,
-            Err(DriveProductError::NotFound(_)) => return Ok(()),
-            Err(error) => return Err(map_space_product_error(error)),
+            Err(DriveServiceError::NotFound(_)) => return Ok(()),
+            Err(error) => return Err(map_space_service_error(error)),
         };
 
         if drive_space.space_type != DriveSpaceType::KnowledgeBase
@@ -232,8 +232,8 @@ impl KnowledgeDriveSpaceProvisioner for KnowledgebaseDriveSpaceProvisionerAdapte
             })
             .await
         {
-            Ok(_) | Err(DriveProductError::NotFound(_)) => Ok(()),
-            Err(error) => Err(map_space_product_error(error)),
+            Ok(_) | Err(DriveServiceError::NotFound(_)) => Ok(()),
+            Err(error) => Err(map_space_service_error(error)),
         }
     }
 }
@@ -395,7 +395,7 @@ impl KnowledgeDriveWorkspace for KnowledgebaseDriveWorkspaceAdapter {
                 nodes,
             })
             .await
-            .map_err(map_workspace_product_error)
+            .map_err(map_workspace_service_error)
     }
 }
 
@@ -422,7 +422,7 @@ impl KnowledgeDriveNodeTree for KnowledgebaseDriveNodeTreeAdapter {
                 logical_path,
             })
             .await
-            .map_err(map_tree_product_error)?
+            .map_err(map_tree_service_error)?
             .map(knowledge_summary_from_drive_node)
             .transpose()
     }
@@ -442,7 +442,7 @@ impl KnowledgeDriveNodeTree for KnowledgebaseDriveNodeTreeAdapter {
                 node_id: drive_node_id,
             })
             .await
-            .map_err(map_tree_product_error)?
+            .map_err(map_tree_service_error)?
             .map(knowledge_summary_from_drive_node)
             .transpose()
     }
@@ -466,7 +466,7 @@ impl KnowledgeDriveNodeTree for KnowledgebaseDriveNodeTreeAdapter {
                 page_size: i64::from(page_size),
             })
             .await
-            .map_err(map_tree_product_error)?;
+            .map_err(map_tree_service_error)?;
         knowledge_page_from_drive_page(page)
     }
 }
@@ -550,7 +550,7 @@ async fn find_existing_knowledge_space(
             owner_subject_id: Some(owner_subject_id.to_string()),
         })
         .await
-        .map_err(map_space_product_error)?;
+        .map_err(map_space_service_error)?;
     Ok(spaces
         .into_iter()
         .find(|space| space.space_type == DriveSpaceType::KnowledgeBase)
@@ -796,44 +796,44 @@ fn synthetic_content_version_id(checksum_sha256_hex: &str) -> String {
     }
 }
 
-fn map_workspace_product_error(error: DriveProductError) -> KnowledgeDriveWorkspaceError {
+fn map_workspace_service_error(error: DriveServiceError) -> KnowledgeDriveWorkspaceError {
     match error {
-        DriveProductError::Validation(message) | DriveProductError::Conflict(message) => {
+        DriveServiceError::Validation(message) | DriveServiceError::Conflict(message) => {
             KnowledgeDriveWorkspaceError::InvalidRequest(message)
         }
-        DriveProductError::NotFound(message) | DriveProductError::PermissionDenied(message) => {
+        DriveServiceError::NotFound(message) | DriveServiceError::PermissionDenied(message) => {
             KnowledgeDriveWorkspaceError::Upstream(message)
         }
-        DriveProductError::Internal(message) => KnowledgeDriveWorkspaceError::Internal(message),
+        DriveServiceError::Internal(message) => KnowledgeDriveWorkspaceError::Internal(message),
     }
 }
 
-fn map_space_product_error(error: DriveProductError) -> KnowledgeDriveSpaceProvisionerError {
+fn map_space_service_error(error: DriveServiceError) -> KnowledgeDriveSpaceProvisionerError {
     match error {
-        DriveProductError::Validation(message) => {
+        DriveServiceError::Validation(message) => {
             KnowledgeDriveSpaceProvisionerError::InvalidRequest(message)
         }
-        DriveProductError::Conflict(message)
-        | DriveProductError::NotFound(message)
-        | DriveProductError::PermissionDenied(message) => {
+        DriveServiceError::Conflict(message)
+        | DriveServiceError::NotFound(message)
+        | DriveServiceError::PermissionDenied(message) => {
             KnowledgeDriveSpaceProvisionerError::Upstream(message)
         }
-        DriveProductError::Internal(message) => {
+        DriveServiceError::Internal(message) => {
             KnowledgeDriveSpaceProvisionerError::Internal(message)
         }
     }
 }
 
-fn map_tree_product_error(error: DriveProductError) -> KnowledgeDriveNodeTreeError {
+fn map_tree_service_error(error: DriveServiceError) -> KnowledgeDriveNodeTreeError {
     match error {
-        DriveProductError::Validation(message) => {
+        DriveServiceError::Validation(message) => {
             KnowledgeDriveNodeTreeError::InvalidRequest(message)
         }
-        DriveProductError::Conflict(message)
-        | DriveProductError::NotFound(message)
-        | DriveProductError::PermissionDenied(message) => {
+        DriveServiceError::Conflict(message)
+        | DriveServiceError::NotFound(message)
+        | DriveServiceError::PermissionDenied(message) => {
             KnowledgeDriveNodeTreeError::Upstream(message)
         }
-        DriveProductError::Internal(message) => KnowledgeDriveNodeTreeError::Internal(message),
+        DriveServiceError::Internal(message) => KnowledgeDriveNodeTreeError::Internal(message),
     }
 }

@@ -3,12 +3,13 @@
   "kind": "sdkwork.component.spec",
   "component": {
     "name": "sdkwork-knowledgebase-drive",
-    "displayName": "Sdkwork Knowledgebase Drive",
+    "displayName": "SDKWork Knowledgebase Drive Adapter",
     "version": "0.1.0",
     "type": "rust-crate",
-    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-drive",
-    "domain": "drive",
+    "root": "crates/sdkwork-knowledgebase-drive",
+    "domain": "intelligence",
     "capability": "knowledgebase-drive",
+    "surface": "backend-service",
     "languages": [
       "rust"
     ],
@@ -56,6 +57,15 @@
     "runtimeEntrypoints": [],
     "routeManifest": null,
     "sdkClients": [],
+    "sdkDependencies": [
+      {
+        "workspace": "sdkwork-drive-storage-contract",
+        "role": "drive-storage-contract",
+        "required": true
+      }
+    ],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
     "events": [],
     "configKeys": []
   },

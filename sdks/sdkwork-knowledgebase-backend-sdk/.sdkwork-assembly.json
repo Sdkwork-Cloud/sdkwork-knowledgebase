@@ -2,13 +2,13 @@
   "workspace": "sdkwork-knowledgebase-backend-sdk",
   "title": "SDKWork Knowledgebase Backend API SDK",
   "apiVersion": "0.1.0",
-  "openapiVersion": "3.1.0",
+  "openapiVersion": "3.1.2",
   "authoritySpec": "openapi/knowledgebase-backend-api.openapi.json",
   "generationInputSpec": "openapi/knowledgebase-backend-api.openapi.json",
   "derivedSpecs": {
     "default": "openapi/knowledgebase-backend-api.openapi.json"
   },
-  "apiAuthority": "sdkwork-knowledgebase.backend",
+  "apiAuthority": "sdkwork-knowledgebase-backend-api",
   "discoverySurface": {
     "sdkTarget": "backend",
     "apiPrefix": "/backend/v3/api",
@@ -28,7 +28,7 @@
       "manifestPath": "sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi/package.json",
       "name": "@sdkwork/knowledgebase-backend-sdk",
       "version": "0.1.0",
-      "description": "Generator-owned TypeScript transport SDK for sdkwork-knowledgebase.backend.",
+      "description": "Generator-owned TypeScript transport SDK for sdkwork-knowledgebase-backend-api.",
       "consumerSurface": {
         "primaryClient": "SdkworkBackendClient",
         "apiPrefix": "/backend/v3/api"
@@ -43,7 +43,7 @@
       "required": true,
       "dependencyMode": "consumer-sdk",
       "apiPrefix": "/backend/v3/api",
-      "apiAuthority": "sdkwork-appbase.backend",
+      "apiAuthority": "sdkwork-appbase-backend-api",
       "generatedTransportImportPolicy": "forbidden",
       "packageByLanguage": {
         "typescript": "@sdkwork/appbase-backend-sdk",

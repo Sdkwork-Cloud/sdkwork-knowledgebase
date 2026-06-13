@@ -2,13 +2,13 @@
   "workspace": "sdkwork-knowledgebase-app-sdk",
   "title": "SDKWork Knowledgebase App API SDK",
   "apiVersion": "0.1.0",
-  "openapiVersion": "3.1.0",
+  "openapiVersion": "3.1.2",
   "authoritySpec": "openapi/knowledgebase-app-api.openapi.json",
   "generationInputSpec": "openapi/knowledgebase-app-api.openapi.json",
   "derivedSpecs": {
     "default": "openapi/knowledgebase-app-api.openapi.json"
   },
-  "apiAuthority": "sdkwork-knowledgebase.app",
+  "apiAuthority": "sdkwork-knowledgebase-app-api",
   "discoverySurface": {
     "sdkTarget": "app",
     "apiPrefix": "/app/v3/api",
@@ -28,7 +28,7 @@
       "manifestPath": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/package.json",
       "name": "@sdkwork/knowledgebase-app-sdk",
       "version": "0.1.0",
-      "description": "Generator-owned TypeScript transport SDK for sdkwork-knowledgebase.app.",
+      "description": "Generator-owned TypeScript transport SDK for sdkwork-knowledgebase-app-api.",
       "consumerSurface": {
         "primaryClient": "SdkworkAppClient",
         "apiPrefix": "/app/v3/api"
@@ -43,7 +43,7 @@
       "required": true,
       "dependencyMode": "consumer-sdk",
       "apiPrefix": "/app/v3/api",
-      "apiAuthority": "sdkwork-appbase.app",
+      "apiAuthority": "sdkwork-appbase-app-api",
       "generatedTransportImportPolicy": "forbidden",
       "packageByLanguage": {
         "typescript": "@sdkwork/appbase-app-sdk",

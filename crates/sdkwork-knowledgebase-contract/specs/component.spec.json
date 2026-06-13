@@ -3,12 +3,13 @@
   "kind": "sdkwork.component.spec",
   "component": {
     "name": "sdkwork-knowledgebase-contract",
-    "displayName": "Sdkwork Knowledgebase Contract",
+    "displayName": "SDKWork Knowledgebase Contract",
     "version": "0.1.0",
     "type": "rust-crate",
-    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-contract",
+    "root": "crates/sdkwork-knowledgebase-contract",
     "domain": "intelligence",
     "capability": "knowledgebase-contract",
+    "surface": "shared",
     "languages": [
       "rust"
     ],
@@ -56,6 +57,9 @@
     "runtimeEntrypoints": [],
     "routeManifest": null,
     "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
     "events": [],
     "configKeys": []
   },
