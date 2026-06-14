@@ -1218,7 +1218,6 @@ dependencies = [
 name = "sdkwork-intelligence-knowledgebase-object-key-service"
 version = "0.1.0"
 dependencies = [
- "sdkwork-knowledgebase-contract",
  "thiserror 1.0.69",
 ]
 
@@ -1280,10 +1279,8 @@ dependencies = [
  "sdkwork-drive-storage-contract",
  "sdkwork-drive-workspace-service",
  "sdkwork-intelligence-knowledgebase-service",
- "sdkwork-knowledgebase-contract",
  "sha2",
  "sqlx",
- "thiserror 1.0.69",
  "tokio",
 ]
 
@@ -1333,7 +1330,6 @@ dependencies = [
  "sdkwork-knowledgebase-contract",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
  "tokio",
  "tower",
 ]
@@ -1360,7 +1356,6 @@ dependencies = [
  "sdkwork-knowledgebase-contract",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
  "tokio",
  "tower",
 ]

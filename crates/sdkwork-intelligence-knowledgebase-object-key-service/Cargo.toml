@@ -5,5 +5,4 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-sdkwork-knowledgebase-contract.workspace = true
 thiserror.workspace = true

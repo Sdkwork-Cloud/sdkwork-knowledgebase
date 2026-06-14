@@ -11,8 +11,7 @@ serde.workspace = true
 serde_json.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 sdkwork-intelligence-knowledgebase-service.workspace = true
-thiserror.workspace = true
-tower = { version = "0.5", features = ["util"] }
 
 [dev-dependencies]
 tokio.workspace = true
+tower = { version = "0.5", features = ["util"] }
