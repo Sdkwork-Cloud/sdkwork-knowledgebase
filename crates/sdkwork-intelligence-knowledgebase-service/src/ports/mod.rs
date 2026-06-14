@@ -1,4 +1,7 @@
+pub mod knowledge_access_control;
 pub mod knowledge_agent_profile_store;
+pub mod knowledge_context_binding_store;
+pub mod knowledge_drive_permission;
 pub mod knowledge_browser_projection_store;
 pub mod knowledge_document_store;
 pub mod knowledge_document_version_store;

@@ -2,6 +2,7 @@
 
 pub mod agent;
 pub mod browser;
+pub mod context_binding;
 pub mod domain;
 pub mod imports;
 pub mod ingest;

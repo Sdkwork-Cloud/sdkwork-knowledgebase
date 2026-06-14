@@ -78,6 +78,11 @@
       "file": "SECURITY_SPEC.md",
       "path": "../sdkwork-specs/SECURITY_SPEC.md",
       "purpose": "Token model, authn/authz, tenant isolation, and secure logging rules."
+    },
+    {
+      "file": "DATABASE_SPEC.md",
+      "path": "../sdkwork-specs/DATABASE_SPEC.md",
+      "purpose": "Database contract, table naming, logical types, tenant isolation, indexes, schema evolution."
     }
   ],
   "contracts": {

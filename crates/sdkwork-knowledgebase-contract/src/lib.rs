@@ -1,6 +1,7 @@
 //! Public contracts for SDKWork Knowledgebase.
 
 pub mod browser;
+pub mod context_binding;
 pub mod document;
 pub mod drive;
 pub mod enums;
@@ -17,6 +18,7 @@ pub mod wiki;
 pub mod wiki_file;
 
 pub use browser::*;
+pub use context_binding::*;
 pub use document::*;
 pub use drive::*;
 pub use enums::*;

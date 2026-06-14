@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 pub struct CreateKnowledgeSpaceRequest {
     pub name: String,
     pub description: Option<String>,
+    pub owner_subject_type: Option<String>,
+    pub owner_subject_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

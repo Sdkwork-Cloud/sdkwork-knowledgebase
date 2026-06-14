@@ -10,6 +10,7 @@ sdkwork-drive-workspace-service.workspace = true
 sdkwork-drive-storage-contract.workspace = true
 sdkwork-intelligence-knowledgebase-service.workspace = true
 sha2.workspace = true
+uuid.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }
 
 [dev-dependencies]

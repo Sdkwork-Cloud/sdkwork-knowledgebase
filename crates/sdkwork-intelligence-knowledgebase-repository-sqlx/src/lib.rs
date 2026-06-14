@@ -9,6 +9,7 @@ pub mod mapper;
 pub mod migrations;
 pub mod repository;
 mod retrieval_store;
+mod sqlite_context_binding_store;
 mod sqlite_import_stores;
 mod sqlite_space_stores;
 mod wiki_page_store;
@@ -18,6 +19,7 @@ pub use browser_projection_store::SqliteKnowledgeBrowserProjectionStore;
 pub use drive_object_ref_store::SqliteKnowledgeDriveObjectRefStore;
 pub use id::{KnowledgeIdGenerator, KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator};
 pub use retrieval_store::SqliteKnowledgeChunkRetrievalStore;
+pub use sqlite_context_binding_store::SqliteContextBindingStore;
 pub use sqlite_import_stores::{
     SqliteIngestionJobStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
     SqliteKnowledgeSourceStore,

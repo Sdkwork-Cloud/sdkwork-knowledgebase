@@ -38,9 +38,11 @@ async fn creating_space_initializes_llm_wiki_standard_files_through_drive() {
 
     let created = service
         .create_space(CreateKnowledgeSpaceRequest {
-            name: "Research Space".to_string(),
-            description: Some("LLM Wiki research".to_string()),
-        })
+                name: "Research Space".to_string(),
+                description: Some("LLM Wiki research".to_string()),
+                owner_subject_type: Some("user".to_string()),
+                owner_subject_id: Some("test-owner".to_string()),
+            })
         .await
         .unwrap();
 
@@ -74,9 +76,11 @@ async fn creating_space_binds_dedicated_drive_knowledge_space_before_wiki_initia
 
     let created = service
         .create_space(CreateKnowledgeSpaceRequest {
-            name: "Research Space".to_string(),
-            description: None,
-        })
+                name: "Research Space".to_string(),
+                description: None,
+                owner_subject_type: Some("user".to_string()),
+                owner_subject_id: Some("test-owner".to_string()),
+            })
         .await
         .unwrap();
 
@@ -96,11 +100,11 @@ async fn creating_space_binds_dedicated_drive_knowledge_space_before_wiki_initia
     );
     assert_eq!(
         drive_spaces.requested_owner_subject_type(),
-        Some("app".to_string())
+        Some("user".to_string())
     );
     assert_eq!(
         drive_spaces.requested_owner_subject_id(),
-        Some("sdkwork-knowledgebase:space-1".to_string())
+        Some("test-owner".to_string())
     );
     assert!(created.llm_wiki_initialized);
     assert_eq!(drive.paths().len(), 4);
@@ -119,9 +123,11 @@ async fn drive_space_provisioning_requires_context_before_creating_space_record(
 
     let error = service
         .create_space(CreateKnowledgeSpaceRequest {
-            name: "Research Space".to_string(),
-            description: None,
-        })
+                name: "Research Space".to_string(),
+                description: None,
+                owner_subject_type: Some("user".to_string()),
+                owner_subject_id: Some("test-owner".to_string()),
+            })
         .await
         .unwrap_err();
 
@@ -147,9 +153,11 @@ async fn drive_space_provisioning_failure_does_not_leave_half_initialized_space(
 
     let error = service
         .create_space(CreateKnowledgeSpaceRequest {
-            name: "Research Space".to_string(),
-            description: None,
-        })
+                name: "Research Space".to_string(),
+                description: None,
+                owner_subject_type: Some("user".to_string()),
+                owner_subject_id: Some("test-owner".to_string()),
+            })
         .await
         .unwrap_err();
 
@@ -175,9 +183,11 @@ async fn wiki_initialization_failure_releases_created_drive_space_and_local_spac
 
     let error = service
         .create_space(CreateKnowledgeSpaceRequest {
-            name: "Research Space".to_string(),
-            description: None,
-        })
+                name: "Research Space".to_string(),
+                description: None,
+                owner_subject_type: Some("user".to_string()),
+                owner_subject_id: Some("test-owner".to_string()),
+            })
         .await
         .unwrap_err();
 
@@ -210,9 +220,11 @@ async fn creating_bound_space_initializes_browser_visible_llm_wiki_drive_nodes()
 
     service
         .create_space(CreateKnowledgeSpaceRequest {
-            name: "Research Space".to_string(),
-            description: None,
-        })
+                name: "Research Space".to_string(),
+                description: None,
+                owner_subject_type: Some("user".to_string()),
+                owner_subject_id: Some("test-owner".to_string()),
+            })
         .await
         .unwrap();
 
@@ -292,9 +304,11 @@ async fn workspace_backed_initialization_requires_drive_space_binding() {
 
     let error = service
         .create_space(CreateKnowledgeSpaceRequest {
-            name: "Research Space".to_string(),
-            description: None,
-        })
+                name: "Research Space".to_string(),
+                description: None,
+                owner_subject_type: Some("user".to_string()),
+                owner_subject_id: Some("test-owner".to_string()),
+            })
         .await
         .unwrap_err();
 

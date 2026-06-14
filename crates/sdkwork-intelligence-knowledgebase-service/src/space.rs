@@ -1,4 +1,8 @@
 use crate::ports::{
+    knowledge_access_control::{
+        KnowledgeAccessControl, KnowledgeAccessControlError, KnowledgeAccessRole,
+        KnowledgeSubjectType,
+    },
     knowledge_drive_space::{
         CreateKnowledgeDriveSpaceRequest, DeleteKnowledgeDriveSpaceRequest,
         KnowledgeDriveSpaceProvisioner, KnowledgeDriveSpaceProvisionerError,
@@ -15,6 +19,7 @@ pub struct KnowledgeSpaceService<'a> {
     store: &'a dyn KnowledgeSpaceStore,
     wiki_initializer: &'a KnowledgeWikiInitializerService<'a>,
     drive_space_provisioner: Option<&'a dyn KnowledgeDriveSpaceProvisioner>,
+    access_control: Option<&'a dyn KnowledgeAccessControl>,
     drive_context: Option<KnowledgeSpaceDriveContext>,
 }
 
@@ -27,6 +32,7 @@ impl<'a> KnowledgeSpaceService<'a> {
             store,
             wiki_initializer,
             drive_space_provisioner: None,
+            access_control: None,
             drive_context: None,
         }
     }
@@ -51,6 +57,14 @@ impl<'a> KnowledgeSpaceService<'a> {
         self
     }
 
+    pub fn with_access_control(
+        mut self,
+        access_control: &'a dyn KnowledgeAccessControl,
+    ) -> Self {
+        self.access_control = Some(access_control);
+        self
+    }
+
     pub async fn create_space(
         &self,
         request: CreateKnowledgeSpaceRequest,
@@ -60,6 +74,13 @@ impl<'a> KnowledgeSpaceService<'a> {
                 "name is required".to_string(),
             ));
         }
+
+        let owner_subject_type = request
+            .owner_subject_type
+            .unwrap_or_else(|| "user".to_string());
+        let owner_subject_id = request
+            .owner_subject_id
+            .unwrap_or_else(|| "unknown".to_string());
 
         let drive_context = if self.drive_space_provisioner.is_some() {
             Some(self.require_drive_context()?.clone())
@@ -85,7 +106,12 @@ impl<'a> KnowledgeSpaceService<'a> {
 
         let space_id = space.id;
         let space = match self
-            .initialize_created_space(space, drive_context.as_ref())
+            .initialize_created_space(
+                space,
+                drive_context.as_ref(),
+                &owner_subject_type,
+                &owner_subject_id,
+            )
             .await
         {
             Ok(space) => space,
@@ -95,10 +121,155 @@ impl<'a> KnowledgeSpaceService<'a> {
         Ok(space)
     }
 
+    pub async fn get_space_with_access_check(
+        &self,
+        space_id: u64,
+        tenant_id: &str,
+        actor_id: &str,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
+        let space = self
+            .store
+            .get_space(space_id)
+            .await
+            .map_err(KnowledgeSpaceServiceError::Store)?;
+
+        if let (Some(access), Some(drive_space_id)) =
+            (self.access_control, space.drive_space_id.as_ref())
+        {
+            let grant = access
+                .check_space_access(crate::ports::knowledge_access_control::KnowledgeAccessCheckRequest {
+                    tenant_id: tenant_id.to_string(),
+                    actor_id: actor_id.to_string(),
+                    drive_space_id: drive_space_id.clone(),
+                    required_role: KnowledgeAccessRole::Reader,
+                })
+                .await
+                .map_err(KnowledgeSpaceServiceError::AccessControl)?;
+            if !grant.allowed {
+                return Err(KnowledgeSpaceServiceError::AccessDenied(format!(
+                    "actor {actor_id} does not have access to space {space_id}"
+                )));
+            }
+        }
+
+        Ok(space)
+    }
+
+    pub async fn grant_space_member(
+        &self,
+        space_id: u64,
+        tenant_id: &str,
+        subject_type: KnowledgeSubjectType,
+        subject_id: &str,
+        role: KnowledgeAccessRole,
+        operator_id: &str,
+    ) -> Result<(), KnowledgeSpaceServiceError> {
+        let space = self
+            .store
+            .get_space(space_id)
+            .await
+            .map_err(KnowledgeSpaceServiceError::Store)?;
+
+        let drive_space_id = space.drive_space_id.as_ref().ok_or_else(|| {
+            KnowledgeSpaceServiceError::InvalidRequest(
+                "space is not bound to a drive space".to_string(),
+            )
+        })?;
+
+        let access = self.require_access_control()?;
+        access
+            .grant_space_access(crate::ports::knowledge_access_control::GrantKnowledgeSpaceAccessRequest {
+                tenant_id: tenant_id.to_string(),
+                drive_space_id: drive_space_id.clone(),
+                drive_node_id: None,
+                subject_type,
+                subject_id: subject_id.to_string(),
+                role,
+                operator_id: operator_id.to_string(),
+            })
+            .await
+            .map_err(KnowledgeSpaceServiceError::AccessControl)?;
+
+        Ok(())
+    }
+
+    pub async fn revoke_space_member(
+        &self,
+        space_id: u64,
+        tenant_id: &str,
+        subject_type: KnowledgeSubjectType,
+        subject_id: &str,
+        operator_id: &str,
+    ) -> Result<(), KnowledgeSpaceServiceError> {
+        let space = self
+            .store
+            .get_space(space_id)
+            .await
+            .map_err(KnowledgeSpaceServiceError::Store)?;
+
+        let drive_space_id = space.drive_space_id.as_ref().ok_or_else(|| {
+            KnowledgeSpaceServiceError::InvalidRequest(
+                "space is not bound to a drive space".to_string(),
+            )
+        })?;
+
+        let access = self.require_access_control()?;
+        access
+            .revoke_space_access(crate::ports::knowledge_access_control::RevokeKnowledgeSpaceAccessRequest {
+                tenant_id: tenant_id.to_string(),
+                drive_space_id: drive_space_id.clone(),
+                drive_node_id: None,
+                subject_type,
+                subject_id: subject_id.to_string(),
+                operator_id: operator_id.to_string(),
+            })
+            .await
+            .map_err(KnowledgeSpaceServiceError::AccessControl)?;
+
+        Ok(())
+    }
+
+    pub async fn list_space_members(
+        &self,
+        space_id: u64,
+        tenant_id: &str,
+    ) -> Result<
+        crate::ports::knowledge_access_control::KnowledgeSpaceMemberList,
+        KnowledgeSpaceServiceError,
+    > {
+        let space = self
+            .store
+            .get_space(space_id)
+            .await
+            .map_err(KnowledgeSpaceServiceError::Store)?;
+
+        let drive_space_id = space.drive_space_id.as_ref().ok_or_else(|| {
+            KnowledgeSpaceServiceError::InvalidRequest(
+                "space is not bound to a drive space".to_string(),
+            )
+        })?;
+
+        let access = self.require_access_control()?;
+        let members = access
+            .list_space_members(crate::ports::knowledge_access_control::ListKnowledgeSpaceMembersRequest {
+                tenant_id: tenant_id.to_string(),
+                drive_space_id: drive_space_id.clone(),
+                drive_node_id: None,
+                cursor: None,
+                page_size: None,
+            })
+            .await
+            .map_err(KnowledgeSpaceServiceError::AccessControl)?;
+
+        Ok(members)
+    }
+
     async fn initialize_created_space(
         &self,
         mut space: KnowledgeSpace,
         drive_context: Option<&KnowledgeSpaceDriveContext>,
+        owner_subject_type: &str,
+        owner_subject_id: &str,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
         let mut drive_cleanup = None;
         if let Some(provisioner) = self.drive_space_provisioner {
@@ -108,24 +279,22 @@ impl<'a> KnowledgeSpaceService<'a> {
                         .to_string(),
                 )
             })?;
-            let owner_subject_type = "app".to_string();
-            let owner_subject_id = format!("sdkwork-knowledgebase:{}", space.uuid);
             let binding = provisioner
                 .create_knowledge_drive_space(CreateKnowledgeDriveSpaceRequest {
                     tenant_id: drive_context.tenant_id.clone(),
                     knowledge_space_id: space.id,
                     knowledge_space_uuid: space.uuid.clone(),
                     display_name: space.name.clone(),
-                    owner_subject_type: owner_subject_type.clone(),
-                    owner_subject_id: owner_subject_id.clone(),
+                    owner_subject_type: owner_subject_type.to_string(),
+                    owner_subject_id: owner_subject_id.to_string(),
                     operator_id: drive_context.operator_id.clone(),
                 })
                 .await?;
             drive_cleanup = Some(DeleteKnowledgeDriveSpaceRequest {
                 tenant_id: drive_context.tenant_id.clone(),
                 drive_space_id: binding.drive_space_id.clone(),
-                owner_subject_type,
-                owner_subject_id,
+                owner_subject_type: owner_subject_type.to_string(),
+                owner_subject_id: owner_subject_id.to_string(),
                 operator_id: drive_context.operator_id.clone(),
             });
 
@@ -226,6 +395,16 @@ impl<'a> KnowledgeSpaceService<'a> {
         }
         Ok(context)
     }
+
+    fn require_access_control(
+        &self,
+    ) -> Result<&dyn KnowledgeAccessControl, KnowledgeSpaceServiceError> {
+        self.access_control.ok_or_else(|| {
+            KnowledgeSpaceServiceError::InvalidRequest(
+                "access control is required for this operation".to_string(),
+            )
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -238,12 +417,16 @@ pub struct KnowledgeSpaceDriveContext {
 pub enum KnowledgeSpaceServiceError {
     #[error("invalid knowledge space request: {0}")]
     InvalidRequest(String),
+    #[error("knowledge space access denied: {0}")]
+    AccessDenied(String),
     #[error(transparent)]
     Store(#[from] KnowledgeSpaceStoreError),
     #[error(transparent)]
     WikiInitializer(#[from] KnowledgeWikiInitializerServiceError),
     #[error(transparent)]
     DriveSpaceProvisioner(#[from] KnowledgeDriveSpaceProvisionerError),
+    #[error(transparent)]
+    AccessControl(#[from] KnowledgeAccessControlError),
     #[error("knowledge space initialization failed: {original}; cleanup failed: {cleanup}")]
     InitializationCleanup {
         original: String,

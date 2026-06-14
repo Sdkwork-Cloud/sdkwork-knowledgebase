@@ -27,9 +27,11 @@ async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
 
     let created = service
         .create_space(CreateKnowledgeSpaceRequest {
-            name: "Research Space".to_string(),
-            description: Some("LLM Wiki research".to_string()),
-        })
+                name: "Research Space".to_string(),
+                description: Some("LLM Wiki research".to_string()),
+                owner_subject_type: Some("user".to_string()),
+                owner_subject_id: Some("test-owner".to_string()),
+            })
         .await
         .unwrap();
 
