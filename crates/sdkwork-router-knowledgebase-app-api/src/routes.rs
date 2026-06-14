@@ -16,6 +16,7 @@ use std::sync::Arc;
 use crate::adapters::{
     AgentAndRetrievalAppApi, AgentOnlyAppApi, BrowserOnlyAppApi, FullAppApi, RetrievalOnlyAppApi,
 };
+use crate::paths;
 use crate::{
     ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext,
     KnowledgeBrowserApi, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
@@ -110,95 +111,53 @@ pub fn build_router_with_full_app_api(
 
 pub fn build_router_with_shared_app_api(api: Arc<dyn KnowledgeAppApi>) -> Router {
     Router::new()
-        .route("/healthz", get(health))
-        .route("/app/v3/api/knowledge/spaces", post(create_space))
+        .route(paths::HEALTHZ, get(health))
+        .route(paths::SPACES, post(create_space))
+        .route(paths::SPACE, get(retrieve_space))
+        .route(paths::DRIVE_IMPORTS, post(create_drive_import))
+        .route(paths::INGESTS, post(create_ingest))
+        .route(paths::INGEST, get(retrieve_ingest))
+        .route(paths::DOCUMENTS, get(list_documents).post(create_document))
         .route(
-            "/app/v3/api/knowledge/spaces/:space_id",
-            get(retrieve_space),
-        )
-        .route(
-            "/app/v3/api/knowledge/drive_imports",
-            post(create_drive_import),
-        )
-        .route("/app/v3/api/knowledge/ingests", post(create_ingest))
-        .route(
-            "/app/v3/api/knowledge/ingests/:ingest_id",
-            get(retrieve_ingest),
-        )
-        .route(
-            "/app/v3/api/knowledge/documents",
-            get(list_documents).post(create_document),
-        )
-        .route(
-            "/app/v3/api/knowledge/documents/:document_id",
+            paths::DOCUMENT,
             get(retrieve_document)
                 .patch(update_document)
                 .delete(delete_document),
         )
         .route(
-            "/app/v3/api/knowledge/documents/:document_id/versions",
+            paths::DOCUMENT_VERSIONS,
             get(list_document_versions).post(create_document_version),
         )
-        .route("/app/v3/api/knowledge/wiki_pages", get(list_wiki_pages))
+        .route(paths::WIKI_PAGES, get(list_wiki_pages))
+        .route(paths::WIKI_PAGE, get(retrieve_wiki_page))
+        .route(paths::WIKI_PAGE_REVISIONS, get(list_wiki_page_revisions))
+        .route(paths::WIKI_INDEX, get(retrieve_wiki_index))
+        .route(paths::WIKI_LOG, get(retrieve_wiki_log))
+        .route(paths::WIKI_SCHEMA, get(retrieve_wiki_schema))
+        .route(paths::WIKI_QUERIES, post(create_wiki_query))
+        .route(paths::WIKI_QUERY_FILE_ANSWER, post(file_wiki_query_answer))
+        .route(paths::WIKI_CONTEXT_PACKS, post(create_wiki_context_pack))
+        .route(paths::SPACE_BROWSER, get(list_browser))
+        .route(paths::RETRIEVALS, post(create_retrieval))
+        .route(paths::RETRIEVAL, get(retrieve_retrieval))
+        .route(paths::CONTEXT_PACKS, post(create_context_pack))
+        .route(paths::AGENT_PROFILES, post(create_agent_profile))
         .route(
-            "/app/v3/api/knowledge/wiki_pages/:page_id",
-            get(retrieve_wiki_page),
-        )
-        .route(
-            "/app/v3/api/knowledge/wiki_pages/:page_id/revisions",
-            get(list_wiki_page_revisions),
-        )
-        .route("/app/v3/api/knowledge/wiki_index", get(retrieve_wiki_index))
-        .route("/app/v3/api/knowledge/wiki_log", get(retrieve_wiki_log))
-        .route(
-            "/app/v3/api/knowledge/wiki_schema",
-            get(retrieve_wiki_schema),
-        )
-        .route(
-            "/app/v3/api/knowledge/wiki_queries",
-            post(create_wiki_query),
-        )
-        .route(
-            "/app/v3/api/knowledge/wiki_queries/:query_id/file_answer",
-            post(file_wiki_query_answer),
-        )
-        .route(
-            "/app/v3/api/knowledge/wiki_context_packs",
-            post(create_wiki_context_pack),
-        )
-        .route(
-            "/app/v3/api/knowledge/spaces/:space_id/browser",
-            get(list_browser),
-        )
-        .route("/app/v3/api/knowledge/retrievals", post(create_retrieval))
-        .route(
-            "/app/v3/api/knowledge/retrievals/:retrieval_id",
-            get(retrieve_retrieval),
-        )
-        .route(
-            "/app/v3/api/knowledge/context_packs",
-            post(create_context_pack),
-        )
-        .route(
-            "/app/v3/api/knowledge/agent_profiles",
-            post(create_agent_profile),
-        )
-        .route(
-            "/app/v3/api/knowledge/agent_profiles/:profile_id",
+            paths::AGENT_PROFILE,
             get(retrieve_agent_profile)
                 .patch(update_agent_profile)
                 .delete(delete_agent_profile),
         )
         .route(
-            "/app/v3/api/knowledge/agent_profiles/:profile_id/bindings",
+            paths::AGENT_PROFILE_BINDINGS,
             get(list_agent_profile_bindings).post(create_agent_profile_binding),
         )
         .route(
-            "/app/v3/api/knowledge/agent_profiles/:profile_id/bindings/:binding_id",
+            paths::AGENT_PROFILE_BINDING,
             patch(update_agent_profile_binding).delete(delete_agent_profile_binding),
         )
         .route(
-            "/app/v3/api/knowledge/agent_profiles/:profile_id/retrieval_preview",
+            paths::AGENT_PROFILE_RETRIEVAL_PREVIEW,
             post(create_agent_profile_retrieval_preview),
         )
         .with_state(AppState { api })

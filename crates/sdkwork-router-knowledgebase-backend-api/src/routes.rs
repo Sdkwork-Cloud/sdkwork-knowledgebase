@@ -3,6 +3,7 @@ use axum::Router;
 use std::sync::Arc;
 
 use crate::handlers;
+use crate::paths;
 use crate::ports::KnowledgeBackendApi;
 
 #[derive(Clone)]
@@ -19,97 +20,70 @@ where
 
 pub fn build_router_with_shared_backend_api(api: Arc<dyn KnowledgeBackendApi>) -> Router {
     Router::new()
-        .route("/healthz", get(handlers::health))
+        .route(paths::HEALTHZ, get(handlers::health))
         .route(
-            "/backend/v3/api/knowledge/sources",
+            paths::SOURCES,
             get(handlers::list_sources).post(handlers::create_source),
         )
         .route(
-            "/backend/v3/api/knowledge/wiki_compile_jobs",
+            paths::WIKI_COMPILE_JOBS,
             post(handlers::create_wiki_compile_job),
         )
+        .route(paths::WIKI_CANDIDATES, get(handlers::list_wiki_candidates))
         .route(
-            "/backend/v3/api/knowledge/wiki_candidates",
-            get(handlers::list_wiki_candidates),
-        )
-        .route(
-            "/backend/v3/api/knowledge/wiki_candidates/:candidate_id/approve",
+            paths::WIKI_CANDIDATE_APPROVE,
             post(handlers::approve_wiki_candidate),
         )
         .route(
-            "/backend/v3/api/knowledge/wiki_candidates/:candidate_id/reject",
+            paths::WIKI_CANDIDATE_REJECT,
             post(handlers::reject_wiki_candidate),
         )
+        .route(paths::WIKI_PAGE_PUBLISH, post(handlers::publish_wiki_page))
         .route(
-            "/backend/v3/api/knowledge/wiki_pages/:page_id/publish",
-            post(handlers::publish_wiki_page),
-        )
-        .route(
-            "/backend/v3/api/knowledge/wiki_schema_profiles",
+            paths::WIKI_SCHEMA_PROFILES,
             post(handlers::create_wiki_schema_profile),
         )
         .route(
-            "/backend/v3/api/knowledge/wiki_schema_profiles/:profile_id",
+            paths::WIKI_SCHEMA_PROFILE,
             patch(handlers::update_wiki_schema_profile),
         )
         .route(
-            "/backend/v3/api/knowledge/wiki_index/rebuild",
+            paths::WIKI_INDEX_REBUILD,
             post(handlers::rebuild_wiki_index),
         )
         .route(
-            "/backend/v3/api/knowledge/wiki_log_entries",
+            paths::WIKI_LOG_ENTRIES,
             post(handlers::create_wiki_log_entry),
         )
+        .route(paths::WIKI_EXPORTS, post(handlers::create_wiki_export))
+        .route(paths::WIKI_EXPORT, get(handlers::retrieve_wiki_export))
         .route(
-            "/backend/v3/api/knowledge/wiki_exports",
-            post(handlers::create_wiki_export),
-        )
-        .route(
-            "/backend/v3/api/knowledge/wiki_exports/:export_id",
-            get(handlers::retrieve_wiki_export),
-        )
-        .route(
-            "/backend/v3/api/knowledge/wiki_file_entries",
+            paths::WIKI_FILE_ENTRIES,
             get(handlers::list_wiki_file_entries),
         )
+        .route(paths::WIKI_LINT_RUNS, post(handlers::create_wiki_lint_run))
+        .route(paths::WIKI_EVAL_RUNS, post(handlers::create_wiki_eval_run))
+        .route(paths::INDEXES, post(handlers::create_index))
+        .route(paths::INDEX, get(handlers::retrieve_index))
+        .route(paths::INDEX_REBUILD, post(handlers::rebuild_index))
         .route(
-            "/backend/v3/api/knowledge/wiki_lint_runs",
-            post(handlers::create_wiki_lint_run),
-        )
-        .route(
-            "/backend/v3/api/knowledge/wiki_eval_runs",
-            post(handlers::create_wiki_eval_run),
-        )
-        .route(
-            "/backend/v3/api/knowledge/indexes",
-            post(handlers::create_index),
-        )
-        .route(
-            "/backend/v3/api/knowledge/indexes/:index_id",
-            get(handlers::retrieve_index),
-        )
-        .route(
-            "/backend/v3/api/knowledge/indexes/:index_id/rebuild",
-            post(handlers::rebuild_index),
-        )
-        .route(
-            "/backend/v3/api/knowledge/retrieval_profiles",
+            paths::RETRIEVAL_PROFILES,
             post(handlers::create_retrieval_profile),
         )
         .route(
-            "/backend/v3/api/knowledge/retrieval_profiles/:profile_id",
+            paths::RETRIEVAL_PROFILE,
             get(handlers::retrieve_retrieval_profile).patch(handlers::update_retrieval_profile),
         )
         .route(
-            "/backend/v3/api/knowledge/retrieval_traces",
+            paths::RETRIEVAL_TRACES,
             get(handlers::list_retrieval_traces),
         )
         .route(
-            "/backend/v3/api/knowledge/retrieval_traces/:trace_id",
+            paths::RETRIEVAL_TRACE,
             get(handlers::retrieve_retrieval_trace),
         )
         .route(
-            "/backend/v3/api/knowledge/provider_health",
+            paths::PROVIDER_HEALTH,
             get(handlers::retrieve_provider_health),
         )
         .with_state(BackendState { api })
