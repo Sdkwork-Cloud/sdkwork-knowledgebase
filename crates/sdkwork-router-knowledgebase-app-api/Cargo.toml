@@ -6,7 +6,7 @@ license.workspace = true
 
 [dependencies]
 async-trait.workspace = true
-axum = "0.7"
+axum.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
@@ -14,4 +14,4 @@ sdkwork-intelligence-knowledgebase-service.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
-tower = { version = "0.5", features = ["util"] }
+tower.workspace = true

@@ -94,13 +94,13 @@ impl KnowledgeRetrievalBackend for SqliteKnowledgeChunkRetrievalStore {
             JOIN kb_document d
               ON d.tenant_id = c.tenant_id
              AND d.id = c.document_id
-             AND d.status = 
+             AND d.status =
             "#,
         );
         query.push_bind(ACTIVE_STATUS);
         query.push(
             r#"
-            WHERE c.tenant_id = 
+            WHERE c.tenant_id =
             "#,
         );
         query.push_bind(tenant_id);

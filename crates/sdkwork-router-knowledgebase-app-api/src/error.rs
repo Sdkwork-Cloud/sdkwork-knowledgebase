@@ -1,12 +1,18 @@
-use axum::http::{header, HeaderValue, StatusCode};
-use axum::response::{IntoResponse, Response};
-use axum::Json;
-use sdkwork_intelligence_knowledgebase_service::agent::KnowledgeAgentServiceError;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_agent_profile_store::KnowledgeAgentProfileStoreError;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_memory_context::KnowledgeMemoryContextProviderError;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_backend::KnowledgeRetrievalBackendError;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_trace_store::KnowledgeRetrievalTraceStoreError;
-use sdkwork_intelligence_knowledgebase_service::retrieval::KnowledgeRetrievalServiceError;
+use axum::{
+    http::{header, HeaderValue, StatusCode},
+    response::{IntoResponse, Response},
+    Json,
+};
+use sdkwork_intelligence_knowledgebase_service::{
+    agent::KnowledgeAgentServiceError,
+    ports::{
+        knowledge_agent_profile_store::KnowledgeAgentProfileStoreError,
+        knowledge_memory_context::KnowledgeMemoryContextProviderError,
+        knowledge_retrieval_backend::KnowledgeRetrievalBackendError,
+        knowledge_retrieval_trace_store::KnowledgeRetrievalTraceStoreError,
+    },
+    retrieval::KnowledgeRetrievalServiceError,
+};
 use sdkwork_knowledgebase_contract::ProblemDetails;
 
 pub type ApiResult<T> = Result<T, ApiError>;

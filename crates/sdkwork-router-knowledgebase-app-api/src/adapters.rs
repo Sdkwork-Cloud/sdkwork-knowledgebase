@@ -273,6 +273,7 @@ pub struct FullAppApi {
 }
 
 impl FullAppApi {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         space: Arc<dyn KnowledgeSpaceAppService>,
         drive_import: Arc<dyn KnowledgeDriveImportAppService>,
