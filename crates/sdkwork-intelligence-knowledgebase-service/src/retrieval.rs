@@ -1,17 +1,19 @@
 use async_trait::async_trait;
 
-use crate::ports::knowledge_memory_context::{
-    KnowledgeMemoryContextProvider, KnowledgeMemoryContextProviderError,
-    KnowledgeMemoryContextRequest,
-};
-use crate::ports::knowledge_retrieval_backend::{
-    KnowledgeChunkSearchHit, KnowledgeChunkSearchRequest, KnowledgeRetrievalBackend,
-    KnowledgeRetrievalBackendError,
-};
-use crate::ports::knowledge_retrieval_trace_store::{
-    CreateKnowledgeRetrievalHitRecord, CreateKnowledgeRetrievalTraceRecord,
-    KnowledgeRetrievalTraceHitRecord, KnowledgeRetrievalTraceStore,
-    KnowledgeRetrievalTraceStoreError,
+use crate::ports::{
+    knowledge_memory_context::{
+        KnowledgeMemoryContextProvider, KnowledgeMemoryContextProviderError,
+        KnowledgeMemoryContextRequest,
+    },
+    knowledge_retrieval_backend::{
+        KnowledgeChunkSearchHit, KnowledgeChunkSearchRequest, KnowledgeRetrievalBackend,
+        KnowledgeRetrievalBackendError,
+    },
+    knowledge_retrieval_trace_store::{
+        CreateKnowledgeRetrievalHitRecord, CreateKnowledgeRetrievalTraceRecord,
+        KnowledgeRetrievalTraceHitRecord, KnowledgeRetrievalTraceStore,
+        KnowledgeRetrievalTraceStoreError,
+    },
 };
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeCitation, KnowledgeContextFragment, KnowledgeContextPack, KnowledgeContextPackRequest,
@@ -19,8 +21,7 @@ use sdkwork_knowledgebase_contract::rag::{
     KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeRetrievalTrace,
 };
 use sha2::{Digest, Sha256};
-use std::cmp::Ordering;
-use std::time::Instant;
+use std::{cmp::Ordering, time::Instant};
 use thiserror::Error;
 
 const DEFAULT_TOP_K: u32 = 8;

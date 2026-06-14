@@ -1,13 +1,15 @@
-use crate::ports::knowledge_browser_projection_store::{
-    KnowledgeBrowserDocumentProjection, KnowledgeBrowserProjectionStore,
-    KnowledgeBrowserProjectionStoreError, KnowledgeBrowserWikiPageProjection,
+use crate::ports::{
+    knowledge_browser_projection_store::{
+        KnowledgeBrowserDocumentProjection, KnowledgeBrowserProjectionStore,
+        KnowledgeBrowserProjectionStoreError, KnowledgeBrowserWikiPageProjection,
+    },
+    knowledge_drive_node_tree::{
+        DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodeSummary,
+        KnowledgeDriveNodeTree, KnowledgeDriveNodeTreeError,
+        ListKnowledgeDriveNodeChildrenRequest, ResolveKnowledgeDriveNodePathRequest,
+    },
+    knowledge_space_store::{KnowledgeSpaceStore, KnowledgeSpaceStoreError},
 };
-use crate::ports::knowledge_drive_node_tree::{
-    DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodeSummary, KnowledgeDriveNodeTree,
-    KnowledgeDriveNodeTreeError, ListKnowledgeDriveNodeChildrenRequest,
-    ResolveKnowledgeDriveNodePathRequest,
-};
-use crate::ports::knowledge_space_store::{KnowledgeSpaceStore, KnowledgeSpaceStoreError};
 use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserNode, KnowledgeBrowserNodePermissions, KnowledgeBrowserNodeType,
     KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,

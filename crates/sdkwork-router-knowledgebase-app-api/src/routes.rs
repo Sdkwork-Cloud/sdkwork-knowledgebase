@@ -1,8 +1,10 @@
-use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-use axum::routing::{get, patch, post};
-use axum::{Extension, Json, Router};
+use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::{get, patch, post},
+    Extension, Json, Router,
+};
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, KnowledgeAgentBindingRequest, KnowledgeAgentProfileRequest,
@@ -13,15 +15,15 @@ use sdkwork_knowledgebase_contract::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::adapters::{
-    AgentAndRetrievalAppApi, AgentOnlyAppApi, BrowserOnlyAppApi, FullAppApi, RetrievalOnlyAppApi,
-};
-use crate::paths;
 use crate::{
-    ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext,
-    KnowledgeBrowserApi, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
-    KnowledgeIngestAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
-    KnowledgeWikiAppService,
+    adapters::{
+        AgentAndRetrievalAppApi, AgentOnlyAppApi, BrowserOnlyAppApi, FullAppApi,
+        RetrievalOnlyAppApi,
+    },
+    paths, ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi,
+    KnowledgeAppRequestContext, KnowledgeBrowserApi, KnowledgeDocumentAppService,
+    KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeRetrievalAppService,
+    KnowledgeSpaceAppService, KnowledgeWikiAppService,
 };
 
 #[derive(Clone)]

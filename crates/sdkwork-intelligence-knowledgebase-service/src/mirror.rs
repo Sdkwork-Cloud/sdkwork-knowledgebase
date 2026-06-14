@@ -1,11 +1,13 @@
 use crate::ports::knowledge_drive_storage::{
     KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError, PutKnowledgeObjectRequest,
 };
-use sdkwork_knowledgebase_contract::mirror::{
-    DeltaManifest, DeltaOperations, LlmWikiCompatibility, MirrorContentPolicy, MirrorDatabase,
-    MirrorManifest,
+use sdkwork_knowledgebase_contract::{
+    mirror::{
+        DeltaManifest, DeltaOperations, LlmWikiCompatibility, MirrorContentPolicy, MirrorDatabase,
+        MirrorManifest,
+    },
+    wiki::LlmWikiPaths,
 };
-use sdkwork_knowledgebase_contract::wiki::LlmWikiPaths;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use thiserror::Error;

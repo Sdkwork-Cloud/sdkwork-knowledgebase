@@ -1,6 +1,4 @@
-use axum::extract::{Path, State};
-use axum::response::Response;
-use axum::Json;
+use axum::{extract::{Path, State}, response::Response, Json};
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSourceRequest, KnowledgeIndexRequest, KnowledgeRetrievalProfileRequest,
     KnowledgeWikiSchemaProfileRequest, WikiCandidateReviewRequest, WikiCompileJobRequest,
@@ -8,9 +6,11 @@ use sdkwork_knowledgebase_contract::{
     WikiQualityRunRequest,
 };
 
-use crate::error::BackendApiProblem;
-use crate::response::{created_json, ok_json};
-use crate::routes::BackendState;
+use crate::{
+    error::BackendApiProblem,
+    response::{created_json, ok_json},
+    routes::BackendState,
+};
 
 pub(crate) async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "ok" }))

@@ -1,5 +1,7 @@
-use std::fmt;
-use std::sync::{Arc, OnceLock};
+use std::{
+    fmt,
+    sync::{Arc, OnceLock},
+};
 
 use sdkwork_platform_id_service::{max_snowflake_node_id, SnowflakeIdError, SnowflakeIdGenerator};
 

@@ -1,10 +1,7 @@
-use axum::routing::{get, patch, post};
-use axum::Router;
+use axum::{routing::{get, patch, post}, Router};
 use std::sync::Arc;
 
-use crate::handlers;
-use crate::paths;
-use crate::ports::KnowledgeBackendApi;
+use crate::{handlers, paths, ports::KnowledgeBackendApi};
 
 #[derive(Clone)]
 pub(crate) struct BackendState {

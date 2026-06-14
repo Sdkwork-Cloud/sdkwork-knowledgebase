@@ -1,5 +1,4 @@
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serializer};
+use serde::{de, de::Visitor, Deserialize, Deserializer, Serializer};
 use std::fmt;
 
 pub fn serialize_u64_as_string<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>

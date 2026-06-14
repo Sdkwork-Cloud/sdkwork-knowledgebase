@@ -1,8 +1,10 @@
-use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
-use axum::{Extension, Json, Router};
+use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Extension, Json, Router,
+};
 use sdkwork_knowledgebase_contract::{
     KnowledgeBrowserView, KnowledgeContextPackRequest, KnowledgeIngestRequest,
     KnowledgeRetrievalRequest, ListKnowledgeBrowserRequest,

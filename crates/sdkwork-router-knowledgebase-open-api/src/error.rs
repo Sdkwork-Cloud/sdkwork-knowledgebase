@@ -1,6 +1,8 @@
-use axum::http::{header, HeaderValue, StatusCode};
-use axum::response::{IntoResponse, Response};
-use axum::Json;
+use axum::{
+    http::{header, HeaderValue, StatusCode},
+    response::{IntoResponse, Response},
+    Json,
+};
 use sdkwork_knowledgebase_contract::ProblemDetails;
 
 pub type ApiResult<T> = Result<T, ApiError>;
