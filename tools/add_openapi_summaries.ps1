@@ -97,7 +97,7 @@ foreach ($file in $files) {
     }
     
     if ($modified) {
-        $json | ConvertTo-Json -Depth 100 | Set-Content $fullPath -Encoding UTF8
+        $json | ConvertTo-Json -Depth 100 | Set-Content $fullPath -Encoding UTF8NoBOM
         Write-Host "Updated $file"
     }
 }

@@ -14,11 +14,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::adapters::{
-    AgentAndRetrievalAppApi, AgentOnlyAppApi, BrowserOnlyAppApi, RetrievalOnlyAppApi,
+    AgentAndRetrievalAppApi, AgentOnlyAppApi, BrowserOnlyAppApi, FullAppApi, RetrievalOnlyAppApi,
 };
 use crate::{
     ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext,
-    KnowledgeBrowserApi, KnowledgeRetrievalAppService,
+    KnowledgeBrowserApi, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
+    KnowledgeIngestAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
+    KnowledgeWikiAppService,
 };
 
 #[derive(Clone)]
@@ -81,6 +83,29 @@ where
     A: KnowledgeAppApi,
 {
     build_router_with_shared_app_api(Arc::new(api))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn build_router_with_full_app_api(
+    space: Arc<dyn KnowledgeSpaceAppService>,
+    drive_import: Arc<dyn KnowledgeDriveImportAppService>,
+    ingest: Arc<dyn KnowledgeIngestAppService>,
+    document: Arc<dyn KnowledgeDocumentAppService>,
+    wiki: Arc<dyn KnowledgeWikiAppService>,
+    browser: Arc<dyn KnowledgeBrowserApi>,
+    retrieval: Arc<dyn KnowledgeRetrievalAppService>,
+    agent: Arc<dyn KnowledgeAgentAppService>,
+) -> Router {
+    build_router_with_shared_app_api(Arc::new(FullAppApi::new(
+        space,
+        drive_import,
+        ingest,
+        document,
+        wiki,
+        browser,
+        retrieval,
+        agent,
+    )))
 }
 
 pub fn build_router_with_shared_app_api(api: Arc<dyn KnowledgeAppApi>) -> Router {

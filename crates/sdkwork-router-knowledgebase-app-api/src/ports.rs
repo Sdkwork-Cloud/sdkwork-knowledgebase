@@ -21,6 +21,91 @@ pub struct KnowledgeAppRequestContext {
 }
 
 #[async_trait]
+pub trait KnowledgeSpaceAppService: Send + Sync + 'static {
+    async fn create_space(&self, request: CreateKnowledgeSpaceRequest)
+        -> ApiResult<KnowledgeSpace>;
+
+    async fn retrieve_space(&self, space_id: u64) -> ApiResult<KnowledgeSpace>;
+}
+
+#[async_trait]
+pub trait KnowledgeDriveImportAppService: Send + Sync + 'static {
+    async fn import_drive_object(
+        &self,
+        request: KnowledgeDriveImportRequest,
+    ) -> ApiResult<KnowledgeDriveImportResult>;
+}
+
+#[async_trait]
+pub trait KnowledgeIngestAppService: Send + Sync + 'static {
+    async fn create_ingest(&self, request: KnowledgeIngestRequest) -> ApiResult<IngestionJob>;
+
+    async fn retrieve_ingest(&self, ingest_id: u64) -> ApiResult<IngestionJob>;
+}
+
+#[async_trait]
+pub trait KnowledgeDocumentAppService: Send + Sync + 'static {
+    async fn list_documents(&self) -> ApiResult<KnowledgeDocumentList>;
+
+    async fn create_document(
+        &self,
+        request: CreateKnowledgeDocumentRequest,
+    ) -> ApiResult<KnowledgeDocument>;
+
+    async fn retrieve_document(&self, document_id: u64) -> ApiResult<KnowledgeDocument>;
+
+    async fn update_document(
+        &self,
+        document_id: u64,
+        request: CreateKnowledgeDocumentRequest,
+    ) -> ApiResult<KnowledgeDocument>;
+
+    async fn delete_document(&self, document_id: u64) -> ApiResult<()>;
+
+    async fn list_document_versions(
+        &self,
+        document_id: u64,
+    ) -> ApiResult<KnowledgeDocumentVersionList>;
+
+    async fn create_document_version(
+        &self,
+        document_id: u64,
+        request: CreateKnowledgeDocumentVersionRequest,
+    ) -> ApiResult<KnowledgeDocumentVersion>;
+}
+
+#[async_trait]
+pub trait KnowledgeWikiAppService: Send + Sync + 'static {
+    async fn list_wiki_pages(&self) -> ApiResult<WikiPageSummaryList>;
+
+    async fn retrieve_wiki_page(&self, page_id: u64) -> ApiResult<WikiPageSummary>;
+
+    async fn list_wiki_page_revisions(
+        &self,
+        page_id: u64,
+    ) -> ApiResult<KnowledgeWikiPageRevisionList>;
+
+    async fn retrieve_wiki_index(&self) -> ApiResult<WikiIndexDocument>;
+
+    async fn retrieve_wiki_log(&self) -> ApiResult<WikiLogDocument>;
+
+    async fn retrieve_wiki_schema(&self) -> ApiResult<WikiSchemaDocument>;
+
+    async fn create_wiki_query(&self, request: WikiQueryRequest) -> ApiResult<WikiQueryResult>;
+
+    async fn file_wiki_query_answer(
+        &self,
+        query_id: u64,
+        request: WikiFileAnswerRequest,
+    ) -> ApiResult<WikiQueryResult>;
+
+    async fn create_wiki_context_pack(
+        &self,
+        request: WikiContextPackRequest,
+    ) -> ApiResult<KnowledgeWikiFileEntry>;
+}
+
+#[async_trait]
 pub trait KnowledgeBrowserApi: Send + Sync + 'static {
     async fn list_browser(
         &self,
