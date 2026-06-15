@@ -5,8 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-sdkwork-database-config = { path = "../../../sdkwork-pool/crates/sdkwork-database-config" }
-sdkwork-database-sqlx = { path = "../../../sdkwork-pool/crates/sdkwork-database-sqlx" }
+sdkwork-database-config = { path = "../../../sdkwork-database/crates/sdkwork-database-config" }
+sdkwork-database-sqlx = { path = "../../../sdkwork-database/crates/sdkwork-database-sqlx" }
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
