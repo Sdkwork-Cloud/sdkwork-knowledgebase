@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 2,
+  "kind": "sdkwork.app.topology",
+  "appId": "sdkwork-knowledgebase",
+  "archetype": "application-http-gateway",
+  "profileRoot": "configs/topology",
+  "profilePattern": "{hosting}.{serviceLayout}.{environment}.env",
+  "vocabulary": {
+    "hosting": { "allowed": ["self-hosted", "cloud-hosted"] },
+    "serviceLayout": { "allowed": ["unified-process", "split-services"] },
+    "environment": { "allowed": ["development", "production"] }
+  },
+  "defaults": {
+    "developmentProfileId": "self-hosted.split-services.development",
+    "productionProfileId": "cloud-hosted.split-services.production",
+    "desktopBuildProfileId": "cloud-hosted.split-services.production",
+    "gatewayBind": "127.0.0.1:3900"
+  },
+  "profileFiles": {
+    "self-hosted.split-services.development": "configs/topology/self-hosted.split-services.development.env",
+    "self-hosted.unified-process.production": "configs/topology/self-hosted.unified-process.production.env",
+    "cloud-hosted.split-services.development": "configs/topology/cloud-hosted.split-services.development.env",
+    "cloud-hosted.split-services.production": "configs/topology/cloud-hosted.split-services.production.env"
+  },
+  "envKeys": {
+    "hosting": "SDKWORK_KNOWLEDGEBASE_HOSTING",
+    "serviceLayout": "SDKWORK_KNOWLEDGEBASE_SERVICE_LAYOUT",
+    "environment": "SDKWORK_KNOWLEDGEBASE_ENVIRONMENT",
+    "profileId": "SDKWORK_KNOWLEDGEBASE_PROFILE_ID",
+    "clientHosting": "VITE_SDKWORK_KNOWLEDGEBASE_HOSTING",
+    "gatewayAutostart": "SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_AUTOSTART",
+    "standaloneGatewayBind": "SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND",
+    "cloudGatewayBind": "SDKWORK_API_GATEWAY_BIND",
+    "cloudGatewayConfig": "SDKWORK_API_GATEWAY_CONFIG",
+    "clientApiGatewayBaseUrl": "VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL",
+    "apiGatewayBaseUrl": "SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL"
+  },
+  "surfaces": {
+    "application.public-ingress": {
+      "connectivityPlane": "application",
+      "protocols": ["http"],
+      "bindEnv": "SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND",
+      "httpUrlEnv": "SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL",
+      "clientHttpEnv": "VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL"
+    },
+    "application.backend-http": {
+      "connectivityPlane": "application",
+      "protocols": ["http"],
+      "bindEnv": "SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_BIND",
+      "httpUrlEnv": "SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL",
+      "clientHttpEnv": "VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL"
+    },
+    "application.open-http": {
+      "connectivityPlane": "application",
+      "protocols": ["http"],
+      "bindEnv": "SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_BIND",
+      "httpUrlEnv": "SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL",
+      "clientHttpEnv": "VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL"
+    },
+    "platform.api-gateway": {
+      "connectivityPlane": "platform",
+      "protocols": ["http"],
+      "owner": "sdkwork-api-gateway",
+      "bindEnv": "SDKWORK_API_GATEWAY_BIND",
+      "httpUrlEnv": "SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL",
+      "clientHttpEnv": "VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL",
+      "autostartEnv": "SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_AUTOSTART"
+    }
+  },
+  "cloudPublicHosts": {
+    "application.public-ingress": { "httpHost": "knowledgebase.sdkwork.com" },
+    "application.backend-http": { "httpHost": "knowledgebase-admin.sdkwork.com" },
+    "application.open-http": { "httpHost": "knowledge.sdkwork.com" },
+    "platform.api-gateway": { "httpHost": "api.sdkwork.com" }
+  },
+  "database": {
+    "appPrefix": "SDKWORK_KNOWLEDGEBASE"
+  },
+  "iamDevDefaults": {
+    "SDKWORK_IAM_LOCAL_APP_ID": "sdkwork-knowledgebase-pc",
+    "SDKWORK_IAM_LOCAL_TENANT_ID": "tenant_knowledgebase_dev",
+    "SDKWORK_IAM_LOCAL_ORGANIZATION_ID": "org_knowledgebase_dev",
+    "SDKWORK_IAM_LOCAL_ORGANIZATION_NAME": "Knowledgebase Dev Organization",
+    "SDKWORK_IAM_LOCAL_DEPARTMENT_ID": "dept_knowledgebase_dev",
+    "SDKWORK_IAM_LOCAL_DEPARTMENT_NAME": "Knowledgebase Dev Department",
+    "SDKWORK_IAM_LOCAL_POSITION_ID": "pos_knowledgebase_dev",
+    "SDKWORK_IAM_LOCAL_POSITION_NAME": "Knowledgebase Dev Position",
+    "SDKWORK_IAM_LOCAL_BOOTSTRAP_EMAIL": "admin@sdkwork.test",
+    "SDKWORK_IAM_LOCAL_BOOTSTRAP_PASSWORD": "AdminPass#2026",
+    "SDKWORK_IAM_TENANT_SIGNING_MASTER_SECRET": "sdkwork-knowledgebase-dev-signing-secret"
+  },
+  "components": {
+    "appApiRouter": {
+      "crate": "sdkwork-router-knowledgebase-app-api",
+      "binary": "sdkwork-knowledgebase-app-api"
+    },
+    "backendApiRouter": {
+      "crate": "sdkwork-router-knowledgebase-app-api",
+      "binary": "sdkwork-knowledgebase-backend-api"
+    },
+    "openApiRouter": {
+      "crate": "sdkwork-router-knowledgebase-app-api",
+      "binary": "sdkwork-knowledgebase-open-api"
+    },
+    "cloudGateway": {
+      "crate": "sdkwork-api-gateway-api-server",
+      "binary": "sdkwork-api-gateway",
+      "repository": "sdkwork-api-gateway",
+      "configGlob": "configs/sdkwork-api-gateway.knowledgebase.{profile}.toml"
+    }
+  },
+  "orchestration": {
+    "profiles": {
+      "self-hosted.split-services.development": {
+        "processes": [
+          {
+            "id": "application.public-ingress",
+            "crate": "sdkwork-router-knowledgebase-app-api",
+            "binary": "sdkwork-knowledgebase-app-api",
+            "required": true
+          },
+          {
+            "id": "application.backend-http",
+            "crate": "sdkwork-router-knowledgebase-app-api",
+            "binary": "sdkwork-knowledgebase-backend-api",
+            "required": true
+          },
+          {
+            "id": "application.open-http",
+            "crate": "sdkwork-router-knowledgebase-app-api",
+            "binary": "sdkwork-knowledgebase-open-api",
+            "required": true
+          }
+        ],
+        "healthSurfaces": [
+          "application.public-ingress",
+          "application.backend-http",
+          "application.open-http"
+        ]
+      },
+      "cloud-hosted.split-services.development": {
+        "processes": [
+          {
+            "id": "platform.api-gateway",
+            "crate": "sdkwork-api-gateway-api-server",
+            "binary": "sdkwork-api-gateway",
+            "repository": "sdkwork-api-gateway",
+            "required": false
+          },
+          {
+            "id": "application.public-ingress",
+            "crate": "sdkwork-router-knowledgebase-app-api",
+            "binary": "sdkwork-knowledgebase-app-api",
+            "required": true
+          },
+          {
+            "id": "application.backend-http",
+            "crate": "sdkwork-router-knowledgebase-app-api",
+            "binary": "sdkwork-knowledgebase-backend-api",
+            "required": true
+          },
+          {
+            "id": "application.open-http",
+            "crate": "sdkwork-router-knowledgebase-app-api",
+            "binary": "sdkwork-knowledgebase-open-api",
+            "required": true
+          }
+        ],
+        "healthSurfaces": [
+          "platform.api-gateway",
+          "application.public-ingress",
+          "application.backend-http",
+          "application.open-http"
+        ]
+      }
+    }
+  },
+  "packaging": {
+    "cloudConfigFiles": [
+      "sdkwork-api-gateway.knowledgebase.development.toml",
+      "sdkwork-api-gateway.knowledgebase.production.toml"
+    ],
+    "targets": [
+      {
+        "id": "platform-config-bundle-tar-gz",
+        "profile": "platform-config-bundle",
+        "platform": "all",
+        "architecture": "all",
+        "formats": ["tar.gz"],
+        "runner": "ubuntu-24.04",
+        "outputGlob": "dist/cloud-config/sdkwork-knowledgebase-api-gateway-config-*.tar.gz"
+      }
+    ]
+  },
+  "scripts": {
+    "knowledgebaseDev": "scripts/knowledgebase-dev.mjs"
+  },
+  "retired": {
+    "envKeys": [
+      "SDKWORK_KNOWLEDGEBASE_APP_LISTEN",
+      "SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN",
+      "SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN",
+      "SDKWORK_KNOWLEDGEBASE_OPEN_API_BASE_URL"
+    ],
+    "cliFlags": ["--topology"]
+  }
+}

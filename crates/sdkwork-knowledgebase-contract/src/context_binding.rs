@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -80,16 +81,20 @@ impl KnowledgeContextType {
             Self::Project => "project",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for KnowledgeContextType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "chat_group" => Some(Self::ChatGroup),
-            "organization" => Some(Self::Organization),
-            "circle" => Some(Self::Circle),
-            "channel" => Some(Self::Channel),
-            "team" => Some(Self::Team),
-            "project" => Some(Self::Project),
-            _ => None,
+            "chat_group" => Ok(Self::ChatGroup),
+            "organization" => Ok(Self::Organization),
+            "circle" => Ok(Self::Circle),
+            "channel" => Ok(Self::Channel),
+            "team" => Ok(Self::Team),
+            "project" => Ok(Self::Project),
+            _ => Err(()),
         }
     }
 }
@@ -108,12 +113,16 @@ impl KnowledgeAccessLevel {
             Self::Writer => "writer",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for KnowledgeAccessLevel {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "reader" => Some(Self::Reader),
-            "writer" => Some(Self::Writer),
-            _ => None,
+            "reader" => Ok(Self::Reader),
+            "writer" => Ok(Self::Writer),
+            _ => Err(()),
         }
     }
 }

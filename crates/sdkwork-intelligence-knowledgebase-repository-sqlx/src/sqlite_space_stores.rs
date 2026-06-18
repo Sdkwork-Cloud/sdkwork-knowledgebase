@@ -6,6 +6,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_file_entry
     CreateKnowledgeWikiFileEntryRecord, KnowledgeWikiFileEntryStore,
     KnowledgeWikiFileEntryStoreError,
 };
+use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{KnowledgeSpace, KnowledgeSpaceStatus};
 use sdkwork_knowledgebase_contract::wiki_file::{KnowledgeWikiFileEntry, WikiFileEntryType};
 use sqlx::{sqlite::SqliteRow, Row, SqlitePool};
@@ -74,12 +75,13 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
                 drive_space_id,
                 status,
                 llm_wiki_initialized,
+                knowledge_mode,
                 created_at,
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode, knowledge_mode
             "#,
         )
         .bind(id)
@@ -91,6 +93,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         .bind(None::<String>)
         .bind(space_status_code(KnowledgeSpaceStatus::Active))
         .bind(bool_code(record.llm_wiki_initialized))
+        .bind(space_knowledge_mode_code(record.knowledge_mode))
         .bind(now.clone())
         .bind(now)
         .bind(INITIAL_VERSION)
@@ -108,7 +111,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
 
         let row = sqlx::query(
             r#"
-            SELECT id, uuid, name, description, drive_space_id, status, llm_wiki_initialized
+            SELECT id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
             FROM kb_space
             WHERE tenant_id = ? AND organization_id = ? AND id = ? AND status = ?
             "#,
@@ -140,7 +143,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             UPDATE kb_space
             SET drive_space_id = ?, updated_at = ?, version = version + 1
             WHERE tenant_id = ? AND organization_id = ? AND id = ? AND status = ?
-            RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized
+            RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
             "#,
         )
         .bind(drive_space_id)
@@ -170,7 +173,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             UPDATE kb_space
             SET llm_wiki_initialized = 1, updated_at = ?, version = version + 1
             WHERE tenant_id = ? AND organization_id = ? AND id = ? AND status = ?
-            RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized
+            RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
             "#,
         )
         .bind(now)
@@ -209,6 +212,32 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         .map_err(space_sqlx_error)?;
 
         Ok(())
+    }
+}
+
+impl SqliteKnowledgeSpaceStore {
+    pub async fn find_first_wiki_initialized_space(
+        &self,
+    ) -> Result<Option<KnowledgeSpace>, KnowledgeSpaceStoreError> {
+        let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = space_to_i64("organization_id", self.organization_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
+            FROM kb_space
+            WHERE tenant_id = ? AND organization_id = ? AND status = ? AND llm_wiki_initialized = 1
+            ORDER BY id ASC
+            LIMIT 1
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(organization_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(space_sqlx_error)?;
+
+        row.map(|row| space_from_row(&row)).transpose()
     }
 }
 
@@ -384,6 +413,73 @@ impl SqliteKnowledgeWikiFileEntryStore {
 
         wiki_file_entry_from_row(&row)
     }
+
+    pub async fn list_file_entries(
+        &self,
+    ) -> Result<Vec<KnowledgeWikiFileEntry>, KnowledgeWikiFileEntryStoreError> {
+        let tenant_id = wiki_entry_to_i64("tenant_id", self.tenant_id)?;
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                space_id,
+                logical_path,
+                entry_type,
+                artifact_role,
+                drive_bucket,
+                drive_object_key,
+                checksum_sha256_hex
+            FROM kb_wiki_file_entry
+            WHERE tenant_id = ? AND status = ?
+            ORDER BY id ASC
+            LIMIT 200
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(wiki_entry_sqlx_error)?;
+
+        rows.iter().map(wiki_file_entry_from_row).collect()
+    }
+
+    pub async fn get_file_entry_by_id(
+        &self,
+        entry_id: u64,
+    ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
+        let tenant_id = wiki_entry_to_i64("tenant_id", self.tenant_id)?;
+        let entry_id = wiki_entry_to_i64("entry_id", entry_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                space_id,
+                logical_path,
+                entry_type,
+                artifact_role,
+                drive_bucket,
+                drive_object_key,
+                checksum_sha256_hex
+            FROM kb_wiki_file_entry
+            WHERE tenant_id = ? AND id = ? AND status = ?
+            LIMIT 1
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(entry_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(wiki_entry_sqlx_error)?
+        .ok_or_else(|| {
+            KnowledgeWikiFileEntryStoreError::Internal(format!(
+                "missing wiki file entry: {entry_id}"
+            ))
+        })?;
+
+        wiki_file_entry_from_row(&row)
+    }
 }
 
 fn space_from_row(row: &SqliteRow) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
@@ -399,7 +495,28 @@ fn space_from_row(row: &SqliteRow) -> Result<KnowledgeSpace, KnowledgeSpaceStore
         drive_space_id: row.try_get("drive_space_id").map_err(space_sqlx_error)?,
         status: space_status_from_code(status_code)?,
         llm_wiki_initialized: llm_wiki_initialized != 0,
+        knowledge_mode: space_knowledge_mode_from_row(row)?,
     })
+}
+
+fn space_knowledge_mode_code(mode: KnowledgeAgentKnowledgeMode) -> &'static str {
+    match mode {
+        KnowledgeAgentKnowledgeMode::LlmWiki => "llm_wiki",
+        KnowledgeAgentKnowledgeMode::Rag => "rag",
+    }
+}
+
+fn space_knowledge_mode_from_row(
+    row: &SqliteRow,
+) -> Result<KnowledgeAgentKnowledgeMode, KnowledgeSpaceStoreError> {
+    let value: Option<String> = row.try_get("knowledge_mode").map_err(space_sqlx_error)?;
+    match value.as_deref().unwrap_or("llm_wiki") {
+        "llm_wiki" => Ok(KnowledgeAgentKnowledgeMode::LlmWiki),
+        "rag" => Ok(KnowledgeAgentKnowledgeMode::Rag),
+        other => Err(KnowledgeSpaceStoreError::Internal(format!(
+            "unsupported knowledge_mode value: {other}"
+        ))),
+    }
 }
 
 fn require_safe_drive_id(

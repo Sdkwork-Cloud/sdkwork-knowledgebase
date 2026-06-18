@@ -7,10 +7,10 @@ use sdkwork_intelligence_knowledgebase_service::retrieval::{
     KnowledgeRetrievalExecutor, KnowledgeRetrievalServiceError,
 };
 use sdkwork_knowledgebase_contract::rag::{
-    KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentProfile,
-    KnowledgeAgentProfileRequest, KnowledgeAgentStatus, KnowledgeContextFragment,
-    KnowledgeRetrievalBinding, KnowledgeRetrievalMethod, KnowledgeRetrievalRequest,
-    KnowledgeRetrievalResult, KnowledgeRetrievalTrace,
+    KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentKnowledgeMode,
+    KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeAgentStatus,
+    KnowledgeContextFragment, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
+    KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeRetrievalTrace,
 };
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -162,6 +162,7 @@ impl KnowledgeAgentProfileStore for RecordingAgentProfileStore {
             memory_policy_ref: request.memory_policy_ref,
             tool_policy_ref: request.tool_policy_ref,
             answer_policy: request.answer_policy,
+            knowledge_mode: request.knowledge_mode,
             status: request.status,
             bindings: vec![],
         };
@@ -203,6 +204,7 @@ impl KnowledgeAgentProfileStore for RecordingAgentProfileStore {
             memory_policy_ref: request.memory_policy_ref,
             tool_policy_ref: request.tool_policy_ref,
             answer_policy: request.answer_policy,
+            knowledge_mode: request.knowledge_mode,
             status: request.status,
             bindings,
         };
@@ -353,6 +355,7 @@ fn profile_request(name: &str) -> KnowledgeAgentProfileRequest {
         memory_policy_ref: Some("memory.short_term".to_string()),
         tool_policy_ref: Some("tools.read_only".to_string()),
         answer_policy: Some(r#"{"style":"concise"}"#.to_string()),
+        knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
         status: KnowledgeAgentStatus::Active,
     }
 }
@@ -396,6 +399,7 @@ fn profile(
         memory_policy_ref: Some("memory.short_term".to_string()),
         tool_policy_ref: Some("tools.read_only".to_string()),
         answer_policy: Some(r#"{"style":"concise"}"#.to_string()),
+        knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
         status: KnowledgeAgentStatus::Active,
         bindings,
     }

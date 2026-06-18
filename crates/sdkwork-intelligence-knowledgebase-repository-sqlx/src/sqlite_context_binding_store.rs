@@ -3,10 +3,10 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_context_binding
     KnowledgeContextBindingStore, KnowledgeContextBindingStoreError,
 };
 use sdkwork_knowledgebase_contract::context_binding::{
-    CreateKnowledgeSpaceContextBindingRequest, KnowledgeAccessLevel,
-    KnowledgeSpaceContextBindingList, KnowledgeContextBindingStatus, KnowledgeContextType,
-    KnowledgeSpaceContextBinding, ListContextBoundSpacesRequest,
-    ListKnowledgeSpaceContextBindingsRequest, UpdateKnowledgeSpaceContextBindingRequest,
+    CreateKnowledgeSpaceContextBindingRequest, KnowledgeAccessLevel, KnowledgeContextBindingStatus,
+    KnowledgeContextType, KnowledgeSpaceContextBinding, KnowledgeSpaceContextBindingList,
+    ListContextBoundSpacesRequest, ListKnowledgeSpaceContextBindingsRequest,
+    UpdateKnowledgeSpaceContextBindingRequest,
 };
 use sqlx::{Row, SqlitePool};
 use std::sync::Arc;
@@ -274,6 +274,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
     ) -> Result<Vec<u64>, KnowledgeContextBindingStoreError> {
         let tenant_i64 = cb_to_i64("tenant_id", tenant_id)?;
         let ctx_str = request.context_type.as_str();
+        let page_size = request.page_size.unwrap_or(50).min(200) as i64;
 
         let rows = sqlx::query(
             r#"
@@ -281,12 +282,14 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
             FROM kb_space_context_binding
             WHERE tenant_id = ? AND context_type = ? AND context_id = ? AND status = ?
             ORDER BY created_at
+            LIMIT ?
             "#,
         )
         .bind(tenant_i64)
         .bind(ctx_str)
         .bind(&request.context_id)
         .bind(ACTIVE_STATUS)
+        .bind(page_size)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?;
@@ -302,7 +305,9 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
     }
 }
 
-fn cb_from_row(row: &sqlx::sqlite::SqliteRow) -> Result<KnowledgeSpaceContextBinding, KnowledgeContextBindingStoreError> {
+fn cb_from_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<KnowledgeSpaceContextBinding, KnowledgeContextBindingStoreError> {
     let id: i64 = row.get("id");
     let tenant_id: i64 = row.get("tenant_id");
     let space_id: i64 = row.get("space_id");
@@ -315,15 +320,17 @@ fn cb_from_row(row: &sqlx::sqlite::SqliteRow) -> Result<KnowledgeSpaceContextBin
     let created_at: String = row.get("created_at");
     let updated_at: String = row.get("updated_at");
 
-    let context_type = KnowledgeContextType::from_str(&context_type_str)
-        .ok_or_else(|| {
+    let context_type = context_type_str
+        .parse::<KnowledgeContextType>()
+        .map_err(|()| {
             KnowledgeContextBindingStoreError::Internal(format!(
                 "unknown context_type: {context_type_str}"
             ))
         })?;
 
-    let access_level = KnowledgeAccessLevel::from_str(&access_level_str)
-        .ok_or_else(|| {
+    let access_level = access_level_str
+        .parse::<KnowledgeAccessLevel>()
+        .map_err(|()| {
             KnowledgeContextBindingStoreError::Internal(format!(
                 "unknown access_level: {access_level_str}"
             ))
@@ -363,9 +370,8 @@ fn cb_to_i64(field: &str, value: u64) -> Result<i64, KnowledgeContextBindingStor
 }
 
 fn cb_from_i64(field: &str, value: i64) -> Result<u64, KnowledgeContextBindingStoreError> {
-    u64::try_from(value).map_err(|_| {
-        KnowledgeContextBindingStoreError::Internal(format!("{field} is negative"))
-    })
+    u64::try_from(value)
+        .map_err(|_| KnowledgeContextBindingStoreError::Internal(format!("{field} is negative")))
 }
 
 fn cb_id_error(error: crate::KnowledgeIdGeneratorError) -> KnowledgeContextBindingStoreError {

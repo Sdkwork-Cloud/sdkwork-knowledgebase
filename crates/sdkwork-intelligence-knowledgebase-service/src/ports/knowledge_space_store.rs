@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::KnowledgeSpace;
 use thiserror::Error;
 
@@ -30,6 +31,7 @@ pub struct CreateKnowledgeSpaceRecord {
     pub name: String,
     pub description: Option<String>,
     pub llm_wiki_initialized: bool,
+    pub knowledge_mode: KnowledgeAgentKnowledgeMode,
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

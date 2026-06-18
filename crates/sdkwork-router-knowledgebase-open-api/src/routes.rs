@@ -12,7 +12,10 @@ use sdkwork_knowledgebase_contract::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::{paths, ApiProblem, ApiResult, KnowledgeOpenApi, KnowledgeOpenApiRequestContext};
+use crate::{
+    auth::ensure_tenant_matches, paths, ApiProblem, ApiResult, KnowledgeOpenApi,
+    KnowledgeOpenApiRequestContext,
+};
 
 #[derive(Clone)]
 struct OpenState {
@@ -49,7 +52,8 @@ async fn create_retrieval(
     context: Option<Extension<KnowledgeOpenApiRequestContext>>,
     Json(request): Json<KnowledgeRetrievalRequest>,
 ) -> Result<Response, ApiProblem> {
-    let context = require_context(context)?;
+    let context = crate::auth::require_context(context)?;
+    ensure_tenant_matches(&context, request.tenant_id)?;
     created_json(state.api.create_retrieval(context, request).await)
 }
 
@@ -58,7 +62,7 @@ async fn retrieve_retrieval(
     context: Option<Extension<KnowledgeOpenApiRequestContext>>,
     Path(retrieval_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    let context = require_context(context)?;
+    let context = crate::auth::require_context(context)?;
     ok_json(state.api.retrieve_retrieval(context, retrieval_id).await)
 }
 
@@ -67,7 +71,8 @@ async fn create_context_pack(
     context: Option<Extension<KnowledgeOpenApiRequestContext>>,
     Json(request): Json<KnowledgeContextPackRequest>,
 ) -> Result<Response, ApiProblem> {
-    let context = require_context(context)?;
+    let context = crate::auth::require_context(context)?;
+    ensure_tenant_matches(&context, request.tenant_id)?;
     created_json(state.api.create_context_pack(context, request).await)
 }
 
@@ -76,7 +81,7 @@ async fn create_ingest(
     context: Option<Extension<KnowledgeOpenApiRequestContext>>,
     Json(request): Json<KnowledgeIngestRequest>,
 ) -> Result<Response, ApiProblem> {
-    let context = require_context(context)?;
+    let context = crate::auth::require_context(context)?;
     created_json(state.api.create_ingest(context, request).await)
 }
 
@@ -85,7 +90,7 @@ async fn retrieve_ingest(
     context: Option<Extension<KnowledgeOpenApiRequestContext>>,
     Path(ingest_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    let context = require_context(context)?;
+    let context = crate::auth::require_context(context)?;
     ok_json(state.api.retrieve_ingest(context, ingest_id).await)
 }
 
@@ -93,7 +98,7 @@ async fn list_documents(
     State(state): State<OpenState>,
     context: Option<Extension<KnowledgeOpenApiRequestContext>>,
 ) -> Result<Response, ApiProblem> {
-    let context = require_context(context)?;
+    let context = crate::auth::require_context(context)?;
     ok_json(state.api.list_documents(context).await)
 }
 
@@ -102,7 +107,7 @@ async fn retrieve_document(
     context: Option<Extension<KnowledgeOpenApiRequestContext>>,
     Path(document_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    let context = require_context(context)?;
+    let context = crate::auth::require_context(context)?;
     ok_json(state.api.retrieve_document(context, document_id).await)
 }
 
@@ -112,7 +117,7 @@ async fn list_browser(
     Path(space_id): Path<u64>,
     Query(query): Query<ListBrowserQuery>,
 ) -> Result<Response, ApiProblem> {
-    let context = require_context(context)?;
+    let context = crate::auth::require_context(context)?;
     let view = parse_view(query.view.as_deref())?;
     ok_json(
         state
@@ -129,18 +134,6 @@ async fn list_browser(
             )
             .await,
     )
-}
-
-fn require_context(
-    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
-) -> Result<KnowledgeOpenApiRequestContext, ApiProblem> {
-    context.map(|Extension(context)| context).ok_or_else(|| {
-        ApiProblem::new(
-            StatusCode::UNAUTHORIZED,
-            "missing_open_api_request_context",
-            "authenticated open API key context is required",
-        )
-    })
 }
 
 fn ok_json<T>(result: ApiResult<T>) -> Result<Response, ApiProblem>

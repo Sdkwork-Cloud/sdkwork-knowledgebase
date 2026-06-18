@@ -89,7 +89,12 @@
     "publicExports": [
       "."
     ],
-    "runtimeEntrypoints": [],
+    "runtimeEntrypoints": [
+      "sdkwork-knowledgebase-app-api",
+      "sdkwork-knowledgebase-backend-api",
+      "sdkwork-knowledgebase-open-api",
+      "crates/sdkwork-router-knowledgebase-app-api/src/runtime.rs"
+    ],
     "routeManifest": null,
     "sdkClients": [],
     "sdkDependencies": [
@@ -117,13 +122,21 @@
     "dependencyApiExports": [],
     "dependencyApiSurfaces": [],
     "events": [],
-    "configKeys": []
+    "configKeys": [
+      "SDKWORK_KNOWLEDGEBASE_DATABASE_URL",
+      "SDKWORK_KNOWLEDGEBASE_TENANT_ID",
+      "SDKWORK_KNOWLEDGEBASE_ACTOR_ID",
+      "SDKWORK_KNOWLEDGEBASE_OPERATOR_ID",
+      "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
+      "SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID",
+      "SDKWORK_KNOWLEDGEBASE_APP_LISTEN",
+      "SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN",
+      "SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN"
+    ]
   },
   "verification": {
     "commands": [
-      "cargo fmt --all --check",
-      "cargo test --workspace",
-      "cargo clippy --workspace --tests -- -D warnings"
+      "powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1"
     ]
   }
 }

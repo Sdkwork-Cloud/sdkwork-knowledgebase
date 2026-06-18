@@ -42,6 +42,29 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 #[test]
+fn knowledgebase_drive_permission_adapter_does_not_reference_drive_physical_tables() {
+    let adapter_source = include_str!("../src/permission_adapter.rs");
+    for forbidden_reference in [
+        "dr_drive_space",
+        "dr_drive_node",
+        "dr_drive_node_permission",
+        "FROM dr_",
+        "JOIN dr_",
+        "INSERT INTO dr_",
+        "UPDATE dr_",
+        "sqlx::query(",
+        "sqlx::query_scalar(",
+        "sdkwork_drive_workspace_service::infrastructure",
+        "SqlDriveWorkspaceStore",
+    ] {
+        assert!(
+            !adapter_source.contains(forbidden_reference),
+            "knowledgebase drive permission adapter must call sdkwork-drive workspace service APIs instead of referencing: {forbidden_reference}"
+        );
+    }
+}
+
+#[test]
 fn knowledgebase_drive_adapter_does_not_reference_drive_physical_tables() {
     let adapter_source = include_str!("../src/adapter.rs");
     for forbidden_reference in [

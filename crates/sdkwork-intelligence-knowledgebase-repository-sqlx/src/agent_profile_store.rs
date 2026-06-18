@@ -3,8 +3,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_agent_profile_s
     KnowledgeAgentProfileStore, KnowledgeAgentProfileStoreError,
 };
 use sdkwork_knowledgebase_contract::rag::{
-    KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentProfile,
-    KnowledgeAgentProfileRequest, KnowledgeAgentStatus, KnowledgeFilter,
+    KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentKnowledgeMode,
+    KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeAgentStatus, KnowledgeFilter,
 };
 use sqlx::{sqlite::SqliteRow, Row, SqlitePool};
 use std::sync::Arc;
@@ -14,6 +14,7 @@ use uuid::Uuid;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const ACTIVE_ROW_STATUS: i64 = 1;
+const MAX_AGENT_BINDING_LIST_ROWS: i64 = 200;
 const DELETED_ROW_STATUS: i64 = 0;
 const INITIAL_VERSION: i64 = 0;
 
@@ -75,12 +76,13 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 memory_policy_ref,
                 tool_policy_ref,
                 answer_policy,
+                knowledge_mode,
                 status,
                 created_at,
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING
                 id,
                 tenant_id,
@@ -95,6 +97,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 memory_policy_ref,
                 tool_policy_ref,
                 answer_policy,
+                knowledge_mode,
                 status
             "#,
         )
@@ -112,6 +115,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         .bind(request.memory_policy_ref)
         .bind(request.tool_policy_ref)
         .bind(request.answer_policy)
+        .bind(knowledge_mode_code(request.knowledge_mode))
         .bind(agent_status_code(request.status))
         .bind(now.clone())
         .bind(now)
@@ -163,6 +167,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 memory_policy_ref = ?,
                 tool_policy_ref = ?,
                 answer_policy = ?,
+                knowledge_mode = ?,
                 status = ?,
                 updated_at = ?,
                 version = version + 1
@@ -181,6 +186,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 memory_policy_ref,
                 tool_policy_ref,
                 answer_policy,
+                knowledge_mode,
                 status
             "#,
         )
@@ -195,6 +201,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         .bind(request.memory_policy_ref)
         .bind(request.tool_policy_ref)
         .bind(request.answer_policy)
+        .bind(knowledge_mode_code(request.knowledge_mode))
         .bind(agent_status_code(request.status))
         .bind(now)
         .bind(tenant_id)
@@ -282,11 +289,13 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
             FROM kb_agent_knowledge_binding
             WHERE tenant_id = ? AND profile_id = ? AND status = ?
             ORDER BY priority DESC, id ASC
+            LIMIT ?
             "#,
         )
         .bind(tenant_id)
         .bind(profile_id_i64)
         .bind(ACTIVE_ROW_STATUS)
+        .bind(MAX_AGENT_BINDING_LIST_ROWS)
         .fetch_all(&self.pool)
         .await
         .map_err(agent_sqlx_error)?;
@@ -504,6 +513,7 @@ impl SqliteKnowledgeAgentProfileStore {
                 memory_policy_ref,
                 tool_policy_ref,
                 answer_policy,
+                knowledge_mode,
                 status
             FROM kb_agent_profile
             WHERE tenant_id = ? AND id = ? AND status != ?
@@ -540,6 +550,9 @@ fn profile_from_row(
         memory_policy_ref: row.try_get("memory_policy_ref").map_err(agent_sqlx_error)?,
         tool_policy_ref: row.try_get("tool_policy_ref").map_err(agent_sqlx_error)?,
         answer_policy: row.try_get("answer_policy").map_err(agent_sqlx_error)?,
+        knowledge_mode: knowledge_mode_from_code(
+            row.try_get("knowledge_mode").map_err(agent_sqlx_error)?,
+        )?,
         status: agent_status_from_code(row.try_get("status").map_err(agent_sqlx_error)?)?,
         bindings: vec![],
     })
@@ -687,4 +700,23 @@ fn agent_sqlx_error(error: sqlx::Error) -> KnowledgeAgentProfileStoreError {
 
 fn agent_id_error(error: crate::id::KnowledgeIdGeneratorError) -> KnowledgeAgentProfileStoreError {
     KnowledgeAgentProfileStoreError::Internal(error.to_string())
+}
+
+fn knowledge_mode_code(mode: KnowledgeAgentKnowledgeMode) -> &'static str {
+    match mode {
+        KnowledgeAgentKnowledgeMode::LlmWiki => "llm_wiki",
+        KnowledgeAgentKnowledgeMode::Rag => "rag",
+    }
+}
+
+fn knowledge_mode_from_code(
+    value: String,
+) -> Result<KnowledgeAgentKnowledgeMode, KnowledgeAgentProfileStoreError> {
+    match value.as_str() {
+        "llm_wiki" => Ok(KnowledgeAgentKnowledgeMode::LlmWiki),
+        "rag" => Ok(KnowledgeAgentKnowledgeMode::Rag),
+        other => Err(KnowledgeAgentProfileStoreError::Internal(format!(
+            "unsupported knowledge_mode value: {other}"
+        ))),
+    }
 }

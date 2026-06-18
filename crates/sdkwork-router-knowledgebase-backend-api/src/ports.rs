@@ -11,6 +11,12 @@ use sdkwork_knowledgebase_contract::{
 
 use crate::error::{BackendApiError, BackendApiResult};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnowledgeBackendRequestContext {
+    pub tenant_id: u64,
+    pub operator_id: Option<u64>,
+}
+
 #[async_trait]
 pub trait KnowledgeBackendApi: Send + Sync + 'static {
     async fn list_sources(&self) -> BackendApiResult<KnowledgeSourceList> {

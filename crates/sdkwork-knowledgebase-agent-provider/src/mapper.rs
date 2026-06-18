@@ -77,15 +77,12 @@ pub(crate) fn hit_to_search_result(hit: KnowledgeContextFragment) -> KnowledgeSe
     if let Some(document_version_id) = hit.document_version_id {
         result = result.with_metadata(
             "sdkwork.knowledge.document_version_id",
-            (document_version_id as u64).to_string(),
+            document_version_id.to_string(),
         );
     }
 
     if let Some(collection_id) = hit.collection_id {
-        result = result.with_metadata(
-            "sdkwork.knowledge.collection_id",
-            (collection_id as u64).to_string(),
-        );
+        result = result.with_metadata("sdkwork.knowledge.collection_id", collection_id.to_string());
     }
 
     if let Some(citation) = hit.citation {

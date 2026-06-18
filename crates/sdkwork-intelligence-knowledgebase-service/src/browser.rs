@@ -1,12 +1,16 @@
 use crate::ports::{
+    knowledge_access_control::{
+        KnowledgeAccessCheckRequest, KnowledgeAccessControl, KnowledgeAccessControlError,
+        KnowledgeAccessRole,
+    },
     knowledge_browser_projection_store::{
         KnowledgeBrowserDocumentProjection, KnowledgeBrowserProjectionStore,
         KnowledgeBrowserProjectionStoreError, KnowledgeBrowserWikiPageProjection,
     },
     knowledge_drive_node_tree::{
         DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodeSummary,
-        KnowledgeDriveNodeTree, KnowledgeDriveNodeTreeError,
-        ListKnowledgeDriveNodeChildrenRequest, ResolveKnowledgeDriveNodePathRequest,
+        KnowledgeDriveNodeTree, KnowledgeDriveNodeTreeError, ListKnowledgeDriveNodeChildrenRequest,
+        ResolveKnowledgeDriveNodePathRequest,
     },
     knowledge_space_store::{KnowledgeSpaceStore, KnowledgeSpaceStoreError},
 };
@@ -22,10 +26,17 @@ const MAX_BROWSER_PAGE_SIZE: u32 = 200;
 const WIKI_VIEW_ROOT_PATH: &str = "wiki";
 const OUTPUTS_VIEW_ROOT_PATH: &str = "output";
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnowledgeBrowserAccessContext {
+    pub tenant_id: u64,
+    pub actor_id: String,
+}
+
 pub struct KnowledgeBrowserService<'a> {
     spaces: &'a dyn KnowledgeSpaceStore,
     drive_tree: &'a dyn KnowledgeDriveNodeTree,
     projections: &'a dyn KnowledgeBrowserProjectionStore,
+    access_control: Option<&'a dyn KnowledgeAccessControl>,
 }
 
 impl<'a> KnowledgeBrowserService<'a> {
@@ -38,11 +49,18 @@ impl<'a> KnowledgeBrowserService<'a> {
             spaces,
             drive_tree,
             projections,
+            access_control: None,
         }
+    }
+
+    pub fn with_access_control(mut self, access_control: &'a dyn KnowledgeAccessControl) -> Self {
+        self.access_control = Some(access_control);
+        self
     }
 
     pub async fn list(
         &self,
+        access: Option<KnowledgeBrowserAccessContext>,
         request: ListKnowledgeBrowserRequest,
     ) -> Result<KnowledgeBrowserPage, KnowledgeBrowserServiceError> {
         if request.space_id == 0 {
@@ -52,6 +70,33 @@ impl<'a> KnowledgeBrowserService<'a> {
         }
 
         let space = self.spaces.get_space(request.space_id).await?;
+        if let Some(access_control) = self.access_control {
+            let access = access.ok_or_else(|| {
+                KnowledgeBrowserServiceError::InvalidRequest(
+                    "authenticated browser access context is required".to_string(),
+                )
+            })?;
+            let drive_space_id = space.drive_space_id.as_ref().ok_or_else(|| {
+                KnowledgeBrowserServiceError::InvalidRequest(
+                    "drive space is not bound for knowledge space".to_string(),
+                )
+            })?;
+            let grant = access_control
+                .check_space_access(KnowledgeAccessCheckRequest {
+                    tenant_id: access.tenant_id.to_string(),
+                    actor_id: access.actor_id,
+                    drive_space_id: drive_space_id.clone(),
+                    required_role: KnowledgeAccessRole::Reader,
+                })
+                .await
+                .map_err(KnowledgeBrowserServiceError::AccessControl)?;
+            if !grant.allowed {
+                return Err(KnowledgeBrowserServiceError::AccessDenied(format!(
+                    "actor does not have access to space {}",
+                    request.space_id
+                )));
+            }
+        }
         let drive_space_id = space.drive_space_id.ok_or_else(|| {
             KnowledgeBrowserServiceError::InvalidRequest(
                 "drive space is not bound for knowledge space".to_string(),
@@ -282,6 +327,10 @@ fn browser_node_type(view: KnowledgeBrowserView, kind: DriveNodeKind) -> Knowled
 pub enum KnowledgeBrowserServiceError {
     #[error("invalid knowledge browser request: {0}")]
     InvalidRequest(String),
+    #[error("knowledge browser access denied: {0}")]
+    AccessDenied(String),
+    #[error(transparent)]
+    AccessControl(#[from] KnowledgeAccessControlError),
     #[error(transparent)]
     SpaceStore(#[from] KnowledgeSpaceStoreError),
     #[error(transparent)]

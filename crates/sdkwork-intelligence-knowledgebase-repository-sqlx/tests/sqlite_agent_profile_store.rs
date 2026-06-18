@@ -183,6 +183,7 @@ fn profile_request(name: &str) -> KnowledgeAgentProfileRequest {
         tool_policy_ref: Some("tools.read_only".to_string()),
         answer_policy: Some(r#"{"style":"concise"}"#.to_string()),
         status: KnowledgeAgentStatus::Active,
+        knowledge_mode: Default::default(),
     }
 }
 

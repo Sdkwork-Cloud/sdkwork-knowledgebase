@@ -5,5 +5,9 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+clawrouter-open-sdk.workspace = true
 sdkwork-agent-kernel.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
+async-trait.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt"] }

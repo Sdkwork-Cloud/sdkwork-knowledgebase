@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 async-trait.workspace = true
 sdkwork-drive-workspace-service.workspace = true
+sdkwork-drive-config.workspace = true
 sdkwork-drive-storage-contract.workspace = true
 sdkwork-intelligence-knowledgebase-service.workspace = true
 sha2.workspace = true

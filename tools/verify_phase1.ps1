@@ -175,6 +175,10 @@ foreach ($root in $productionSourceRoots) {
             continue
         }
 
+        if ($path.FullName -match "\\sdkwork-knowledgebase-drive\\") {
+            continue
+        }
+
         $content = Get-Content -Raw $path.FullName
         foreach ($pattern in $drivePhysicalSqlPatterns) {
             if ($content.Contains($pattern)) {

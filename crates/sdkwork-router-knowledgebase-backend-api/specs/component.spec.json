@@ -1,4 +1,4 @@
-{
+﻿{
     "schemaVersion":  1,
     "kind":  "sdkwork.component.spec",
     "component":  {
@@ -6,7 +6,7 @@
                       "displayName":  "SDKWork Router Knowledgebase Backend API",
                       "version":  "0.1.0",
                       "type":  "rust-route-crate",
-                      "root":  "crates/sdkwork-router-knowledgebase-backend-api",
+                      "root":  "sdkwork-knowledgebase/crates/sdkwork-router-knowledgebase-backend-api",
                       "domain":  "intelligence",
                       "capability":  "knowledgebase",
                       "languages":  [
@@ -64,22 +64,22 @@
                                "path":  "../../../sdkwork-specs/DOMAIN_SPEC.md",
                                "purpose":  "Domain and capability boundary rules."
                            },
-                            {
-                                "file":  "SECURITY_SPEC.md",
-                                "path":  "../../../sdkwork-specs/SECURITY_SPEC.md",
-                                "purpose":  "Protected backend behavior rules."
-                            },
-                            {
-                                "file":  "SDK_SPEC.md",
-                                "path":  "../../../sdkwork-specs/SDK_SPEC.md",
-                                "purpose":  "SDK naming, generated client behavior, and service integration rules."
-                            },
-                            {
-                                "file":  "SDK_WORKSPACE_GENERATION_SPEC.md",
-                                "path":  "../../../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md",
-                                "purpose":  "Route manifest to SDK authority mapping."
-                            }
-                        ],
+                           {
+                               "file":  "SECURITY_SPEC.md",
+                               "path":  "../../../sdkwork-specs/SECURITY_SPEC.md",
+                               "purpose":  "Protected backend behavior rules."
+                           },
+                           {
+                               "file":  "SDK_SPEC.md",
+                               "path":  "../../../sdkwork-specs/SDK_SPEC.md",
+                               "purpose":  "SDK naming, generated client behavior, and service integration rules."
+                           },
+                           {
+                               "file":  "SDK_WORKSPACE_GENERATION_SPEC.md",
+                               "path":  "../../../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md",
+                               "purpose":  "Route manifest to SDK authority mapping."
+                           }
+                       ],
     "contracts":  {
                       "publicExports":  [
                                             "."

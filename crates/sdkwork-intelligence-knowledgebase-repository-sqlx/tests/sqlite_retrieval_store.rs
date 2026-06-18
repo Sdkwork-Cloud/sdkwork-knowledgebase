@@ -39,6 +39,7 @@ async fn sqlite_retrieval_backend_searches_active_chunks_with_tenant_and_binding
                 min_score: Some(0.0),
             },
             method: KnowledgeRetrievalMethod::Keyword,
+            query_embedding: None,
             top_k: 2,
         })
         .await
@@ -67,11 +68,76 @@ async fn sqlite_retrieval_backend_searches_active_chunks_with_tenant_and_binding
                 min_score: Some(0.0),
             },
             method: KnowledgeRetrievalMethod::Keyword,
+            query_embedding: None,
             top_k: 5,
         })
         .await
         .unwrap();
     assert!(out_of_scope_hits.is_empty());
+}
+
+#[tokio::test]
+async fn sqlite_retrieval_vector_method_requires_active_embedding_rows() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    seed_documents_and_chunks(&pool).await;
+    seed_embedding_for_chunk(&pool, 101, 501).await;
+
+    let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
+        pool.clone(),
+        9001,
+        fixed_id_generator([7001]),
+    );
+
+    let vector_hits = store
+        .search_chunks(KnowledgeChunkSearchRequest {
+            tenant_id: 9001,
+            query: "enterprise renewal support".to_string(),
+            binding: KnowledgeRetrievalBinding {
+                space_id: 7,
+                collection_id: None,
+                source_filter: None,
+                document_filter: None,
+                priority: 0,
+                top_k: Some(5),
+                min_score: Some(0.0),
+            },
+            method: KnowledgeRetrievalMethod::Vector,
+            query_embedding: None,
+            top_k: 5,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(vector_hits.len(), 1);
+    assert_eq!(vector_hits[0].chunk_id, 101);
+
+    let keyword_hits = store
+        .search_chunks(KnowledgeChunkSearchRequest {
+            tenant_id: 9001,
+            query: "enterprise renewal support".to_string(),
+            binding: KnowledgeRetrievalBinding {
+                space_id: 7,
+                collection_id: None,
+                source_filter: None,
+                document_filter: None,
+                priority: 0,
+                top_k: Some(5),
+                min_score: Some(0.0),
+            },
+            method: KnowledgeRetrievalMethod::Keyword,
+            query_embedding: None,
+            top_k: 5,
+        })
+        .await
+        .unwrap();
+
+    assert!(
+        keyword_hits.len() > vector_hits.len(),
+        "keyword search should return more hits than vector-only embedding search"
+    );
+    assert!(keyword_hits.iter().any(|hit| hit.chunk_id == 101));
+    assert!(keyword_hits.iter().any(|hit| hit.chunk_id == 102));
 }
 
 #[tokio::test]
@@ -343,6 +409,44 @@ async fn seed_documents_and_chunks(pool: &SqlitePool) {
     .bind(now)
     .bind(now)
     .bind(now)
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
+async fn seed_embedding_for_chunk(pool: &SqlitePool, chunk_id: i64, index_id: i64) {
+    let now = "2026-06-09T00:00:00Z";
+    sqlx::query(
+        r#"
+        INSERT INTO kb_index (
+            id, uuid, tenant_id, space_id, collection_id, index_kind, schema_version, status, created_at, updated_at, version
+        )
+        VALUES (?, ?, 9001, 7, 0, 'vector', 'v1', 1, ?, ?, 0)
+        "#,
+    )
+    .bind(index_id)
+    .bind(format!("index-{index_id}"))
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"
+        INSERT INTO kb_embedding (
+            id, uuid, tenant_id, index_id, chunk_id, embedding_hash, vector_ref, dimension,
+            provider_id, model, metadata, status, created_at, updated_at, version
+        )
+        VALUES (?, ?, 9001, ?, ?, 'hash-emb', 'drive://vectors/chunk-101', 1536, 'openai', 'text-embedding-3-small', NULL, 1, ?, ?, 0)
+        "#,
+    )
+    .bind(index_id + 1000)
+    .bind(format!("embedding-{chunk_id}"))
+    .bind(index_id)
+    .bind(chunk_id)
     .bind(now)
     .bind(now)
     .execute(pool)

@@ -195,6 +195,7 @@ fn knowledge_agent_profile_selects_model_provider_and_multiple_knowledge_binding
         tool_policy_ref: Some("tools.readonly".to_string()),
         answer_policy: Some(r#"{"abstainWhenNoEvidence":true}"#.to_string()),
         status: KnowledgeAgentStatus::Active,
+        knowledge_mode: Default::default(),
         bindings: vec![
             KnowledgeAgentBinding {
                 binding_id: 61,

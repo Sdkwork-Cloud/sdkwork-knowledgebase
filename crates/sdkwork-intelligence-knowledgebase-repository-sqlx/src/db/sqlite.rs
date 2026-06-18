@@ -1,0 +1,42 @@
+use sqlx::sqlite::SqlitePoolOptions;
+use sqlx::SqlitePool;
+
+use crate::migrations::SQLITE_MIGRATIONS;
+
+pub async fn connect_sqlite_pool(database_url: &str) -> Result<SqlitePool, sqlx::Error> {
+    SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect(database_url)
+        .await
+}
+
+pub async fn install_sqlite_core_schema(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    install_sqlite_schema(pool).await
+}
+
+pub async fn install_sqlite_schema(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    for migration in SQLITE_MIGRATIONS {
+        for statement in migration.split(';') {
+            let statement = statement.trim();
+            if !statement.is_empty() {
+                sqlx::query(statement).execute(pool).await?;
+            }
+        }
+    }
+    Ok(())
+}
+
+pub async fn connect_sqlite_and_install_schema(
+    database_url: &str,
+) -> Result<SqlitePool, sqlx::Error> {
+    let pool = connect_sqlite_pool(database_url).await?;
+    install_sqlite_core_schema(&pool).await?;
+    Ok(pool)
+}
+
+pub async fn sqlite_health_check(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    sqlx::query_scalar::<_, i64>("SELECT 1")
+        .fetch_one(pool)
+        .await
+        .map(|_| ())
+}

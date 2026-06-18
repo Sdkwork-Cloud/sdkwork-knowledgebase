@@ -1,9 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::context_binding::{
-    CreateKnowledgeSpaceContextBindingRequest,
-    KnowledgeSpaceContextBinding, KnowledgeSpaceContextBindingList,
-    ListContextBoundSpacesRequest, ListKnowledgeSpaceContextBindingsRequest,
-    UpdateKnowledgeSpaceContextBindingRequest,
+    CreateKnowledgeSpaceContextBindingRequest, KnowledgeSpaceContextBinding,
+    KnowledgeSpaceContextBindingList, ListContextBoundSpacesRequest,
+    ListKnowledgeSpaceContextBindingsRequest, UpdateKnowledgeSpaceContextBindingRequest,
 };
 use thiserror::Error;
 

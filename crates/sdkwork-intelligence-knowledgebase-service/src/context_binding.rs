@@ -7,9 +7,8 @@ use crate::ports::knowledge_drive_permission::{
 };
 use sdkwork_knowledgebase_contract::context_binding::{
     CreateKnowledgeSpaceContextBindingRequest, KnowledgeAccessLevel, KnowledgeContextType,
-    KnowledgeSpaceContextBinding, KnowledgeSpaceContextBindingList,
-    ListContextBoundSpacesRequest, ListKnowledgeSpaceContextBindingsRequest,
-    UpdateKnowledgeSpaceContextBindingRequest,
+    KnowledgeSpaceContextBinding, KnowledgeSpaceContextBindingList, ListContextBoundSpacesRequest,
+    ListKnowledgeSpaceContextBindingsRequest, UpdateKnowledgeSpaceContextBindingRequest,
 };
 use thiserror::Error;
 
@@ -47,9 +46,7 @@ impl<'a> KnowledgeContextBindingService<'a> {
             ));
         }
 
-        let access_level = request
-            .access_level
-            .unwrap_or(KnowledgeAccessLevel::Reader);
+        let access_level = request.access_level.unwrap_or(KnowledgeAccessLevel::Reader);
 
         let binding = self
             .store
@@ -62,18 +59,14 @@ impl<'a> KnowledgeContextBindingService<'a> {
                 tenant_id: tenant_id.to_string(),
                 drive_space_id: drive_space_id.to_string(),
                 subject_type: "group".to_string(),
-                subject_id: format!(
-                    "{}:{}",
-                    binding.context_type.as_str(),
-                    binding.context_id
-                ),
+                subject_id: format!("{}:{}", binding.context_type.as_str(), binding.context_id),
                 role: access_level.as_str().to_string(),
                 operator_id: created_by.to_string(),
             };
 
-            if let Err(_e) = drive_perms.grant_space_access(grant).await {
-                // Permission grant is best-effort; binding is already persisted.
-                // The caller can retry permission sync separately.
+            if let Err(error) = drive_perms.grant_space_access(grant).await {
+                let _ = self.store.delete_binding(tenant_id, binding.id).await;
+                return Err(KnowledgeContextBindingServiceError::DrivePermission(error));
             }
         }
 
@@ -93,28 +86,25 @@ impl<'a> KnowledgeContextBindingService<'a> {
             .await
             .map_err(KnowledgeContextBindingServiceError::Store)?;
 
-        self.store
-            .delete_binding(tenant_id, binding_id)
-            .await
-            .map_err(KnowledgeContextBindingServiceError::Store)?;
-
         if let Some(drive_perms) = self.drive_permissions {
             let revoke = RevokeDrivePermissionRequest {
                 tenant_id: tenant_id.to_string(),
                 drive_space_id: drive_space_id.to_string(),
                 subject_type: "group".to_string(),
-                subject_id: format!(
-                    "{}:{}",
-                    binding.context_type.as_str(),
-                    binding.context_id
-                ),
+                subject_id: format!("{}:{}", binding.context_type.as_str(), binding.context_id),
                 operator_id: operator_id.to_string(),
             };
 
-            if let Err(_e) = drive_perms.revoke_space_access(revoke).await {
-                // Permission revocation is best-effort; binding deletion is already persisted.
-            }
+            drive_perms
+                .revoke_space_access(revoke)
+                .await
+                .map_err(KnowledgeContextBindingServiceError::DrivePermission)?;
         }
+
+        self.store
+            .delete_binding(tenant_id, binding_id)
+            .await
+            .map_err(KnowledgeContextBindingServiceError::Store)?;
 
         Ok(())
     }

@@ -6,10 +6,18 @@ use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
 };
 use sdkwork_router_knowledgebase_app_api::{
-    build_router_with_browser, ApiResult, KnowledgeBrowserApi, ProblemDetails,
+    build_router_with_browser, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
+    ProblemDetails,
 };
 use std::sync::Mutex;
 use tower::util::ServiceExt;
+
+fn app_request_context() -> KnowledgeAppRequestContext {
+    KnowledgeAppRequestContext {
+        tenant_id: 20001,
+        actor_id: Some(30001),
+    }
+}
 
 #[tokio::test]
 async fn app_router_exposes_browser_route_with_query_parameters() {
@@ -20,6 +28,7 @@ async fn app_router_exposes_browser_route_with_query_parameters() {
         .oneshot(
             Request::builder()
                 .uri("/app/v3/api/knowledge/spaces/7/browser?view=wiki&pageSize=25&parentId=node-wiki&cursor=c1")
+                .extension(app_request_context())
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -52,6 +61,7 @@ async fn app_router_rejects_invalid_browser_view() {
         .oneshot(
             Request::builder()
                 .uri("/app/v3/api/knowledge/spaces/7/browser?view=invalid")
+                .extension(app_request_context())
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -90,6 +100,7 @@ impl RecordingBrowserApi {
 impl KnowledgeBrowserApi for RecordingBrowserApi {
     async fn list_browser(
         &self,
+        _context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
     ) -> ApiResult<KnowledgeBrowserPage> {
         *self.last_request.lock().unwrap() = Some(request.clone());

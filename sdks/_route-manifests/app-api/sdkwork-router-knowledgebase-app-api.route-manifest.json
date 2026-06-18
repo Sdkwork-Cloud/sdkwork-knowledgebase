@@ -197,6 +197,26 @@
     },
     {
       "method": "POST",
+      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
+      "operationId": "agentProfiles.chat.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      }
+    },
+    {
+      "method": "POST",
       "path": "/app/v3/api/knowledge/context_packs",
       "operationId": "contextPacks.create",
       "tags": [

@@ -6,8 +6,8 @@
     "displayName": "SDKWork Knowledgebase Backend API SDK",
     "version": "0.1.0",
     "type": "sdk-family",
-    "root": "sdks/sdkwork-knowledgebase-backend-sdk",
-    "domain": "intelligence",
+    "root": "sdkwork-knowledgebase/sdks/sdkwork-knowledgebase-backend-sdk",
+    "domain": "knowledgebase",
     "capability": "knowledgebase",
     "status": "standardized",
     "languages": [
@@ -21,16 +21,6 @@
     ]
   },
   "canonicalSpecs": [
-    {
-      "file": "CODE_STYLE_SPEC.md",
-      "path": "../sdkwork-specs/CODE_STYLE_SPEC.md",
-      "purpose": "Authored source structure and generated code boundaries."
-    },
-    {
-      "file": "NAMING_SPEC.md",
-      "path": "../sdkwork-specs/NAMING_SPEC.md",
-      "purpose": "Canonical SDKWork naming rules."
-    },
     {
       "file": "API_SPEC.md",
       "path": "../sdkwork-specs/API_SPEC.md",
@@ -112,8 +102,6 @@
         }
       }
     ],
-    "dependencyApiExports": [],
-    "dependencyApiSurfaces": [],
     "sdkClients": [
       "SdkworkBackendClient"
     ],

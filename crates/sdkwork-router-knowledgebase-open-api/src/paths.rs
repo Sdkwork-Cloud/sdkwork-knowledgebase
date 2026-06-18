@@ -1,10 +1,10 @@
 pub const PREFIX: &str = "/knowledge/v3/api";
 pub const HEALTHZ: &str = "/healthz";
 pub const RETRIEVALS: &str = "/knowledge/v3/api/retrievals";
-pub const RETRIEVAL: &str = "/knowledge/v3/api/retrievals/:retrieval_id";
+pub const RETRIEVAL: &str = "/knowledge/v3/api/retrievals/{retrieval_id}";
 pub const CONTEXT_PACKS: &str = "/knowledge/v3/api/context_packs";
 pub const INGESTS: &str = "/knowledge/v3/api/ingests";
-pub const INGEST: &str = "/knowledge/v3/api/ingests/:ingest_id";
+pub const INGEST: &str = "/knowledge/v3/api/ingests/{ingest_id}";
 pub const DOCUMENTS: &str = "/knowledge/v3/api/documents";
-pub const DOCUMENT: &str = "/knowledge/v3/api/documents/:document_id";
-pub const SPACE_BROWSER: &str = "/knowledge/v3/api/spaces/:space_id/browser";
+pub const DOCUMENT: &str = "/knowledge/v3/api/documents/{document_id}";
+pub const SPACE_BROWSER: &str = "/knowledge/v3/api/spaces/{space_id}/browser";

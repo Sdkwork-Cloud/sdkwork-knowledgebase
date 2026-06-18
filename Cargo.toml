@@ -21,7 +21,7 @@ license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
 async-trait = "0.1"
-axum = "0.7"
+axum = { version = "0.8", features = ["ws"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
@@ -33,11 +33,18 @@ uuid = { version = "1", features = ["serde", "v4"] }
 
 sdkwork-knowledgebase-contract = { path = "crates/sdkwork-knowledgebase-contract" }
 sdkwork-knowledgebase-agent-provider = { path = "crates/sdkwork-knowledgebase-agent-provider" }
+clawrouter-open-sdk = { path = "../sdkwork-claw-router/sdks/clawrouter-open-sdk/clawrouter-open-sdk-rust/generated/server-openapi" }
+sdkwork-agent-kernel = { path = "../sdkwork-kernel/sdkwork-agent-kernel" }
+sdkwork-agent-plugin-rig = { path = "../sdkwork-kernel/sdkwork-kernel-plugins/crates/sdkwork-agent-plugin-rig" }
+sdkwork-agent-plugin-core = { path = "../sdkwork-kernel/sdkwork-kernel-plugins/crates/sdkwork-agent-plugin-core" }
 sdkwork-intelligence-knowledgebase-object-key-service = { path = "crates/sdkwork-intelligence-knowledgebase-object-key-service" }
 sdkwork-knowledgebase-memory = { path = "crates/sdkwork-knowledgebase-memory" }
 sdkwork-knowledgebase-test-support = { path = "crates/sdkwork-knowledgebase-test-support" }
 sdkwork-intelligence-knowledgebase-service = { path = "crates/sdkwork-intelligence-knowledgebase-service" }
 sdkwork-intelligence-knowledgebase-repository-sqlx = { path = "crates/sdkwork-intelligence-knowledgebase-repository-sqlx" }
+sdkwork-iam-web-adapter = { path = "../sdkwork-appbase/crates/sdkwork-iam-web-adapter" }
+sdkwork-web-axum = { path = "../sdkwork-web-framework/crates/sdkwork-web-axum" }
+sdkwork-web-core = { path = "../sdkwork-web-framework/crates/sdkwork-web-core" }
 
 # Local workspace dependency. This keeps sdkwork-drive as the only lower-level
 # storage provider and prevents knowledgebase service crates from using object
@@ -49,5 +56,4 @@ sdkwork-knowledgebase-drive = { path = "crates/sdkwork-knowledgebase-drive" }
 sdkwork-drive-workspace-service = { path = "../sdkwork-drive/crates/sdkwork-drive-workspace-service" }
 sdkwork-drive-config = { path = "../sdkwork-drive/crates/sdkwork-drive-config" }
 sdkwork-memory-spi = { path = "../sdkwork-memory/crates/sdkwork-memory-spi" }
-sdkwork_platform_id_service = { package = "sdkwork-platform-id-service", path = "../sdkwork-appbase/crates/sdkwork-platform-id-service" }
-sdkwork-agent-kernel = { path = "../sdkwork-kernel/sdkwork-agent-kernel" }
+sdkwork-id-core = { path = "../sdkwork-id/crates/sdkwork-id-core" }

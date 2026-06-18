@@ -91,6 +91,34 @@ powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1
 
 This checks Rust formatting, workspace tests, OpenAPI operationId standards, SDK family layout, and canonical `sdkwork-sdk-generator` usage.
 
+## Runtime
+
+Phase 1 ships SQLite-backed HTTP runtimes in `crates/sdkwork-router-knowledgebase-app-api`:
+
+| Binary | Default listen | Surface |
+|--------|----------------|---------|
+| `sdkwork-knowledgebase-app-api` | `127.0.0.1:18081` | App API (34 operations) |
+| `sdkwork-knowledgebase-backend-api` | `127.0.0.1:18082` | Backend API (25 operations) |
+| `sdkwork-knowledgebase-open-api` | `127.0.0.1:18083` | Open API (8 operations) |
+
+Run from the repository root:
+
+```powershell
+cargo run -p sdkwork-router-knowledgebase-app-api --bin sdkwork-knowledgebase-app-api
+cargo run -p sdkwork-router-knowledgebase-app-api --bin sdkwork-knowledgebase-backend-api
+cargo run -p sdkwork-router-knowledgebase-app-api --bin sdkwork-knowledgebase-open-api
+```
+
+Common environment variables:
+
+- `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` (default `sqlite://data/knowledgebase.db?mode=rwc`)
+- `SDKWORK_KNOWLEDGEBASE_TENANT_ID` (default `1`)
+- `SDKWORK_KNOWLEDGEBASE_ACTOR_ID` / `SDKWORK_KNOWLEDGEBASE_OPERATOR_ID` (optional dev actor)
+- `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT` (default `data/drive-objects`)
+- `SDKWORK_KNOWLEDGEBASE_APP_LISTEN` / `SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN` / `SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN`
+
+Local development injects request context through `dev_auth` middleware. Production deployments must replace this with Appbase-backed authentication.
+
 ## Runtime ID Configuration
 
 All runtime inserts into `kb_*` tables bind explicit service-generated Snowflake IDs. The database must not generate knowledgebase primary keys through SQLite rowid autogeneration, `AUTOINCREMENT`, PostgreSQL `SERIAL`/`BIGSERIAL`, identity columns, or ad hoc repository sequence calls.
@@ -122,7 +150,7 @@ Valid values are `0` through `1023`. Local and test runs may omit the variable a
 - App and Backend OpenAPI authority files use SDKWork dotted operation IDs, including `wiki.index.retrieve`, `wiki.log.entries.create`, `driveImports.create`, `documents.versions.create`, and `sources.create`.
 - Generated App and Backend TypeScript SDKs are produced with the canonical `sdkwork-sdk-generator` using the SDKWork v3 standard profile.
 - App and Backend SDK families declare Appbase, Drive, and Memory dependency SDKs; dependency-owned Appbase, Drive, and Memory APIs are not generated into knowledgebase transports.
-- App and Backend Rust API crates mount every generated OpenAPI operation path and return SDKWork v3 `application/problem+json` errors when an operation has not yet been wired to a concrete service implementation.
+- App and Backend Rust API crates mount every generated OpenAPI operation path. The hosted SQLite runtime (`KnowledgebaseSqliteRuntime`) wires all 67 operations to concrete service implementations; trait default stubs in route crates remain only for library-only injection tests.
 - The agent provider crate exposes `provider.knowledge.sdkwork-knowledgebase` as a typed `sdkwork-agent-kernel::KnowledgeProvider` adapter backed by an injected retrieval client.
 
 ## SDKWork Documentation Contract

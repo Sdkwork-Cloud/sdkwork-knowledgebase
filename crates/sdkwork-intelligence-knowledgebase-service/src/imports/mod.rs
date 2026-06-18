@@ -14,7 +14,9 @@ use crate::ports::{
     knowledge_drive_storage::{
         HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeStorageError,
     },
-    knowledge_ingestion_job_store::{CreateIngestionJobRecord, IngestionJobStore, IngestionJobStoreError},
+    knowledge_ingestion_job_store::{
+        CreateIngestionJobRecord, IngestionJobStore, IngestionJobStoreError,
+    },
     knowledge_source_store::{
         CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
     },

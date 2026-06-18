@@ -1,5 +1,6 @@
 //! Public contracts for SDKWork Knowledgebase.
 
+pub mod agent_chat;
 pub mod browser;
 pub mod context_binding;
 pub mod document;
@@ -17,6 +18,7 @@ pub mod space;
 pub mod wiki;
 pub mod wiki_file;
 
+pub use agent_chat::*;
 pub use browser::*;
 pub use context_binding::*;
 pub use document::*;

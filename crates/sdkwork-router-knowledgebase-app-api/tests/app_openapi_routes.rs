@@ -3,7 +3,7 @@ use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use sdkwork_knowledgebase_contract::browser::{KnowledgeBrowserPage, ListKnowledgeBrowserRequest};
 use sdkwork_router_knowledgebase_app_api::{
-    build_router_with_browser, ApiResult, KnowledgeBrowserApi,
+    build_router_with_browser, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
 };
 use serde_json::Value;
 use tower::util::ServiceExt;
@@ -161,6 +161,11 @@ fn app_openapi_exposes_standard_rag_and_knowledge_agent_operations() {
             "post",
             "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
         ),
+        (
+            "agentProfiles.chat.create",
+            "post",
+            "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
+        ),
     ] {
         assert_eq!(
             spec["paths"][path][method]["operationId"], operation_id,
@@ -311,6 +316,9 @@ fn request_body(operation_id: &str) -> &'static str {
         "agentProfiles.retrievalPreview.create" => {
             r#"{"tenantId":"20001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
         }
+        "agentProfiles.chat.create" => {
+            r#"{"tenantId":"20001","message":"What changed in the quarterly report?","mode":"llm_wiki"}"#
+        }
         _ => "",
     }
 }
@@ -321,6 +329,7 @@ struct EmptyBrowserApi;
 impl KnowledgeBrowserApi for EmptyBrowserApi {
     async fn list_browser(
         &self,
+        _context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
     ) -> ApiResult<KnowledgeBrowserPage> {
         Ok(KnowledgeBrowserPage {

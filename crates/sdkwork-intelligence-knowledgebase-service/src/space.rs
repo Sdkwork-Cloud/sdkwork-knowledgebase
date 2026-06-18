@@ -12,6 +12,7 @@ use crate::ports::{
     },
 };
 use crate::wiki::{KnowledgeWikiInitializerService, KnowledgeWikiInitializerServiceError};
+use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{CreateKnowledgeSpaceRequest, KnowledgeSpace};
 use thiserror::Error;
 
@@ -57,10 +58,7 @@ impl<'a> KnowledgeSpaceService<'a> {
         self
     }
 
-    pub fn with_access_control(
-        mut self,
-        access_control: &'a dyn KnowledgeAccessControl,
-    ) -> Self {
+    pub fn with_access_control(mut self, access_control: &'a dyn KnowledgeAccessControl) -> Self {
         self.access_control = Some(access_control);
         self
     }
@@ -100,6 +98,7 @@ impl<'a> KnowledgeSpaceService<'a> {
                 name: request.name,
                 description: request.description,
                 llm_wiki_initialized: false,
+                knowledge_mode: request.knowledge_mode,
             })
             .await
             .map_err(KnowledgeSpaceServiceError::Store)?;
@@ -137,12 +136,14 @@ impl<'a> KnowledgeSpaceService<'a> {
             (self.access_control, space.drive_space_id.as_ref())
         {
             let grant = access
-                .check_space_access(crate::ports::knowledge_access_control::KnowledgeAccessCheckRequest {
-                    tenant_id: tenant_id.to_string(),
-                    actor_id: actor_id.to_string(),
-                    drive_space_id: drive_space_id.clone(),
-                    required_role: KnowledgeAccessRole::Reader,
-                })
+                .check_space_access(
+                    crate::ports::knowledge_access_control::KnowledgeAccessCheckRequest {
+                        tenant_id: tenant_id.to_string(),
+                        actor_id: actor_id.to_string(),
+                        drive_space_id: drive_space_id.clone(),
+                        required_role: KnowledgeAccessRole::Reader,
+                    },
+                )
                 .await
                 .map_err(KnowledgeSpaceServiceError::AccessControl)?;
             if !grant.allowed {
@@ -178,15 +179,17 @@ impl<'a> KnowledgeSpaceService<'a> {
 
         let access = self.require_access_control()?;
         access
-            .grant_space_access(crate::ports::knowledge_access_control::GrantKnowledgeSpaceAccessRequest {
-                tenant_id: tenant_id.to_string(),
-                drive_space_id: drive_space_id.clone(),
-                drive_node_id: None,
-                subject_type,
-                subject_id: subject_id.to_string(),
-                role,
-                operator_id: operator_id.to_string(),
-            })
+            .grant_space_access(
+                crate::ports::knowledge_access_control::GrantKnowledgeSpaceAccessRequest {
+                    tenant_id: tenant_id.to_string(),
+                    drive_space_id: drive_space_id.clone(),
+                    drive_node_id: None,
+                    subject_type,
+                    subject_id: subject_id.to_string(),
+                    role,
+                    operator_id: operator_id.to_string(),
+                },
+            )
             .await
             .map_err(KnowledgeSpaceServiceError::AccessControl)?;
 
@@ -215,14 +218,16 @@ impl<'a> KnowledgeSpaceService<'a> {
 
         let access = self.require_access_control()?;
         access
-            .revoke_space_access(crate::ports::knowledge_access_control::RevokeKnowledgeSpaceAccessRequest {
-                tenant_id: tenant_id.to_string(),
-                drive_space_id: drive_space_id.clone(),
-                drive_node_id: None,
-                subject_type,
-                subject_id: subject_id.to_string(),
-                operator_id: operator_id.to_string(),
-            })
+            .revoke_space_access(
+                crate::ports::knowledge_access_control::RevokeKnowledgeSpaceAccessRequest {
+                    tenant_id: tenant_id.to_string(),
+                    drive_space_id: drive_space_id.clone(),
+                    drive_node_id: None,
+                    subject_type,
+                    subject_id: subject_id.to_string(),
+                    operator_id: operator_id.to_string(),
+                },
+            )
             .await
             .map_err(KnowledgeSpaceServiceError::AccessControl)?;
 
@@ -251,13 +256,15 @@ impl<'a> KnowledgeSpaceService<'a> {
 
         let access = self.require_access_control()?;
         let members = access
-            .list_space_members(crate::ports::knowledge_access_control::ListKnowledgeSpaceMembersRequest {
-                tenant_id: tenant_id.to_string(),
-                drive_space_id: drive_space_id.clone(),
-                drive_node_id: None,
-                cursor: None,
-                page_size: None,
-            })
+            .list_space_members(
+                crate::ports::knowledge_access_control::ListKnowledgeSpaceMembersRequest {
+                    tenant_id: tenant_id.to_string(),
+                    drive_space_id: drive_space_id.clone(),
+                    drive_node_id: None,
+                    cursor: None,
+                    page_size: None,
+                },
+            )
             .await
             .map_err(KnowledgeSpaceServiceError::AccessControl)?;
 
@@ -313,28 +320,32 @@ impl<'a> KnowledgeSpaceService<'a> {
             };
         }
 
-        if let Err(error) = self
-            .wiki_initializer
-            .initialize_standard_files(space.id, &space.name, space.drive_space_id.as_deref())
-            .await
-            .map_err(KnowledgeSpaceServiceError::WikiInitializer)
-        {
-            return Err(self
-                .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
-                .await);
+        if space.knowledge_mode == KnowledgeAgentKnowledgeMode::LlmWiki {
+            if let Err(error) = self
+                .wiki_initializer
+                .initialize_standard_files(space.id, &space.name, space.drive_space_id.as_deref())
+                .await
+                .map_err(KnowledgeSpaceServiceError::WikiInitializer)
+            {
+                return Err(self
+                    .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
+                    .await);
+            }
+
+            return match self
+                .store
+                .mark_llm_wiki_initialized(space.id)
+                .await
+                .map_err(KnowledgeSpaceServiceError::Store)
+            {
+                Ok(space) => Ok(space),
+                Err(error) => Err(self
+                    .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
+                    .await),
+            };
         }
 
-        match self
-            .store
-            .mark_llm_wiki_initialized(space.id)
-            .await
-            .map_err(KnowledgeSpaceServiceError::Store)
-        {
-            Ok(space) => Ok(space),
-            Err(error) => Err(self
-                .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
-                .await),
-        }
+        Ok(space)
     }
 
     async fn cleanup_created_drive_space(

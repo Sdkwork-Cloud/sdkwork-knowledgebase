@@ -13,6 +13,13 @@ use serde_json::Value;
 use std::sync::Mutex;
 use tower::util::ServiceExt;
 
+fn app_request_context() -> KnowledgeAppRequestContext {
+    KnowledgeAppRequestContext {
+        tenant_id: 20001,
+        actor_id: Some(30001),
+    }
+}
+
 #[tokio::test]
 async fn retrieval_route_calls_injected_retrieval_service() {
     let service = RecordingRetrievalService::default();
@@ -24,6 +31,7 @@ async fn retrieval_route_calls_injected_retrieval_service() {
                 .method("POST")
                 .uri("/app/v3/api/knowledge/retrievals")
                 .header("content-type", "application/json")
+                .extension(app_request_context())
                 .body(Body::from(
                     r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
                 ))
@@ -49,6 +57,7 @@ async fn context_pack_route_calls_injected_retrieval_service() {
                 .method("POST")
                 .uri("/app/v3/api/knowledge/context_packs")
                 .header("content-type", "application/json")
+                .extension(app_request_context())
                 .body(Body::from(
                     r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"contextBudgetTokens":80,"includeCitations":true}"#,
                 ))
@@ -74,6 +83,7 @@ async fn retrieval_route_maps_service_validation_errors_to_problem_details() {
                 .method("POST")
                 .uri("/app/v3/api/knowledge/retrievals")
                 .header("content-type", "application/json")
+                .extension(app_request_context())
                 .body(Body::from(
                     r#"{"tenantId":"20001","query":"","bindings":[],"includeCitations":true,"includeTrace":true}"#,
                 ))

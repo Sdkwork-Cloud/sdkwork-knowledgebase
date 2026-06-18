@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use axum::body::{to_bytes, Body};
 use axum::http::{Request, StatusCode};
+use sdkwork_knowledgebase_contract::agent_chat::{
+    KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentKnowledgeMode,
+};
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeAgentStatus,
@@ -95,6 +98,26 @@ async fn agent_retrieval_preview_route_calls_injected_service() {
 }
 
 #[tokio::test]
+async fn agent_chat_route_calls_injected_service() {
+    let service = RecordingAgentService::default();
+    let app = build_router_with_agent_service(service);
+
+    let response = app
+        .oneshot(request(
+            "POST",
+            "/app/v3/api/knowledge/agent_profiles/501/chat",
+            r#"{"tenantId":"20001","message":"What is enterprise renewal support?","mode":"llm_wiki"}"#,
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_json(response).await;
+    assert_eq!(body["mode"], "llm_wiki");
+    assert_eq!(body["citations"][0]["title"], "Support Playbook");
+}
+
+#[tokio::test]
 async fn combined_router_serves_retrieval_and_agent_routes_together() {
     let app = build_router_with_agent_and_retrieval_services(
         RecordingAgentService::default(),
@@ -133,6 +156,7 @@ struct RecordingAgentService {
     profile_requests: Mutex<Vec<KnowledgeAgentProfileRequest>>,
     binding_requests: Mutex<Vec<KnowledgeAgentBindingRequest>>,
     preview_requests: Mutex<Vec<KnowledgeRetrievalRequest>>,
+    chat_requests: Mutex<Vec<KnowledgeAgentChatRequest>>,
 }
 
 #[async_trait]
@@ -221,6 +245,35 @@ impl KnowledgeAgentAppService for RecordingAgentService {
             }],
         })
     }
+
+    async fn create_agent_chat(
+        &self,
+        _profile_id: u64,
+        request: KnowledgeAgentChatRequest,
+    ) -> ApiResult<KnowledgeAgentChatResponse> {
+        self.chat_requests.lock().unwrap().push(request);
+        Ok(KnowledgeAgentChatResponse {
+            chat_id: "chat.1".to_string(),
+            answer: "enterprise renewal support answer".to_string(),
+            mode: KnowledgeAgentKnowledgeMode::LlmWiki,
+            model_provider_id: "provider.model.rig-rust".to_string(),
+            model_id: "rig.default-chat".to_string(),
+            citations: vec![
+                sdkwork_knowledgebase_contract::agent_chat::KnowledgeAgentChatCitation {
+                    document_id: None,
+                    wiki_page_id: None,
+                    title: "Support Playbook".to_string(),
+                    source_uri: Some("wiki/support-playbook.md".to_string()),
+                    logical_path: Some("wiki/support-playbook.md".to_string()),
+                    locator: None,
+                    score: Some(0.91),
+                    snippet: Some("enterprise renewal support answer".to_string()),
+                },
+            ],
+            retrieval_id: None,
+            session_id: None,
+        })
+    }
 }
 
 struct RecordingRetrievalService;
@@ -295,6 +348,10 @@ fn request(method: &str, uri: &str, body: impl Into<String>) -> Request<Body> {
         .method(method)
         .uri(uri)
         .header("content-type", "application/json")
+        .extension(KnowledgeAppRequestContext {
+            tenant_id: 20001,
+            actor_id: Some(30001),
+        })
         .body(Body::from(body.into()))
         .unwrap()
 }
@@ -332,6 +389,7 @@ fn profile() -> KnowledgeAgentProfile {
         tool_policy_ref: None,
         answer_policy: None,
         status: KnowledgeAgentStatus::Active,
+        knowledge_mode: Default::default(),
         bindings: vec![binding(601, 501, 7, true)],
     }
 }

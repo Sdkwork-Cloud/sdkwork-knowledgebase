@@ -27,6 +27,17 @@ pub enum KnowledgeAgentStatus {
     Archived,
 }
 
+/// How an agent or knowledge space resolves content for chat and retrieval.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum KnowledgeAgentKnowledgeMode {
+    /// Karpathy-style llm-wiki page lookup over wiki pages and index.
+    #[default]
+    LlmWiki,
+    /// Chunk-based hybrid / vector retrieval over indexed knowledge.
+    Rag,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeFilter {
@@ -345,6 +356,8 @@ pub struct KnowledgeAgentProfile {
     pub memory_policy_ref: Option<String>,
     pub tool_policy_ref: Option<String>,
     pub answer_policy: Option<String>,
+    #[serde(default)]
+    pub knowledge_mode: KnowledgeAgentKnowledgeMode,
     pub status: KnowledgeAgentStatus,
     pub bindings: Vec<KnowledgeAgentBinding>,
 }
@@ -373,6 +386,8 @@ pub struct KnowledgeAgentProfileRequest {
     pub memory_policy_ref: Option<String>,
     pub tool_policy_ref: Option<String>,
     pub answer_policy: Option<String>,
+    #[serde(default)]
+    pub knowledge_mode: KnowledgeAgentKnowledgeMode,
     pub status: KnowledgeAgentStatus,
 }
 

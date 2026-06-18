@@ -178,9 +178,7 @@
                                                                  "enabled":  true,
                                                                  "metadata":  {
 
-                                                                              },
-                                                                 "checksumAlgorithm":  "SHA-256",
-                                                                 "checksum":  "e2b6db9fe2b6db9fe2b6db9fe2b6db9fe2b6db9fe2b6db9fe2b6db9fe2b6db9f"
+                                                                              }
                                                              },
                                                              {
                                                                  "id":  "desktop-windows",
@@ -193,9 +191,7 @@
                                                                  "metadata":  {
 
                                                                               },
-                                                                 "architecture":  "x64",
-                                                                 "checksumAlgorithm":  "SHA-256",
-                                                                 "checksum":  "a9e22ca5a9e22ca5a9e22ca5a9e22ca5a9e22ca5a9e22ca5a9e22ca5a9e22ca5"
+                                                                 "architecture":  "x64"
                                                              },
                                                              {
                                                                  "id":  "desktop-macos",
@@ -208,9 +204,7 @@
                                                                  "metadata":  {
 
                                                                               },
-                                                                 "architecture":  "universal",
-                                                                 "checksumAlgorithm":  "SHA-256",
-                                                                 "checksum":  "71a0461571a0461571a0461571a0461571a0461571a0461571a0461571a04615"
+                                                                 "architecture":  "universal"
                                                              },
                                                              {
                                                                  "id":  "desktop-linux",
@@ -225,9 +219,7 @@
                                                                                                 "distro":  "generic"
                                                                                             }
                                                                               },
-                                                                 "architecture":  "x64",
-                                                                 "checksumAlgorithm":  "SHA-256",
-                                                                 "checksum":  "7195fb967195fb967195fb967195fb967195fb967195fb967195fb967195fb96"
+                                                                 "architecture":  "x64"
                                                              }
                                                          ],
                                             "metadata":  {

@@ -1,3 +1,4 @@
+use crate::rag::KnowledgeAgentKnowledgeMode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -7,6 +8,8 @@ pub struct CreateKnowledgeSpaceRequest {
     pub description: Option<String>,
     pub owner_subject_type: Option<String>,
     pub owner_subject_id: Option<String>,
+    #[serde(default)]
+    pub knowledge_mode: KnowledgeAgentKnowledgeMode,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,6 +22,7 @@ pub struct KnowledgeSpace {
     pub drive_space_id: Option<String>,
     pub status: KnowledgeSpaceStatus,
     pub llm_wiki_initialized: bool,
+    pub knowledge_mode: KnowledgeAgentKnowledgeMode,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

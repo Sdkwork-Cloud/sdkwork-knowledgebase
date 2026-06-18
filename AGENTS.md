@@ -68,7 +68,8 @@ For Rust, keep `src/lib.rs` limited to module declarations, re-exports, light do
 
 Run commands from this directory unless a command explicitly targets another path.
 
-- `cargo fmt --all --check`: verify Rust formatting across workspace crates.
+- `powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1`: canonical Phase 1 verification gate (format, tests, clippy, OpenAPI, SDK structure).
+- `cargo fmt -p <package> --check`: verify Rust formatting for a single workspace crate when iterating locally.
 - `cargo test --workspace`: run workspace Rust tests.
 - `cargo clippy --workspace --tests -- -D warnings`: lint Rust tests and crates with warnings denied.
 

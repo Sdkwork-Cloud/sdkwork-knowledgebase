@@ -1,3 +1,4 @@
+use sdkwork_id_core::default_snowflake_epoch_millis;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::SQLITE_CORE_MIGRATION;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     KnowledgeIdGenerator, KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator,
@@ -6,7 +7,6 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore,
 };
-use sdkwork_platform_id_service::default_snowflake_epoch_millis;
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::SqlitePool;
 use std::sync::{Arc, Mutex};
@@ -28,6 +28,7 @@ async fn sqlite_space_insert_uses_injected_runtime_snowflake_id() {
             name: "Snowflake Space".to_string(),
             description: None,
             llm_wiki_initialized: false,
+            knowledge_mode: Default::default(),
         })
         .await
         .unwrap();

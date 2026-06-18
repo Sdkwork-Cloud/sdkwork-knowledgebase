@@ -1,4 +1,4 @@
-{
+﻿{
     "schemaVersion":  1,
     "kind":  "sdkwork.component.spec",
     "component":  {
@@ -6,7 +6,7 @@
                       "displayName":  "SDKWork Intelligence Knowledgebase Object Key Service",
                       "version":  "0.1.0",
                       "type":  "rust-crate",
-                      "root":  "crates/sdkwork-intelligence-knowledgebase-object-key-service",
+                      "root":  "sdkwork-knowledgebase/crates/sdkwork-intelligence-knowledgebase-object-key-service",
                       "domain":  "intelligence",
                       "capability":  "knowledgebase-object-key",
                       "surface":  "backend-service",

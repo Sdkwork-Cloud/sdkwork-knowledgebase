@@ -45,6 +45,39 @@ impl SqliteKnowledgeChunkRetrievalStore {
     }
 }
 
+impl SqliteKnowledgeChunkRetrievalStore {
+    pub async fn list_trace_summaries(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<KnowledgeRetrievalTraceRecord>, KnowledgeRetrievalTraceStoreError> {
+        let tenant_id = trace_to_i64("tenant_id", self.tenant_id)?;
+        let limit = i64::from(limit.clamp(1, 200));
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                tenant_id,
+                id AS retrieval_trace_id,
+                retrieval_profile_id,
+                query_text_redacted,
+                latency_ms,
+                result_count,
+                status
+            FROM kb_retrieval_trace
+            WHERE tenant_id = ?
+            ORDER BY id DESC
+            LIMIT ?
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(trace_sqlx_error)?;
+
+        rows.into_iter().map(trace_record_from_row).collect()
+    }
+}
+
 #[async_trait]
 impl KnowledgeRetrievalBackend for SqliteKnowledgeChunkRetrievalStore {
     async fn search_chunks(
@@ -52,9 +85,58 @@ impl KnowledgeRetrievalBackend for SqliteKnowledgeChunkRetrievalStore {
         request: KnowledgeChunkSearchRequest,
     ) -> Result<Vec<KnowledgeChunkSearchHit>, KnowledgeRetrievalBackendError> {
         if request.tenant_id != self.tenant_id {
-            return Ok(vec![]);
+            return Err(KnowledgeRetrievalBackendError::TenantMismatch);
         }
 
+        match request.method {
+            KnowledgeRetrievalMethod::Vector => {
+                if request.query_embedding.is_some() {
+                    self.search_vector_with_embedding(request).await
+                } else {
+                    self.search_embedding_indexed_chunks(request, TermMatchOperator::Any)
+                        .await
+                }
+            }
+            KnowledgeRetrievalMethod::Hybrid => {
+                if request.query_embedding.is_some() {
+                    self.search_hybrid_with_embedding(request).await
+                } else {
+                    self.search_chunks_with_term_operator(request, TermMatchOperator::Any)
+                        .await
+                }
+            }
+            KnowledgeRetrievalMethod::Graph
+            | KnowledgeRetrievalMethod::External
+            | KnowledgeRetrievalMethod::Structured
+            | KnowledgeRetrievalMethod::LlmRerank => {
+                return Err(KnowledgeRetrievalBackendError::UnsupportedMethod(
+                    request.method,
+                ));
+            }
+            KnowledgeRetrievalMethod::Exact => {
+                self.search_chunks_with_term_operator(request, TermMatchOperator::All)
+                    .await
+            }
+            _ => {
+                self.search_chunks_with_term_operator(request, TermMatchOperator::Any)
+                    .await
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum TermMatchOperator {
+    Any,
+    All,
+}
+
+impl SqliteKnowledgeChunkRetrievalStore {
+    async fn search_chunks_with_term_operator(
+        &self,
+        request: KnowledgeChunkSearchRequest,
+        term_operator: TermMatchOperator,
+    ) -> Result<Vec<KnowledgeChunkSearchHit>, KnowledgeRetrievalBackendError> {
         let tenant_id = backend_to_i64("tenant_id", self.tenant_id)?;
         let space_id = backend_to_i64("space_id", request.binding.space_id)?;
         let collection_id = request
@@ -113,7 +195,10 @@ impl KnowledgeRetrievalBackend for SqliteKnowledgeChunkRetrievalStore {
         query.push(" AND (");
         for (index, term) in query_terms.iter().enumerate() {
             if index > 0 {
-                query.push(" OR ");
+                query.push(match term_operator {
+                    TermMatchOperator::Any => " OR ",
+                    TermMatchOperator::All => " AND ",
+                });
             }
             query.push("LOWER(c.content_text) LIKE ");
             query.push_bind(format!("%{term}%"));
@@ -132,6 +217,258 @@ impl KnowledgeRetrievalBackend for SqliteKnowledgeChunkRetrievalStore {
         rows.into_iter()
             .map(|row| chunk_hit_from_row(row, request.method, request.binding.min_score))
             .filter_map(Result::transpose)
+            .collect()
+    }
+
+    async fn search_embedding_indexed_chunks(
+        &self,
+        request: KnowledgeChunkSearchRequest,
+        term_operator: TermMatchOperator,
+    ) -> Result<Vec<KnowledgeChunkSearchHit>, KnowledgeRetrievalBackendError> {
+        let tenant_id = backend_to_i64("tenant_id", self.tenant_id)?;
+        let space_id = backend_to_i64("space_id", request.binding.space_id)?;
+        let collection_id = request
+            .binding
+            .collection_id
+            .map(|value| backend_to_i64("collection_id", value))
+            .transpose()?;
+        let top_k = i64::from(request.top_k.clamp(1, 64));
+        let query_terms = normalized_query_terms(&request.query);
+
+        if query_terms.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut query = QueryBuilder::new(
+            r#"
+            SELECT
+                c.id AS chunk_id,
+                c.document_id,
+                c.document_version_id,
+                c.space_id,
+                c.collection_id,
+                d.title,
+                c.content_text,
+                c.token_count,
+                c.locator,
+                "kb://documents/" || c.document_id AS source_uri,
+            "#,
+        );
+        push_score_expression(&mut query, &query_terms);
+        query.push(
+            r#"
+                AS score
+            FROM kb_chunk c
+            JOIN kb_document d
+              ON d.tenant_id = c.tenant_id
+             AND d.id = c.document_id
+             AND d.status =
+            "#,
+        );
+        query.push_bind(ACTIVE_STATUS);
+        query.push(
+            r#"
+            INNER JOIN kb_embedding e
+              ON e.tenant_id = c.tenant_id
+             AND e.chunk_id = c.id
+             AND e.status =
+            "#,
+        );
+        query.push_bind(ACTIVE_STATUS);
+        query.push(
+            r#"
+            WHERE c.tenant_id =
+            "#,
+        );
+        query.push_bind(tenant_id);
+        query.push(" AND c.space_id = ");
+        query.push_bind(space_id);
+        query.push(" AND c.status = ");
+        query.push_bind(ACTIVE_STATUS);
+        if let Some(collection_id) = collection_id {
+            query.push(" AND c.collection_id = ");
+            query.push_bind(collection_id);
+        }
+        query.push(" AND (");
+        for (index, term) in query_terms.iter().enumerate() {
+            if index > 0 {
+                query.push(match term_operator {
+                    TermMatchOperator::Any => " OR ",
+                    TermMatchOperator::All => " AND ",
+                });
+            }
+            query.push("LOWER(c.content_text) LIKE ");
+            query.push_bind(format!("%{term}%"));
+            query.push(" OR LOWER(d.title) LIKE ");
+            query.push_bind(format!("%{term}%"));
+        }
+        query.push(") ORDER BY score DESC, c.id ASC LIMIT ");
+        query.push_bind(top_k);
+
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(backend_sqlx_error)?;
+
+        rows.into_iter()
+            .map(|row| chunk_hit_from_row(row, request.method, request.binding.min_score))
+            .filter_map(Result::transpose)
+            .collect()
+    }
+
+    async fn search_vector_with_embedding(
+        &self,
+        request: KnowledgeChunkSearchRequest,
+    ) -> Result<Vec<KnowledgeChunkSearchHit>, KnowledgeRetrievalBackendError> {
+        let query_embedding = request.query_embedding.as_ref().ok_or_else(|| {
+            KnowledgeRetrievalBackendError::Internal(
+                "vector search requires query_embedding".to_string(),
+            )
+        })?;
+        let candidates = self
+            .load_embedding_candidates(&request, TermMatchOperator::Any)
+            .await?;
+        let mut hits = score_embedding_candidates(
+            candidates,
+            query_embedding,
+            request.method,
+            request.binding.min_score,
+        );
+        hits.sort_by(|left, right| {
+            right
+                .score
+                .partial_cmp(&left.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        hits.truncate(request.top_k.clamp(1, 64) as usize);
+        Ok(hits)
+    }
+
+    async fn search_hybrid_with_embedding(
+        &self,
+        request: KnowledgeChunkSearchRequest,
+    ) -> Result<Vec<KnowledgeChunkSearchHit>, KnowledgeRetrievalBackendError> {
+        let query_embedding = request.query_embedding.as_ref().ok_or_else(|| {
+            KnowledgeRetrievalBackendError::Internal(
+                "hybrid search requires query_embedding".to_string(),
+            )
+        })?;
+        let embedding_dimension = query_embedding.len();
+        let keyword_hits = self
+            .search_chunks_with_term_operator(request.clone(), TermMatchOperator::Any)
+            .await?;
+        let vector_hits = self.search_vector_with_embedding(request).await?;
+        Ok(merge_hybrid_hits(
+            keyword_hits,
+            vector_hits,
+            embedding_dimension,
+        ))
+    }
+
+    async fn load_embedding_candidates(
+        &self,
+        request: &KnowledgeChunkSearchRequest,
+        term_operator: TermMatchOperator,
+    ) -> Result<Vec<EmbeddingCandidateRow>, KnowledgeRetrievalBackendError> {
+        let tenant_id = backend_to_i64("tenant_id", self.tenant_id)?;
+        let space_id = backend_to_i64("space_id", request.binding.space_id)?;
+        let collection_id = request
+            .binding
+            .collection_id
+            .map(|value| backend_to_i64("collection_id", value))
+            .transpose()?;
+        let top_k = i64::from((request.top_k.clamp(1, 64) * 4).clamp(4, 256));
+        let query_terms = normalized_query_terms(&request.query);
+
+        let mut query = QueryBuilder::new(
+            r#"
+            SELECT
+                c.id AS chunk_id,
+                c.document_id,
+                c.document_version_id,
+                c.space_id,
+                c.collection_id,
+                d.title,
+                c.content_text,
+                c.token_count,
+                c.locator,
+                "kb://documents/" || c.document_id AS source_uri,
+                e.vector_json AS vector_json
+            FROM kb_chunk c
+            JOIN kb_document d
+              ON d.tenant_id = c.tenant_id
+             AND d.id = c.document_id
+             AND d.status =
+            "#,
+        );
+        query.push_bind(ACTIVE_STATUS);
+        query.push(
+            r#"
+            INNER JOIN kb_embedding e
+              ON e.tenant_id = c.tenant_id
+             AND e.chunk_id = c.id
+             AND e.status =
+            "#,
+        );
+        query.push_bind(ACTIVE_STATUS);
+        query.push(
+            r#"
+            WHERE c.tenant_id =
+            "#,
+        );
+        query.push_bind(tenant_id);
+        query.push(" AND c.space_id = ");
+        query.push_bind(space_id);
+        query.push(" AND c.status = ");
+        query.push_bind(ACTIVE_STATUS);
+        query.push(" AND e.vector_json IS NOT NULL");
+        if let Some(collection_id) = collection_id {
+            query.push(" AND c.collection_id = ");
+            query.push_bind(collection_id);
+        }
+        if !query_terms.is_empty() {
+            query.push(" AND (");
+            for (index, term) in query_terms.iter().enumerate() {
+                if index > 0 {
+                    query.push(match term_operator {
+                        TermMatchOperator::Any => " OR ",
+                        TermMatchOperator::All => " AND ",
+                    });
+                }
+                query.push("LOWER(c.content_text) LIKE ");
+                query.push_bind(format!("%{term}%"));
+                query.push(" OR LOWER(d.title) LIKE ");
+                query.push_bind(format!("%{term}%"));
+            }
+            query.push(")");
+        }
+        query.push(" ORDER BY c.id ASC LIMIT ");
+        query.push_bind(top_k);
+
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(backend_sqlx_error)?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(EmbeddingCandidateRow {
+                    chunk_id: u64_from_row(&row, "chunk_id")?,
+                    document_id: u64_from_row(&row, "document_id")?,
+                    document_version_id: optional_u64_from_row(&row, "document_version_id")?,
+                    space_id: u64_from_row(&row, "space_id")?,
+                    collection_id: optional_u64_from_row(&row, "collection_id")?,
+                    title: row.try_get("title").map_err(backend_sqlx_error)?,
+                    content: row.try_get("content_text").map_err(backend_sqlx_error)?,
+                    token_count: optional_i64_from_row(&row, "token_count")?
+                        .map(|value| value as u32),
+                    locator: row.try_get("locator").map_err(backend_sqlx_error)?,
+                    source_uri: row.try_get("source_uri").map_err(backend_sqlx_error)?,
+                    vector_json: row.try_get("vector_json").map_err(backend_sqlx_error)?,
+                })
+            })
             .collect()
     }
 }
@@ -361,6 +698,131 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
 
         rows.into_iter().map(trace_hit_from_row).collect()
     }
+}
+
+#[derive(Debug, Clone)]
+struct EmbeddingCandidateRow {
+    chunk_id: u64,
+    document_id: u64,
+    document_version_id: Option<u64>,
+    space_id: u64,
+    collection_id: Option<u64>,
+    title: String,
+    content: String,
+    token_count: Option<u32>,
+    locator: Option<String>,
+    source_uri: Option<String>,
+    vector_json: String,
+}
+
+fn score_embedding_candidates(
+    candidates: Vec<EmbeddingCandidateRow>,
+    query_embedding: &[f32],
+    method: KnowledgeRetrievalMethod,
+    min_score: Option<f64>,
+) -> Vec<KnowledgeChunkSearchHit> {
+    candidates
+        .into_iter()
+        .filter_map(|candidate| {
+            let vector = parse_embedding_vector(&candidate.vector_json).ok()?;
+            if vector.len() != query_embedding.len() {
+                return None;
+            }
+            let score = cosine_similarity_f32(query_embedding, &vector);
+            if min_score
+                .map(|min_score| score < min_score)
+                .unwrap_or(false)
+            {
+                return None;
+            }
+            Some(KnowledgeChunkSearchHit {
+                chunk_id: candidate.chunk_id,
+                document_id: candidate.document_id,
+                document_version_id: candidate.document_version_id,
+                space_id: candidate.space_id,
+                collection_id: candidate.collection_id,
+                title: candidate.title,
+                content: candidate.content,
+                score,
+                token_count: candidate.token_count,
+                locator: candidate.locator,
+                source_uri: candidate.source_uri,
+                retrieval_method: method,
+                match_reason: Some("vector_embedding".to_string()),
+            })
+        })
+        .collect()
+}
+
+fn merge_hybrid_hits(
+    keyword_hits: Vec<KnowledgeChunkSearchHit>,
+    vector_hits: Vec<KnowledgeChunkSearchHit>,
+    _dimension: usize,
+) -> Vec<KnowledgeChunkSearchHit> {
+    let mut merged = std::collections::BTreeMap::<u64, KnowledgeChunkSearchHit>::new();
+
+    for hit in keyword_hits {
+        merged.insert(
+            hit.chunk_id,
+            KnowledgeChunkSearchHit {
+                score: hit.score * 0.4,
+                match_reason: Some("hybrid_keyword".to_string()),
+                ..hit
+            },
+        );
+    }
+
+    for hit in vector_hits {
+        merged
+            .entry(hit.chunk_id)
+            .and_modify(|existing| {
+                existing.score = existing.score + hit.score * 0.6;
+                existing.match_reason = Some("hybrid_keyword_vector".to_string());
+            })
+            .or_insert(KnowledgeChunkSearchHit {
+                score: hit.score * 0.6,
+                match_reason: Some("hybrid_vector".to_string()),
+                ..hit
+            });
+    }
+
+    let mut hits = merged.into_values().collect::<Vec<_>>();
+    hits.sort_by(|left, right| {
+        right
+            .score
+            .partial_cmp(&left.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    hits
+}
+
+fn parse_embedding_vector(payload: &str) -> Result<Vec<f32>, KnowledgeRetrievalBackendError> {
+    serde_json::from_str(payload).map_err(|error| {
+        KnowledgeRetrievalBackendError::Internal(format!("invalid vector_json payload: {error}"))
+    })
+}
+
+fn cosine_similarity_f32(left: &[f32], right: &[f32]) -> f64 {
+    if left.is_empty() || right.is_empty() || left.len() != right.len() {
+        return 0.0;
+    }
+
+    let mut dot = 0.0f64;
+    let mut left_norm = 0.0f64;
+    let mut right_norm = 0.0f64;
+    for (a, b) in left.iter().zip(right.iter()) {
+        let a = f64::from(*a);
+        let b = f64::from(*b);
+        dot += a * b;
+        left_norm += a * a;
+        right_norm += b * b;
+    }
+
+    if left_norm == 0.0 || right_norm == 0.0 {
+        return 0.0;
+    }
+
+    dot / (left_norm.sqrt() * right_norm.sqrt())
 }
 
 fn push_score_expression(query: &mut QueryBuilder<'_, sqlx::Sqlite>, terms: &[String]) {

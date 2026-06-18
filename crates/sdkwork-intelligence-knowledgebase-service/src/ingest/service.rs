@@ -3,7 +3,9 @@ use crate::ports::{
         HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeObjectRef,
         KnowledgeStorageError, PutKnowledgeObjectRequest,
     },
-    knowledge_ingestion_job_store::{CreateIngestionJobRecord, IngestionJobStore, IngestionJobStoreError},
+    knowledge_ingestion_job_store::{
+        CreateIngestionJobRecord, IngestionJobStore, IngestionJobStoreError,
+    },
 };
 use sdkwork_knowledgebase_contract::ingest::{
     CreateIngestionJobRequest, IngestionJob, IngestionJobState, KnowledgeIngestRequest,

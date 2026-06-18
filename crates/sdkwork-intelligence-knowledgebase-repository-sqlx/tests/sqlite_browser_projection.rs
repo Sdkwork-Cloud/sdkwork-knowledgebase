@@ -34,6 +34,7 @@ async fn sqlite_space_store_persists_drive_space_binding() {
             name: "Research Space".to_string(),
             description: None,
             llm_wiki_initialized: false,
+            knowledge_mode: Default::default(),
         })
         .await
         .unwrap();
@@ -67,6 +68,7 @@ async fn sqlite_space_store_deleted_space_releases_active_drive_space_binding() 
             name: "Failed Initialization".to_string(),
             description: None,
             llm_wiki_initialized: false,
+            knowledge_mode: Default::default(),
         })
         .await
         .unwrap();
@@ -81,6 +83,7 @@ async fn sqlite_space_store_deleted_space_releases_active_drive_space_binding() 
             name: "Retried Initialization".to_string(),
             description: None,
             llm_wiki_initialized: false,
+            knowledge_mode: Default::default(),
         })
         .await
         .unwrap();

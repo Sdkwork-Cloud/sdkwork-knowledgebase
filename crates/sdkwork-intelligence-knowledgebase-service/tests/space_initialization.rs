@@ -22,6 +22,7 @@ use sdkwork_intelligence_knowledgebase_service::space::KnowledgeSpaceService;
 use sdkwork_intelligence_knowledgebase_service::wiki::{
     KnowledgeWikiFileRegistryService, KnowledgeWikiInitializerService,
 };
+use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{
     CreateKnowledgeSpaceRequest, KnowledgeSpace, KnowledgeSpaceStatus,
 };
@@ -38,11 +39,12 @@ async fn creating_space_initializes_llm_wiki_standard_files_through_drive() {
 
     let created = service
         .create_space(CreateKnowledgeSpaceRequest {
-                name: "Research Space".to_string(),
-                description: Some("LLM Wiki research".to_string()),
-                owner_subject_type: Some("user".to_string()),
-                owner_subject_id: Some("test-owner".to_string()),
-            })
+            name: "Research Space".to_string(),
+            description: Some("LLM Wiki research".to_string()),
+            owner_subject_type: Some("user".to_string()),
+            owner_subject_id: Some("test-owner".to_string()),
+            knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        })
         .await
         .unwrap();
 
@@ -76,11 +78,12 @@ async fn creating_space_binds_dedicated_drive_knowledge_space_before_wiki_initia
 
     let created = service
         .create_space(CreateKnowledgeSpaceRequest {
-                name: "Research Space".to_string(),
-                description: None,
-                owner_subject_type: Some("user".to_string()),
-                owner_subject_id: Some("test-owner".to_string()),
-            })
+            name: "Research Space".to_string(),
+            description: None,
+            owner_subject_type: Some("user".to_string()),
+            owner_subject_id: Some("test-owner".to_string()),
+            knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        })
         .await
         .unwrap();
 
@@ -123,11 +126,12 @@ async fn drive_space_provisioning_requires_context_before_creating_space_record(
 
     let error = service
         .create_space(CreateKnowledgeSpaceRequest {
-                name: "Research Space".to_string(),
-                description: None,
-                owner_subject_type: Some("user".to_string()),
-                owner_subject_id: Some("test-owner".to_string()),
-            })
+            name: "Research Space".to_string(),
+            description: None,
+            owner_subject_type: Some("user".to_string()),
+            owner_subject_id: Some("test-owner".to_string()),
+            knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        })
         .await
         .unwrap_err();
 
@@ -153,11 +157,12 @@ async fn drive_space_provisioning_failure_does_not_leave_half_initialized_space(
 
     let error = service
         .create_space(CreateKnowledgeSpaceRequest {
-                name: "Research Space".to_string(),
-                description: None,
-                owner_subject_type: Some("user".to_string()),
-                owner_subject_id: Some("test-owner".to_string()),
-            })
+            name: "Research Space".to_string(),
+            description: None,
+            owner_subject_type: Some("user".to_string()),
+            owner_subject_id: Some("test-owner".to_string()),
+            knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        })
         .await
         .unwrap_err();
 
@@ -183,11 +188,12 @@ async fn wiki_initialization_failure_releases_created_drive_space_and_local_spac
 
     let error = service
         .create_space(CreateKnowledgeSpaceRequest {
-                name: "Research Space".to_string(),
-                description: None,
-                owner_subject_type: Some("user".to_string()),
-                owner_subject_id: Some("test-owner".to_string()),
-            })
+            name: "Research Space".to_string(),
+            description: None,
+            owner_subject_type: Some("user".to_string()),
+            owner_subject_id: Some("test-owner".to_string()),
+            knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        })
         .await
         .unwrap_err();
 
@@ -220,11 +226,12 @@ async fn creating_bound_space_initializes_browser_visible_llm_wiki_drive_nodes()
 
     service
         .create_space(CreateKnowledgeSpaceRequest {
-                name: "Research Space".to_string(),
-                description: None,
-                owner_subject_type: Some("user".to_string()),
-                owner_subject_id: Some("test-owner".to_string()),
-            })
+            name: "Research Space".to_string(),
+            description: None,
+            owner_subject_type: Some("user".to_string()),
+            owner_subject_id: Some("test-owner".to_string()),
+            knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        })
         .await
         .unwrap();
 
@@ -304,11 +311,12 @@ async fn workspace_backed_initialization_requires_drive_space_binding() {
 
     let error = service
         .create_space(CreateKnowledgeSpaceRequest {
-                name: "Research Space".to_string(),
-                description: None,
-                owner_subject_type: Some("user".to_string()),
-                owner_subject_id: Some("test-owner".to_string()),
-            })
+            name: "Research Space".to_string(),
+            description: None,
+            owner_subject_type: Some("user".to_string()),
+            owner_subject_id: Some("test-owner".to_string()),
+            knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        })
         .await
         .unwrap_err();
 
@@ -374,6 +382,7 @@ impl KnowledgeSpaceStore for MemorySpaceStore {
             drive_space_id: None,
             status: KnowledgeSpaceStatus::Active,
             llm_wiki_initialized: false,
+            knowledge_mode: record.knowledge_mode,
         };
         self.spaces.lock().unwrap().push(space.clone());
         Ok(space)

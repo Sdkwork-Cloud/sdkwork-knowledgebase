@@ -2,6 +2,7 @@ use crate::ports::knowledge_agent_profile_store::{
     KnowledgeAgentProfileStore, KnowledgeAgentProfileStoreError,
 };
 use crate::retrieval::{KnowledgeRetrievalExecutor, KnowledgeRetrievalServiceError};
+use sdkwork_knowledgebase_agent_provider::validate_rag_profile_requirements;
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentProfile,
     KnowledgeAgentProfileRequest, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
@@ -202,6 +203,8 @@ fn validate_profile_request(
             "model_id is required".to_string(),
         ));
     }
+    validate_rag_profile_requirements(request.knowledge_mode, request.retrieval_profile_id)
+        .map_err(KnowledgeAgentServiceError::InvalidRequest)?;
     Ok(())
 }
 

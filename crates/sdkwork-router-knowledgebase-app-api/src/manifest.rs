@@ -185,4 +185,9 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         path: "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
         operation_id: "agentProfiles.retrievalPreview.create",
     },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
+        operation_id: "agentProfiles.chat.create",
+    },
 ];

@@ -1,5 +1,6 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
-    POSTGRES_CORE_MIGRATION, SQLITE_CORE_MIGRATION,
+    POSTGRES_ACCESS_MODE_MIGRATION, POSTGRES_CORE_MIGRATION, SQLITE_ACCESS_MODE_MIGRATION,
+    SQLITE_CORE_MIGRATION,
 };
 use std::collections::BTreeSet;
 
@@ -306,6 +307,23 @@ fn rag_migrations_define_retrieval_index_trace_and_agent_binding_columns() {
         assert!(!lowercase.contains("access_token"));
         assert!(!lowercase.contains("refresh_token"));
         assert!(!lowercase.contains("api_key"));
+    }
+}
+
+#[test]
+fn access_mode_migrations_add_profile_space_mode_and_vector_json() {
+    for migration in [SQLITE_ACCESS_MODE_MIGRATION, POSTGRES_ACCESS_MODE_MIGRATION] {
+        for snippet in [
+            "knowledge_mode",
+            "vector_json",
+            "idx_kb_agent_profile_knowledge_mode",
+            "idx_kb_space_knowledge_mode",
+        ] {
+            assert!(
+                migration.contains(snippet),
+                "access mode migration must include snippet: {snippet}"
+            );
+        }
     }
 }
 

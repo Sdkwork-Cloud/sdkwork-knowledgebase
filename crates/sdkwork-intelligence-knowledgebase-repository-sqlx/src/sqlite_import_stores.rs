@@ -182,6 +182,28 @@ impl SqliteKnowledgeSourceStore {
 
         row.map(|row| source_from_row(&row)).transpose()
     }
+
+    pub async fn list_active_sources(
+        &self,
+    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
+        let tenant_id = source_to_i64("tenant_id", self.tenant_id)?;
+        let rows = sqlx::query(
+            r#"
+            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix
+            FROM kb_source
+            WHERE tenant_id = ? AND status = ?
+            ORDER BY id ASC
+            LIMIT 200
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(source_sqlx_error)?;
+
+        rows.iter().map(source_from_row).collect()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -290,6 +312,140 @@ impl SqliteKnowledgeDocumentStore {
         .map_err(document_sqlx_error)?;
 
         document_from_row(&row)
+    }
+
+    pub async fn list_active_documents(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<KnowledgeDocument>, KnowledgeDocumentStoreError> {
+        let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
+        let limit = i64::from(limit.clamp(1, 200));
+        let rows = sqlx::query(
+            r#"
+            SELECT id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
+                   current_version_id, visibility, content_state, index_state
+            FROM kb_document
+            WHERE tenant_id = ? AND status = ?
+            ORDER BY id ASC
+            LIMIT ?
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(document_sqlx_error)?;
+
+        rows.iter().map(document_from_row).collect()
+    }
+
+    pub async fn get_document_by_id(
+        &self,
+        document_id: u64,
+    ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
+        let document_id = document_to_i64("document_id", document_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
+                   current_version_id, visibility, content_state, index_state
+            FROM kb_document
+            WHERE tenant_id = ? AND id = ? AND status = ?
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(document_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|error| {
+            if matches!(error, sqlx::Error::RowNotFound) {
+                KnowledgeDocumentStoreError::Internal(format!(
+                    "missing knowledge document: {document_id}"
+                ))
+            } else {
+                document_sqlx_error(error)
+            }
+        })?;
+
+        document_from_row(&row)
+    }
+
+    pub async fn update_document_metadata(
+        &self,
+        document_id: u64,
+        title: String,
+        mime_type: Option<String>,
+        language: Option<String>,
+    ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        if title.trim().is_empty() {
+            return Err(KnowledgeDocumentStoreError::InvalidRecord(
+                "title is required".to_string(),
+            ));
+        }
+        let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
+        let document_id = document_to_i64("document_id", document_id)?;
+        let now = document_now()?;
+        let row = sqlx::query(
+            r#"
+            UPDATE kb_document
+            SET title = ?, mime_type = ?, language = ?, updated_at = ?, version = version + 1
+            WHERE tenant_id = ? AND id = ? AND status = ?
+            RETURNING id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
+                      current_version_id, visibility, content_state, index_state
+            "#,
+        )
+        .bind(title)
+        .bind(mime_type)
+        .bind(language)
+        .bind(now)
+        .bind(tenant_id)
+        .bind(document_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|error| {
+            if matches!(error, sqlx::Error::RowNotFound) {
+                KnowledgeDocumentStoreError::Internal(format!(
+                    "missing knowledge document: {document_id}"
+                ))
+            } else {
+                document_sqlx_error(error)
+            }
+        })?;
+
+        document_from_row(&row)
+    }
+
+    pub async fn soft_delete_document(
+        &self,
+        document_id: u64,
+    ) -> Result<(), KnowledgeDocumentStoreError> {
+        let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
+        let document_id = document_to_i64("document_id", document_id)?;
+        let now = document_now()?;
+        let rows = sqlx::query(
+            r#"
+            UPDATE kb_document
+            SET status = 0, updated_at = ?, version = version + 1
+            WHERE tenant_id = ? AND id = ? AND status = ?
+            "#,
+        )
+        .bind(now)
+        .bind(tenant_id)
+        .bind(document_id)
+        .bind(ACTIVE_STATUS)
+        .execute(&self.pool)
+        .await
+        .map_err(document_sqlx_error)?;
+
+        if rows.rows_affected() == 0 {
+            return Err(KnowledgeDocumentStoreError::Internal(format!(
+                "missing knowledge document: {document_id}"
+            )));
+        }
+        Ok(())
     }
 
     async fn enrich_document_drive_node_binding(
@@ -691,6 +847,31 @@ impl SqliteKnowledgeDocumentVersionStore {
         .map_err(version_sqlx_error)?;
 
         Ok(())
+    }
+
+    pub async fn list_versions_for_document(
+        &self,
+        document_id: u64,
+    ) -> Result<Vec<KnowledgeDocumentVersion>, KnowledgeDocumentVersionStoreError> {
+        let tenant_id = version_to_i64("tenant_id", self.tenant_id)?;
+        let document_id = version_to_i64("document_id", document_id)?;
+        let rows = sqlx::query(
+            r#"
+            SELECT id, document_id, version_no, original_object_ref_id, checksum_sha256_hex, size_bytes, mime_type
+            FROM kb_document_version
+            WHERE tenant_id = ? AND document_id = ? AND status = ?
+            ORDER BY version_no ASC
+            LIMIT 200
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(document_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(version_sqlx_error)?;
+
+        rows.iter().map(document_version_from_row).collect()
     }
 }
 

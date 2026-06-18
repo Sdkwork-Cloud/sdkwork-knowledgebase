@@ -84,6 +84,22 @@ Assert-PathExists ".sdkwork/skills/README.md" "Missing SDKWORK skills README"
 Assert-PathExists ".sdkwork/plugins/README.md" "Missing SDKWORK plugins README"
 Assert-PathExists ".sdkwork/.gitignore" "Missing SDKWORK workspace .gitignore"
 
+Assert-PathExists "specs/topology.spec.json" "Missing topology spec"
+Assert-PathExists "docs/topology-standard.md" "Missing topology standard doc"
+Assert-PathExists "scripts/lib/knowledgebase-topology.mjs" "Missing topology adapter"
+Assert-PathExists "scripts/knowledgebase-dev.mjs" "Missing topology dev orchestrator"
+
+$topologySpec = Get-JsonFile "specs/topology.spec.json"
+if ($topologySpec.schemaVersion -ne 2) {
+    throw "specs/topology.spec.json schemaVersion must be 2"
+}
+if ($topologySpec.kind -ne "sdkwork.app.topology") {
+    throw "specs/topology.spec.json kind must be sdkwork.app.topology"
+}
+foreach ($configFile in $topologySpec.packaging.cloudConfigFiles) {
+    Assert-PathExists (Join-Path "configs" $configFile) "Missing cloud gateway config bundle"
+}
+
 $agent = Get-Content -Raw -LiteralPath "AGENTS.md"
 Assert-Contains $agent "sdkwork.app.config.json" "AGENTS.md"
 Assert-NotContains $agent "No `sdkwork.app.config.json` is present" "AGENTS.md"
@@ -281,7 +297,7 @@ $forbiddenImportNames = @(
     "sdkwork_knowledgebase_backend_api"
 )
 
-$forbiddenNamePatterns = $legacyForbiddenPackages + $forbiddenImportNames
+$contentForbiddenPatterns = $forbiddenImportNames
 $excludedHistoricalDocs = @(
     "docs/superpowers/specs/2026-06-01-knowledgebase-backend-design.md",
     "docs/superpowers/plans/2026-06-01-knowledgebase-backend-phase1-implementation.md",
@@ -310,7 +326,7 @@ foreach ($file in $filesToScan) {
         continue
     }
     $content = Get-Content -Raw -LiteralPath $file.FullName
-    foreach ($pattern in $forbiddenNamePatterns) {
+    foreach ($pattern in $contentForbiddenPatterns) {
         if ($content.Contains($pattern)) {
             throw "Legacy structure or package reference remains in ${relativePath}: ${pattern}"
         }

@@ -1,0 +1,18 @@
+{
+  "name": "sdkwork-knowledgebase-workspace",
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "packageManager": "pnpm@10.30.2",
+  "dependencies": {
+    "@sdkwork/app-topology": "file:../sdkwork-app-topology"
+  },
+  "scripts": {
+    "knowledgebase:dev": "node scripts/knowledgebase-dev.mjs --hosting self-hosted",
+    "knowledgebase:dev:cloud": "node scripts/knowledgebase-dev.mjs --hosting cloud-hosted",
+    "topology:validate": "node ../sdkwork-app-topology/scripts/sdkwork-topology.mjs validate --root . --spec specs/topology.spec.json",
+    "test:topology": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-topology.test.mjs",
+    "test": "pnpm topology:validate && pnpm test:topology",
+    "verify": "cargo test --workspace && pnpm test"
+  }
+}

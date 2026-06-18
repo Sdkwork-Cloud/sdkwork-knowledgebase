@@ -2,11 +2,12 @@ use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingList,
-    KnowledgeAgentBindingRequest, KnowledgeAgentProfile, KnowledgeAgentProfileRequest,
-    KnowledgeBrowserPage, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument,
-    KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList,
-    KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest,
-    KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeWikiFileEntry,
+    KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
+    KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserPage,
+    KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentList,
+    KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest,
+    KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
+    KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeWikiFileEntry,
     KnowledgeWikiPageRevisionList, ListKnowledgeBrowserRequest, WikiContextPackRequest,
     WikiFileAnswerRequest, WikiIndexDocument, WikiLogDocument, WikiPageSummary,
     WikiPageSummaryList, WikiQueryRequest, WikiQueryResult, WikiSchemaDocument,
@@ -109,6 +110,7 @@ pub trait KnowledgeWikiAppService: Send + Sync + 'static {
 pub trait KnowledgeBrowserApi: Send + Sync + 'static {
     async fn list_browser(
         &self,
+        context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
     ) -> ApiResult<KnowledgeBrowserPage>;
 }
@@ -171,6 +173,12 @@ pub trait KnowledgeAgentAppService: Send + Sync + 'static {
         profile_id: u64,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult>;
+
+    async fn create_agent_chat(
+        &self,
+        profile_id: u64,
+        request: KnowledgeAgentChatRequest,
+    ) -> ApiResult<KnowledgeAgentChatResponse>;
 }
 
 #[async_trait]
@@ -291,6 +299,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
 
     async fn list_browser(
         &self,
+        _context: KnowledgeAppRequestContext,
         _request: ListKnowledgeBrowserRequest,
     ) -> ApiResult<KnowledgeBrowserPage> {
         Err(ApiError::not_implemented("spaces.browser.list"))
@@ -381,5 +390,13 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         Err(ApiError::not_implemented(
             "agentProfiles.retrievalPreview.create",
         ))
+    }
+
+    async fn create_agent_chat(
+        &self,
+        _profile_id: u64,
+        _request: KnowledgeAgentChatRequest,
+    ) -> ApiResult<KnowledgeAgentChatResponse> {
+        Err(ApiError::not_implemented("agentProfiles.chat.create"))
     }
 }

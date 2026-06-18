@@ -62,7 +62,7 @@
       }
     }
   ],
-  "ownerOnlyOperationCount": 34,
+  "ownerOnlyOperationCount": 35,
   "standardVersion": "2026-06-06",
   "managedBy": "sdks/standardize-knowledgebase-sdk-family.mjs"
 }

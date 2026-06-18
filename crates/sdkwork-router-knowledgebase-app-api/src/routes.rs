@@ -7,10 +7,10 @@ use axum::{
 };
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
-    CreateKnowledgeSpaceRequest, KnowledgeAgentBindingRequest, KnowledgeAgentProfileRequest,
-    KnowledgeBrowserView, KnowledgeContextPackRequest, KnowledgeDriveImportRequest,
-    KnowledgeIngestRequest, KnowledgeRetrievalRequest, ListKnowledgeBrowserRequest,
-    WikiContextPackRequest, WikiFileAnswerRequest, WikiQueryRequest,
+    CreateKnowledgeSpaceRequest, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
+    KnowledgeAgentProfileRequest, KnowledgeBrowserView, KnowledgeContextPackRequest,
+    KnowledgeDriveImportRequest, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
+    ListKnowledgeBrowserRequest, WikiContextPackRequest, WikiFileAnswerRequest, WikiQueryRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -20,6 +20,7 @@ use crate::{
         AgentAndRetrievalAppApi, AgentOnlyAppApi, BrowserOnlyAppApi, FullAppApi,
         RetrievalOnlyAppApi,
     },
+    auth::{ensure_tenant_matches, require_app_context},
     paths, ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi,
     KnowledgeAppRequestContext, KnowledgeBrowserApi, KnowledgeDocumentAppService,
     KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeRetrievalAppService,
@@ -27,8 +28,24 @@ use crate::{
 };
 
 #[derive(Clone)]
+pub struct ReadinessCheck {
+    pool: sqlx::SqlitePool,
+}
+
+impl ReadinessCheck {
+    pub fn new(pool: sqlx::SqlitePool) -> Self {
+        Self { pool }
+    }
+
+    pub async fn check(&self) -> Result<(), sqlx::Error> {
+        sdkwork_intelligence_knowledgebase_repository_sqlx::sqlite_health_check(&self.pool).await
+    }
+}
+
+#[derive(Clone)]
 struct AppState {
     api: Arc<dyn KnowledgeAppApi>,
+    readiness: Option<ReadinessCheck>,
 }
 
 pub fn build_router_with_browser<B>(browser: B) -> Router
@@ -112,6 +129,13 @@ pub fn build_router_with_full_app_api(
 }
 
 pub fn build_router_with_shared_app_api(api: Arc<dyn KnowledgeAppApi>) -> Router {
+    build_router_with_shared_app_api_and_readiness(api, None)
+}
+
+pub fn build_router_with_shared_app_api_and_readiness(
+    api: Arc<dyn KnowledgeAppApi>,
+    readiness: Option<ReadinessCheck>,
+) -> Router {
     Router::new()
         .route(paths::HEALTHZ, get(health))
         .route(paths::SPACES, post(create_space))
@@ -162,78 +186,110 @@ pub fn build_router_with_shared_app_api(api: Arc<dyn KnowledgeAppApi>) -> Router
             paths::AGENT_PROFILE_RETRIEVAL_PREVIEW,
             post(create_agent_profile_retrieval_preview),
         )
-        .with_state(AppState { api })
+        .route(paths::AGENT_PROFILE_CHAT, post(create_agent_profile_chat))
+        .with_state(AppState { api, readiness })
 }
 
-async fn health() -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "status": "ok" }))
+async fn health(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiProblem> {
+    if let Some(readiness) = &state.readiness {
+        readiness.check().await.map_err(|error| {
+            ApiProblem::new(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "database_unavailable",
+                error.to_string(),
+            )
+        })?;
+    }
+    Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 
 async fn create_space(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<CreateKnowledgeSpaceRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     created_json(state.api.create_space(request).await)
 }
 
 async fn retrieve_space(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(space_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.retrieve_space(space_id).await)
 }
 
 async fn create_drive_import(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<KnowledgeDriveImportRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     created_json(state.api.create_drive_import(request).await)
 }
 
 async fn create_ingest(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<KnowledgeIngestRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     created_json(state.api.create_ingest(request).await)
 }
 
 async fn retrieve_ingest(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(ingest_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.retrieve_ingest(ingest_id).await)
 }
 
-async fn list_documents(State(state): State<AppState>) -> Result<Response, ApiProblem> {
+async fn list_documents(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.list_documents().await)
 }
 
 async fn create_document(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<CreateKnowledgeDocumentRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     created_json(state.api.create_document(request).await)
 }
 
 async fn retrieve_document(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(document_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.retrieve_document(document_id).await)
 }
 
 async fn update_document(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(document_id): Path<u64>,
     Json(request): Json<CreateKnowledgeDocumentRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.update_document(document_id, request).await)
 }
 
 async fn delete_document(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(document_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     state
         .api
         .delete_document(document_id)
@@ -244,16 +300,20 @@ async fn delete_document(
 
 async fn list_document_versions(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(document_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.list_document_versions(document_id).await)
 }
 
 async fn create_document_version(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(document_id): Path<u64>,
     Json(request): Json<CreateKnowledgeDocumentVersionRequest>,
 ) -> Result<Response, ApiProblem> {
+    let _context = require_app_context(context)?;
     if request.document_id != document_id {
         return Err(ApiProblem::new(
             StatusCode::BAD_REQUEST,
@@ -269,82 +329,116 @@ async fn create_document_version(
     )
 }
 
-async fn list_wiki_pages(State(state): State<AppState>) -> Result<Response, ApiProblem> {
+async fn list_wiki_pages(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.list_wiki_pages().await)
 }
 
 async fn retrieve_wiki_page(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(page_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.retrieve_wiki_page(page_id).await)
 }
 
 async fn list_wiki_page_revisions(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(page_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.list_wiki_page_revisions(page_id).await)
 }
 
-async fn retrieve_wiki_index(State(state): State<AppState>) -> Result<Response, ApiProblem> {
+async fn retrieve_wiki_index(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.retrieve_wiki_index().await)
 }
 
-async fn retrieve_wiki_log(State(state): State<AppState>) -> Result<Response, ApiProblem> {
+async fn retrieve_wiki_log(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.retrieve_wiki_log().await)
 }
 
-async fn retrieve_wiki_schema(State(state): State<AppState>) -> Result<Response, ApiProblem> {
+async fn retrieve_wiki_schema(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.retrieve_wiki_schema().await)
 }
 
 async fn create_wiki_query(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<WikiQueryRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     created_json(state.api.create_wiki_query(request).await)
 }
 
 async fn file_wiki_query_answer(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(query_id): Path<u64>,
     Json(request): Json<WikiFileAnswerRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     created_json(state.api.file_wiki_query_answer(query_id, request).await)
 }
 
 async fn create_wiki_context_pack(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<WikiContextPackRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     created_json(state.api.create_wiki_context_pack(request).await)
 }
 
 async fn list_browser(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(space_id): Path<u64>,
     Query(query): Query<ListBrowserQuery>,
 ) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
     let view = parse_view(query.view.as_deref())?;
     ok_json(
         state
             .api
-            .list_browser(ListKnowledgeBrowserRequest {
-                space_id,
-                parent_id: query.parent_id,
-                view,
-                cursor: query.cursor,
-                page_size: query.page_size,
-            })
+            .list_browser(
+                context,
+                ListKnowledgeBrowserRequest {
+                    space_id,
+                    parent_id: query.parent_id,
+                    view,
+                    cursor: query.cursor,
+                    page_size: query.page_size,
+                },
+            )
             .await,
     )
 }
 
 async fn create_retrieval(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<KnowledgeRetrievalRequest>,
 ) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ensure_tenant_matches(&context, request.tenant_id)?;
     created_json(state.api.create_retrieval(request).await)
 }
 
@@ -353,49 +447,54 @@ async fn retrieve_retrieval(
     Path(retrieval_id): Path<u64>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
 ) -> Result<Response, ApiProblem> {
-    let context = context.map(|Extension(context)| context).ok_or_else(|| {
-        ApiProblem::new(
-            StatusCode::UNAUTHORIZED,
-            "missing_app_request_context",
-            "authenticated app request context is required",
-        )
-    })?;
+    let context = require_app_context(context)?;
     ok_json(state.api.retrieve_retrieval(context, retrieval_id).await)
 }
 
 async fn create_context_pack(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<KnowledgeContextPackRequest>,
 ) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ensure_tenant_matches(&context, request.tenant_id)?;
     created_json(state.api.create_context_pack(request).await)
 }
 
 async fn create_agent_profile(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<KnowledgeAgentProfileRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     created_json(state.api.create_agent_profile(request).await)
 }
 
 async fn retrieve_agent_profile(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(profile_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.retrieve_agent_profile(profile_id).await)
 }
 
 async fn update_agent_profile(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(profile_id): Path<u64>,
     Json(request): Json<KnowledgeAgentProfileRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.update_agent_profile(profile_id, request).await)
 }
 
 async fn delete_agent_profile(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(profile_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     state
         .api
         .delete_agent_profile(profile_id)
@@ -406,16 +505,20 @@ async fn delete_agent_profile(
 
 async fn list_agent_profile_bindings(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(profile_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     ok_json(state.api.list_agent_profile_bindings(profile_id).await)
 }
 
 async fn create_agent_profile_binding(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(profile_id): Path<u64>,
     Json(request): Json<KnowledgeAgentBindingRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     if request.profile_id != profile_id {
         return Err(ApiProblem::new(
             StatusCode::BAD_REQUEST,
@@ -433,9 +536,11 @@ async fn create_agent_profile_binding(
 
 async fn update_agent_profile_binding(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path((profile_id, binding_id)): Path<(u64, u64)>,
     Json(request): Json<KnowledgeAgentBindingRequest>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     if request.profile_id != profile_id {
         return Err(ApiProblem::new(
             StatusCode::BAD_REQUEST,
@@ -453,8 +558,10 @@ async fn update_agent_profile_binding(
 
 async fn delete_agent_profile_binding(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path((profile_id, binding_id)): Path<(u64, u64)>,
 ) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
     state
         .api
         .delete_agent_profile_binding(profile_id, binding_id)
@@ -465,15 +572,29 @@ async fn delete_agent_profile_binding(
 
 async fn create_agent_profile_retrieval_preview(
     State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(profile_id): Path<u64>,
     Json(request): Json<KnowledgeRetrievalRequest>,
 ) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ensure_tenant_matches(&context, request.tenant_id)?;
     created_json(
         state
             .api
             .create_agent_profile_retrieval_preview(profile_id, request)
             .await,
     )
+}
+
+async fn create_agent_profile_chat(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(profile_id): Path<u64>,
+    Json(request): Json<KnowledgeAgentChatRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ensure_tenant_matches(&context, request.tenant_id)?;
+    created_json(state.api.create_agent_chat(profile_id, request).await)
 }
 
 fn ok_json<T>(result: ApiResult<T>) -> Result<Response, ApiProblem>

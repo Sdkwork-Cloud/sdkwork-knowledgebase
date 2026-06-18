@@ -1,4 +1,9 @@
 use async_trait::async_trait;
+use sdkwork_drive_workspace_service::application::permission_service::{
+    CheckDriveNodePermissionCommand, GrantDriveNodePermissionCommand,
+    ListDriveNodePermissionsCommand, RevokeDriveNodePermissionCommand, SqlDrivePermissionService,
+};
+use sdkwork_drive_workspace_service::DriveServiceError;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_permission::{
     CheckDrivePermissionRequest, DrivePermissionCheck, DrivePermissionGrant, DrivePermissionList,
     GrantDrivePermissionRequest, KnowledgeDrivePermissionError, KnowledgeDrivePermissionProvider,
@@ -8,55 +13,28 @@ use sqlx::AnyPool;
 
 #[derive(Debug, Clone)]
 pub struct KnowledgebaseDrivePermissionAdapter {
-    pool: AnyPool,
+    service: SqlDrivePermissionService,
 }
 
 impl KnowledgebaseDrivePermissionAdapter {
     pub fn new(pool: AnyPool) -> Self {
-        Self { pool }
+        Self {
+            service: SqlDrivePermissionService::new(pool),
+        }
     }
+}
 
-    async fn resolve_space_root_node(
-        &self,
-        tenant_id: &str,
-        drive_space_id: &str,
-    ) -> Result<String, KnowledgeDrivePermissionError> {
-        let row = sqlx::query_scalar::<_, String>(
-            "SELECT root_node_id FROM dr_drive_space WHERE tenant_id = ? AND id = ? AND lifecycle_status = 'active'",
-        )
-        .bind(tenant_id)
-        .bind(drive_space_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| KnowledgeDrivePermissionError::Internal(e.to_string()))?;
-
-        row.ok_or_else(|| {
-            KnowledgeDrivePermissionError::NotFound(format!(
-                "drive space {drive_space_id} not found or inactive"
-            ))
-        })
-    }
-
-    async fn find_permission(
-        &self,
-        tenant_id: &str,
-        node_id: &str,
-        subject_type: &str,
-        subject_id: &str,
-    ) -> Result<Option<(String, String)>, KnowledgeDrivePermissionError> {
-        let row = sqlx::query_as::<_, (String, String)>(
-            "SELECT id, role FROM dr_drive_node_permission \
-             WHERE tenant_id = ? AND node_id = ? AND subject_type = ? AND subject_id = ? AND lifecycle_status = 'active'",
-        )
-        .bind(tenant_id)
-        .bind(node_id)
-        .bind(subject_type)
-        .bind(subject_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| KnowledgeDrivePermissionError::Internal(e.to_string()))?;
-
-        Ok(row)
+fn map_drive_error(error: DriveServiceError) -> KnowledgeDrivePermissionError {
+    match error {
+        DriveServiceError::Validation(message) => {
+            KnowledgeDrivePermissionError::InvalidRequest(message)
+        }
+        DriveServiceError::Conflict(message) => KnowledgeDrivePermissionError::Conflict(message),
+        DriveServiceError::NotFound(message) => KnowledgeDrivePermissionError::NotFound(message),
+        DriveServiceError::PermissionDenied(message) => {
+            KnowledgeDrivePermissionError::Upstream(message)
+        }
+        DriveServiceError::Internal(message) => KnowledgeDrivePermissionError::Internal(message),
     }
 }
 
@@ -67,82 +45,30 @@ impl KnowledgeDrivePermissionProvider for KnowledgebaseDrivePermissionAdapter {
         request: GrantDrivePermissionRequest,
     ) -> Result<DrivePermissionGrant, KnowledgeDrivePermissionError> {
         let node_id = self
-            .resolve_space_root_node(&request.tenant_id, &request.drive_space_id)
-            .await?;
-
-        if let Some((existing_id, existing_role)) = self
-            .find_permission(
-                &request.tenant_id,
-                &node_id,
-                &request.subject_type,
-                &request.subject_id,
-            )
-            .await?
-        {
-            if existing_role == request.role {
-                return Ok(DrivePermissionGrant {
-                    id: existing_id,
-                    node_id,
-                    subject_type: request.subject_type,
-                    subject_id: request.subject_id,
-                    role: request.role,
-                });
-            }
-
-            sqlx::query(
-                "UPDATE dr_drive_node_permission SET role = ?, version = version + 1, updated_by = ?, updated_at = datetime('now') \
-                 WHERE id = ? AND lifecycle_status = 'active'",
-            )
-            .bind(&request.role)
-            .bind(&request.operator_id)
-            .bind(&existing_id)
-            .execute(&self.pool)
+            .service
+            .resolve_space_permission_anchor_node(&request.tenant_id, &request.drive_space_id)
             .await
-            .map_err(|e| KnowledgeDrivePermissionError::Internal(e.to_string()))?;
+            .map_err(map_drive_error)?;
 
-            return Ok(DrivePermissionGrant {
-                id: existing_id,
+        let grant = self
+            .service
+            .grant_node_permission(GrantDriveNodePermissionCommand {
+                tenant_id: request.tenant_id,
                 node_id,
                 subject_type: request.subject_type,
                 subject_id: request.subject_id,
                 role: request.role,
-            });
-        }
-
-        let id = uuid::Uuid::new_v4().to_string();
-        sqlx::query(
-            "INSERT INTO dr_drive_node_permission \
-             (id, tenant_id, node_id, subject_type, subject_id, role, inherited, lifecycle_status, version, created_by, updated_by, created_at, updated_at) \
-             VALUES (?, ?, ?, ?, ?, ?, 0, 'active', 1, ?, ?, datetime('now'), datetime('now'))",
-        )
-        .bind(&id)
-        .bind(&request.tenant_id)
-        .bind(&node_id)
-        .bind(&request.subject_type)
-        .bind(&request.subject_id)
-        .bind(&request.role)
-        .bind(&request.operator_id)
-        .bind(&request.operator_id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| {
-            let msg = e.to_string();
-            if msg.contains("UNIQUE") || msg.contains("unique") {
-                KnowledgeDrivePermissionError::Conflict(format!(
-                    "permission already exists for {}/{} on node {}",
-                    request.subject_type, request.subject_id, node_id
-                ))
-            } else {
-                KnowledgeDrivePermissionError::Internal(msg)
-            }
-        })?;
+                operator_id: request.operator_id,
+            })
+            .await
+            .map_err(map_drive_error)?;
 
         Ok(DrivePermissionGrant {
-            id,
-            node_id,
-            subject_type: request.subject_type,
-            subject_id: request.subject_id,
-            role: request.role,
+            id: grant.id,
+            node_id: grant.node_id,
+            subject_type: grant.subject_type,
+            subject_id: grant.subject_id,
+            role: grant.role,
         })
     }
 
@@ -151,30 +77,21 @@ impl KnowledgeDrivePermissionProvider for KnowledgebaseDrivePermissionAdapter {
         request: RevokeDrivePermissionRequest,
     ) -> Result<(), KnowledgeDrivePermissionError> {
         let node_id = self
-            .resolve_space_root_node(&request.tenant_id, &request.drive_space_id)
-            .await?;
+            .service
+            .resolve_space_permission_anchor_node(&request.tenant_id, &request.drive_space_id)
+            .await
+            .map_err(map_drive_error)?;
 
-        let result = sqlx::query(
-            "UPDATE dr_drive_node_permission SET lifecycle_status = 'deleted', updated_by = ?, updated_at = datetime('now') \
-             WHERE tenant_id = ? AND node_id = ? AND subject_type = ? AND subject_id = ? AND lifecycle_status = 'active'",
-        )
-        .bind(&request.operator_id)
-        .bind(&request.tenant_id)
-        .bind(&node_id)
-        .bind(&request.subject_type)
-        .bind(&request.subject_id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| KnowledgeDrivePermissionError::Internal(e.to_string()))?;
-
-        if result.rows_affected() == 0 {
-            return Err(KnowledgeDrivePermissionError::NotFound(format!(
-                "no active permission for {}/{} on space {}",
-                request.subject_type, request.subject_id, request.drive_space_id
-            )));
-        }
-
-        Ok(())
+        self.service
+            .revoke_node_permission(RevokeDriveNodePermissionCommand {
+                tenant_id: request.tenant_id,
+                node_id,
+                subject_type: request.subject_type,
+                subject_id: request.subject_id,
+                operator_id: request.operator_id,
+            })
+            .await
+            .map_err(map_drive_error)
     }
 
     async fn list_space_permissions(
@@ -182,47 +99,34 @@ impl KnowledgeDrivePermissionProvider for KnowledgebaseDrivePermissionAdapter {
         request: ListDrivePermissionsRequest,
     ) -> Result<DrivePermissionList, KnowledgeDrivePermissionError> {
         let node_id = self
-            .resolve_space_root_node(&request.tenant_id, &request.drive_space_id)
-            .await?;
+            .service
+            .resolve_space_permission_anchor_node(&request.tenant_id, &request.drive_space_id)
+            .await
+            .map_err(map_drive_error)?;
 
-        let page_size = request.page_size.unwrap_or(50).min(200) as i64;
-
-        let rows = sqlx::query_as::<_, (String, String, String, String, String)>(
-            "SELECT id, node_id, subject_type, subject_id, role \
-             FROM dr_drive_node_permission \
-             WHERE tenant_id = ? AND node_id = ? AND lifecycle_status = 'active' \
-             ORDER BY created_at \
-             LIMIT ?",
-        )
-        .bind(&request.tenant_id)
-        .bind(&node_id)
-        .bind(page_size + 1)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| KnowledgeDrivePermissionError::Internal(e.to_string()))?;
-
-        let has_more = rows.len() > page_size as usize;
-        let items: Vec<DrivePermissionGrant> = rows
-            .into_iter()
-            .take(page_size as usize)
-            .map(|(id, nid, st, sid, role)| DrivePermissionGrant {
-                id,
-                node_id: nid,
-                subject_type: st,
-                subject_id: sid,
-                role,
+        let list = self
+            .service
+            .list_node_permissions(ListDriveNodePermissionsCommand {
+                tenant_id: request.tenant_id,
+                node_id,
+                page_size: request.page_size,
             })
-            .collect();
-
-        let next_page_token = if has_more {
-            items.last().map(|p| p.id.clone())
-        } else {
-            None
-        };
+            .await
+            .map_err(map_drive_error)?;
 
         Ok(DrivePermissionList {
-            items,
-            next_page_token,
+            items: list
+                .items
+                .into_iter()
+                .map(|item| DrivePermissionGrant {
+                    id: item.id,
+                    node_id: item.node_id,
+                    subject_type: item.subject_type,
+                    subject_id: item.subject_id,
+                    role: item.role,
+                })
+                .collect(),
+            next_page_token: list.next_page_token,
         })
     }
 
@@ -231,49 +135,26 @@ impl KnowledgeDrivePermissionProvider for KnowledgebaseDrivePermissionAdapter {
         request: CheckDrivePermissionRequest,
     ) -> Result<DrivePermissionCheck, KnowledgeDrivePermissionError> {
         let node_id = self
-            .resolve_space_root_node(&request.tenant_id, &request.drive_space_id)
-            .await?;
+            .service
+            .resolve_space_permission_anchor_node(&request.tenant_id, &request.drive_space_id)
+            .await
+            .map_err(map_drive_error)?;
 
-        let row = sqlx::query_scalar::<_, String>(
-            "SELECT role FROM dr_drive_node_permission \
-             WHERE tenant_id = ? AND node_id = ? AND subject_type = ? AND subject_id = ? AND lifecycle_status = 'active'",
-        )
-        .bind(&request.tenant_id)
-        .bind(&node_id)
-        .bind(&request.subject_type)
-        .bind(&request.subject_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| KnowledgeDrivePermissionError::Internal(e.to_string()))?;
+        let check = self
+            .service
+            .check_node_permission(CheckDriveNodePermissionCommand {
+                tenant_id: request.tenant_id,
+                node_id,
+                subject_type: request.subject_type,
+                subject_id: request.subject_id,
+                required_role: request.required_role,
+            })
+            .await
+            .map_err(map_drive_error)?;
 
-        match row {
-            Some(role) => {
-                let allowed = role_satisfies(&role, &request.required_role);
-                Ok(DrivePermissionCheck {
-                    allowed,
-                    effective_role: Some(role),
-                })
-            }
-            None => Ok(DrivePermissionCheck {
-                allowed: false,
-                effective_role: None,
-            }),
-        }
+        Ok(DrivePermissionCheck {
+            allowed: check.allowed,
+            effective_role: check.effective_role,
+        })
     }
-}
-
-fn role_satisfies(effective: &str, required: &str) -> bool {
-    let rank = match effective {
-        "reader" | "commenter" => 1,
-        "writer" => 2,
-        "owner" => 3,
-        _ => 0,
-    };
-    let needed = match required {
-        "reader" => 1,
-        "writer" => 2,
-        "owner" => 3,
-        _ => 0,
-    };
-    rank >= needed
 }

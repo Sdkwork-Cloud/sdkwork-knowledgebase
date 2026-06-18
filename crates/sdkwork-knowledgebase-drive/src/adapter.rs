@@ -161,6 +161,9 @@ impl KnowledgeDriveSpaceProvisioner for KnowledgebaseDriveSpaceProvisionerAdapte
                 owner_subject_id: owner_subject_id.clone(),
                 display_name,
                 space_type: DriveSpaceType::KnowledgeBase,
+                presentation_icon: None,
+                presentation_color: None,
+                description: None,
                 operator_id,
             })
             .await

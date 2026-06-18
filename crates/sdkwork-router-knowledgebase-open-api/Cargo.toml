@@ -10,6 +10,9 @@ axum.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
+sdkwork-iam-web-adapter.workspace = true
+sdkwork-web-axum.workspace = true
+sdkwork-web-core.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true

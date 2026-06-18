@@ -15,6 +15,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
 use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserNodeType, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
 };
+use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{KnowledgeSpace, KnowledgeSpaceStatus};
 use sdkwork_knowledgebase_contract::wiki::WikiPagePublishState;
 use std::collections::HashMap;
@@ -71,13 +72,16 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
     let page = service
-        .list(ListKnowledgeBrowserRequest {
-            space_id: 1,
-            parent_id: Some("root".to_string()),
-            view: KnowledgeBrowserView::Files,
-            cursor: Some("cursor-a".to_string()),
-            page_size: Some(50),
-        })
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: Some("root".to_string()),
+                view: KnowledgeBrowserView::Files,
+                cursor: Some("cursor-a".to_string()),
+                page_size: Some(50),
+            },
+        )
         .await
         .unwrap();
 
@@ -109,13 +113,16 @@ async fn browser_rejects_missing_files_parent_id() {
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
     let error = service
-        .list(ListKnowledgeBrowserRequest {
-            space_id: 1,
-            parent_id: Some("missing-parent".to_string()),
-            view: KnowledgeBrowserView::Files,
-            cursor: None,
-            page_size: Some(50),
-        })
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: Some("missing-parent".to_string()),
+                view: KnowledgeBrowserView::Files,
+                cursor: None,
+                page_size: Some(50),
+            },
+        )
         .await
         .unwrap_err();
 
@@ -142,13 +149,16 @@ async fn browser_rejects_file_as_files_parent_id() {
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
     let error = service
-        .list(ListKnowledgeBrowserRequest {
-            space_id: 1,
-            parent_id: Some("node-pdf".to_string()),
-            view: KnowledgeBrowserView::Files,
-            cursor: None,
-            page_size: Some(50),
-        })
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: Some("node-pdf".to_string()),
+                view: KnowledgeBrowserView::Files,
+                cursor: None,
+                page_size: Some(50),
+            },
+        )
         .await
         .unwrap_err();
 
@@ -167,13 +177,16 @@ async fn browser_caps_page_size_to_prevent_unbounded_directory_scans() {
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
     let page = service
-        .list(ListKnowledgeBrowserRequest {
-            space_id: 1,
-            parent_id: None,
-            view: KnowledgeBrowserView::Files,
-            cursor: None,
-            page_size: Some(10_000),
-        })
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: None,
+                view: KnowledgeBrowserView::Files,
+                cursor: None,
+                page_size: Some(10_000),
+            },
+        )
         .await
         .unwrap();
 
@@ -207,13 +220,16 @@ async fn browser_wiki_root_lists_children_under_llm_wiki_drive_folder() {
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
     let page = service
-        .list(ListKnowledgeBrowserRequest {
-            space_id: 1,
-            parent_id: None,
-            view: KnowledgeBrowserView::Wiki,
-            cursor: None,
-            page_size: Some(50),
-        })
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: None,
+                view: KnowledgeBrowserView::Wiki,
+                cursor: None,
+                page_size: Some(50),
+            },
+        )
         .await
         .unwrap();
 
@@ -251,13 +267,16 @@ async fn browser_outputs_root_lists_children_under_standard_output_drive_folder(
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
     let page = service
-        .list(ListKnowledgeBrowserRequest {
-            space_id: 1,
-            parent_id: None,
-            view: KnowledgeBrowserView::Outputs,
-            cursor: None,
-            page_size: Some(50),
-        })
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: None,
+                view: KnowledgeBrowserView::Outputs,
+                cursor: None,
+                page_size: Some(50),
+            },
+        )
         .await
         .unwrap();
 
@@ -302,13 +321,16 @@ async fn browser_rejects_wiki_parent_id_outside_wiki_drive_tree() {
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
     let error = service
-        .list(ListKnowledgeBrowserRequest {
-            space_id: 1,
-            parent_id: Some("node-sources-root".to_string()),
-            view: KnowledgeBrowserView::Wiki,
-            cursor: None,
-            page_size: Some(50),
-        })
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: Some("node-sources-root".to_string()),
+                view: KnowledgeBrowserView::Wiki,
+                cursor: None,
+                page_size: Some(50),
+            },
+        )
         .await
         .unwrap_err();
 
@@ -336,13 +358,16 @@ async fn browser_rejects_outputs_parent_id_outside_output_drive_tree_even_when_e
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
     let error = service
-        .list(ListKnowledgeBrowserRequest {
-            space_id: 1,
-            parent_id: Some("node-wiki-root".to_string()),
-            view: KnowledgeBrowserView::Outputs,
-            cursor: None,
-            page_size: Some(50),
-        })
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: Some("node-wiki-root".to_string()),
+                view: KnowledgeBrowserView::Outputs,
+                cursor: None,
+                page_size: Some(50),
+            },
+        )
         .await
         .unwrap_err();
 
@@ -359,13 +384,16 @@ async fn browser_rejects_spaces_without_drive_space_binding() {
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
     let error = service
-        .list(ListKnowledgeBrowserRequest {
-            space_id: 1,
-            parent_id: None,
-            view: KnowledgeBrowserView::Files,
-            cursor: None,
-            page_size: None,
-        })
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: None,
+                view: KnowledgeBrowserView::Files,
+                cursor: None,
+                page_size: None,
+            },
+        )
         .await
         .unwrap_err();
 
@@ -621,5 +649,6 @@ fn space(drive_space_id: Option<String>) -> KnowledgeSpace {
         drive_space_id,
         status: KnowledgeSpaceStatus::Active,
         llm_wiki_initialized: false,
+        knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
     }
 }

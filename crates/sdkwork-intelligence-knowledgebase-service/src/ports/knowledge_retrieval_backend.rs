@@ -17,6 +17,7 @@ pub struct KnowledgeChunkSearchRequest {
     pub binding: KnowledgeRetrievalBinding,
     pub method: KnowledgeRetrievalMethod,
     pub top_k: u32,
+    pub query_embedding: Option<Vec<f32>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -40,4 +41,8 @@ pub struct KnowledgeChunkSearchHit {
 pub enum KnowledgeRetrievalBackendError {
     #[error("knowledge retrieval backend internal error: {0}")]
     Internal(String),
+    #[error("tenant_id does not match retrieval backend scope")]
+    TenantMismatch,
+    #[error("retrieval method {0:?} is not supported by the configured backend")]
+    UnsupportedMethod(KnowledgeRetrievalMethod),
 }

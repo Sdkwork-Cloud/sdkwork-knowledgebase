@@ -10,7 +10,32 @@ axum.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
+sdkwork-knowledgebase-drive.workspace = true
+sdkwork-iam-web-adapter.workspace = true
+sdkwork-web-axum.workspace = true
+sdkwork-web-core.workspace = true
+sdkwork-router-knowledgebase-backend-api = { path = "../sdkwork-router-knowledgebase-backend-api" }
+sdkwork-router-knowledgebase-open-api = { path = "../sdkwork-router-knowledgebase-open-api" }
+sdkwork-drive-storage-local = { path = "../../../sdkwork-drive/crates/sdkwork-drive-storage-local" }
 sdkwork-intelligence-knowledgebase-service.workspace = true
+sdkwork-intelligence-knowledgebase-repository-sqlx.workspace = true
+sdkwork-knowledgebase-agent-provider.workspace = true
+clawrouter-open-sdk.workspace = true
+sdkwork-agent-kernel.workspace = true
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "any"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net"] }
+
+[[bin]]
+name = "sdkwork-knowledgebase-app-api"
+path = "src/main.rs"
+
+[[bin]]
+name = "sdkwork-knowledgebase-backend-api"
+path = "src/bin/backend_main.rs"
+
+[[bin]]
+name = "sdkwork-knowledgebase-open-api"
+path = "src/bin/open_main.rs"
 
 [dev-dependencies]
 tokio.workspace = true

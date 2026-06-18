@@ -44,6 +44,6 @@ API authority OpenAPI files are materialized under `sdks/` SDK family directorie
 
 | Surface | Authority | OpenAPI Location | SDK Family |
 | --- | --- | --- | --- |
-| Open API | `sdkwork-knowledgebase-open-api` | `sdks/sdkwork-knowledgebase-sdk/openapi/knowledgebase-open-api.openapi.json` | `sdkwork-knowledgebase-sdk` |
-| App API | `sdkwork-knowledgebase-app-api` | `sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json` | `sdkwork-knowledgebase-app-sdk` |
-| Backend API | `sdkwork-knowledgebase-backend-api` | `sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json` | `sdkwork-knowledgebase-backend-sdk` |
+| Open API | `sdkwork-router-knowledgebase-open-api` | `sdks/sdkwork-knowledgebase-sdk/openapi/knowledgebase-open-api.openapi.json` | `sdkwork-knowledgebase-sdk` |
+| App API | `sdkwork-router-knowledgebase-app-api` | `sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json` | `sdkwork-knowledgebase-app-sdk` |
+| Backend API | `sdkwork-router-knowledgebase-backend-api` | `sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json` | `sdkwork-knowledgebase-backend-sdk` |

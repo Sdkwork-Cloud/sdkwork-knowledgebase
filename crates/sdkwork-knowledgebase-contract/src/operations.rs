@@ -1,8 +1,12 @@
+pub const SPACES_CREATE: &str = "spaces.create";
+pub const SPACES_RETRIEVE: &str = "spaces.retrieve";
 pub const SOURCES_LIST: &str = "sources.list";
 pub const SOURCES_CREATE: &str = "sources.create";
 pub const DOCUMENTS_LIST: &str = "documents.list";
 pub const DOCUMENTS_CREATE: &str = "documents.create";
 pub const DOCUMENTS_RETRIEVE: &str = "documents.retrieve";
+pub const DOCUMENTS_UPDATE: &str = "documents.update";
+pub const DOCUMENTS_DELETE: &str = "documents.delete";
 pub const DOCUMENTS_VERSIONS_CREATE: &str = "documents.versions.create";
 pub const DOCUMENTS_VERSIONS_LIST: &str = "documents.versions.list";
 pub const DRIVE_IMPORTS_CREATE: &str = "driveImports.create";
@@ -21,6 +25,7 @@ pub const AGENT_PROFILES_BINDINGS_CREATE: &str = "agentProfiles.bindings.create"
 pub const AGENT_PROFILES_BINDINGS_UPDATE: &str = "agentProfiles.bindings.update";
 pub const AGENT_PROFILES_BINDINGS_DELETE: &str = "agentProfiles.bindings.delete";
 pub const AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE: &str = "agentProfiles.retrievalPreview.create";
+pub const AGENT_PROFILES_CHAT_CREATE: &str = "agentProfiles.chat.create";
 pub const WIKI_PAGES_LIST: &str = "wiki.pages.list";
 pub const WIKI_PAGES_RETRIEVE: &str = "wiki.pages.retrieve";
 pub const WIKI_PAGES_REVISIONS_LIST: &str = "wiki.pages.revisions.list";
@@ -44,13 +49,26 @@ pub const WIKI_EXPORTS_RETRIEVE: &str = "wiki.exports.retrieve";
 pub const WIKI_FILE_ENTRIES_LIST: &str = "wiki.fileEntries.list";
 pub const WIKI_LINT_RUNS_CREATE: &str = "wiki.lintRuns.create";
 pub const WIKI_EVAL_RUNS_CREATE: &str = "wiki.evalRuns.create";
+pub const INDEXES_CREATE: &str = "indexes.create";
+pub const INDEXES_RETRIEVE: &str = "indexes.retrieve";
+pub const INDEXES_REBUILD: &str = "indexes.rebuild";
+pub const RETRIEVAL_PROFILES_CREATE: &str = "retrievalProfiles.create";
+pub const RETRIEVAL_PROFILES_RETRIEVE: &str = "retrievalProfiles.retrieve";
+pub const RETRIEVAL_PROFILES_UPDATE: &str = "retrievalProfiles.update";
+pub const RETRIEVAL_TRACES_LIST: &str = "retrievalTraces.list";
+pub const RETRIEVAL_TRACES_RETRIEVE: &str = "retrievalTraces.retrieve";
+pub const PROVIDER_HEALTH_RETRIEVE: &str = "providerHealth.retrieve";
 
 pub const ALL_OPERATION_IDS: &[&str] = &[
+    SPACES_CREATE,
+    SPACES_RETRIEVE,
     SOURCES_LIST,
     SOURCES_CREATE,
     DOCUMENTS_LIST,
     DOCUMENTS_CREATE,
     DOCUMENTS_RETRIEVE,
+    DOCUMENTS_UPDATE,
+    DOCUMENTS_DELETE,
     DOCUMENTS_VERSIONS_CREATE,
     DOCUMENTS_VERSIONS_LIST,
     DRIVE_IMPORTS_CREATE,
@@ -69,6 +87,7 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     AGENT_PROFILES_BINDINGS_UPDATE,
     AGENT_PROFILES_BINDINGS_DELETE,
     AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE,
+    AGENT_PROFILES_CHAT_CREATE,
     WIKI_PAGES_LIST,
     WIKI_PAGES_RETRIEVE,
     WIKI_PAGES_REVISIONS_LIST,
@@ -92,4 +111,13 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     WIKI_FILE_ENTRIES_LIST,
     WIKI_LINT_RUNS_CREATE,
     WIKI_EVAL_RUNS_CREATE,
+    INDEXES_CREATE,
+    INDEXES_RETRIEVE,
+    INDEXES_REBUILD,
+    RETRIEVAL_PROFILES_CREATE,
+    RETRIEVAL_PROFILES_RETRIEVE,
+    RETRIEVAL_PROFILES_UPDATE,
+    RETRIEVAL_TRACES_LIST,
+    RETRIEVAL_TRACES_RETRIEVE,
+    PROVIDER_HEALTH_RETRIEVE,
 ];

@@ -16,6 +16,7 @@ use uuid::Uuid;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const ACTIVE_STATUS: i64 = 1;
+const MAX_WIKI_LIST_ROWS: i64 = 200;
 const INITIAL_VERSION: i64 = 0;
 const MAX_PROJECTION_BATCH_SIZE: usize = 200;
 
@@ -64,6 +65,181 @@ impl SqliteKnowledgeWikiPageStore {
         .await
         .map_err(sqlx_error)?;
         from_i64("revision_no", next)
+    }
+
+    pub async fn list_all_page_summaries(
+        &self,
+    ) -> Result<Vec<WikiPageSummary>, KnowledgeWikiPageStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                title,
+                slug,
+                page_type,
+                logical_path,
+                summary,
+                source_count,
+                updated_at,
+                tags
+            FROM kb_wiki_page
+            WHERE tenant_id = ? AND status = ?
+            ORDER BY space_id ASC, page_type ASC, title ASC, id ASC
+            LIMIT ?
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .bind(MAX_WIKI_LIST_ROWS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_error)?;
+
+        rows.into_iter().map(summary_from_row).collect()
+    }
+
+    pub async fn get_page_by_id(
+        &self,
+        page_id: u64,
+    ) -> Result<KnowledgeWikiPage, KnowledgeWikiPageStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let page_id = to_i64("page_id", page_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                space_id,
+                slug,
+                title,
+                page_type,
+                logical_path,
+                summary,
+                source_count,
+                tags,
+                current_revision_id,
+                publish_state,
+                updated_at
+            FROM kb_wiki_page
+            WHERE tenant_id = ? AND id = ? AND status = ?
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(page_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(sqlx_error)?
+        .ok_or_else(|| {
+            KnowledgeWikiPageStoreError::Internal(format!("missing wiki page: {page_id}"))
+        })?;
+
+        page_from_row(&row)
+    }
+
+    pub async fn list_page_revisions(
+        &self,
+        page_id: u64,
+    ) -> Result<Vec<KnowledgeWikiPageRevision>, KnowledgeWikiPageStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let page_id = to_i64("page_id", page_id)?;
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                page_id,
+                revision_no,
+                markdown_object_ref_id,
+                content_hash,
+                review_state,
+                created_at
+            FROM kb_wiki_page_revision
+            WHERE tenant_id = ? AND page_id = ? AND status = ?
+            ORDER BY revision_no ASC
+            LIMIT ?
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(page_id)
+        .bind(ACTIVE_STATUS)
+        .bind(MAX_WIKI_LIST_ROWS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_error)?;
+
+        rows.iter().map(revision_from_row).collect()
+    }
+
+    pub async fn list_candidate_pages(
+        &self,
+    ) -> Result<Vec<(u64, WikiPagePublishState)>, KnowledgeWikiPageStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let rows = sqlx::query(
+            r#"
+            SELECT id, publish_state
+            FROM kb_wiki_page
+            WHERE tenant_id = ? AND status = ?
+              AND publish_state IN ('candidate_ready', 'needs_review')
+            ORDER BY id ASC
+            LIMIT ?
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .bind(MAX_WIKI_LIST_ROWS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_error)?;
+
+        rows.iter()
+            .map(|row| {
+                let id = from_i64("id", row.try_get("id").map_err(sqlx_error)?)?;
+                let publish_state: String = row.try_get("publish_state").map_err(sqlx_error)?;
+                Ok((id, publish_state_from_str(&publish_state)?))
+            })
+            .collect()
+    }
+
+    pub async fn update_page_publish_state(
+        &self,
+        page_id: u64,
+        publish_state: WikiPagePublishState,
+    ) -> Result<KnowledgeWikiPage, KnowledgeWikiPageStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let page_id = to_i64("page_id", page_id)?;
+        let now = now_rfc3339()?;
+        let row = sqlx::query(
+            r#"
+            UPDATE kb_wiki_page
+            SET publish_state = ?, updated_at = ?, version = version + 1
+            WHERE tenant_id = ? AND id = ? AND status = ?
+            RETURNING
+                id,
+                space_id,
+                slug,
+                title,
+                page_type,
+                logical_path,
+                summary,
+                source_count,
+                tags,
+                current_revision_id,
+                publish_state,
+                updated_at
+            "#,
+        )
+        .bind(publish_state.as_str())
+        .bind(now)
+        .bind(tenant_id)
+        .bind(page_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(sqlx_error)?
+        .ok_or_else(|| {
+            KnowledgeWikiPageStoreError::Internal(format!("missing wiki page: {page_id}"))
+        })?;
+
+        page_from_row(&row)
     }
 }
 
@@ -280,11 +456,13 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
             FROM kb_wiki_page
             WHERE tenant_id = ? AND space_id = ? AND status = ?
             ORDER BY page_type ASC, title ASC, id ASC
+            LIMIT ?
             "#,
         )
         .bind(tenant_id)
         .bind(space_id)
         .bind(ACTIVE_STATUS)
+        .bind(MAX_WIKI_LIST_ROWS)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_error)?;
@@ -383,11 +561,13 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
             FROM kb_wiki_log_entry
             WHERE tenant_id = ? AND space_id = ? AND status = ?
             ORDER BY sequence_no ASC
+            LIMIT ?
             "#,
         )
         .bind(tenant_id)
         .bind(space_id)
         .bind(ACTIVE_STATUS)
+        .bind(MAX_WIKI_LIST_ROWS)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_error)?;

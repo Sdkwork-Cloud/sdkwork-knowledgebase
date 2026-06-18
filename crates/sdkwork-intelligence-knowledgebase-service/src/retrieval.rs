@@ -97,6 +97,7 @@ impl<'a> KnowledgeRetrievalService<'a> {
                         binding: binding.clone(),
                         method: *method,
                         top_k: binding_top_k,
+                        query_embedding: None,
                     })
                     .await?;
                 hits.append(&mut binding_hits);

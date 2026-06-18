@@ -2,11 +2,12 @@ use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingList,
-    KnowledgeAgentBindingRequest, KnowledgeAgentProfile, KnowledgeAgentProfileRequest,
-    KnowledgeBrowserPage, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument,
-    KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList,
-    KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest,
-    KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeWikiFileEntry,
+    KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
+    KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserPage,
+    KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentList,
+    KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest,
+    KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
+    KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeWikiFileEntry,
     KnowledgeWikiPageRevisionList, ListKnowledgeBrowserRequest, WikiContextPackRequest,
     WikiFileAnswerRequest, WikiIndexDocument, WikiLogDocument, WikiPageSummary,
     WikiPageSummaryList, WikiQueryRequest, WikiQueryResult, WikiSchemaDocument,
@@ -34,9 +35,10 @@ impl BrowserOnlyAppApi {
 impl KnowledgeAppApi for BrowserOnlyAppApi {
     async fn list_browser(
         &self,
+        context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
     ) -> ApiResult<KnowledgeBrowserPage> {
-        self.browser.list_browser(request).await
+        self.browser.list_browser(context, request).await
     }
 }
 
@@ -153,6 +155,14 @@ impl KnowledgeAppApi for AgentOnlyAppApi {
     ) -> ApiResult<KnowledgeRetrievalResult> {
         self.agent.preview_retrieval(profile_id, request).await
     }
+
+    async fn create_agent_chat(
+        &self,
+        profile_id: u64,
+        request: KnowledgeAgentChatRequest,
+    ) -> ApiResult<KnowledgeAgentChatResponse> {
+        self.agent.create_agent_chat(profile_id, request).await
+    }
 }
 
 pub struct AgentAndRetrievalAppApi {
@@ -258,6 +268,14 @@ impl KnowledgeAppApi for AgentAndRetrievalAppApi {
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
         self.agent.preview_retrieval(profile_id, request).await
+    }
+
+    async fn create_agent_chat(
+        &self,
+        profile_id: u64,
+        request: KnowledgeAgentChatRequest,
+    ) -> ApiResult<KnowledgeAgentChatResponse> {
+        self.agent.create_agent_chat(profile_id, request).await
     }
 }
 
@@ -417,9 +435,10 @@ impl KnowledgeAppApi for FullAppApi {
 
     async fn list_browser(
         &self,
+        context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
     ) -> ApiResult<KnowledgeBrowserPage> {
-        self.browser.list_browser(request).await
+        self.browser.list_browser(context, request).await
     }
 
     async fn create_retrieval(
@@ -509,5 +528,13 @@ impl KnowledgeAppApi for FullAppApi {
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
         self.agent.preview_retrieval(profile_id, request).await
+    }
+
+    async fn create_agent_chat(
+        &self,
+        profile_id: u64,
+        request: KnowledgeAgentChatRequest,
+    ) -> ApiResult<KnowledgeAgentChatResponse> {
+        self.agent.create_agent_chat(profile_id, request).await
     }
 }

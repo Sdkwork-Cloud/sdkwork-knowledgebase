@@ -13,9 +13,11 @@ serde_json.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres"] }
 time.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
+sdkwork-knowledgebase-agent-provider.workspace = true
 sdkwork-intelligence-knowledgebase-service.workspace = true
-sdkwork_platform_id_service.workspace = true
+sdkwork-id-core = { path = "../../../sdkwork-id/crates/sdkwork-id-core" }
 uuid.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 sdkwork-knowledgebase-test-support.workspace = true

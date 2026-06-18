@@ -1,4 +1,4 @@
-{
+﻿{
     "schemaVersion":  1,
     "kind":  "sdkwork.component.spec",
     "component":  {
@@ -6,7 +6,7 @@
                       "displayName":  "SDKWork Intelligence Knowledgebase Repository SQLx",
                       "version":  "0.1.0",
                       "type":  "rust-crate",
-                      "root":  "crates/sdkwork-intelligence-knowledgebase-repository-sqlx",
+                      "root":  "sdkwork-knowledgebase/crates/sdkwork-intelligence-knowledgebase-repository-sqlx",
                       "domain":  "intelligence",
                       "capability":  "knowledgebase-repository",
                       "languages":  [
