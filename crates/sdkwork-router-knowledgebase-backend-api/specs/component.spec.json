@@ -65,6 +65,11 @@
                                "purpose":  "Domain and capability boundary rules."
                            },
                            {
+                               "file":  "WEB_FRAMEWORK_SPEC.md",
+                               "path":  "../../../sdkwork-specs/WEB_FRAMEWORK_SPEC.md",
+                               "purpose":  "Mandatory sdkwork-web-framework integration for HTTP surfaces."
+                           },
+                           {
                                "file":  "SECURITY_SPEC.md",
                                "path":  "../../../sdkwork-specs/SECURITY_SPEC.md",
                                "purpose":  "Protected backend behavior rules."
@@ -85,10 +90,13 @@
                                             "."
                                         ],
                       "runtimeEntrypoints":  [
+                                                 "backend_route_manifest",
                                                  "build_router_with_backend_api",
-                                                 "build_router_with_shared_backend_api"
+                                                 "build_router_with_shared_backend_api",
+                                                 "wrap_router_with_web_framework_from_env"
                                              ],
                       "routeManifest":  "sdks/_route-manifests/backend-api/sdkwork-router-knowledgebase-backend-api.route-manifest.json",
+                      "authMode":  "dual-token",
                       "sdkClients":  [
 
                                      ],

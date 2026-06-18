@@ -62,6 +62,8 @@ pub const CONTEXT_BINDINGS_UPDATE: &str = "contextBindings.update";
 pub const CONTEXT_BINDINGS_DELETE: &str = "contextBindings.delete";
 pub const SPACES_CONTEXT_BINDINGS_LIST: &str = "spaces.contextBindings.list";
 pub const SPACES_CONTEXT_BINDINGS_CREATE: &str = "spaces.contextBindings.create";
+pub const UPLOAD_SESSIONS_CREATE: &str = "uploadSessions.create";
+pub const UPLOAD_SESSIONS_COMPLETE: &str = "uploadSessions.complete";
 pub const PROVIDER_HEALTH_RETRIEVE: &str = "providerHealth.retrieve";
 
 pub const ALL_OPERATION_IDS: &[&str] = &[
@@ -129,5 +131,7 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     CONTEXT_BINDINGS_RETRIEVE,
     CONTEXT_BINDINGS_UPDATE,
     CONTEXT_BINDINGS_DELETE,
+    UPLOAD_SESSIONS_CREATE,
+    UPLOAD_SESSIONS_COMPLETE,
     PROVIDER_HEALTH_RETRIEVE,
 ];

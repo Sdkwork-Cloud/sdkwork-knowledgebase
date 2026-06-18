@@ -10,14 +10,16 @@ This crate owns the SDKWork Knowledgebase public open-api route adapter for `/kn
 ## Responsibilities
 
 - Mount public Knowledgebase open-api routes.
-- Expose deterministic route manifest metadata.
-- Decode HTTP requests, consume typed API key context, call injected service traits, and map responses to API contracts.
+- Expose deterministic route manifest metadata and `HttpRouteManifest` (`RouteAuth::ApiKey`).
+- Wire `sdkwork-web-framework` through `IamDatabaseWebRequestContextResolver` with route-manifest auth enforcement.
+- Decode HTTP requests, consume typed open-api credential context, call injected service traits, and map responses to API contracts.
 
 ## Boundaries
 
 - Does not own business rules, SQLx queries, or provider clients.
 - Does not expose login, session, app-api, or backend-api routes.
 - Does not import generated SDK output for the same authority.
+- Open-api auth mode is `api-key` per contract; OAuth/flexible modes require an explicit contract change before adoption.
 
 ## Verification
 

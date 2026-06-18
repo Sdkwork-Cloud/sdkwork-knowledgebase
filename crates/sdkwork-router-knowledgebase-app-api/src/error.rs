@@ -12,7 +12,7 @@ use sdkwork_intelligence_knowledgebase_service::{
     imports::KnowledgeDriveImportServiceError,
     ingest::{
         KnowledgeApiMarkdownIndexServiceError, KnowledgeApiPayloadIngestServiceError,
-        KnowledgeIngestionServiceError,
+        KnowledgeIngestionServiceError, KnowledgeUploadSessionServiceError,
     },
     ports::{
         knowledge_agent_profile_store::KnowledgeAgentProfileStoreError,
@@ -22,6 +22,7 @@ use sdkwork_intelligence_knowledgebase_service::{
         knowledge_memory_context::KnowledgeMemoryContextProviderError,
         knowledge_retrieval_backend::KnowledgeRetrievalBackendError,
         knowledge_retrieval_trace_store::KnowledgeRetrievalTraceStoreError,
+        knowledge_source_store::KnowledgeSourceStoreError,
         knowledge_space_store::KnowledgeSpaceStoreError,
     },
     retrieval::KnowledgeRetrievalServiceError,
@@ -341,6 +342,16 @@ impl From<KnowledgeBrowserServiceError> for ApiError {
     }
 }
 
+impl From<KnowledgeSourceStoreError> for ApiError {
+    fn from(error: KnowledgeSourceStoreError) -> Self {
+        match error {
+            KnowledgeSourceStoreError::Internal(detail) => {
+                Self::internal("knowledge_source_store_failed", detail)
+            }
+        }
+    }
+}
+
 impl From<KnowledgeDocumentStoreError> for ApiError {
     fn from(error: KnowledgeDocumentStoreError) -> Self {
         match error {
@@ -442,6 +453,21 @@ impl From<KnowledgeApiMarkdownIndexServiceError> for ApiError {
             KnowledgeApiMarkdownIndexServiceError::Chunk(error) => {
                 Self::internal("knowledge_chunk_store_failed", error.to_string())
             }
+        }
+    }
+}
+
+impl From<KnowledgeUploadSessionServiceError> for ApiError {
+    fn from(error: KnowledgeUploadSessionServiceError) -> Self {
+        match error {
+            KnowledgeUploadSessionServiceError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_knowledge_upload_session_request", detail)
+            }
+            KnowledgeUploadSessionServiceError::Internal(detail) => {
+                Self::internal("knowledge_upload_session_failed", detail)
+            }
+            KnowledgeUploadSessionServiceError::Store(store_error) => store_error.into(),
+            KnowledgeUploadSessionServiceError::Storage(storage_error) => storage_error.into(),
         }
     }
 }

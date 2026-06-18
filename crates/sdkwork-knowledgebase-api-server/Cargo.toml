@@ -10,6 +10,7 @@ sdkwork-router-knowledgebase-app-api = { path = "../sdkwork-router-knowledgebase
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+sdkwork-knowledgebase-observability = { path = "../sdkwork-knowledgebase-observability" }
 
 [[bin]]
 name = "sdkwork-knowledgebase-app-api"

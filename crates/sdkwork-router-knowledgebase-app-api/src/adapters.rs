@@ -4,17 +4,18 @@ use sdkwork_knowledgebase_contract::{
         CreateKnowledgeSpaceContextBindingRequest, KnowledgeSpaceContextBinding,
         KnowledgeSpaceContextBindingList, UpdateKnowledgeSpaceContextBindingRequest,
     },
-    CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
-    CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingList,
-    KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
-    KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserPage,
-    KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentList,
-    KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest,
-    KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
-    KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeWikiFileEntry,
-    KnowledgeWikiPageRevisionList, ListKnowledgeBrowserRequest, WikiContextPackRequest,
-    WikiFileAnswerRequest, WikiIndexDocument, WikiLogDocument, WikiPageSummary,
-    WikiPageSummaryList, WikiQueryRequest, WikiQueryResult, WikiSchemaDocument,
+    CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest,
+    CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceRequest,
+    CreateKnowledgeUploadSessionRequest, IngestionJob, KnowledgeAgentBinding,
+    KnowledgeAgentBindingList, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
+    KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest,
+    KnowledgeBrowserPage, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument,
+    KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList,
+    KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest,
+    KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeUploadSession,
+    KnowledgeWikiFileEntry, KnowledgeWikiPageRevisionList, ListKnowledgeBrowserRequest,
+    WikiContextPackRequest, WikiFileAnswerRequest, WikiIndexDocument, WikiLogDocument,
+    WikiPageSummary, WikiPageSummaryList, WikiQueryRequest, WikiQueryResult, WikiSchemaDocument,
 };
 use std::sync::Arc;
 
@@ -22,7 +23,7 @@ use crate::{
     ApiResult, KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext,
     KnowledgeBrowserApi, KnowledgeContextBindingAppService, KnowledgeDocumentAppService,
     KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeRetrievalAppService,
-    KnowledgeSpaceAppService, KnowledgeWikiAppService,
+    KnowledgeSpaceAppService, KnowledgeUploadSessionAppService, KnowledgeWikiAppService,
 };
 
 pub struct BrowserOnlyAppApi {
@@ -293,6 +294,7 @@ pub struct FullAppApi {
     retrieval: Arc<dyn KnowledgeRetrievalAppService>,
     agent: Arc<dyn KnowledgeAgentAppService>,
     context_binding: Arc<dyn KnowledgeContextBindingAppService>,
+    upload_session: Arc<dyn KnowledgeUploadSessionAppService>,
 }
 
 impl FullAppApi {
@@ -307,6 +309,7 @@ impl FullAppApi {
         retrieval: Arc<dyn KnowledgeRetrievalAppService>,
         agent: Arc<dyn KnowledgeAgentAppService>,
         context_binding: Arc<dyn KnowledgeContextBindingAppService>,
+        upload_session: Arc<dyn KnowledgeUploadSessionAppService>,
     ) -> Self {
         Self {
             space,
@@ -318,6 +321,7 @@ impl FullAppApi {
             retrieval,
             agent,
             context_binding,
+            upload_session,
         }
     }
 }
@@ -594,6 +598,23 @@ impl KnowledgeAppApi for FullAppApi {
     ) -> ApiResult<()> {
         self.context_binding
             .delete_context_binding(context, binding_id)
+            .await
+    }
+
+    async fn create_upload_session(
+        &self,
+        request: CreateKnowledgeUploadSessionRequest,
+    ) -> ApiResult<KnowledgeUploadSession> {
+        self.upload_session.create_upload_session(request).await
+    }
+
+    async fn complete_upload_session(
+        &self,
+        session_id: u64,
+        request: CompleteKnowledgeUploadSessionRequest,
+    ) -> ApiResult<IngestionJob> {
+        self.upload_session
+            .complete_upload_session(session_id, request)
             .await
     }
 }

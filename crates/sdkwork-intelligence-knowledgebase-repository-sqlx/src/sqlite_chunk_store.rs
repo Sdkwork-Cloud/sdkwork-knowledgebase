@@ -115,6 +115,36 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
 
         Ok(chunks.len())
     }
+
+    async fn list_chunk_ids_for_document_version(
+        &self,
+        document_version_id: u64,
+    ) -> Result<Vec<u64>, KnowledgeChunkStoreError> {
+        let tenant_id = chunk_to_i64("tenant_id", self.tenant_id)?;
+        let version_id = chunk_to_i64("document_version_id", document_version_id)?;
+        let rows = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT id
+            FROM kb_chunk
+            WHERE tenant_id = ? AND document_version_id = ? AND status = ?
+            ORDER BY chunk_index ASC
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(version_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| KnowledgeChunkStoreError::Internal(error.to_string()))?;
+
+        rows.into_iter()
+            .map(|id| {
+                u64::try_from(id).map_err(|_| {
+                    KnowledgeChunkStoreError::Internal("chunk id exceeds u64 range".to_string())
+                })
+            })
+            .collect()
+    }
 }
 
 fn chunk_now() -> Result<String, KnowledgeChunkStoreError> {

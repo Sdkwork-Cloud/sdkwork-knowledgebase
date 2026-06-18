@@ -9,7 +9,7 @@ pub fn require_context(
         ApiProblem::new(
             StatusCode::UNAUTHORIZED,
             "missing_open_api_request_context",
-            "authenticated open API key context is required",
+            "authenticated open API credential context is required",
         )
     })
 }

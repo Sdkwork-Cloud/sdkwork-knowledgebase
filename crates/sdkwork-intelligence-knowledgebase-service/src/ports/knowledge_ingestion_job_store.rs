@@ -17,6 +17,12 @@ pub trait IngestionJobStore: Send + Sync {
         state: IngestionJobState,
         error_message: Option<String>,
     ) -> Result<IngestionJob, IngestionJobStoreError>;
+
+    async fn list_jobs_by_state(
+        &self,
+        state: IngestionJobState,
+        limit: u32,
+    ) -> Result<Vec<IngestionJob>, IngestionJobStoreError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

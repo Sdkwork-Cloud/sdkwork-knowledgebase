@@ -2,6 +2,7 @@ use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use sdkwork_router_knowledgebase_app_api::{dev_auth, KnowledgebaseSqliteRuntime};
 use serde_json::Value;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
 
@@ -109,15 +110,17 @@ async fn hosted_open_router_lists_documents() {
 }
 
 async fn test_runtime() -> KnowledgebaseSqliteRuntime {
+    static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system clock before unix epoch")
         .as_nanos();
+    let sequence = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
     let work_dir = std::env::current_dir().expect("current directory");
     let test_root = work_dir
         .join("target")
         .join("hosted-runtime-tests")
-        .join(format!("{}-{}", std::process::id(), nanos));
+        .join(format!("{}-{}-{}", std::process::id(), nanos, sequence));
     std::fs::create_dir_all(&test_root).expect("create hosted runtime test directory");
 
     let drive_root = test_root.join("drive-objects");

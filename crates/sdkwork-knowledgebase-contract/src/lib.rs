@@ -16,6 +16,7 @@ pub mod rag;
 mod serde_int64;
 pub mod source;
 pub mod space;
+pub mod upload;
 pub mod wiki;
 pub mod wiki_file;
 
@@ -34,5 +35,6 @@ pub use problem::*;
 pub use rag::*;
 pub use source::*;
 pub use space::*;
+pub use upload::*;
 pub use wiki::*;
 pub use wiki_file::*;

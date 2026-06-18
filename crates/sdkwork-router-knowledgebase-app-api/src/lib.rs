@@ -11,6 +11,8 @@ mod hosted_backend;
 mod hosted_context_binding;
 mod hosted_open;
 mod hosted_support;
+mod hosted_upload;
+pub mod http_route_manifest;
 pub mod manifest;
 pub mod paths;
 mod ports;
@@ -23,7 +25,7 @@ pub use ports::{
     KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext, KnowledgeBrowserApi,
     KnowledgeContextBindingAppService, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
     KnowledgeIngestAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
-    KnowledgeWikiAppService,
+    KnowledgeUploadSessionAppService, KnowledgeWikiAppService,
 };
 pub use routes::{
     build_router_with_agent_and_retrieval_services, build_router_with_agent_service,
@@ -34,6 +36,7 @@ pub use routes::{
     build_router_with_shared_retrieval_service, ReadinessCheck,
 };
 pub use runtime::KnowledgebaseSqliteRuntime;
+pub use http_route_manifest::app_route_manifest;
 pub use sdkwork_knowledgebase_contract::ProblemDetails;
 pub use web_bootstrap::{
     knowledgebase_public_path_prefixes, wrap_router_with_web_framework,

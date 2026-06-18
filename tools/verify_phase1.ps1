@@ -125,6 +125,9 @@ foreach ($sdkRoot in $requiredGeneratedSdkRoots) {
 }
 
 Invoke-Checked node tools/patch-route-manifest-extensions.mjs
+Invoke-Checked node tools/sync-context-binding-openapi.mjs
+Invoke-Checked node tools/sync-upload-session-openapi.mjs
+Invoke-Checked node tools/materialize-apis-authority.mjs --check
 Invoke-Checked node sdks/standardize-knowledgebase-sdk-family.mjs --check
 Invoke-Checked node sdks/test/verify-sdk-ownership-boundaries.test.mjs
 

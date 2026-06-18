@@ -1,4 +1,5 @@
 use axum::Router;
+use sdkwork_knowledgebase_observability::wrap_router_with_metrics;
 
 pub fn init_tracing() {
     tracing_subscriber::fmt()
@@ -10,6 +11,7 @@ pub fn init_tracing() {
 }
 
 pub async fn serve_router(listen_addr: &str, service_name: &str, router: Router) {
+    let router = wrap_router_with_metrics(router);
     init_tracing();
 
     let listener = tokio::net::TcpListener::bind(listen_addr)

@@ -14,6 +14,7 @@ use sdkwork_intelligence_knowledgebase_service::{
             CreateKnowledgeDocumentVersionRecord, KnowledgeDocumentVersionStore,
         },
         knowledge_ingestion_job_store::IngestionJobStore,
+        knowledge_source_store::KnowledgeSourceStore,
         knowledge_space_store::KnowledgeSpaceStore,
         knowledge_wiki_file_entry_store::{
             CreateKnowledgeWikiFileEntryRecord, KnowledgeWikiFileEntryStore,
@@ -126,29 +127,54 @@ impl KnowledgeIngestAppService for SqliteHostedIngestService {
                 .await
                 .map_err(ApiError::from)?;
 
+            let source = self
+                .runtime
+                .source_store()
+                .create_or_get_source(
+                    sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::CreateKnowledgeSourceRecord {
+                        space_id,
+                        source_type: sdkwork_knowledgebase_contract::source::KnowledgeSourceType::Api,
+                        provider: Some("api-ingest".to_string()),
+                        drive_bucket: None,
+                        drive_prefix: Some(format!("inbox/api/{}", job.id)),
+                    },
+                )
+                .await
+                .map_err(ApiError::from)?;
+
             let indexer = KnowledgeApiMarkdownIndexService::new(
                 self.runtime.document_store(),
                 self.runtime.version_store(),
                 self.runtime.object_ref_store(),
                 self.runtime.chunk_store(),
             );
-            if let Err(error) = indexer
+            let index_result = match indexer
                 .index_payload_markdown(
                     space_id,
+                    source.id,
                     &title,
                     &payload_markdown,
                     &result.payload_object_ref,
                 )
                 .await
             {
-                let _ = ingestion.mark_failed(job.id, format!("{error:?}")).await;
-                return Err(ApiError::from(error));
-            }
+                Ok(index_result) => index_result,
+                Err(error) => {
+                    let _ = ingestion.mark_failed(job.id, format!("{error:?}")).await;
+                    return Err(ApiError::from(error));
+                }
+            };
+
+            let _ = self
+                .runtime
+                .try_embed_document_version(space_id, index_result.document_version_id)
+                .await;
 
             job = ingestion
                 .mark_succeeded(job.id)
                 .await
                 .map_err(ApiError::from)?;
+            self.runtime.try_append_ingest_succeeded_outbox(&job).await;
         }
         Ok(job)
     }
@@ -187,10 +213,40 @@ impl KnowledgeDriveImportAppService for SqliteHostedDriveImportService {
             self.runtime.version_store(),
             self.runtime.ingestion_job_store(),
         );
-        service
+        let result = service
             .import_drive_object(request)
             .await
-            .map_err(Into::into)
+            .map_err(ApiError::from)?;
+
+        let pipeline = sdkwork_intelligence_knowledgebase_service::ingest::KnowledgeIngestionJobWorkerService::new(
+            self.runtime.ingestion_job_store(),
+            self.runtime.drive_storage(),
+            self.runtime.chunk_store(),
+        );
+        if let Ok(pipeline_result) = pipeline.process_drive_import_result(&result).await {
+            if let Some(index_result) = pipeline_result.index_result {
+                let _ = self
+                    .runtime
+                    .try_embed_document_version(
+                        result.document.space_id,
+                        index_result.document_version_id,
+                    )
+                    .await;
+            }
+            if pipeline_result.job.state
+                == sdkwork_knowledgebase_contract::ingest::IngestionJobState::Succeeded
+            {
+                self.runtime
+                    .try_append_ingest_succeeded_outbox(&pipeline_result.job)
+                    .await;
+            }
+            return Ok(KnowledgeDriveImportResult {
+                job: pipeline_result.job,
+                ..result
+            });
+        }
+
+        Ok(result)
     }
 }
 

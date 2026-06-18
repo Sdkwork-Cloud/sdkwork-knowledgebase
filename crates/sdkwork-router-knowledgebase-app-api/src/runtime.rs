@@ -6,8 +6,8 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeChunkRetrievalStore,
     SqliteKnowledgeChunkStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
     SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeEmbeddingStore, SqliteKnowledgeIndexStore,
-    SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
-    SqliteKnowledgeWikiFileEntryStore, SqliteKnowledgeWikiPageStore,
+    SqliteKnowledgeOutboxStore, SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore,
+    SqliteKnowledgeSpaceStore, SqliteKnowledgeWikiFileEntryStore, SqliteKnowledgeWikiPageStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
     agent::KnowledgeAgentService, agent_chat::KnowledgeAgentChatService,
@@ -17,6 +17,7 @@ use sdkwork_intelligence_knowledgebase_service::{
 use sdkwork_knowledgebase_contract::agent_chat::{
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
 };
+use sdkwork_knowledgebase_contract::ingest::IngestionJob;
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeContextPack,
@@ -48,6 +49,7 @@ use crate::{
     hosted_backend::SqliteHostedBackendApi,
     hosted_context_binding::SqliteHostedContextBindingService,
     hosted_open::SqliteHostedOpenApi,
+    hosted_upload::SqliteHostedUploadSessionService,
     ApiError, ApiResult, KnowledgeAgentAppService, KnowledgeAppRequestContext,
     KnowledgeRetrievalAppService, ReadinessCheck,
 };
@@ -77,6 +79,7 @@ pub struct KnowledgebaseSqliteRuntime {
     version_store: Arc<SqliteKnowledgeDocumentVersionStore>,
     object_ref_store: Arc<SqliteKnowledgeDriveObjectRefStore>,
     ingestion_job_store: Arc<SqliteIngestionJobStore>,
+    outbox_store: Arc<SqliteKnowledgeOutboxStore>,
     chunk_store: Arc<SqliteKnowledgeChunkStore>,
     context_binding_store: Arc<SqliteContextBindingStore>,
     browser_projection_store: Arc<SqliteKnowledgeBrowserProjectionStore>,
@@ -89,6 +92,13 @@ pub struct KnowledgebaseSqliteRuntime {
 
 impl KnowledgebaseSqliteRuntime {
     pub async fn connect(database_url: &str, tenant_id: u64) -> Result<Self, sqlx::Error> {
+        if sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url(
+            database_url,
+        ) {
+            return Err(sqlx::Error::Configuration(
+                "postgresql SDKWORK_KNOWLEDGEBASE_DATABASE_URL is not wired to HTTP handlers yet; use sqlite".into(),
+            ));
+        }
         let pool = connect_sqlite_and_install_schema(database_url).await?;
         let drive_pool = connect_sqlite_drive_pool(database_url).await?;
         Ok(Self::from_pools(
@@ -179,6 +189,7 @@ impl KnowledgebaseSqliteRuntime {
                 tenant_id,
             )),
             ingestion_job_store: Arc::new(SqliteIngestionJobStore::new(pool.clone(), tenant_id)),
+            outbox_store: Arc::new(SqliteKnowledgeOutboxStore::new(pool.clone(), tenant_id)),
             chunk_store: Arc::new(SqliteKnowledgeChunkStore::new(pool.clone(), tenant_id)),
             context_binding_store: Arc::new(SqliteContextBindingStore::new(pool.clone())),
             browser_projection_store: Arc::new(SqliteKnowledgeBrowserProjectionStore::new(
@@ -248,6 +259,7 @@ impl KnowledgebaseSqliteRuntime {
                 Arc::new(SqliteHostedRetrievalService::new(self.clone())),
                 Arc::new(SqliteHostedAgentService::new(self.clone())),
                 Arc::new(SqliteHostedContextBindingService::new(self.clone())),
+                Arc::new(SqliteHostedUploadSessionService::new(self.clone())),
             )),
             Some(ReadinessCheck::new(self.pool.clone())),
         )
@@ -323,6 +335,10 @@ impl KnowledgebaseSqliteRuntime {
         &self.ingestion_job_store
     }
 
+    pub(crate) fn outbox_store(&self) -> &SqliteKnowledgeOutboxStore {
+        &self.outbox_store
+    }
+
     pub(crate) fn chunk_store(&self) -> &SqliteKnowledgeChunkStore {
         &self.chunk_store
     }
@@ -377,6 +393,81 @@ impl KnowledgebaseSqliteRuntime {
 
     pub(crate) fn operator_id(&self) -> &str {
         &self.operator_id
+    }
+
+    pub(crate) async fn try_embed_document_version(
+        &self,
+        space_id: u64,
+        document_version_id: u64,
+    ) -> Option<usize> {
+        use sdkwork_intelligence_knowledgebase_service::ingest::KnowledgePostIngestEmbeddingService;
+        use sdkwork_knowledgebase_agent_provider::{
+            resolve_claw_router_client_from_env, ClawRouterEmbeddingClient,
+        };
+
+        let client = resolve_claw_router_client_from_env().ok()?;
+        let index = self
+            .index_store()
+            .get_or_create_active_vector_index(space_id, 0)
+            .await
+            .ok()?;
+        let embedder = ClawRouterEmbeddingClient::new(Arc::new(client));
+        let service = KnowledgePostIngestEmbeddingService::new(
+            self.chunk_store(),
+            self.embedding_store(),
+            embedder,
+        );
+        service
+            .embed_document_version(self.tenant_id, &index, document_version_id)
+            .await
+            .ok()
+    }
+
+    pub(crate) async fn try_append_ingest_succeeded_outbox(&self, job: &IngestionJob) {
+        use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::{
+            AppendOutboxEventRecord, KnowledgeOutboxStore,
+        };
+
+        let payload_json = serde_json::json!({
+            "spaceId": job.space_id,
+            "sourceType": job.source_type,
+            "idempotencyKey": job.idempotency_key,
+            "state": format!("{:?}", job.state).to_ascii_lowercase(),
+        })
+        .to_string();
+        let _ = self
+            .outbox_store()
+            .append_event(AppendOutboxEventRecord {
+                aggregate_type: "ingestion_job".to_string(),
+                aggregate_id: job.id,
+                event_type: "knowledge.ingest.succeeded".to_string(),
+                payload_json,
+            })
+            .await;
+    }
+
+    pub async fn publish_pending_outbox_events(&self, limit: u32) -> usize {
+        use sdkwork_intelligence_knowledgebase_service::outbox::KnowledgeOutboxPublisherService;
+
+        KnowledgeOutboxPublisherService::new(self.outbox_store())
+            .publish_pending(limit)
+            .await
+            .map(|result| result.published)
+            .unwrap_or(0)
+    }
+
+    pub async fn process_queued_ingestion_jobs(&self, limit: u32) -> usize {
+        use sdkwork_intelligence_knowledgebase_service::ingest::KnowledgeIngestionJobWorkerService;
+
+        KnowledgeIngestionJobWorkerService::new(
+            self.ingestion_job_store(),
+            self.drive_storage(),
+            self.chunk_store(),
+        )
+        .process_queued_jobs(limit)
+        .await
+        .map(|result| result.processed)
+        .unwrap_or(0)
     }
 }
 

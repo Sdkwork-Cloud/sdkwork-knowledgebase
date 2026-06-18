@@ -1,0 +1,20 @@
+[package]
+name = "sdkwork-knowledgebase-worker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "sdkwork_knowledgebase_worker"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sdkwork-knowledgebase-worker"
+path = "src/bin/worker_main.rs"
+
+[dependencies]
+sdkwork-intelligence-knowledgebase-service = { workspace = true }
+sdkwork-router-knowledgebase-app-api = { path = "../sdkwork-router-knowledgebase-app-api" }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

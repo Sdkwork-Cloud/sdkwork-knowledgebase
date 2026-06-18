@@ -215,4 +215,14 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         path: "/app/v3/api/knowledge/context_bindings/{bindingId}",
         operation_id: "contextBindings.delete",
     },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/upload_sessions",
+        operation_id: "uploadSessions.create",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/upload_sessions/{sessionId}/complete",
+        operation_id: "uploadSessions.complete",
+    },
 ];

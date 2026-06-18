@@ -1816,6 +1816,7 @@ dependencies = [
  "thiserror 1.0.69",
  "time",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
@@ -1838,6 +1839,7 @@ name = "sdkwork-knowledgebase-api-server"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "sdkwork-knowledgebase-observability",
  "sdkwork-router-knowledgebase-app-api",
  "tokio",
  "tracing",
@@ -1893,6 +1895,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-knowledgebase-observability"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "http",
+ "tokio",
+ "tower",
+]
+
+[[package]]
 name = "sdkwork-knowledgebase-test-support"
 version = "0.1.0"
 dependencies = [
@@ -1901,6 +1913,17 @@ dependencies = [
  "sdkwork-knowledgebase-contract",
  "sha2",
  "tokio",
+]
+
+[[package]]
+name = "sdkwork-knowledgebase-worker"
+version = "0.1.0"
+dependencies = [
+ "sdkwork-intelligence-knowledgebase-service",
+ "sdkwork-router-knowledgebase-app-api",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1928,6 +1951,7 @@ dependencies = [
  "sdkwork-knowledgebase-agent-provider",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-drive",
+ "sdkwork-knowledgebase-worker",
  "sdkwork-router-knowledgebase-backend-api",
  "sdkwork-router-knowledgebase-open-api",
  "sdkwork-web-axum",

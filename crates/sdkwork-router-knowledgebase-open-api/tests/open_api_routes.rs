@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use axum::body::{to_bytes, Body};
 use axum::http::{header, Request, StatusCode};
+use sdkwork_iam_web_adapter::IamDatabaseWebRequestContextResolver;
 use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserNode, KnowledgeBrowserNodePermissions, KnowledgeBrowserNodeType,
     KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
@@ -18,9 +19,11 @@ use sdkwork_knowledgebase_contract::rag::{
     KnowledgeRetrievalTrace,
 };
 use sdkwork_router_knowledgebase_open_api::{
-    build_router_with_open_api, manifest, ApiResult, KnowledgeOpenApi,
+    build_router_with_open_api, manifest, open_route_manifest, wrap_router_with_web_framework,
+    wrap_router_with_web_framework_from_env, ApiResult, KnowledgeOpenApi,
     KnowledgeOpenApiRequestContext, ProblemDetails,
 };
+use sdkwork_web_core::RouteAuth;
 use serde_json::Value;
 use std::sync::Mutex;
 use tower::util::ServiceExt;
@@ -240,6 +243,78 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
         .unwrap();
     assert_eq!(ingest_response.status(), StatusCode::OK);
     assert_eq!(response_json(ingest_response).await["id"], 51);
+}
+
+#[test]
+fn open_route_manifest_declares_api_key_auth_for_all_operations() {
+    let manifest = open_route_manifest();
+    assert_eq!(manifest::ROUTES.len(), 8);
+    for entry in manifest::ROUTES {
+        let matched = manifest
+            .match_route(entry.method, entry.path)
+            .unwrap_or_else(|| {
+                panic!(
+                    "missing http route manifest for {} {}",
+                    entry.method, entry.path
+                )
+            });
+        assert_eq!(matched.auth, RouteAuth::ApiKey);
+        assert_eq!(matched.operation_id, entry.operation_id);
+    }
+}
+
+#[tokio::test]
+async fn open_router_web_framework_rejects_unauthenticated_requests() {
+    let app = wrap_router_with_web_framework_from_env(build_router_with_open_api(
+        RecordingOpenApi::default(),
+    ))
+    .await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/knowledge/v3/api/retrievals")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"20001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn open_router_web_framework_accepts_dev_inline_api_key_before_handler() {
+    let service = RecordingOpenApi::default();
+    let app = wrap_router_with_web_framework(
+        IamDatabaseWebRequestContextResolver::new(None),
+        build_router_with_open_api(service.clone()),
+    );
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/knowledge/v3/api/retrievals")
+                .header("content-type", "application/json")
+                .header(
+                    "x-api-key",
+                    "api_key_id=api-key-001;tenant_id=20001;user_id=30001;app_id=knowledgebase",
+                )
+                .body(Body::from(
+                    r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    assert_eq!(service.contexts(), vec![("api-key-001".to_string(), 20001)]);
 }
 
 fn assert_route(method: &str, path: &str, operation_id: &str) {

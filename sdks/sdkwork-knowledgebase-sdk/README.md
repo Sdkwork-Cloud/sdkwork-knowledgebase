@@ -19,7 +19,7 @@ This README is the SDKWork module entrypoint for `sdkwork-knowledgebase-sdk`. Th
 
 ## Configuration
 
-Protected open-api consumers must use an API key credential provider for this SDK family. They must not reuse app login TokenManager credentials or assemble manual API key headers in feature code.
+Protected open-api consumers must use an open-api credential provider matching the declared auth mode (`api-key`, `oauth`, or `open-api-flexible`) for this SDK family. They must not reuse app login TokenManager credentials or assemble manual credential headers in feature code.
 
 ## Security
 

@@ -15,6 +15,12 @@ use crate::ports::{
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MarkdownIndexResult {
+    pub document_version_id: u64,
+    pub chunk_count: usize,
+}
+
 pub struct KnowledgeApiMarkdownIndexService<'a> {
     documents: &'a dyn KnowledgeDocumentStore,
     versions: &'a dyn KnowledgeDocumentVersionStore,
@@ -40,13 +46,19 @@ impl<'a> KnowledgeApiMarkdownIndexService<'a> {
     pub async fn index_payload_markdown(
         &self,
         space_id: u64,
+        source_id: u64,
         title: &str,
         payload_markdown: &str,
         payload_object_ref: &KnowledgeObjectRef,
-    ) -> Result<usize, KnowledgeApiMarkdownIndexServiceError> {
+    ) -> Result<MarkdownIndexResult, KnowledgeApiMarkdownIndexServiceError> {
         if space_id == 0 {
             return Err(KnowledgeApiMarkdownIndexServiceError::InvalidRequest(
                 "space_id is required".to_string(),
+            ));
+        }
+        if source_id == 0 {
+            return Err(KnowledgeApiMarkdownIndexServiceError::InvalidRequest(
+                "source_id is required".to_string(),
             ));
         }
 
@@ -77,7 +89,7 @@ impl<'a> KnowledgeApiMarkdownIndexService<'a> {
             .create_or_get_document(CreateKnowledgeDocumentRecord {
                 space_id,
                 collection_id: 0,
-                source_id: None,
+                source_id: Some(source_id),
                 identity_scope: KnowledgeDocumentIdentityScope::SourceOnly,
                 original_file_drive_node_id: None,
                 title: title.to_string(),
@@ -107,7 +119,41 @@ impl<'a> KnowledgeApiMarkdownIndexService<'a> {
             .replace_version_chunks(version.id, chunk_records)
             .await
             .map_err(KnowledgeApiMarkdownIndexServiceError::Chunk)?;
-        Ok(indexed)
+        Ok(MarkdownIndexResult {
+            document_version_id: version.id,
+            chunk_count: indexed,
+        })
+    }
+
+    pub async fn index_existing_document_version(
+        &self,
+        space_id: u64,
+        document_id: u64,
+        document_version_id: u64,
+        payload_markdown: &str,
+    ) -> Result<MarkdownIndexResult, KnowledgeApiMarkdownIndexServiceError> {
+        if space_id == 0 || document_id == 0 || document_version_id == 0 {
+            return Err(KnowledgeApiMarkdownIndexServiceError::InvalidRequest(
+                "space_id, document_id, and document_version_id are required".to_string(),
+            ));
+        }
+        if payload_markdown.trim().is_empty() {
+            return Err(KnowledgeApiMarkdownIndexServiceError::InvalidRequest(
+                "payload content must not be empty".to_string(),
+            ));
+        }
+
+        let chunk_records =
+            split_markdown_chunks(space_id, document_id, document_version_id, payload_markdown);
+        let indexed = self
+            .chunks
+            .replace_version_chunks(document_version_id, chunk_records)
+            .await
+            .map_err(KnowledgeApiMarkdownIndexServiceError::Chunk)?;
+        Ok(MarkdownIndexResult {
+            document_version_id,
+            chunk_count: indexed,
+        })
     }
 }
 

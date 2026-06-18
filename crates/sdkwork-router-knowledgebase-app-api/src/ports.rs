@@ -4,6 +4,10 @@ use sdkwork_knowledgebase_contract::{
         CreateKnowledgeSpaceContextBindingRequest, KnowledgeSpaceContextBinding,
         KnowledgeSpaceContextBindingList, UpdateKnowledgeSpaceContextBindingRequest,
     },
+    upload::{
+        CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
+        KnowledgeUploadSession,
+    },
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingList,
     KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
@@ -138,6 +142,20 @@ pub trait KnowledgeRetrievalAppService: Send + Sync + 'static {
         &self,
         request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack>;
+}
+
+#[async_trait]
+pub trait KnowledgeUploadSessionAppService: Send + Sync + 'static {
+    async fn create_upload_session(
+        &self,
+        request: CreateKnowledgeUploadSessionRequest,
+    ) -> ApiResult<KnowledgeUploadSession>;
+
+    async fn complete_upload_session(
+        &self,
+        session_id: u64,
+        request: CompleteKnowledgeUploadSessionRequest,
+    ) -> ApiResult<IngestionJob>;
 }
 
 #[async_trait]
@@ -481,5 +499,20 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _binding_id: u64,
     ) -> ApiResult<()> {
         Err(ApiError::not_implemented("contextBindings.delete"))
+    }
+
+    async fn create_upload_session(
+        &self,
+        _request: CreateKnowledgeUploadSessionRequest,
+    ) -> ApiResult<KnowledgeUploadSession> {
+        Err(ApiError::not_implemented("uploadSessions.create"))
+    }
+
+    async fn complete_upload_session(
+        &self,
+        _session_id: u64,
+        _request: CompleteKnowledgeUploadSessionRequest,
+    ) -> ApiResult<IngestionJob> {
+        Err(ApiError::not_implemented("uploadSessions.complete"))
     }
 }

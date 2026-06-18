@@ -5,6 +5,7 @@ use sdkwork_iam_web_adapter::IamDatabaseWebRequestContextResolver;
 use sdkwork_web_axum::{with_web_request_context, WebFrameworkLayer};
 use sdkwork_web_core::{DomainContextInjector, WebRequestContext, WebRequestContextProfile};
 
+use crate::http_route_manifest::app_route_manifest;
 use crate::paths;
 use crate::KnowledgeAppRequestContext;
 
@@ -45,11 +46,17 @@ pub fn wrap_router_with_web_framework(
     resolver: IamDatabaseWebRequestContextResolver,
     router: Router,
 ) -> Router {
+    let route_manifest = app_route_manifest();
+    route_manifest
+        .validate_public_path_prefixes(&knowledgebase_public_path_prefixes())
+        .expect("knowledgebase app-api public prefixes must not cover protected manifest routes");
+
     let layer = WebFrameworkLayer::new(resolver)
         .with_profile(WebRequestContextProfile {
             public_path_prefixes: knowledgebase_public_path_prefixes(),
             ..WebRequestContextProfile::default()
         })
+        .with_route_manifest(route_manifest)
         .with_domain_injector(Arc::new(KnowledgeAppContextInjector));
     with_web_request_context(router, layer)
 }

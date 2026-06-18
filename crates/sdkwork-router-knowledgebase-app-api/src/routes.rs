@@ -9,6 +9,7 @@ use sdkwork_knowledgebase_contract::{
     context_binding::{
         CreateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceContextBindingRequest,
     },
+    upload::{CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest},
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
     KnowledgeAgentProfileRequest, KnowledgeBrowserView, KnowledgeContextPackRequest,
@@ -119,6 +120,7 @@ pub fn build_router_with_full_app_api(
     retrieval: Arc<dyn KnowledgeRetrievalAppService>,
     agent: Arc<dyn KnowledgeAgentAppService>,
     context_binding: Arc<dyn crate::KnowledgeContextBindingAppService>,
+    upload_session: Arc<dyn crate::KnowledgeUploadSessionAppService>,
 ) -> Router {
     build_router_with_shared_app_api(Arc::new(FullAppApi::new(
         space,
@@ -130,6 +132,7 @@ pub fn build_router_with_full_app_api(
         retrieval,
         agent,
         context_binding,
+        upload_session,
     )))
 }
 
@@ -201,6 +204,11 @@ pub fn build_router_with_shared_app_api_and_readiness(
             get(retrieve_context_binding)
                 .patch(update_context_binding)
                 .delete(delete_context_binding),
+        )
+        .route(paths::UPLOAD_SESSIONS, post(create_upload_session))
+        .route(
+            paths::UPLOAD_SESSION_COMPLETE,
+            post(complete_upload_session),
         )
         .with_state(AppState { api, readiness })
 }
@@ -689,6 +697,25 @@ async fn delete_context_binding(
         .await
         .map_err(ApiProblem::from)?;
     Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+async fn create_upload_session(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<CreateKnowledgeUploadSessionRequest>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
+    created_json(state.api.create_upload_session(request).await)
+}
+
+async fn complete_upload_session(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(session_id): Path<u64>,
+    Json(request): Json<CompleteKnowledgeUploadSessionRequest>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
+    created_json(state.api.complete_upload_session(session_id, request).await)
 }
 
 fn ok_json<T>(result: ApiResult<T>) -> Result<Response, ApiProblem>

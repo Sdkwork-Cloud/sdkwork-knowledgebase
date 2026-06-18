@@ -14,6 +14,7 @@ pub mod knowledge_drive_workspace;
 pub mod knowledge_embedding_store;
 pub mod knowledge_ingestion_job_store;
 pub mod knowledge_memory_context;
+pub mod knowledge_outbox_store;
 pub mod knowledge_retrieval_backend;
 pub mod knowledge_retrieval_trace_store;
 pub mod knowledge_source_store;

@@ -1,0 +1,123 @@
+use crate::ports::{
+    knowledge_drive_storage::{
+        HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeStorageError,
+        PutKnowledgeObjectRequest,
+    },
+    knowledge_ingestion_job_store::{
+        CreateIngestionJobRecord, IngestionJobStore, IngestionJobStoreError,
+    },
+};
+use sdkwork_knowledgebase_contract::upload::{
+    CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
+    KnowledgeUploadSession, KnowledgeUploadSessionStatus,
+};
+use thiserror::Error;
+use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
+
+pub struct KnowledgeUploadSessionService<'a> {
+    drive: &'a dyn KnowledgeDriveStorage,
+    jobs: &'a dyn IngestionJobStore,
+}
+
+impl<'a> KnowledgeUploadSessionService<'a> {
+    pub fn new(drive: &'a dyn KnowledgeDriveStorage, jobs: &'a dyn IngestionJobStore) -> Self {
+        Self { drive, jobs }
+    }
+
+    pub async fn create_session(
+        &self,
+        request: CreateKnowledgeUploadSessionRequest,
+    ) -> Result<KnowledgeUploadSession, KnowledgeUploadSessionServiceError> {
+        if request.space_id == 0 {
+            return Err(KnowledgeUploadSessionServiceError::InvalidRequest(
+                "space_id is required".to_string(),
+            ));
+        }
+        if request.title.trim().is_empty() {
+            return Err(KnowledgeUploadSessionServiceError::InvalidRequest(
+                "title is required".to_string(),
+            ));
+        }
+
+        let job = self
+            .jobs
+            .create_or_get_job(CreateIngestionJobRecord {
+                space_id: request.space_id,
+                source_type: "upload_session".to_string(),
+                idempotency_key: format!("upload-session:{}", uuid::Uuid::new_v4()),
+                idempotency_fingerprint_sha256_hex: None,
+            })
+            .await?
+            .job;
+
+        let upload_logical_path = format!("upload_sessions/{}/payload", job.id);
+        let expires_at = (OffsetDateTime::now_utc() + Duration::hours(24))
+            .format(&Rfc3339)
+            .map_err(|error| KnowledgeUploadSessionServiceError::Internal(error.to_string()))?;
+
+        Ok(KnowledgeUploadSession {
+            id: job.id,
+            space_id: request.space_id,
+            title: request.title,
+            upload_logical_path,
+            status: KnowledgeUploadSessionStatus::Pending,
+            expires_at,
+        })
+    }
+
+    pub async fn resolve_payload_markdown(
+        &self,
+        session: &KnowledgeUploadSession,
+        request: &CompleteKnowledgeUploadSessionRequest,
+    ) -> Result<String, KnowledgeUploadSessionServiceError> {
+        if let Some(payload_markdown) = &request.payload_markdown {
+            if payload_markdown.trim().is_empty() {
+                return Err(KnowledgeUploadSessionServiceError::InvalidRequest(
+                    "payload_markdown must not be empty when provided".to_string(),
+                ));
+            }
+            self.drive
+                .put_object(PutKnowledgeObjectRequest::text(
+                    session.upload_logical_path.clone(),
+                    "upload_payload",
+                    payload_markdown,
+                    None,
+                ))
+                .await?;
+            return Ok(payload_markdown.clone());
+        }
+
+        let object_ref = self
+            .drive
+            .head_object(HeadKnowledgeObjectRequest::managed_artifact(
+                session.upload_logical_path.clone(),
+                "upload_payload",
+            ))
+            .await
+            .map_err(|error| match error {
+                KnowledgeStorageError::NotFound(_) => {
+                    KnowledgeUploadSessionServiceError::InvalidRequest(
+                        "upload payload is not available at the session upload path".to_string(),
+                    )
+                }
+                other => KnowledgeUploadSessionServiceError::Storage(other),
+            })?;
+
+        self.drive
+            .get_object_text(&object_ref)
+            .await
+            .map_err(KnowledgeUploadSessionServiceError::Storage)
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum KnowledgeUploadSessionServiceError {
+    #[error("invalid upload session request: {0}")]
+    InvalidRequest(String),
+    #[error("upload session internal error: {0}")]
+    Internal(String),
+    #[error(transparent)]
+    Store(#[from] IngestionJobStoreError),
+    #[error(transparent)]
+    Storage(#[from] KnowledgeStorageError),
+}

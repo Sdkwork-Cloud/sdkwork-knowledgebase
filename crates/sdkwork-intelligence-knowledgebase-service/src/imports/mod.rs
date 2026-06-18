@@ -1,3 +1,10 @@
+mod drive_import_pipeline;
+
+pub use drive_import_pipeline::{
+    DriveImportPipelineResult, KnowledgeDriveImportPipelineService,
+    KnowledgeDriveImportPipelineServiceError,
+};
+
 use crate::ports::{
     knowledge_document_store::{
         CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,

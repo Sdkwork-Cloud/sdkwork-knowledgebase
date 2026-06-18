@@ -46,6 +46,8 @@ fn contract_context_binding_operations_are_declared() {
         "contextBindings.retrieve",
         "contextBindings.update",
         "contextBindings.delete",
+        "uploadSessions.create",
+        "uploadSessions.complete",
     ] {
         assert!(
             spec["paths"].as_object().unwrap().values().any(|methods| {

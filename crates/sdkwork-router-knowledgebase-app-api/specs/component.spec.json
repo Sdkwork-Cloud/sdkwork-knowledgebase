@@ -65,6 +65,11 @@
                                "purpose":  "Domain and capability boundary rules."
                            },
                            {
+                               "file":  "WEB_FRAMEWORK_SPEC.md",
+                               "path":  "../../../sdkwork-specs/WEB_FRAMEWORK_SPEC.md",
+                               "purpose":  "Mandatory sdkwork-web-framework integration for HTTP surfaces."
+                           },
+                           {
                                "file":  "SECURITY_SPEC.md",
                                "path":  "../../../sdkwork-specs/SECURITY_SPEC.md",
                                "purpose":  "Protected backend behavior rules."
@@ -86,14 +91,17 @@
                                         ],
                       "runtimeEntrypoints":  [
                                                  "KnowledgebaseSqliteRuntime",
+                                                 "app_route_manifest",
                                                  "build_full_app_router",
                                                  "build_backend_router",
                                                  "build_open_api_router",
+                                                 "wrap_router_with_web_framework_from_env",
                                                  "sdkwork-knowledgebase-app-api",
                                                  "sdkwork-knowledgebase-backend-api",
                                                  "sdkwork-knowledgebase-open-api"
                                              ],
                       "routeManifest":  "sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json",
+                      "authMode":  "dual-token",
                       "sdkClients":  [
 
                                      ],

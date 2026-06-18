@@ -474,11 +474,38 @@ impl KnowledgeBackendApi for SqliteHostedBackendApi {
         &self,
         request: KnowledgeIndexRequest,
     ) -> BackendApiResult<KnowledgeIndex> {
-        self.runtime
+        let index = self
+            .runtime
             .index_store()
             .create_index(request)
             .await
-            .map_err(|error| map_internal(error.to_string()))
+            .map_err(|error| map_internal(error.to_string()))?;
+
+        let space = self
+            .runtime
+            .space_store()
+            .get_space(index.space_id)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+
+        if space.knowledge_mode == KnowledgeAgentKnowledgeMode::Rag {
+            if let Ok(client) = resolve_claw_router_client_from_env() {
+                let embedder = ClawRouterEmbeddingClient::new(Arc::new(client));
+                let build =
+                    KnowledgeEmbeddingBuildService::new(self.runtime.embedding_store(), embedder);
+                let _ = build
+                    .embed_space_chunks(
+                        self.runtime.tenant_id(),
+                        index.index_id,
+                        index.space_id,
+                        None,
+                        None,
+                    )
+                    .await;
+            }
+        }
+
+        Ok(index)
     }
 
     async fn retrieve_index(&self, index_id: u64) -> BackendApiResult<KnowledgeIndex> {

@@ -1,7 +1,9 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
     POSTGRES_ACCESS_MODE_MIGRATION, POSTGRES_AGENT_IMPLEMENTATION_MIGRATION,
-    POSTGRES_CONTEXT_BINDING_MIGRATION, POSTGRES_CORE_MIGRATION, SQLITE_ACCESS_MODE_MIGRATION,
+    POSTGRES_CONTEXT_BINDING_MIGRATION, POSTGRES_CORE_MIGRATION, POSTGRES_OUTBOX_MIGRATION,
+    POSTGRES_PGVECTOR_MIGRATION, SQLITE_ACCESS_MODE_MIGRATION,
     SQLITE_AGENT_IMPLEMENTATION_MIGRATION, SQLITE_CONTEXT_BINDING_MIGRATION, SQLITE_CORE_MIGRATION,
+    SQLITE_OUTBOX_MIGRATION,
 };
 use std::collections::BTreeSet;
 
@@ -372,6 +374,41 @@ fn context_binding_migrations_define_space_context_binding_table() {
                 "missing context binding index: {index}"
             );
         }
+    }
+}
+
+#[test]
+fn outbox_migrations_define_kb_outbox_event_table() {
+    for migration in [SQLITE_OUTBOX_MIGRATION, POSTGRES_OUTBOX_MIGRATION] {
+        let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
+        assert!(tables.contains("kb_outbox_event"));
+        let indexes = defined_database_objects(migration, "CREATE INDEX IF NOT EXISTS ")
+            .into_iter()
+            .chain(defined_database_objects(
+                migration,
+                "CREATE UNIQUE INDEX IF NOT EXISTS ",
+            ))
+            .collect::<BTreeSet<_>>();
+        for index in [
+            "uk_kb_outbox_event_uuid",
+            "idx_kb_outbox_event_status_created",
+        ] {
+            assert!(indexes.contains(index), "missing outbox index: {index}");
+        }
+    }
+}
+
+#[test]
+fn postgres_pgvector_migration_defines_vector_embedding_column() {
+    for snippet in [
+        "CREATE EXTENSION IF NOT EXISTS vector",
+        "embedding_vector vector(1536)",
+        "idx_kb_embedding_vector_hnsw",
+    ] {
+        assert!(
+            POSTGRES_PGVECTOR_MIGRATION.contains(snippet),
+            "pgvector migration must include snippet: {snippet}"
+        );
     }
 }
 

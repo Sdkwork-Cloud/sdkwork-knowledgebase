@@ -928,4 +928,18 @@ impl IngestionJobStore for MemoryIngestionJobStore {
         job.error_message = error_message;
         Ok(job.clone())
     }
+
+    async fn list_jobs_by_state(
+        &self,
+        state: IngestionJobState,
+        limit: u32,
+    ) -> Result<Vec<IngestionJob>, IngestionJobStoreError> {
+        let jobs = self.by_id.lock().unwrap();
+        Ok(jobs
+            .values()
+            .filter(|job| job.state == state)
+            .take(limit as usize)
+            .cloned()
+            .collect())
+    }
 }

@@ -21,6 +21,11 @@ pub trait KnowledgeChunkStore: Send + Sync {
         document_version_id: u64,
         chunks: Vec<CreateKnowledgeChunkRecord>,
     ) -> Result<usize, KnowledgeChunkStoreError>;
+
+    async fn list_chunk_ids_for_document_version(
+        &self,
+        document_version_id: u64,
+    ) -> Result<Vec<u64>, KnowledgeChunkStoreError>;
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

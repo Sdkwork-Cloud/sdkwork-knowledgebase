@@ -1,0 +1,34 @@
+schemaVersion: "1.0"
+profile: "docs/llm-wiki.md"
+standardFiles:
+  agentInstructions: "wiki/schema/AGENTS.md"
+  schema: "wiki/schema/wiki_schema.yaml"
+  index: "wiki/index.md"
+  log: "wiki/log.md"
+layers:
+  raw:
+    immutable: true
+    root: "sources/raw/"
+  wiki:
+    persistent: true
+    root: "wiki/"
+  schema:
+    root: "wiki/schema/"
+workflows:
+  ingest:
+    requiredUpdates:
+      - source_summary
+      - related_pages
+      - wiki/index.md
+      - wiki/log.md
+  query:
+    readFirst:
+      - wiki/index.md
+    mayFileAnswer: true
+  lint:
+    checks:
+      - broken_links
+      - missing_citations
+      - stale_claims
+      - orphan_pages
+      - missing_cross_references

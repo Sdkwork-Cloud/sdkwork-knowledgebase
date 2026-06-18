@@ -118,6 +118,57 @@ impl SqliteKnowledgeIndexStore {
 
         index_from_row(&row)
     }
+
+    pub async fn get_or_create_active_vector_index(
+        &self,
+        space_id: u64,
+        collection_id: u64,
+    ) -> Result<KnowledgeIndex, KnowledgeIndexStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let space_id = to_i64("space_id", space_id)?;
+        let collection_id = to_i64("collection_id", collection_id)?;
+
+        if let Some(row) = sqlx::query(
+            r#"
+            SELECT id, tenant_id, space_id, index_kind, status
+            FROM kb_index
+            WHERE tenant_id = ? AND space_id = ? AND collection_id = ? AND index_kind = ? AND status = ?
+            ORDER BY id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(space_id)
+        .bind(collection_id)
+        .bind("vector")
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(sqlx_error)?
+        {
+            return index_from_row(&row);
+        }
+
+        self.create_index(KnowledgeIndexRequest {
+            tenant_id: self.tenant_id,
+            space_id: u64::try_from(space_id).map_err(|_| {
+                KnowledgeIndexStoreError::Internal("space_id out of u64 range".to_string())
+            })?,
+            collection_id: if collection_id == 0 {
+                None
+            } else {
+                Some(u64::try_from(collection_id).map_err(|_| {
+                    KnowledgeIndexStoreError::Internal("collection_id out of u64 range".to_string())
+                })?)
+            },
+            index_kind: "vector".to_string(),
+            embedding_provider_id: None,
+            embedding_model: None,
+            dimension: Some(1536),
+            metric: Some("cosine".to_string()),
+        })
+        .await
+    }
 }
 
 fn index_from_row(row: &SqliteRow) -> Result<KnowledgeIndex, KnowledgeIndexStoreError> {

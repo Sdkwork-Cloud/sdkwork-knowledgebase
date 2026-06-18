@@ -967,6 +967,33 @@ impl IngestionJobStore for SqliteIngestionJobStore {
 
         job_from_row(&row)
     }
+
+    async fn list_jobs_by_state(
+        &self,
+        state: IngestionJobState,
+        limit: u32,
+    ) -> Result<Vec<IngestionJob>, IngestionJobStoreError> {
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let limit = i64::from(limit.clamp(1, 200));
+        let rows = sqlx::query(
+            r#"
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            FROM kb_ingestion_job
+            WHERE tenant_id = ? AND state = ? AND status = ?
+            ORDER BY id ASC
+            LIMIT ?
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ingestion_state_code(state))
+        .bind(ACTIVE_STATUS)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+
+        rows.into_iter().map(|row| job_from_row(&row)).collect()
+    }
 }
 
 impl SqliteIngestionJobStore {
