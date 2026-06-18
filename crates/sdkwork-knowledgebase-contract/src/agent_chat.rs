@@ -26,6 +26,7 @@ pub struct KnowledgeAgentChatRequest {
     pub session_id: Option<String>,
     pub model_provider_id: Option<String>,
     pub model_id: Option<String>,
+    pub agent_implementation_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -57,6 +58,7 @@ pub struct KnowledgeAgentChatResponse {
     pub chat_id: String,
     pub answer: String,
     pub mode: KnowledgeAgentKnowledgeMode,
+    pub agent_implementation_id: String,
     pub model_provider_id: String,
     pub model_id: String,
     pub citations: Vec<KnowledgeAgentChatCitation>,

@@ -194,8 +194,9 @@ fn knowledge_agent_profile_selects_model_provider_and_multiple_knowledge_binding
         memory_policy_ref: Some("memory.session.summary".to_string()),
         tool_policy_ref: Some("tools.readonly".to_string()),
         answer_policy: Some(r#"{"abstainWhenNoEvidence":true}"#.to_string()),
-        status: KnowledgeAgentStatus::Active,
         knowledge_mode: Default::default(),
+        agent_implementation_id: sdkwork_knowledgebase_contract::default_agent_implementation_id(),
+        status: KnowledgeAgentStatus::Active,
         bindings: vec![
             KnowledgeAgentBinding {
                 binding_id: 61,

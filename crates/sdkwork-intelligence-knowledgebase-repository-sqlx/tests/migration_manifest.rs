@@ -1,6 +1,7 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
-    POSTGRES_ACCESS_MODE_MIGRATION, POSTGRES_CORE_MIGRATION, SQLITE_ACCESS_MODE_MIGRATION,
-    SQLITE_CORE_MIGRATION,
+    POSTGRES_ACCESS_MODE_MIGRATION, POSTGRES_AGENT_IMPLEMENTATION_MIGRATION,
+    POSTGRES_CORE_MIGRATION, SQLITE_ACCESS_MODE_MIGRATION,
+    SQLITE_AGENT_IMPLEMENTATION_MIGRATION, SQLITE_CORE_MIGRATION,
 };
 use std::collections::BTreeSet;
 
@@ -322,6 +323,25 @@ fn access_mode_migrations_add_profile_space_mode_and_vector_json() {
             assert!(
                 migration.contains(snippet),
                 "access mode migration must include snippet: {snippet}"
+            );
+        }
+    }
+}
+
+#[test]
+fn agent_implementation_migrations_add_profile_runtime_selector() {
+    for migration in [
+        SQLITE_AGENT_IMPLEMENTATION_MIGRATION,
+        POSTGRES_AGENT_IMPLEMENTATION_MIGRATION,
+    ] {
+        for snippet in [
+            "agent_implementation_id",
+            "plugin.intelligence.rig",
+            "idx_kb_agent_profile_agent_implementation",
+        ] {
+            assert!(
+                migration.contains(snippet),
+                "agent implementation migration must include snippet: {snippet}"
             );
         }
     }

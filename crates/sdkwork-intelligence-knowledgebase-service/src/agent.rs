@@ -2,7 +2,9 @@ use crate::ports::knowledge_agent_profile_store::{
     KnowledgeAgentProfileStore, KnowledgeAgentProfileStoreError,
 };
 use crate::retrieval::{KnowledgeRetrievalExecutor, KnowledgeRetrievalServiceError};
-use sdkwork_knowledgebase_agent_provider::validate_rag_profile_requirements;
+use sdkwork_knowledgebase_agent_provider::{
+    validate_rag_profile_requirements, validate_registered_agent_implementation,
+};
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentProfile,
     KnowledgeAgentProfileRequest, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
@@ -204,6 +206,8 @@ fn validate_profile_request(
         ));
     }
     validate_rag_profile_requirements(request.knowledge_mode, request.retrieval_profile_id)
+        .map_err(KnowledgeAgentServiceError::InvalidRequest)?;
+    validate_registered_agent_implementation(&request.agent_implementation_id)
         .map_err(KnowledgeAgentServiceError::InvalidRequest)?;
     Ok(())
 }

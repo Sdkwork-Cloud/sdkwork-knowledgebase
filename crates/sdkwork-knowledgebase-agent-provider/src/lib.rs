@@ -1,5 +1,7 @@
 //! Agent provider adapter for SDKWork Knowledgebase.
 
+pub mod agent_implementation;
+pub mod agent_runtime;
 pub mod claw_router;
 pub mod claw_router_embeddings;
 pub mod client;
@@ -9,6 +11,12 @@ mod mapper;
 pub mod provider;
 pub mod retrieval_plan;
 
+pub use agent_implementation::{
+    default_profile_agent_implementation_id, is_rig_agent_implementation,
+    resolve_model_provider_for_implementation, resolve_rig_model_provider_id,
+    validate_registered_agent_implementation, CONTRACT_MODEL_PROVIDER_ID,
+};
+pub use agent_runtime::{build_knowledge_agent_runtime, KnowledgeAgentRuntimeBuildRequest};
 pub use claw_router::{
     is_rig_model_provider, resolve_claw_router_client_from_env, ClawRouterChatModelProvider,
     CLAW_ROUTER_CHAT_COMPLETION_METHOD, CLAW_ROUTER_OPEN_HTTP_URL_ENV, CLAW_ROUTER_OPEN_SDK_CRATE,

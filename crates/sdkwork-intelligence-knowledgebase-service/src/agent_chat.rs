@@ -2,43 +2,29 @@ use crate::ports::knowledge_agent_profile_store::{
     KnowledgeAgentProfileStore, KnowledgeAgentProfileStoreError,
 };
 use crate::retrieval::{KnowledgeRetrievalExecutor, KnowledgeRetrievalServiceError};
-use sdkwork_agent_kernel::{
-    AgentChatRequest, AgentChatService, AgentManifest, KernelError, ModelProvider, ModelRequest,
-    ModelResponse, PolicyDecision, PolicyProvider, PolicyRequest, ProviderHealth, ProviderManifest,
-    RuntimeBuilder,
-};
-use sdkwork_agent_plugin_core::SdkworkKernelPlugin;
-use sdkwork_agent_plugin_rig::{ids as rig_ids, rig_agent_manifest, RigKernelPlugin};
+use sdkwork_agent_kernel::{AgentChatRequest, AgentChatService, KernelError};
+use sdkwork_agent_plugin_rig::ids as rig_ids;
 use sdkwork_knowledgebase_agent_provider::{
-    default_top_k, is_rig_model_provider, resolve_chat_knowledge_mode,
-    validate_bindings_support_mode, validate_rag_profile_requirements, ClawRouterChatModelProvider,
+    build_knowledge_agent_runtime, default_top_k, resolve_chat_knowledge_mode,
+    resolve_model_provider_for_implementation, validate_bindings_support_mode,
+    validate_rag_profile_requirements, validate_registered_agent_implementation,
     KnowledgeAccessGateway, KnowledgeAccessRequest, KnowledgeAccessRetrievalExecutor,
-    KnowledgeRetrievalPlanResolver, KnowledgeSpaceModeResolver, KnowledgebaseRetrievalClient,
-    LlmWikiKnowledgeClient, LlmWikiKnowledgeProvider, SdkworkKnowledgebaseProvider,
-    CLAW_ROUTER_OPEN_HTTP_URL_ENV, LLM_WIKI_KNOWLEDGE_PROVIDER_ID, RIG_MODEL_PROVIDER_ID,
+    KnowledgeAgentRuntimeBuildRequest, KnowledgeRetrievalPlanResolver, KnowledgeSpaceModeResolver,
+    KnowledgebaseRetrievalClient, LlmWikiKnowledgeClient, LLM_WIKI_KNOWLEDGE_PROVIDER_ID,
     SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
 };
 use sdkwork_knowledgebase_contract::agent_chat::{
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentKnowledgeMode,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalRequest;
+use sdkwork_knowledgebase_contract::resolve_agent_implementation_id;
 use std::sync::Arc;
 use thiserror::Error;
 use uuid::Uuid;
 
 pub const DEFAULT_MODEL_PROVIDER_ID: &str = rig_ids::MODEL_PROVIDER_ID;
 pub const DEFAULT_MODEL_ID: &str = rig_ids::DEFAULT_MODEL_ID;
-pub const CONTRACT_MODEL_PROVIDER_ID: &str = "provider.model.knowledgebase-contract";
-
-fn resolve_model_provider_id(model_provider_id: &str) -> String {
-    if model_provider_id == CONTRACT_MODEL_PROVIDER_ID {
-        return model_provider_id.to_string();
-    }
-    if is_rig_model_provider(model_provider_id) {
-        return rig_ids::MODEL_PROVIDER_ID.to_string();
-    }
-    model_provider_id.to_string()
-}
+pub use sdkwork_knowledgebase_agent_provider::CONTRACT_MODEL_PROVIDER_ID;
 
 pub struct KnowledgeAgentChatService<'a, R, W> {
     profiles: &'a dyn KnowledgeAgentProfileStore,
@@ -180,7 +166,16 @@ where
             .clone()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| profile.model_provider_id.clone());
-        let resolved_model_provider_id = resolve_model_provider_id(&model_provider_id);
+        let agent_implementation_id = resolve_agent_implementation_id(
+            request.agent_implementation_id.as_deref(),
+            &profile.agent_implementation_id,
+        );
+        validate_registered_agent_implementation(&agent_implementation_id)
+            .map_err(KnowledgeAgentChatServiceError::InvalidRequest)?;
+        let resolved_model_provider_id = resolve_model_provider_for_implementation(
+            &agent_implementation_id,
+            &model_provider_id,
+        );
         let model_id = request
             .model_id
             .clone()
@@ -188,14 +183,16 @@ where
             .unwrap_or_else(|| profile.model_id.clone());
 
         let chat_id = format!("chat.{}", Uuid::new_v4());
-        let runtime = build_chat_runtime(
-            &resolved_model_provider_id,
+        let runtime = build_knowledge_agent_runtime(KnowledgeAgentRuntimeBuildRequest {
+            agent_implementation_id: agent_implementation_id.clone(),
+            model_provider_id: resolved_model_provider_id.clone(),
             mode,
-            self.retrieval_client.clone(),
-            self.wiki_client.clone(),
-            request.tenant_id,
-            self.claw_router_client.clone(),
-        )?;
+            retrieval_client: self.retrieval_client.clone(),
+            wiki_client: self.wiki_client.clone(),
+            tenant_id: request.tenant_id,
+            claw_router_client: self.claw_router_client.clone(),
+        })
+        .map_err(KnowledgeAgentChatServiceError::Runtime)?;
 
         let mut chat_request =
             AgentChatRequest::new(chat_id.clone(), vec![request.message.clone()])
@@ -237,6 +234,7 @@ where
             chat_id,
             answer,
             mode,
+            agent_implementation_id,
             model_provider_id: response.provider_id,
             model_id,
             citations,
@@ -270,186 +268,8 @@ fn knowledge_provider_id(mode: KnowledgeAgentKnowledgeMode) -> &'static str {
     }
 }
 
-fn build_chat_runtime<R, W>(
-    model_provider_id: &str,
-    mode: KnowledgeAgentKnowledgeMode,
-    retrieval_client: R,
-    wiki_client: W,
-    tenant_id: u64,
-    claw_router_client: Option<Arc<clawrouter_open_sdk::SdkworkAiClient>>,
-) -> Result<sdkwork_agent_kernel::AgentRuntime, KnowledgeAgentChatServiceError>
-where
-    R: KnowledgebaseRetrievalClient + Send + Sync + 'static,
-    W: LlmWikiKnowledgeClient + Send + Sync + 'static,
-{
-    let manifest = chat_agent_manifest(model_provider_id);
-    let mut builder = RuntimeBuilder::new("runtime.knowledgebase.chat", manifest);
-
-    if model_provider_id == CONTRACT_MODEL_PROVIDER_ID {
-        builder = builder
-            .register_model_provider(
-                CONTRACT_MODEL_PROVIDER_ID,
-                "0.1.0",
-                ContractKnowledgeChatModelProvider,
-            )
-            .register_policy_provider("provider.policy.allow", "0.1.0", AllowPolicyProvider);
-    } else if is_rig_model_provider(model_provider_id) {
-        let client = claw_router_client.ok_or_else(|| {
-            KnowledgeAgentChatServiceError::Runtime(format!(
-                "Rig LLM backend requires claw-router SdkworkAiClient ({CLAW_ROUTER_OPEN_HTTP_URL_ENV})"
-            ))
-        })?;
-        builder = builder.register_model_provider(
-            rig_ids::MODEL_PROVIDER_ID,
-            "0.1.0",
-            ClawRouterChatModelProvider::for_rig(client),
-        );
-        builder = RigKernelPlugin::fail_closed().configure_runtime(builder);
-    } else {
-        return Err(KnowledgeAgentChatServiceError::InvalidRequest(format!(
-            "unsupported model provider id: {model_provider_id}; expected {CONTRACT_MODEL_PROVIDER_ID} or {RIG_MODEL_PROVIDER_ID}"
-        )));
-    }
-
-    builder = builder
-        .register_knowledge_provider(
-            SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
-            "0.1.0",
-            SdkworkKnowledgebaseProvider::new(retrieval_client, tenant_id),
-        )
-        .register_knowledge_provider(
-            LLM_WIKI_KNOWLEDGE_PROVIDER_ID,
-            "0.1.0",
-            LlmWikiKnowledgeProvider::new(wiki_client),
-        );
-
-    let _ = mode;
-
-    builder
-        .bootstrap()
-        .map(|bootstrapped| bootstrapped.runtime)
-        .map_err(|error| {
-            KnowledgeAgentChatServiceError::Runtime(format!(
-                "agent runtime bootstrap failed: {error}"
-            ))
-        })
-}
-
-fn chat_agent_manifest(model_provider_id: &str) -> AgentManifest {
-    if model_provider_id == CONTRACT_MODEL_PROVIDER_ID {
-        knowledgebase_chat_agent_manifest()
-    } else {
-        rig_agent_manifest()
-    }
-}
-
-fn knowledgebase_chat_agent_manifest() -> AgentManifest {
-    AgentManifest::from_json(
-        r#"
-{
-  "schema_version": "0.1.0",
-  "manifest_type": "agent",
-  "agent_id": "agent.knowledgebase.chat",
-  "name": "knowledgebase-chat",
-  "display_name": "Knowledgebase Chat",
-  "description": "Knowledge-backed chat agent for SDKWork Knowledgebase.",
-  "version": "0.1.0",
-  "domain": "intelligence",
-  "required_capabilities": [
-    { "capability_id": "model.chat", "min_version": "0.1.0" },
-    { "capability_id": "policy.evaluate", "min_version": "0.1.0" }
-  ],
-  "optional_capabilities": [
-    { "capability_id": "knowledge.search", "min_version": "0.1.0" }
-  ],
-  "event_families": ["agent.model.*", "agent.knowledge.*"],
-  "owner": { "name": "sdkwork-platform" },
-  "status": "candidate"
-}
-"#,
-    )
-    .expect("knowledgebase chat manifest parses")
-}
-
 fn map_kernel_error(error: KernelError) -> KnowledgeAgentChatServiceError {
     KnowledgeAgentChatServiceError::AgentKernel(error.to_string())
-}
-
-#[derive(Debug, Clone)]
-struct AllowPolicyProvider;
-
-impl PolicyProvider for AllowPolicyProvider {
-    fn provider_manifest(&self) -> ProviderManifest {
-        ProviderManifest::new(
-            "provider.policy.allow",
-            "policy",
-            "allow-policy",
-            "0.1.0",
-            vec!["policy.evaluate".to_string()],
-        )
-    }
-
-    fn evaluate(
-        &self,
-        request: PolicyRequest,
-    ) -> sdkwork_agent_kernel::KernelResult<PolicyDecision> {
-        Ok(PolicyDecision::allow(
-            format!("decision.{}", request.policy_request_id),
-            request.policy_request_id,
-            "provider.policy.allow",
-        ))
-    }
-
-    fn health(&self) -> ProviderHealth {
-        ProviderHealth::available()
-    }
-}
-
-#[derive(Debug, Clone)]
-struct ContractKnowledgeChatModelProvider;
-
-impl ModelProvider for ContractKnowledgeChatModelProvider {
-    fn provider_manifest(&self) -> ProviderManifest {
-        ProviderManifest::new(
-            CONTRACT_MODEL_PROVIDER_ID,
-            "model",
-            "knowledgebase-contract",
-            "0.1.0",
-            vec!["model.chat".to_string()],
-        )
-    }
-
-    fn health(&self) -> ProviderHealth {
-        ProviderHealth::available()
-    }
-
-    fn invoke(&self, request: ModelRequest) -> sdkwork_agent_kernel::KernelResult<ModelResponse> {
-        let context_titles = request
-            .context_frames
-            .iter()
-            .filter_map(|frame| frame.metadata_value("sdkwork.knowledge.title"))
-            .collect::<Vec<_>>();
-
-        let answer = if context_titles.is_empty() {
-            format!(
-                "No knowledge context was attached for this question: {}",
-                request.messages.join(" ")
-            )
-        } else {
-            format!(
-                "Based on {} knowledge source(s) [{}]: {}",
-                context_titles.len(),
-                context_titles.join(", "),
-                request.messages.join(" ")
-            )
-        };
-
-        Ok(ModelResponse::text(
-            request.model_request_id,
-            CONTRACT_MODEL_PROVIDER_ID,
-            answer,
-        ))
-    }
 }
 
 #[derive(Debug, Error)]
@@ -479,7 +299,9 @@ mod tests {
         KnowledgeAgentStatus, KnowledgeContextFragment, KnowledgeRetrievalMethod,
         KnowledgeRetrievalResult, KnowledgeRetrievalTrace,
     };
-    use sdkwork_knowledgebase_contract::wiki::WikiPageSummary;
+    use sdkwork_knowledgebase_contract::{
+        wiki::WikiPageSummary, KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID,
+    };
     use sdkwork_knowledgebase_contract::WikiPageType;
 
     #[tokio::test]
@@ -505,12 +327,19 @@ mod tests {
                     session_id: Some("session.1".to_string()),
                     model_provider_id: Some(CONTRACT_MODEL_PROVIDER_ID.to_string()),
                     model_id: Some("contract.default".to_string()),
+                    agent_implementation_id: Some(
+                        KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID.to_string(),
+                    ),
                 },
             )
             .await
             .expect("llm-wiki chat succeeds");
 
         assert_eq!(response.mode, KnowledgeAgentKnowledgeMode::LlmWiki);
+        assert_eq!(
+            response.agent_implementation_id,
+            KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID
+        );
         assert_eq!(response.model_provider_id, CONTRACT_MODEL_PROVIDER_ID);
         assert_eq!(response.citations.len(), 1);
         assert_eq!(
@@ -543,6 +372,9 @@ mod tests {
                     session_id: None,
                     model_provider_id: Some(CONTRACT_MODEL_PROVIDER_ID.to_string()),
                     model_id: None,
+                    agent_implementation_id: Some(
+                        KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID.to_string(),
+                    ),
                 },
             )
             .await
@@ -583,6 +415,7 @@ mod tests {
                 tool_policy_ref: None,
                 answer_policy: None,
                 knowledge_mode: KnowledgeAgentKnowledgeMode::LlmWiki,
+                agent_implementation_id: KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID.to_string(),
                 status: KnowledgeAgentStatus::Active,
                 bindings: vec![KnowledgeAgentBinding {
                     binding_id: 601,

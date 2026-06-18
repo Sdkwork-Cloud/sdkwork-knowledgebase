@@ -1782,6 +1782,8 @@ dependencies = [
  "async-trait",
  "clawrouter-open-sdk",
  "sdkwork-agent-kernel",
+ "sdkwork-agent-plugin-core",
+ "sdkwork-agent-plugin-rig",
  "sdkwork-knowledgebase-contract",
  "serde_json",
  "tokio",

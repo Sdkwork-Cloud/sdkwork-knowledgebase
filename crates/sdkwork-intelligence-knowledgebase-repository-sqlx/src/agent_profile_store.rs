@@ -6,6 +6,7 @@ use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentKnowledgeMode,
     KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeAgentStatus, KnowledgeFilter,
 };
+use sdkwork_knowledgebase_contract::{default_agent_implementation_id, RIG_AGENT_IMPLEMENTATION_ID};
 use sqlx::{sqlite::SqliteRow, Row, SqlitePool};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -77,12 +78,13 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 tool_policy_ref,
                 answer_policy,
                 knowledge_mode,
+                agent_implementation_id,
                 status,
                 created_at,
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING
                 id,
                 tenant_id,
@@ -98,6 +100,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 tool_policy_ref,
                 answer_policy,
                 knowledge_mode,
+                agent_implementation_id,
                 status
             "#,
         )
@@ -116,6 +119,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         .bind(request.tool_policy_ref)
         .bind(request.answer_policy)
         .bind(knowledge_mode_code(request.knowledge_mode))
+        .bind(agent_implementation_id_code(&request.agent_implementation_id))
         .bind(agent_status_code(request.status))
         .bind(now.clone())
         .bind(now)
@@ -168,6 +172,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 tool_policy_ref = ?,
                 answer_policy = ?,
                 knowledge_mode = ?,
+                agent_implementation_id = ?,
                 status = ?,
                 updated_at = ?,
                 version = version + 1
@@ -187,6 +192,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 tool_policy_ref,
                 answer_policy,
                 knowledge_mode,
+                agent_implementation_id,
                 status
             "#,
         )
@@ -202,6 +208,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         .bind(request.tool_policy_ref)
         .bind(request.answer_policy)
         .bind(knowledge_mode_code(request.knowledge_mode))
+        .bind(agent_implementation_id_code(&request.agent_implementation_id))
         .bind(agent_status_code(request.status))
         .bind(now)
         .bind(tenant_id)
@@ -514,6 +521,7 @@ impl SqliteKnowledgeAgentProfileStore {
                 tool_policy_ref,
                 answer_policy,
                 knowledge_mode,
+                agent_implementation_id,
                 status
             FROM kb_agent_profile
             WHERE tenant_id = ? AND id = ? AND status != ?
@@ -552,6 +560,9 @@ fn profile_from_row(
         answer_policy: row.try_get("answer_policy").map_err(agent_sqlx_error)?,
         knowledge_mode: knowledge_mode_from_code(
             row.try_get("knowledge_mode").map_err(agent_sqlx_error)?,
+        )?,
+        agent_implementation_id: agent_implementation_id_from_code(
+            row.try_get("agent_implementation_id").map_err(agent_sqlx_error)?,
         )?,
         status: agent_status_from_code(row.try_get("status").map_err(agent_sqlx_error)?)?,
         bindings: vec![],
@@ -718,5 +729,25 @@ fn knowledge_mode_from_code(
         other => Err(KnowledgeAgentProfileStoreError::Internal(format!(
             "unsupported knowledge_mode value: {other}"
         ))),
+    }
+}
+
+fn agent_implementation_id_code(value: &str) -> &str {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        RIG_AGENT_IMPLEMENTATION_ID
+    } else {
+        trimmed
+    }
+}
+
+fn agent_implementation_id_from_code(
+    value: String,
+) -> Result<String, KnowledgeAgentProfileStoreError> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        Ok(default_agent_implementation_id())
+    } else {
+        Ok(trimmed.to_string())
     }
 }

@@ -256,6 +256,8 @@ impl KnowledgeAgentAppService for RecordingAgentService {
             chat_id: "chat.1".to_string(),
             answer: "enterprise renewal support answer".to_string(),
             mode: KnowledgeAgentKnowledgeMode::LlmWiki,
+            agent_implementation_id: sdkwork_knowledgebase_contract::RIG_AGENT_IMPLEMENTATION_ID
+                .to_string(),
             model_provider_id: "provider.model.rig-rust".to_string(),
             model_id: "rig.default-chat".to_string(),
             citations: vec![
@@ -390,6 +392,7 @@ fn profile() -> KnowledgeAgentProfile {
         answer_policy: None,
         status: KnowledgeAgentStatus::Active,
         knowledge_mode: Default::default(),
+        agent_implementation_id: sdkwork_knowledgebase_contract::default_agent_implementation_id(),
         bindings: vec![binding(601, 501, 7, true)],
     }
 }

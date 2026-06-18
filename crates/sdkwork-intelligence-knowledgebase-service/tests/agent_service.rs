@@ -163,6 +163,7 @@ impl KnowledgeAgentProfileStore for RecordingAgentProfileStore {
             tool_policy_ref: request.tool_policy_ref,
             answer_policy: request.answer_policy,
             knowledge_mode: request.knowledge_mode,
+            agent_implementation_id: request.agent_implementation_id,
             status: request.status,
             bindings: vec![],
         };
@@ -205,6 +206,7 @@ impl KnowledgeAgentProfileStore for RecordingAgentProfileStore {
             tool_policy_ref: request.tool_policy_ref,
             answer_policy: request.answer_policy,
             knowledge_mode: request.knowledge_mode,
+            agent_implementation_id: request.agent_implementation_id,
             status: request.status,
             bindings,
         };
@@ -356,6 +358,7 @@ fn profile_request(name: &str) -> KnowledgeAgentProfileRequest {
         tool_policy_ref: Some("tools.read_only".to_string()),
         answer_policy: Some(r#"{"style":"concise"}"#.to_string()),
         knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        agent_implementation_id: sdkwork_knowledgebase_contract::default_agent_implementation_id(),
         status: KnowledgeAgentStatus::Active,
     }
 }
@@ -400,6 +403,7 @@ fn profile(
         tool_policy_ref: Some("tools.read_only".to_string()),
         answer_policy: Some(r#"{"style":"concise"}"#.to_string()),
         knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        agent_implementation_id: sdkwork_knowledgebase_contract::default_agent_implementation_id(),
         status: KnowledgeAgentStatus::Active,
         bindings,
     }

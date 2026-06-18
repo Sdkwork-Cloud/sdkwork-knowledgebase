@@ -1,4 +1,4 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::SQLITE_CORE_MIGRATION;
+use sdkwork_intelligence_knowledgebase_repository_sqlx::db::sqlite::install_sqlite_schema;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeSpaceStore, SqliteKnowledgeWikiFileEntryStore,
 };
@@ -132,10 +132,5 @@ async fn sqlite_pool() -> SqlitePool {
 }
 
 async fn apply_sqlite_migration(pool: &SqlitePool) {
-    for statement in SQLITE_CORE_MIGRATION.split(';') {
-        let statement = statement.trim();
-        if !statement.is_empty() {
-            sqlx::query(statement).execute(pool).await.unwrap();
-        }
-    }
+    install_sqlite_schema(pool).await.unwrap();
 }

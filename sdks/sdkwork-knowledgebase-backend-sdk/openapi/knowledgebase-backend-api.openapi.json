@@ -3754,6 +3754,10 @@
               }
             ]
           },
+          "agentImplementationId": {
+            "type": "string",
+            "default": "plugin.intelligence.rig"
+          },
           "status": {
             "$ref": "#/components/schemas/KnowledgeAgentStatus"
           },
@@ -3864,6 +3868,10 @@
                 "type": "null"
               }
             ]
+          },
+          "agentImplementationId": {
+            "type": "string",
+            "default": "plugin.intelligence.rig"
           },
           "status": {
             "$ref": "#/components/schemas/KnowledgeAgentStatus"

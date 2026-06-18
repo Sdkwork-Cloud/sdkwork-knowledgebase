@@ -1,3 +1,4 @@
+use crate::agent_implementation::default_agent_implementation_id;
 use crate::serde_int64::{
     deserialize_option_u64_from_string_or_number, deserialize_u64_from_string_or_number,
     serialize_option_u64_as_string, serialize_u64_as_string,
@@ -358,6 +359,8 @@ pub struct KnowledgeAgentProfile {
     pub answer_policy: Option<String>,
     #[serde(default)]
     pub knowledge_mode: KnowledgeAgentKnowledgeMode,
+    #[serde(default = "default_agent_implementation_id")]
+    pub agent_implementation_id: String,
     pub status: KnowledgeAgentStatus,
     pub bindings: Vec<KnowledgeAgentBinding>,
 }
@@ -388,6 +391,8 @@ pub struct KnowledgeAgentProfileRequest {
     pub answer_policy: Option<String>,
     #[serde(default)]
     pub knowledge_mode: KnowledgeAgentKnowledgeMode,
+    #[serde(default = "default_agent_implementation_id")]
+    pub agent_implementation_id: String,
     pub status: KnowledgeAgentStatus,
 }
 

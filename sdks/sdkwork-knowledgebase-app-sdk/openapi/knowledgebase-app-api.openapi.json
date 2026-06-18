@@ -4586,6 +4586,16 @@
                 "type": "null"
               }
             ]
+          },
+          "agentImplementationId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -4680,6 +4690,7 @@
           "chatId",
           "answer",
           "mode",
+          "agentImplementationId",
           "modelProviderId",
           "modelId",
           "citations"
@@ -4693,6 +4704,9 @@
           },
           "mode": {
             "$ref": "#/components/schemas/KnowledgeAgentKnowledgeMode"
+          },
+          "agentImplementationId": {
+            "type": "string"
           },
           "modelProviderId": {
             "type": "string"
@@ -5034,6 +5048,10 @@
           "knowledgeMode": {
             "$ref": "#/components/schemas/KnowledgeAgentKnowledgeMode"
           },
+          "agentImplementationId": {
+            "type": "string",
+            "default": "plugin.intelligence.rig"
+          },
           "status": {
             "$ref": "#/components/schemas/KnowledgeAgentStatus"
           },
@@ -5147,6 +5165,10 @@
           },
           "knowledgeMode": {
             "$ref": "#/components/schemas/KnowledgeAgentKnowledgeMode"
+          },
+          "agentImplementationId": {
+            "type": "string",
+            "default": "plugin.intelligence.rig"
           },
           "status": {
             "$ref": "#/components/schemas/KnowledgeAgentStatus"

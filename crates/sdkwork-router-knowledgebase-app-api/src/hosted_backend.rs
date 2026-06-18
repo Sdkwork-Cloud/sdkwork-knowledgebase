@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
 use sdkwork_intelligence_knowledgebase_service::{
     knowledge_embedding_build::KnowledgeEmbeddingBuildService,
     ports::{
@@ -15,7 +16,6 @@ use sdkwork_intelligence_knowledgebase_service::{
     },
     retrieval::KnowledgeRetrievalService,
 };
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
 use sdkwork_knowledgebase_agent_provider::{
     resolve_claw_router_client_from_env, ClawRouterEmbeddingClient,
 };
@@ -470,10 +470,8 @@ impl KnowledgeBackendApi for SqliteHostedBackendApi {
         if space.knowledge_mode == KnowledgeAgentKnowledgeMode::Rag {
             let indexed = if let Some(client) = resolve_claw_router_client_from_env().ok() {
                 let embedder = ClawRouterEmbeddingClient::new(Arc::new(client));
-                let build = KnowledgeEmbeddingBuildService::new(
-                    self.runtime.embedding_store(),
-                    embedder,
-                );
+                let build =
+                    KnowledgeEmbeddingBuildService::new(self.runtime.embedding_store(), embedder);
                 build
                     .embed_space_chunks(self.runtime.tenant_id(), index_id, space_id, None, None)
                     .await
