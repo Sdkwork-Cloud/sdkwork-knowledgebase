@@ -1,7 +1,7 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
     POSTGRES_ACCESS_MODE_MIGRATION, POSTGRES_AGENT_IMPLEMENTATION_MIGRATION,
-    POSTGRES_CORE_MIGRATION, SQLITE_ACCESS_MODE_MIGRATION,
-    SQLITE_AGENT_IMPLEMENTATION_MIGRATION, SQLITE_CORE_MIGRATION,
+    POSTGRES_CONTEXT_BINDING_MIGRATION, POSTGRES_CORE_MIGRATION, SQLITE_ACCESS_MODE_MIGRATION,
+    SQLITE_AGENT_IMPLEMENTATION_MIGRATION, SQLITE_CONTEXT_BINDING_MIGRATION, SQLITE_CORE_MIGRATION,
 };
 use std::collections::BTreeSet;
 
@@ -342,6 +342,34 @@ fn agent_implementation_migrations_add_profile_runtime_selector() {
             assert!(
                 migration.contains(snippet),
                 "agent implementation migration must include snippet: {snippet}"
+            );
+        }
+    }
+}
+
+#[test]
+fn context_binding_migrations_define_space_context_binding_table() {
+    for migration in [
+        SQLITE_CONTEXT_BINDING_MIGRATION,
+        POSTGRES_CONTEXT_BINDING_MIGRATION,
+    ] {
+        let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
+        assert!(tables.contains("kb_space_context_binding"));
+        let indexes = defined_database_objects(migration, "CREATE INDEX IF NOT EXISTS ")
+            .into_iter()
+            .chain(defined_database_objects(
+                migration,
+                "CREATE UNIQUE INDEX IF NOT EXISTS ",
+            ))
+            .collect::<BTreeSet<_>>();
+        for index in [
+            "uk_kb_space_context",
+            "idx_kb_space_context_lookup",
+            "idx_kb_space_context_space",
+        ] {
+            assert!(
+                indexes.contains(index),
+                "missing context binding index: {index}"
             );
         }
     }

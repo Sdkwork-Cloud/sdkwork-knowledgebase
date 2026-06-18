@@ -17,6 +17,8 @@ fn app_request_context() -> KnowledgeAppRequestContext {
     KnowledgeAppRequestContext {
         tenant_id: 20001,
         actor_id: Some(30001),
+        organization_id: None,
+        session_id: None,
     }
 }
 
@@ -115,6 +117,8 @@ async fn retrieval_retrieve_route_uses_tenant_from_app_request_context() {
                 .extension(KnowledgeAppRequestContext {
                     tenant_id: 20001,
                     actor_id: Some(30001),
+                    organization_id: None,
+                    session_id: None,
                 })
                 .body(Body::empty())
                 .unwrap(),

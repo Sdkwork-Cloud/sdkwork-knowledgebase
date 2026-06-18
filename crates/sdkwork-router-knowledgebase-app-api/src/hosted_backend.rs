@@ -67,12 +67,20 @@ impl SqliteHostedBackendApi {
             })
     }
 
-    async fn create_background_job(
+    async fn create_and_run_background_job<F, Fut>(
         &self,
         space_id: u64,
         source_type: &str,
         idempotency_key: String,
-    ) -> BackendApiResult<IngestionJob> {
+        run: F,
+    ) -> BackendApiResult<IngestionJob>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<(), String>>,
+    {
+        use sdkwork_intelligence_knowledgebase_service::ingest::KnowledgeIngestionService;
+        use sdkwork_knowledgebase_contract::ingest::IngestionJobState;
+
         let result = self
             .runtime
             .ingestion_job_store()
@@ -84,7 +92,27 @@ impl SqliteHostedBackendApi {
             })
             .await
             .map_err(|error| map_internal(error.to_string()))?;
-        Ok(result.job)
+
+        let mut job = result.job;
+        if job.state != IngestionJobState::Queued {
+            return Ok(job);
+        }
+
+        let ingestion = KnowledgeIngestionService::new(self.runtime.ingestion_job_store());
+        job = ingestion
+            .mark_running(job.id)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        match run().await {
+            Ok(()) => ingestion
+                .mark_succeeded(job.id)
+                .await
+                .map_err(|error| map_internal(error.to_string())),
+            Err(detail) => ingestion
+                .mark_failed(job.id, detail)
+                .await
+                .map_err(|error| map_internal(error.to_string())),
+        }
     }
 }
 
@@ -135,14 +163,22 @@ impl KnowledgeBackendApi for SqliteHostedBackendApi {
                 "space_id is required",
             ));
         }
-        self.create_background_job(
-            request.space_id,
+        let space_id = request.space_id;
+        let runtime = self.runtime.clone();
+        self.create_and_run_background_job(
+            space_id,
             "wiki_compile",
             format!(
                 "wiki-compile:{}:{}",
                 request.space_id,
                 request.source_id.unwrap_or(0)
             ),
+            || async move {
+                rebuild_wiki_index_document(&runtime, space_id)
+                    .await
+                    .map(|_| ())
+                    .map_err(|error| format!("{error:?}"))
+            },
         )
         .await
     }
@@ -373,15 +409,23 @@ impl KnowledgeBackendApi for SqliteHostedBackendApi {
                 "space_id is required",
             ));
         }
+        let space_id = request.space_id;
+        let runtime = self.runtime.clone();
         let job = self
-            .create_background_job(
-                request.space_id,
+            .create_and_run_background_job(
+                space_id,
                 "wiki_lint_run",
                 format!(
                     "wiki-lint:{}:{}",
                     request.space_id,
                     request.profile.as_deref().unwrap_or("default")
                 ),
+                || async move {
+                    rebuild_wiki_index_document(&runtime, space_id)
+                        .await
+                        .map(|_| ())
+                        .map_err(|error| format!("{error:?}"))
+                },
             )
             .await?;
         Ok(WikiQualityRun {
@@ -401,15 +445,23 @@ impl KnowledgeBackendApi for SqliteHostedBackendApi {
                 "space_id is required",
             ));
         }
+        let space_id = request.space_id;
+        let runtime = self.runtime.clone();
         let job = self
-            .create_background_job(
-                request.space_id,
+            .create_and_run_background_job(
+                space_id,
                 "wiki_eval_run",
                 format!(
                     "wiki-eval:{}:{}",
                     request.space_id,
                     request.profile.as_deref().unwrap_or("default")
                 ),
+                || async move {
+                    persist_wiki_schema_profile(&runtime, space_id)
+                        .await
+                        .map(|_| ())
+                        .map_err(|error| format!("{error:?}"))
+                },
             )
             .await?;
         Ok(WikiQualityRun {
@@ -468,7 +520,7 @@ impl KnowledgeBackendApi for SqliteHostedBackendApi {
             .map_err(|error| map_internal(error.to_string()))?;
 
         if space.knowledge_mode == KnowledgeAgentKnowledgeMode::Rag {
-            let indexed = if let Some(client) = resolve_claw_router_client_from_env().ok() {
+            let indexed = if let Ok(client) = resolve_claw_router_client_from_env() {
                 let embedder = ClawRouterEmbeddingClient::new(Arc::new(client));
                 let build =
                     KnowledgeEmbeddingBuildService::new(self.runtime.embedding_store(), embedder);

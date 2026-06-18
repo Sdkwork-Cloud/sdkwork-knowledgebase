@@ -7,7 +7,9 @@ use sdkwork_knowledgebase_contract::{
 
 pub const CONTRACT_MODEL_PROVIDER_ID: &str = "provider.model.knowledgebase-contract";
 
-pub fn validate_registered_agent_implementation(agent_implementation_id: &str) -> Result<(), String> {
+pub fn validate_registered_agent_implementation(
+    agent_implementation_id: &str,
+) -> Result<(), String> {
     let trimmed = agent_implementation_id.trim();
     if trimmed.is_empty() {
         return Err("agent_implementation_id must not be empty".to_string());
@@ -17,10 +19,7 @@ pub fn validate_registered_agent_implementation(agent_implementation_id: &str) -
             "agent_implementation_id must use plugin.* namespace: {trimmed}"
         ));
     }
-    if !known_agent_implementation_ids()
-        .iter()
-        .any(|known| *known == trimmed)
-    {
+    if !known_agent_implementation_ids().contains(&trimmed) {
         return Err(format!(
             "unsupported agent_implementation_id: {trimmed}; known implementations: {}",
             known_agent_implementation_ids().join(", ")

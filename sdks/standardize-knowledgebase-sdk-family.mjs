@@ -154,6 +154,19 @@ const families = [
   },
 ];
 
+function routeCrateFor(family) {
+  switch (family.sdkTarget) {
+    case "app":
+      return "sdkwork-router-knowledgebase-app-api";
+    case "backend":
+      return "sdkwork-router-knowledgebase-backend-api";
+    case "open":
+      return "sdkwork-router-knowledgebase-open-api";
+    default:
+      return `sdkwork-router-knowledgebase-${family.sdkTarget}-api`;
+  }
+}
+
 function openOperation(method, sourcePath, targetPath) {
   return { method, sourcePath, targetPath };
 }
@@ -278,9 +291,12 @@ async function standardizeOpenApi(family) {
     ];
   }
 
-  for (const { operation } of operationEntries(openapi)) {
+  for (const { operation, pathKey } of operationEntries(openapi)) {
     operation["x-sdkwork-owner"] = owner;
     operation["x-sdkwork-api-authority"] = family.authority;
+    operation["x-sdkwork-request-context"] = "WebRequestContext";
+    operation["x-sdkwork-api-surface"] = family.sdkTarget;
+    operation["x-sdkwork-source-route-crate"] = routeCrateFor(family);
   }
 
   await writeJson(filePath, openapi);
@@ -341,8 +357,10 @@ async function materializeFamilyOpenApi(family) {
     operation["x-sdkwork-auth-mode"] = "api-key";
     operation["x-sdkwork-owner"] = owner;
     operation["x-sdkwork-api-authority"] = family.authority;
+    operation["x-sdkwork-request-context"] = "WebRequestContext";
+    operation["x-sdkwork-api-surface"] = family.sdkTarget;
     operation["x-sdkwork-source"] = "sdks/standardize-knowledgebase-sdk-family.mjs";
-    operation["x-sdkwork-source-route-crate"] = "sdkwork-router-knowledgebase-open-api";
+    operation["x-sdkwork-source-route-crate"] = routeCrateFor(family);
 
     target.paths[operationMapping.targetPath] = {
       ...(target.paths[operationMapping.targetPath] || {}),

@@ -172,10 +172,8 @@ where
         );
         validate_registered_agent_implementation(&agent_implementation_id)
             .map_err(KnowledgeAgentChatServiceError::InvalidRequest)?;
-        let resolved_model_provider_id = resolve_model_provider_for_implementation(
-            &agent_implementation_id,
-            &model_provider_id,
-        );
+        let resolved_model_provider_id =
+            resolve_model_provider_for_implementation(&agent_implementation_id, &model_provider_id);
         let model_id = request
             .model_id
             .clone()
@@ -299,10 +297,10 @@ mod tests {
         KnowledgeAgentStatus, KnowledgeContextFragment, KnowledgeRetrievalMethod,
         KnowledgeRetrievalResult, KnowledgeRetrievalTrace,
     };
+    use sdkwork_knowledgebase_contract::WikiPageType;
     use sdkwork_knowledgebase_contract::{
         wiki::WikiPageSummary, KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID,
     };
-    use sdkwork_knowledgebase_contract::WikiPageType;
 
     #[tokio::test]
     async fn chat_defaults_to_llm_wiki_mode_with_citations_and_contract_model() {

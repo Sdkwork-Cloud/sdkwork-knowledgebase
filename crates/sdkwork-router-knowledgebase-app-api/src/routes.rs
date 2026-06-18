@@ -6,6 +6,9 @@ use axum::{
     Extension, Json, Router,
 };
 use sdkwork_knowledgebase_contract::{
+    context_binding::{
+        CreateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceContextBindingRequest,
+    },
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
     KnowledgeAgentProfileRequest, KnowledgeBrowserView, KnowledgeContextPackRequest,
@@ -115,6 +118,7 @@ pub fn build_router_with_full_app_api(
     browser: Arc<dyn KnowledgeBrowserApi>,
     retrieval: Arc<dyn KnowledgeRetrievalAppService>,
     agent: Arc<dyn KnowledgeAgentAppService>,
+    context_binding: Arc<dyn crate::KnowledgeContextBindingAppService>,
 ) -> Router {
     build_router_with_shared_app_api(Arc::new(FullAppApi::new(
         space,
@@ -125,6 +129,7 @@ pub fn build_router_with_full_app_api(
         browser,
         retrieval,
         agent,
+        context_binding,
     )))
 }
 
@@ -187,6 +192,16 @@ pub fn build_router_with_shared_app_api_and_readiness(
             post(create_agent_profile_retrieval_preview),
         )
         .route(paths::AGENT_PROFILE_CHAT, post(create_agent_profile_chat))
+        .route(
+            paths::SPACE_CONTEXT_BINDINGS,
+            get(list_space_context_bindings).post(create_space_context_binding),
+        )
+        .route(
+            paths::CONTEXT_BINDING,
+            get(retrieve_context_binding)
+                .patch(update_context_binding)
+                .delete(delete_context_binding),
+        )
         .with_state(AppState { api, readiness })
 }
 
@@ -595,6 +610,85 @@ async fn create_agent_profile_chat(
     let context = require_app_context(context)?;
     ensure_tenant_matches(&context, request.tenant_id)?;
     created_json(state.api.create_agent_chat(profile_id, request).await)
+}
+
+async fn list_space_context_bindings(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(space_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .list_space_context_bindings(context, space_id)
+            .await,
+    )
+}
+
+async fn create_space_context_binding(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(space_id): Path<u64>,
+    Json(request): Json<CreateKnowledgeSpaceContextBindingRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    if request.space_id != space_id {
+        return Err(ApiProblem::new(
+            StatusCode::BAD_REQUEST,
+            "space_id_mismatch",
+            "spaceId in body must match spaceId in path",
+        ));
+    }
+    created_json(
+        state
+            .api
+            .create_space_context_binding(context, space_id, request)
+            .await,
+    )
+}
+
+async fn retrieve_context_binding(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(binding_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .retrieve_context_binding(context, binding_id)
+            .await,
+    )
+}
+
+async fn update_context_binding(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(binding_id): Path<u64>,
+    Json(request): Json<UpdateKnowledgeSpaceContextBindingRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .update_context_binding(context, binding_id, request)
+            .await,
+    )
+}
+
+async fn delete_context_binding(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(binding_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    state
+        .api
+        .delete_context_binding(context, binding_id)
+        .await
+        .map_err(ApiProblem::from)?;
+    Ok(StatusCode::NO_CONTENT.into_response())
 }
 
 fn ok_json<T>(result: ApiResult<T>) -> Result<Response, ApiProblem>

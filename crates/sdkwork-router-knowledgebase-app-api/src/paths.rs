@@ -31,3 +31,5 @@ pub const AGENT_PROFILE_BINDING: &str =
 pub const AGENT_PROFILE_RETRIEVAL_PREVIEW: &str =
     "/app/v3/api/knowledge/agent_profiles/{profile_id}/retrieval_preview";
 pub const AGENT_PROFILE_CHAT: &str = "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat";
+pub const SPACE_CONTEXT_BINDINGS: &str = "/app/v3/api/knowledge/spaces/{space_id}/context_bindings";
+pub const CONTEXT_BINDING: &str = "/app/v3/api/knowledge/context_bindings/{binding_id}";

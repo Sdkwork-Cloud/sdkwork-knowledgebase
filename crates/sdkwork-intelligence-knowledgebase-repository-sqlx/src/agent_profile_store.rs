@@ -6,7 +6,9 @@ use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentKnowledgeMode,
     KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeAgentStatus, KnowledgeFilter,
 };
-use sdkwork_knowledgebase_contract::{default_agent_implementation_id, RIG_AGENT_IMPLEMENTATION_ID};
+use sdkwork_knowledgebase_contract::{
+    default_agent_implementation_id, RIG_AGENT_IMPLEMENTATION_ID,
+};
 use sqlx::{sqlite::SqliteRow, Row, SqlitePool};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -119,7 +121,9 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         .bind(request.tool_policy_ref)
         .bind(request.answer_policy)
         .bind(knowledge_mode_code(request.knowledge_mode))
-        .bind(agent_implementation_id_code(&request.agent_implementation_id))
+        .bind(agent_implementation_id_code(
+            &request.agent_implementation_id,
+        ))
         .bind(agent_status_code(request.status))
         .bind(now.clone())
         .bind(now)
@@ -208,7 +212,9 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         .bind(request.tool_policy_ref)
         .bind(request.answer_policy)
         .bind(knowledge_mode_code(request.knowledge_mode))
-        .bind(agent_implementation_id_code(&request.agent_implementation_id))
+        .bind(agent_implementation_id_code(
+            &request.agent_implementation_id,
+        ))
         .bind(agent_status_code(request.status))
         .bind(now)
         .bind(tenant_id)
@@ -562,7 +568,8 @@ fn profile_from_row(
             row.try_get("knowledge_mode").map_err(agent_sqlx_error)?,
         )?,
         agent_implementation_id: agent_implementation_id_from_code(
-            row.try_get("agent_implementation_id").map_err(agent_sqlx_error)?,
+            row.try_get("agent_implementation_id")
+                .map_err(agent_sqlx_error)?,
         )?,
         status: agent_status_from_code(row.try_get("status").map_err(agent_sqlx_error)?)?,
         bindings: vec![],

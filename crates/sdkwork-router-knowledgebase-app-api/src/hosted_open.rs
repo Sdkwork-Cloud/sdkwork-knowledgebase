@@ -51,6 +51,8 @@ impl SqliteHostedOpenApi {
         KnowledgeAppRequestContext {
             tenant_id: context.tenant_id,
             actor_id: context.actor_id,
+            organization_id: None,
+            session_id: None,
         }
     }
 

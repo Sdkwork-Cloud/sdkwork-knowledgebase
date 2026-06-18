@@ -32,7 +32,7 @@ where
             request.query_embedding = self
                 .embedder
                 .embed_text(&request.query, None)
-                .map_err(|message| KnowledgeRetrievalBackendError::Internal(message))
+                .map_err(KnowledgeRetrievalBackendError::Internal)
                 .ok();
         }
 

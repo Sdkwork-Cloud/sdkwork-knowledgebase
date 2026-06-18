@@ -29,9 +29,15 @@ fn knowledge_app_context_from_web_request(
     let principal = context.principal.as_ref()?;
     let tenant_id = principal.tenant_id().parse().ok()?;
     let actor_id = principal.user_id().parse().ok();
+    let organization_id = principal
+        .organization_id()
+        .and_then(|value| value.parse().ok());
+    let session_id = principal.session_id().map(str::to_owned);
     Some(KnowledgeAppRequestContext {
         tenant_id,
         actor_id,
+        organization_id,
+        session_id,
     })
 }
 

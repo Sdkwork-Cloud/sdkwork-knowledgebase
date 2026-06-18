@@ -101,15 +101,56 @@ impl SqliteHostedIngestService {
 #[async_trait]
 impl KnowledgeIngestAppService for SqliteHostedIngestService {
     async fn create_ingest(&self, request: KnowledgeIngestRequest) -> ApiResult<IngestionJob> {
+        use sdkwork_intelligence_knowledgebase_service::ingest::{
+            KnowledgeApiMarkdownIndexService, KnowledgeIngestionService,
+        };
+        use sdkwork_knowledgebase_contract::ingest::IngestionJobState;
+
+        let space_id = request.space_id;
+        let title = request.title.clone();
+        let payload_markdown = request.payload_markdown.clone();
+
         let service = KnowledgeApiPayloadIngestService::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
         );
-        service
+        let result = service
             .ingest_markdown_payload(request)
             .await
-            .map(|result| result.job)
-            .map_err(Into::into)
+            .map_err(ApiError::from)?;
+        let mut job = result.job;
+        if job.state == IngestionJobState::Queued {
+            let ingestion = KnowledgeIngestionService::new(self.runtime.ingestion_job_store());
+            job = ingestion
+                .mark_running(job.id)
+                .await
+                .map_err(ApiError::from)?;
+
+            let indexer = KnowledgeApiMarkdownIndexService::new(
+                self.runtime.document_store(),
+                self.runtime.version_store(),
+                self.runtime.object_ref_store(),
+                self.runtime.chunk_store(),
+            );
+            if let Err(error) = indexer
+                .index_payload_markdown(
+                    space_id,
+                    &title,
+                    &payload_markdown,
+                    &result.payload_object_ref,
+                )
+                .await
+            {
+                let _ = ingestion.mark_failed(job.id, format!("{error:?}")).await;
+                return Err(ApiError::from(error));
+            }
+
+            job = ingestion
+                .mark_succeeded(job.id)
+                .await
+                .map_err(ApiError::from)?;
+        }
+        Ok(job)
     }
 
     async fn retrieve_ingest(&self, ingest_id: u64) -> ApiResult<IngestionJob> {

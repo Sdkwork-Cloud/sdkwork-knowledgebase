@@ -21,6 +21,8 @@ pub fn with_dev_app_auth(router: Router, tenant_id: u64, actor_id: Option<u64>) 
                     request.extensions_mut().insert(KnowledgeAppRequestContext {
                         tenant_id,
                         actor_id,
+                        organization_id: None,
+                        session_id: None,
                     });
                 }
                 next.run(request).await
@@ -84,5 +86,7 @@ pub fn inject_dev_app_context(
     Extension(KnowledgeAppRequestContext {
         tenant_id,
         actor_id,
+        organization_id: None,
+        session_id: None,
     })
 }

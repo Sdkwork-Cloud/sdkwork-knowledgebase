@@ -776,7 +776,7 @@ fn merge_hybrid_hits(
         merged
             .entry(hit.chunk_id)
             .and_modify(|existing| {
-                existing.score = existing.score + hit.score * 0.6;
+                existing.score += hit.score * 0.6;
                 existing.match_reason = Some("hybrid_keyword_vector".to_string());
             })
             .or_insert(KnowledgeChunkSearchHit {

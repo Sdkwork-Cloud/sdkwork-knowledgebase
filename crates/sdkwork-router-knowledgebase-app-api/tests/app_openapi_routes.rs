@@ -274,7 +274,8 @@ fn concrete_uri(template_path: &str) -> String {
     let path = path
         .replace("{retrievalId}", "23")
         .replace("{profileId}", "41")
-        .replace("{bindingId}", "61");
+        .replace("{bindingId}", "61")
+        .replace("{spaceId}", "7");
 
     if path.ends_with("/browser") {
         format!("{path}?view=files&pageSize=1")
@@ -319,6 +320,10 @@ fn request_body(operation_id: &str) -> &'static str {
         "agentProfiles.chat.create" => {
             r#"{"tenantId":"20001","message":"What changed in the quarterly report?","mode":"llm_wiki"}"#
         }
+        "spaces.contextBindings.create" => {
+            r#"{"spaceId":"7","contextType":"chat_group","contextId":"grp-ops","accessLevel":"reader"}"#
+        }
+        "contextBindings.update" => r#"{"accessLevel":"writer"}"#,
         _ => "",
     }
 }

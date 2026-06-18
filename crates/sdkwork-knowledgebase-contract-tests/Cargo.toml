@@ -1,0 +1,14 @@
+[package]
+name = "sdkwork-knowledgebase-contract-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dev-dependencies]
+async-trait.workspace = true
+axum.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tower.workspace = true
+sdkwork-router-knowledgebase-app-api = { path = "../sdkwork-router-knowledgebase-app-api" }

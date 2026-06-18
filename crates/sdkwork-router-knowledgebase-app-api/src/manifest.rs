@@ -190,4 +190,29 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         path: "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
         operation_id: "agentProfiles.chat.create",
     },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
+        operation_id: "spaces.contextBindings.list",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
+        operation_id: "spaces.contextBindings.create",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/context_bindings/{bindingId}",
+        operation_id: "contextBindings.retrieve",
+    },
+    RouteManifestEntry {
+        method: "PATCH",
+        path: "/app/v3/api/knowledge/context_bindings/{bindingId}",
+        operation_id: "contextBindings.update",
+    },
+    RouteManifestEntry {
+        method: "DELETE",
+        path: "/app/v3/api/knowledge/context_bindings/{bindingId}",
+        operation_id: "contextBindings.delete",
+    },
 ];

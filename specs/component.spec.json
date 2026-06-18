@@ -95,7 +95,7 @@
       "sdkwork-knowledgebase-open-api",
       "crates/sdkwork-router-knowledgebase-app-api/src/runtime.rs"
     ],
-    "routeManifest": null,
+    "routeManifest": "sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json",
     "sdkClients": [],
     "sdkDependencies": [
       {

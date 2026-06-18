@@ -57,6 +57,11 @@ pub const RETRIEVAL_PROFILES_RETRIEVE: &str = "retrievalProfiles.retrieve";
 pub const RETRIEVAL_PROFILES_UPDATE: &str = "retrievalProfiles.update";
 pub const RETRIEVAL_TRACES_LIST: &str = "retrievalTraces.list";
 pub const RETRIEVAL_TRACES_RETRIEVE: &str = "retrievalTraces.retrieve";
+pub const CONTEXT_BINDINGS_RETRIEVE: &str = "contextBindings.retrieve";
+pub const CONTEXT_BINDINGS_UPDATE: &str = "contextBindings.update";
+pub const CONTEXT_BINDINGS_DELETE: &str = "contextBindings.delete";
+pub const SPACES_CONTEXT_BINDINGS_LIST: &str = "spaces.contextBindings.list";
+pub const SPACES_CONTEXT_BINDINGS_CREATE: &str = "spaces.contextBindings.create";
 pub const PROVIDER_HEALTH_RETRIEVE: &str = "providerHealth.retrieve";
 
 pub const ALL_OPERATION_IDS: &[&str] = &[
@@ -119,5 +124,10 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     RETRIEVAL_PROFILES_UPDATE,
     RETRIEVAL_TRACES_LIST,
     RETRIEVAL_TRACES_RETRIEVE,
+    SPACES_CONTEXT_BINDINGS_LIST,
+    SPACES_CONTEXT_BINDINGS_CREATE,
+    CONTEXT_BINDINGS_RETRIEVE,
+    CONTEXT_BINDINGS_UPDATE,
+    CONTEXT_BINDINGS_DELETE,
     PROVIDER_HEALTH_RETRIEVE,
 ];

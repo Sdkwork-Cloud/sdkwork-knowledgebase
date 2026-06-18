@@ -9,6 +9,8 @@ members = [
     "crates/sdkwork-router-knowledgebase-app-api",
     "crates/sdkwork-router-knowledgebase-open-api",
     "crates/sdkwork-router-knowledgebase-backend-api",
+    "crates/sdkwork-knowledgebase-api-server",
+    "crates/sdkwork-knowledgebase-contract-tests",
     "crates/sdkwork-intelligence-knowledgebase-service",
     "crates/sdkwork-intelligence-knowledgebase-repository-sqlx",
 ]

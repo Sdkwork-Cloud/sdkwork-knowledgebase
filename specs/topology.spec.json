@@ -76,19 +76,7 @@
   "database": {
     "appPrefix": "SDKWORK_KNOWLEDGEBASE"
   },
-  "iamDevDefaults": {
-    "SDKWORK_IAM_LOCAL_APP_ID": "sdkwork-knowledgebase-pc",
-    "SDKWORK_IAM_LOCAL_TENANT_ID": "tenant_knowledgebase_dev",
-    "SDKWORK_IAM_LOCAL_ORGANIZATION_ID": "org_knowledgebase_dev",
-    "SDKWORK_IAM_LOCAL_ORGANIZATION_NAME": "Knowledgebase Dev Organization",
-    "SDKWORK_IAM_LOCAL_DEPARTMENT_ID": "dept_knowledgebase_dev",
-    "SDKWORK_IAM_LOCAL_DEPARTMENT_NAME": "Knowledgebase Dev Department",
-    "SDKWORK_IAM_LOCAL_POSITION_ID": "pos_knowledgebase_dev",
-    "SDKWORK_IAM_LOCAL_POSITION_NAME": "Knowledgebase Dev Position",
-    "SDKWORK_IAM_LOCAL_BOOTSTRAP_EMAIL": "admin@sdkwork.test",
-    "SDKWORK_IAM_LOCAL_BOOTSTRAP_PASSWORD": "AdminPass#2026",
-    "SDKWORK_IAM_TENANT_SIGNING_MASTER_SECRET": "sdkwork-knowledgebase-dev-signing-secret"
-  },
+  "iamDevDefaultsProfile": "configs/topology/self-hosted.split-services.development.env",
   "components": {
     "appApiRouter": {
       "crate": "sdkwork-router-knowledgebase-app-api",

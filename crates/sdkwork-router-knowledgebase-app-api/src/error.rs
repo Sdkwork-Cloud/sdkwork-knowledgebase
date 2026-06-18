@@ -8,10 +8,15 @@ use sdkwork_intelligence_knowledgebase_service::{
     agent::KnowledgeAgentServiceError,
     agent_chat::KnowledgeAgentChatServiceError,
     browser::KnowledgeBrowserServiceError,
+    context_binding::KnowledgeContextBindingServiceError,
     imports::KnowledgeDriveImportServiceError,
-    ingest::KnowledgeApiPayloadIngestServiceError,
+    ingest::{
+        KnowledgeApiMarkdownIndexServiceError, KnowledgeApiPayloadIngestServiceError,
+        KnowledgeIngestionServiceError,
+    },
     ports::{
         knowledge_agent_profile_store::KnowledgeAgentProfileStoreError,
+        knowledge_context_binding_store::KnowledgeContextBindingStoreError,
         knowledge_document_store::KnowledgeDocumentStoreError,
         knowledge_ingestion_job_store::IngestionJobStoreError,
         knowledge_memory_context::KnowledgeMemoryContextProviderError,
@@ -252,6 +257,21 @@ impl From<KnowledgeSpaceStoreError> for ApiError {
     }
 }
 
+impl From<KnowledgeIngestionServiceError> for ApiError {
+    fn from(error: KnowledgeIngestionServiceError) -> Self {
+        match error {
+            KnowledgeIngestionServiceError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_ingestion_job_request", detail)
+            }
+            KnowledgeIngestionServiceError::InvalidTransition { from, to } => Self::conflict(
+                "invalid_ingestion_job_transition",
+                format!("invalid ingestion job transition: {from:?} -> {to:?}"),
+            ),
+            KnowledgeIngestionServiceError::Store(error) => Self::from(error),
+        }
+    }
+}
+
 impl From<KnowledgeApiPayloadIngestServiceError> for ApiError {
     fn from(error: KnowledgeApiPayloadIngestServiceError) -> Self {
         match error {
@@ -367,6 +387,61 @@ impl From<KnowledgeWikiPageServiceError> for ApiError {
                 Self::invalid_request("invalid_knowledge_wiki_page_request", detail)
             }
             other => Self::internal("knowledge_wiki_page_service_failed", other.to_string()),
+        }
+    }
+}
+
+impl From<KnowledgeContextBindingServiceError> for ApiError {
+    fn from(error: KnowledgeContextBindingServiceError) -> Self {
+        match error {
+            KnowledgeContextBindingServiceError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_knowledge_context_binding_request", detail)
+            }
+            KnowledgeContextBindingServiceError::Store(store_error) => store_error.into(),
+            KnowledgeContextBindingServiceError::DrivePermission(detail) => Self::internal(
+                "knowledge_context_binding_drive_permission_failed",
+                detail.to_string(),
+            ),
+        }
+    }
+}
+
+impl From<KnowledgeContextBindingStoreError> for ApiError {
+    fn from(error: KnowledgeContextBindingStoreError) -> Self {
+        match error {
+            KnowledgeContextBindingStoreError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_knowledge_context_binding_request", detail)
+            }
+            KnowledgeContextBindingStoreError::NotFound(binding_id) => Self::not_found(
+                "knowledge_context_binding_not_found",
+                format!("knowledge context binding was not found: {binding_id}"),
+            ),
+            KnowledgeContextBindingStoreError::Conflict(detail) => {
+                Self::conflict("knowledge_context_binding_conflict", detail)
+            }
+            KnowledgeContextBindingStoreError::Internal(detail) => {
+                Self::internal("knowledge_context_binding_store_failed", detail)
+            }
+        }
+    }
+}
+
+impl From<KnowledgeApiMarkdownIndexServiceError> for ApiError {
+    fn from(error: KnowledgeApiMarkdownIndexServiceError) -> Self {
+        match error {
+            KnowledgeApiMarkdownIndexServiceError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_knowledge_markdown_index_request", detail)
+            }
+            KnowledgeApiMarkdownIndexServiceError::ObjectRef(error) => {
+                Self::internal("knowledge_drive_object_ref_store_failed", error.to_string())
+            }
+            KnowledgeApiMarkdownIndexServiceError::Document(error) => error.into(),
+            KnowledgeApiMarkdownIndexServiceError::Version(error) => {
+                Self::internal("knowledge_document_version_store_failed", error.to_string())
+            }
+            KnowledgeApiMarkdownIndexServiceError::Chunk(error) => {
+                Self::internal("knowledge_chunk_store_failed", error.to_string())
+            }
         }
     }
 }

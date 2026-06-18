@@ -33,7 +33,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "GET",
@@ -53,7 +55,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -73,7 +77,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "GET",
@@ -93,7 +99,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -113,7 +121,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "GET",
@@ -133,7 +143,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "PATCH",
@@ -153,7 +165,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "GET",
@@ -173,7 +187,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "GET",
@@ -193,7 +209,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "GET",
@@ -213,7 +231,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -233,7 +253,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "GET",
@@ -253,7 +275,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -273,7 +297,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -293,7 +319,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -313,7 +341,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -333,7 +363,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -353,7 +385,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "GET",
@@ -373,7 +407,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "GET",
@@ -393,7 +429,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -413,7 +451,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -433,7 +473,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -453,7 +495,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -473,7 +517,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "POST",
@@ -493,7 +539,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     },
     {
       "method": "PATCH",
@@ -513,7 +561,9 @@
       "ownership": {
         "owner": "sdkwork-knowledgebase",
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      }
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend"
     }
   ]
 }

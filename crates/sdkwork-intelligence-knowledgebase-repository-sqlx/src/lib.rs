@@ -12,6 +12,7 @@ pub mod migrations;
 pub mod repository;
 mod retrieval_profile_store;
 mod retrieval_store;
+mod sqlite_chunk_store;
 mod sqlite_context_binding_store;
 mod sqlite_import_stores;
 mod sqlite_space_stores;
@@ -31,6 +32,7 @@ pub use retrieval_profile_store::{
     KnowledgeRetrievalProfileStoreError, SqliteKnowledgeRetrievalProfileStore,
 };
 pub use retrieval_store::SqliteKnowledgeChunkRetrievalStore;
+pub use sqlite_chunk_store::SqliteKnowledgeChunkStore;
 pub use sqlite_context_binding_store::SqliteContextBindingStore;
 pub use sqlite_import_stores::{
     SqliteIngestionJobStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,

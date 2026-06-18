@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use sdkwork_drive_storage_local::LocalDriveObjectStore;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_sqlite_and_install_schema, sqlite_health_check, SqliteIngestionJobStore,
-    SqliteKnowledgeAgentProfileStore, SqliteKnowledgeBrowserProjectionStore,
-    SqliteKnowledgeChunkRetrievalStore, SqliteKnowledgeDocumentStore,
-    SqliteKnowledgeDocumentVersionStore, SqliteKnowledgeDriveObjectRefStore,
-    SqliteKnowledgeEmbeddingStore, SqliteKnowledgeIndexStore, SqliteKnowledgeRetrievalProfileStore,
-    SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore, SqliteKnowledgeWikiFileEntryStore,
-    SqliteKnowledgeWikiPageStore,
+    connect_sqlite_and_install_schema, sqlite_health_check, SqliteContextBindingStore,
+    SqliteIngestionJobStore, SqliteKnowledgeAgentProfileStore,
+    SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeChunkRetrievalStore,
+    SqliteKnowledgeChunkStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
+    SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeEmbeddingStore, SqliteKnowledgeIndexStore,
+    SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
+    SqliteKnowledgeWikiFileEntryStore, SqliteKnowledgeWikiPageStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
     agent::KnowledgeAgentService, agent_chat::KnowledgeAgentChatService,
@@ -46,6 +46,7 @@ use crate::{
         SqliteHostedIngestService, SqliteHostedSpaceService, SqliteHostedWikiService,
     },
     hosted_backend::SqliteHostedBackendApi,
+    hosted_context_binding::SqliteHostedContextBindingService,
     hosted_open::SqliteHostedOpenApi,
     ApiError, ApiResult, KnowledgeAgentAppService, KnowledgeAppRequestContext,
     KnowledgeRetrievalAppService, ReadinessCheck,
@@ -76,6 +77,8 @@ pub struct KnowledgebaseSqliteRuntime {
     version_store: Arc<SqliteKnowledgeDocumentVersionStore>,
     object_ref_store: Arc<SqliteKnowledgeDriveObjectRefStore>,
     ingestion_job_store: Arc<SqliteIngestionJobStore>,
+    chunk_store: Arc<SqliteKnowledgeChunkStore>,
+    context_binding_store: Arc<SqliteContextBindingStore>,
     browser_projection_store: Arc<SqliteKnowledgeBrowserProjectionStore>,
     drive_storage: Arc<KnowledgebaseDriveStorageAdapter>,
     drive_space_provisioner: Arc<KnowledgebaseDriveSpaceProvisionerAdapter>,
@@ -176,6 +179,8 @@ impl KnowledgebaseSqliteRuntime {
                 tenant_id,
             )),
             ingestion_job_store: Arc::new(SqliteIngestionJobStore::new(pool.clone(), tenant_id)),
+            chunk_store: Arc::new(SqliteKnowledgeChunkStore::new(pool.clone(), tenant_id)),
+            context_binding_store: Arc::new(SqliteContextBindingStore::new(pool.clone())),
             browser_projection_store: Arc::new(SqliteKnowledgeBrowserProjectionStore::new(
                 pool.clone(),
                 tenant_id,
@@ -215,7 +220,11 @@ impl KnowledgebaseSqliteRuntime {
 
     pub async fn readiness_check(&self) -> Result<(), sqlx::Error> {
         sqlite_health_check(&self.pool).await?;
-        sqlite_drive_health_check(&self.drive_pool).await
+        sqlite_drive_health_check(&self.drive_pool).await?;
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM kb_space_context_binding")
+            .fetch_one(&self.pool)
+            .await
+            .map(|_| ())
     }
 
     pub fn build_agent_and_retrieval_router(&self) -> axum::Router {
@@ -238,6 +247,7 @@ impl KnowledgebaseSqliteRuntime {
                 Arc::new(SqliteHostedBrowserService::new(self.clone())),
                 Arc::new(SqliteHostedRetrievalService::new(self.clone())),
                 Arc::new(SqliteHostedAgentService::new(self.clone())),
+                Arc::new(SqliteHostedContextBindingService::new(self.clone())),
             )),
             Some(ReadinessCheck::new(self.pool.clone())),
         )
@@ -311,6 +321,14 @@ impl KnowledgebaseSqliteRuntime {
 
     pub(crate) fn ingestion_job_store(&self) -> &SqliteIngestionJobStore {
         &self.ingestion_job_store
+    }
+
+    pub(crate) fn chunk_store(&self) -> &SqliteKnowledgeChunkStore {
+        &self.chunk_store
+    }
+
+    pub(crate) fn context_binding_store(&self) -> &SqliteContextBindingStore {
+        &self.context_binding_store
     }
 
     pub(crate) fn wiki_file_entry_store(&self) -> &SqliteKnowledgeWikiFileEntryStore {

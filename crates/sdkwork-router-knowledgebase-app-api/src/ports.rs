@@ -1,5 +1,9 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
+    context_binding::{
+        CreateKnowledgeSpaceContextBindingRequest, KnowledgeSpaceContextBinding,
+        KnowledgeSpaceContextBindingList, UpdateKnowledgeSpaceContextBindingRequest,
+    },
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingList,
     KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
@@ -19,6 +23,8 @@ use crate::{ApiError, ApiResult};
 pub struct KnowledgeAppRequestContext {
     pub tenant_id: u64,
     pub actor_id: Option<u64>,
+    pub organization_id: Option<u64>,
+    pub session_id: Option<String>,
 }
 
 #[async_trait]
@@ -132,6 +138,41 @@ pub trait KnowledgeRetrievalAppService: Send + Sync + 'static {
         &self,
         request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack>;
+}
+
+#[async_trait]
+pub trait KnowledgeContextBindingAppService: Send + Sync + 'static {
+    async fn list_space_context_bindings(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeSpaceContextBindingList>;
+
+    async fn create_space_context_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: CreateKnowledgeSpaceContextBindingRequest,
+    ) -> ApiResult<KnowledgeSpaceContextBinding>;
+
+    async fn retrieve_context_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        binding_id: u64,
+    ) -> ApiResult<KnowledgeSpaceContextBinding>;
+
+    async fn update_context_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        binding_id: u64,
+        request: UpdateKnowledgeSpaceContextBindingRequest,
+    ) -> ApiResult<KnowledgeSpaceContextBinding>;
+
+    async fn delete_context_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        binding_id: u64,
+    ) -> ApiResult<()>;
 }
 
 #[async_trait]
@@ -398,5 +439,47 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
         Err(ApiError::not_implemented("agentProfiles.chat.create"))
+    }
+
+    async fn list_space_context_bindings(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+    ) -> ApiResult<KnowledgeSpaceContextBindingList> {
+        Err(ApiError::not_implemented("spaces.contextBindings.list"))
+    }
+
+    async fn create_space_context_binding(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+        _request: CreateKnowledgeSpaceContextBindingRequest,
+    ) -> ApiResult<KnowledgeSpaceContextBinding> {
+        Err(ApiError::not_implemented("spaces.contextBindings.create"))
+    }
+
+    async fn retrieve_context_binding(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _binding_id: u64,
+    ) -> ApiResult<KnowledgeSpaceContextBinding> {
+        Err(ApiError::not_implemented("contextBindings.retrieve"))
+    }
+
+    async fn update_context_binding(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _binding_id: u64,
+        _request: UpdateKnowledgeSpaceContextBindingRequest,
+    ) -> ApiResult<KnowledgeSpaceContextBinding> {
+        Err(ApiError::not_implemented("contextBindings.update"))
+    }
+
+    async fn delete_context_binding(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _binding_id: u64,
+    ) -> ApiResult<()> {
+        Err(ApiError::not_implemented("contextBindings.delete"))
     }
 }

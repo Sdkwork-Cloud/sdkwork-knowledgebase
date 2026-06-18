@@ -13,16 +13,17 @@ use crate::{
     LlmWikiKnowledgeProvider, SdkworkKnowledgebaseProvider, LLM_WIKI_KNOWLEDGE_PROVIDER_ID,
     SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
 };
-use sdkwork_knowledgebase_contract::{
-    KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID, RIG_AGENT_IMPLEMENTATION_ID,
-};
 use sdkwork_agent_kernel::{
     AgentManifest, AgentRuntime, KernelError, ModelProvider, ModelRequest, ModelResponse,
-    PolicyDecision, PolicyProvider, PolicyRequest, ProviderHealth, ProviderManifest, RuntimeBuilder,
+    PolicyDecision, PolicyProvider, PolicyRequest, ProviderHealth, ProviderManifest,
+    RuntimeBuilder,
 };
 use sdkwork_agent_plugin_core::SdkworkKernelPlugin;
 use sdkwork_agent_plugin_rig::{ids as rig_ids, rig_agent_manifest, RigKernelPlugin};
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
+use sdkwork_knowledgebase_contract::{
+    KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID, RIG_AGENT_IMPLEMENTATION_ID,
+};
 use std::sync::Arc;
 
 pub const CLAW_ROUTER_OPEN_HTTP_URL_ENV: &str = crate::claw_router::CLAW_ROUTER_OPEN_HTTP_URL_ENV;
@@ -119,9 +120,7 @@ fn configure_agent_implementation(
 
 fn chat_agent_manifest(agent_implementation_id: &str) -> Result<AgentManifest, String> {
     match agent_implementation_id {
-        KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID => {
-            Ok(knowledgebase_chat_agent_manifest())
-        }
+        KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID => Ok(knowledgebase_chat_agent_manifest()),
         RIG_AGENT_IMPLEMENTATION_ID => Ok(rig_agent_manifest()),
         other => Err(format!(
             "no agent manifest registered for agent_implementation_id: {other}"
@@ -183,10 +182,7 @@ impl PolicyProvider for AllowPolicyProvider {
         )
     }
 
-    fn evaluate(
-        &self,
-        request: PolicyRequest,
-    ) -> Result<PolicyDecision, KernelError> {
+    fn evaluate(&self, request: PolicyRequest) -> Result<PolicyDecision, KernelError> {
         Ok(PolicyDecision::allow(
             format!("decision.{}", request.policy_request_id),
             request.policy_request_id,

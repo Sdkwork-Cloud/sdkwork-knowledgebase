@@ -76,9 +76,11 @@
           }
         },
         "summary": "Create a knowledge retrieval",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "open",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
         "x-sdkwork-auth-mode": "api-key",
-        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api"
+        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs"
       }
     },
     "/knowledge/v3/api/retrievals/{retrievalId}": {
@@ -149,9 +151,11 @@
           }
         ],
         "summary": "Retrieve a knowledge retrieval result",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "open",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
         "x-sdkwork-auth-mode": "api-key",
-        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api"
+        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs"
       }
     },
     "/knowledge/v3/api/context_packs": {
@@ -220,9 +224,11 @@
           }
         },
         "summary": "Create a knowledge context pack",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "open",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
         "x-sdkwork-auth-mode": "api-key",
-        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api"
+        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs"
       }
     },
     "/knowledge/v3/api/ingests": {
@@ -291,9 +297,11 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
         "summary": "Create an ingestion job",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "open",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
         "x-sdkwork-auth-mode": "api-key",
-        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api"
+        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs"
       }
     },
     "/knowledge/v3/api/ingests/{ingestId}": {
@@ -363,9 +371,11 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
         "summary": "Retrieve an ingestion job",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "open",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
         "x-sdkwork-auth-mode": "api-key",
-        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api"
+        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs"
       }
     },
     "/knowledge/v3/api/documents": {
@@ -424,9 +434,11 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
         "summary": "List knowledge documents",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "open",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
         "x-sdkwork-auth-mode": "api-key",
-        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api"
+        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs"
       }
     },
     "/knowledge/v3/api/documents/{documentId}": {
@@ -496,9 +508,11 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
         "summary": "Retrieve a knowledge document",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "open",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
         "x-sdkwork-auth-mode": "api-key",
-        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api"
+        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs"
       }
     },
     "/knowledge/v3/api/spaces/{spaceId}/browser": {
@@ -611,9 +625,11 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
         "summary": "List browser view of a knowledge space",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "open",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
         "x-sdkwork-auth-mode": "api-key",
-        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api"
+        "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs"
       }
     }
   },

@@ -353,6 +353,8 @@ fn request(method: &str, uri: &str, body: impl Into<String>) -> Request<Body> {
         .extension(KnowledgeAppRequestContext {
             tenant_id: 20001,
             actor_id: Some(30001),
+            organization_id: None,
+            session_id: None,
         })
         .body(Body::from(body.into()))
         .unwrap()

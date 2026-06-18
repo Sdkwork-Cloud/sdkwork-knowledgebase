@@ -265,9 +265,9 @@
                               ]
                 },
     "security":  {
-                     "checksumRequired":  false,
-                     "signatureRequired":  false,
-                     "sbomRequired":  false
+                     "checksumRequired":  true,
+                     "signatureRequired":  true,
+                     "sbomRequired":  true
                  },
     "devApp":  {
                    "build":  {

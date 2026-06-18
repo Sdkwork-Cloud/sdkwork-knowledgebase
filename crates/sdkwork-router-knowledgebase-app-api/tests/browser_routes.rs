@@ -16,6 +16,8 @@ fn app_request_context() -> KnowledgeAppRequestContext {
     KnowledgeAppRequestContext {
         tenant_id: 20001,
         actor_id: Some(30001),
+        organization_id: None,
+        session_id: None,
     }
 }
 

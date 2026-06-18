@@ -3,10 +3,12 @@
 mod adapters;
 mod agent_chat_runtime;
 mod auth;
+pub mod bootstrap;
 pub mod dev_auth;
 mod error;
 pub mod hosted;
 mod hosted_backend;
+mod hosted_context_binding;
 mod hosted_open;
 mod hosted_support;
 pub mod manifest;
@@ -19,8 +21,9 @@ mod web_bootstrap;
 pub use error::{ApiError, ApiProblem, ApiResult};
 pub use ports::{
     KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext, KnowledgeBrowserApi,
-    KnowledgeDocumentAppService, KnowledgeDriveImportAppService, KnowledgeIngestAppService,
-    KnowledgeRetrievalAppService, KnowledgeSpaceAppService, KnowledgeWikiAppService,
+    KnowledgeContextBindingAppService, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
+    KnowledgeIngestAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
+    KnowledgeWikiAppService,
 };
 pub use routes::{
     build_router_with_agent_and_retrieval_services, build_router_with_agent_service,

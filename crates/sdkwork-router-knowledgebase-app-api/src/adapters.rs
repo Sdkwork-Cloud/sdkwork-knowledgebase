@@ -1,5 +1,9 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
+    context_binding::{
+        CreateKnowledgeSpaceContextBindingRequest, KnowledgeSpaceContextBinding,
+        KnowledgeSpaceContextBindingList, UpdateKnowledgeSpaceContextBindingRequest,
+    },
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingList,
     KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
@@ -16,9 +20,9 @@ use std::sync::Arc;
 
 use crate::{
     ApiResult, KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext,
-    KnowledgeBrowserApi, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
-    KnowledgeIngestAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
-    KnowledgeWikiAppService,
+    KnowledgeBrowserApi, KnowledgeContextBindingAppService, KnowledgeDocumentAppService,
+    KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeRetrievalAppService,
+    KnowledgeSpaceAppService, KnowledgeWikiAppService,
 };
 
 pub struct BrowserOnlyAppApi {
@@ -288,6 +292,7 @@ pub struct FullAppApi {
     browser: Arc<dyn KnowledgeBrowserApi>,
     retrieval: Arc<dyn KnowledgeRetrievalAppService>,
     agent: Arc<dyn KnowledgeAgentAppService>,
+    context_binding: Arc<dyn KnowledgeContextBindingAppService>,
 }
 
 impl FullAppApi {
@@ -301,6 +306,7 @@ impl FullAppApi {
         browser: Arc<dyn KnowledgeBrowserApi>,
         retrieval: Arc<dyn KnowledgeRetrievalAppService>,
         agent: Arc<dyn KnowledgeAgentAppService>,
+        context_binding: Arc<dyn KnowledgeContextBindingAppService>,
     ) -> Self {
         Self {
             space,
@@ -311,6 +317,7 @@ impl FullAppApi {
             browser,
             retrieval,
             agent,
+            context_binding,
         }
     }
 }
@@ -536,5 +543,57 @@ impl KnowledgeAppApi for FullAppApi {
         request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
         self.agent.create_agent_chat(profile_id, request).await
+    }
+
+    async fn list_space_context_bindings(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeSpaceContextBindingList> {
+        self.context_binding
+            .list_space_context_bindings(context, space_id)
+            .await
+    }
+
+    async fn create_space_context_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: CreateKnowledgeSpaceContextBindingRequest,
+    ) -> ApiResult<KnowledgeSpaceContextBinding> {
+        self.context_binding
+            .create_space_context_binding(context, space_id, request)
+            .await
+    }
+
+    async fn retrieve_context_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        binding_id: u64,
+    ) -> ApiResult<KnowledgeSpaceContextBinding> {
+        self.context_binding
+            .retrieve_context_binding(context, binding_id)
+            .await
+    }
+
+    async fn update_context_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        binding_id: u64,
+        request: UpdateKnowledgeSpaceContextBindingRequest,
+    ) -> ApiResult<KnowledgeSpaceContextBinding> {
+        self.context_binding
+            .update_context_binding(context, binding_id, request)
+            .await
+    }
+
+    async fn delete_context_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        binding_id: u64,
+    ) -> ApiResult<()> {
+        self.context_binding
+            .delete_context_binding(context, binding_id)
+            .await
     }
 }

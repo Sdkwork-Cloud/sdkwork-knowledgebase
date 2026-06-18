@@ -61,7 +61,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "List knowledge sources"
+        "summary": "List knowledge sources",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       },
       "post": {
         "operationId": "sources.create",
@@ -128,7 +131,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a knowledge source"
+        "summary": "Create a knowledge source",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_compile_jobs": {
@@ -197,7 +203,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki compile job"
+        "summary": "Create a wiki compile job",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_candidates": {
@@ -256,7 +265,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "List wiki candidates"
+        "summary": "List wiki candidates",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_candidates/{candidateId}/approve": {
@@ -336,7 +348,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Approve a wiki candidate"
+        "summary": "Approve a wiki candidate",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_candidates/{candidateId}/reject": {
@@ -416,7 +431,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Reject a wiki candidate"
+        "summary": "Reject a wiki candidate",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_pages/{pageId}/publish": {
@@ -496,7 +514,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Publish a wiki page"
+        "summary": "Publish a wiki page",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_schema_profiles": {
@@ -565,7 +586,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki schema profile"
+        "summary": "Create a wiki schema profile",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_schema_profiles/{profileId}": {
@@ -645,7 +669,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Update a wiki schema profile"
+        "summary": "Update a wiki schema profile",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_index/rebuild": {
@@ -714,7 +741,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Rebuild the wiki index"
+        "summary": "Rebuild the wiki index",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_log_entries": {
@@ -783,7 +813,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki log entry"
+        "summary": "Create a wiki log entry",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_exports": {
@@ -852,7 +885,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki export"
+        "summary": "Create a wiki export",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_exports/{exportId}": {
@@ -922,7 +958,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Retrieve a wiki export"
+        "summary": "Retrieve a wiki export",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_file_entries": {
@@ -981,7 +1020,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "List wiki file entries"
+        "summary": "List wiki file entries",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_lint_runs": {
@@ -1050,7 +1092,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki lint run"
+        "summary": "Create a wiki lint run",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/wiki_eval_runs": {
@@ -1119,7 +1164,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki eval run"
+        "summary": "Create a wiki eval run",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/indexes": {
@@ -1188,7 +1236,10 @@
             }
           }
         },
-        "summary": "Create a knowledge index"
+        "summary": "Create a knowledge index",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/indexes/{indexId}": {
@@ -1259,7 +1310,10 @@
             }
           }
         ],
-        "summary": "Retrieve a knowledge index"
+        "summary": "Retrieve a knowledge index",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/indexes/{indexId}/rebuild": {
@@ -1340,7 +1394,10 @@
             }
           }
         ],
-        "summary": "Rebuild a knowledge index"
+        "summary": "Rebuild a knowledge index",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/retrieval_profiles": {
@@ -1409,7 +1466,10 @@
             }
           }
         },
-        "summary": "Create a retrieval profile"
+        "summary": "Create a retrieval profile",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/retrieval_profiles/{profileId}": {
@@ -1480,7 +1540,10 @@
             }
           }
         ],
-        "summary": "Retrieve a retrieval profile"
+        "summary": "Retrieve a retrieval profile",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       },
       "patch": {
         "operationId": "retrievalProfiles.update",
@@ -1559,7 +1622,10 @@
             }
           }
         ],
-        "summary": "Update a retrieval profile"
+        "summary": "Update a retrieval profile",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/retrieval_traces": {
@@ -1618,7 +1684,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "List retrieval traces"
+        "summary": "List retrieval traces",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/retrieval_traces/{traceId}": {
@@ -1689,7 +1758,10 @@
             }
           }
         ],
-        "summary": "Retrieve a retrieval trace"
+        "summary": "Retrieve a retrieval trace",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
     "/backend/v3/api/knowledge/provider_health": {
@@ -1748,7 +1820,10 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Retrieve provider health status"
+        "summary": "Retrieve provider health status",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     }
   },
