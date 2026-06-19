@@ -18,6 +18,7 @@ import {
   resolveDevProfileId,
   resolveGatewayBind,
   resolveIamDevEnv,
+  resolveSurfaceBind,
   resolveSurfaceHttpUrl,
   shouldAutostartGateway,
   waitForHttpHealthy,
@@ -32,10 +33,33 @@ function cargoCommand() {
   return process.platform === 'win32' ? 'cargo.exe' : 'cargo';
 }
 
+const PC_APP_ROOT = path.join(REPO_ROOT, 'apps/sdkwork-knowledgebase-pc');
+const DESKTOP_ROOT = path.join(PC_APP_ROOT, 'packages/sdkwork-knowledgebase-pc-desktop');
+
+function pnpmCommand() {
+  return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+}
+
+function pnpmShell() {
+  return process.platform === 'win32';
+}
+
+function sanitizeSpawnEnv(env) {
+  const sanitized = { ...process.env };
+  for (const [key, value] of Object.entries(env ?? {})) {
+    if (value === undefined) {
+      continue;
+    }
+    sanitized[key] = String(value);
+  }
+  return sanitized;
+}
+
 function parseArgs(argv) {
   const settings = {
     hosting: 'self-hosted',
     serviceLayout: 'split-services',
+    target: 'backend',
     dryRun: false,
     help: false,
   };
@@ -53,6 +77,11 @@ function parseArgs(argv) {
     }
     if (arg === '--service-layout') {
       settings.serviceLayout = argv[index + 1] ?? settings.serviceLayout;
+      index += 1;
+      continue;
+    }
+    if (arg === '--target') {
+      settings.target = argv[index + 1] ?? settings.target;
       index += 1;
       continue;
     }
@@ -77,17 +106,41 @@ Topology-aware Knowledgebase dev entry. Loads configs/topology profile env via @
 Options:
   --hosting <self-hosted|cloud-hosted>              Default: self-hosted
   --service-layout <split-services|unified-process> Default: split-services
+  --target <backend|desktop>                        Default: backend
   --dry-run                                         Print plan without executing
   --help, -h
 `);
 }
 
+function createDesktopProcess(env) {
+  const desktopEnv = sanitizeSpawnEnv({
+    ...env,
+    VITE_SDKWORK_KNOWLEDGEBASE_DEV_SAME_ORIGIN_API:
+      env.VITE_SDKWORK_KNOWLEDGEBASE_DEV_SAME_ORIGIN_API ?? 'true',
+    VITE_SDKWORK_APPBASE_APP_API_BASE_URL:
+      env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL ?? 'http://127.0.0.1:3900',
+    VITE_SDKWORK_IAM_APP_API_BASE_URL:
+      env.VITE_SDKWORK_IAM_APP_API_BASE_URL ?? 'http://127.0.0.1:3900',
+    VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL:
+      env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL ?? 'http://127.0.0.1:3900',
+  });
+
+  return {
+    label: 'sdkwork-knowledgebase-pc-desktop',
+    command: pnpmCommand(),
+    args: ['run', 'desktop:dev'],
+    cwd: DESKTOP_ROOT,
+    env: desktopEnv,
+    shell: pnpmShell(),
+  };
+}
+
 function spawnProcessEntry(entry) {
   return spawn(entry.command, entry.args, {
     cwd: entry.cwd ?? REPO_ROOT,
-    env: entry.env,
+    env: sanitizeSpawnEnv(entry.env),
     stdio: 'inherit',
-    shell: false,
+    shell: entry.shell ?? false,
     windowsHide: true,
   });
 }
@@ -113,12 +166,14 @@ function ensureKnowledgebaseDataDir() {
   }
 }
 
-function createRouterBinaryProcess(binary, label, env) {
+const DEFAULT_API_SERVER_CRATE = 'sdkwork-knowledgebase-api-server';
+
+function createApiServerBinaryProcess(crate, binary, label, env) {
   ensureKnowledgebaseDataDir();
   return {
     label,
     command: cargoCommand(),
-    args: ['run', '-p', 'sdkwork-router-knowledgebase-app-api', '--bin', binary],
+    args: ['run', '-p', crate, '--bin', binary],
     cwd: REPO_ROOT,
     env,
   };
@@ -126,7 +181,8 @@ function createRouterBinaryProcess(binary, label, env) {
 
 function createPlatformGatewayProcess(env) {
   const hosting = env.SDKWORK_KNOWLEDGEBASE_HOSTING ?? 'self-hosted';
-  const bind = resolveGatewayBind(env, hosting);
+  const bind =
+    resolveSurfaceBind(env, 'platform.api-gateway') ?? resolveGatewayBind(env, hosting);
   const gatewayConfig = resolveCloudGatewayConfigPath(env, 'development');
   const args = [
     'run',
@@ -154,9 +210,11 @@ function createPlatformGatewayProcess(env) {
 
 function buildProcessesFromOrchestration(profileId, env) {
   const processes = [];
+  let gatewayScheduled = false;
 
   for (const processDef of listOrchestrationProcesses(profileId)) {
     if (processDef.id === 'platform.api-gateway') {
+      gatewayScheduled = true;
       if (!shouldAutostartGateway(env)) {
         continue;
       }
@@ -164,15 +222,23 @@ function buildProcessesFromOrchestration(profileId, env) {
       continue;
     }
 
+    const crate = processDef.crate ?? DEFAULT_API_SERVER_CRATE;
     const binary = processDef.binary ?? processDef.id;
-    processes.push(createRouterBinaryProcess(binary, binary, env));
+    processes.push(createApiServerBinaryProcess(crate, binary, binary, env));
+  }
+
+  if (!gatewayScheduled && shouldAutostartGateway(env)) {
+    processes.unshift(createPlatformGatewayProcess(env));
   }
 
   return processes;
 }
 
 async function waitForSurfaceHealth(profileId, env) {
-  const surfaces = listHealthSurfaces(profileId);
+  const surfaces = [...listHealthSurfaces(profileId)];
+  if (shouldAutostartGateway(env) && !surfaces.includes('platform.api-gateway')) {
+    surfaces.unshift('platform.api-gateway');
+  }
   for (const surfaceId of surfaces) {
     const url = resolveSurfaceHttpUrl(env, surfaceId);
     if (!url) {
@@ -211,13 +277,20 @@ async function main() {
     {
       SDKWORK_KNOWLEDGEBASE_PROFILE_ID: profileId,
       SDKWORK_KNOWLEDGEBASE_DEV_MODE: '1',
+      ...(settings.target === 'desktop'
+        ? { SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_AUTOSTART: 'true' }
+        : {}),
     },
   );
 
-  const processes = buildProcessesFromOrchestration(profileId, runtimeEnv);
+  const backendProcesses = buildProcessesFromOrchestration(profileId, runtimeEnv);
+  const processes =
+    settings.target === 'desktop'
+      ? [...backendProcesses, createDesktopProcess(runtimeEnv)]
+      : backendProcesses;
 
   if (settings.dryRun) {
-    console.log(`[sdkwork-knowledgebase] profile=${profileId}`);
+    console.log(`[sdkwork-knowledgebase] profile=${profileId} target=${settings.target}`);
     for (const entry of processes) {
       console.log(`[${entry.label}] ${entry.command} ${entry.args.join(' ')}`);
     }
@@ -264,7 +337,7 @@ async function main() {
     });
   }
 
-  for (const entry of processes) {
+  for (const entry of backendProcesses) {
     const child = spawnProcessEntry(entry);
     children.push(child);
     attachProcessLifecycle(entry, child);
@@ -278,9 +351,31 @@ async function main() {
   }
 
   console.log(`[sdkwork-knowledgebase] dev stack ready (profile=${profileId})`);
+
   const stop = () => shutdown();
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
+
+  if (settings.target !== 'desktop') {
+    return;
+  }
+
+  const desktopEntry = createDesktopProcess(runtimeEnv);
+  console.log('[sdkwork-knowledgebase] desktop renderer starting (Tauri + Vite on :5184)');
+  const desktopChild = spawnProcessEntry(desktopEntry);
+  children.push(desktopChild);
+
+  await new Promise((resolve, reject) => {
+    desktopChild.on('error', reject);
+    desktopChild.on('exit', (code, signal) => {
+      shutdown(desktopChild);
+      if (code === 0 || signal === 'SIGINT' || signal === 'SIGTERM') {
+        resolve();
+        return;
+      }
+      reject(new Error(`desktop renderer exited with code ${code ?? 1}`));
+    });
+  });
 }
 
 main().catch((error) => {

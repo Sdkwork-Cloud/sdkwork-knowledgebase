@@ -82,9 +82,9 @@ test('knowledgebase dev orchestrator uses orchestration spec and gateway config'
 });
 
 test('route binaries read topology bind env keys', async () => {
-  const appMain = await read('crates/sdkwork-router-knowledgebase-app-api/src/main.rs');
-  const backendMain = await read('crates/sdkwork-router-knowledgebase-app-api/src/bin/backend_main.rs');
-  const openMain = await read('crates/sdkwork-router-knowledgebase-app-api/src/bin/open_main.rs');
+  const appMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/app_main.rs');
+  const backendMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/backend_main.rs');
+  const openMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/open_main.rs');
 
   assert.match(appMain, /SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND/);
   assert.doesNotMatch(appMain, /SDKWORK_KNOWLEDGEBASE_APP_LISTEN/);

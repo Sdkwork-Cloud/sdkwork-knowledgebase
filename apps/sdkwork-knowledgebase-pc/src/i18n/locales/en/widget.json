@@ -1,0 +1,23 @@
+{
+  "receiveCoupon": "Get Coupon Now",
+  "themeCardTitle": "💡 WeChat Selected Theme Card Framework",
+  "themeCardDesc": "Customize your knowledge content here. Good readers prefer an article reading experience with minimalistic structure, clear visual hierarchy, and proper spacing.",
+  "voteTitlePrefix": "🗳️ Questionnaire Voting Card:",
+  "voteBtn": "Vote",
+  "voteFooter": "Click to count the voting rate",
+  "searchPrefix": "🔍 WeChat Search: ",
+  "directSearch": "Direct Search",
+  "channelPrefix": "Official Channel · ",
+  "watchOriginal": "Watch Original",
+  "adTitle": "The ultimate tool for creating minimalist layouts for WeChat official accounts",
+  "adSubtitle": "Exclusively supported by Tencent Cloud Developer Platform",
+  "adLabel": "Ad",
+  "followBtn": "Follow",
+  "giftTitle": "☕ If this article inspired you, consider buying the author a coffee to support original content:",
+  "giftBtnSmall": "Small Coffee",
+  "giftBtnAny": "Custom Amount",
+  "appletCardTitle": "WeChat Official Premium Applet",
+  "appletAccelerate": "Applet Acceleration Enabled",
+  "appletDirectAccess": "Supports direct streaming access via official account clicks",
+  "fallbackWidget": "[{{toolName}}] Component Placeholder"
+}

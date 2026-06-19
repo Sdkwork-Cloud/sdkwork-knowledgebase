@@ -1,0 +1,29 @@
+[package]
+name = "sdkwork-knowledgebase-pc-desktop"
+version = "0.1.0"
+description = "SDKWork Knowledgebase PC desktop host shell."
+authors = ["SDKWork"]
+license = "SEE LICENSE IN LICENSE"
+edition = "2021"
+
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+dirs = "6"
+open = "5"
+pulldown-cmark = "0.13"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+rfd = "0.15"
+serde = { version = "1", features = ["derive"] }
+tauri = { version = "2", features = [] }
+typst = "0.14"
+typst-as-lib = "0.15"
+typst-pdf = "0.14"
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"
+windows = { version = "0.61", features = ["Win32_Foundation"] }

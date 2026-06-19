@@ -79,15 +79,15 @@
   "iamDevDefaultsProfile": "configs/topology/self-hosted.split-services.development.env",
   "components": {
     "appApiRouter": {
-      "crate": "sdkwork-router-knowledgebase-app-api",
+      "crate": "sdkwork-knowledgebase-api-server",
       "binary": "sdkwork-knowledgebase-app-api"
     },
     "backendApiRouter": {
-      "crate": "sdkwork-router-knowledgebase-app-api",
+      "crate": "sdkwork-knowledgebase-api-server",
       "binary": "sdkwork-knowledgebase-backend-api"
     },
     "openApiRouter": {
-      "crate": "sdkwork-router-knowledgebase-app-api",
+      "crate": "sdkwork-knowledgebase-api-server",
       "binary": "sdkwork-knowledgebase-open-api"
     },
     "cloudGateway": {
@@ -103,19 +103,19 @@
         "processes": [
           {
             "id": "application.public-ingress",
-            "crate": "sdkwork-router-knowledgebase-app-api",
+            "crate": "sdkwork-knowledgebase-api-server",
             "binary": "sdkwork-knowledgebase-app-api",
             "required": true
           },
           {
             "id": "application.backend-http",
-            "crate": "sdkwork-router-knowledgebase-app-api",
+            "crate": "sdkwork-knowledgebase-api-server",
             "binary": "sdkwork-knowledgebase-backend-api",
             "required": true
           },
           {
             "id": "application.open-http",
-            "crate": "sdkwork-router-knowledgebase-app-api",
+            "crate": "sdkwork-knowledgebase-api-server",
             "binary": "sdkwork-knowledgebase-open-api",
             "required": true
           }
@@ -137,19 +137,19 @@
           },
           {
             "id": "application.public-ingress",
-            "crate": "sdkwork-router-knowledgebase-app-api",
+            "crate": "sdkwork-knowledgebase-api-server",
             "binary": "sdkwork-knowledgebase-app-api",
             "required": true
           },
           {
             "id": "application.backend-http",
-            "crate": "sdkwork-router-knowledgebase-app-api",
+            "crate": "sdkwork-knowledgebase-api-server",
             "binary": "sdkwork-knowledgebase-backend-api",
             "required": true
           },
           {
             "id": "application.open-http",
-            "crate": "sdkwork-router-knowledgebase-app-api",
+            "crate": "sdkwork-knowledgebase-api-server",
             "binary": "sdkwork-knowledgebase-open-api",
             "required": true
           }

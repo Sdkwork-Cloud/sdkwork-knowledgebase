@@ -10,6 +10,11 @@
   "scripts": {
     "knowledgebase:dev": "node scripts/knowledgebase-dev.mjs --hosting self-hosted",
     "knowledgebase:dev:cloud": "node scripts/knowledgebase-dev.mjs --hosting cloud-hosted",
+    "knowledgebase:dev:desktop": "node scripts/knowledgebase-dev.mjs --target desktop --hosting self-hosted",
+    "knowledgebase:dev:desktop:cloud": "node scripts/knowledgebase-dev.mjs --target desktop --hosting cloud-hosted",
+    "desktop:dev": "pnpm --dir apps/sdkwork-knowledgebase-pc run desktop:dev",
+    "desktop:build": "pnpm --dir apps/sdkwork-knowledgebase-pc run desktop:build",
+    "desktop:build:local": "pnpm --dir apps/sdkwork-knowledgebase-pc run desktop:build:local",
     "topology:validate": "node ../sdkwork-app-topology/scripts/sdkwork-topology.mjs validate --root . --spec specs/topology.spec.json",
     "test:topology": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-topology.test.mjs",
     "test": "pnpm topology:validate && pnpm test:topology",

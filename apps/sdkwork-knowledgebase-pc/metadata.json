@@ -1,0 +1,8 @@
+{
+  "name": "sdkwork-knowledgebase-pc26",
+  "description": "Professional desktop knowledge base application with multi-level directories, full-text search, and AI writing capabilities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

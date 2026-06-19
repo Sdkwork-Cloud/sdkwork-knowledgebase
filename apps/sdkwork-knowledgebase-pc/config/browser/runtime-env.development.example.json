@@ -1,0 +1,16 @@
+{
+  "hosting": "self-hosted",
+  "environment": "development",
+  "configProfile": "dev",
+  "buildMode": "development",
+  "deploymentMode": "web",
+  "runtimeTarget": "browser",
+  "appKey": "sdkwork-knowledgebase-pc",
+  "sdkBaseUrls": {
+    "appApiBaseUrl": "http://127.0.0.1:18081",
+    "backendApiBaseUrl": "http://127.0.0.1:18082",
+    "openApiBaseUrl": "http://127.0.0.1:18083",
+    "platformApiGatewayBaseUrl": "http://127.0.0.1:3900"
+  },
+  "notes": "Safe checked-in browser runtime example. Copy to runtime-env.js for local overrides when not using topology dev orchestration."
+}

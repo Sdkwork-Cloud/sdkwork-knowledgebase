@@ -1,0 +1,97 @@
+{
+  "managerTitle": "Official Account Channel Management",
+  "managerDesc": "Multi-channel intelligent distribution configuration and management",
+  "channelGroups": "Channel Groups",
+  "manageCustomGroups": "Manage Custom Groups",
+  "allAccounts": "All Accounts",
+  "pendingAccountsList": "Pending Accounts List",
+  "listView": "List View",
+  "gridView": "Grid View",
+  "addNewConfig": "Add Configuration",
+  
+  "emptyConfigs": "No Official Account Configurations",
+  "emptyConfigsHint": "Click 'Add Configuration' on the top right to get started",
+  
+  "serviceAccount": "Service Account",
+  "subscriptionAccount": "Subscription Account",
+  "unconfiguredAppId": "Unconfigured AppID",
+  "editConfigTooltip": "Edit Configuration",
+  
+  "selectedAccountCount": "<1>{{count}}</1> channel(s) selected for mass distribution",
+  "cancel": "Cancel",
+  "confirmAndContinue": "Confirm & Continue",
+  "confirm": "Confirm",
+  "saveConfig": "Save Config",
+
+  "editConfigTitle": "Edit Config: {{name}}",
+  "newConfigTitle": "New Official Account Config",
+  "configSubtitle": "Complete commercial connection config and interface connectivity",
+
+  "addNewGroup": "Add New Group",
+  "groupName": "Group Name",
+  "inputGroupNamePlaceholder": "Enter group name",
+  "unassignedGroup": "Unassigned",
+  
+  "basicInfo": "Basic Info",
+  "developerConfig": "Developer Config",
+  "domainSettings": "Domain Settings",
+  "messagePush": "Message Push",
+
+  "oaNameLabel": "Official Account Name",
+  "oaNamePlaceholder": "e.g., AI Base",
+  "descriptionLabel": "Remarks (Optional)",
+  "descriptionPlaceholder": "Describe the purpose or owner of this official account...",
+  "accountTypeLabel": "Account Type",
+  "defaultGroupLabel": "Default Category",
+
+  "avatarLabel": "Avatar / Icon",
+  "uploadLocalImage": "Local Image",
+  "uploadLocalImageHint": "Upload local image",
+  "remove": "Remove",
+
+  "developerHint": "Please get the Developer ID (AppID) and Password (AppSecret) from 'Settings & Development - Basic Settings' on WeChat Official Accounts Platform.",
+  "appIdLabel": "AppID (Official Account ID)",
+  "appIdPlaceholder": "wx1234567890abcdef",
+  "appSecretLabel": "AppSecret (Developer Key)",
+  "appSecretPlaceholder": "********************************",
+
+  "domainHint": "Ensure the domains are configured in 'Official Account Settings - Feature Settings' on WeChat Platform. You must upload a verification file for the domain to take effect.",
+  "jsSecureDomainLabel": "JS Interface Secure Domain",
+  "webAuthDomainLabel": "Web Auth Domain",
+  "businessDomainLabel": "Business Domain",
+  "domainPlaceholder": "e.g., example.com (without HTTP and /)",
+  "max5": "(Max 5)",
+  "max2": "(Max 2)",
+  "max3": "(Max 3)",
+  "add": "Add",
+
+  "domainVerifyFileLabel": "Business Domain Verification File",
+  "uploadVerifyFile": "Upload verification file (**.txt)",
+  "downloadVerifyFileHint": "Upload the downloaded file here",
+
+  "serverHint": "Please configure Server Address (URL), Token, and Message Encryption Key (EncodingAESKey) from 'Settings & Development - Basic Settings'.",
+  "serverUrlLabel": "Server Address (URL)",
+  "serverUrlPlaceholder": "https://example.com/api/wechat",
+  "tokenLabel": "Token",
+  "tokenPlaceholder": "Alphanumeric only",
+  "encodingAESKeyLabel": "EncodingAESKey",
+  "encodingAESKeyPlaceholder": "43-character key",
+  "generateRandom": "Generate Random",
+  "msgEncryptModeLabel": "Encryption Mode",
+  "plainMode": "Plaintext",
+  "compatibleMode": "Compatible",
+  "safeMode": "Safe Mode",
+
+  "errors": {
+    "minOneAccount": "At least one official account configuration must be kept",
+    "confirmDeleteGroup": "Are you sure you want to delete the group '{{group}}'? Apps under this group will be moved to 'Unassigned'.",
+    "groupExists": "Group already exists",
+    "invalidTxt": "Only TXT files are allowed",
+    "uploadSuccess": "File uploaded successfully",
+    "invalidImage": "Please upload an image file",
+    "fillRequired": "Please enter a complete Official Account Name",
+    "invalidDomains": "There are invalid domain formats.",
+    "domainFormatError": "Invalid domain format",
+    "saveSuccess": "Saved successfully"
+  }
+}

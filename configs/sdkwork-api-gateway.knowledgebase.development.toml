@@ -1,4 +1,4 @@
-mode = "split"
+mode = "embedded"
 
 [service]
 name = "sdkwork-api-gateway"

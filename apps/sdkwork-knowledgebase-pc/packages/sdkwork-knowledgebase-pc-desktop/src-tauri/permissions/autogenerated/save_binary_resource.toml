@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-save-binary-resource"
+description = "Enables the save_binary_resource command without any pre-configured scope."
+commands.allow = ["save_binary_resource"]
+
+[[permission]]
+identifier = "deny-save-binary-resource"
+description = "Denies the save_binary_resource command without any pre-configured scope."
+commands.deny = ["save_binary_resource"]

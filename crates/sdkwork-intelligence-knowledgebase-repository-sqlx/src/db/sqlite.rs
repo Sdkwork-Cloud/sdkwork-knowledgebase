@@ -19,11 +19,31 @@ pub async fn install_sqlite_schema(pool: &SqlitePool) -> Result<(), sqlx::Error>
         for statement in migration.split(';') {
             let statement = statement.trim();
             if !statement.is_empty() {
-                sqlx::query(statement).execute(pool).await?;
+                execute_idempotent_sqlite_statement(pool, statement).await?;
             }
         }
     }
     Ok(())
+}
+
+async fn execute_idempotent_sqlite_statement(
+    pool: &SqlitePool,
+    statement: &str,
+) -> Result<(), sqlx::Error> {
+    match sqlx::query(statement).execute(pool).await {
+        Ok(_) => Ok(()),
+        Err(sqlx::Error::Database(error))
+            if is_idempotent_sqlite_schema_error(error.message()) =>
+        {
+            Ok(())
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn is_idempotent_sqlite_schema_error(message: &str) -> bool {
+    message.contains("duplicate column name")
+        || message.contains("already exists")
 }
 
 pub async fn connect_sqlite_and_install_schema(

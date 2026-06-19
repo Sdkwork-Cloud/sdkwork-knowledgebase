@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Least-privilege SDKWork Knowledgebase desktop renderer permissions.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "allow-window-control",
+    "allow-resource-bridge"
+  ]
+}

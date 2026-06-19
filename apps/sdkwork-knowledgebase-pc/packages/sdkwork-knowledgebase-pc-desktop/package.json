@@ -1,0 +1,15 @@
+{
+  "name": "sdkwork-knowledgebase-pc-desktop",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "desktop:icons": "tauri icon src-tauri/icons/icon.svg",
+    "predesktop:dev": "node scripts/ensure-desktop-icons.mjs",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "desktop:build:local": "tauri build --debug"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.2"
+  }
+}

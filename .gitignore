@@ -40,3 +40,18 @@ Desktop.ini
 *.log
 *.tmp
 *.bak
+
+# Local SDKWork workspace data
+.sdkwork/
+
+# PC app build artifacts
+apps/sdkwork-knowledgebase-pc/**/node_modules/
+apps/sdkwork-knowledgebase-pc/**/dist/
+apps/sdkwork-knowledgebase-pc/**/build/
+apps/sdkwork-knowledgebase-pc/**/src-tauri/target/
+apps/sdkwork-knowledgebase-pc/**/*.zip
+
+# Merge / backup scratch
+apps/_pc26-extract/
+apps/_pc26-merge/
+backup/

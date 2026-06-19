@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sdkwork-knowledgebase-pc</title>
+    <script>
+      (function() {
+        try {
+          var val = localStorage.getItem('app-theme-preference');
+          var theme = val ? JSON.parse(val) : 'system';
+          var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) document.documentElement.classList.add('dark');
+          
+          var accent = localStorage.getItem('app-accent-color');
+          if (accent) document.documentElement.style.setProperty('--theme-accent', JSON.parse(accent));
+          
+          var size = localStorage.getItem('app-font-size');
+          if (size) {
+            size = JSON.parse(size);
+            document.documentElement.style.fontSize = size === 'small' ? '14px' : (size === 'large' ? '18px' : '16px');
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
