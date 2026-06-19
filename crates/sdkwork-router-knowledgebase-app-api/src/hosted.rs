@@ -45,25 +45,25 @@ use crate::{
         read_managed_wiki_text, space_binding, wiki_answer_slug, wiki_not_initialized_detail,
         wiki_paths,
     },
-    runtime::KnowledgebaseSqliteRuntime,
+    runtime::KnowledgebaseRuntime,
     ApiError, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
     KnowledgeDocumentAppService, KnowledgeDriveImportAppService, KnowledgeIngestAppService,
     KnowledgeSpaceAppService, KnowledgeWikiAppService,
 };
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedSpaceService {
-    runtime: KnowledgebaseSqliteRuntime,
+pub(crate) struct HostedSpaceService {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedSpaceService {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedSpaceService {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 }
 
 #[async_trait]
-impl KnowledgeSpaceAppService for SqliteHostedSpaceService {
+impl KnowledgeSpaceAppService for HostedSpaceService {
     async fn create_space(
         &self,
         request: CreateKnowledgeSpaceRequest,
@@ -89,18 +89,18 @@ impl KnowledgeSpaceAppService for SqliteHostedSpaceService {
 }
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedIngestService {
-    runtime: KnowledgebaseSqliteRuntime,
+pub(crate) struct HostedIngestService {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedIngestService {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedIngestService {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 }
 
 #[async_trait]
-impl KnowledgeIngestAppService for SqliteHostedIngestService {
+impl KnowledgeIngestAppService for HostedIngestService {
     async fn create_ingest(&self, request: KnowledgeIngestRequest) -> ApiResult<IngestionJob> {
         use sdkwork_intelligence_knowledgebase_service::ingest::{
             KnowledgeApiMarkdownIndexService, KnowledgeIngestionService,
@@ -189,18 +189,18 @@ impl KnowledgeIngestAppService for SqliteHostedIngestService {
 }
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedDriveImportService {
-    runtime: KnowledgebaseSqliteRuntime,
+pub(crate) struct HostedDriveImportService {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedDriveImportService {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedDriveImportService {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 }
 
 #[async_trait]
-impl KnowledgeDriveImportAppService for SqliteHostedDriveImportService {
+impl KnowledgeDriveImportAppService for HostedDriveImportService {
     async fn import_drive_object(
         &self,
         request: KnowledgeDriveImportRequest,
@@ -251,18 +251,18 @@ impl KnowledgeDriveImportAppService for SqliteHostedDriveImportService {
 }
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedDocumentService {
-    runtime: KnowledgebaseSqliteRuntime,
+pub(crate) struct HostedDocumentService {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedDocumentService {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedDocumentService {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 }
 
 #[async_trait]
-impl KnowledgeDocumentAppService for SqliteHostedDocumentService {
+impl KnowledgeDocumentAppService for HostedDocumentService {
     async fn list_documents(&self) -> ApiResult<KnowledgeDocumentList> {
         let items = self
             .runtime
@@ -404,18 +404,18 @@ impl KnowledgeDocumentAppService for SqliteHostedDocumentService {
 }
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedBrowserService {
-    runtime: KnowledgebaseSqliteRuntime,
+pub(crate) struct HostedBrowserService {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedBrowserService {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedBrowserService {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 }
 
 #[async_trait]
-impl KnowledgeBrowserApi for SqliteHostedBrowserService {
+impl KnowledgeBrowserApi for HostedBrowserService {
     async fn list_browser(
         &self,
         context: KnowledgeAppRequestContext,
@@ -445,12 +445,12 @@ impl KnowledgeBrowserApi for SqliteHostedBrowserService {
 }
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedWikiService {
-    runtime: KnowledgebaseSqliteRuntime,
+pub(crate) struct HostedWikiService {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedWikiService {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedWikiService {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 
@@ -484,7 +484,7 @@ impl SqliteHostedWikiService {
 }
 
 #[async_trait]
-impl KnowledgeWikiAppService for SqliteHostedWikiService {
+impl KnowledgeWikiAppService for HostedWikiService {
     async fn list_wiki_pages(&self) -> ApiResult<WikiPageSummaryList> {
         let items = self
             .runtime

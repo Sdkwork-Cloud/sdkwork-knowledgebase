@@ -1,17 +1,7 @@
 export type SdkworkEnvironment = 'development' | 'test' | 'staging' | 'production';
 export type SdkworkConfigProfile = 'dev' | 'test' | 'staging' | 'prod';
 export type SdkworkBuildMode = 'development' | 'test' | 'staging' | 'production';
-export type SdkworkDeploymentMode =
-  | 'web'
-  | 'desktop'
-  | 'tablet-ipados'
-  | 'tablet-android'
-  | 'server'
-  | 'container'
-  | 'saas'
-  | 'private'
-  | 'local'
-  | 'test';
+export type SdkworkDeploymentProfile = 'standalone' | 'cloud';
 export type SdkworkRuntimeTarget =
   | 'browser'
   | 'desktop'
@@ -20,8 +10,6 @@ export type SdkworkRuntimeTarget =
   | 'server'
   | 'container'
   | 'test-runner';
-
-export type KnowledgebaseHosting = 'self-hosted' | 'cloud-hosted';
 
 export interface SdkworkDependencySdkBaseUrls {
   openApiBaseUrl?: string;
@@ -51,11 +39,10 @@ export interface SdkworkAuthRuntimeConfig {
 }
 
 export interface KnowledgebaseRuntimeConfig {
-  hosting: KnowledgebaseHosting;
+  deploymentProfile: SdkworkDeploymentProfile;
   environment: SdkworkEnvironment;
   configProfile: SdkworkConfigProfile;
   buildMode: SdkworkBuildMode;
-  deploymentMode: SdkworkDeploymentMode;
   runtimeTarget: SdkworkRuntimeTarget;
   appKey: 'sdkwork-knowledgebase-pc';
   appApiBaseUrl: string;
@@ -67,11 +54,10 @@ export interface KnowledgebaseRuntimeConfig {
 }
 
 export interface RuntimeEnv {
-  VITE_SDKWORK_KNOWLEDGEBASE_HOSTING?: string;
+  VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_ENVIRONMENT?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_CONFIG_PROFILE?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_BUILD_MODE?: string;
-  VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_MODE?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL?: string;
@@ -88,8 +74,8 @@ export interface RuntimeEnv {
 
 const APP_KEY = 'sdkwork-knowledgebase-pc';
 const LOCAL_APP_API_BASE_URL = 'http://127.0.0.1:18081';
-const LOCAL_BACKEND_API_BASE_URL = 'http://127.0.0.1:18082';
-const LOCAL_OPEN_API_BASE_URL = 'http://127.0.0.1:18083';
+const LOCAL_BACKEND_API_BASE_URL = 'http://127.0.0.1:18081';
+const LOCAL_OPEN_API_BASE_URL = 'http://127.0.0.1:18081';
 const LOCAL_PLATFORM_API_GATEWAY_BASE_URL = 'http://127.0.0.1:3900';
 
 const CLOUD_APP_API_BASE_URL = 'https://knowledgebase.sdkwork.com/app/v3/api';
@@ -110,18 +96,7 @@ const VALID_BUILD_MODES: SdkworkBuildMode[] = [
   'staging',
   'production',
 ];
-const VALID_DEPLOYMENT_MODES: SdkworkDeploymentMode[] = [
-  'web',
-  'desktop',
-  'tablet-ipados',
-  'tablet-android',
-  'server',
-  'container',
-  'saas',
-  'private',
-  'local',
-  'test',
-];
+const VALID_DEPLOYMENT_PROFILES: SdkworkDeploymentProfile[] = ['standalone', 'cloud'];
 const VALID_RUNTIME_TARGETS: SdkworkRuntimeTarget[] = [
   'browser',
   'desktop',
@@ -197,72 +172,60 @@ function normalizeBuildMode(
   return parseOneOf(nextValue, VALID_BUILD_MODES, environment);
 }
 
-function normalizeHosting(
+function normalizeDeploymentProfile(
   value: string | undefined,
-  deploymentMode: SdkworkDeploymentMode,
-): KnowledgebaseHosting {
+  env: RuntimeEnv,
+  runtimeTarget: SdkworkRuntimeTarget,
+  environment: SdkworkEnvironment,
+): SdkworkDeploymentProfile {
   const explicit = normalized(value);
-  if (explicit === 'cloud-hosted' || explicit === 'self-hosted') {
-    return explicit;
+  if (explicit && VALID_DEPLOYMENT_PROFILES.includes(explicit as SdkworkDeploymentProfile)) {
+    return explicit as SdkworkDeploymentProfile;
   }
-  if (explicit === 'cloud') {
-    return 'cloud-hosted';
+  if (runtimeTarget === 'desktop' || environment === 'test' || env.DEV) {
+    return 'standalone';
   }
-  if (explicit === 'standalone') {
-    return 'self-hosted';
-  }
-  if (deploymentMode === 'local' || deploymentMode === 'test') {
-    return 'self-hosted';
-  }
-  return 'cloud-hosted';
+  return 'cloud';
 }
 
 function defaultPlatformApiGatewayBaseUrl(
-  hosting: KnowledgebaseHosting,
-  deploymentMode: SdkworkDeploymentMode,
+  deploymentProfile: SdkworkDeploymentProfile,
+  environment: SdkworkEnvironment,
 ): string {
-  if (hosting === 'self-hosted') {
+  if (deploymentProfile === 'standalone' || environment === 'test') {
     return LOCAL_PLATFORM_API_GATEWAY_BASE_URL;
   }
-  return deploymentMode === 'local' || deploymentMode === 'test'
-    ? LOCAL_PLATFORM_API_GATEWAY_BASE_URL
-    : CLOUD_PLATFORM_API_GATEWAY_BASE_URL;
+  return CLOUD_PLATFORM_API_GATEWAY_BASE_URL;
 }
 
 function defaultAppApiBaseUrl(
-  hosting: KnowledgebaseHosting,
-  deploymentMode: SdkworkDeploymentMode,
+  deploymentProfile: SdkworkDeploymentProfile,
+  environment: SdkworkEnvironment,
 ): string {
-  if (hosting === 'self-hosted') {
+  if (deploymentProfile === 'standalone' || environment === 'test') {
     return LOCAL_APP_API_BASE_URL;
   }
-  return deploymentMode === 'local' || deploymentMode === 'test'
-    ? LOCAL_APP_API_BASE_URL
-    : CLOUD_APP_API_BASE_URL;
+  return CLOUD_APP_API_BASE_URL;
 }
 
 function defaultBackendApiBaseUrl(
-  hosting: KnowledgebaseHosting,
-  deploymentMode: SdkworkDeploymentMode,
+  deploymentProfile: SdkworkDeploymentProfile,
+  environment: SdkworkEnvironment,
 ): string {
-  if (hosting === 'self-hosted') {
+  if (deploymentProfile === 'standalone' || environment === 'test') {
     return LOCAL_BACKEND_API_BASE_URL;
   }
-  return deploymentMode === 'local' || deploymentMode === 'test'
-    ? LOCAL_BACKEND_API_BASE_URL
-    : CLOUD_BACKEND_API_BASE_URL;
+  return CLOUD_BACKEND_API_BASE_URL;
 }
 
 function defaultOpenApiBaseUrl(
-  hosting: KnowledgebaseHosting,
-  deploymentMode: SdkworkDeploymentMode,
+  deploymentProfile: SdkworkDeploymentProfile,
+  environment: SdkworkEnvironment,
 ): string {
-  if (hosting === 'self-hosted') {
+  if (deploymentProfile === 'standalone' || environment === 'test') {
     return LOCAL_OPEN_API_BASE_URL;
   }
-  return deploymentMode === 'local' || deploymentMode === 'test'
-    ? LOCAL_OPEN_API_BASE_URL
-    : CLOUD_OPEN_API_BASE_URL;
+  return CLOUD_OPEN_API_BASE_URL;
 }
 
 function normalizeTokenManagerMode(
@@ -297,7 +260,9 @@ function normalizeTokenStorage(
 
 function shouldUseDevSameOriginApi(
   env: RuntimeEnv,
-  deploymentMode: SdkworkDeploymentMode,
+  deploymentProfile: SdkworkDeploymentProfile,
+  runtimeTarget: SdkworkRuntimeTarget,
+  environment: SdkworkEnvironment,
 ): boolean {
   const explicit = normalized(env.VITE_SDKWORK_KNOWLEDGEBASE_DEV_SAME_ORIGIN_API);
   if (explicit === 'true' || explicit === '1') {
@@ -308,15 +273,20 @@ function shouldUseDevSameOriginApi(
   }
   return Boolean(env.DEV)
     && normalized(env.MODE) === 'development'
-    && (deploymentMode === 'local' || deploymentMode === 'test' || deploymentMode === 'desktop');
+    && deploymentProfile === 'standalone'
+    && (runtimeTarget === 'desktop' || environment === 'development' || environment === 'test');
 }
 
 function applyDevSameOriginApiBaseUrl(
   env: RuntimeEnv,
-  deploymentMode: SdkworkDeploymentMode,
+  deploymentProfile: SdkworkDeploymentProfile,
+  runtimeTarget: SdkworkRuntimeTarget,
+  environment: SdkworkEnvironment,
   baseUrl: string,
 ): string {
-  return shouldUseDevSameOriginApi(env, deploymentMode) ? '' : baseUrl;
+  return shouldUseDevSameOriginApi(env, deploymentProfile, runtimeTarget, environment)
+    ? ''
+    : baseUrl;
 }
 
 export function detectRuntimeTargetFromEnv(env: RuntimeEnv = import.meta.env): SdkworkRuntimeTarget {
@@ -333,73 +303,67 @@ export function detectRuntimeTargetFromEnv(env: RuntimeEnv = import.meta.env): S
   return 'browser';
 }
 
-function defaultDeploymentMode(
-  env: RuntimeEnv,
-  runtimeTarget: SdkworkRuntimeTarget,
-  environment: SdkworkEnvironment,
-  hosting: KnowledgebaseHosting,
-): SdkworkDeploymentMode {
-  if (runtimeTarget === 'desktop') {
-    return 'desktop';
-  }
-  if (environment === 'test') {
-    return 'test';
-  }
-  if (hosting === 'self-hosted') {
-    return 'local';
-  }
-  return 'saas';
-}
-
 export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): KnowledgebaseRuntimeConfig {
   const environment = normalizeEnvironment(env.VITE_SDKWORK_KNOWLEDGEBASE_ENVIRONMENT, env);
   const runtimeTarget = detectRuntimeTargetFromEnv(env);
-  const hosting = normalizeHosting(
-    env.VITE_SDKWORK_KNOWLEDGEBASE_HOSTING,
-    runtimeTarget === 'desktop' ? 'desktop' : environment === 'test' ? 'test' : 'local',
-  );
-  const deploymentMode = parseOneOf(
-    env.VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_MODE,
-    VALID_DEPLOYMENT_MODES,
-    defaultDeploymentMode(env, runtimeTarget, environment, hosting),
+  const deploymentProfile = normalizeDeploymentProfile(
+    env.VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE,
+    env,
+    runtimeTarget,
+    environment,
   );
   const configProfile = normalizeProfile(env.VITE_SDKWORK_KNOWLEDGEBASE_CONFIG_PROFILE, environment);
   const buildMode = normalizeBuildMode(env.VITE_SDKWORK_KNOWLEDGEBASE_BUILD_MODE, env, environment);
 
   const platformApiGatewayBaseUrl =
     env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL
-    || defaultPlatformApiGatewayBaseUrl(hosting, deploymentMode);
+    || defaultPlatformApiGatewayBaseUrl(deploymentProfile, environment);
 
   const appApiBaseUrl =
     env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL
-    || defaultAppApiBaseUrl(hosting, deploymentMode);
+    || defaultAppApiBaseUrl(deploymentProfile, environment);
   const backendApiBaseUrl =
     env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL
-    || defaultBackendApiBaseUrl(hosting, deploymentMode);
+    || defaultBackendApiBaseUrl(deploymentProfile, environment);
   const openApiBaseUrl =
     env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL
-    || defaultOpenApiBaseUrl(hosting, deploymentMode);
+    || defaultOpenApiBaseUrl(deploymentProfile, environment);
   const appbaseAppApiBaseUrl = applyDevSameOriginApiBaseUrl(
     env,
-    deploymentMode,
+    deploymentProfile,
+    runtimeTarget,
+    environment,
     env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL
-    || (hosting === 'self-hosted' ? appApiBaseUrl : platformApiGatewayBaseUrl),
+    || (deploymentProfile === 'standalone' ? appApiBaseUrl : platformApiGatewayBaseUrl),
   );
 
-  const resolvedAppApiBaseUrl = applyDevSameOriginApiBaseUrl(env, deploymentMode, appApiBaseUrl);
+  const resolvedAppApiBaseUrl = applyDevSameOriginApiBaseUrl(
+    env,
+    deploymentProfile,
+    runtimeTarget,
+    environment,
+    appApiBaseUrl,
+  );
   const resolvedBackendApiBaseUrl = applyDevSameOriginApiBaseUrl(
     env,
-    deploymentMode,
+    deploymentProfile,
+    runtimeTarget,
+    environment,
     backendApiBaseUrl,
   );
-  const resolvedOpenApiBaseUrl = applyDevSameOriginApiBaseUrl(env, deploymentMode, openApiBaseUrl);
+  const resolvedOpenApiBaseUrl = applyDevSameOriginApiBaseUrl(
+    env,
+    deploymentProfile,
+    runtimeTarget,
+    environment,
+    openApiBaseUrl,
+  );
 
   return {
-    hosting,
+    deploymentProfile,
     environment,
     configProfile,
     buildMode,
-    deploymentMode,
     runtimeTarget,
     appKey: APP_KEY,
     appApiBaseUrl: resolvedAppApiBaseUrl,

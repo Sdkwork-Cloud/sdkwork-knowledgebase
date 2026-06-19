@@ -1,5 +1,4 @@
 export interface KnowledgeRetrievalProfileRequest {
-  tenantId: string;
   name: string;
   strategy: string;
   topK: number;

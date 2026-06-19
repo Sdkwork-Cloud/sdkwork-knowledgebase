@@ -1,4 +1,3 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::SQLITE_CORE_MIGRATION;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteIngestionJobStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
     SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeSourceStore,
@@ -24,8 +23,7 @@ use sdkwork_knowledgebase_contract::document::KnowledgeDocumentVersionState;
 use sdkwork_knowledgebase_contract::ingest::{IngestionJobState, KnowledgeDriveImportRequest};
 use sdkwork_knowledgebase_contract::source::KnowledgeSourceType;
 use sdkwork_knowledgebase_test_support::fake_drive::FakeKnowledgeDriveStorage;
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{Row, SqlitePool};
+use sqlx::{AnyPool, Row};
 
 #[tokio::test]
 async fn sqlite_repositories_persist_drive_import_metadata_chain() {
@@ -89,7 +87,7 @@ async fn sqlite_repositories_persist_drive_import_metadata_chain() {
         r#"
         SELECT tenant_id, document_id, original_object_ref_id, parse_state, index_state
         FROM kb_document_version
-        WHERE id = ?
+        WHERE id = $1
         "#,
     )
     .bind(result.version.id as i64)
@@ -109,14 +107,14 @@ async fn sqlite_repositories_persist_drive_import_metadata_chain() {
     assert_eq!(version_row.get::<i64, _>("index_state"), 0);
 
     let current_version_id: Option<i64> =
-        sqlx::query_scalar("SELECT current_version_id FROM kb_document WHERE id = ?")
+        sqlx::query_scalar("SELECT current_version_id FROM kb_document WHERE id = $1")
             .bind(result.document.id as i64)
             .fetch_one(&pool)
             .await
             .unwrap();
     assert_eq!(current_version_id, Some(result.version.id as i64));
 
-    let job_state: i64 = sqlx::query_scalar("SELECT state FROM kb_ingestion_job WHERE id = ?")
+    let job_state: i64 = sqlx::query_scalar("SELECT state FROM kb_ingestion_job WHERE id = $1")
         .bind(result.job.id as i64)
         .fetch_one(&pool)
         .await
@@ -384,7 +382,7 @@ async fn sqlite_drive_import_persists_drive_node_binding_for_browser_projection(
     );
 
     let document_node_id: Option<String> =
-        sqlx::query_scalar("SELECT original_file_drive_node_id FROM kb_document WHERE id = ?")
+        sqlx::query_scalar("SELECT original_file_drive_node_id FROM kb_document WHERE id = $1")
             .bind(result.document.id as i64)
             .fetch_one(&pool)
             .await
@@ -740,7 +738,7 @@ async fn sqlite_document_version_create_or_get_heals_missing_current_version_poi
         .create_or_get_document_version(version_record.clone())
         .await
         .unwrap();
-    sqlx::query("UPDATE kb_document SET current_version_id = NULL WHERE id = ?")
+    sqlx::query("UPDATE kb_document SET current_version_id = NULL WHERE id = $1")
         .bind(document.id as i64)
         .execute(&pool)
         .await
@@ -753,7 +751,7 @@ async fn sqlite_document_version_create_or_get_heals_missing_current_version_poi
 
     assert_eq!(replay.id, first.id);
     let current_version_id: Option<i64> =
-        sqlx::query_scalar("SELECT current_version_id FROM kb_document WHERE id = ?")
+        sqlx::query_scalar("SELECT current_version_id FROM kb_document WHERE id = $1")
             .bind(document.id as i64)
             .fetch_one(&pool)
             .await
@@ -761,19 +759,12 @@ async fn sqlite_document_version_create_or_get_heals_missing_current_version_poi
     assert_eq!(current_version_id, Some(first.id as i64));
 }
 
-async fn sqlite_pool() -> SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
+async fn sqlite_pool() -> AnyPool {
+    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
+        "sqlite::memory:",
+    )
+    .await
+    .unwrap()
 }
 
-async fn apply_sqlite_migration(pool: &SqlitePool) {
-    for statement in SQLITE_CORE_MIGRATION.split(';') {
-        let statement = statement.trim();
-        if !statement.is_empty() {
-            sqlx::query(statement).execute(pool).await.unwrap();
-        }
-    }
-}
+async fn apply_sqlite_migration(_pool: &AnyPool) {}

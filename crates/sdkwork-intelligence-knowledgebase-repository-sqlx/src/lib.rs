@@ -24,10 +24,11 @@ pub mod postgres_pgvector_retrieval;
 pub use agent_profile_store::SqliteKnowledgeAgentProfileStore;
 pub use browser_projection_store::SqliteKnowledgeBrowserProjectionStore;
 pub use db::{
-    connect_postgres_and_install_schema, connect_postgres_pool, connect_sqlite_and_install_schema,
-    connect_sqlite_pool, install_postgres_schema, install_sqlite_core_schema,
-    install_sqlite_schema, is_postgres_database_url, postgres_health_check, sqlite_health_check,
-    PostgresRepositoryError,
+    connect_knowledgebase_and_install_schema, connect_postgres_and_install_schema,
+    connect_postgres_pool, connect_sqlite_and_install_schema, connect_sqlite_pool,
+    install_postgres_schema, install_sqlite_core_schema, install_sqlite_schema,
+    is_postgres_database_url, knowledgebase_health_check, postgres_health_check,
+    sqlite_health_check, PostgresRepositoryError,
 };
 pub use drive_object_ref_store::SqliteKnowledgeDriveObjectRefStore;
 pub use embedding_store::SqliteKnowledgeEmbeddingStore;

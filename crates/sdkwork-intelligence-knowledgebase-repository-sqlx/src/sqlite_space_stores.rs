@@ -9,7 +9,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_file_entry
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{KnowledgeSpace, KnowledgeSpaceStatus};
 use sdkwork_knowledgebase_contract::wiki_file::{KnowledgeWikiFileEntry, WikiFileEntryType};
-use sqlx::{sqlite::SqliteRow, Row, SqlitePool};
+use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -21,14 +21,14 @@ const INITIAL_VERSION: i64 = 0;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeSpaceStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeSpaceStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64, organization_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_id_generator(
             pool,
             tenant_id,
@@ -38,7 +38,7 @@ impl SqliteKnowledgeSpaceStore {
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
@@ -80,7 +80,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode, knowledge_mode
             "#,
         )
@@ -113,7 +113,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             r#"
             SELECT id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
             FROM kb_space
-            WHERE tenant_id = ? AND organization_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = $4
             "#,
         )
         .bind(tenant_id)
@@ -141,8 +141,8 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_space
-            SET drive_space_id = ?, updated_at = ?, version = version + 1
-            WHERE tenant_id = ? AND organization_id = ? AND id = ? AND status = ?
+            SET drive_space_id = $1, updated_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
             RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
             "#,
         )
@@ -171,8 +171,8 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_space
-            SET llm_wiki_initialized = 1, updated_at = ?, version = version + 1
-            WHERE tenant_id = ? AND organization_id = ? AND id = ? AND status = ?
+            SET llm_wiki_initialized = 1, updated_at = $1, version = version + 1
+            WHERE tenant_id = $2 AND organization_id = $3 AND id = $4 AND status = $5
             RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
             "#,
         )
@@ -197,8 +197,8 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         sqlx::query(
             r#"
             UPDATE kb_space
-            SET status = ?, updated_at = ?, version = version + 1
-            WHERE tenant_id = ? AND organization_id = ? AND id = ? AND status = ?
+            SET status = $1, updated_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
             "#,
         )
         .bind(space_status_code(KnowledgeSpaceStatus::Deleted))
@@ -225,7 +225,7 @@ impl SqliteKnowledgeSpaceStore {
             r#"
             SELECT id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
             FROM kb_space
-            WHERE tenant_id = ? AND organization_id = ? AND status = ? AND llm_wiki_initialized = 1
+            WHERE tenant_id = $1 AND organization_id = $2 AND status = $3 AND llm_wiki_initialized = 1
             ORDER BY id ASC
             LIMIT 1
             "#,
@@ -243,18 +243,18 @@ impl SqliteKnowledgeSpaceStore {
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeWikiFileEntryStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeWikiFileEntryStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -311,7 +311,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING
                 id,
                 space_id,
@@ -371,7 +371,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             ON CONFLICT(tenant_id, space_id, logical_path)
             DO UPDATE SET
                 entry_type = excluded.entry_type,
@@ -430,7 +430,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
                 drive_object_key,
                 checksum_sha256_hex
             FROM kb_wiki_file_entry
-            WHERE tenant_id = ? AND status = ?
+            WHERE tenant_id = $1 AND status = $2
             ORDER BY id ASC
             LIMIT 200
             "#,
@@ -462,7 +462,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
                 drive_object_key,
                 checksum_sha256_hex
             FROM kb_wiki_file_entry
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
             LIMIT 1
             "#,
         )
@@ -482,7 +482,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
     }
 }
 
-fn space_from_row(row: &SqliteRow) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
+fn space_from_row(row: &AnyRow) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
     let status_code: i64 = row.try_get("status").map_err(space_sqlx_error)?;
     let llm_wiki_initialized: i64 = row
         .try_get("llm_wiki_initialized")
@@ -507,7 +507,7 @@ fn space_knowledge_mode_code(mode: KnowledgeAgentKnowledgeMode) -> &'static str 
 }
 
 fn space_knowledge_mode_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
 ) -> Result<KnowledgeAgentKnowledgeMode, KnowledgeSpaceStoreError> {
     let value: Option<String> = row.try_get("knowledge_mode").map_err(space_sqlx_error)?;
     match value.as_deref().unwrap_or("llm_wiki") {
@@ -538,7 +538,7 @@ fn require_safe_drive_id(
 }
 
 fn wiki_file_entry_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
 ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
     let entry_type: String = row.try_get("entry_type").map_err(wiki_entry_sqlx_error)?;
     Ok(KnowledgeWikiFileEntry {

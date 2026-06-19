@@ -565,7 +565,7 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
             <div
               ref={scrollContainerRef}
               onScroll={handleScrollContainer}
-              className="flex-1 min-h-0 overflow-y-auto hover-scrollbar w-full"
+              className="flex-1 min-h-0 search-theme-scrollbar w-full"
             >
               <SearchChatThread
                 messages={activeSession.messages}
@@ -600,7 +600,7 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
           <div
             ref={scrollContainerRef}
             onScroll={handleScrollContainer}
-            className="flex-1 min-h-0 overflow-y-auto hover-scrollbar w-full"
+            className="flex-1 min-h-0 search-theme-scrollbar w-full"
           >
             <SearchLandingPage
               {...composerProps}

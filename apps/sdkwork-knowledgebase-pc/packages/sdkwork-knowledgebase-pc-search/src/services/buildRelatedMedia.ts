@@ -103,11 +103,15 @@ function buildKbMediaItems(docs: DocumentMeta[]): SearchRelatedMedia {
     };
 
     if (doc.type === 'image') {
+      const preset = IMAGE_SIZE_PRESETS[hashSeed(doc.id) % IMAGE_SIZE_PRESETS.length];
       images.push({
         ...base,
         category: 'image',
-        thumbnailUrl: `https://picsum.photos/seed/${encodeURIComponent(doc.id)}/480/320`,
-        previewUrl: `https://picsum.photos/seed/${encodeURIComponent(doc.id)}/1200/800`
+        thumbnailUrl: buildCoverThumb(`kb-img-${doc.id}`, preset.width, preset.height),
+        previewUrl: buildCoverThumb(`kb-img-${doc.id}`, preset.width, preset.height),
+        imageWidth: preset.width,
+        imageHeight: preset.height,
+        snippet: `${preset.shape} · 来自知识库 · ${doc.author || '未知作者'}`
       });
     } else if (doc.type === 'video') {
       const preset = pickVideoPreset(doc.id);
@@ -156,18 +160,21 @@ function buildWebMediaItems(query: string, lower: string): SearchRelatedMedia {
   const seed = hashSeed(query);
   const topic = query.length > 18 ? `${query.slice(0, 18)}…` : query;
 
-  const images: SearchMediaItem[] = Array.from({ length: 6 }, (_, i) => ({
-    id: `web-img-${seed}-${i}`,
-    category: 'image',
-    title: `${topic} 相关图示 ${i + 1}`,
-    source: 'web',
-    url: `https://unsplash.com/s/photos/${encodeURIComponent(query)}`,
-    thumbnailUrl: `https://picsum.photos/seed/${seed + i}/480/320`,
-    previewUrl: `https://picsum.photos/seed/${seed + i}/1200/800`,
-    snippet: `网络检索 · 与「${query}」相关的高清参考图`,
-    imageWidth: 1200,
-    imageHeight: 800
-  }));
+  const images: SearchMediaItem[] = Array.from({ length: 6 }, (_, i) => {
+    const preset = IMAGE_SIZE_PRESETS[i % IMAGE_SIZE_PRESETS.length];
+    return {
+      id: `web-img-${seed}-${i}`,
+      category: 'image',
+      title: `${topic} 相关图示 ${i + 1}`,
+      source: 'web',
+      url: `https://unsplash.com/s/photos/${encodeURIComponent(query)}`,
+      thumbnailUrl: buildCoverThumb(`img-${seed}-${i}`, preset.width, preset.height),
+      previewUrl: buildCoverThumb(`img-${seed}-${i}`, preset.width, preset.height),
+      snippet: `${preset.shape} · 网络检索 · 与「${query}」相关的高清参考图`,
+      imageWidth: preset.width,
+      imageHeight: preset.height
+    };
+  });
 
   const videos: SearchMediaItem[] = VIDEO_SIZE_PRESETS.map((preset, index) => {
     const playback =

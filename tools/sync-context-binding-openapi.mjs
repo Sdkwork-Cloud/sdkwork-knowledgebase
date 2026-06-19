@@ -31,7 +31,7 @@ const extensions = {
   "x-sdkwork-owner": "sdkwork-knowledgebase",
   "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
   "x-sdkwork-request-context": "WebRequestContext",
-  "x-sdkwork-api-surface": "app",
+  "x-sdkwork-api-surface": "app-api",
   "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
 };
 
@@ -322,7 +322,7 @@ for (const route of newRoutes) {
       apiAuthority: "sdkwork-knowledgebase-app-api",
     },
     requestContext: "WebRequestContext",
-    apiSurface: "app",
+    apiSurface: "app-api",
   });
 }
 manifest.routes.sort((left, right) => {

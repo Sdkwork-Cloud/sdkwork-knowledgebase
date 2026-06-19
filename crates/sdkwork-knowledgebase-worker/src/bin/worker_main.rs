@@ -1,5 +1,5 @@
 use sdkwork_knowledgebase_worker::run_polling_loop;
-use sdkwork_router_knowledgebase_app_api::{bootstrap, KnowledgebaseSqliteRuntime};
+use sdkwork_router_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 
 #[tokio::main]
 async fn main() {
@@ -31,7 +31,7 @@ async fn main() {
             .and_then(|value| value.parse::<u32>().ok())
             .unwrap_or(25);
 
-    let runtime = KnowledgebaseSqliteRuntime::connect(&database_url, tenant_id)
+    let runtime = KnowledgebaseRuntime::connect(&database_url, tenant_id)
         .await
         .expect("initialize knowledgebase worker runtime");
     runtime

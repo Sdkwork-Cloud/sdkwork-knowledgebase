@@ -19,7 +19,7 @@ export function createKnowledgebaseAccountViewModel(
   const userId = session.user?.id ?? session.context?.userId ?? 'knowledgebase-user';
   const displayName = session.user?.displayName?.trim() || 'SDKWork Knowledgebase User';
   const environment = session.context?.environment?.trim();
-  const deploymentMode = session.context?.deploymentMode?.trim();
+  const iamDeploymentMode = session.context?.iamDeploymentMode?.trim();
 
   return {
     id: userId,
@@ -31,9 +31,9 @@ export function createKnowledgebaseAccountViewModel(
     organizationId: session.context?.organizationId,
     sessionId: session.sessionId ?? session.context?.sessionId,
     environmentLabel:
-      environment && deploymentMode
-        ? `${environment} / ${deploymentMode}`
-        : environment || deploymentMode || 'standard',
+      environment && iamDeploymentMode
+        ? `${environment} / ${iamDeploymentMode}`
+        : environment || iamDeploymentMode || 'standard',
     authLevel: session.context?.authLevel ?? 'standard',
   };
 }

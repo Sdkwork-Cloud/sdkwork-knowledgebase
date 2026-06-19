@@ -1,5 +1,5 @@
 use sdkwork_knowledgebase_contract::rag::{KnowledgeIndex, KnowledgeIndexRequest};
-use sqlx::{sqlite::SqliteRow, Row, SqlitePool};
+use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use thiserror::Error;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -19,18 +19,18 @@ pub enum KnowledgeIndexStoreError {
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeIndexStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeIndexStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -66,7 +66,7 @@ impl SqliteKnowledgeIndexStore {
                 embedding_provider_id, embedding_model, dimension, metric,
                 schema_version, status, created_at, updated_at, version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             RETURNING id, tenant_id, space_id, index_kind, status
             "#,
         )
@@ -102,7 +102,7 @@ impl SqliteKnowledgeIndexStore {
             r#"
             SELECT id, tenant_id, space_id, index_kind, status
             FROM kb_index
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
             LIMIT 1
             "#,
         )
@@ -132,7 +132,7 @@ impl SqliteKnowledgeIndexStore {
             r#"
             SELECT id, tenant_id, space_id, index_kind, status
             FROM kb_index
-            WHERE tenant_id = ? AND space_id = ? AND collection_id = ? AND index_kind = ? AND status = ?
+            WHERE tenant_id = $1 AND space_id = $2 AND collection_id = $3 AND index_kind = $4 AND status = $5
             ORDER BY id DESC
             LIMIT 1
             "#,
@@ -171,7 +171,7 @@ impl SqliteKnowledgeIndexStore {
     }
 }
 
-fn index_from_row(row: &SqliteRow) -> Result<KnowledgeIndex, KnowledgeIndexStoreError> {
+fn index_from_row(row: &AnyRow) -> Result<KnowledgeIndex, KnowledgeIndexStoreError> {
     Ok(KnowledgeIndex {
         index_id: from_u64("id", row.try_get("id").map_err(sqlx_error)?)?,
         tenant_id: from_u64("tenant_id", row.try_get("tenant_id").map_err(sqlx_error)?)?,

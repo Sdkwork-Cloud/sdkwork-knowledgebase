@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_drive_storage_local::LocalDriveObjectStore;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_sqlite_and_install_schema, sqlite_health_check, SqliteContextBindingStore,
-    SqliteIngestionJobStore, SqliteKnowledgeAgentProfileStore,
+    connect_knowledgebase_and_install_schema, knowledgebase_health_check,
+    SqliteContextBindingStore, SqliteIngestionJobStore, SqliteKnowledgeAgentProfileStore,
     SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeChunkRetrievalStore,
     SqliteKnowledgeChunkStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
     SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeEmbeddingStore, SqliteKnowledgeIndexStore,
@@ -24,11 +24,12 @@ use sdkwork_knowledgebase_contract::rag::{
     KnowledgeContextPackRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
 };
 use sdkwork_knowledgebase_drive::{
-    connect_sqlite_drive_pool, sqlite_drive_health_check, KnowledgebaseDriveNodeTreeAdapter,
-    KnowledgebaseDriveSpaceProvisionerAdapter, KnowledgebaseDriveStorageAdapter,
-    KnowledgebaseDriveWorkspaceAdapter, KnowledgebaseKnowledgeAccessControlAdapter,
+    connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
+    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
+    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
+    KnowledgebaseKnowledgeAccessControlAdapter,
 };
-use sqlx::{AnyPool, SqlitePool};
+use sqlx::AnyPool;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -43,13 +44,13 @@ use crate::{
     },
     build_router_with_shared_app_api_and_readiness,
     hosted::{
-        SqliteHostedBrowserService, SqliteHostedDocumentService, SqliteHostedDriveImportService,
-        SqliteHostedIngestService, SqliteHostedSpaceService, SqliteHostedWikiService,
+        HostedBrowserService, HostedDocumentService, HostedDriveImportService, HostedIngestService,
+        HostedSpaceService, HostedWikiService,
     },
-    hosted_backend::SqliteHostedBackendApi,
-    hosted_context_binding::SqliteHostedContextBindingService,
-    hosted_open::SqliteHostedOpenApi,
-    hosted_upload::SqliteHostedUploadSessionService,
+    hosted_backend::HostedBackendApi,
+    hosted_context_binding::HostedContextBindingService,
+    hosted_open::HostedOpenApi,
+    hosted_upload::HostedUploadSessionService,
     ApiError, ApiResult, KnowledgeAgentAppService, KnowledgeAppRequestContext,
     KnowledgeRetrievalAppService, ReadinessCheck,
 };
@@ -58,8 +59,8 @@ const DEFAULT_DRIVE_PROVIDER_ID: &str = "sdkwork-knowledgebase-local";
 const DEFAULT_DRIVE_BUCKET: &str = "knowledgebase";
 
 #[derive(Clone)]
-pub struct KnowledgebaseSqliteRuntime {
-    pool: SqlitePool,
+pub struct KnowledgebaseRuntime {
+    pool: AnyPool,
     drive_pool: AnyPool,
     tenant_id: u64,
     tenant_id_str: String,
@@ -90,17 +91,10 @@ pub struct KnowledgebaseSqliteRuntime {
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
 }
 
-impl KnowledgebaseSqliteRuntime {
+impl KnowledgebaseRuntime {
     pub async fn connect(database_url: &str, tenant_id: u64) -> Result<Self, sqlx::Error> {
-        if sdkwork_intelligence_knowledgebase_repository_sqlx::is_postgres_database_url(
-            database_url,
-        ) {
-            return Err(sqlx::Error::Configuration(
-                "postgresql SDKWORK_KNOWLEDGEBASE_DATABASE_URL is not wired to HTTP handlers yet; use sqlite".into(),
-            ));
-        }
-        let pool = connect_sqlite_and_install_schema(database_url).await?;
-        let drive_pool = connect_sqlite_drive_pool(database_url).await?;
+        let pool = connect_knowledgebase_and_install_schema(database_url).await?;
+        let drive_pool = connect_knowledgebase_drive_pool(database_url).await?;
         Ok(Self::from_pools(
             pool,
             drive_pool,
@@ -112,7 +106,7 @@ impl KnowledgebaseSqliteRuntime {
     }
 
     fn from_pools(
-        pool: SqlitePool,
+        pool: AnyPool,
         drive_pool: AnyPool,
         tenant_id: u64,
         organization_id: u64,
@@ -209,7 +203,7 @@ impl KnowledgebaseSqliteRuntime {
         }
     }
 
-    pub fn pool(&self) -> &SqlitePool {
+    pub fn pool(&self) -> &AnyPool {
         &self.pool
     }
 
@@ -230,8 +224,8 @@ impl KnowledgebaseSqliteRuntime {
     }
 
     pub async fn readiness_check(&self) -> Result<(), sqlx::Error> {
-        sqlite_health_check(&self.pool).await?;
-        sqlite_drive_health_check(&self.drive_pool).await?;
+        knowledgebase_health_check(&self.pool).await?;
+        knowledgebase_drive_health_check(&self.drive_pool).await?;
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM kb_space_context_binding")
             .fetch_one(&self.pool)
             .await
@@ -250,16 +244,16 @@ impl KnowledgebaseSqliteRuntime {
 
         build_router_with_shared_app_api_and_readiness(
             Arc::new(FullAppApi::new(
-                Arc::new(SqliteHostedSpaceService::new(self.clone())),
-                Arc::new(SqliteHostedDriveImportService::new(self.clone())),
-                Arc::new(SqliteHostedIngestService::new(self.clone())),
-                Arc::new(SqliteHostedDocumentService::new(self.clone())),
-                Arc::new(SqliteHostedWikiService::new(self.clone())),
-                Arc::new(SqliteHostedBrowserService::new(self.clone())),
-                Arc::new(SqliteHostedRetrievalService::new(self.clone())),
-                Arc::new(SqliteHostedAgentService::new(self.clone())),
-                Arc::new(SqliteHostedContextBindingService::new(self.clone())),
-                Arc::new(SqliteHostedUploadSessionService::new(self.clone())),
+                Arc::new(HostedSpaceService::new(self.clone())),
+                Arc::new(HostedDriveImportService::new(self.clone())),
+                Arc::new(HostedIngestService::new(self.clone())),
+                Arc::new(HostedDocumentService::new(self.clone())),
+                Arc::new(HostedWikiService::new(self.clone())),
+                Arc::new(HostedBrowserService::new(self.clone())),
+                Arc::new(HostedRetrievalService::new(self.clone())),
+                Arc::new(HostedAgentService::new(self.clone())),
+                Arc::new(HostedContextBindingService::new(self.clone())),
+                Arc::new(HostedUploadSessionService::new(self.clone())),
             )),
             Some(ReadinessCheck::new(self.pool.clone())),
         )
@@ -279,13 +273,13 @@ impl KnowledgebaseSqliteRuntime {
 
     pub fn build_backend_router(&self) -> axum::Router {
         sdkwork_router_knowledgebase_backend_api::build_router_with_shared_backend_api(Arc::new(
-            SqliteHostedBackendApi::new(self.clone()),
+            HostedBackendApi::new(self.clone()),
         ))
     }
 
     pub fn build_open_api_router(&self) -> axum::Router {
         sdkwork_router_knowledgebase_open_api::build_router_with_shared_open_api(Arc::new(
-            SqliteHostedOpenApi::new(self.clone()),
+            HostedOpenApi::new(self.clone()),
         ))
     }
 
@@ -489,12 +483,12 @@ fn default_drive_storage_root() -> PathBuf {
 }
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedRetrievalService {
-    runtime: KnowledgebaseSqliteRuntime,
+pub(crate) struct HostedRetrievalService {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedRetrievalService {
-    pub(crate) fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedRetrievalService {
+    pub(crate) fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 
@@ -504,7 +498,7 @@ impl SqliteHostedRetrievalService {
 }
 
 #[async_trait]
-impl KnowledgeRetrievalAppService for SqliteHostedRetrievalService {
+impl KnowledgeRetrievalAppService for HostedRetrievalService {
     async fn retrieve(
         &self,
         request: KnowledgeRetrievalRequest,
@@ -542,18 +536,18 @@ impl KnowledgeRetrievalAppService for SqliteHostedRetrievalService {
 }
 
 #[derive(Clone)]
-struct SqliteHostedAgentService {
-    runtime: KnowledgebaseSqliteRuntime,
+struct HostedAgentService {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedAgentService {
-    fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedAgentService {
+    fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 }
 
 #[async_trait]
-impl KnowledgeAgentAppService for SqliteHostedAgentService {
+impl KnowledgeAgentAppService for HostedAgentService {
     async fn create_profile(
         &self,
         request: KnowledgeAgentProfileRequest,
@@ -678,15 +672,15 @@ impl KnowledgeAgentAppService for SqliteHostedAgentService {
 
 #[derive(Clone)]
 struct AgentAndRetrievalHostedApi {
-    retrieval: SqliteHostedRetrievalService,
-    agent: SqliteHostedAgentService,
+    retrieval: HostedRetrievalService,
+    agent: HostedAgentService,
 }
 
 impl AgentAndRetrievalHostedApi {
-    fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+    fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self {
-            retrieval: SqliteHostedRetrievalService::new(runtime.clone()),
-            agent: SqliteHostedAgentService::new(runtime),
+            retrieval: HostedRetrievalService::new(runtime.clone()),
+            agent: HostedAgentService::new(runtime),
         }
     }
 }

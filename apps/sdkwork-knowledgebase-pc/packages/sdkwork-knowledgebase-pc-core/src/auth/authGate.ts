@@ -28,6 +28,9 @@ const DEFAULT_HOME_PATH = '/';
 const AUTH_BASE_PATH = '/auth';
 const AUTH_LOGIN_PATH = '/auth/login';
 
+/** Set when redirecting away from auth routes after login; AppShell resets landing tab to knowledge base. */
+export const KNOWLEDGEBASE_POST_AUTH_LANDING_FLAG = 'knowledgebase-post-auth-landing';
+
 export function hasKnowledgebaseIamSession(session: SessionSnapshot): boolean {
   return Boolean(session.authToken && session.accessToken && session.context?.tenantId);
 }
@@ -139,6 +142,16 @@ export function KnowledgebaseAuthGate({
     if (decision.kind !== 'redirect') {
       return;
     }
+    if (
+      typeof window !== 'undefined' &&
+      isKnowledgebaseAuthRoute(normalizePathname(currentLocation.pathname))
+    ) {
+      try {
+        window.sessionStorage.setItem(KNOWLEDGEBASE_POST_AUTH_LANDING_FLAG, '1');
+      } catch {
+        // Ignore storage errors; landing tab reset is best-effort.
+      }
+    }
     if (navigate) {
       navigate(decision.to, { replace: true });
       return;
@@ -146,7 +159,7 @@ export function KnowledgebaseAuthGate({
     if (typeof window !== 'undefined') {
       window.location.replace(decision.to);
     }
-  }, [decision, navigate]);
+  }, [decision, currentLocation.pathname, navigate]);
 
   if (decision.kind === 'redirect') {
     return null;

@@ -11,6 +11,15 @@ const checkOnly = process.argv.includes("--check");
 const pendingChanges = [];
 
 const httpMethods = new Set(["get", "put", "post", "delete", "options", "head", "patch", "trace"]);
+const currentTenantRequestSchemas = new Set([
+  "KnowledgeRetrievalRequest",
+  "KnowledgeContextPackRequest",
+  "KnowledgeAgentChatRequest",
+  "KnowledgeAgentBindingRequest",
+  "KnowledgeAgentProfileRequest",
+  "KnowledgeIndexRequest",
+  "KnowledgeRetrievalProfileRequest",
+]);
 
 const appbasePackages = {
   typescript: "@sdkwork/appbase-app-sdk",
@@ -268,6 +277,7 @@ async function standardizeOpenApi(family) {
   const filePath = path.join(sdksRoot, family.root, family.input);
   const openapi = await readJson(filePath);
   const removedOperations = removeDependencyOwnedOperations(openapi, family);
+  removeCurrentTenantRequestInputs(openapi);
 
   openapi["x-sdkwork-owner"] = owner;
   openapi["x-sdkwork-api-authority"] = family.authority;
@@ -295,7 +305,7 @@ async function standardizeOpenApi(family) {
     operation["x-sdkwork-owner"] = owner;
     operation["x-sdkwork-api-authority"] = family.authority;
     operation["x-sdkwork-request-context"] = "WebRequestContext";
-    operation["x-sdkwork-api-surface"] = family.sdkTarget;
+    operation["x-sdkwork-api-surface"] = `${family.sdkTarget}-api`;
     operation["x-sdkwork-source-route-crate"] = routeCrateFor(family);
   }
 
@@ -305,6 +315,28 @@ async function standardizeOpenApi(family) {
     operationCount: operationEntries(openapi).length,
     removedOperations,
   };
+}
+
+function removeCurrentTenantRequestInputs(openapi) {
+  const schemas = openapi.components?.schemas || {};
+  for (const schemaName of currentTenantRequestSchemas) {
+    const schema = schemas[schemaName];
+    if (!schema || typeof schema !== "object") {
+      continue;
+    }
+
+    if (Array.isArray(schema.required)) {
+      schema.required = schema.required.filter((field) => field !== "tenantId" && field !== "tenant_id");
+      if (schema.required.length === 0) {
+        delete schema.required;
+      }
+    }
+
+    if (schema.properties && typeof schema.properties === "object") {
+      delete schema.properties.tenantId;
+      delete schema.properties.tenant_id;
+    }
+  }
 }
 
 async function materializeFamilyOpenApi(family) {
@@ -358,7 +390,7 @@ async function materializeFamilyOpenApi(family) {
     operation["x-sdkwork-owner"] = owner;
     operation["x-sdkwork-api-authority"] = family.authority;
     operation["x-sdkwork-request-context"] = "WebRequestContext";
-    operation["x-sdkwork-api-surface"] = family.sdkTarget;
+    operation["x-sdkwork-api-surface"] = `${family.sdkTarget}-api`;
     operation["x-sdkwork-source"] = "sdks/standardize-knowledgebase-sdk-family.mjs";
     operation["x-sdkwork-source-route-crate"] = routeCrateFor(family);
 

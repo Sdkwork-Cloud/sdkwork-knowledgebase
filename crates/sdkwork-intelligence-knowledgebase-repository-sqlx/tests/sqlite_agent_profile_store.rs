@@ -1,4 +1,3 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::db::sqlite::install_sqlite_schema;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     KnowledgeIdGenerator, KnowledgeIdGeneratorError, SqliteKnowledgeAgentProfileStore,
 };
@@ -6,8 +5,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_agent_profile_s
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBindingRequest, KnowledgeAgentProfileRequest, KnowledgeAgentStatus,
 };
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{Row, SqlitePool};
+use sqlx::{AnyPool, Row};
 use std::sync::{Arc, Mutex};
 
 #[tokio::test]
@@ -151,17 +149,15 @@ fn fixed_id_generator(ids: impl IntoIterator<Item = u64>) -> Arc<dyn KnowledgeId
     })
 }
 
-async fn sqlite_pool() -> SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
+async fn sqlite_pool() -> AnyPool {
+    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
+        "sqlite::memory:",
+    )
+    .await
+    .unwrap()
 }
 
-async fn apply_sqlite_migration(pool: &SqlitePool) {
-    install_sqlite_schema(pool).await.unwrap();
-}
+async fn apply_sqlite_migration(_pool: &AnyPool) {}
 
 fn profile_request(name: &str) -> KnowledgeAgentProfileRequest {
     KnowledgeAgentProfileRequest {

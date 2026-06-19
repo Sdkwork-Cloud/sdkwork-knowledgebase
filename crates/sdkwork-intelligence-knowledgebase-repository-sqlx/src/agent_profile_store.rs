@@ -9,7 +9,7 @@ use sdkwork_knowledgebase_contract::rag::{
 use sdkwork_knowledgebase_contract::{
     default_agent_implementation_id, RIG_AGENT_IMPLEMENTATION_ID,
 };
-use sqlx::{sqlite::SqliteRow, Row, SqlitePool};
+use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -23,18 +23,18 @@ const INITIAL_VERSION: i64 = 0;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeAgentProfileStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeAgentProfileStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -86,7 +86,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
             RETURNING
                 id,
                 tenant_id,
@@ -164,23 +164,23 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_agent_profile
-            SET name = ?,
-                description = ?,
-                system_instruction = ?,
-                model_provider_id = ?,
-                model_id = ?,
-                model_parameters = ?,
-                retrieval_profile_id = ?,
-                citation_policy = ?,
-                memory_policy_ref = ?,
-                tool_policy_ref = ?,
-                answer_policy = ?,
-                knowledge_mode = ?,
-                agent_implementation_id = ?,
-                status = ?,
-                updated_at = ?,
+            SET name = $1,
+                description = $2,
+                system_instruction = $3,
+                model_provider_id = $4,
+                model_id = $5,
+                model_parameters = $6,
+                retrieval_profile_id = $7,
+                citation_policy = $8,
+                memory_policy_ref = $9,
+                tool_policy_ref = $10,
+                answer_policy = $11,
+                knowledge_mode = $12,
+                agent_implementation_id = $13,
+                status = $14,
+                updated_at = $15,
                 version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status != ?
+            WHERE tenant_id = $16 AND id = $17 AND status != $18
             RETURNING
                 id,
                 tenant_id,
@@ -238,10 +238,10 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         let result = sqlx::query(
             r#"
             UPDATE kb_agent_profile
-            SET status = ?,
-                updated_at = ?,
+            SET status = $1,
+                updated_at = $2,
                 version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status != ?
+            WHERE tenant_id = $3 AND id = $4 AND status != $5
             "#,
         )
         .bind(agent_status_code(KnowledgeAgentStatus::Archived))
@@ -260,10 +260,10 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         sqlx::query(
             r#"
             UPDATE kb_agent_knowledge_binding
-            SET status = ?,
-                updated_at = ?,
+            SET status = $1,
+                updated_at = $2,
                 version = version + 1
-            WHERE tenant_id = ? AND profile_id = ? AND status = ?
+            WHERE tenant_id = $3 AND profile_id = $4 AND status = $5
             "#,
         )
         .bind(DELETED_ROW_STATUS)
@@ -300,9 +300,9 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 min_score,
                 enabled
             FROM kb_agent_knowledge_binding
-            WHERE tenant_id = ? AND profile_id = ? AND status = ?
+            WHERE tenant_id = $1 AND profile_id = $2 AND status = $3
             ORDER BY priority DESC, id ASC
-            LIMIT ?
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
@@ -355,7 +355,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING
                 id,
                 tenant_id,
@@ -421,17 +421,17 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_agent_knowledge_binding
-            SET space_id = ?,
-                collection_id = ?,
-                source_filter = ?,
-                document_filter = ?,
-                priority = ?,
-                top_k = ?,
-                min_score = ?,
-                enabled = ?,
-                updated_at = ?,
+            SET space_id = $1,
+                collection_id = $2,
+                source_filter = $3,
+                document_filter = $4,
+                priority = $5,
+                top_k = $6,
+                min_score = $7,
+                enabled = $8,
+                updated_at = $9,
                 version = version + 1
-            WHERE tenant_id = ? AND profile_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $10 AND profile_id = $11 AND id = $12 AND status = $13
             RETURNING
                 id,
                 tenant_id,
@@ -480,10 +480,10 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         let result = sqlx::query(
             r#"
             UPDATE kb_agent_knowledge_binding
-            SET status = ?,
-                updated_at = ?,
+            SET status = $1,
+                updated_at = $2,
                 version = version + 1
-            WHERE tenant_id = ? AND profile_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $3 AND profile_id = $4 AND id = $5 AND status = $6
             "#,
         )
         .bind(DELETED_ROW_STATUS)
@@ -530,7 +530,7 @@ impl SqliteKnowledgeAgentProfileStore {
                 agent_implementation_id,
                 status
             FROM kb_agent_profile
-            WHERE tenant_id = ? AND id = ? AND status != ?
+            WHERE tenant_id = $1 AND id = $2 AND status != $3
             "#,
         )
         .bind(tenant_id)
@@ -546,7 +546,7 @@ impl SqliteKnowledgeAgentProfileStore {
 }
 
 fn profile_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
 ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
     Ok(KnowledgeAgentProfile {
         profile_id: u64_from_row(row, "id")?,
@@ -576,9 +576,7 @@ fn profile_from_row(
     })
 }
 
-fn binding_from_row(
-    row: SqliteRow,
-) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
+fn binding_from_row(row: AnyRow) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
     Ok(KnowledgeAgentBinding {
         binding_id: u64_from_row(&row, "id")?,
         profile_id: u64_from_row(&row, "profile_id")?,
@@ -664,7 +662,7 @@ fn enabled_from_code(value: i64) -> bool {
     value != 0
 }
 
-fn u64_from_row(row: &SqliteRow, column: &str) -> Result<u64, KnowledgeAgentProfileStoreError> {
+fn u64_from_row(row: &AnyRow, column: &str) -> Result<u64, KnowledgeAgentProfileStoreError> {
     let value: i64 = row.try_get(column).map_err(agent_sqlx_error)?;
     u64::try_from(value).map_err(|_| {
         KnowledgeAgentProfileStoreError::Internal(format!("{column} must not be negative"))
@@ -672,7 +670,7 @@ fn u64_from_row(row: &SqliteRow, column: &str) -> Result<u64, KnowledgeAgentProf
 }
 
 fn optional_u64_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
     column: &str,
 ) -> Result<Option<u64>, KnowledgeAgentProfileStoreError> {
     optional_i64_from_row(row, column)?
@@ -684,7 +682,7 @@ fn optional_u64_from_row(
         .transpose()
 }
 
-fn i32_from_row(row: &SqliteRow, column: &str) -> Result<i32, KnowledgeAgentProfileStoreError> {
+fn i32_from_row(row: &AnyRow, column: &str) -> Result<i32, KnowledgeAgentProfileStoreError> {
     let value: i64 = row.try_get(column).map_err(agent_sqlx_error)?;
     i32::try_from(value).map_err(|_| {
         KnowledgeAgentProfileStoreError::Internal(format!("{column} exceeds int32 range"))
@@ -692,7 +690,7 @@ fn i32_from_row(row: &SqliteRow, column: &str) -> Result<i32, KnowledgeAgentProf
 }
 
 fn optional_i64_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
     column: &str,
 ) -> Result<Option<i64>, KnowledgeAgentProfileStoreError> {
     row.try_get(column).map_err(agent_sqlx_error)

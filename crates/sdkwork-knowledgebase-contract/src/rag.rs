@@ -71,6 +71,7 @@ pub struct KnowledgeRetrievalBinding {
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeRetrievalRequest {
     #[serde(
+        default,
         serialize_with = "serialize_u64_as_string",
         deserialize_with = "deserialize_u64_from_string_or_number"
     )]
@@ -206,6 +207,7 @@ pub struct KnowledgeRetrievalResult {
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeContextPackRequest {
     #[serde(
+        default,
         serialize_with = "serialize_u64_as_string",
         deserialize_with = "deserialize_u64_from_string_or_number"
     )]
@@ -300,6 +302,7 @@ pub struct KnowledgeAgentBindingList {
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeAgentBindingRequest {
     #[serde(
+        default,
         serialize_with = "serialize_u64_as_string",
         deserialize_with = "deserialize_u64_from_string_or_number"
     )]
@@ -369,6 +372,7 @@ pub struct KnowledgeAgentProfile {
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeAgentProfileRequest {
     #[serde(
+        default,
         serialize_with = "serialize_u64_as_string",
         deserialize_with = "deserialize_u64_from_string_or_number"
     )]
@@ -400,6 +404,7 @@ pub struct KnowledgeAgentProfileRequest {
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeIndexRequest {
     #[serde(
+        default,
         serialize_with = "serialize_u64_as_string",
         deserialize_with = "deserialize_u64_from_string_or_number"
     )]
@@ -470,6 +475,7 @@ pub struct KnowledgeRetrievalProfile {
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeRetrievalProfileRequest {
     #[serde(
+        default,
         serialize_with = "serialize_u64_as_string",
         deserialize_with = "deserialize_u64_from_string_or_number"
     )]
@@ -495,4 +501,46 @@ pub struct KnowledgeProviderHealth {
     pub status: String,
     pub provider_id: String,
     pub checked_at: Option<String>,
+}
+
+impl KnowledgeRetrievalRequest {
+    pub fn with_tenant_id(mut self, tenant_id: u64) -> Self {
+        self.tenant_id = tenant_id;
+        self
+    }
+}
+
+impl KnowledgeContextPackRequest {
+    pub fn with_tenant_id(mut self, tenant_id: u64) -> Self {
+        self.tenant_id = tenant_id;
+        self
+    }
+}
+
+impl KnowledgeAgentBindingRequest {
+    pub fn with_tenant_id(mut self, tenant_id: u64) -> Self {
+        self.tenant_id = tenant_id;
+        self
+    }
+}
+
+impl KnowledgeAgentProfileRequest {
+    pub fn with_tenant_id(mut self, tenant_id: u64) -> Self {
+        self.tenant_id = tenant_id;
+        self
+    }
+}
+
+impl KnowledgeIndexRequest {
+    pub fn with_tenant_id(mut self, tenant_id: u64) -> Self {
+        self.tenant_id = tenant_id;
+        self
+    }
+}
+
+impl KnowledgeRetrievalProfileRequest {
+    pub fn with_tenant_id(mut self, tenant_id: u64) -> Self {
+        self.tenant_id = tenant_id;
+        self
+    }
 }

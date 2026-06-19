@@ -61,7 +61,7 @@ const client = new SdkworkAppClient({
 ### knowledge
 
 ```typescript
-// GET /app/v3/api/knowledge/documents
+// List knowledge documents
 const result = await client.knowledge.documents.list();
 ```
 

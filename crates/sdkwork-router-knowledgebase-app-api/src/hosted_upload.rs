@@ -13,17 +13,15 @@ use sdkwork_knowledgebase_contract::upload::{
     KnowledgeUploadSession, KnowledgeUploadSessionStatus,
 };
 
-use crate::{
-    runtime::KnowledgebaseSqliteRuntime, ApiError, ApiResult, KnowledgeUploadSessionAppService,
-};
+use crate::{runtime::KnowledgebaseRuntime, ApiError, ApiResult, KnowledgeUploadSessionAppService};
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedUploadSessionService {
-    runtime: KnowledgebaseSqliteRuntime,
+pub(crate) struct HostedUploadSessionService {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedUploadSessionService {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedUploadSessionService {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 
@@ -137,7 +135,7 @@ impl SqliteHostedUploadSessionService {
 }
 
 #[async_trait]
-impl KnowledgeUploadSessionAppService for SqliteHostedUploadSessionService {
+impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
     async fn create_upload_session(
         &self,
         request: CreateKnowledgeUploadSessionRequest,

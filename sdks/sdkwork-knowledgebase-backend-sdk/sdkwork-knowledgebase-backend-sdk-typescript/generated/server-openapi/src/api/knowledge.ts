@@ -12,7 +12,8 @@ export class KnowledgeProviderHealthApi {
   }
 
 
-async retrieve(): Promise<KnowledgeProviderHealth> {
+/** Retrieve provider health status */
+  async retrieve(): Promise<KnowledgeProviderHealth> {
     return this.client.get<KnowledgeProviderHealth>(backendApiPath(`/knowledge/provider_health`));
   }
 }
@@ -25,11 +26,13 @@ export class KnowledgeRetrievalTracesApi {
   }
 
 
-async list(): Promise<KnowledgeRetrievalTraceList> {
+/** List retrieval traces */
+  async list(): Promise<KnowledgeRetrievalTraceList> {
     return this.client.get<KnowledgeRetrievalTraceList>(backendApiPath(`/knowledge/retrieval_traces`));
   }
 
-async retrieve(traceId: string): Promise<KnowledgeRetrievalTrace> {
+/** Retrieve a retrieval trace */
+  async retrieve(traceId: string): Promise<KnowledgeRetrievalTrace> {
     return this.client.get<KnowledgeRetrievalTrace>(backendApiPath(`/knowledge/retrieval_traces/${serializePathParameter(traceId, { name: 'traceId', style: 'simple', explode: false })}`));
   }
 }
@@ -42,15 +45,18 @@ export class KnowledgeRetrievalProfilesApi {
   }
 
 
-async create(body: KnowledgeRetrievalProfileRequest): Promise<KnowledgeRetrievalProfile> {
+/** Create a retrieval profile */
+  async create(body: KnowledgeRetrievalProfileRequest): Promise<KnowledgeRetrievalProfile> {
     return this.client.post<KnowledgeRetrievalProfile>(backendApiPath(`/knowledge/retrieval_profiles`), body, undefined, undefined, 'application/json');
   }
 
-async retrieve(profileId: string): Promise<KnowledgeRetrievalProfile> {
+/** Retrieve a retrieval profile */
+  async retrieve(profileId: string): Promise<KnowledgeRetrievalProfile> {
     return this.client.get<KnowledgeRetrievalProfile>(backendApiPath(`/knowledge/retrieval_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`));
   }
 
-async update(profileId: string, body: KnowledgeRetrievalProfileRequest): Promise<KnowledgeRetrievalProfile> {
+/** Update a retrieval profile */
+  async update(profileId: string, body: KnowledgeRetrievalProfileRequest): Promise<KnowledgeRetrievalProfile> {
     return this.client.patch<KnowledgeRetrievalProfile>(backendApiPath(`/knowledge/retrieval_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
   }
 }
@@ -63,15 +69,18 @@ export class KnowledgeIndexesApi {
   }
 
 
-async create(body: KnowledgeIndexRequest): Promise<KnowledgeIndex> {
+/** Create a knowledge index */
+  async create(body: KnowledgeIndexRequest): Promise<KnowledgeIndex> {
     return this.client.post<KnowledgeIndex>(backendApiPath(`/knowledge/indexes`), body, undefined, undefined, 'application/json');
   }
 
-async retrieve(indexId: string): Promise<KnowledgeIndex> {
+/** Retrieve a knowledge index */
+  async retrieve(indexId: string): Promise<KnowledgeIndex> {
     return this.client.get<KnowledgeIndex>(backendApiPath(`/knowledge/indexes/${serializePathParameter(indexId, { name: 'indexId', style: 'simple', explode: false })}`));
   }
 
-async rebuild(indexId: string, body: WikiIndexRebuildRequest): Promise<WikiIndexDocument> {
+/** Rebuild a knowledge index */
+  async rebuild(indexId: string, body: WikiIndexRebuildRequest): Promise<WikiIndexDocument> {
     return this.client.post<WikiIndexDocument>(backendApiPath(`/knowledge/indexes/${serializePathParameter(indexId, { name: 'indexId', style: 'simple', explode: false })}/rebuild`), body, undefined, undefined, 'application/json');
   }
 }
@@ -84,7 +93,8 @@ export class KnowledgeWikiEvalRunsApi {
   }
 
 
-async create(body: WikiQualityRunRequest): Promise<WikiQualityRun> {
+/** Create a wiki eval run */
+  async create(body: WikiQualityRunRequest): Promise<WikiQualityRun> {
     return this.client.post<WikiQualityRun>(backendApiPath(`/knowledge/wiki_eval_runs`), body, undefined, undefined, 'application/json');
   }
 }
@@ -97,7 +107,8 @@ export class KnowledgeWikiLintRunsApi {
   }
 
 
-async create(body: WikiQualityRunRequest): Promise<WikiQualityRun> {
+/** Create a wiki lint run */
+  async create(body: WikiQualityRunRequest): Promise<WikiQualityRun> {
     return this.client.post<WikiQualityRun>(backendApiPath(`/knowledge/wiki_lint_runs`), body, undefined, undefined, 'application/json');
   }
 }
@@ -110,7 +121,8 @@ export class KnowledgeWikiFileEntriesApi {
   }
 
 
-async list(): Promise<KnowledgeWikiFileEntryList> {
+/** List wiki file entries */
+  async list(): Promise<KnowledgeWikiFileEntryList> {
     return this.client.get<KnowledgeWikiFileEntryList>(backendApiPath(`/knowledge/wiki_file_entries`));
   }
 }
@@ -123,11 +135,13 @@ export class KnowledgeWikiExportsApi {
   }
 
 
-async create(body: WikiExportRequest): Promise<KnowledgeWikiFileEntry> {
+/** Create a wiki export */
+  async create(body: WikiExportRequest): Promise<KnowledgeWikiFileEntry> {
     return this.client.post<KnowledgeWikiFileEntry>(backendApiPath(`/knowledge/wiki_exports`), body, undefined, undefined, 'application/json');
   }
 
-async retrieve(exportId: number): Promise<KnowledgeWikiFileEntry> {
+/** Retrieve a wiki export */
+  async retrieve(exportId: number): Promise<KnowledgeWikiFileEntry> {
     return this.client.get<KnowledgeWikiFileEntry>(backendApiPath(`/knowledge/wiki_exports/${serializePathParameter(exportId, { name: 'exportId', style: 'simple', explode: false })}`));
   }
 }
@@ -140,7 +154,8 @@ export class KnowledgeWikiLogEntriesApi {
   }
 
 
-async create(body: WikiLogEntry): Promise<WikiLogEntry> {
+/** Create a wiki log entry */
+  async create(body: WikiLogEntry): Promise<WikiLogEntry> {
     return this.client.post<WikiLogEntry>(backendApiPath(`/knowledge/wiki_log_entries`), body, undefined, undefined, 'application/json');
   }
 }
@@ -164,7 +179,8 @@ export class KnowledgeWikiIndexApi {
   }
 
 
-async rebuild(body: WikiIndexRebuildRequest): Promise<WikiIndexDocument> {
+/** Rebuild the wiki index */
+  async rebuild(body: WikiIndexRebuildRequest): Promise<WikiIndexDocument> {
     return this.client.post<WikiIndexDocument>(backendApiPath(`/knowledge/wiki_index/rebuild`), body, undefined, undefined, 'application/json');
   }
 }
@@ -177,11 +193,13 @@ export class KnowledgeWikiSchemaProfilesApi {
   }
 
 
-async create(body: KnowledgeWikiSchemaProfileRequest): Promise<KnowledgeWikiFileEntry> {
+/** Create a wiki schema profile */
+  async create(body: KnowledgeWikiSchemaProfileRequest): Promise<KnowledgeWikiFileEntry> {
     return this.client.post<KnowledgeWikiFileEntry>(backendApiPath(`/knowledge/wiki_schema_profiles`), body, undefined, undefined, 'application/json');
   }
 
-async update(profileId: number, body: KnowledgeWikiSchemaProfileRequest): Promise<KnowledgeWikiFileEntry> {
+/** Update a wiki schema profile */
+  async update(profileId: number, body: KnowledgeWikiSchemaProfileRequest): Promise<KnowledgeWikiFileEntry> {
     return this.client.patch<KnowledgeWikiFileEntry>(backendApiPath(`/knowledge/wiki_schema_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
   }
 }
@@ -205,7 +223,8 @@ export class KnowledgeWikiPagesApi {
   }
 
 
-async publish(pageId: number, body: WikiPagePublishRequest): Promise<WikiPageSummary> {
+/** Publish a wiki page */
+  async publish(pageId: number, body: WikiPagePublishRequest): Promise<WikiPageSummary> {
     return this.client.post<WikiPageSummary>(backendApiPath(`/knowledge/wiki_pages/${serializePathParameter(pageId, { name: 'pageId', style: 'simple', explode: false })}/publish`), body, undefined, undefined, 'application/json');
   }
 }
@@ -218,15 +237,18 @@ export class KnowledgeWikiCandidatesApi {
   }
 
 
-async list(): Promise<WikiCandidateResultList> {
+/** List wiki candidates */
+  async list(): Promise<WikiCandidateResultList> {
     return this.client.get<WikiCandidateResultList>(backendApiPath(`/knowledge/wiki_candidates`));
   }
 
-async approve(candidateId: number, body: WikiCandidateReviewRequest): Promise<WikiCandidateResult> {
+/** Approve a wiki candidate */
+  async approve(candidateId: number, body: WikiCandidateReviewRequest): Promise<WikiCandidateResult> {
     return this.client.post<WikiCandidateResult>(backendApiPath(`/knowledge/wiki_candidates/${serializePathParameter(candidateId, { name: 'candidateId', style: 'simple', explode: false })}/approve`), body, undefined, undefined, 'application/json');
   }
 
-async reject(candidateId: number, body: WikiCandidateReviewRequest): Promise<WikiCandidateResult> {
+/** Reject a wiki candidate */
+  async reject(candidateId: number, body: WikiCandidateReviewRequest): Promise<WikiCandidateResult> {
     return this.client.post<WikiCandidateResult>(backendApiPath(`/knowledge/wiki_candidates/${serializePathParameter(candidateId, { name: 'candidateId', style: 'simple', explode: false })}/reject`), body, undefined, undefined, 'application/json');
   }
 }
@@ -239,7 +261,8 @@ export class KnowledgeWikiCompileJobsApi {
   }
 
 
-async create(body: WikiCompileJobRequest): Promise<IngestionJob> {
+/** Create a wiki compile job */
+  async create(body: WikiCompileJobRequest): Promise<IngestionJob> {
     return this.client.post<IngestionJob>(backendApiPath(`/knowledge/wiki_compile_jobs`), body, undefined, undefined, 'application/json');
   }
 }
@@ -281,11 +304,13 @@ export class KnowledgeSourcesApi {
   }
 
 
-async list(): Promise<KnowledgeSourceList> {
+/** List knowledge sources */
+  async list(): Promise<KnowledgeSourceList> {
     return this.client.get<KnowledgeSourceList>(backendApiPath(`/knowledge/sources`));
   }
 
-async create(body: CreateKnowledgeSourceRequest): Promise<KnowledgeSource> {
+/** Create a knowledge source */
+  async create(body: CreateKnowledgeSourceRequest): Promise<KnowledgeSource> {
     return this.client.post<KnowledgeSource>(backendApiPath(`/knowledge/sources`), body, undefined, undefined, 'application/json');
   }
 }

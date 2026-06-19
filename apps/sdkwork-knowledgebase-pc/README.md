@@ -23,8 +23,8 @@ Architecture: `../../sdkwork-specs/APP_PC_ARCHITECTURE_SPEC.md`, `../../sdkwork-
 From the repository root:
 
 ```powershell
-pnpm knowledgebase:dev
-pnpm knowledgebase:dev:desktop
+pnpm dev:browser
+pnpm dev:desktop
 ```
 
 Or from this directory:
@@ -47,5 +47,5 @@ Topology env keys are defined in `../../configs/topology/` and mirrored in `.env
 
 ```powershell
 pnpm lint
-pnpm --dir ../.. typecheck:pc
+pnpm --dir ../.. typecheck
 ```

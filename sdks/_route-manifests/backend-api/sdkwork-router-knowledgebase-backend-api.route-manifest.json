@@ -35,7 +35,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "GET",
@@ -57,7 +57,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -79,7 +79,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "GET",
@@ -101,7 +101,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -123,7 +123,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "GET",
@@ -145,7 +145,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "PATCH",
@@ -167,7 +167,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "GET",
@@ -189,7 +189,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "GET",
@@ -211,7 +211,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "GET",
@@ -233,7 +233,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -255,7 +255,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "GET",
@@ -277,7 +277,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -299,7 +299,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -321,7 +321,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -343,7 +343,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -365,7 +365,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -387,7 +387,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "GET",
@@ -409,7 +409,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "GET",
@@ -431,7 +431,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -453,7 +453,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -475,7 +475,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -497,7 +497,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -519,7 +519,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "POST",
@@ -541,7 +541,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     },
     {
       "method": "PATCH",
@@ -563,7 +563,7 @@
         "apiAuthority": "sdkwork-knowledgebase-backend-api"
       },
       "requestContext": "WebRequestContext",
-      "apiSurface": "backend"
+      "apiSurface": "backend-api"
     }
   ]
 }

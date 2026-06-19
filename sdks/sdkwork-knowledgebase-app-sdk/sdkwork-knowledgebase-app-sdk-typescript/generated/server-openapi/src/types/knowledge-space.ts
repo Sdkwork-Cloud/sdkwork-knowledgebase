@@ -1,3 +1,4 @@
+import type { KnowledgeAgentKnowledgeMode } from './knowledge-agent-knowledge-mode';
 import type { KnowledgeSpaceStatus } from './knowledge-space-status';
 
 export interface KnowledgeSpace {
@@ -8,4 +9,5 @@ export interface KnowledgeSpace {
   driveSpaceId?: string | null;
   status: KnowledgeSpaceStatus;
   llmWikiInitialized: boolean;
+  knowledgeMode?: KnowledgeAgentKnowledgeMode;
 }

@@ -1,6 +1,6 @@
 # Knowledgebase
 
-Generator-owned TypeScript transport SDK for sdkwork-knowledgebase.open.
+Generated SDKWork v3 API-key open-api transport SDK.
 
 ## Installation
 
@@ -64,7 +64,7 @@ const client = new SdkworkKnowledgebaseClient({
 ### knowledge
 
 ```typescript
-// GET /knowledge/v3/api/documents
+// List knowledge documents
 const result = await client.knowledge.documents.list();
 ```
 

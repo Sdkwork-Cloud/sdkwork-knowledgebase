@@ -1,5 +1,4 @@
 use sdkwork_id_core::default_snowflake_epoch_millis;
-use sdkwork_intelligence_knowledgebase_repository_sqlx::db::sqlite::install_sqlite_schema;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     KnowledgeIdGenerator, KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator,
     SqliteKnowledgeSpaceStore,
@@ -7,8 +6,7 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore,
 };
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use std::sync::{Arc, Mutex};
 
 #[tokio::test]
@@ -35,7 +33,7 @@ async fn sqlite_space_insert_uses_injected_runtime_snowflake_id() {
 
     assert_eq!(created.id, generated_id);
 
-    let stored_id: i64 = sqlx::query_scalar("SELECT id FROM kb_space WHERE uuid = ?")
+    let stored_id: i64 = sqlx::query_scalar("SELECT id FROM kb_space WHERE uuid = $1")
         .bind(created.uuid)
         .fetch_one(&pool)
         .await
@@ -61,7 +59,7 @@ async fn sqlite_core_tables_reject_missing_runtime_ids() {
             updated_at,
             version
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         "#,
     )
     .bind("space-without-id")
@@ -208,14 +206,12 @@ fn kb_insert_column_blocks(source: &str) -> Vec<InsertColumns> {
     inserts
 }
 
-async fn sqlite_pool() -> SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
+async fn sqlite_pool() -> AnyPool {
+    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
+        "sqlite::memory:",
+    )
+    .await
+    .unwrap()
 }
 
-async fn apply_sqlite_migration(pool: &SqlitePool) {
-    install_sqlite_schema(pool).await.unwrap();
-}
+async fn apply_sqlite_migration(_pool: &AnyPool) {}

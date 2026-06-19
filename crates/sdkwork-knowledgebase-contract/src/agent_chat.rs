@@ -10,6 +10,7 @@ pub use crate::rag::KnowledgeAgentKnowledgeMode;
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeAgentChatRequest {
     #[serde(
+        default,
         serialize_with = "serialize_u64_as_string",
         deserialize_with = "deserialize_u64_from_string_or_number"
     )]
@@ -69,4 +70,11 @@ pub struct KnowledgeAgentChatResponse {
     )]
     pub retrieval_id: Option<u64>,
     pub session_id: Option<String>,
+}
+
+impl KnowledgeAgentChatRequest {
+    pub fn with_tenant_id(mut self, tenant_id: u64) -> Self {
+        self.tenant_id = tenant_id;
+        self
+    }
 }

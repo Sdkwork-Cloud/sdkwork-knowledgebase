@@ -20,7 +20,7 @@ use sdkwork_knowledgebase_contract::document::{
 };
 use sdkwork_knowledgebase_contract::ingest::{IngestionJob, IngestionJobState};
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
-use sqlx::{sqlite::SqliteRow, Row, SqlitePool};
+use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -32,18 +32,18 @@ const INITIAL_VERSION: i64 = 0;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeSourceStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeSourceStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -88,13 +88,13 @@ impl SqliteKnowledgeSourceStore {
             r#"
             SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix
             FROM kb_source
-            WHERE tenant_id = ?
-              AND space_id = ?
-              AND source_type = ?
-              AND COALESCE(provider, '') = COALESCE(?, '')
-              AND COALESCE(drive_bucket, '') = COALESCE(?, '')
-              AND COALESCE(drive_prefix, '') = COALESCE(?, '')
-              AND status = ?
+            WHERE tenant_id = $1
+              AND space_id = $2
+              AND source_type = $3
+              AND COALESCE(provider, '') = COALESCE($4, '')
+              AND COALESCE(drive_bucket, '') = COALESCE($5, '')
+              AND COALESCE(drive_prefix, '') = COALESCE($6, '')
+              AND status = $7
             LIMIT 1
             "#,
         )
@@ -157,7 +157,7 @@ impl SqliteKnowledgeSourceStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             {conflict_clause}
             RETURNING id, space_id, source_type, provider, drive_bucket, drive_prefix
             "#
@@ -191,7 +191,7 @@ impl SqliteKnowledgeSourceStore {
             r#"
             SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix
             FROM kb_source
-            WHERE tenant_id = ? AND status = ?
+            WHERE tenant_id = $1 AND status = $2
             ORDER BY id ASC
             LIMIT 200
             "#,
@@ -208,18 +208,18 @@ impl SqliteKnowledgeSourceStore {
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeDocumentStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeDocumentStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -276,22 +276,22 @@ impl SqliteKnowledgeDocumentStore {
             SELECT id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
                    current_version_id, visibility, content_state, index_state
             FROM kb_document
-            WHERE tenant_id = ?
-              AND space_id = ?
-              AND collection_id = ?
-              AND identity_scope = ?
+            WHERE tenant_id = $1
+              AND space_id = $2
+              AND collection_id = $3
+              AND identity_scope = $4
               AND (
-                  (? = 'source_only' AND source_id = ?)
+                  ($5 = 'source_only' AND source_id = $6)
                   OR (
-                      ? = 'source_and_original_drive_node'
+                      $7 = 'source_and_original_drive_node'
                       AND (
-                          (? IS NULL AND source_id IS NULL)
-                          OR (? IS NOT NULL AND source_id = ?)
+                          ($8 IS NULL AND source_id IS NULL)
+                          OR ($9 IS NOT NULL AND source_id = $10)
                       )
-                      AND COALESCE(original_file_drive_node_id, '') = COALESCE(?, '')
+                      AND COALESCE(original_file_drive_node_id, '') = COALESCE($11, '')
                   )
               )
-              AND status = ?
+              AND status = $12
             LIMIT 1
             "#,
         )
@@ -325,9 +325,9 @@ impl SqliteKnowledgeDocumentStore {
             SELECT id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
                    current_version_id, visibility, content_state, index_state
             FROM kb_document
-            WHERE tenant_id = ? AND status = ?
+            WHERE tenant_id = $1 AND status = $2
             ORDER BY id ASC
-            LIMIT ?
+            LIMIT $3
             "#,
         )
         .bind(tenant_id)
@@ -351,7 +351,7 @@ impl SqliteKnowledgeDocumentStore {
             SELECT id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
                    current_version_id, visibility, content_state, index_state
             FROM kb_document
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
         )
         .bind(tenant_id)
@@ -390,8 +390,8 @@ impl SqliteKnowledgeDocumentStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_document
-            SET title = ?, mime_type = ?, language = ?, updated_at = ?, version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            SET title = $1, mime_type = $2, language = $3, updated_at = $4, version = version + 1
+            WHERE tenant_id = $5 AND id = $6 AND status = $7
             RETURNING id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
                       current_version_id, visibility, content_state, index_state
             "#,
@@ -428,8 +428,8 @@ impl SqliteKnowledgeDocumentStore {
         let rows = sqlx::query(
             r#"
             UPDATE kb_document
-            SET status = 0, updated_at = ?, version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            SET status = 0, updated_at = $1, version = version + 1
+            WHERE tenant_id = $2 AND id = $3 AND status = $4
             "#,
         )
         .bind(now)
@@ -466,10 +466,10 @@ impl SqliteKnowledgeDocumentStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_document
-            SET original_file_drive_node_id = COALESCE(original_file_drive_node_id, ?),
-                updated_at = ?,
+            SET original_file_drive_node_id = COALESCE(original_file_drive_node_id, $1),
+                updated_at = $2,
                 version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $3 AND id = $4 AND status = $5
             RETURNING
                 id,
                 space_id,
@@ -555,7 +555,7 @@ impl SqliteKnowledgeDocumentStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
             {conflict_clause}
             RETURNING
                 id,
@@ -615,18 +615,18 @@ fn validate_document_identity(
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeDocumentVersionStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeDocumentVersionStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -683,7 +683,7 @@ impl SqliteKnowledgeDocumentVersionStore {
             SELECT id, document_id, version_no, original_object_ref_id, checksum_sha256_hex,
                    size_bytes, mime_type, parse_state, index_state
             FROM kb_document_version
-            WHERE tenant_id = ? AND document_id = ? AND version_no = ? AND status = ?
+            WHERE tenant_id = $1 AND document_id = $2 AND version_no = $3 AND status = $4
             LIMIT 1
             "#,
         )
@@ -752,7 +752,7 @@ impl SqliteKnowledgeDocumentVersionStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             {conflict_clause}
             RETURNING
                 id,
@@ -819,8 +819,8 @@ impl SqliteKnowledgeDocumentVersionStore {
         sqlx::query(
             r#"
             UPDATE kb_document
-            SET current_version_id = ?, updated_at = ?, version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            SET current_version_id = $1, updated_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND id = $4 AND status = $5
               AND (
                   current_version_id IS NULL
                   OR NOT EXISTS (
@@ -829,8 +829,8 @@ impl SqliteKnowledgeDocumentVersionStore {
                       WHERE current_version.tenant_id = kb_document.tenant_id
                         AND current_version.document_id = kb_document.id
                         AND current_version.id = kb_document.current_version_id
-                        AND current_version.status = ?
-                        AND current_version.version_no >= ?
+                        AND current_version.status = $6
+                        AND current_version.version_no >= $7
                   )
               )
             "#,
@@ -859,7 +859,7 @@ impl SqliteKnowledgeDocumentVersionStore {
             r#"
             SELECT id, document_id, version_no, original_object_ref_id, checksum_sha256_hex, size_bytes, mime_type
             FROM kb_document_version
-            WHERE tenant_id = ? AND document_id = ? AND status = ?
+            WHERE tenant_id = $1 AND document_id = $2 AND status = $3
             ORDER BY version_no ASC
             LIMIT 200
             "#,
@@ -877,18 +877,18 @@ impl SqliteKnowledgeDocumentVersionStore {
 
 #[derive(Debug, Clone)]
 pub struct SqliteIngestionJobStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteIngestionJobStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -925,7 +925,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
             r#"
             SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
             FROM kb_ingestion_job
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
         )
         .bind(tenant_id)
@@ -950,8 +950,8 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_ingestion_job
-            SET state = ?, error_detail = ?, updated_at = ?, version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            SET state = $1, error_detail = $2, updated_at = $3, version = version + 1
+            WHERE tenant_id = $4 AND id = $5 AND status = $6
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
             "#,
         )
@@ -979,9 +979,9 @@ impl IngestionJobStore for SqliteIngestionJobStore {
             r#"
             SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
             FROM kb_ingestion_job
-            WHERE tenant_id = ? AND state = ? AND status = ?
+            WHERE tenant_id = $1 AND state = $2 AND status = $3
             ORDER BY id ASC
-            LIMIT ?
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
@@ -1000,14 +1000,14 @@ impl SqliteIngestionJobStore {
     async fn get_job_by_idempotency(
         &self,
         record: &CreateIngestionJobRecord,
-    ) -> Result<SqliteRow, IngestionJobStoreError> {
+    ) -> Result<AnyRow, IngestionJobStoreError> {
         let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
         let space_id = job_to_i64("space_id", record.space_id)?;
         sqlx::query(
             r#"
             SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
             FROM kb_ingestion_job
-            WHERE tenant_id = ? AND space_id = ? AND idempotency_key = ? AND status = ?
+            WHERE tenant_id = $1 AND space_id = $2 AND idempotency_key = $3 AND status = $4
             LIMIT 1
             "#,
         )
@@ -1047,7 +1047,7 @@ impl SqliteIngestionJobStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, $11, $12)
             ON CONFLICT(tenant_id, space_id, idempotency_key) DO NOTHING
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
             "#,
@@ -1072,7 +1072,7 @@ impl SqliteIngestionJobStore {
     }
 }
 
-fn job_from_row(row: &SqliteRow) -> Result<IngestionJob, IngestionJobStoreError> {
+fn job_from_row(row: &AnyRow) -> Result<IngestionJob, IngestionJobStoreError> {
     let state_code: i64 = row.try_get("state").map_err(job_sqlx_error)?;
     Ok(IngestionJob {
         id: job_from_i64("id", row.try_get("id").map_err(job_sqlx_error)?)?,
@@ -1085,7 +1085,7 @@ fn job_from_row(row: &SqliteRow) -> Result<IngestionJob, IngestionJobStoreError>
 }
 
 fn validate_existing_job_idempotency(
-    row: &SqliteRow,
+    row: &AnyRow,
     record: &CreateIngestionJobRecord,
 ) -> Result<(), IngestionJobStoreError> {
     let existing_job_type: String = row.try_get("job_type").map_err(job_sqlx_error)?;
@@ -1127,7 +1127,7 @@ fn job_metadata_to_json(
     ))
 }
 
-fn job_metadata_fingerprint(row: &SqliteRow) -> Result<Option<String>, IngestionJobStoreError> {
+fn job_metadata_fingerprint(row: &AnyRow) -> Result<Option<String>, IngestionJobStoreError> {
     let metadata: Option<String> = row.try_get("metadata").map_err(job_sqlx_error)?;
     let Some(metadata) = metadata else {
         return Ok(None);
@@ -1140,7 +1140,7 @@ fn job_metadata_fingerprint(row: &SqliteRow) -> Result<Option<String>, Ingestion
         .map(str::to_string))
 }
 
-fn source_from_row(row: &SqliteRow) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
+fn source_from_row(row: &AnyRow) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
     Ok(KnowledgeSource {
         id: source_from_i64("id", row.try_get("id").map_err(source_sqlx_error)?)?,
         space_id: source_from_i64(
@@ -1157,7 +1157,7 @@ fn source_from_row(row: &SqliteRow) -> Result<KnowledgeSource, KnowledgeSourceSt
     })
 }
 
-fn document_from_row(row: &SqliteRow) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+fn document_from_row(row: &AnyRow) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
     let visibility_code: i64 = row.try_get("visibility").map_err(document_sqlx_error)?;
     let content_state_code: i64 = row.try_get("content_state").map_err(document_sqlx_error)?;
     let index_state_code: i64 = row.try_get("index_state").map_err(document_sqlx_error)?;
@@ -1194,7 +1194,7 @@ fn document_from_row(row: &SqliteRow) -> Result<KnowledgeDocument, KnowledgeDocu
 }
 
 fn document_version_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
 ) -> Result<KnowledgeDocumentVersion, KnowledgeDocumentVersionStoreError> {
     let parse_state_code: i64 = row.try_get("parse_state").map_err(version_sqlx_error)?;
     let index_state_code: i64 = row.try_get("index_state").map_err(version_sqlx_error)?;

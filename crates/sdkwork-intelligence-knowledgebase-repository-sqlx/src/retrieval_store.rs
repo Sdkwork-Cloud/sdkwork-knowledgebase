@@ -9,7 +9,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_trace
     KnowledgeRetrievalTraceStoreError,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalMethod;
-use sqlx::{sqlite::SqliteRow, QueryBuilder, Row, SqlitePool};
+use sqlx::{any::AnyRow, AnyPool, QueryBuilder, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -22,18 +22,18 @@ const INITIAL_VERSION: i64 = 0;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeChunkRetrievalStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeChunkRetrievalStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -63,9 +63,9 @@ impl SqliteKnowledgeChunkRetrievalStore {
                 result_count,
                 status
             FROM kb_retrieval_trace
-            WHERE tenant_id = ?
+            WHERE tenant_id = $1
             ORDER BY id DESC
-            LIMIT ?
+            LIMIT $2
             "#,
         )
         .bind(tenant_id)
@@ -518,7 +518,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             "#,
         )
         .bind(id)
@@ -589,7 +589,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                     updated_at,
                     version
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                 "#,
             )
             .bind(id)
@@ -638,7 +638,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 result_count,
                 status
             FROM kb_retrieval_trace
-            WHERE tenant_id = ? AND id = ?
+            WHERE tenant_id = $1 AND id = $2
             "#,
         )
         .bind(trace_to_i64("tenant_id", tenant_id)?)
@@ -686,7 +686,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
             JOIN kb_document d
               ON d.tenant_id = h.tenant_id
              AND d.id = h.document_id
-            WHERE h.tenant_id = ? AND h.retrieval_trace_id = ?
+            WHERE h.tenant_id = $1 AND h.retrieval_trace_id = $2
             ORDER BY h.result_rank ASC, h.id ASC
             "#,
         )
@@ -825,7 +825,7 @@ fn cosine_similarity_f32(left: &[f32], right: &[f32]) -> f64 {
     dot / (left_norm.sqrt() * right_norm.sqrt())
 }
 
-fn push_score_expression(query: &mut QueryBuilder<'_, sqlx::Sqlite>, terms: &[String]) {
+fn push_score_expression(query: &mut QueryBuilder<'_, sqlx::Any>, terms: &[String]) {
     query.push("(");
     for (index, term) in terms.iter().enumerate() {
         if index > 0 {
@@ -841,7 +841,7 @@ fn push_score_expression(query: &mut QueryBuilder<'_, sqlx::Sqlite>, terms: &[St
 }
 
 fn chunk_hit_from_row(
-    row: SqliteRow,
+    row: AnyRow,
     method: KnowledgeRetrievalMethod,
     min_score: Option<f64>,
 ) -> Result<Option<KnowledgeChunkSearchHit>, KnowledgeRetrievalBackendError> {
@@ -925,7 +925,7 @@ fn trace_method_from_match_reason(
 }
 
 fn trace_record_from_row(
-    row: SqliteRow,
+    row: AnyRow,
 ) -> Result<KnowledgeRetrievalTraceRecord, KnowledgeRetrievalTraceStoreError> {
     let result_count = row
         .try_get::<i64, _>("result_count")
@@ -948,7 +948,7 @@ fn trace_record_from_row(
 }
 
 fn trace_hit_from_row(
-    row: SqliteRow,
+    row: AnyRow,
 ) -> Result<KnowledgeRetrievalTraceHitRecord, KnowledgeRetrievalTraceStoreError> {
     let result_rank = row
         .try_get::<i64, _>("result_rank")
@@ -975,7 +975,7 @@ fn trace_hit_from_row(
     })
 }
 
-fn u64_from_row(row: &SqliteRow, column: &str) -> Result<u64, KnowledgeRetrievalBackendError> {
+fn u64_from_row(row: &AnyRow, column: &str) -> Result<u64, KnowledgeRetrievalBackendError> {
     let value: i64 = row.try_get(column).map_err(backend_sqlx_error)?;
     u64::try_from(value).map_err(|_| {
         KnowledgeRetrievalBackendError::Internal(format!("{column} must not be negative"))
@@ -983,7 +983,7 @@ fn u64_from_row(row: &SqliteRow, column: &str) -> Result<u64, KnowledgeRetrieval
 }
 
 fn optional_u64_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
     column: &str,
 ) -> Result<Option<u64>, KnowledgeRetrievalBackendError> {
     optional_i64_from_row(row, column)?
@@ -996,7 +996,7 @@ fn optional_u64_from_row(
 }
 
 fn optional_i64_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
     column: &str,
 ) -> Result<Option<i64>, KnowledgeRetrievalBackendError> {
     row.try_get(column).map_err(backend_sqlx_error)
@@ -1017,7 +1017,7 @@ fn trace_to_i64(field_name: &str, value: u64) -> Result<i64, KnowledgeRetrievalT
 }
 
 fn trace_u64_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
     column: &str,
 ) -> Result<u64, KnowledgeRetrievalTraceStoreError> {
     let value: i64 = row.try_get(column).map_err(trace_sqlx_error)?;
@@ -1027,7 +1027,7 @@ fn trace_u64_from_row(
 }
 
 fn trace_optional_u64_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
     column: &str,
 ) -> Result<Option<u64>, KnowledgeRetrievalTraceStoreError> {
     trace_optional_i64_from_row(row, column)?
@@ -1042,7 +1042,7 @@ fn trace_optional_u64_from_row(
 }
 
 fn trace_optional_i64_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
     column: &str,
 ) -> Result<Option<i64>, KnowledgeRetrievalTraceStoreError> {
     row.try_get(column).map_err(trace_sqlx_error)

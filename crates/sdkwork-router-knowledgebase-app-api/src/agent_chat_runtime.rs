@@ -16,7 +16,7 @@ use sdkwork_knowledgebase_contract::{rag::KnowledgeRetrievalRequest, wiki::WikiP
 use sdkwork_knowledgebase_drive::KnowledgebaseDriveStorageAdapter;
 use std::sync::Arc;
 
-use crate::runtime::KnowledgebaseSqliteRuntime;
+use crate::runtime::KnowledgebaseRuntime;
 
 #[derive(Clone)]
 pub struct RuntimeRetrievalPlanResolver {
@@ -85,11 +85,11 @@ impl KnowledgeSpaceModeResolver for RuntimeSpaceModeResolver {
 
 #[derive(Clone)]
 pub struct RuntimeKnowledgebaseRetrievalClient {
-    runtime: KnowledgebaseSqliteRuntime,
+    runtime: KnowledgebaseRuntime,
 }
 
 impl RuntimeKnowledgebaseRetrievalClient {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 }

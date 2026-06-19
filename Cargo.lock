@@ -1756,13 +1756,16 @@ dependencies = [
  "chrono",
  "hmac",
  "rand_core 0.6.4",
+ "reqwest",
  "sdkwork-database-sqlx",
  "sdkwork-iam-context-service",
  "sdkwork-web-axum",
  "sdkwork-web-core",
+ "serde",
  "serde_json",
  "sha2",
  "sqlx",
+ "uuid",
 ]
 
 [[package]]
@@ -1785,6 +1788,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "sdkwork-database-config",
+ "sdkwork-database-repository",
  "sdkwork-database-sqlx",
  "sdkwork-id-core",
  "sdkwork-intelligence-knowledgebase-service",
@@ -1874,6 +1878,8 @@ name = "sdkwork-knowledgebase-drive"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "sdkwork-database-config",
+ "sdkwork-database-sqlx",
  "sdkwork-drive-config",
  "sdkwork-drive-storage-contract",
  "sdkwork-drive-workspace-service",

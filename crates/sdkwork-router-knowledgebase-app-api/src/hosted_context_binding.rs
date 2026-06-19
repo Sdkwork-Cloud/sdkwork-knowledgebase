@@ -9,17 +9,17 @@ use sdkwork_knowledgebase_contract::context_binding::{
 };
 
 use crate::{
-    runtime::KnowledgebaseSqliteRuntime, ApiError, ApiResult, KnowledgeAppRequestContext,
+    runtime::KnowledgebaseRuntime, ApiError, ApiResult, KnowledgeAppRequestContext,
     KnowledgeContextBindingAppService,
 };
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedContextBindingService {
-    runtime: KnowledgebaseSqliteRuntime,
+pub(crate) struct HostedContextBindingService {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedContextBindingService {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedContextBindingService {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 
@@ -47,7 +47,7 @@ impl SqliteHostedContextBindingService {
 }
 
 #[async_trait]
-impl KnowledgeContextBindingAppService for SqliteHostedContextBindingService {
+impl KnowledgeContextBindingAppService for HostedContextBindingService {
     async fn list_space_context_bindings(
         &self,
         context: KnowledgeAppRequestContext,

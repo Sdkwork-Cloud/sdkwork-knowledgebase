@@ -4,13 +4,13 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
 
 import {
   API_GATEWAY_REPO,
   DEFAULT_DEV_PROFILE_ID,
   listHealthSurfaces,
   listOrchestrationProcesses,
+  loadEnvFile,
   loadProfile,
   mergeRuntimeEnv,
   REPO_ROOT,
@@ -29,12 +29,13 @@ const HEALTH_TIMEOUT_MS = 2000;
 const STARTUP_WAIT_MS = 500;
 const MAX_STARTUP_ATTEMPTS = 60;
 
+const PC_APP_ROOT = path.join(REPO_ROOT, 'apps/sdkwork-knowledgebase-pc');
+const DESKTOP_ROOT = path.join(PC_APP_ROOT, 'packages/sdkwork-knowledgebase-pc-desktop');
+const DEFAULT_API_SERVER_CRATE = 'sdkwork-knowledgebase-api-server';
+
 function cargoCommand() {
   return process.platform === 'win32' ? 'cargo.exe' : 'cargo';
 }
-
-const PC_APP_ROOT = path.join(REPO_ROOT, 'apps/sdkwork-knowledgebase-pc');
-const DESKTOP_ROOT = path.join(PC_APP_ROOT, 'packages/sdkwork-knowledgebase-pc-desktop');
 
 function pnpmCommand() {
   return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
@@ -57,11 +58,13 @@ function sanitizeSpawnEnv(env) {
 
 function parseArgs(argv) {
   const settings = {
-    hosting: 'self-hosted',
-    serviceLayout: 'split-services',
-    target: 'backend',
+    database: 'postgres',
+    deploymentProfile: 'standalone',
+    devEnvFile: undefined,
     dryRun: false,
     help: false,
+    serviceLayout: 'unified-process',
+    target: 'browser',
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -70,8 +73,8 @@ function parseArgs(argv) {
       settings.help = true;
       continue;
     }
-    if (arg === '--hosting') {
-      settings.hosting = argv[index + 1] ?? settings.hosting;
+    if (arg === '--deployment-profile') {
+      settings.deploymentProfile = argv[index + 1] ?? settings.deploymentProfile;
       index += 1;
       continue;
     }
@@ -80,19 +83,33 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === '--database') {
+      settings.database = argv[index + 1] ?? settings.database;
+      index += 1;
+      continue;
+    }
     if (arg === '--target') {
       settings.target = argv[index + 1] ?? settings.target;
       index += 1;
       continue;
     }
-    if (arg === '--topology') {
-      throw new Error(
-        '--topology is retired; use --hosting (standalone -> self-hosted, cloud -> cloud-hosted)',
-      );
+    if (arg === '--dev-env-file') {
+      settings.devEnvFile = argv[index + 1];
+      index += 1;
+      continue;
     }
     if (arg === '--dry-run') {
       settings.dryRun = true;
+      continue;
     }
+    throw new Error(`Unsupported option: ${arg}`);
+  }
+
+  if (!['browser', 'desktop'].includes(settings.target)) {
+    throw new Error('target must be one of: browser, desktop');
+  }
+  if (!['postgres', 'sqlite'].includes(settings.database)) {
+    throw new Error('database must be one of: postgres, sqlite');
   }
 
   return settings;
@@ -103,24 +120,59 @@ function printHelp() {
 
 Topology-aware Knowledgebase dev entry. Loads configs/topology profile env via @sdkwork/app-topology.
 
+Database profiles:
+  postgres (default)  IAM/login uses PostgreSQL from .env.postgres; phase-1 HTTP handlers use SQLite for knowledge metadata.
+  sqlite              Same SQLite knowledge metadata profile without loading .env.postgres.
+
 Options:
-  --hosting <self-hosted|cloud-hosted>              Default: self-hosted
-  --service-layout <split-services|unified-process> Default: split-services
-  --target <backend|desktop>                        Default: backend
+  --deployment-profile <standalone|cloud>           Default: standalone
+  --service-layout <unified-process|split-services> Default: unified-process
+  --database <postgres|sqlite>                      Default: postgres
+  --target <browser|desktop>                        Default: browser
+  --dev-env-file <path>                             Optional PostgreSQL override for IAM/login
   --dry-run                                         Print plan without executing
   --help, -h
 `);
 }
 
+function resolvePostgresDevEnvFile(settings) {
+  if (settings.devEnvFile) {
+    return settings.devEnvFile;
+  }
+  return fs.existsSync(path.join(REPO_ROOT, '.env.postgres')) ? '.env.postgres' : '.env.postgres.example';
+}
+
+function resolveDefaultSqliteDatabaseUrl() {
+  ensureKnowledgebaseDataDir();
+  const sqliteFile = path.join(REPO_ROOT, '.sdkwork', 'runtime', 'knowledgebase', 'knowledgebase.sqlite');
+  return `sqlite:///${sqliteFile.split(path.sep).join('/')}?mode=rwc`;
+}
+
+function resolveKnowledgebaseAppDatabaseEnv() {
+  return {
+    SDKWORK_KNOWLEDGEBASE_DATABASE_ENGINE: 'sqlite',
+    SDKWORK_KNOWLEDGEBASE_DATABASE_FILE: './.sdkwork/runtime/knowledgebase/knowledgebase.sqlite',
+    SDKWORK_KNOWLEDGEBASE_DATABASE_URL: resolveDefaultSqliteDatabaseUrl(),
+    SDKWORK_KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS: '1',
+  };
+}
+
+function databaseEnv() {
+  // Phase 1 HTTP handlers are SQLite-backed. IAM/login still uses PostgreSQL when --database postgres.
+  return resolveKnowledgebaseAppDatabaseEnv();
+}
+
 function createDesktopProcess(env) {
   const desktopEnv = sanitizeSpawnEnv({
     ...env,
+    SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: 'desktop',
+    VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: 'desktop',
     VITE_SDKWORK_KNOWLEDGEBASE_DEV_SAME_ORIGIN_API:
       env.VITE_SDKWORK_KNOWLEDGEBASE_DEV_SAME_ORIGIN_API ?? 'true',
     VITE_SDKWORK_APPBASE_APP_API_BASE_URL:
-      env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL ?? 'http://127.0.0.1:3900',
+      env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL ?? 'http://127.0.0.1:18081',
     VITE_SDKWORK_IAM_APP_API_BASE_URL:
-      env.VITE_SDKWORK_IAM_APP_API_BASE_URL ?? 'http://127.0.0.1:3900',
+      env.VITE_SDKWORK_IAM_APP_API_BASE_URL ?? 'http://127.0.0.1:18081',
     VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL:
       env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL ?? 'http://127.0.0.1:3900',
   });
@@ -128,7 +180,7 @@ function createDesktopProcess(env) {
   return {
     label: 'sdkwork-knowledgebase-pc-desktop',
     command: pnpmCommand(),
-    args: ['run', 'desktop:dev'],
+    args: ['run', 'dev:desktop'],
     cwd: DESKTOP_ROOT,
     env: desktopEnv,
     shell: pnpmShell(),
@@ -160,13 +212,11 @@ function terminateProcessTree(child) {
 }
 
 function ensureKnowledgebaseDataDir() {
-  const dataDir = path.join(REPO_ROOT, '.sdkwork', 'knowledgebase');
+  const dataDir = path.join(REPO_ROOT, '.sdkwork', 'runtime', 'knowledgebase');
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 }
-
-const DEFAULT_API_SERVER_CRATE = 'sdkwork-knowledgebase-api-server';
 
 function createApiServerBinaryProcess(crate, binary, label, env) {
   ensureKnowledgebaseDataDir();
@@ -180,10 +230,10 @@ function createApiServerBinaryProcess(crate, binary, label, env) {
 }
 
 function createPlatformGatewayProcess(env) {
-  const hosting = env.SDKWORK_KNOWLEDGEBASE_HOSTING ?? 'self-hosted';
+  const deploymentProfile = env.SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE ?? 'cloud';
   const bind =
-    resolveSurfaceBind(env, 'platform.api-gateway') ?? resolveGatewayBind(env, hosting);
-  const gatewayConfig = resolveCloudGatewayConfigPath(env, 'development');
+    resolveSurfaceBind(env, 'platform.api-gateway') ?? resolveGatewayBind(env, deploymentProfile);
+  const gatewayConfig = resolveCloudGatewayConfigPath(env, env.SDKWORK_KNOWLEDGEBASE_ENVIRONMENT ?? 'development');
   const args = [
     'run',
     '-p',
@@ -268,15 +318,24 @@ async function main() {
   }
 
   const profileId =
-    resolveDevProfileId(settings.hosting, settings.serviceLayout) || DEFAULT_DEV_PROFILE_ID;
+    resolveDevProfileId(settings.deploymentProfile, settings.serviceLayout) || DEFAULT_DEV_PROFILE_ID;
   const profileEnv = loadProfile(profileId);
+  const postgresDevEnv =
+    settings.database === 'postgres' ? loadEnvFile(resolvePostgresDevEnvFile(settings)) : {};
+  const iamSourceEnv = mergeRuntimeEnv(process.env, profileEnv, postgresDevEnv);
   const runtimeEnv = mergeRuntimeEnv(
-    process.env,
-    profileEnv,
-    resolveIamDevEnv(process.env),
+    iamSourceEnv,
+    resolveIamDevEnv(iamSourceEnv),
+    databaseEnv(settings),
     {
+      SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: settings.deploymentProfile,
+      SDKWORK_KNOWLEDGEBASE_SERVICE_LAYOUT: settings.serviceLayout,
+      SDKWORK_KNOWLEDGEBASE_DATABASE_PROFILE: settings.database,
       SDKWORK_KNOWLEDGEBASE_PROFILE_ID: profileId,
       SDKWORK_KNOWLEDGEBASE_DEV_MODE: '1',
+      SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: settings.target === 'desktop' ? 'desktop' : 'browser',
+      VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: settings.deploymentProfile,
+      VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: settings.target === 'desktop' ? 'desktop' : 'browser',
       ...(settings.target === 'desktop'
         ? { SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_AUTOSTART: 'true' }
         : {}),
@@ -290,7 +349,9 @@ async function main() {
       : backendProcesses;
 
   if (settings.dryRun) {
-    console.log(`[sdkwork-knowledgebase] profile=${profileId} target=${settings.target}`);
+    console.log(
+      `[sdkwork-knowledgebase] profile=${profileId} deploymentProfile=${settings.deploymentProfile} serviceLayout=${settings.serviceLayout} database=${settings.database} target=${settings.target} knowledgeDatabase=${runtimeEnv.SDKWORK_KNOWLEDGEBASE_DATABASE_URL} iamDatabase=${runtimeEnv.SDKWORK_IAM_DATABASE_URL ?? runtimeEnv.SDKWORK_CLAW_DATABASE_URL ?? 'unknown'}`,
+    );
     for (const entry of processes) {
       console.log(`[${entry.label}] ${entry.command} ${entry.args.join(' ')}`);
     }

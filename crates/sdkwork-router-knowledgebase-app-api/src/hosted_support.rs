@@ -85,7 +85,7 @@ pub(crate) fn wiki_not_initialized_detail() -> String {
 }
 
 pub(crate) async fn rebuild_wiki_index_document(
-    runtime: &crate::runtime::KnowledgebaseSqliteRuntime,
+    runtime: &crate::runtime::KnowledgebaseRuntime,
     space_id: u64,
 ) -> Result<WikiIndexDocument, ApiError> {
     let space = runtime.space_store().get_space(space_id).await?;
@@ -124,7 +124,7 @@ pub(crate) async fn rebuild_wiki_index_document(
 }
 
 pub(crate) async fn persist_wiki_schema_profile(
-    runtime: &crate::runtime::KnowledgebaseSqliteRuntime,
+    runtime: &crate::runtime::KnowledgebaseRuntime,
     space_id: u64,
 ) -> Result<sdkwork_knowledgebase_contract::wiki_file::KnowledgeWikiFileEntry, ApiError> {
     let space = runtime.space_store().get_space(space_id).await?;

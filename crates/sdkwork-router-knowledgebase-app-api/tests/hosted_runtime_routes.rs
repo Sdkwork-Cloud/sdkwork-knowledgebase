@@ -1,6 +1,6 @@
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
-use sdkwork_router_knowledgebase_app_api::{dev_auth, KnowledgebaseSqliteRuntime};
+use sdkwork_router_knowledgebase_app_api::{dev_auth, KnowledgebaseRuntime};
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -58,7 +58,7 @@ async fn hosted_backend_router_serves_provider_health() {
 
     let body = response_body_json(response).await;
     assert_eq!(body["status"], "ok");
-    assert_eq!(body["providerId"], "sdkwork-knowledgebase-sqlite");
+    assert_eq!(body["providerId"], "sdkwork-knowledgebase-sqlx");
 }
 
 #[tokio::test]
@@ -109,7 +109,7 @@ async fn hosted_open_router_lists_documents() {
     assert!(body["items"].is_array());
 }
 
-async fn test_runtime() -> KnowledgebaseSqliteRuntime {
+async fn test_runtime() -> KnowledgebaseRuntime {
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -138,7 +138,7 @@ async fn test_runtime() -> KnowledgebaseSqliteRuntime {
         .to_string()
         .replace('\\', "/");
     let database_url = format!("sqlite://{relative_database_path}?mode=rwc");
-    KnowledgebaseSqliteRuntime::connect(&database_url, 1)
+    KnowledgebaseRuntime::connect(&database_url, 1)
         .await
         .expect("initialize hosted runtime")
 }

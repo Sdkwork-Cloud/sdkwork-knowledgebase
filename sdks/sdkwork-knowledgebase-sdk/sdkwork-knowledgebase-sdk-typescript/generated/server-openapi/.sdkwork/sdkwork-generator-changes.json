@@ -9,15 +9,11 @@
     "protocol": "http",
     "packageName": "@sdkwork/knowledgebase-sdk"
   },
-  "changeFingerprint": "e8676f460ae481a84723bb9d478586b66e355aae808237b9119a97c8d4ea32be",
+  "changeFingerprint": "f83bb26bebd342ff5b9623c834526981d4bc19496a617048ce1e648674dc9a3c",
   "changes": {
     "createdGeneratedFiles": [],
     "updatedGeneratedFiles": [
-      "README.md",
-      "src/auth/index.ts",
-      "src/http/client.ts",
-      "src/sdk.ts",
-      "src/types/common.ts"
+      "src/http/client.ts"
     ],
     "unchangedGeneratedFiles": [
       "bin/publish-core.mjs",
@@ -28,13 +24,17 @@
       "CHANGELOG.md",
       "LICENSE",
       "package.json",
+      "README.md",
       "sdkwork-sdk.json",
       "src/api/base.ts",
       "src/api/index.ts",
       "src/api/knowledge.ts",
       "src/api/paths.ts",
+      "src/auth/index.ts",
       "src/http/index.ts",
       "src/index.ts",
+      "src/sdk.ts",
+      "src/types/common.ts",
       "src/types/index.ts",
       "src/types/ingestion-job-state.ts",
       "src/types/ingestion-job.ts",
@@ -75,51 +75,35 @@
     "schemaVersion": 1,
     "areas": [
       "api-surface",
-      "models",
-      "runtime",
-      "documentation"
+      "runtime"
     ],
     "details": [
       {
         "area": "api-surface",
         "paths": [
-          "src/http/client.ts",
-          "src/sdk.ts"
-        ]
-      },
-      {
-        "area": "models",
-        "paths": [
-          "src/types/common.ts"
+          "src/http/client.ts"
         ]
       },
       {
         "area": "runtime",
         "paths": [
-          "src/auth/index.ts",
           "src/http/client.ts"
-        ]
-      },
-      {
-        "area": "documentation",
-        "paths": [
-          "README.md"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: api-surface, models, runtime, documentation. Verification is required."
+    "summary": "Detected impact areas: api-surface, runtime. Verification is required."
   },
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: api-surface, models, runtime, documentation. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: api-surface, runtime. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, runtime, documentation.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, runtime.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -137,7 +121,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, runtime, documentation.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, runtime.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [

@@ -15,6 +15,7 @@ export interface KnowledgeAgentProfile {
   memoryPolicyRef?: string | null;
   toolPolicyRef?: string | null;
   answerPolicy?: string | null;
+  agentImplementationId?: string;
   status: KnowledgeAgentStatus;
   bindings: KnowledgeAgentBinding[];
 }

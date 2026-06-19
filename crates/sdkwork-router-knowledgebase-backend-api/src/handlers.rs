@@ -182,8 +182,13 @@ pub(crate) async fn create_index(
     context: Option<Extension<KnowledgeBackendRequestContext>>,
     Json(request): Json<KnowledgeIndexRequest>,
 ) -> Result<Response, BackendApiProblem> {
-    require_backend_context(context)?;
-    created_json(state.api.create_index(request).await)
+    let context = require_backend_context(context)?;
+    created_json(
+        state
+            .api
+            .create_index(request.with_tenant_id(context.tenant_id))
+            .await,
+    )
 }
 
 pub(crate) async fn retrieve_index(
@@ -210,8 +215,13 @@ pub(crate) async fn create_retrieval_profile(
     context: Option<Extension<KnowledgeBackendRequestContext>>,
     Json(request): Json<KnowledgeRetrievalProfileRequest>,
 ) -> Result<Response, BackendApiProblem> {
-    require_backend_context(context)?;
-    created_json(state.api.create_retrieval_profile(request).await)
+    let context = require_backend_context(context)?;
+    created_json(
+        state
+            .api
+            .create_retrieval_profile(request.with_tenant_id(context.tenant_id))
+            .await,
+    )
 }
 
 pub(crate) async fn retrieve_retrieval_profile(
@@ -229,11 +239,11 @@ pub(crate) async fn update_retrieval_profile(
     Path(profile_id): Path<u64>,
     Json(request): Json<KnowledgeRetrievalProfileRequest>,
 ) -> Result<Response, BackendApiProblem> {
-    require_backend_context(context)?;
+    let context = require_backend_context(context)?;
     ok_json(
         state
             .api
-            .update_retrieval_profile(profile_id, request)
+            .update_retrieval_profile(profile_id, request.with_tenant_id(context.tenant_id))
             .await,
     )
 }

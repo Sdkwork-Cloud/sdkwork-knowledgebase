@@ -1,17 +1,22 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Camera,
   ExternalLink,
   Fullscreen,
+  Gauge,
   ListMusic,
   Loader2,
   Pause,
   PictureInPicture2,
   Play,
+  RotateCcw,
+  RotateCw,
   SkipBack,
   SkipForward,
   Video
 } from 'lucide-react';
 import {
+  buildContainAspectStyle,
   getMediaOrientation,
   orientationClass,
   resolveVideoDimensions
@@ -21,7 +26,7 @@ import { openExternalUrl } from './openExternalUrl';
 import { PlaybackProgressBar } from './shared/PlaybackProgressBar';
 import { VolumeVerticalControl } from './shared/VolumeVerticalControl';
 import type { SearchMediaViewerContentProps } from './types';
-import { formatTime, useHtmlVideoPlayer } from './useHtmlVideoPlayer';
+import { formatTime, getPlaybackRates, useHtmlVideoPlayer } from './useHtmlVideoPlayer';
 
 function buildStageAspectStyle(
   width: number,
@@ -55,6 +60,8 @@ function buildStageAspectStyle(
   };
 }
 
+const SKIP_SECONDS = 10;
+
 export function SearchVideoPlayerContent({
   item,
   layoutMode = 'expanded',
@@ -67,17 +74,23 @@ export function SearchVideoPlayerContent({
   const isMini = layoutMode === 'minimized';
   const [volume, setVolume] = useState(0.85);
   const [isMuted, setIsMuted] = useState(false);
+  const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
+  const [snapshotHint, setSnapshotHint] = useState<string | null>(null);
+  const speedMenuRef = useRef<HTMLDivElement>(null);
+  const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playbackRates = useMemo(() => getPlaybackRates(), []);
 
   const frameDims = useMemo(() => resolveVideoDimensions(item), [item]);
   const videoOrientation = useMemo(
     () => getMediaOrientation(frameDims.width, frameDims.height),
     [frameDims.height, frameDims.width]
   );
-  const stageAspectStyle = useMemo(
-    () => buildStageAspectStyle(frameDims.width, frameDims.height, { mini: isMini }),
-    [frameDims.height, frameDims.width, isMini]
-  );
-  const screenFillClass = isMini ? '' : 'search-video-player__screen--fill';
+  const stageAspectStyle = useMemo(() => {
+    if (isMini) {
+      return buildStageAspectStyle(frameDims.width, frameDims.height, { mini: true });
+    }
+    return buildContainAspectStyle(frameDims.width, frameDims.height);
+  }, [frameDims.height, frameDims.width, isMini]);
   const playerOrientationClass = orientationClass('search-video-player', videoOrientation);
 
   const {
@@ -89,11 +102,15 @@ export function SearchVideoPlayerContent({
     duration,
     progress,
     buffered,
+    playbackRate,
     togglePlay,
     seek,
+    seekBy,
+    setPlaybackRate,
     canPlay,
     toggleFullscreen,
-    togglePictureInPicture
+    togglePictureInPicture,
+    captureSnapshot
   } = useHtmlVideoPlayer(isDirect ? playback.url : undefined, item.id, {
     loop: playlist?.playMode === 'loop-one',
     autoPlay: playlist?.autoPlay,
@@ -111,6 +128,91 @@ export function SearchVideoPlayerContent({
     video.muted = isMuted;
   }, [videoRef, isMuted, volume, item.id]);
 
+  useEffect(() => {
+    if (!isSpeedMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!speedMenuRef.current?.contains(event.target as Node)) {
+        setIsSpeedMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    return () => window.removeEventListener('mousedown', onPointerDown);
+  }, [isSpeedMenuOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current);
+    };
+  }, []);
+
+  const handleSnapshot = () => {
+    const dataUrl = captureSnapshot();
+    if (!dataUrl) {
+      setSnapshotHint('截图失败');
+    } else {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `${item.title || 'snapshot'}-${Math.round(currentTime)}s.png`;
+      link.click();
+      setSnapshotHint('已保存截图');
+    }
+    if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current);
+    snapshotTimerRef.current = setTimeout(() => setSnapshotHint(null), 1800);
+  };
+
+  useEffect(() => {
+    if (!isDirect || isMini) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      switch (event.key.toLowerCase()) {
+        case ' ':
+        case 'k':
+          event.preventDefault();
+          togglePlay();
+          break;
+        case 'arrowleft':
+          event.preventDefault();
+          seekBy(-SKIP_SECONDS);
+          break;
+        case 'arrowright':
+          event.preventDefault();
+          seekBy(SKIP_SECONDS);
+          break;
+        case 'j':
+          event.preventDefault();
+          seekBy(-SKIP_SECONDS);
+          break;
+        case 'l':
+          event.preventDefault();
+          seekBy(SKIP_SECONDS);
+          break;
+        case 'f':
+          event.preventDefault();
+          toggleFullscreen();
+          break;
+        case 'm':
+          event.preventDefault();
+          setIsMuted((value) => !value);
+          break;
+        case ',':
+          event.preventDefault();
+          setPlaybackRate(Math.max(0.5, Number((playbackRate - 0.25).toFixed(2))));
+          break;
+        case '.':
+          event.preventDefault();
+          setPlaybackRate(Math.min(2, Number((playbackRate + 0.25).toFixed(2))));
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isDirect, isMini, togglePlay, seekBy, toggleFullscreen, setPlaybackRate, playbackRate]);
+
   if (playback.mode === 'embed' && playback.url) {
     return (
       <div
@@ -118,8 +220,8 @@ export function SearchVideoPlayerContent({
       >
         <div className="search-video-player__stage search-video-player__stage--adaptive">
           <div
-            className={`search-video-player__screen search-video-player__screen--embed search-video-player__screen--adaptive ${screenFillClass}`.trim()}
-            style={isMini ? stageAspectStyle : undefined}
+            className={`search-video-player__screen search-video-player__screen--embed search-video-player__screen--adaptive`.trim()}
+            style={stageAspectStyle}
           >
             <iframe
               key={item.id}
@@ -149,8 +251,8 @@ export function SearchVideoPlayerContent({
       >
         <div className="search-video-player__stage search-video-player__stage--native">
           <div
-            className={`search-video-player__screen search-video-player__screen--native search-video-player__screen--adaptive ${screenStateClass} ${screenFillClass}`.trim()}
-            style={isMini ? stageAspectStyle : undefined}
+            className={`search-video-player__screen search-video-player__screen--native search-video-player__screen--adaptive ${screenStateClass}`.trim()}
+            style={stageAspectStyle}
           >
             <video
               ref={videoRef}
@@ -161,11 +263,17 @@ export function SearchVideoPlayerContent({
               preload="metadata"
               className="search-video-player__video"
               onClick={togglePlay}
+              onDoubleClick={toggleFullscreen}
             />
             <div className="search-video-player__shade" aria-hidden />
             {isBuffering && isActivelyPlaying && (
               <div className="search-video-player__buffer-indicator" aria-hidden>
                 <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            )}
+            {snapshotHint && (
+              <div className="search-video-player__snapshot-hint" role="status">
+                {snapshotHint}
               </div>
             )}
             <div className={`search-video-player__overlay ${isMini ? 'search-video-player__overlay--mini' : ''}`}>
@@ -179,6 +287,8 @@ export function SearchVideoPlayerContent({
                   >
                     {isBuffering && !hasEnded ? (
                       <Loader2 className="w-8 h-8 animate-spin" />
+                    ) : hasEnded ? (
+                      <RotateCcw className="w-8 h-8" />
                     ) : (
                       <Play className="w-8 h-8 fill-current ml-0.5" />
                     )}
@@ -199,9 +309,33 @@ export function SearchVideoPlayerContent({
                       <SkipBack className="w-4 h-4" />
                     </button>
                   )}
-                  <button type="button" className="search-video-player__control-btn" onClick={togglePlay} disabled={!canPlay}>
+                  {!isMini && (
+                    <button
+                      type="button"
+                      className="search-video-player__control-btn search-video-player__control-btn--skip"
+                      onClick={() => seekBy(-SKIP_SECONDS)}
+                      disabled={!canPlay}
+                      aria-label={`后退 ${SKIP_SECONDS} 秒`}
+                      title={`后退 ${SKIP_SECONDS} 秒 (←/J)`}
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button type="button" className="search-video-player__control-btn search-video-player__control-btn--play" onClick={togglePlay} disabled={!canPlay} aria-label={isActivelyPlaying ? '暂停' : '播放'}>
                     {isActivelyPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
                   </button>
+                  {!isMini && (
+                    <button
+                      type="button"
+                      className="search-video-player__control-btn search-video-player__control-btn--skip"
+                      onClick={() => seekBy(SKIP_SECONDS)}
+                      disabled={!canPlay}
+                      aria-label={`快进 ${SKIP_SECONDS} 秒`}
+                      title={`快进 ${SKIP_SECONDS} 秒 (→/L)`}
+                    >
+                      <RotateCw className="w-4 h-4" />
+                    </button>
+                  )}
                   {playlist && !isMini && (
                     <button
                       type="button"
@@ -235,11 +369,57 @@ export function SearchVideoPlayerContent({
                     />
                   )}
                   {!isMini && (
+                    <div className="search-video-player__speed-wrapper" ref={speedMenuRef}>
+                      <button
+                        type="button"
+                        className={`search-video-player__control-btn search-video-player__control-btn--speed ${isSpeedMenuOpen ? 'search-video-player__control-btn--active' : ''}`}
+                        onClick={() => setIsSpeedMenuOpen((value) => !value)}
+                        aria-label="播放速度"
+                        title="播放速度 (, / .)"
+                      >
+                        <Gauge className="w-4 h-4" />
+                        <span className="search-video-player__speed-label">{playbackRate}x</span>
+                      </button>
+                      {isSpeedMenuOpen && (
+                        <div className="search-video-player__speed-menu" role="menu">
+                          {playbackRates.map((rate) => (
+                            <button
+                              key={rate}
+                              type="button"
+                              role="menuitemradio"
+                              aria-checked={playbackRate === rate}
+                              className={`search-video-player__speed-option ${playbackRate === rate ? 'search-video-player__speed-option--active' : ''}`}
+                              onClick={() => {
+                                setPlaybackRate(rate);
+                                setIsSpeedMenuOpen(false);
+                              }}
+                            >
+                              {rate === 1 ? '正常' : `${rate}x`}
+                              {playbackRate === rate && <span className="search-video-player__speed-check" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {!isMini && (
+                    <button
+                      type="button"
+                      className="search-video-player__control-btn"
+                      onClick={handleSnapshot}
+                      disabled={!canPlay}
+                      aria-label="视频截图"
+                      title="视频截图"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
+                  )}
+                  {!isMini && (
                     <>
-                      <button type="button" className="search-video-player__control-btn" onClick={togglePictureInPicture} aria-label="画中画">
+                      <button type="button" className="search-video-player__control-btn" onClick={togglePictureInPicture} aria-label="画中画" title="画中画">
                         <PictureInPicture2 className="w-4 h-4" />
                       </button>
-                      <button type="button" className="search-video-player__control-btn" onClick={toggleFullscreen} aria-label="视频全屏">
+                      <button type="button" className="search-video-player__control-btn" onClick={toggleFullscreen} aria-label="视频全屏" title="全屏 (F)">
                         <Fullscreen className="w-4 h-4" />
                       </button>
                       {playlist && (
@@ -270,8 +450,8 @@ export function SearchVideoPlayerContent({
     >
       <div className="search-video-player__stage search-video-player__stage--adaptive">
         <div
-          className={`search-video-player__screen search-video-player__screen--fallback search-video-player__screen--adaptive ${screenFillClass}`.trim()}
-          style={isMini ? stageAspectStyle : undefined}
+          className={`search-video-player__screen search-video-player__screen--fallback search-video-player__screen--adaptive`.trim()}
+          style={stageAspectStyle}
         >
           {playback.poster ? (
             <img src={playback.poster} alt={item.title} className="search-video-player__poster" />

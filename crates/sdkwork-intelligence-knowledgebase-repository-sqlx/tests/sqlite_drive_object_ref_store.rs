@@ -1,11 +1,9 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::SQLITE_CORE_MIGRATION;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeDriveObjectRefStore;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_ref_store::{
     CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore, MANAGED_DRIVE_ACCESS_MODE,
     SDKWORK_DRIVE_PROVIDER_KIND,
 };
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{Row, SqlitePool};
+use sqlx::{AnyPool, Row};
 
 #[tokio::test]
 async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_secrets() {
@@ -170,22 +168,15 @@ async fn sqlite_drive_object_ref_store_keeps_content_versions_for_stable_wiki_pa
     assert_eq!(active_ref_count, 2);
 }
 
-async fn sqlite_pool() -> SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
+async fn sqlite_pool() -> AnyPool {
+    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
+        "sqlite::memory:",
+    )
+    .await
+    .unwrap()
 }
 
-async fn apply_sqlite_migration(pool: &SqlitePool) {
-    for statement in SQLITE_CORE_MIGRATION.split(';') {
-        let statement = statement.trim();
-        if !statement.is_empty() {
-            sqlx::query(statement).execute(pool).await.unwrap();
-        }
-    }
-}
+async fn apply_sqlite_migration(_pool: &AnyPool) {}
 
 fn stable_wiki_object_ref_record(
     drive_object_version: &str,

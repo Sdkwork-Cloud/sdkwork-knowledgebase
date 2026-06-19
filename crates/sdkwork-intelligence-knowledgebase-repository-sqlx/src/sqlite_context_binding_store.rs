@@ -8,7 +8,7 @@ use sdkwork_knowledgebase_contract::context_binding::{
     ListContextBoundSpacesRequest, ListKnowledgeSpaceContextBindingsRequest,
     UpdateKnowledgeSpaceContextBindingRequest,
 };
-use sqlx::{Row, SqlitePool};
+use sqlx::{AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
@@ -20,22 +20,19 @@ const INITIAL_VERSION: i64 = 0;
 
 #[derive(Debug, Clone)]
 pub struct SqliteContextBindingStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteContextBindingStore {
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: AnyPool) -> Self {
         Self {
             pool,
             id_generator: default_knowledge_id_generator(),
         }
     }
 
-    pub fn with_id_generator(
-        pool: SqlitePool,
-        id_generator: Arc<dyn KnowledgeIdGenerator>,
-    ) -> Self {
+    pub fn with_id_generator(pool: AnyPool, id_generator: Arc<dyn KnowledgeIdGenerator>) -> Self {
         Self { pool, id_generator }
     }
 }
@@ -65,7 +62,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                 context_name, access_level, status, created_by,
                 created_at, updated_at, version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING id, tenant_id, space_id, context_type, context_id,
                       context_name, access_level, status, created_by,
                       created_at, updated_at
@@ -114,7 +111,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                    context_name, access_level, status, created_by,
                    created_at, updated_at
             FROM kb_space_context_binding
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
         )
         .bind(tenant_i64)
@@ -143,11 +140,11 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_space_context_binding
-            SET context_name = COALESCE(?, context_name),
-                access_level = COALESCE(?, access_level),
-                updated_at = ?,
+            SET context_name = COALESCE($1, context_name),
+                access_level = COALESCE($2, access_level),
+                updated_at = $3,
                 version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $4 AND id = $5 AND status = $6
             RETURNING id, tenant_id, space_id, context_type, context_id,
                       context_name, access_level, status, created_by,
                       created_at, updated_at
@@ -181,8 +178,8 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
         let result = sqlx::query(
             r#"
             UPDATE kb_space_context_binding
-            SET status = ?, updated_at = ?, version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            SET status = $1, updated_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND id = $4 AND status = $5
             "#,
         )
         .bind(DELETED_STATUS)
@@ -218,9 +215,9 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                        context_name, access_level, status, created_by,
                        created_at, updated_at
                 FROM kb_space_context_binding
-                WHERE tenant_id = ? AND space_id = ? AND context_type = ? AND status = ?
+                WHERE tenant_id = $1 AND space_id = $2 AND context_type = $3 AND status = $4
                 ORDER BY created_at
-                LIMIT ?
+                LIMIT $5
                 "#,
             )
             .bind(tenant_i64)
@@ -238,9 +235,9 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                        context_name, access_level, status, created_by,
                        created_at, updated_at
                 FROM kb_space_context_binding
-                WHERE tenant_id = ? AND space_id = ? AND status = ?
+                WHERE tenant_id = $1 AND space_id = $2 AND status = $3
                 ORDER BY created_at
-                LIMIT ?
+                LIMIT $4
                 "#,
             )
             .bind(tenant_i64)
@@ -280,9 +277,9 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
             r#"
             SELECT space_id
             FROM kb_space_context_binding
-            WHERE tenant_id = ? AND context_type = ? AND context_id = ? AND status = ?
+            WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND status = $4
             ORDER BY created_at
-            LIMIT ?
+            LIMIT $5
             "#,
         )
         .bind(tenant_i64)
@@ -306,7 +303,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
 }
 
 fn cb_from_row(
-    row: &sqlx::sqlite::SqliteRow,
+    row: &sqlx::any::AnyRow,
 ) -> Result<KnowledgeSpaceContextBinding, KnowledgeContextBindingStoreError> {
     let id: i64 = row.get("id");
     let tenant_id: i64 = row.get("tenant_id");

@@ -1,7 +1,7 @@
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
 };
-use sqlx::{sqlite::SqliteRow, Row, SqlitePool};
+use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use thiserror::Error;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -20,18 +20,18 @@ pub enum KnowledgeRetrievalProfileStoreError {
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeRetrievalProfileStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeRetrievalProfileStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -66,7 +66,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
                 id, uuid, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                 context_budget_tokens, status, created_at, updated_at, version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING id, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                       context_budget_tokens, status
             "#,
@@ -102,7 +102,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
             SELECT id, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                    context_budget_tokens, status
             FROM kb_retrieval_profile
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
             LIMIT 1
             "#,
         )
@@ -137,9 +137,9 @@ impl SqliteKnowledgeRetrievalProfileStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_retrieval_profile
-            SET name = ?, strategy = ?, top_k = ?, min_score = ?, rerank_enabled = ?,
-                context_budget_tokens = ?, status = ?, updated_at = ?, version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            SET name = $1, strategy = $2, top_k = $3, min_score = $4, rerank_enabled = $5,
+                context_budget_tokens = $6, status = $7, updated_at = $8, version = version + 1
+            WHERE tenant_id = $9 AND id = $10 AND status = $11
             RETURNING id, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                       context_budget_tokens, status
             "#,
@@ -169,7 +169,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
 }
 
 fn profile_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
 ) -> Result<KnowledgeRetrievalProfile, KnowledgeRetrievalProfileStoreError> {
     let top_k: i64 = row.try_get("top_k").map_err(sqlx_error)?;
     let rerank_enabled: i64 = row.try_get("rerank_enabled").map_err(sqlx_error)?;

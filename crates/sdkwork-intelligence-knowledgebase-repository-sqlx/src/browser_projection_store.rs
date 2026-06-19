@@ -4,19 +4,19 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_browser_project
     KnowledgeBrowserProjectionStoreError, KnowledgeBrowserWikiPageProjection,
 };
 use sdkwork_knowledgebase_contract::wiki::WikiPagePublishState;
-use sqlx::{QueryBuilder, Row, SqlitePool};
+use sqlx::{AnyPool, QueryBuilder, Row};
 
 const ACTIVE_STATUS: i64 = 1;
 const MAX_PROJECTION_BATCH_SIZE: usize = 200;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeBrowserProjectionStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
 }
 
 impl SqliteKnowledgeBrowserProjectionStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self { pool, tenant_id }
     }
 }

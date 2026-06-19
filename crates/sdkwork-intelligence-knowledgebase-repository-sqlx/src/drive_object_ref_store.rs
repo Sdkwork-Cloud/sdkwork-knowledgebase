@@ -4,7 +4,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_re
     KnowledgeDriveObjectRefStoreError,
 };
 use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
-use sqlx::{sqlite::SqliteRow, Row, SqlitePool};
+use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -15,18 +15,18 @@ const ACTIVE_STATUS: i64 = 1;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeDriveObjectRefStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeDriveObjectRefStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -88,14 +88,14 @@ impl SqliteKnowledgeDriveObjectRefStore {
                 object_role,
                 access_mode
             FROM kb_drive_object_ref
-            WHERE tenant_id = ?
-              AND space_id = ?
-              AND drive_storage_provider_id = ?
-              AND drive_bucket = ?
-              AND drive_object_key = ?
-              AND COALESCE(drive_object_version, '') = COALESCE(?, '')
-              AND object_role = ?
-              AND status = ?
+            WHERE tenant_id = $1
+              AND space_id = $2
+              AND drive_storage_provider_id = $3
+              AND drive_bucket = $4
+              AND drive_object_key = $5
+              AND COALESCE(drive_object_version, '') = COALESCE($6, '')
+              AND object_role = $7
+              AND status = $8
             LIMIT 1
             "#,
         )
@@ -135,12 +135,12 @@ impl SqliteKnowledgeDriveObjectRefStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_drive_object_ref
-            SET drive_space_id = COALESCE(drive_space_id, ?),
-                drive_node_id = COALESCE(drive_node_id, ?),
-                logical_path = COALESCE(logical_path, ?),
-                updated_at = ?,
+            SET drive_space_id = COALESCE(drive_space_id, $1),
+                drive_node_id = COALESCE(drive_node_id, $2),
+                logical_path = COALESCE(logical_path, $3),
+                updated_at = $4,
                 version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $5 AND id = $6 AND status = $7
             RETURNING
                 id,
                 space_id,
@@ -231,7 +231,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 0)
             {conflict_clause}
             RETURNING
                 id,
@@ -284,7 +284,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
 }
 
 fn object_ref_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
 ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
     Ok(KnowledgeDriveObjectRef {
         id: from_i64("id", row.try_get("id").map_err(sqlx_error)?)?,

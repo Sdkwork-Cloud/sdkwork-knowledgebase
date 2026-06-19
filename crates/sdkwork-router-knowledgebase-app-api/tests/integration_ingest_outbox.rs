@@ -1,7 +1,7 @@
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use sdkwork_knowledgebase_worker::run_maintenance_tick;
-use sdkwork_router_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseSqliteRuntime};
+use sdkwork_router_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
@@ -57,7 +57,7 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
     assert_eq!(still_pending, 0);
 }
 
-async fn seed_space(pool: &sqlx::SqlitePool) {
+async fn seed_space(pool: &sqlx::AnyPool) {
     sqlx::query(
         r#"
         INSERT INTO kb_space (
@@ -72,7 +72,7 @@ async fn seed_space(pool: &sqlx::SqlitePool) {
     .expect("seed kb_space");
 }
 
-async fn test_runtime() -> KnowledgebaseSqliteRuntime {
+async fn test_runtime() -> KnowledgebaseRuntime {
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -102,7 +102,7 @@ async fn test_runtime() -> KnowledgebaseSqliteRuntime {
         .replace('\\', "/");
     let database_url = format!("sqlite://{relative_database_path}?mode=rwc");
 
-    KnowledgebaseSqliteRuntime::connect(&database_url, 1)
+    KnowledgebaseRuntime::connect(&database_url, 1)
         .await
         .expect("connect runtime")
 }

@@ -5,7 +5,7 @@
 
 CREATE TABLE IF NOT EXISTS kb_space_context_binding (
     id BIGINT NOT NULL,
-    tenant_id VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
     space_id BIGINT NOT NULL,
     context_type VARCHAR(32) NOT NULL,
     context_id VARCHAR(128) NOT NULL,

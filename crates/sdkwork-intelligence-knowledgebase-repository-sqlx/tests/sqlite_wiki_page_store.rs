@@ -1,4 +1,3 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::SQLITE_CORE_MIGRATION;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeWikiPageStore,
 };
@@ -13,8 +12,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_page_store
 use sdkwork_knowledgebase_contract::wiki::{
     WikiLogEventType, WikiPagePublishState, WikiPageType, WikiRevisionReviewState,
 };
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 
 #[tokio::test]
 async fn sqlite_wiki_page_store_publishes_pages_revisions_logs_and_projections() {
@@ -279,24 +277,17 @@ async fn sqlite_wiki_page_store_rejects_unbounded_projection_batches() {
     assert!(error.to_string().contains("batch size"));
 }
 
-async fn sqlite_pool() -> SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
+async fn sqlite_pool() -> AnyPool {
+    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
+        "sqlite::memory:",
+    )
+    .await
+    .unwrap()
 }
 
-async fn apply_sqlite_migration(pool: &SqlitePool) {
-    for statement in SQLITE_CORE_MIGRATION.split(';') {
-        let statement = statement.trim();
-        if !statement.is_empty() {
-            sqlx::query(statement).execute(pool).await.unwrap();
-        }
-    }
-}
+async fn apply_sqlite_migration(_pool: &AnyPool) {}
 
-async fn insert_space(pool: &SqlitePool, tenant_id: u64, space_id: u64) {
+async fn insert_space(pool: &AnyPool, tenant_id: u64, space_id: u64) {
     sqlx::query(
         r#"
         INSERT INTO kb_space (
@@ -311,7 +302,7 @@ async fn insert_space(pool: &SqlitePool, tenant_id: u64, space_id: u64) {
             updated_at,
             version
         )
-        VALUES (?, ?, ?, 0, ?, 1, 1, ?, ?, 0)
+        VALUES ($1, $2, $3, 0, $4, 1, 1, $5, $6, 0)
         "#,
     )
     .bind(space_id as i64)

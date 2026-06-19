@@ -98,7 +98,7 @@ async fn open_retrieval_route_calls_injected_service_with_api_key_context() {
                 .header("content-type", "application/json")
                 .extension(open_context())
                 .body(Body::from(
-                    r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
+                    r#"{"actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
                 ))
                 .unwrap(),
         )
@@ -110,6 +110,7 @@ async fn open_retrieval_route_calls_injected_service_with_api_key_context() {
     assert_eq!(body["retrievalId"], "701");
     assert_eq!(body["hits"][0]["chunkId"], "11");
     assert_eq!(service.contexts(), vec![("api-key-001".to_string(), 20001)]);
+    assert_eq!(service.last_retrieval_tenant_id(), Some(20001));
 }
 
 #[tokio::test]
@@ -123,7 +124,7 @@ async fn open_retrieval_route_rejects_missing_api_key_context() {
                 .uri("/knowledge/v3/api/retrievals")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"tenantId":"20001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
+                    r#"{"query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
                 ))
                 .unwrap(),
         )
@@ -154,7 +155,7 @@ async fn open_context_pack_route_calls_injected_service() {
                 .header("content-type", "application/json")
                 .extension(open_context())
                 .body(Body::from(
-                    r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"contextBudgetTokens":80,"includeCitations":true}"#,
+                    r#"{"actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"contextBudgetTokens":80,"includeCitations":true}"#,
                 ))
                 .unwrap(),
         )
@@ -277,7 +278,7 @@ async fn open_router_web_framework_rejects_unauthenticated_requests() {
                 .uri("/knowledge/v3/api/retrievals")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"tenantId":"20001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
+                    r#"{"query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
                 ))
                 .unwrap(),
         )
@@ -306,7 +307,7 @@ async fn open_router_web_framework_accepts_dev_inline_api_key_before_handler() {
                     "api_key_id=api-key-001;tenant_id=20001;user_id=30001;app_id=knowledgebase",
                 )
                 .body(Body::from(
-                    r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
+                    r#"{"actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
                 ))
                 .unwrap(),
         )
@@ -337,6 +338,7 @@ fn open_context() -> KnowledgeOpenApiRequestContext {
 #[derive(Clone, Default)]
 struct RecordingOpenApi {
     contexts: std::sync::Arc<Mutex<Vec<(String, u64)>>>,
+    retrieval_tenant_ids: std::sync::Arc<Mutex<Vec<u64>>>,
     browser_request: std::sync::Arc<Mutex<Option<ListKnowledgeBrowserRequest>>>,
 }
 
@@ -347,6 +349,10 @@ impl RecordingOpenApi {
 
     fn last_browser_request(&self) -> Option<ListKnowledgeBrowserRequest> {
         self.browser_request.lock().unwrap().clone()
+    }
+
+    fn last_retrieval_tenant_id(&self) -> Option<u64> {
+        self.retrieval_tenant_ids.lock().unwrap().last().copied()
     }
 }
 
@@ -361,6 +367,10 @@ impl KnowledgeOpenApi for RecordingOpenApi {
             .lock()
             .unwrap()
             .push((context.api_key_id, context.tenant_id));
+        self.retrieval_tenant_ids
+            .lock()
+            .unwrap()
+            .push(_request.tenant_id);
         Ok(retrieval_result(701))
     }
 

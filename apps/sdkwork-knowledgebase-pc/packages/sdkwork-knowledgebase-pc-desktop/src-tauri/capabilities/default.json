@@ -8,6 +8,7 @@
   "permissions": [
     "core:default",
     "allow-window-control",
-    "allow-resource-bridge"
+    "allow-resource-bridge",
+    "allow-desktop-preferences"
   ]
 }

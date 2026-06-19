@@ -37,17 +37,17 @@ use sdkwork_router_knowledgebase_backend_api::{
 
 use crate::{
     hosted_support::{page_to_summary, persist_wiki_schema_profile, rebuild_wiki_index_document},
-    runtime::KnowledgebaseSqliteRuntime,
+    runtime::KnowledgebaseRuntime,
 };
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedBackendApi {
-    runtime: KnowledgebaseSqliteRuntime,
+pub(crate) struct HostedBackendApi {
+    runtime: KnowledgebaseRuntime,
 }
 
-impl SqliteHostedBackendApi {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedBackendApi {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 
@@ -117,7 +117,7 @@ impl SqliteHostedBackendApi {
 }
 
 #[async_trait]
-impl KnowledgeBackendApi for SqliteHostedBackendApi {
+impl KnowledgeBackendApi for HostedBackendApi {
     async fn list_sources(&self) -> BackendApiResult<KnowledgeSourceList> {
         let items = self
             .runtime
@@ -667,7 +667,7 @@ impl KnowledgeBackendApi for SqliteHostedBackendApi {
         })?;
         Ok(KnowledgeProviderHealth {
             status: "ok".to_string(),
-            provider_id: "sdkwork-knowledgebase-sqlite".to_string(),
+            provider_id: "sdkwork-knowledgebase-sqlx".to_string(),
             checked_at: None,
         })
     }

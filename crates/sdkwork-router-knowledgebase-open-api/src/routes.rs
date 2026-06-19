@@ -12,10 +12,7 @@ use sdkwork_knowledgebase_contract::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::{
-    auth::ensure_tenant_matches, paths, ApiProblem, ApiResult, KnowledgeOpenApi,
-    KnowledgeOpenApiRequestContext,
-};
+use crate::{paths, ApiProblem, ApiResult, KnowledgeOpenApi, KnowledgeOpenApiRequestContext};
 
 #[derive(Clone)]
 struct OpenState {
@@ -53,8 +50,13 @@ async fn create_retrieval(
     Json(request): Json<KnowledgeRetrievalRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = crate::auth::require_context(context)?;
-    ensure_tenant_matches(&context, request.tenant_id)?;
-    created_json(state.api.create_retrieval(context, request).await)
+    let tenant_id = context.tenant_id;
+    created_json(
+        state
+            .api
+            .create_retrieval(context, request.with_tenant_id(tenant_id))
+            .await,
+    )
 }
 
 async fn retrieve_retrieval(
@@ -72,8 +74,13 @@ async fn create_context_pack(
     Json(request): Json<KnowledgeContextPackRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = crate::auth::require_context(context)?;
-    ensure_tenant_matches(&context, request.tenant_id)?;
-    created_json(state.api.create_context_pack(context, request).await)
+    let tenant_id = context.tenant_id;
+    created_json(
+        state
+            .api
+            .create_context_pack(context, request.with_tenant_id(tenant_id))
+            .await,
+    )
 }
 
 async fn create_ingest(

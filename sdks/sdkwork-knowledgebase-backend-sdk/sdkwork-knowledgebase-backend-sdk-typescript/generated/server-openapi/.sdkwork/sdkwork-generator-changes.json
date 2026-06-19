@@ -9,16 +9,11 @@
     "protocol": "http",
     "packageName": "@sdkwork/knowledgebase-backend-sdk"
   },
-  "changeFingerprint": "2579883565cd960ee6c26aa382c18226ac6f5f753211d92f0dfb9febe4b64e3d",
+  "changeFingerprint": "f2b09487b39834046c18c0b75a9f5d8b05118d6295794466afb666f4b3facba9",
   "changes": {
-    "createdGeneratedFiles": [
-      "src/types/knowledge-memory-context-fragment.ts"
-    ],
+    "createdGeneratedFiles": [],
     "updatedGeneratedFiles": [
-      "README.md",
-      "src/types/index.ts",
-      "src/types/knowledge-context-pack-request.ts",
-      "src/types/knowledge-context-pack.ts"
+      "src/http/client.ts"
     ],
     "unchangedGeneratedFiles": [
       "bin/publish-core.mjs",
@@ -29,13 +24,13 @@
       "CHANGELOG.md",
       "LICENSE",
       "package.json",
+      "README.md",
       "sdkwork-sdk.json",
       "src/api/base.ts",
       "src/api/index.ts",
       "src/api/knowledge.ts",
       "src/api/paths.ts",
       "src/auth/index.ts",
-      "src/http/client.ts",
       "src/http/index.ts",
       "src/index.ts",
       "src/sdk.ts",
@@ -44,6 +39,7 @@
       "src/types/create-knowledge-document-version-request.ts",
       "src/types/create-knowledge-source-request.ts",
       "src/types/create-knowledge-space-request.ts",
+      "src/types/index.ts",
       "src/types/ingestion-job-state.ts",
       "src/types/ingestion-job.ts",
       "src/types/knowledge-agent-binding-list.ts",
@@ -54,6 +50,8 @@
       "src/types/knowledge-agent-status.ts",
       "src/types/knowledge-citation.ts",
       "src/types/knowledge-context-fragment.ts",
+      "src/types/knowledge-context-pack-request.ts",
+      "src/types/knowledge-context-pack.ts",
       "src/types/knowledge-document-list.ts",
       "src/types/knowledge-document-state.ts",
       "src/types/knowledge-document-version-list.ts",
@@ -68,6 +66,7 @@
       "src/types/knowledge-index-request.ts",
       "src/types/knowledge-index.ts",
       "src/types/knowledge-ingest-request.ts",
+      "src/types/knowledge-memory-context-fragment.ts",
       "src/types/knowledge-provider-health.ts",
       "src/types/knowledge-retrieval-binding.ts",
       "src/types/knowledge-retrieval-method.ts",
@@ -118,39 +117,36 @@
   "impact": {
     "schemaVersion": 1,
     "areas": [
-      "models",
-      "documentation"
+      "api-surface",
+      "runtime"
     ],
     "details": [
       {
-        "area": "models",
+        "area": "api-surface",
         "paths": [
-          "src/types/index.ts",
-          "src/types/knowledge-context-pack-request.ts",
-          "src/types/knowledge-context-pack.ts",
-          "src/types/knowledge-memory-context-fragment.ts"
+          "src/http/client.ts"
         ]
       },
       {
-        "area": "documentation",
+        "area": "runtime",
         "paths": [
-          "README.md"
+          "src/http/client.ts"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: models, documentation. Verification is required."
+    "summary": "Detected impact areas: api-surface, runtime. Verification is required."
   },
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: models, documentation. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: api-surface, runtime. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models, documentation.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, runtime.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -168,7 +164,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models, documentation.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, runtime.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [

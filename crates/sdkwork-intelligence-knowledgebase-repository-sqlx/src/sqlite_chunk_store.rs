@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_chunk_store::{
     CreateKnowledgeChunkRecord, KnowledgeChunkStore, KnowledgeChunkStoreError,
 };
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -14,18 +14,18 @@ const INITIAL_VERSION: i64 = 0;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeChunkStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeChunkStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -57,7 +57,7 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
         sqlx::query(
             r#"
             DELETE FROM kb_chunk
-            WHERE tenant_id = ? AND document_version_id = ?
+            WHERE tenant_id = $1 AND document_version_id = $2
             "#,
         )
         .bind(tenant_id)
@@ -85,7 +85,7 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
                     document_version_id, chunk_index, content_text, content_hash,
                     token_count, locator, status, created_at, updated_at, version
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                 "#,
             )
             .bind(id)
@@ -126,7 +126,7 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
             r#"
             SELECT id
             FROM kb_chunk
-            WHERE tenant_id = ? AND document_version_id = ? AND status = ?
+            WHERE tenant_id = $1 AND document_version_id = $2 AND status = $3
             ORDER BY chunk_index ASC
             "#,
         )

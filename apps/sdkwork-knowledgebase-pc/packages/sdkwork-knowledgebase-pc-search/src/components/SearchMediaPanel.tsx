@@ -21,6 +21,7 @@ import type {
 import { getMediaItemsForTab, getMediaTabDefs, hasRelatedMedia } from '../utils/mediaResults';
 import { hasSyncedTimedText } from '../utils/mediaTimedText';
 import { dispatchOpenSearchMediaViewer } from '../utils/searchMediaViewerBridge';
+import { SearchMediaMasonry } from './SearchMediaMasonry';
 
 export interface SearchMediaPanelProps {
   relatedMedia?: SearchRelatedMedia;
@@ -88,81 +89,124 @@ function MediaSourceBadge({ item }: { item: SearchMediaItem }) {
 
 function ImageGrid({ items }: { items: SearchMediaItem[] }) {
   return (
-    <div className="search-media-grid search-media-grid--images">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          className="search-media-card search-media-card--image"
-          onClick={() => handleMediaClick(items, item)}
-        >
-          <div
-            className="search-media-card-thumb search-media-card-thumb--variable"
-            style={
-              item.imageWidth && item.imageHeight
-                ? { aspectRatio: `${item.imageWidth} / ${item.imageHeight}` }
-                : undefined
-            }
+    <SearchMediaMasonry
+      variant="image"
+      items={items.map((item) => ({
+        id: item.id,
+        mediaWidth: item.imageWidth,
+        mediaHeight: item.imageHeight
+      }))}
+      renderItem={(masonryItem, style) => {
+        const item = items.find((entry) => entry.id === masonryItem.id);
+        if (!item) return null;
+
+        return (
+          <button
+            type="button"
+            className="search-media-card search-media-card--image search-media-card--masonry"
+            style={style}
+            onClick={() => handleMediaClick(items, item)}
           >
-            {item.thumbnailUrl ? (
-              <img src={item.thumbnailUrl} alt={item.title} loading="lazy" />
-            ) : (
-              <div className="search-media-card-placeholder">
-                <ImageIcon className="w-8 h-8 opacity-40" />
-              </div>
-            )}
-            <span className="search-media-card-hover">预览</span>
-          </div>
-          <div className="search-media-card-body">
-            <p className="search-media-card-title">{item.title}</p>
-            <MediaSourceBadge item={item} />
-          </div>
-        </button>
-      ))}
-    </div>
+            <div
+              className="search-media-card-thumb search-media-card-thumb--masonry"
+              style={
+                item.imageWidth && item.imageHeight
+                  ? { aspectRatio: `${item.imageWidth} / ${item.imageHeight}` }
+                  : { aspectRatio: '4 / 3' }
+              }
+            >
+              {item.thumbnailUrl ? (
+                <img src={item.thumbnailUrl} alt={item.title} loading="lazy" />
+              ) : (
+                <div className="search-media-card-placeholder">
+                  <ImageIcon className="w-8 h-8 opacity-40" />
+                </div>
+              )}
+              {item.imageWidth && item.imageHeight && (
+                <span className="search-media-card-dim-badge">{item.imageWidth}×{item.imageHeight}</span>
+              )}
+              <span className="search-media-card-hover">预览</span>
+            </div>
+            <div className="search-media-card-body">
+              <p className="search-media-card-title">{item.title}</p>
+              <MediaSourceBadge item={item} />
+            </div>
+          </button>
+        );
+      }}
+    />
   );
 }
 
 function VideoGrid({ items }: { items: SearchMediaItem[] }) {
   return (
-    <div className="search-media-grid search-media-grid--videos">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          className="search-media-card search-media-card--video"
-          onClick={() => handleMediaClick(items, item)}
-        >
-          <div
-            className="search-media-card-thumb search-media-card-thumb--variable"
-            style={
-              item.videoWidth && item.videoHeight
-                ? { aspectRatio: `${item.videoWidth} / ${item.videoHeight}` }
-                : undefined
-            }
+    <SearchMediaMasonry
+      variant="video"
+      items={items.map((item) => ({
+        id: item.id,
+        mediaWidth: item.videoWidth,
+        mediaHeight: item.videoHeight,
+        bodyHeight: item.snippet ? 104 : 92
+      }))}
+      renderItem={(masonryItem, style) => {
+        const item = items.find((entry) => entry.id === masonryItem.id);
+        if (!item) return null;
+
+        const shapeLabel =
+          item.videoWidth && item.videoHeight
+            ? getVideoShapeLabel(item.videoWidth, item.videoHeight)
+            : null;
+
+        return (
+          <button
+            type="button"
+            className="search-media-card search-media-card--video search-media-card--masonry"
+            style={style}
+            onClick={() => handleMediaClick(items, item)}
           >
-            {item.thumbnailUrl ? (
-              <img src={item.thumbnailUrl} alt={item.title} loading="lazy" />
-            ) : (
-              <div className="search-media-card-placeholder">
-                <Video className="w-8 h-8 opacity-40" />
-              </div>
-            )}
-            <span className="search-media-play-badge">
-              <Play className="w-4 h-4 fill-current" />
-            </span>
-            <span className="search-media-card-hover">播放</span>
-            {item.duration && <span className="search-media-duration">{item.duration}</span>}
-          </div>
-          <div className="search-media-card-body">
-            <p className="search-media-card-title">{item.title}</p>
-            {item.snippet && <p className="search-media-card-snippet">{item.snippet}</p>}
-            <MediaSourceBadge item={item} />
-          </div>
-        </button>
-      ))}
-    </div>
+            <div
+              className="search-media-card-thumb search-media-card-thumb--masonry"
+              style={
+                item.videoWidth && item.videoHeight
+                  ? { aspectRatio: `${item.videoWidth} / ${item.videoHeight}` }
+                  : { aspectRatio: '16 / 9' }
+              }
+            >
+              {item.thumbnailUrl ? (
+                <img src={item.thumbnailUrl} alt={item.title} loading="lazy" />
+              ) : (
+                <div className="search-media-card-placeholder">
+                  <Video className="w-8 h-8 opacity-40" />
+                </div>
+              )}
+              <span className="search-media-play-badge">
+                <Play className="w-4 h-4 fill-current" />
+              </span>
+              <span className="search-media-card-hover">播放</span>
+              {item.duration && <span className="search-media-duration">{item.duration}</span>}
+              {shapeLabel && <span className="search-media-card-shape-badge">{shapeLabel}</span>}
+            </div>
+            <div className="search-media-card-body">
+              <p className="search-media-card-title">{item.title}</p>
+              {item.snippet && <p className="search-media-card-snippet">{item.snippet}</p>}
+              <MediaSourceBadge item={item} />
+            </div>
+          </button>
+        );
+      }}
+    />
   );
+}
+
+function getVideoShapeLabel(width: number, height: number): string | null {
+  const ratio = width / height;
+  if (ratio > 2.0) return '21:9';
+  if (ratio > 1.7) return '16:9';
+  if (ratio > 1.3) return '4:3';
+  if (ratio < 0.6) return '9:16';
+  if (ratio < 0.85) return '3:4';
+  if (ratio > 0.95 && ratio < 1.05) return '1:1';
+  return null;
 }
 
 function AudioList({ items }: { items: SearchMediaItem[] }) {
@@ -243,41 +287,53 @@ function MusicList({ items }: { items: SearchMediaItem[] }) {
 
 function ProductGrid({ items }: { items: SearchMediaItem[] }) {
   return (
-    <div className="search-media-grid search-media-grid--products">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          className="search-media-card search-media-card--product"
-          onClick={() => handleMediaClick(items, item)}
-        >
-          <div className="search-media-card-thumb search-media-card-thumb--square">
-            {item.thumbnailUrl ? (
-              <img src={item.thumbnailUrl} alt={item.title} loading="lazy" />
-            ) : (
-              <div className="search-media-card-placeholder">
-                <ShoppingBag className="w-8 h-8 opacity-40" />
-              </div>
-            )}
-            <span className="search-media-card-hover">详情</span>
-          </div>
-          <div className="search-media-card-body">
-            <p className="search-media-card-title">{item.title}</p>
-            <div className="search-media-product-meta">
-              {item.price && <span className="search-media-price">{item.price}</span>}
-              {item.rating != null && (
-                <span className="search-media-rating">
-                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                  {item.rating.toFixed(1)}
-                </span>
+    <SearchMediaMasonry
+      variant="product"
+      items={items.map((item) => ({
+        id: item.id,
+        mediaWidth: 1,
+        mediaHeight: 1,
+        bodyHeight: item.merchant ? 112 : 100
+      }))}
+      renderItem={(masonryItem, style) => {
+        const item = items.find((entry) => entry.id === masonryItem.id);
+        if (!item) return null;
+
+        return (
+          <button
+            type="button"
+            className="search-media-card search-media-card--product search-media-card--masonry"
+            style={style}
+            onClick={() => handleMediaClick(items, item)}
+          >
+            <div className="search-media-card-thumb search-media-card-thumb--masonry search-media-card-thumb--square">
+              {item.thumbnailUrl ? (
+                <img src={item.thumbnailUrl} alt={item.title} loading="lazy" />
+              ) : (
+                <div className="search-media-card-placeholder">
+                  <ShoppingBag className="w-8 h-8 opacity-40" />
+                </div>
               )}
+              <span className="search-media-card-hover">详情</span>
             </div>
-            {item.merchant && <p className="search-media-card-snippet">{item.merchant}</p>}
-            <MediaSourceBadge item={item} />
-          </div>
-        </button>
-      ))}
-    </div>
+            <div className="search-media-card-body">
+              <p className="search-media-card-title">{item.title}</p>
+              <div className="search-media-product-meta">
+                {item.price && <span className="search-media-price">{item.price}</span>}
+                {item.rating != null && (
+                  <span className="search-media-rating">
+                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                    {item.rating.toFixed(1)}
+                  </span>
+                )}
+              </div>
+              {item.merchant && <p className="search-media-card-snippet">{item.merchant}</p>}
+              <MediaSourceBadge item={item} />
+            </div>
+          </button>
+        );
+      }}
+    />
   );
 }
 

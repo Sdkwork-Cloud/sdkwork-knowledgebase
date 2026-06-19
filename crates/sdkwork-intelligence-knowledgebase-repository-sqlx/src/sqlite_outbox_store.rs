@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::{
     AppendOutboxEventRecord, KnowledgeOutboxStore, KnowledgeOutboxStoreError, PendingOutboxEvent,
 };
-use sqlx::{Row, SqlitePool};
+use sqlx::{AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -15,18 +15,18 @@ const INITIAL_VERSION: i64 = 0;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeOutboxStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeOutboxStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -71,7 +71,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                 id, uuid, tenant_id, aggregate_type, aggregate_id, event_type,
                 payload, status, created_at, version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             "#,
         )
         .bind(id)
@@ -101,9 +101,9 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
             r#"
             SELECT id, aggregate_type, aggregate_id, event_type, payload
             FROM kb_outbox_event
-            WHERE tenant_id = ? AND status = ?
+            WHERE tenant_id = $1 AND status = $2
             ORDER BY created_at ASC, id ASC
-            LIMIT ?
+            LIMIT $3
             "#,
         )
         .bind(tenant_id)
@@ -133,8 +133,8 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         let updated = sqlx::query(
             r#"
             UPDATE kb_outbox_event
-            SET status = ?, published_at = ?, version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            SET status = $1, published_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND id = $4 AND status = $5
             "#,
         )
         .bind(OUTBOX_STATUS_PUBLISHED)

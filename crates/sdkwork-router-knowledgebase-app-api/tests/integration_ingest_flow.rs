@@ -1,6 +1,6 @@
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
-use sdkwork_router_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseSqliteRuntime};
+use sdkwork_router_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
 use serde_json::json;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -39,7 +39,7 @@ async fn integration_hosted_ingest_creates_job_and_chunks_markdown() {
     assert_eq!(body["state"], "succeeded");
 
     let chunk_count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM kb_chunk WHERE tenant_id = 1 AND space_id = ?")
+        sqlx::query_scalar("SELECT COUNT(*) FROM kb_chunk WHERE tenant_id = 1 AND space_id = $1")
             .bind(space_id as i64)
             .fetch_one(runtime.pool())
             .await
@@ -50,7 +50,7 @@ async fn integration_hosted_ingest_creates_job_and_chunks_markdown() {
     );
 }
 
-async fn create_space(runtime: &KnowledgebaseSqliteRuntime) -> u64 {
+async fn create_space(runtime: &KnowledgebaseRuntime) -> u64 {
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let response = app
         .oneshot(
@@ -74,7 +74,7 @@ async fn create_space(runtime: &KnowledgebaseSqliteRuntime) -> u64 {
     body["id"].as_u64().expect("space id")
 }
 
-async fn test_runtime() -> KnowledgebaseSqliteRuntime {
+async fn test_runtime() -> KnowledgebaseRuntime {
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -102,7 +102,7 @@ async fn test_runtime() -> KnowledgebaseSqliteRuntime {
         .to_string()
         .replace('\\', "/");
     let database_url = format!("sqlite://{relative_database_path}?mode=rwc");
-    KnowledgebaseSqliteRuntime::connect(&database_url, 1)
+    KnowledgebaseRuntime::connect(&database_url, 1)
         .await
         .expect("initialize integration runtime")
 }

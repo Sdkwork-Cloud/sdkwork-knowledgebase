@@ -21,6 +21,7 @@ pub mod runtime;
 mod web_bootstrap;
 
 pub use error::{ApiError, ApiProblem, ApiResult};
+pub use http_route_manifest::app_route_manifest;
 pub use ports::{
     KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext, KnowledgeBrowserApi,
     KnowledgeContextBindingAppService, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
@@ -35,8 +36,7 @@ pub use routes::{
     build_router_with_shared_app_api_and_readiness, build_router_with_shared_browser,
     build_router_with_shared_retrieval_service, ReadinessCheck,
 };
-pub use runtime::KnowledgebaseSqliteRuntime;
-pub use http_route_manifest::app_route_manifest;
+pub use runtime::KnowledgebaseRuntime;
 pub use sdkwork_knowledgebase_contract::ProblemDetails;
 pub use web_bootstrap::{
     knowledgebase_public_path_prefixes, wrap_router_with_web_framework,

@@ -4,30 +4,30 @@
   "appId": "sdkwork-knowledgebase",
   "archetype": "application-http-gateway",
   "profileRoot": "configs/topology",
-  "profilePattern": "{hosting}.{serviceLayout}.{environment}.env",
+  "profilePattern": "{deploymentProfile}.{serviceLayout}.{environment}.env",
   "vocabulary": {
-    "hosting": { "allowed": ["self-hosted", "cloud-hosted"] },
+    "deploymentProfile": { "allowed": ["standalone", "cloud"] },
     "serviceLayout": { "allowed": ["unified-process", "split-services"] },
     "environment": { "allowed": ["development", "production"] }
   },
   "defaults": {
-    "developmentProfileId": "self-hosted.split-services.development",
-    "productionProfileId": "cloud-hosted.split-services.production",
-    "desktopBuildProfileId": "cloud-hosted.split-services.production",
+    "developmentProfileId": "standalone.unified-process.development",
+    "productionProfileId": "cloud.split-services.production",
+    "desktopBuildProfileId": "standalone.unified-process.production",
     "gatewayBind": "127.0.0.1:3900"
   },
   "profileFiles": {
-    "self-hosted.split-services.development": "configs/topology/self-hosted.split-services.development.env",
-    "self-hosted.unified-process.production": "configs/topology/self-hosted.unified-process.production.env",
-    "cloud-hosted.split-services.development": "configs/topology/cloud-hosted.split-services.development.env",
-    "cloud-hosted.split-services.production": "configs/topology/cloud-hosted.split-services.production.env"
+    "standalone.unified-process.development": "configs/topology/standalone.unified-process.development.env",
+    "standalone.unified-process.production": "configs/topology/standalone.unified-process.production.env",
+    "cloud.split-services.development": "configs/topology/cloud.split-services.development.env",
+    "cloud.split-services.production": "configs/topology/cloud.split-services.production.env"
   },
   "envKeys": {
-    "hosting": "SDKWORK_KNOWLEDGEBASE_HOSTING",
+    "deploymentProfile": "SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE",
     "serviceLayout": "SDKWORK_KNOWLEDGEBASE_SERVICE_LAYOUT",
     "environment": "SDKWORK_KNOWLEDGEBASE_ENVIRONMENT",
     "profileId": "SDKWORK_KNOWLEDGEBASE_PROFILE_ID",
-    "clientHosting": "VITE_SDKWORK_KNOWLEDGEBASE_HOSTING",
+    "clientDeploymentProfile": "VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE",
     "gatewayAutostart": "SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_AUTOSTART",
     "standaloneGatewayBind": "SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND",
     "cloudGatewayBind": "SDKWORK_API_GATEWAY_BIND",
@@ -76,7 +76,7 @@
   "database": {
     "appPrefix": "SDKWORK_KNOWLEDGEBASE"
   },
-  "iamDevDefaultsProfile": "configs/topology/self-hosted.split-services.development.env",
+  "iamDevDefaultsProfile": "configs/topology/standalone.unified-process.development.env",
   "components": {
     "appApiRouter": {
       "crate": "sdkwork-knowledgebase-api-server",
@@ -99,34 +99,18 @@
   },
   "orchestration": {
     "profiles": {
-      "self-hosted.split-services.development": {
+      "standalone.unified-process.development": {
         "processes": [
           {
             "id": "application.public-ingress",
             "crate": "sdkwork-knowledgebase-api-server",
             "binary": "sdkwork-knowledgebase-app-api",
             "required": true
-          },
-          {
-            "id": "application.backend-http",
-            "crate": "sdkwork-knowledgebase-api-server",
-            "binary": "sdkwork-knowledgebase-backend-api",
-            "required": true
-          },
-          {
-            "id": "application.open-http",
-            "crate": "sdkwork-knowledgebase-api-server",
-            "binary": "sdkwork-knowledgebase-open-api",
-            "required": true
           }
         ],
-        "healthSurfaces": [
-          "application.public-ingress",
-          "application.backend-http",
-          "application.open-http"
-        ]
+        "healthSurfaces": ["application.public-ingress"]
       },
-      "cloud-hosted.split-services.development": {
+      "cloud.split-services.development": {
         "processes": [
           {
             "id": "platform.api-gateway",
@@ -170,18 +154,21 @@
     ],
     "targets": [
       {
-        "id": "platform-config-bundle-tar-gz",
-        "profile": "platform-config-bundle",
-        "platform": "all",
-        "architecture": "all",
+        "id": "container-noarch-cloud-container-config-bundle-tar-gz",
+        "profile": "container",
+        "platform": "container",
+        "architecture": "noarch",
         "formats": ["tar.gz"],
         "runner": "ubuntu-24.04",
-        "outputGlob": "dist/cloud-config/sdkwork-knowledgebase-api-gateway-config-*.tar.gz"
+        "outputGlob": "dist/cloud-config/sdkwork-knowledgebase-api-gateway-config-*.tar.gz",
+        "deploymentProfile": "cloud",
+        "runtimeTarget": "container",
+        "variant": "config-bundle"
       }
     ]
   },
   "scripts": {
-    "knowledgebaseDev": "scripts/knowledgebase-dev.mjs"
+    "dev": "scripts/knowledgebase-dev.mjs"
   },
   "retired": {
     "envKeys": [
@@ -189,7 +176,6 @@
       "SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN",
       "SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN",
       "SDKWORK_KNOWLEDGEBASE_OPEN_API_BASE_URL"
-    ],
-    "cliFlags": ["--topology"]
+    ]
   }
 }

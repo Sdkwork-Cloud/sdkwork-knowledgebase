@@ -10,12 +10,9 @@
     "preview": "vite preview",
     "start": "node dist/server.cjs",
     "lint": "tsc --noEmit",
-    "desktop": "pnpm desktop:dev",
-    "dev:desktop": "pnpm desktop:dev",
-    "desktop:dev": "pnpm --filter sdkwork-knowledgebase-pc-desktop run desktop:dev",
-    "desktop:build": "pnpm --filter sdkwork-knowledgebase-pc-desktop run desktop:build",
-    "desktop:build:local": "pnpm --filter sdkwork-knowledgebase-pc-desktop run desktop:build:local",
-    "knowledgebase:dev:desktop": "node ../../scripts/knowledgebase-dev.mjs --target desktop --hosting self-hosted"
+    "dev:desktop": "pnpm --filter sdkwork-knowledgebase-pc-desktop run dev:desktop",
+    "build:desktop": "pnpm --filter sdkwork-knowledgebase-pc-desktop run build:desktop",
+    "build:desktop:debug": "pnpm --filter sdkwork-knowledgebase-pc-desktop run build:desktop:debug"
   },
   "dependencies": {
     "@sdkwork/appbase-app-sdk": "workspace:*",

@@ -16,13 +16,24 @@ export interface UseHtmlVideoPlayerResult {
   duration: number;
   progress: number;
   buffered: number;
+  playbackRate: number;
   togglePlay: () => void;
   seek: (ratio: number) => void;
+  seekBy: (deltaSeconds: number) => void;
+  setPlaybackRate: (rate: number) => void;
+  cyclePlaybackRate: () => void;
   canPlay: boolean;
   isMuted: boolean;
   toggleMute: () => void;
   toggleFullscreen: () => void;
   togglePictureInPicture: () => void;
+  captureSnapshot: () => string | null;
+}
+
+const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
+
+export function getPlaybackRates(): readonly number[] {
+  return PLAYBACK_RATES;
 }
 
 export function useHtmlVideoPlayer(
@@ -46,6 +57,7 @@ export function useHtmlVideoPlayer(
   const [buffered, setBuffered] = useState(0);
   const [canPlay, setCanPlay] = useState(Boolean(src));
   const [isMuted, setIsMuted] = useState(false);
+  const [playbackRate, setPlaybackRateState] = useState(1);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -154,6 +166,12 @@ export function useHtmlVideoPlayer(
     video.loop = Boolean(options?.loop);
   }, [options?.loop, src, resetKey]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.playbackRate = playbackRate;
+  }, [playbackRate, src, resetKey]);
+
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video || !src) return;
@@ -182,6 +200,38 @@ export function useHtmlVideoPlayer(
     [duration]
   );
 
+  const seekBy = useCallback(
+    (deltaSeconds: number) => {
+      const video = videoRef.current;
+      if (!video || !duration) return;
+      const next = Math.max(0, Math.min(duration, video.currentTime + deltaSeconds));
+      video.currentTime = next;
+      setCurrentTime(next);
+      if (next < duration - 0.35) {
+        setHasEnded(false);
+      }
+    },
+    [duration]
+  );
+
+  const setPlaybackRate = useCallback((rate: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.playbackRate = rate;
+    setPlaybackRateState(rate);
+  }, []);
+
+  const cyclePlaybackRate = useCallback(() => {
+    setPlaybackRateState((current) => {
+      const currentIndex = PLAYBACK_RATES.indexOf(current as (typeof PLAYBACK_RATES)[number]);
+      const nextIndex = currentIndex === -1 ? 2 : (currentIndex + 1) % PLAYBACK_RATES.length;
+      const nextRate = PLAYBACK_RATES[nextIndex];
+      const video = videoRef.current;
+      if (video) video.playbackRate = nextRate;
+      return nextRate;
+    });
+  }, []);
+
   const toggleMute = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -196,7 +246,10 @@ export function useHtmlVideoPlayer(
       void document.exitFullscreen();
       return;
     }
-    void video.requestFullscreen?.();
+    const target = video.parentElement?.classList.contains('search-video-player__screen')
+      ? video.parentElement
+      : video;
+    void target.requestFullscreen?.();
   }, []);
 
   const togglePictureInPicture = useCallback(async () => {
@@ -213,6 +266,22 @@ export function useHtmlVideoPlayer(
     }
   }, []);
 
+  const captureSnapshot = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return null;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/png');
+    } catch {
+      return null;
+    }
+  }, []);
+
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return {
@@ -224,13 +293,18 @@ export function useHtmlVideoPlayer(
     duration,
     progress,
     buffered,
+    playbackRate,
     togglePlay,
     seek,
+    seekBy,
+    setPlaybackRate,
+    cyclePlaybackRate,
     canPlay,
     isMuted,
     toggleMute,
     toggleFullscreen,
-    togglePictureInPicture
+    togglePictureInPicture,
+    captureSnapshot
   };
 }
 

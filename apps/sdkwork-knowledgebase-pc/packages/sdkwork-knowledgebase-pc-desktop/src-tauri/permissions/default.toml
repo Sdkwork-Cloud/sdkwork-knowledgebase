@@ -10,5 +10,9 @@ commands.allow = [
   "reveal_export_file",
   "open_export_file",
   "locate_export_file",
-  "export_document_pdf"
+  "export_document_pdf",
+  "sync_desktop_preferences",
+  "get_desktop_host_status",
+  "get_autostart_enabled",
+  "sync_tray_locale"
 ]

@@ -3,7 +3,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_embedding_store
     ChunkEmbeddingUpsertRequest, KnowledgeEmbeddingStore, KnowledgeEmbeddingStoreError,
 };
 use sdkwork_knowledgebase_agent_provider::serialize_embedding_vector;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 use std::sync::Arc;
 use thiserror::Error;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -23,18 +23,18 @@ pub enum SqliteKnowledgeEmbeddingStoreError {
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeEmbeddingStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeEmbeddingStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -78,7 +78,7 @@ impl SqliteKnowledgeEmbeddingStore {
             r#"
             SELECT id
             FROM kb_embedding
-            WHERE tenant_id = ? AND index_id = ? AND chunk_id = ?
+            WHERE tenant_id = $1 AND index_id = $2 AND chunk_id = $3
             LIMIT 1
             "#,
         )
@@ -93,9 +93,9 @@ impl SqliteKnowledgeEmbeddingStore {
             sqlx::query(
                 r#"
                 UPDATE kb_embedding
-                SET embedding_hash = ?, vector_ref = ?, vector_json = ?, dimension = ?,
-                    provider_id = ?, model = ?, status = ?, updated_at = ?, version = version + 1
-                WHERE tenant_id = ? AND id = ?
+                SET embedding_hash = $1, vector_ref = $2, vector_json = $3, dimension = $4,
+                    provider_id = $5, model = $6, status = $7, updated_at = $8, version = version + 1
+                WHERE tenant_id = $9 AND id = $10
                 "#,
             )
             .bind(embedding_hash)
@@ -121,7 +121,7 @@ impl SqliteKnowledgeEmbeddingStore {
                 id, uuid, tenant_id, index_id, chunk_id, embedding_hash, vector_ref, vector_json,
                 dimension, provider_id, model, metadata, status, created_at, updated_at, version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, $12, $13, $14, 0)
             "#,
         )
         .bind(id)
@@ -155,7 +155,7 @@ impl SqliteKnowledgeEmbeddingStore {
             r#"
             SELECT content_text
             FROM kb_chunk
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
             LIMIT 1
             "#,
         )
@@ -179,7 +179,7 @@ impl SqliteKnowledgeEmbeddingStore {
             r#"
             SELECT id
             FROM kb_chunk
-            WHERE tenant_id = ? AND space_id = ? AND status = ?
+            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
             ORDER BY id ASC
             "#,
         )

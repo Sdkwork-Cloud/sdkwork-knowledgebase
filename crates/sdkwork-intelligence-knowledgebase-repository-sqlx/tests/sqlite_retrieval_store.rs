@@ -1,4 +1,3 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::SQLITE_CORE_MIGRATION;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     KnowledgeIdGenerator, KnowledgeIdGeneratorError, SqliteKnowledgeChunkRetrievalStore,
 };
@@ -10,8 +9,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_trace
     KnowledgeRetrievalTraceStore,
 };
 use sdkwork_knowledgebase_contract::rag::{KnowledgeRetrievalBinding, KnowledgeRetrievalMethod};
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{Row, SqlitePool};
+use sqlx::{AnyPool, Row};
 use std::sync::{Arc, Mutex};
 
 #[tokio::test]
@@ -202,7 +200,7 @@ async fn sqlite_retrieval_trace_store_persists_trace_and_ranked_hits() {
         r#"
         SELECT tenant_id, actor_id, retrieval_profile_id, result_count, status
         FROM kb_retrieval_trace
-        WHERE id = ?
+        WHERE id = $1
         "#,
     )
     .bind(trace_id as i64)
@@ -222,7 +220,7 @@ async fn sqlite_retrieval_trace_store_persists_trace_and_ranked_hits() {
         r#"
         SELECT chunk_id, result_rank, score, match_reason
         FROM kb_retrieval_hit
-        WHERE retrieval_trace_id = ?
+        WHERE retrieval_trace_id = $1
         ORDER BY result_rank
         "#,
     )
@@ -319,24 +317,17 @@ fn fixed_id_generator(ids: impl IntoIterator<Item = u64>) -> Arc<dyn KnowledgeId
     })
 }
 
-async fn sqlite_pool() -> SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
+async fn sqlite_pool() -> AnyPool {
+    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
+        "sqlite::memory:",
+    )
+    .await
+    .unwrap()
 }
 
-async fn apply_sqlite_migration(pool: &SqlitePool) {
-    for statement in SQLITE_CORE_MIGRATION.split(';') {
-        let statement = statement.trim();
-        if !statement.is_empty() {
-            sqlx::query(statement).execute(pool).await.unwrap();
-        }
-    }
-}
+async fn apply_sqlite_migration(_pool: &AnyPool) {}
 
-async fn seed_documents_and_chunks(pool: &SqlitePool) {
+async fn seed_documents_and_chunks(pool: &AnyPool) {
     let now = "2026-06-09T00:00:00Z";
     sqlx::query(
         r#"
@@ -345,8 +336,8 @@ async fn seed_documents_and_chunks(pool: &SqlitePool) {
             visibility, content_state, index_state, status, created_at, updated_at, version
         )
         VALUES
-            (201, 'doc-201', 9001, 7, 0, 'source_and_original_drive_node', 'Support Playbook', 1, 1, 2, 1, ?, ?, 0),
-            (202, 'doc-202', 9001, 8, 0, 'source_and_original_drive_node', 'Billing Playbook', 1, 1, 2, 1, ?, ?, 0)
+            (201, 'doc-201', 9001, 7, 0, 'source_and_original_drive_node', 'Support Playbook', 1, 1, 2, 1, $1, $2, 0),
+            (202, 'doc-202', 9001, 8, 0, 'source_and_original_drive_node', 'Billing Playbook', 1, 1, 2, 1, $3, $4, 0)
         "#,
     )
     .bind(now)
@@ -364,8 +355,8 @@ async fn seed_documents_and_chunks(pool: &SqlitePool) {
             size_bytes, parse_state, index_state, submitted_at, status, created_at, updated_at, version
         )
         VALUES
-            (301, 'ver-301', 9001, 201, 1, 401, 100, 2, 2, ?, 1, ?, ?, 0),
-            (302, 'ver-302', 9001, 202, 1, 402, 100, 2, 2, ?, 1, ?, ?, 0)
+            (301, 'ver-301', 9001, 201, 1, 401, 100, 2, 2, $1, 1, $2, $3, 0),
+            (302, 'ver-302', 9001, 202, 1, 402, 100, 2, 2, $4, 1, $5, $6, 0)
         "#,
     )
     .bind(now)
@@ -394,11 +385,11 @@ async fn seed_documents_and_chunks(pool: &SqlitePool) {
             chunk_index, content_text, content_hash, token_count, locator, status, created_at, updated_at, version
         )
         VALUES
-            (101, 'chunk-101', 9001, 7, 0, 201, 301, 1, 'enterprise renewal support playbook for premium accounts', 'hash-101', 7, 'section:renewal', 1, ?, ?, 0),
-            (102, 'chunk-102', 9001, 7, 0, 201, 301, 2, 'support workflow for customer renewal escalations', 'hash-102', 6, 'section:workflow', 1, ?, ?, 0),
-            (103, 'chunk-103', 9001, 8, 0, 202, 302, 1, 'billing support escalation for invoices', 'hash-103', 5, 'section:billing', 1, ?, ?, 0),
-            (104, 'chunk-104', 9002, 7, 0, 201, 301, 1, 'other tenant enterprise renewal support', 'hash-104', 5, 'section:other', 1, ?, ?, 0),
-            (105, 'chunk-105', 9001, 7, 2, 201, 301, 3, 'billing collection scoped note', 'hash-105', 4, 'section:collection', 1, ?, ?, 0)
+            (101, 'chunk-101', 9001, 7, 0, 201, 301, 1, 'enterprise renewal support playbook for premium accounts', 'hash-101', 7, 'section:renewal', 1, $1, $2, 0),
+            (102, 'chunk-102', 9001, 7, 0, 201, 301, 2, 'support workflow for customer renewal escalations', 'hash-102', 6, 'section:workflow', 1, $3, $4, 0),
+            (103, 'chunk-103', 9001, 8, 0, 202, 302, 1, 'billing support escalation for invoices', 'hash-103', 5, 'section:billing', 1, $5, $6, 0),
+            (104, 'chunk-104', 9002, 7, 0, 201, 301, 1, 'other tenant enterprise renewal support', 'hash-104', 5, 'section:other', 1, $7, $8, 0),
+            (105, 'chunk-105', 9001, 7, 2, 201, 301, 3, 'billing collection scoped note', 'hash-105', 4, 'section:collection', 1, $9, $10, 0)
         "#,
     )
     .bind(now)
@@ -416,14 +407,14 @@ async fn seed_documents_and_chunks(pool: &SqlitePool) {
     .unwrap();
 }
 
-async fn seed_embedding_for_chunk(pool: &SqlitePool, chunk_id: i64, index_id: i64) {
+async fn seed_embedding_for_chunk(pool: &AnyPool, chunk_id: i64, index_id: i64) {
     let now = "2026-06-09T00:00:00Z";
     sqlx::query(
         r#"
         INSERT INTO kb_index (
             id, uuid, tenant_id, space_id, collection_id, index_kind, schema_version, status, created_at, updated_at, version
         )
-        VALUES (?, ?, 9001, 7, 0, 'vector', 'v1', 1, ?, ?, 0)
+        VALUES ($1, $2, 9001, 7, 0, 'vector', 'v1', 1, $3, $4, 0)
         "#,
     )
     .bind(index_id)
@@ -440,7 +431,7 @@ async fn seed_embedding_for_chunk(pool: &SqlitePool, chunk_id: i64, index_id: i6
             id, uuid, tenant_id, index_id, chunk_id, embedding_hash, vector_ref, dimension,
             provider_id, model, metadata, status, created_at, updated_at, version
         )
-        VALUES (?, ?, 9001, ?, ?, 'hash-emb', 'drive://vectors/chunk-101', 1536, 'openai', 'text-embedding-3-small', NULL, 1, ?, ?, 0)
+        VALUES ($1, $2, 9001, $3, $4, 'hash-emb', 'drive://vectors/chunk-101', 1536, 'openai', 'text-embedding-3-small', NULL, 1, $5, $6, 0)
         "#,
     )
     .bind(index_id + 1000)

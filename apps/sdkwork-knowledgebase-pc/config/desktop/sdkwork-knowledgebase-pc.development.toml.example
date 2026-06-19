@@ -5,7 +5,7 @@
 [app]
 key = "sdkwork-knowledgebase-pc"
 runtime_target = "desktop"
-deployment_mode = "desktop"
+deployment_profile = "standalone"
 
 [window]
 title = "SDKWork Knowledgebase"
@@ -13,5 +13,10 @@ width = 1440
 height = 900
 
 [runtime]
-hosting = "self-hosted"
 environment = "development"
+config_profile = "dev"
+
+[database]
+engine = "sqlite"
+file = "~/.sdkwork/knowledgebase/data/knowledgebase.sqlite"
+max_connections = 1

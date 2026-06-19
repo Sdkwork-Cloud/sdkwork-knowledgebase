@@ -25,7 +25,7 @@ fn app_request_context() -> KnowledgeAppRequestContext {
 #[tokio::test]
 async fn retrieval_route_calls_injected_retrieval_service() {
     let service = RecordingRetrievalService::default();
-    let app = build_router_with_retrieval_service(service);
+    let app = build_router_with_retrieval_service(service.clone());
 
     let response = app
         .oneshot(
@@ -35,7 +35,7 @@ async fn retrieval_route_calls_injected_retrieval_service() {
                 .header("content-type", "application/json")
                 .extension(app_request_context())
                 .body(Body::from(
-                    r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
+                    r#"{"actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
                 ))
                 .unwrap(),
         )
@@ -46,12 +46,15 @@ async fn retrieval_route_calls_injected_retrieval_service() {
     let body = response_json(response).await;
     assert_eq!(body["retrievalId"], "701");
     assert_eq!(body["hits"][0]["chunkId"], "11");
+    let request = service.last_retrieval_request().unwrap();
+    assert_eq!(request.tenant_id, 20001);
+    assert_eq!(request.actor_id, Some(30001));
 }
 
 #[tokio::test]
 async fn context_pack_route_calls_injected_retrieval_service() {
     let service = RecordingRetrievalService::default();
-    let app = build_router_with_retrieval_service(service);
+    let app = build_router_with_retrieval_service(service.clone());
 
     let response = app
         .oneshot(
@@ -61,7 +64,7 @@ async fn context_pack_route_calls_injected_retrieval_service() {
                 .header("content-type", "application/json")
                 .extension(app_request_context())
                 .body(Body::from(
-                    r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"contextBudgetTokens":80,"includeCitations":true}"#,
+                    r#"{"actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"contextBudgetTokens":80,"includeCitations":true}"#,
                 ))
                 .unwrap(),
         )
@@ -73,6 +76,9 @@ async fn context_pack_route_calls_injected_retrieval_service() {
     assert_eq!(body["contextPackId"], "801");
     assert_eq!(body["fragments"][0]["chunkId"], "11");
     assert_eq!(body["estimatedTokens"], 8);
+    let request = service.last_context_pack_request().unwrap();
+    assert_eq!(request.tenant_id, 20001);
+    assert_eq!(request.actor_id, Some(30001));
 }
 
 #[tokio::test]
@@ -87,7 +93,7 @@ async fn retrieval_route_maps_service_validation_errors_to_problem_details() {
                 .header("content-type", "application/json")
                 .extension(app_request_context())
                 .body(Body::from(
-                    r#"{"tenantId":"20001","query":"","bindings":[],"includeCitations":true,"includeTrace":true}"#,
+                    r#"{"query":"","bindings":[],"includeCitations":true,"includeTrace":true}"#,
                 ))
                 .unwrap(),
         )
@@ -163,8 +169,16 @@ struct RecordingRetrievalService {
 }
 
 impl RecordingRetrievalService {
+    fn last_retrieval_request(&self) -> Option<KnowledgeRetrievalRequest> {
+        self.retrieval_requests.lock().unwrap().last().cloned()
+    }
+
     fn retrieve_requests(&self) -> Vec<(u64, u64)> {
         self.retrieve_requests.lock().unwrap().clone()
+    }
+
+    fn last_context_pack_request(&self) -> Option<KnowledgeContextPackRequest> {
+        self.context_pack_requests.lock().unwrap().last().cloned()
     }
 }
 

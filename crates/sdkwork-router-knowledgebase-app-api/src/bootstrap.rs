@@ -1,6 +1,6 @@
 use axum::Router;
 
-use crate::{dev_auth, KnowledgebaseSqliteRuntime};
+use crate::{dev_auth, KnowledgebaseRuntime};
 
 pub fn dev_auth_bypass_enabled() -> bool {
     knowledgebase_environment()
@@ -33,7 +33,7 @@ pub fn validate_process_config() {
 }
 
 pub async fn build_served_app_router(
-    runtime: &KnowledgebaseSqliteRuntime,
+    runtime: &KnowledgebaseRuntime,
     tenant_id: u64,
     actor_id: Option<u64>,
 ) -> Router {
@@ -46,7 +46,7 @@ pub async fn build_served_app_router(
 }
 
 pub async fn build_served_backend_router(
-    runtime: &KnowledgebaseSqliteRuntime,
+    runtime: &KnowledgebaseRuntime,
     tenant_id: u64,
     operator_id: Option<u64>,
 ) -> Router {
@@ -59,7 +59,7 @@ pub async fn build_served_backend_router(
 }
 
 pub async fn build_served_open_router(
-    runtime: &KnowledgebaseSqliteRuntime,
+    runtime: &KnowledgebaseRuntime,
     tenant_id: u64,
     actor_id: Option<u64>,
 ) -> Router {

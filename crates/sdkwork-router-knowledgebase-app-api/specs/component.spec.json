@@ -90,7 +90,7 @@
                                             "."
                                         ],
                       "runtimeEntrypoints":  [
-                                                 "KnowledgebaseSqliteRuntime",
+                                                 "KnowledgebaseRuntime",
                                                  "app_route_manifest",
                                                  "build_full_app_router",
                                                  "build_backend_router",

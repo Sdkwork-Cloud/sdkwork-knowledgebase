@@ -174,8 +174,9 @@ $cargoTomls = Get-ChildItem -Path . -Recurse -Filter Cargo.toml -File |
 $packageNames = New-Object System.Collections.Generic.List[string]
 foreach ($cargoToml in $cargoTomls) {
     $relativePath = $cargoToml.FullName.Substring((Get-Location).Path.Length + 1).Replace("\", "/")
-    if ($relativePath -ne "Cargo.toml" -and !$relativePath.StartsWith("crates/")) {
-        throw "Authored Rust package manifest must live under crates/: $relativePath"
+    $isAllowedAppSurfaceTauriHost = $relativePath -match '^apps/[^/]+/packages/[^/]+/src-tauri/Cargo\.toml$'
+    if ($relativePath -ne "Cargo.toml" -and !$relativePath.StartsWith("crates/") -and !$isAllowedAppSurfaceTauriHost) {
+        throw "Authored Rust package manifest must live under crates/ or an app-surface Tauri host at apps/<surface>/packages/<host>/src-tauri/Cargo.toml: $relativePath"
     }
 
     $match = Select-String -LiteralPath $cargoToml.FullName -Pattern '^name\s*=\s*"([^"]+)"' | Select-Object -First 1
@@ -329,7 +330,10 @@ foreach ($file in $filesToScan) {
     if ($excludedHistoricalDocs -contains $relativePath) {
         continue
     }
-    $content = Get-Content -Raw -LiteralPath $file.FullName
+    $content = Get-Content -Raw -LiteralPath $file.FullName -ErrorAction SilentlyContinue
+    if ($null -eq $content) {
+        continue
+    }
     foreach ($pattern in $contentForbiddenPatterns) {
         if ($content.Contains($pattern)) {
             throw "Legacy structure or package reference remains in ${relativePath}: ${pattern}"

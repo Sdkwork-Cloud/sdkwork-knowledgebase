@@ -1,5 +1,4 @@
 export interface KnowledgeIndexRequest {
-  tenantId: string;
   spaceId: string;
   collectionId?: string | null;
   indexKind: string;

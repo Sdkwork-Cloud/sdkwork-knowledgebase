@@ -1,5 +1,5 @@
 use sdkwork_knowledgebase_api_server::serve_router;
-use sdkwork_router_knowledgebase_app_api::{bootstrap, KnowledgebaseSqliteRuntime};
+use sdkwork_router_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 
 #[tokio::main]
 async fn main() {
@@ -17,9 +17,9 @@ async fn main() {
     let listen_addr = std::env::var("SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_BIND")
         .unwrap_or_else(|_| "127.0.0.1:18083".to_string());
 
-    let runtime = KnowledgebaseSqliteRuntime::connect(&database_url, tenant_id)
+    let runtime = KnowledgebaseRuntime::connect(&database_url, tenant_id)
         .await
-        .expect("initialize knowledgebase sqlite runtime");
+        .expect("initialize knowledgebase runtime");
     runtime
         .readiness_check()
         .await

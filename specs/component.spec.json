@@ -80,6 +80,16 @@
       "purpose": "Token model, authn/authz, tenant isolation, and secure logging rules."
     },
     {
+      "file": "WEB_FRAMEWORK_SPEC.md",
+      "path": "../sdkwork-specs/WEB_FRAMEWORK_SPEC.md",
+      "purpose": "Mandatory sdkwork-web-framework integration for HTTP surfaces."
+    },
+    {
+      "file": "DEPLOYMENT_SPEC.md",
+      "path": "../sdkwork-specs/DEPLOYMENT_SPEC.md",
+      "purpose": "Standalone/cloud deployment profile parity and runtime target coverage."
+    },
+    {
       "file": "DATABASE_SPEC.md",
       "path": "../sdkwork-specs/DATABASE_SPEC.md",
       "purpose": "Database contract, table naming, logical types, tenant isolation, indexes, schema evolution."
@@ -99,8 +109,28 @@
     "sdkClients": [],
     "sdkDependencies": [
       {
+        "workspace": "sdkwork-web-framework",
+        "role": "http-request-context-and-interceptor-framework",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-database",
+        "role": "database-pool-config-and-sqlx-bootstrap",
+        "required": true
+      },
+      {
         "workspace": "sdkwork-appbase",
         "role": "appbase-identity-and-session-capability",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-id",
+        "role": "identifier-generation",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-sdk-generator",
+        "role": "openapi-sdk-generation",
         "required": true
       },
       {
@@ -136,7 +166,8 @@
   },
   "verification": {
     "commands": [
-      "powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1"
+      "powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1",
+      "node tools/check_sdkwork_knowledgebase_architecture_alignment.mjs"
     ]
   }
 }

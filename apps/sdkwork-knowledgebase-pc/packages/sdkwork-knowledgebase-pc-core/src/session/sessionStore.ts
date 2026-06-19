@@ -22,7 +22,7 @@ export interface SessionAppContextSnapshot {
   sessionId?: string;
   appId?: string;
   environment?: string;
-  deploymentMode?: string;
+  iamDeploymentMode?: string;
   authLevel?: string;
   dataScope?: string[];
   permissionScope?: string[];

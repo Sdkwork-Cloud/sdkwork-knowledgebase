@@ -1,4 +1,4 @@
-use sdkwork_router_knowledgebase_app_api::KnowledgebaseSqliteRuntime;
+use sdkwork_router_knowledgebase_app_api::KnowledgebaseRuntime;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MaintenanceTickResult {
@@ -7,7 +7,7 @@ pub struct MaintenanceTickResult {
 }
 
 pub async fn run_maintenance_tick(
-    runtime: &KnowledgebaseSqliteRuntime,
+    runtime: &KnowledgebaseRuntime,
     outbox_limit: u32,
     ingestion_job_limit: u32,
 ) -> MaintenanceTickResult {
@@ -22,7 +22,7 @@ pub async fn run_maintenance_tick(
 }
 
 pub async fn run_polling_loop(
-    runtime: KnowledgebaseSqliteRuntime,
+    runtime: KnowledgebaseRuntime,
     interval_ms: u64,
     outbox_limit: u32,
     ingestion_job_limit: u32,

@@ -73,7 +73,7 @@ export function createKnowledgebaseIamRuntime({
   const composition = createSdkworkAppbasePcAuthRuntime({
     app: {
       appId: config.appKey,
-      deploymentMode: toIamDeploymentMode(config.deploymentMode),
+      deploymentMode: resolveIamDeploymentModeForRuntime(config),
       environment: toIamEnvironment(config.environment),
       platform: 'pc',
     },
@@ -160,7 +160,7 @@ function resolveAppbaseAppApiBaseUrl(config: KnowledgebaseRuntimeConfig): string
   if (configured !== undefined) {
     return configured;
   }
-  if (config.hosting === 'self-hosted') {
+  if (config.deploymentProfile === 'standalone') {
     return config.appApiBaseUrl;
   }
   return config.platformApiGatewayBaseUrl;
@@ -372,7 +372,7 @@ function toKnowledgebaseSessionContext(context: IamAppContext): SessionAppContex
     sessionId: context.sessionId,
     appId: context.appId,
     environment: context.environment,
-    deploymentMode: context.deploymentMode,
+    iamDeploymentMode: context.deploymentMode,
     authLevel: context.authLevel,
     dataScope: [...context.dataScope],
     permissionScope: [...context.permissionScope],
@@ -392,7 +392,7 @@ function toIamAppContext(
     appId: context.appId ?? 'sdkwork-knowledgebase-pc',
     authLevel: toIamAuthLevel(context.authLevel),
     dataScope: [...(context.dataScope ?? [])],
-    deploymentMode: toIamDeploymentMode(context.deploymentMode),
+    deploymentMode: normalizeIamDeploymentMode(context.iamDeploymentMode),
     environment: toIamEnvironment(context.environment),
     organizationId: context.organizationId,
     permissionScope: [...(context.permissionScope ?? [])],
@@ -447,14 +447,27 @@ function compactSessionPatch<T extends object>(value: T): Partial<T> {
   ) as Partial<T>;
 }
 
-function toIamDeploymentMode(
-  value: KnowledgebaseRuntimeConfig['deploymentMode'] | string | undefined,
-): IamDeploymentMode {
-  if (value === 'local') {
+function resolveIamDeploymentModeForRuntime(config: KnowledgebaseRuntimeConfig): IamDeploymentMode {
+  if (config.deploymentProfile === 'cloud') {
+    return 'saas';
+  }
+  if (config.runtimeTarget === 'desktop' || config.environment !== 'production') {
     return 'local';
   }
-  if (value === 'saas' || value === 'web') {
+  return 'private';
+}
+
+function normalizeIamDeploymentMode(
+  value: string | undefined,
+): IamDeploymentMode {
+  if (value === 'local' || value === 'standalone') {
+    return 'local';
+  }
+  if (value === 'saas' || value === 'cloud') {
     return 'saas';
+  }
+  if (value === 'private') {
+    return 'private';
   }
   return 'private';
 }

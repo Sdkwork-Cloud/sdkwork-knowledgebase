@@ -1,4 +1,5 @@
 import type { KnowledgeAgentBinding } from './knowledge-agent-binding';
+import type { KnowledgeAgentKnowledgeMode } from './knowledge-agent-knowledge-mode';
 import type { KnowledgeAgentStatus } from './knowledge-agent-status';
 
 export interface KnowledgeAgentProfile {
@@ -15,6 +16,8 @@ export interface KnowledgeAgentProfile {
   memoryPolicyRef?: string | null;
   toolPolicyRef?: string | null;
   answerPolicy?: string | null;
+  knowledgeMode?: KnowledgeAgentKnowledgeMode;
+  agentImplementationId?: string;
   status: KnowledgeAgentStatus;
   bindings: KnowledgeAgentBinding[];
 }

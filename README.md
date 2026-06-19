@@ -1,14 +1,14 @@
 # SDKWork Knowledgebase
 
-Rust backend foundation for SDKWork Knowledgebase.
+Rust backend and PC web/desktop client for SDKWork Knowledgebase.
 
-This repository is currently implementing backend foundation and early business services. Frontend UI and `apps` integration are intentionally out of scope for the current phase.
+This repository follows SDKWork App Standard v3 and the canonical specs in `../sdkwork-specs/`.
 
-## Workspace
+## Workspace paths
 
 ```text
-apis/                                      Inactive placeholder for authored API contract sources.
-apps/                                      Inactive placeholder; repository root is the primary app root.
+apis/                                      Authored OpenAPI authority sources and RPC placeholder.
+apps/sdkwork-knowledgebase-pc/             PC React + optional Tauri desktop app surface.
 crates/
   sdkwork-knowledgebase-contract           Public DTOs, enums, IDs, operation IDs, and LLM Wiki/local mirror contracts.
   sdkwork-knowledgebase-agent-provider     Thin adapter from Knowledgebase retrieval contracts to sdkwork-agent-kernel KnowledgeProvider.
@@ -17,26 +17,28 @@ crates/
   sdkwork-intelligence-knowledgebase-service
                                              Business services, ports, and pure use cases.
   sdkwork-intelligence-knowledgebase-repository-sqlx
-                                             SQL migration registry and SQLite SQLx repositories.
+                                             SQL migration registry and SQLite/Postgres SQLx repositories via sdkwork-database.
   sdkwork-router-knowledgebase-app-api     App HTTP route boundary for generated App SDK operations.
   sdkwork-router-knowledgebase-backend-api Backend HTTP route boundary for generated Backend SDK operations.
   sdkwork-knowledgebase-drive              Adapter to sdkwork-drive storage contracts.
   sdkwork-knowledgebase-memory             Adapter from Knowledgebase context packs to sdkwork-memory SPI.
   sdkwork-knowledgebase-test-support       Test fakes and fixtures.
+  sdkwork-knowledgebase-api-server         Runnable app/backend/open HTTP API binaries.
 sdks/
   sdkwork-knowledgebase-app-sdk            App SDK family, app-api OpenAPI authority, and generated TypeScript SDK.
   sdkwork-knowledgebase-backend-sdk        Backend SDK family, backend-api OpenAPI authority, and generated TypeScript SDK.
+  sdkwork-knowledgebase-sdk                Open SDK family and generated TypeScript SDK.
 jobs/ plugins/ examples/ configs/ deployments/ scripts/ tests/
-                                             Inactive standard root capability placeholders.
+                                             Standard root capability directories; some remain placeholder skeletons.
 ```
 
-This repository root is the primary SDKWork Knowledgebase application root and owns `sdkwork.app.config.json`. The `apps/` directory is intentionally a tracked placeholder for future secondary app surfaces.
+This repository root is the primary SDKWork Knowledgebase application root and owns `sdkwork.app.config.json`. The PC app surface lives under `apps/sdkwork-knowledgebase-pc/`.
 
 This workspace follows the standard project root directory dictionary from `../sdkwork-specs/SDKWORK_WORKSPACE_SPEC.md`.
 
 ### apis/ vs sdks/
 
-`apis/` is the standard project-root directory for authored API contracts and API review inputs. `sdks/` contains SDK family workspaces, materialized authority OpenAPI, derived `sdkgen` inputs, and generated SDK output. Currently `apis/` is an inactive placeholder; authority OpenAPI files are materialized under `sdks/`.
+`apis/` is the standard project-root directory for authored API contracts and API review inputs. `sdks/` contains SDK family workspaces, materialized authority OpenAPI, derived `sdkgen` inputs, and generated SDK output. Authority OpenAPI files are materialized under both `apis/` and `sdks/` via `tools/materialize-apis-authority.mjs`.
 
 ### plugins/ vs .sdkwork/plugins/
 
@@ -150,7 +152,7 @@ Valid values are `0` through `1023`. Local and test runs may omit the variable a
 - App and Backend OpenAPI authority files use SDKWork dotted operation IDs, including `wiki.index.retrieve`, `wiki.log.entries.create`, `driveImports.create`, `documents.versions.create`, and `sources.create`.
 - Generated App and Backend TypeScript SDKs are produced with the canonical `sdkwork-sdk-generator` using the SDKWork v3 standard profile.
 - App and Backend SDK families declare Appbase, Drive, and Memory dependency SDKs; dependency-owned Appbase, Drive, and Memory APIs are not generated into knowledgebase transports.
-- App and Backend Rust API crates mount every generated OpenAPI operation path. The hosted SQLite runtime (`KnowledgebaseSqliteRuntime`) wires all 67 operations to concrete service implementations; trait default stubs in route crates remain only for library-only injection tests.
+- App and Backend Rust API crates mount every generated OpenAPI operation path. The hosted SQLx runtime (`KnowledgebaseRuntime`) wires all 67 operations to concrete service implementations; trait default stubs in route crates remain only for library-only injection tests.
 - The agent provider crate exposes `provider.knowledge.sdkwork-knowledgebase` as a typed `sdkwork-agent-kernel::KnowledgeProvider` adapter backed by an injected retrieval client.
 
 ## SDKWork Documentation Contract

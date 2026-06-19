@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-desktop-preferences"
+description = "Enables desktop preference sync commands without any pre-configured scope."
+commands.allow = ["sync_desktop_preferences", "get_desktop_host_status", "get_autostart_enabled", "sync_tray_locale"]
+
+[[permission]]
+identifier = "deny-desktop-preferences"
+description = "Denies desktop preference sync commands without any pre-configured scope."
+commands.deny = ["sync_desktop_preferences", "get_autostart_enabled"]

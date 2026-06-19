@@ -16,7 +16,11 @@ function clearPersistedKnowledgebaseRuntimeState(): void {
     return;
   }
 
-  const keys = [DEFAULT_SESSION_STORAGE_KEY];
+  const keys = [
+    DEFAULT_SESSION_STORAGE_KEY,
+    'app-active-tab',
+    'app-search-view-active',
+  ];
   const storages: Array<Storage | undefined> = [window.localStorage, window.sessionStorage];
   for (const storage of storages) {
     if (!storage) {

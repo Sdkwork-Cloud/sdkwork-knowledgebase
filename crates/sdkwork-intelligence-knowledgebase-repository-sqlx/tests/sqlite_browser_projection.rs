@@ -1,4 +1,3 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::db::sqlite::install_sqlite_schema;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeDocumentStore,
     SqliteKnowledgeDocumentVersionStore, SqliteKnowledgeDriveObjectRefStore,
@@ -20,8 +19,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_page_store
     KnowledgeWikiPageStore, UpsertKnowledgeWikiPageRecord,
 };
 use sdkwork_knowledgebase_contract::wiki::{WikiPagePublishState, WikiPageType};
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{Row, SqlitePool};
+use sqlx::{AnyPool, Row};
 
 #[tokio::test]
 async fn sqlite_space_store_persists_drive_space_binding() {
@@ -46,7 +44,7 @@ async fn sqlite_space_store_persists_drive_space_binding() {
         .unwrap();
     assert_eq!(bound.drive_space_id.as_deref(), Some("drv-kb-001"));
 
-    let row = sqlx::query("SELECT drive_space_id FROM kb_space WHERE id = ?")
+    let row = sqlx::query("SELECT drive_space_id FROM kb_space WHERE id = $1")
         .bind(space.id as i64)
         .fetch_one(&pool)
         .await
@@ -258,14 +256,12 @@ async fn sqlite_browser_projection_rejects_unbounded_wiki_projection_batches() {
     assert!(error.to_string().contains("batch size"));
 }
 
-async fn sqlite_pool() -> SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
+async fn sqlite_pool() -> AnyPool {
+    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
+        "sqlite::memory:",
+    )
+    .await
+    .unwrap()
 }
 
-async fn apply_sqlite_migration(pool: &SqlitePool) {
-    install_sqlite_schema(pool).await.unwrap();
-}
+async fn apply_sqlite_migration(_pool: &AnyPool) {}

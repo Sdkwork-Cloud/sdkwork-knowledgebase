@@ -1,4 +1,3 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::db::sqlite::install_sqlite_schema;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteContextBindingStore, SqliteKnowledgeSpaceStore,
 };
@@ -9,13 +8,11 @@ use sdkwork_intelligence_knowledgebase_service::{
 use sdkwork_knowledgebase_contract::context_binding::{
     CreateKnowledgeSpaceContextBindingRequest, KnowledgeContextType,
 };
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::SqlitePool;
+use sqlx::AnyPool;
 
 #[tokio::test]
 async fn context_binding_store_round_trips_after_migration_install() {
     let pool = sqlite_pool().await;
-    install_sqlite_schema(&pool).await.expect("install schema");
     let tenant_id = 20001_u64;
     let organization_id = 7001_u64;
 
@@ -56,10 +53,10 @@ async fn context_binding_store_round_trips_after_migration_install() {
     assert_eq!(listed.items[0].id, binding.id);
 }
 
-async fn sqlite_pool() -> SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
+async fn sqlite_pool() -> AnyPool {
+    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
+        "sqlite::memory:",
+    )
+    .await
+    .unwrap()
 }

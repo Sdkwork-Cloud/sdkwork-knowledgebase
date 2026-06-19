@@ -1,4 +1,3 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::db::sqlite::install_sqlite_schema;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeSpaceStore, SqliteKnowledgeWikiFileEntryStore,
 };
@@ -8,8 +7,7 @@ use sdkwork_intelligence_knowledgebase_service::wiki::{
 };
 use sdkwork_knowledgebase_contract::space::CreateKnowledgeSpaceRequest;
 use sdkwork_knowledgebase_test_support::fake_drive::FakeKnowledgeDriveStorage;
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{Row, SqlitePool};
+use sqlx::{AnyPool, Row};
 
 #[tokio::test]
 async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
@@ -43,7 +41,7 @@ async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
         r#"
         SELECT tenant_id, organization_id, name, description, llm_wiki_initialized, status
         FROM kb_space
-        WHERE id = ?
+        WHERE id = $1
         "#,
     )
     .bind(created.id as i64)
@@ -123,14 +121,12 @@ async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
     }
 }
 
-async fn sqlite_pool() -> SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
+async fn sqlite_pool() -> AnyPool {
+    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
+        "sqlite::memory:",
+    )
+    .await
+    .unwrap()
 }
 
-async fn apply_sqlite_migration(pool: &SqlitePool) {
-    install_sqlite_schema(pool).await.unwrap();
-}
+async fn apply_sqlite_migration(_pool: &AnyPool) {}

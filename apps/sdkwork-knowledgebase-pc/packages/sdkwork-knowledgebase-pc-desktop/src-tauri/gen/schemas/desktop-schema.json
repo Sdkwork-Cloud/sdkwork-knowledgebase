@@ -177,6 +177,12 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables desktop preference sync commands without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-desktop-preferences",
+          "markdownDescription": "Enables desktop preference sync commands without any pre-configured scope."
+        },
+        {
           "description": "Enables the export_document_pdf command without any pre-configured scope.",
           "type": "string",
           "const": "allow-export-document-pdf",
@@ -241,6 +247,12 @@
           "type": "string",
           "const": "allow-window-control",
           "markdownDescription": "Enables the window_control command without any pre-configured scope."
+        },
+        {
+          "description": "Denies desktop preference sync commands without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-desktop-preferences",
+          "markdownDescription": "Denies desktop preference sync commands without any pre-configured scope."
         },
         {
           "description": "Denies the export_document_pdf command without any pre-configured scope.",

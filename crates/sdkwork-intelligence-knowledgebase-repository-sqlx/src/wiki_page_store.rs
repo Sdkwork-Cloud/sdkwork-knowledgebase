@@ -8,7 +8,7 @@ use sdkwork_knowledgebase_contract::wiki::{
     KnowledgeWikiPage, KnowledgeWikiPageRevision, WikiLogEntry, WikiLogEventType,
     WikiPagePublishState, WikiPageSummary, WikiPageType, WikiRevisionReviewState,
 };
-use sqlx::{sqlite::SqliteRow, QueryBuilder, Row, SqlitePool};
+use sqlx::{any::AnyRow, AnyPool, QueryBuilder, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -22,18 +22,18 @@ const MAX_PROJECTION_BATCH_SIZE: usize = 200;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeWikiPageStore {
-    pool: SqlitePool,
+    pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
 impl SqliteKnowledgeWikiPageStore {
-    pub fn new(pool: SqlitePool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
 
     pub fn with_id_generator(
-        pool: SqlitePool,
+        pool: AnyPool,
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
@@ -51,9 +51,9 @@ impl SqliteKnowledgeWikiPageStore {
             r#"
             UPDATE kb_wiki_page
             SET revision_counter = revision_counter + 1,
-                updated_at = ?,
+                updated_at = $1,
                 version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $2 AND id = $3 AND status = $4
             RETURNING revision_counter
             "#,
         )
@@ -83,9 +83,9 @@ impl SqliteKnowledgeWikiPageStore {
                 updated_at,
                 tags
             FROM kb_wiki_page
-            WHERE tenant_id = ? AND status = ?
+            WHERE tenant_id = $1 AND status = $2
             ORDER BY space_id ASC, page_type ASC, title ASC, id ASC
-            LIMIT ?
+            LIMIT $3
             "#,
         )
         .bind(tenant_id)
@@ -120,7 +120,7 @@ impl SqliteKnowledgeWikiPageStore {
                 publish_state,
                 updated_at
             FROM kb_wiki_page
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
         )
         .bind(tenant_id)
@@ -153,9 +153,9 @@ impl SqliteKnowledgeWikiPageStore {
                 review_state,
                 created_at
             FROM kb_wiki_page_revision
-            WHERE tenant_id = ? AND page_id = ? AND status = ?
+            WHERE tenant_id = $1 AND page_id = $2 AND status = $3
             ORDER BY revision_no ASC
-            LIMIT ?
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
@@ -177,10 +177,10 @@ impl SqliteKnowledgeWikiPageStore {
             r#"
             SELECT id, publish_state
             FROM kb_wiki_page
-            WHERE tenant_id = ? AND status = ?
+            WHERE tenant_id = $1 AND status = $2
               AND publish_state IN ('candidate_ready', 'needs_review')
             ORDER BY id ASC
-            LIMIT ?
+            LIMIT $3
             "#,
         )
         .bind(tenant_id)
@@ -210,8 +210,8 @@ impl SqliteKnowledgeWikiPageStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_wiki_page
-            SET publish_state = ?, updated_at = ?, version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            SET publish_state = $1, updated_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND id = $4 AND status = $5
             RETURNING
                 id,
                 space_id,
@@ -279,7 +279,7 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, $12, $13, $14, $15, $16)
             ON CONFLICT(tenant_id, space_id, slug)
             DO UPDATE SET
                 title = excluded.title,
@@ -357,7 +357,7 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING
                 id,
                 page_id,
@@ -403,11 +403,11 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_wiki_page
-            SET current_revision_id = ?,
-                publish_state = ?,
-                updated_at = ?,
+            SET current_revision_id = $1,
+                publish_state = $2,
+                updated_at = $3,
                 version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $4 AND id = $5 AND status = $6
             RETURNING
                 id,
                 space_id,
@@ -454,9 +454,9 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
                 updated_at,
                 tags
             FROM kb_wiki_page
-            WHERE tenant_id = ? AND space_id = ? AND status = ?
+            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
             ORDER BY page_type ASC, title ASC, id ASC
-            LIMIT ?
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
@@ -481,9 +481,9 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
             r#"
             UPDATE kb_space
             SET wiki_log_sequence_counter = wiki_log_sequence_counter + 1,
-                updated_at = ?,
+                updated_at = $1,
                 version = version + 1
-            WHERE tenant_id = ? AND id = ? AND status = ?
+            WHERE tenant_id = $2 AND id = $3 AND status = $4
             RETURNING wiki_log_sequence_counter
             "#,
         )
@@ -520,7 +520,7 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
                 updated_at,
                 version
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING
                 event_type,
                 event_time,
@@ -559,9 +559,9 @@ impl KnowledgeWikiPageStore for SqliteKnowledgeWikiPageStore {
             r#"
             SELECT event_type, event_time, title, metadata
             FROM kb_wiki_log_entry
-            WHERE tenant_id = ? AND space_id = ? AND status = ?
+            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
             ORDER BY sequence_no ASC
-            LIMIT ?
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
@@ -627,7 +627,7 @@ fn validate_projection_batch_size(len: usize) -> Result<(), KnowledgeWikiPageSto
     Ok(())
 }
 
-fn page_from_row(row: &SqliteRow) -> Result<KnowledgeWikiPage, KnowledgeWikiPageStoreError> {
+fn page_from_row(row: &AnyRow) -> Result<KnowledgeWikiPage, KnowledgeWikiPageStoreError> {
     let page_type: String = row.try_get("page_type").map_err(sqlx_error)?;
     let publish_state: String = row.try_get("publish_state").map_err(sqlx_error)?;
     let source_count: i64 = row.try_get("source_count").map_err(sqlx_error)?;
@@ -654,7 +654,7 @@ fn page_from_row(row: &SqliteRow) -> Result<KnowledgeWikiPage, KnowledgeWikiPage
 }
 
 fn revision_from_row(
-    row: &SqliteRow,
+    row: &AnyRow,
 ) -> Result<KnowledgeWikiPageRevision, KnowledgeWikiPageStoreError> {
     let review_state: String = row.try_get("review_state").map_err(sqlx_error)?;
     Ok(KnowledgeWikiPageRevision {
@@ -674,7 +674,7 @@ fn revision_from_row(
     })
 }
 
-fn summary_from_row(row: SqliteRow) -> Result<WikiPageSummary, KnowledgeWikiPageStoreError> {
+fn summary_from_row(row: AnyRow) -> Result<WikiPageSummary, KnowledgeWikiPageStoreError> {
     let page_type: String = row.try_get("page_type").map_err(sqlx_error)?;
     let source_count: i64 = row.try_get("source_count").map_err(sqlx_error)?;
     Ok(WikiPageSummary {
@@ -692,7 +692,7 @@ fn summary_from_row(row: SqliteRow) -> Result<WikiPageSummary, KnowledgeWikiPage
 }
 
 fn projection_from_row(
-    row: SqliteRow,
+    row: AnyRow,
 ) -> Result<KnowledgeWikiPageProjection, KnowledgeWikiPageStoreError> {
     let publish_state: String = row.try_get("publish_state").map_err(sqlx_error)?;
     Ok(KnowledgeWikiPageProjection {
@@ -707,7 +707,7 @@ fn projection_from_row(
     })
 }
 
-fn log_entry_from_row(row: &SqliteRow) -> Result<WikiLogEntry, KnowledgeWikiPageStoreError> {
+fn log_entry_from_row(row: &AnyRow) -> Result<WikiLogEntry, KnowledgeWikiPageStoreError> {
     let event_type: String = row.try_get("event_type").map_err(sqlx_error)?;
     let metadata: Option<String> = row.try_get("metadata").map_err(sqlx_error)?;
     let metadata = log_metadata_from_json(metadata)?;

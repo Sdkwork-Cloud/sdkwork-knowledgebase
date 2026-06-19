@@ -1,4 +1,3 @@
-use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::SQLITE_CORE_MIGRATION;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     KnowledgeIdGenerator, KnowledgeIdGeneratorError, SqliteKnowledgeIndexStore,
     SqliteKnowledgeRetrievalProfileStore,
@@ -6,8 +5,7 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeIndexRequest, KnowledgeRetrievalProfileRequest,
 };
-use sqlx::sqlite::SqlitePoolOptions;
-use sqlx::{Row, SqlitePool};
+use sqlx::{AnyPool, Row};
 use std::sync::{Arc, Mutex};
 
 #[tokio::test]
@@ -114,23 +112,15 @@ async fn sqlite_retrieval_profile_store_creates_and_updates_profile() {
     assert_eq!(loaded, updated);
 }
 
-async fn sqlite_pool() -> SqlitePool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .expect("sqlite memory pool")
+async fn sqlite_pool() -> AnyPool {
+    sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_and_install_schema(
+        "sqlite::memory:",
+    )
+    .await
+    .unwrap()
 }
 
-async fn apply_sqlite_migration(pool: &SqlitePool) {
-    for statement in SQLITE_CORE_MIGRATION.split(';') {
-        let statement = statement.trim();
-        if statement.is_empty() {
-            continue;
-        }
-        sqlx::query(statement).execute(pool).await.unwrap();
-    }
-}
+async fn apply_sqlite_migration(_pool: &AnyPool) {}
 
 fn fixed_id_generator(ids: impl IntoIterator<Item = u64>) -> Arc<dyn KnowledgeIdGenerator> {
     #[derive(Debug)]

@@ -4323,6 +4323,7 @@ dependencies = [
  "typst-pdf",
  "webview2-com",
  "windows",
+ "winreg",
 ]
 
 [[package]]

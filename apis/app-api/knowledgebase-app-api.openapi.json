@@ -73,7 +73,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Create a knowledge space",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -146,7 +146,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Retrieve a knowledge space",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -218,7 +218,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Import a drive object into knowledgebase",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -290,7 +290,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Create an ingestion job",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -363,7 +363,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Retrieve an ingestion job",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -425,7 +425,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "List knowledge documents",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "post": {
@@ -495,7 +495,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Create a knowledge document",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -568,7 +568,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Retrieve a knowledge document",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "patch": {
@@ -649,7 +649,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Update a knowledge document",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "delete": {
@@ -713,7 +713,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Delete a knowledge document",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -786,7 +786,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "List document versions",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "post": {
@@ -867,7 +867,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Create a document version",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -929,7 +929,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "List wiki pages",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1002,7 +1002,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Retrieve a wiki page",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1075,7 +1075,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "List wiki page revisions",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1137,7 +1137,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Retrieve the wiki index",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1199,7 +1199,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Retrieve the wiki log",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1261,7 +1261,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Retrieve the wiki schema",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1333,7 +1333,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Create a wiki query",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1416,7 +1416,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "File an answer for a wiki query",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1488,7 +1488,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "Create a wiki context pack",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1604,7 +1604,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "summary": "List browser view of a knowledge space",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1676,7 +1676,7 @@
         },
         "summary": "Create a knowledge retrieval",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1750,7 +1750,7 @@
         ],
         "summary": "Retrieve a knowledge retrieval result",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1822,7 +1822,7 @@
         },
         "summary": "Create a knowledge context pack",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1894,7 +1894,7 @@
         },
         "summary": "Create a knowledge agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -1968,7 +1968,7 @@
         ],
         "summary": "Retrieve a knowledge agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "patch": {
@@ -2050,7 +2050,7 @@
         ],
         "summary": "Update a knowledge agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "delete": {
@@ -2115,7 +2115,7 @@
         ],
         "summary": "Delete a knowledge agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -2189,7 +2189,7 @@
         ],
         "summary": "List agent profile bindings",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "post": {
@@ -2271,7 +2271,7 @@
         ],
         "summary": "Create an agent profile binding",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -2365,7 +2365,7 @@
         ],
         "summary": "Update an agent profile binding",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "delete": {
@@ -2440,7 +2440,7 @@
         ],
         "summary": "Delete an agent profile binding",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -2524,7 +2524,7 @@
         ],
         "summary": "Preview retrieval for an agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -2608,7 +2608,7 @@
         ],
         "summary": "Chat with a knowledge-backed agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -2682,7 +2682,7 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "post": {
@@ -2779,7 +2779,7 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -2838,7 +2838,7 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "patch": {
@@ -2920,7 +2920,7 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       },
       "delete": {
@@ -2970,7 +2970,7 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -3027,7 +3027,7 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
@@ -3111,7 +3111,7 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
-        "x-sdkwork-api-surface": "app",
+        "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     }
@@ -4678,18 +4678,12 @@
       "KnowledgeRetrievalRequest": {
         "type": "object",
         "required": [
-          "tenantId",
           "query",
           "bindings",
           "includeCitations",
           "includeTrace"
         ],
         "properties": {
-          "tenantId": {
-            "type": "string",
-            "pattern": "^[0-9]+$",
-            "x-sdkwork-int64-string": true
-          },
           "actorId": {
             "anyOf": [
               {
@@ -5003,18 +4997,12 @@
       "KnowledgeContextPackRequest": {
         "type": "object",
         "required": [
-          "tenantId",
           "query",
           "bindings",
           "contextBudgetTokens",
           "includeCitations"
         ],
         "properties": {
-          "tenantId": {
-            "type": "string",
-            "pattern": "^[0-9]+$",
-            "x-sdkwork-int64-string": true
-          },
           "actorId": {
             "anyOf": [
               {
@@ -5137,15 +5125,9 @@
       "KnowledgeAgentChatRequest": {
         "type": "object",
         "required": [
-          "tenantId",
           "message"
         ],
         "properties": {
-          "tenantId": {
-            "type": "string",
-            "pattern": "^[0-9]+$",
-            "x-sdkwork-int64-string": true
-          },
           "actorId": {
             "anyOf": [
               {
@@ -5455,18 +5437,12 @@
       "KnowledgeAgentBindingRequest": {
         "type": "object",
         "required": [
-          "tenantId",
           "profileId",
           "spaceId",
           "priority",
           "enabled"
         ],
         "properties": {
-          "tenantId": {
-            "type": "string",
-            "pattern": "^[0-9]+$",
-            "x-sdkwork-int64-string": true
-          },
           "profileId": {
             "type": "string",
             "pattern": "^[0-9]+$",
@@ -5674,7 +5650,6 @@
       "KnowledgeAgentProfileRequest": {
         "type": "object",
         "required": [
-          "tenantId",
           "name",
           "systemInstruction",
           "modelProviderId",
@@ -5682,11 +5657,6 @@
           "status"
         ],
         "properties": {
-          "tenantId": {
-            "type": "string",
-            "pattern": "^[0-9]+$",
-            "x-sdkwork-int64-string": true
-          },
           "name": {
             "type": "string"
           },
@@ -5786,16 +5756,10 @@
       "KnowledgeIndexRequest": {
         "type": "object",
         "required": [
-          "tenantId",
           "spaceId",
           "indexKind"
         ],
         "properties": {
-          "tenantId": {
-            "type": "string",
-            "pattern": "^[0-9]+$",
-            "x-sdkwork-int64-string": true
-          },
           "spaceId": {
             "type": "string",
             "pattern": "^[0-9]+$",
@@ -5895,7 +5859,6 @@
       "KnowledgeRetrievalProfileRequest": {
         "type": "object",
         "required": [
-          "tenantId",
           "name",
           "strategy",
           "topK",
@@ -5904,11 +5867,6 @@
           "status"
         ],
         "properties": {
-          "tenantId": {
-            "type": "string",
-            "pattern": "^[0-9]+$",
-            "x-sdkwork-int64-string": true
-          },
           "name": {
             "type": "string"
           },

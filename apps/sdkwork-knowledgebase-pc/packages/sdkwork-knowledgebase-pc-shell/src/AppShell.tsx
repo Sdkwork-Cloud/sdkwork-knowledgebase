@@ -15,6 +15,7 @@ import {
 } from '@packages/sdkwork-knowledgebase-pc-commons/src';
 import {
   createKnowledgebaseAccountViewModel,
+  KNOWLEDGEBASE_POST_AUTH_LANDING_FLAG,
   useKnowledgebaseRuntime,
   useKnowledgebaseSessionSnapshot,
 } from 'sdkwork-knowledgebase-pc-core';
@@ -26,6 +27,144 @@ import {
 import { SettingsModal } from './SettingsModal';
 import { GlobalNav } from './GlobalNav';
 import { UserProfileModal, DEFAULT_USER_PROFILE, type UserProfile } from './UserProfileModal';
+import { SETTINGS_STORAGE_KEYS, type StartupModule } from './settingsModalConstants';
+import { readStoredDesktopPreferences, syncDesktopPreferences } from './settingsDesktopBridge';
+import { useDesktopHostIntegration } from './useDesktopHostIntegration';
+
+const APP_ACTIVE_TAB_STORAGE_KEY = 'app-active-tab';
+const APP_SEARCH_VIEW_SESSION_KEY = 'app-search-view-active';
+
+type PersistedAppTab = 'kb' | 'market';
+type AppShellTab = PersistedAppTab | 'search';
+
+function readStartupModulePreference(): PersistedAppTab {
+  if (typeof window === 'undefined') {
+    return 'kb';
+  }
+
+  try {
+    const item = window.localStorage.getItem(SETTINGS_STORAGE_KEYS.startupModule);
+    if (!item) {
+      return 'kb';
+    }
+    const parsed = JSON.parse(item) as StartupModule;
+    return parsed === 'market' ? 'market' : 'kb';
+  } catch {
+    return 'kb';
+  }
+}
+
+function readPersistedAppTabFromStorage(): PersistedAppTab {
+  if (typeof window === 'undefined') {
+    return 'kb';
+  }
+
+  try {
+    const item = window.localStorage.getItem(APP_ACTIVE_TAB_STORAGE_KEY);
+    if (!item) {
+      return readStartupModulePreference();
+    }
+
+    const parsed = JSON.parse(item);
+    if (parsed === 'market') {
+      return 'market';
+    }
+
+    if (parsed === 'search') {
+      window.localStorage.setItem(APP_ACTIVE_TAB_STORAGE_KEY, JSON.stringify('kb'));
+    }
+
+    return 'kb';
+  } catch {
+    return 'kb';
+  }
+}
+
+function readSearchViewActiveFromSession(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  try {
+    return window.sessionStorage.getItem(APP_SEARCH_VIEW_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function useAppShellNavigation() {
+  const [persistedTab, setPersistedTabState] = useState<PersistedAppTab>(readPersistedAppTabFromStorage);
+  const [searchViewActive, setSearchViewActive] = useState(readSearchViewActiveFromSession);
+
+  const setPersistedTab = useCallback((tab: PersistedAppTab) => {
+    setPersistedTabState(tab);
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(APP_ACTIVE_TAB_STORAGE_KEY, JSON.stringify(tab));
+      queueMicrotask(() => {
+        window.dispatchEvent(
+          new CustomEvent('local-storage', { detail: { key: APP_ACTIVE_TAB_STORAGE_KEY, value: tab } }),
+        );
+      });
+    } catch {
+      // Ignore storage errors.
+    }
+  }, []);
+
+  const resetToKnowledgeBase = useCallback(() => {
+    setSearchViewActive(false);
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.removeItem(APP_SEARCH_VIEW_SESSION_KEY);
+      } catch {
+        // Ignore storage errors.
+      }
+    }
+    setPersistedTab('kb');
+  }, [setPersistedTab]);
+
+  const setActiveTab = useCallback((tab: AppShellTab) => {
+    if (tab === 'search') {
+      setSearchViewActive(true);
+      if (typeof window !== 'undefined') {
+        try {
+          window.sessionStorage.setItem(APP_SEARCH_VIEW_SESSION_KEY, '1');
+        } catch {
+          // Ignore storage errors.
+        }
+      }
+      return;
+    }
+
+    setSearchViewActive(false);
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.removeItem(APP_SEARCH_VIEW_SESSION_KEY);
+      } catch {
+        // Ignore storage errors.
+      }
+    }
+    setPersistedTab(tab);
+  }, [setPersistedTab]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (window.sessionStorage.getItem(KNOWLEDGEBASE_POST_AUTH_LANDING_FLAG) === '1') {
+      window.sessionStorage.removeItem(KNOWLEDGEBASE_POST_AUTH_LANDING_FLAG);
+      resetToKnowledgeBase();
+    }
+  }, [resetToKnowledgeBase]);
+
+  const activeTab: AppShellTab = searchViewActive ? 'search' : persistedTab;
+
+  return { activeTab, setActiveTab, resetToKnowledgeBase };
+}
 
 export function AppShell() {
   const runtime = useKnowledgebaseRuntime();
@@ -38,10 +177,16 @@ export function AppShell() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState('appearance');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [themePreference, setThemePreference] = useLocalStorage<'light' | 'dark' | 'system'>('app-theme-preference', 'system');
-  const [activeTab, setActiveTab] = useLocalStorage<'kb' | 'market' | 'search'>('app-active-tab', 'kb');
-  const [activeColor] = useLocalStorage('app-accent-color', '#2563eb');
-  const [fontSize] = useLocalStorage('app-font-size', 'normal');
+  const [themePreference, setThemePreference] = useLocalStorage<'light' | 'dark' | 'system'>(
+    SETTINGS_STORAGE_KEYS.themePreference,
+    'system',
+  );
+  const { activeTab, setActiveTab } = useAppShellNavigation();
+  const [activeColor] = useLocalStorage(SETTINGS_STORAGE_KEYS.accentColor, '#2563eb');
+  const [fontSize] = useLocalStorage<'small' | 'normal' | 'large'>(
+    SETTINGS_STORAGE_KEYS.fontSize,
+    'normal',
+  );
   const [profile, setProfile] = useLocalStorage<UserProfile>('app-user-profile', DEFAULT_USER_PROFILE);
 
   useHydrateKnowledgebaseAccount(runtime);
@@ -80,6 +225,14 @@ export function AppShell() {
   }, [themePreference]);
 
   useEffect(() => {
+    if (runtime.config.runtimeTarget !== 'desktop') {
+      return;
+    }
+
+    void syncDesktopPreferences(readStoredDesktopPreferences());
+  }, [runtime.config.runtimeTarget]);
+
+  useEffect(() => {
     if (!account.displayName && !account.email) {
       return;
     }
@@ -104,6 +257,33 @@ export function AppShell() {
   const openSettings = useCallback((tab = 'appearance') => {
     setSettingsInitialTab(tab);
     setIsSettingsOpen(true);
+  }, []);
+
+  useDesktopHostIntegration(runtime.config.runtimeTarget === 'desktop', openSettings);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === ',') {
+        event.preventDefault();
+        setIsSettingsOpen((open) => {
+          if (open) {
+            return false;
+          }
+          setSettingsInitialTab('appearance');
+          return true;
+        });
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      if (tagName === 'input' || tagName === 'textarea' || target?.isContentEditable) {
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   const activateKnowledgeBase = useCallback((kbId: string, kbTitle?: string) => {
@@ -211,10 +391,13 @@ export function AppShell() {
 
       <SettingsModal
         account={account}
-        hosting={runtime.config.hosting}
+        deploymentProfile={runtime.config.deploymentProfile}
         initialTab={settingsInitialTab}
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        onOpenProfile={() => setIsProfileOpen(true)}
+        onStartupModuleApply={(module) => setActiveTab(module)}
+        onOpenExternalLink={handleOpenWebLink}
         onSignOut={handleSignOut}
         runtimeConfig={runtime.config}
         setTheme={setThemePreference}

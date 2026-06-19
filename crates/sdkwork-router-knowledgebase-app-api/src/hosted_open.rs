@@ -10,28 +10,28 @@ use sdkwork_router_knowledgebase_open_api::{
 };
 
 use crate::{
-    hosted::{SqliteHostedBrowserService, SqliteHostedDocumentService, SqliteHostedIngestService},
-    runtime::{KnowledgebaseSqliteRuntime, SqliteHostedRetrievalService},
+    hosted::{HostedBrowserService, HostedDocumentService, HostedIngestService},
+    runtime::{HostedRetrievalService, KnowledgebaseRuntime},
     ApiError, KnowledgeAppRequestContext, KnowledgeBrowserApi, KnowledgeDocumentAppService,
     KnowledgeIngestAppService, KnowledgeRetrievalAppService,
 };
 
 #[derive(Clone)]
-pub(crate) struct SqliteHostedOpenApi {
-    runtime: KnowledgebaseSqliteRuntime,
-    retrieval: SqliteHostedRetrievalService,
-    ingest: SqliteHostedIngestService,
-    document: SqliteHostedDocumentService,
-    browser: SqliteHostedBrowserService,
+pub(crate) struct HostedOpenApi {
+    runtime: KnowledgebaseRuntime,
+    retrieval: HostedRetrievalService,
+    ingest: HostedIngestService,
+    document: HostedDocumentService,
+    browser: HostedBrowserService,
 }
 
-impl SqliteHostedOpenApi {
-    pub fn new(runtime: KnowledgebaseSqliteRuntime) -> Self {
+impl HostedOpenApi {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self {
-            retrieval: SqliteHostedRetrievalService::new(runtime.clone()),
-            ingest: SqliteHostedIngestService::new(runtime.clone()),
-            document: SqliteHostedDocumentService::new(runtime.clone()),
-            browser: SqliteHostedBrowserService::new(runtime.clone()),
+            retrieval: HostedRetrievalService::new(runtime.clone()),
+            ingest: HostedIngestService::new(runtime.clone()),
+            document: HostedDocumentService::new(runtime.clone()),
+            browser: HostedBrowserService::new(runtime.clone()),
             runtime,
         }
     }
@@ -62,7 +62,7 @@ impl SqliteHostedOpenApi {
 }
 
 #[async_trait]
-impl KnowledgeOpenApi for SqliteHostedOpenApi {
+impl KnowledgeOpenApi for HostedOpenApi {
     async fn create_retrieval(
         &self,
         context: KnowledgeOpenApiRequestContext,

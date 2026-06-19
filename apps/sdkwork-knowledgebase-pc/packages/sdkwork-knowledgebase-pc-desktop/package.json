@@ -3,11 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "desktop:icons": "tauri icon src-tauri/icons/icon.svg",
-    "predesktop:dev": "node scripts/ensure-desktop-icons.mjs",
-    "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build",
-    "desktop:build:local": "tauri build --debug"
+    "build:icons": "tauri icon src-tauri/icons/icon.svg",
+    "dev:desktop": "node scripts/ensure-desktop-icons.mjs && tauri dev",
+    "build:desktop": "node scripts/ensure-desktop-icons.mjs && tauri build",
+    "build:desktop:debug": "node scripts/ensure-desktop-icons.mjs && tauri build --debug"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.2"

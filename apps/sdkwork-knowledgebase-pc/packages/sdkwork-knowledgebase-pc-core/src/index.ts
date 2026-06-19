@@ -10,13 +10,12 @@ export * from './sdk/knowledgebaseAppSdkClient';
 export * from './session/sessionStore';
 export * from './session/sessionTokenManager';
 export type {
-  KnowledgebaseHosting,
   KnowledgebaseRuntimeConfig,
   RuntimeEnv,
   SdkworkAuthRuntimeConfig,
   SdkworkBuildMode,
   SdkworkConfigProfile,
-  SdkworkDeploymentMode,
+  SdkworkDeploymentProfile,
   SdkworkEnvironment,
   SdkworkRuntimeTarget,
 } from './config/runtimeConfig';

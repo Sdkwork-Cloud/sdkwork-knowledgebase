@@ -24,7 +24,7 @@ use crate::{
         AgentAndRetrievalAppApi, AgentOnlyAppApi, BrowserOnlyAppApi, FullAppApi,
         RetrievalOnlyAppApi,
     },
-    auth::{ensure_tenant_matches, require_app_context},
+    auth::require_app_context,
     paths, ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi,
     KnowledgeAppRequestContext, KnowledgeBrowserApi, KnowledgeDocumentAppService,
     KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeRetrievalAppService,
@@ -33,16 +33,17 @@ use crate::{
 
 #[derive(Clone)]
 pub struct ReadinessCheck {
-    pool: sqlx::SqlitePool,
+    pool: sqlx::AnyPool,
 }
 
 impl ReadinessCheck {
-    pub fn new(pool: sqlx::SqlitePool) -> Self {
+    pub fn new(pool: sqlx::AnyPool) -> Self {
         Self { pool }
     }
 
     pub async fn check(&self) -> Result<(), sqlx::Error> {
-        sdkwork_intelligence_knowledgebase_repository_sqlx::sqlite_health_check(&self.pool).await
+        sdkwork_intelligence_knowledgebase_repository_sqlx::knowledgebase_health_check(&self.pool)
+            .await
     }
 }
 
@@ -461,8 +462,12 @@ async fn create_retrieval(
     Json(request): Json<KnowledgeRetrievalRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ensure_tenant_matches(&context, request.tenant_id)?;
-    created_json(state.api.create_retrieval(request).await)
+    created_json(
+        state
+            .api
+            .create_retrieval(request.with_tenant_id(context.tenant_id))
+            .await,
+    )
 }
 
 async fn retrieve_retrieval(
@@ -480,8 +485,12 @@ async fn create_context_pack(
     Json(request): Json<KnowledgeContextPackRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ensure_tenant_matches(&context, request.tenant_id)?;
-    created_json(state.api.create_context_pack(request).await)
+    created_json(
+        state
+            .api
+            .create_context_pack(request.with_tenant_id(context.tenant_id))
+            .await,
+    )
 }
 
 async fn create_agent_profile(
@@ -489,8 +498,13 @@ async fn create_agent_profile(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<KnowledgeAgentProfileRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_agent_profile(request).await)
+    let context = require_app_context(context)?;
+    created_json(
+        state
+            .api
+            .create_agent_profile(request.with_tenant_id(context.tenant_id))
+            .await,
+    )
 }
 
 async fn retrieve_agent_profile(
@@ -508,8 +522,13 @@ async fn update_agent_profile(
     Path(profile_id): Path<u64>,
     Json(request): Json<KnowledgeAgentProfileRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.update_agent_profile(profile_id, request).await)
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .update_agent_profile(profile_id, request.with_tenant_id(context.tenant_id))
+            .await,
+    )
 }
 
 async fn delete_agent_profile(
@@ -541,7 +560,7 @@ async fn create_agent_profile_binding(
     Path(profile_id): Path<u64>,
     Json(request): Json<KnowledgeAgentBindingRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
+    let context = require_app_context(context)?;
     if request.profile_id != profile_id {
         return Err(ApiProblem::new(
             StatusCode::BAD_REQUEST,
@@ -552,7 +571,7 @@ async fn create_agent_profile_binding(
     created_json(
         state
             .api
-            .create_agent_profile_binding(profile_id, request)
+            .create_agent_profile_binding(profile_id, request.with_tenant_id(context.tenant_id))
             .await,
     )
 }
@@ -563,7 +582,7 @@ async fn update_agent_profile_binding(
     Path((profile_id, binding_id)): Path<(u64, u64)>,
     Json(request): Json<KnowledgeAgentBindingRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
+    let context = require_app_context(context)?;
     if request.profile_id != profile_id {
         return Err(ApiProblem::new(
             StatusCode::BAD_REQUEST,
@@ -574,7 +593,11 @@ async fn update_agent_profile_binding(
     ok_json(
         state
             .api
-            .update_agent_profile_binding(profile_id, binding_id, request)
+            .update_agent_profile_binding(
+                profile_id,
+                binding_id,
+                request.with_tenant_id(context.tenant_id),
+            )
             .await,
     )
 }
@@ -600,11 +623,13 @@ async fn create_agent_profile_retrieval_preview(
     Json(request): Json<KnowledgeRetrievalRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ensure_tenant_matches(&context, request.tenant_id)?;
     created_json(
         state
             .api
-            .create_agent_profile_retrieval_preview(profile_id, request)
+            .create_agent_profile_retrieval_preview(
+                profile_id,
+                request.with_tenant_id(context.tenant_id),
+            )
             .await,
     )
 }
@@ -616,8 +641,12 @@ async fn create_agent_profile_chat(
     Json(request): Json<KnowledgeAgentChatRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ensure_tenant_matches(&context, request.tenant_id)?;
-    created_json(state.api.create_agent_chat(profile_id, request).await)
+    created_json(
+        state
+            .api
+            .create_agent_chat(profile_id, request.with_tenant_id(context.tenant_id))
+            .await,
+    )
 }
 
 async fn list_space_context_bindings(

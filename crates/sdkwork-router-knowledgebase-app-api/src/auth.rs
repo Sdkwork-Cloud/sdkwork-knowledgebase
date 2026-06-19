@@ -13,17 +13,3 @@ pub fn require_app_context(
         )
     })
 }
-
-pub fn ensure_tenant_matches(
-    context: &KnowledgeAppRequestContext,
-    request_tenant_id: u64,
-) -> Result<(), ApiProblem> {
-    if request_tenant_id != context.tenant_id {
-        return Err(ApiProblem::new(
-            StatusCode::FORBIDDEN,
-            "tenant_id_mismatch",
-            "request tenantId must match authenticated app tenant context",
-        ));
-    }
-    Ok(())
-}
