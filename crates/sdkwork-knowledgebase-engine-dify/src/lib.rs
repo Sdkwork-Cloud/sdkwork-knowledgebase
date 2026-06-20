@@ -13,10 +13,11 @@ use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    descriptor_for_external, KnowledgeEngineDescriptor, KnowledgeEngineDocument,
-    KnowledgeEngineDocumentList, KnowledgeEngineDocumentRef, KnowledgeEngineError,
-    KnowledgeEngineHealth, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
-    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
+    descriptor_for_external, parse_compound_document_ref, KnowledgeEngineDescriptor,
+    KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineDocumentRef,
+    KnowledgeEngineError, KnowledgeEngineHealth, KnowledgeEngineHealthStatus,
+    KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
+    KnowledgeEngineSearchResult,
 };
 use std::sync::Arc;
 
@@ -191,16 +192,17 @@ impl KnowledgeEngine for DifyKnowledgeEngine {
             ));
         };
 
-        let (document_id, segment_id) = request.document_id.split_once('#').ok_or_else(|| {
-            KnowledgeEngineError::Validation(
-                "Dify read_document requires parentDocument#segmentId ids from search hits"
-                    .to_string(),
-            )
-        })?;
+        let (document_id, segment_id) = parse_compound_document_ref(&request.document_id)
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(
+                    "Dify read_document requires parentDocument#segmentId ids from search hits"
+                        .to_string(),
+                )
+            })?;
 
         let dataset_id = self.resolve_dataset_id_for_space(request.space_id).await?;
         client
-            .read_segment(&dataset_id, document_id, segment_id)
+            .read_segment(&dataset_id, &document_id, &segment_id)
             .await
     }
 

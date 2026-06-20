@@ -31,8 +31,11 @@ const requiredPaths = [
   "crates/sdkwork-knowledgebase-engine-dify/src/lib.rs",
   "crates/sdkwork-knowledgebase-engine-dify/tests/dify_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs",
+  "crates/sdkwork-knowledgebase-engine-dify/tests/dify_read_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-ragflow/src/lib.rs",
   "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_stub_engine.rs",
+  "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs",
+  "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_read_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-onyx/src/lib.rs",
   "crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs",
@@ -176,6 +179,22 @@ assert(
   "KnowledgeSource contract must expose shared connector metadata parsing",
 );
 
+assert(
+  (await readFile(
+    path.join(root, "crates/sdkwork-knowledgebase-contract/src/knowledge_engine.rs"),
+    "utf8",
+  )).includes("parse_compound_document_ref"),
+  "contract must expose shared compound external document ref parsing",
+);
+
+assert(
+  !(await readFile(
+    path.join(root, "crates/sdkwork-knowledgebase-engine-ragflow/src/lib.rs"),
+    "utf8",
+  )).includes("use search hits for now"),
+  "RAGFlow adapter must implement read_document instead of leaving unsupported stub text",
+);
+
 for (const implementationId of spec.registry.builtInImplementations) {
   assert(
     runtimeSource.includes(implementationId)
@@ -305,6 +324,10 @@ assert(
 assert(
   hostedRoutesSource.includes("hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter"),
   "hosted runtime must include configured RAGFlow adapter agent chat success E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_agent_chat_succeeds_with_configured_onyx_adapter"),
+  "hosted runtime must include configured Onyx adapter agent chat success E2E",
 );
 assert(
   hostedRoutesSource.includes("hosted_external_agent_chat_rejects_unconfigured_external_adapter"),

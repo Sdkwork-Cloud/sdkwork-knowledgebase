@@ -213,3 +213,12 @@ pub fn descriptor_for_external(vendor_id: &str, display_name: &str) -> Knowledge
         native: false,
     }
 }
+
+/// Parses external engine search/read refs shaped as `{parentDocumentId}#{segmentOrChunkId}`.
+pub fn parse_compound_document_ref(document_id: &str) -> Option<(String, String)> {
+    let (parent_id, child_id) = document_id.split_once('#')?;
+    if parent_id.is_empty() || child_id.is_empty() {
+        return None;
+    }
+    Some((parent_id.to_string(), child_id.to_string()))
+}

@@ -1145,6 +1145,140 @@ async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
 }
 
 #[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
+    let _env_guard = EXTERNAL_ADAPTER_ENV_TEST_LOCK
+        .lock()
+        .expect("external adapter env test lock");
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/search"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "results": [{
+                    "title": "Hosted Onyx Doc",
+                    "url": "https://example.com/onyx-hosted",
+                    "content": "hosted onyx knowledge snippet",
+                    "source_type": "web"
+                }]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _onyx_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_ONYX_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _onyx_api_key = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_ONYX_API_KEY", "hosted-onyx-key");
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured Onyx Space","description":"Configured Onyx agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"onyx"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured Onyx Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Onyx knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured Onyx engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted Onyx Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted Onyx Doc")));
+}
+
+#[tokio::test]
 async fn hosted_app_runs_okf_lint_job_for_space() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));

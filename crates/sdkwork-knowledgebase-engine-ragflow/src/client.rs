@@ -2,8 +2,8 @@
 
 use reqwest::Client;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    KnowledgeEngineDocumentRef, KnowledgeEngineError, KnowledgeEngineSearchHit,
-    KnowledgeEngineSearchResult,
+    KnowledgeEngineDocument, KnowledgeEngineDocumentRef, KnowledgeEngineError,
+    KnowledgeEngineSearchHit, KnowledgeEngineSearchResult,
 };
 use serde::Deserialize;
 
@@ -116,6 +116,70 @@ impl RagflowApiClient {
             hits,
         })
     }
+
+    pub async fn read_chunk(
+        &self,
+        dataset_id: &str,
+        document_id: &str,
+        chunk_id: &str,
+    ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
+        let url = format!(
+            "{}/api/v1/datasets/{dataset_id}/documents/{document_id}/chunks/{chunk_id}",
+            self.config.base_url.trim_end_matches('/')
+        );
+        let response = self
+            .http
+            .get(url)
+            .header("Authorization", format!("Bearer {}", self.config.api_key))
+            .send()
+            .await
+            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(KnowledgeEngineError::NotFound(format!(
+                "ragflow chunk not found: dataset={dataset_id} document={document_id} chunk={chunk_id}"
+            )));
+        }
+
+        if !response.status().is_success() {
+            return Err(KnowledgeEngineError::Internal(format!(
+                "ragflow read chunk failed with status {}",
+                response.status()
+            )));
+        }
+
+        let payload: RagflowApiResponse<RagflowChunkDetail> = response
+            .json()
+            .await
+            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+
+        if payload.code != 0 {
+            return Err(KnowledgeEngineError::NotFound(format!(
+                "ragflow chunk not found: {}",
+                payload.message.unwrap_or_default()
+            )));
+        }
+
+        let chunk = payload.data.ok_or_else(|| {
+            KnowledgeEngineError::NotFound(format!(
+                "ragflow chunk payload missing for chunk_id={chunk_id}"
+            ))
+        })?;
+
+        let title = chunk
+            .document_keyword
+            .or(chunk.document_name)
+            .unwrap_or_else(|| document_id.to_string());
+
+        Ok(KnowledgeEngineDocument {
+            document_id: format!("{document_id}#{chunk_id}"),
+            title,
+            content: chunk.content.unwrap_or_default(),
+            source_uri: Some(format!(
+                "ragflow://document/{document_id}/chunks/{chunk_id}"
+            )),
+        })
+    }
 }
 
 fn map_chunk_to_hit(space_id: u64, chunk: RagflowChunk) -> KnowledgeEngineSearchHit {
@@ -163,6 +227,13 @@ struct RagflowRetrievalData {
 struct RagflowDatasetList {
     #[serde(default)]
     _data: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RagflowChunkDetail {
+    content: Option<String>,
+    document_keyword: Option<String>,
+    document_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

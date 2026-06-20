@@ -77,6 +77,18 @@ fn connector_metadata_json_parses_dataset_id() {
 }
 
 #[test]
+fn compound_document_ref_parses_parent_and_child_ids() {
+    use sdkwork_knowledgebase_contract::knowledge_engine::parse_compound_document_ref;
+
+    assert_eq!(
+        parse_compound_document_ref("doc-1#seg-9"),
+        Some(("doc-1".to_string(), "seg-9".to_string()))
+    );
+    assert_eq!(parse_compound_document_ref("doc-1"), None);
+    assert_eq!(parse_compound_document_ref("#seg"), None);
+}
+
+#[test]
 fn external_catalog_manifest_lists_registered_vendors() {
     const CATALOG: &str = include_str!("../../../external/knowledge-engines/catalog.manifest.json");
     let catalog: serde_json::Value =
