@@ -1,5 +1,8 @@
 /target/
 /target-*/
+**/target/
+**/hosted-runtime-tests/
+**/integration-ingest-tests/
 /.tmp/
 /.codex-tmp/
 
