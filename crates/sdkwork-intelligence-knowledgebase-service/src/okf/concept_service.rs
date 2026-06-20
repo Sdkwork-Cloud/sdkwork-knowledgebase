@@ -1,6 +1,6 @@
 use crate::okf::{
-    render_index_md, render_log_md, validate_concept_document, validate_concept_id,
-    OkfConceptDocument, OkfConformanceError, render_okf_concept_markdown,
+    index_concept_links, render_index_md, render_log_md, validate_concept_document,
+    validate_concept_id, OkfConceptDocument, OkfConformanceError, render_okf_concept_markdown,
 };
 use crate::ports::{
     knowledge_drive_object_ref_store::{
@@ -17,6 +17,10 @@ use crate::ports::{
     knowledge_okf_bundle_file_store::{
         CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
         KnowledgeOkfBundleFileStoreError,
+    },
+    knowledge_okf_concept_link_store::{
+        KnowledgeOkfConceptLinkRecord, KnowledgeOkfConceptLinkStore,
+        KnowledgeOkfConceptLinkStoreError, ReplaceKnowledgeOkfConceptLinksRecord,
     },
     knowledge_okf_concept_store::{
         AppendKnowledgeOkfLogEntryRecord, CreateKnowledgeOkfConceptRevisionRecord,
@@ -40,6 +44,7 @@ pub struct OkfConceptService<'a> {
     drive: &'a dyn KnowledgeDriveStorage,
     object_refs: &'a dyn KnowledgeDriveObjectRefStore,
     concept_store: &'a dyn KnowledgeOkfConceptStore,
+    link_store: Option<&'a dyn KnowledgeOkfConceptLinkStore>,
     file_entries: Option<&'a dyn KnowledgeOkfBundleFileStore>,
     drive_workspace: Option<&'a dyn KnowledgeDriveWorkspace>,
 }
@@ -54,9 +59,15 @@ impl<'a> OkfConceptService<'a> {
             drive,
             object_refs,
             concept_store,
+            link_store: None,
             file_entries: None,
             drive_workspace: None,
         }
+    }
+
+    pub fn with_link_store(mut self, link_store: &'a dyn KnowledgeOkfConceptLinkStore) -> Self {
+        self.link_store = Some(link_store);
+        self
     }
 
     pub fn with_file_entry_store(
@@ -189,6 +200,8 @@ impl<'a> OkfConceptService<'a> {
                 privacy_level: "internal".to_string(),
             })
             .await?;
+        self.reindex_concept_links(request.space_id, &concept_id, &concept_document.body)
+            .await?;
         self.rebuild_standard_files(request.space_id, drive_space_id.as_deref())
             .await?;
 
@@ -301,6 +314,41 @@ impl<'a> OkfConceptService<'a> {
                         .to_string(),
                 )
             })
+    }
+
+    async fn reindex_concept_links(
+        &self,
+        space_id: u64,
+        concept_id: &str,
+        body: &str,
+    ) -> Result<(), OkfConceptServiceError> {
+        let Some(link_store) = self.link_store else {
+            return Ok(());
+        };
+        let known = self
+            .concept_store
+            .list_concept_summaries(space_id)
+            .await?
+            .into_iter()
+            .map(|summary| summary.concept_id)
+            .collect::<Vec<_>>();
+        let links = index_concept_links(body, concept_id, &known)
+            .into_iter()
+            .filter_map(|link| {
+                link.target_concept_id.map(|to_concept_id| KnowledgeOkfConceptLinkRecord {
+                    to_concept_id,
+                    anchor_text: link.anchor_text,
+                })
+            })
+            .collect();
+        link_store
+            .replace_outbound_links(ReplaceKnowledgeOkfConceptLinksRecord {
+                space_id,
+                from_concept_id: concept_id.to_string(),
+                links,
+            })
+            .await?;
+        Ok(())
     }
 }
 

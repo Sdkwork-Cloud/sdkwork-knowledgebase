@@ -16,6 +16,9 @@ pub const POSTGRES_PGVECTOR_MIGRATION: &str =
 pub const POSTGRES_OUTBOX_MIGRATION: &str =
     include_str!("../migrations/postgres/V202606200001__knowledgebase_outbox.sql");
 
+pub const POSTGRES_OKF_LINK_CANDIDATE_MIGRATION: &str =
+    include_str!("../migrations/postgres/V202606210001__okf_link_and_candidate.sql");
+
 pub const SQLITE_CORE_MIGRATION: &str =
     include_str!("../migrations/sqlite/V202606010001__knowledgebase_core.sql");
 
@@ -31,12 +34,16 @@ pub const SQLITE_CONTEXT_BINDING_MIGRATION: &str =
 pub const SQLITE_OUTBOX_MIGRATION: &str =
     include_str!("../migrations/sqlite/V202606200001__knowledgebase_outbox.sql");
 
+pub const SQLITE_OKF_LINK_CANDIDATE_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202606210001__okf_link_and_candidate.sql");
+
 pub const SQLITE_MIGRATIONS: &[&str] = &[
     SQLITE_CORE_MIGRATION,
     SQLITE_CONTEXT_BINDING_MIGRATION,
     SQLITE_ACCESS_MODE_MIGRATION,
     SQLITE_AGENT_IMPLEMENTATION_MIGRATION,
     SQLITE_OUTBOX_MIGRATION,
+    SQLITE_OKF_LINK_CANDIDATE_MIGRATION,
 ];
 
 pub const POSTGRES_MIGRATIONS: &[&str] = &[
@@ -45,4 +52,5 @@ pub const POSTGRES_MIGRATIONS: &[&str] = &[
     POSTGRES_ACCESS_MODE_MIGRATION,
     POSTGRES_AGENT_IMPLEMENTATION_MIGRATION,
     POSTGRES_OUTBOX_MIGRATION,
+    POSTGRES_OKF_LINK_CANDIDATE_MIGRATION,
 ];

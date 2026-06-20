@@ -4,7 +4,8 @@ use sdkwork_agent_kernel::{
     ProviderHealth, ProviderManifest, RedactionClassification, TrustLevel,
 };
 use sdkwork_knowledgebase_contract::{
-    okf::OkfBundlePaths, OkfConceptSummary, OKF_KNOWLEDGE_PROVIDER_ID,
+    okf::{okf_document_id, OkfBundlePaths},
+    OkfConceptSummary, OKF_KNOWLEDGE_PROVIDER_ID,
 };
 
 pub trait OkfKnowledgeClient {
