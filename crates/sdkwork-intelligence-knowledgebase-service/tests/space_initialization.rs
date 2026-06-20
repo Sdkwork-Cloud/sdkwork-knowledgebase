@@ -1,4 +1,7 @@
 use async_trait::async_trait;
+use sdkwork_intelligence_knowledgebase_service::okf::{
+    OkfBundleFileRegistryService, OkfBundleInitializerService,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_space::{
     CreateKnowledgeDriveSpaceRequest, KnowledgeDriveSpaceBinding, KnowledgeDriveSpaceProvisioner,
     KnowledgeDriveSpaceProvisionerError,
@@ -11,17 +14,14 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_workspace
     EnsureKnowledgeDriveNodeKind, EnsureKnowledgeDriveNodeRequest,
     EnsureKnowledgeDriveNodesRequest, KnowledgeDriveWorkspace, KnowledgeDriveWorkspaceError,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_bundle_file_store::{
+    CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
+    KnowledgeOkfBundleFileStoreError,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
 };
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_file_entry_store::{
-    CreateKnowledgeWikiFileEntryRecord, KnowledgeWikiFileEntryStore,
-    KnowledgeWikiFileEntryStoreError,
-};
 use sdkwork_intelligence_knowledgebase_service::space::KnowledgeSpaceService;
-use sdkwork_intelligence_knowledgebase_service::wiki::{
-    KnowledgeWikiFileRegistryService, KnowledgeWikiInitializerService,
-};
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{
     CreateKnowledgeSpaceRequest, KnowledgeSpace, KnowledgeSpaceStatus,
@@ -29,18 +29,18 @@ use sdkwork_knowledgebase_contract::space::{
 use std::sync::{Arc, Mutex};
 
 #[tokio::test]
-async fn creating_space_initializes_llm_wiki_standard_files_through_drive() {
+async fn creating_space_initializes_okf_bundle_standard_files_through_drive() {
     let store = MemorySpaceStore::default();
     let drive = RecordingDrive::default();
-    let file_entries = MemoryWikiFileEntryStore::default();
-    let registry = KnowledgeWikiFileRegistryService::new(&file_entries);
-    let wiki_initializer = KnowledgeWikiInitializerService::new(&drive).with_registry(&registry);
-    let service = KnowledgeSpaceService::new(&store, &wiki_initializer);
+    let file_entries = MemoryOkfBundleFileEntryStore::default();
+    let registry = OkfBundleFileRegistryService::new(&file_entries);
+    let okf_bundle_initializer = OkfBundleInitializerService::new(&drive).with_registry(&registry);
+    let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer);
 
     let created = service
         .create_space(CreateKnowledgeSpaceRequest {
             name: "Research Space".to_string(),
-            description: Some("LLM Wiki research".to_string()),
+            description: Some("OKF bundle research".to_string()),
             owner_subject_type: Some("user".to_string()),
             owner_subject_id: Some("test-owner".to_string()),
             knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
@@ -50,14 +50,14 @@ async fn creating_space_initializes_llm_wiki_standard_files_through_drive() {
 
     assert_eq!(created.name, "Research Space");
     assert_eq!(created.status, KnowledgeSpaceStatus::Active);
-    assert!(created.llm_wiki_initialized);
+    assert!(created.okf_bundle_initialized);
     assert_eq!(
         drive.paths(),
         vec![
-            "wiki/schema/AGENTS.md",
-            "wiki/schema/wiki_schema.yaml",
-            "wiki/index.md",
-            "wiki/log.md"
+            "okf/schema/AGENTS.md",
+            "okf/schema/okf_profile.yaml",
+            "okf/index.md",
+            "okf/log.md"
         ]
     );
     assert_eq!(file_entries.logical_paths(), drive.paths());
@@ -65,14 +65,14 @@ async fn creating_space_initializes_llm_wiki_standard_files_through_drive() {
 }
 
 #[tokio::test]
-async fn creating_space_binds_dedicated_drive_knowledge_space_before_wiki_initialization() {
+async fn creating_space_binds_dedicated_drive_knowledge_space_before_okf_initialization() {
     let store = MemorySpaceStore::default();
     let drive = RecordingDrive::default();
-    let file_entries = MemoryWikiFileEntryStore::default();
-    let registry = KnowledgeWikiFileRegistryService::new(&file_entries);
-    let wiki_initializer = KnowledgeWikiInitializerService::new(&drive).with_registry(&registry);
+    let file_entries = MemoryOkfBundleFileEntryStore::default();
+    let registry = OkfBundleFileRegistryService::new(&file_entries);
+    let okf_bundle_initializer = OkfBundleInitializerService::new(&drive).with_registry(&registry);
     let drive_spaces = RecordingDriveSpaceProvisioner::new("drv-kb-001");
-    let service = KnowledgeSpaceService::new(&store, &wiki_initializer)
+    let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
         .with_drive_context("tenant-9001", "user-123")
         .with_drive_space_provisioner(&drive_spaces);
 
@@ -109,7 +109,7 @@ async fn creating_space_binds_dedicated_drive_knowledge_space_before_wiki_initia
         drive_spaces.requested_owner_subject_id(),
         Some("test-owner".to_string())
     );
-    assert!(created.llm_wiki_initialized);
+    assert!(created.okf_bundle_initialized);
     assert_eq!(drive.paths().len(), 4);
 }
 
@@ -117,11 +117,11 @@ async fn creating_space_binds_dedicated_drive_knowledge_space_before_wiki_initia
 async fn drive_space_provisioning_requires_context_before_creating_space_record() {
     let store = MemorySpaceStore::default();
     let drive = RecordingDrive::default();
-    let file_entries = MemoryWikiFileEntryStore::default();
-    let registry = KnowledgeWikiFileRegistryService::new(&file_entries);
-    let wiki_initializer = KnowledgeWikiInitializerService::new(&drive).with_registry(&registry);
+    let file_entries = MemoryOkfBundleFileEntryStore::default();
+    let registry = OkfBundleFileRegistryService::new(&file_entries);
+    let okf_bundle_initializer = OkfBundleInitializerService::new(&drive).with_registry(&registry);
     let drive_spaces = RecordingDriveSpaceProvisioner::new("drv-kb-001");
-    let service = KnowledgeSpaceService::new(&store, &wiki_initializer)
+    let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
         .with_drive_space_provisioner(&drive_spaces);
 
     let error = service
@@ -147,11 +147,11 @@ async fn drive_space_provisioning_requires_context_before_creating_space_record(
 async fn drive_space_provisioning_failure_does_not_leave_half_initialized_space() {
     let store = MemorySpaceStore::default();
     let drive = RecordingDrive::default();
-    let file_entries = MemoryWikiFileEntryStore::default();
-    let registry = KnowledgeWikiFileRegistryService::new(&file_entries);
-    let wiki_initializer = KnowledgeWikiInitializerService::new(&drive).with_registry(&registry);
+    let file_entries = MemoryOkfBundleFileEntryStore::default();
+    let registry = OkfBundleFileRegistryService::new(&file_entries);
+    let okf_bundle_initializer = OkfBundleInitializerService::new(&drive).with_registry(&registry);
     let drive_spaces = FailingDriveSpaceProvisioner;
-    let service = KnowledgeSpaceService::new(&store, &wiki_initializer)
+    let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
         .with_drive_context("tenant-9001", "user-123")
         .with_drive_space_provisioner(&drive_spaces);
 
@@ -175,14 +175,14 @@ async fn drive_space_provisioning_failure_does_not_leave_half_initialized_space(
 }
 
 #[tokio::test]
-async fn wiki_initialization_failure_releases_created_drive_space_and_local_space() {
+async fn okf_bundle_initialization_failure_releases_created_drive_space_and_local_space() {
     let store = MemorySpaceStore::default();
     let drive = FailingDrive;
-    let file_entries = MemoryWikiFileEntryStore::default();
-    let registry = KnowledgeWikiFileRegistryService::new(&file_entries);
-    let wiki_initializer = KnowledgeWikiInitializerService::new(&drive).with_registry(&registry);
+    let file_entries = MemoryOkfBundleFileEntryStore::default();
+    let registry = OkfBundleFileRegistryService::new(&file_entries);
+    let okf_bundle_initializer = OkfBundleInitializerService::new(&drive).with_registry(&registry);
     let drive_spaces = RecordingDriveSpaceProvisioner::new("drv-kb-001");
-    let service = KnowledgeSpaceService::new(&store, &wiki_initializer)
+    let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
         .with_drive_context("tenant-9001", "user-123")
         .with_drive_space_provisioner(&drive_spaces);
 
@@ -199,7 +199,7 @@ async fn wiki_initialization_failure_releases_created_drive_space_and_local_spac
 
     assert!(error
         .to_string()
-        .contains("standard wiki file write failed intentionally"));
+        .contains("standard okf bundle file write failed intentionally"));
     assert_eq!(store.space_count(), 0);
     assert_eq!(drive_spaces.delete_calls(), 1);
     assert_eq!(
@@ -210,17 +210,17 @@ async fn wiki_initialization_failure_releases_created_drive_space_and_local_spac
 }
 
 #[tokio::test]
-async fn creating_bound_space_initializes_browser_visible_llm_wiki_drive_nodes() {
+async fn creating_bound_space_initializes_browser_visible_okf_drive_nodes() {
     let store = MemorySpaceStore::default();
     let drive = RecordingDrive::default();
     let drive_workspace = RecordingDriveWorkspace::default();
-    let file_entries = MemoryWikiFileEntryStore::default();
-    let registry = KnowledgeWikiFileRegistryService::new(&file_entries);
-    let wiki_initializer = KnowledgeWikiInitializerService::new(&drive)
+    let file_entries = MemoryOkfBundleFileEntryStore::default();
+    let registry = OkfBundleFileRegistryService::new(&file_entries);
+    let okf_bundle_initializer = OkfBundleInitializerService::new(&drive)
         .with_registry(&registry)
         .with_drive_workspace(&drive_workspace);
     let drive_spaces = RecordingDriveSpaceProvisioner::new("drv-kb-001");
-    let service = KnowledgeSpaceService::new(&store, &wiki_initializer)
+    let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
         .with_drive_context("tenant-9001", "user-123")
         .with_drive_space_provisioner(&drive_spaces);
 
@@ -238,63 +238,22 @@ async fn creating_bound_space_initializes_browser_visible_llm_wiki_drive_nodes()
     assert_eq!(drive_workspace.request_count(), 1);
     let request = drive_workspace.request().unwrap();
     assert_eq!(request.drive_space_id, "drv-kb-001");
-    let nodes = request.nodes;
-    assert_eq!(nodes[0], folder_node("manifest"));
-    assert_eq!(nodes[1], folder_node("inbox"));
-    assert_eq!(nodes[2], folder_node("inbox/uploads"));
-    assert_eq!(nodes[3], folder_node("inbox/drive-imports"));
-    assert_eq!(nodes[4], folder_node("inbox/api"));
-    assert_eq!(nodes[5], folder_node("sources"));
-    assert_eq!(nodes[6], folder_node("sources/raw"));
-    assert_eq!(nodes[7], folder_node("sources/urls"));
-    assert_eq!(nodes[8], folder_node("sources/repos"));
-    assert_eq!(nodes[9], folder_node("sources/message_archives"));
-    assert_eq!(nodes[10], folder_node("sources/media"));
-    assert_eq!(nodes[11], folder_node("parsed"));
-    assert_eq!(nodes[12], folder_node("wiki"));
-    assert_eq!(nodes[13], folder_node("wiki/schema"));
-    assert_eq!(nodes[14], folder_node("wiki/pages"));
-    assert_eq!(nodes[15], folder_node("wiki/pages/sources"));
-    assert_eq!(nodes[16], folder_node("wiki/pages/entities"));
-    assert_eq!(nodes[17], folder_node("wiki/pages/concepts"));
-    assert_eq!(nodes[18], folder_node("wiki/pages/topics"));
-    assert_eq!(nodes[19], folder_node("wiki/pages/references"));
-    assert_eq!(nodes[20], folder_node("wiki/pages/how_to"));
-    assert_eq!(nodes[21], folder_node("wiki/pages/faq"));
-    assert_eq!(nodes[22], folder_node("wiki/pages/glossary"));
-    assert_eq!(nodes[23], folder_node("wiki/pages/answers"));
-    assert_eq!(nodes[24], folder_node("wiki/pages/comparisons"));
-    assert_eq!(nodes[25], folder_node("wiki/pages/presentations"));
-    assert_eq!(nodes[26], folder_node("wiki/pages/charts"));
-    assert_eq!(nodes[27], folder_node("wiki/pages/indexes"));
-    assert_eq!(nodes[28], folder_node("wiki/pages/policies"));
-    assert_eq!(nodes[29], folder_node("wiki/pages/runbooks"));
-    assert_eq!(nodes[30], folder_node("graph"));
-    assert_eq!(nodes[31], folder_node("candidates"));
-    assert_eq!(nodes[32], folder_node("indexes"));
-    assert_eq!(nodes[33], folder_node("datasets"));
-    assert_eq!(nodes[34], folder_node("inventory"));
-    assert_eq!(nodes[35], folder_node("context_packs"));
-    assert_eq!(nodes[36], folder_node("eval"));
-    assert_eq!(nodes[37], folder_node("output"));
-    assert_eq!(nodes[38], folder_node("output/answers"));
-    assert_eq!(nodes[39], folder_node("output/reports"));
-    assert_eq!(nodes[40], folder_node("output/decks"));
-    assert_eq!(nodes[41], folder_node("output/charts"));
-    assert_eq!(nodes[42], folder_node("output/plans"));
-    assert_eq!(nodes[43], folder_node("output/study_guides"));
-    assert_eq!(nodes[44], folder_node("output/exports"));
-    assert_eq!(nodes[45], folder_node("mirror"));
-    assert_eq!(nodes[46], folder_node("logs"));
-    assert_standard_file_node(&nodes[47], "wiki/schema/AGENTS.md", "wiki/schema/AGENTS.md");
-    assert_standard_file_node(
-        &nodes[48],
-        "wiki/schema/wiki_schema.yaml",
-        "wiki/schema/wiki_schema.yaml",
-    );
-    assert_standard_file_node(&nodes[49], "wiki/index.md", "wiki/index.md");
-    assert_standard_file_node(&nodes[50], "wiki/log.md", "wiki/log.md");
-    assert_eq!(nodes.len(), 51);
+    let paths: Vec<String> = request
+        .nodes
+        .iter()
+        .map(|node| node.logical_path.clone())
+        .collect();
+    for expected in [
+        "okf",
+        "okf/schema",
+        ".sdkwork/governance/revisions",
+        "okf/schema/AGENTS.md",
+        "okf/schema/okf_profile.yaml",
+        "okf/index.md",
+        "okf/log.md",
+    ] {
+        assert!(paths.contains(&expected.to_string()), "missing {expected}");
+    }
 }
 
 #[tokio::test]
@@ -302,12 +261,12 @@ async fn workspace_backed_initialization_requires_drive_space_binding() {
     let store = MemorySpaceStore::default();
     let drive = RecordingDrive::default();
     let drive_workspace = RecordingDriveWorkspace::default();
-    let file_entries = MemoryWikiFileEntryStore::default();
-    let registry = KnowledgeWikiFileRegistryService::new(&file_entries);
-    let wiki_initializer = KnowledgeWikiInitializerService::new(&drive)
+    let file_entries = MemoryOkfBundleFileEntryStore::default();
+    let registry = OkfBundleFileRegistryService::new(&file_entries);
+    let okf_bundle_initializer = OkfBundleInitializerService::new(&drive)
         .with_registry(&registry)
         .with_drive_workspace(&drive_workspace);
-    let service = KnowledgeSpaceService::new(&store, &wiki_initializer);
+    let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer);
 
     let error = service
         .create_space(CreateKnowledgeSpaceRequest {
@@ -332,13 +291,13 @@ async fn initializer_requires_drive_space_before_persisting_standard_files_when_
 {
     let drive = RecordingDrive::default();
     let drive_workspace = RecordingDriveWorkspace::default();
-    let file_entries = MemoryWikiFileEntryStore::default();
-    let registry = KnowledgeWikiFileRegistryService::new(&file_entries);
-    let wiki_initializer = KnowledgeWikiInitializerService::new(&drive)
+    let file_entries = MemoryOkfBundleFileEntryStore::default();
+    let registry = OkfBundleFileRegistryService::new(&file_entries);
+    let okf_bundle_initializer = OkfBundleInitializerService::new(&drive)
         .with_registry(&registry)
         .with_drive_workspace(&drive_workspace);
 
-    let error = wiki_initializer
+    let error = okf_bundle_initializer
         .initialize_standard_files(1, "Research Space", None)
         .await
         .unwrap_err();
@@ -381,7 +340,7 @@ impl KnowledgeSpaceStore for MemorySpaceStore {
             description: record.description,
             drive_space_id: None,
             status: KnowledgeSpaceStatus::Active,
-            llm_wiki_initialized: false,
+            okf_bundle_initialized: false,
             knowledge_mode: record.knowledge_mode,
         };
         self.spaces.lock().unwrap().push(space.clone());
@@ -412,7 +371,7 @@ impl KnowledgeSpaceStore for MemorySpaceStore {
         Ok(space.clone())
     }
 
-    async fn mark_llm_wiki_initialized(
+    async fn mark_okf_bundle_initialized(
         &self,
         space_id: u64,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
@@ -421,7 +380,7 @@ impl KnowledgeSpaceStore for MemorySpaceStore {
             .iter_mut()
             .find(|space| space.id == space_id)
             .ok_or_else(|| KnowledgeSpaceStoreError::Internal("missing space".to_string()))?;
-        space.llm_wiki_initialized = true;
+        space.okf_bundle_initialized = true;
         Ok(space.clone())
     }
 
@@ -600,12 +559,12 @@ fn assert_standard_file_node(
 }
 
 #[derive(Default)]
-struct MemoryWikiFileEntryStore {
+struct MemoryOkfBundleFileEntryStore {
     logical_paths: Mutex<Vec<String>>,
     space_ids: Mutex<Vec<u64>>,
 }
 
-impl MemoryWikiFileEntryStore {
+impl MemoryOkfBundleFileEntryStore {
     fn logical_paths(&self) -> Vec<String> {
         self.logical_paths.lock().unwrap().clone()
     }
@@ -616,13 +575,13 @@ impl MemoryWikiFileEntryStore {
 }
 
 #[async_trait]
-impl KnowledgeWikiFileEntryStore for MemoryWikiFileEntryStore {
+impl KnowledgeOkfBundleFileStore for MemoryOkfBundleFileEntryStore {
     async fn create_file_entry(
         &self,
-        record: CreateKnowledgeWikiFileEntryRecord,
+        record: CreateKnowledgeOkfBundleFileRecord,
     ) -> Result<
-        sdkwork_knowledgebase_contract::wiki_file::KnowledgeWikiFileEntry,
-        KnowledgeWikiFileEntryStoreError,
+        sdkwork_knowledgebase_contract::KnowledgeOkfBundleFile,
+        KnowledgeOkfBundleFileStoreError,
     > {
         self.logical_paths
             .lock()
@@ -630,18 +589,16 @@ impl KnowledgeWikiFileEntryStore for MemoryWikiFileEntryStore {
             .push(record.logical_path.clone());
         self.space_ids.lock().unwrap().push(record.space_id);
 
-        Ok(
-            sdkwork_knowledgebase_contract::wiki_file::KnowledgeWikiFileEntry {
-                id: self.logical_paths.lock().unwrap().len() as u64,
-                space_id: record.space_id,
-                logical_path: record.logical_path,
-                entry_type: record.entry_type,
-                artifact_role: record.artifact_role,
-                drive_bucket: record.drive_bucket,
-                drive_object_key: record.drive_object_key,
-                checksum_sha256_hex: record.checksum_sha256_hex,
-            },
-        )
+        Ok(sdkwork_knowledgebase_contract::KnowledgeOkfBundleFile {
+            id: self.logical_paths.lock().unwrap().len() as u64,
+            space_id: record.space_id,
+            logical_path: record.logical_path,
+            file_kind: record.file_kind,
+            artifact_role: record.artifact_role,
+            drive_bucket: record.drive_bucket,
+            drive_object_key: record.drive_object_key,
+            checksum_sha256_hex: record.checksum_sha256_hex,
+        })
     }
 }
 
@@ -699,7 +656,7 @@ impl KnowledgeDriveStorage for FailingDrive {
         _request: PutKnowledgeObjectRequest,
     ) -> Result<KnowledgeObjectRef, KnowledgeStorageError> {
         Err(KnowledgeStorageError::internal(
-            "standard wiki file write failed intentionally",
+            "standard okf bundle file write failed intentionally",
         ))
     }
 

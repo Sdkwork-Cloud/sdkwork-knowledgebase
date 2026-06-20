@@ -219,14 +219,14 @@ foreach ($package in $packages) {
 Invoke-Checked cargo test --workspace
 Invoke-Checked powershell -ExecutionPolicy Bypass -File tools/verify_openapi_operation_ids.ps1
 
-$llmWiki = Get-Content -Raw docs/llm-wiki.md
+$okfKnowledgeBundle = Get-Content -Raw docs/okf-knowledge-bundle.md
 # Detect common mojibake/replacement characters without embedding them directly in this script.
-if ($llmWiki.Contains([char]0x9225) -or $llmWiki.Contains([char]0x922B) -or $llmWiki.Contains([char]0xFFFD)) {
-    throw "docs/llm-wiki.md contains mojibake replacement text"
+if ($okfKnowledgeBundle.Contains([char]0x9225) -or $okfKnowledgeBundle.Contains([char]0x922B) -or $okfKnowledgeBundle.Contains([char]0xFFFD)) {
+    throw "docs/okf-knowledge-bundle.md contains mojibake replacement text"
 }
 
-if (!$llmWiki.Contains("Database objects created by SDKWork Knowledgebase use the") -or !$llmWiki.Contains('`kb_` prefix')) {
-    throw "docs/llm-wiki.md must document the SDKWork Knowledgebase kb_ database object naming standard"
+if (!$okfKnowledgeBundle.Contains("Database objects created by SDKWork Knowledgebase use the") -or !$okfKnowledgeBundle.Contains('`kb_` prefix')) {
+    throw "docs/okf-knowledge-bundle.md must document the SDKWork Knowledgebase kb_ database object naming standard"
 }
 
 $databaseObjectSearchRoots = @(

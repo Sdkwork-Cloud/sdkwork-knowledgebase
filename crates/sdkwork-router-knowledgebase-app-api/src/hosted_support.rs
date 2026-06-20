@@ -1,33 +1,36 @@
 use sdkwork_intelligence_knowledgebase_service::{
+    okf::{
+        render_index_md, render_log_md, OkfBundleFileRegistryService, OkfBundleStandardFileService,
+        PersistStandardFilesRequest,
+    },
     ports::{
         knowledge_drive_storage::{
             HeadKnowledgeObjectRequest, KnowledgeDriveStorage, PutKnowledgeObjectRequest,
         },
+        knowledge_okf_concept_store::KnowledgeOkfConceptStore,
         knowledge_space_store::KnowledgeSpaceStore,
-        knowledge_wiki_page_store::KnowledgeWikiPageStore,
-    },
-    wiki::{
-        render_index_md, render_log_md, KnowledgeWikiFileRegistryService,
-        LlmWikiStandardFileService, PersistStandardFilesRequest,
     },
 };
-use sdkwork_knowledgebase_contract::{
-    rag::{KnowledgeContextFragment, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod},
-    wiki::{KnowledgeWikiPage, LlmWikiPaths, WikiIndexDocument, WikiPageSummary},
+use sdkwork_knowledgebase_contract::okf::{
+    KnowledgeOkfConcept, OkfBundlePaths, OkfConceptSummary, OkfIndexDocument,
+};
+use sdkwork_knowledgebase_contract::rag::{
+    KnowledgeContextFragment, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
 };
 
 use crate::ApiError;
 
-pub(crate) fn page_to_summary(page: KnowledgeWikiPage) -> WikiPageSummary {
-    WikiPageSummary {
-        title: page.title,
-        slug: page.slug,
-        page_type: page.page_type,
-        logical_path: page.logical_path,
-        summary: page.summary,
-        source_count: page.source_count,
-        updated_at: page.updated_at,
-        tags: page.tags,
+pub(crate) fn concept_to_summary(concept: KnowledgeOkfConcept) -> OkfConceptSummary {
+    OkfConceptSummary {
+        title: concept.title,
+        concept_id: concept.concept_id,
+        concept_type: concept.concept_type,
+        logical_path: concept.logical_path,
+        bundle_relative_path: concept.bundle_relative_path,
+        description: concept.description,
+        source_count: concept.source_count,
+        updated_at: concept.updated_at,
+        tags: concept.tags,
     }
 }
 
@@ -58,11 +61,11 @@ pub(crate) fn format_retrieval_answer(hits: &[KnowledgeContextFragment]) -> Stri
         .join("\n\n")
 }
 
-pub(crate) fn wiki_answer_slug(query_id: u64) -> String {
-    format!("answer-{query_id}")
+pub(crate) fn okf_answer_concept_id(query_id: u64) -> String {
+    format!("answers/answer-{query_id}")
 }
 
-pub(crate) async fn read_managed_wiki_text(
+pub(crate) async fn read_managed_okf_text(
     drive: &dyn KnowledgeDriveStorage,
     logical_path: &str,
     object_role: &str,
@@ -76,37 +79,37 @@ pub(crate) async fn read_managed_wiki_text(
     drive.get_object_text(&object_ref).await.map_err(Into::into)
 }
 
-pub(crate) fn wiki_paths() -> LlmWikiPaths {
-    LlmWikiPaths::default()
+pub(crate) fn okf_paths() -> OkfBundlePaths {
+    OkfBundlePaths::default()
 }
 
-pub(crate) fn wiki_not_initialized_detail() -> String {
-    "no wiki-initialized knowledge space is available for this tenant".to_string()
+pub(crate) fn okf_bundle_not_initialized_detail() -> String {
+    "no okf-bundle-initialized knowledge space is available for this tenant".to_string()
 }
 
-pub(crate) async fn rebuild_wiki_index_document(
+pub(crate) async fn rebuild_okf_index_document(
     runtime: &crate::runtime::KnowledgebaseRuntime,
     space_id: u64,
-) -> Result<WikiIndexDocument, ApiError> {
+) -> Result<OkfIndexDocument, ApiError> {
     let space = runtime.space_store().get_space(space_id).await?;
-    let pages = runtime
-        .wiki_page_store()
-        .list_page_summaries(space_id)
+    let concepts = runtime
+        .okf_concept_store()
+        .list_concept_summaries(space_id)
         .await
-        .map_err(map_wiki_page_store)?;
+        .map_err(map_okf_concept_store)?;
     let logs = runtime
-        .wiki_page_store()
+        .okf_concept_store()
         .list_log_entries(space_id)
         .await
-        .map_err(map_wiki_page_store)?;
-    let markdown = render_index_md(&space.name, &pages);
+        .map_err(map_okf_concept_store)?;
+    let markdown = render_index_md(&space.name, &concepts);
     let log_markdown = render_log_md(&logs);
-    let paths = wiki_paths();
+    let paths = okf_paths();
     runtime
         .drive_storage()
         .put_object(PutKnowledgeObjectRequest::text(
             paths.index_md,
-            "wiki_index",
+            "bundle_index",
             markdown.clone(),
             None,
         ))
@@ -115,54 +118,56 @@ pub(crate) async fn rebuild_wiki_index_document(
         .drive_storage()
         .put_object(PutKnowledgeObjectRequest::text(
             paths.log_md,
-            "wiki_log",
+            "bundle_log",
             log_markdown,
             None,
         ))
         .await?;
-    Ok(WikiIndexDocument { markdown })
+    Ok(OkfIndexDocument { markdown })
 }
 
-pub(crate) async fn persist_wiki_schema_profile(
+pub(crate) async fn persist_okf_profile(
     runtime: &crate::runtime::KnowledgebaseRuntime,
     space_id: u64,
-) -> Result<sdkwork_knowledgebase_contract::wiki_file::KnowledgeWikiFileEntry, ApiError> {
+) -> Result<sdkwork_knowledgebase_contract::KnowledgeOkfBundleFile, ApiError> {
     let space = runtime.space_store().get_space(space_id).await?;
-    let pages = runtime
-        .wiki_page_store()
-        .list_page_summaries(space_id)
+    let concepts = runtime
+        .okf_concept_store()
+        .list_concept_summaries(space_id)
         .await
-        .map_err(map_wiki_page_store)?;
+        .map_err(map_okf_concept_store)?;
     let logs = runtime
-        .wiki_page_store()
+        .okf_concept_store()
         .list_log_entries(space_id)
         .await
-        .map_err(map_wiki_page_store)?;
-    let files = LlmWikiStandardFileService::new(runtime.drive_storage())
+        .map_err(map_okf_concept_store)?;
+    let files = OkfBundleStandardFileService::new(runtime.drive_storage())
         .persist_standard_files(PersistStandardFilesRequest {
             space_name: space.name,
-            pages,
+            concepts: concepts,
             log_entries: logs,
         })
         .await?;
-    let registry = KnowledgeWikiFileRegistryService::new(runtime.wiki_file_entry_store());
+    let registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
     let entries = registry
         .register_standard_files(space_id, &files)
         .await
-        .map_err(|error| ApiError::internal("wiki_file_registry_failed", error.to_string()))?;
+        .map_err(|error| {
+            ApiError::internal("okf_bundle_file_registry_failed", error.to_string())
+        })?;
     entries
         .into_iter()
-        .find(|entry| entry.logical_path.ends_with("wiki_schema.yaml"))
+        .find(|entry| entry.logical_path.ends_with("okf_profile.yaml"))
         .ok_or_else(|| {
             ApiError::internal(
-                "wiki_schema_profile_missing",
-                "schema profile registration did not produce wiki_schema.yaml entry",
+                "okf_profile_missing",
+                "profile registration did not produce okf_profile.yaml entry",
             )
         })
 }
 
-fn map_wiki_page_store(
-    error: sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_page_store::KnowledgeWikiPageStoreError,
+fn map_okf_concept_store(
+    error: sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::KnowledgeOkfConceptStoreError,
 ) -> ApiError {
-    ApiError::internal("knowledge_wiki_page_store_failed", error.to_string())
+    ApiError::internal("knowledge_okf_concept_store_failed", error.to_string())
 }

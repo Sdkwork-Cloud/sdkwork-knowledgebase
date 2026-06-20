@@ -48,12 +48,12 @@ fn backend_openapi_uses_collection_schema_for_candidate_list_operation() {
     .unwrap();
 
     assert_eq!(
-        success_schema_ref(&spec, "wiki.candidates.list"),
-        "#/components/schemas/WikiCandidateResultList"
+        success_schema_ref(&spec, "okf.candidates.list"),
+        "#/components/schemas/OkfCandidateResultList"
     );
     assert!(
-        spec["components"]["schemas"]["WikiCandidateResultList"].is_object(),
-        "OpenAPI must define WikiCandidateResultList schema"
+        spec["components"]["schemas"]["OkfCandidateResultList"].is_object(),
+        "OpenAPI must define OkfCandidateResultList schema"
     );
 }
 
@@ -237,7 +237,7 @@ fn method_from_openapi(method_name: &str) -> Method {
 fn concrete_uri(template_path: &str) -> String {
     template_path
         .replace("{candidateId}", "31")
-        .replace("{pageId}", "17")
+        .replace("{conceptId}", "17")
         .replace("{profileId}", "23")
         .replace("{exportId}", "29")
         .replace("{indexId}", "37")
@@ -247,20 +247,20 @@ fn concrete_uri(template_path: &str) -> String {
 fn request_body(operation_id: &str) -> &'static str {
     match operation_id {
         "sources.create" => r#"{"spaceId":7,"sourceType":"api","provider":"app-api"}"#,
-        "wiki.compileJobs.create" => r#"{"spaceId":7,"sourceId":11}"#,
-        "wiki.candidates.approve" | "wiki.candidates.reject" => {
+        "okf.compileJobs.create" => r#"{"spaceId":7,"sourceId":11}"#,
+        "okf.candidates.approve" | "okf.candidates.reject" => {
             r#"{"reviewerId":1001,"note":"reviewed"}"#
         }
-        "wiki.pages.publish" => r#"{"publisherId":1001,"note":"publish"}"#,
-        "wiki.schema.profiles.create" | "wiki.schema.profiles.update" => {
+        "okf.concepts.publish" => r#"{"publisherId":1001,"note":"publish"}"#,
+        "okf.profile.create" | "okf.profile.update" => {
             r#"{"spaceId":7,"profileVersion":"2026-06-05"}"#
         }
-        "wiki.index.rebuild" => r#"{"spaceId":7}"#,
-        "wiki.log.entries.create" => {
-            r#"{"occurredAt":"2026-06-05T00:00:00Z","eventType":"publish","title":"Published","actor":"system","affectedPages":[],"warnings":[]}"#
+        "okf.bundle.index.rebuild" => r#"{"spaceId":7}"#,
+        "okf.log.entries.create" => {
+            r#"{"occurredAt":"2026-06-05T00:00:00Z","eventType":"publish","title":"Published","actor":"system","affectedConcepts":[],"warnings":[]}"#
         }
-        "wiki.exports.create" => r#"{"spaceId":7,"exportType":"snapshot"}"#,
-        "wiki.lintRuns.create" | "wiki.evalRuns.create" => r#"{"spaceId":7}"#,
+        "okf.bundle.export.create" => r#"{"spaceId":7,"exportType":"snapshot"}"#,
+        "okf.lintRuns.create" | "okf.evalRuns.create" => r#"{"spaceId":7}"#,
         "indexes.create" => {
             r#"{"tenantId":"20001","spaceId":"7","indexKind":"hybrid","embeddingProviderId":"provider.embedding.openai","embeddingModel":"text-embedding-3-large","dimension":3072,"metric":"cosine"}"#
         }

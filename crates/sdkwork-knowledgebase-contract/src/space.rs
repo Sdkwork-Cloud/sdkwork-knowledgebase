@@ -21,7 +21,7 @@ pub struct KnowledgeSpace {
     pub description: Option<String>,
     pub drive_space_id: Option<String>,
     pub status: KnowledgeSpaceStatus,
-    pub llm_wiki_initialized: bool,
+    pub okf_bundle_initialized: bool,
     pub knowledge_mode: KnowledgeAgentKnowledgeMode,
 }
 

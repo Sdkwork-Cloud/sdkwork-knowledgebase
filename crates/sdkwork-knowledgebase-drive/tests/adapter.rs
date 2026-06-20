@@ -198,18 +198,15 @@ async fn adapter_puts_and_reads_objects_through_drive_object_store() {
 
     let object_ref = adapter
         .put_object(PutKnowledgeObjectRequest::text(
-            "wiki/index.md",
-            "wiki_index",
+            "okf/index.md",
+            "bundle_index",
             "# Index",
             None,
         ))
         .await
         .unwrap();
 
-    assert_eq!(
-        object_ref.object_key,
-        "knowledge/tenant/space/wiki/index.md"
-    );
+    assert_eq!(object_ref.object_key, "knowledge/tenant/space/okf/index.md");
     assert_eq!(
         adapter.get_object_text(&object_ref).await.unwrap(),
         "# Index"
@@ -228,8 +225,8 @@ async fn storage_adapter_returns_computed_checksum_when_request_omits_checksum()
 
     let object_ref = adapter
         .put_object(PutKnowledgeObjectRequest::text(
-            "wiki/index.md",
-            "wiki_index",
+            "okf/index.md",
+            "bundle_index",
             "# Index",
             None,
         ))
@@ -254,8 +251,8 @@ async fn storage_adapter_rejects_mismatched_request_checksum_before_drive_write(
 
     let error = adapter
         .put_object(PutKnowledgeObjectRequest::text(
-            "wiki/index.md",
-            "wiki_index",
+            "okf/index.md",
+            "bundle_index",
             "# Index",
             Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
         ))
@@ -278,8 +275,8 @@ async fn storage_adapter_synthesizes_content_version_for_versionless_drive_store
 
     let first = adapter
         .put_object(PutKnowledgeObjectRequest::text(
-            "wiki/index.md",
-            "wiki_index",
+            "okf/index.md",
+            "bundle_index",
             "# Index v1",
             None,
         ))
@@ -287,8 +284,8 @@ async fn storage_adapter_synthesizes_content_version_for_versionless_drive_store
         .unwrap();
     let second = adapter
         .put_object(PutKnowledgeObjectRequest::text(
-            "wiki/index.md",
-            "wiki_index",
+            "okf/index.md",
+            "bundle_index",
             "# Index v2",
             None,
         ))
@@ -318,8 +315,8 @@ async fn storage_adapter_treats_blank_provider_version_as_versionless() {
 
     let object_ref = adapter
         .put_object(PutKnowledgeObjectRequest::text(
-            "wiki/log.md",
-            "wiki_log",
+            "okf/log.md",
+            "bundle_log",
             "# Log",
             None,
         ))
@@ -345,7 +342,7 @@ async fn adapter_rejects_unsafe_managed_logical_paths_before_drive_write() {
     let error = adapter
         .put_object(PutKnowledgeObjectRequest::text(
             "../escape.md",
-            "wiki_index",
+            "bundle_index",
             "# Escape",
             None,
         ))
@@ -368,8 +365,8 @@ async fn adapter_reads_empty_text_object_without_requesting_invalid_range() {
 
     let object_ref = adapter
         .put_object(PutKnowledgeObjectRequest::text(
-            "wiki/empty.md",
-            "wiki_page_markdown",
+            "okf/empty.md",
+            "concept_markdown",
             "",
             None,
         ))
@@ -391,13 +388,13 @@ async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_b
         .ensure_nodes(EnsureKnowledgeDriveNodesRequest {
             drive_space_id: "kb-drv-kb-001".to_string(),
             nodes: vec![
-                folder_node("wiki"),
-                folder_node("wiki/schema"),
+                folder_node("okf"),
+                folder_node("okf/schema"),
                 file_node(
-                    "wiki/schema/AGENTS.md",
+                    "okf/schema/AGENTS.md",
                     "provider-kb",
                     "kb-bucket",
-                    "knowledge/space/wiki/schema/AGENTS.md",
+                    "knowledge/space/okf/schema/AGENTS.md",
                     64,
                 ),
             ],
@@ -406,33 +403,33 @@ async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_b
         .unwrap();
 
     let tree = KnowledgebaseDriveNodeTreeAdapter::new(pool.clone(), "tenant-001");
-    let wiki = tree
+    let okf_root = tree
         .resolve_path(ResolveKnowledgeDriveNodePathRequest {
             drive_space_id: "kb-drv-kb-001".to_string(),
-            logical_path: "wiki".to_string(),
+            logical_path: "okf".to_string(),
         })
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(wiki.kind, DriveNodeKind::Folder);
+    assert_eq!(okf_root.kind, DriveNodeKind::Folder);
 
-    let wiki_page = tree
+    let okf_schema = tree
         .list_children(ListKnowledgeDriveNodeChildrenRequest {
             drive_space_id: "kb-drv-kb-001".to_string(),
-            parent_drive_node_id: Some(wiki.drive_node_id),
+            parent_drive_node_id: Some(okf_root.drive_node_id),
             cursor: None,
             page_size: 200,
         })
         .await
         .unwrap();
-    assert_eq!(wiki_page.nodes.len(), 1);
-    assert_eq!(wiki_page.nodes[0].name, "schema");
-    assert_eq!(wiki_page.nodes[0].kind, DriveNodeKind::Folder);
+    assert_eq!(okf_schema.nodes.len(), 1);
+    assert_eq!(okf_schema.nodes[0].name, "schema");
+    assert_eq!(okf_schema.nodes[0].kind, DriveNodeKind::Folder);
 
     let schema_page = tree
         .list_children(ListKnowledgeDriveNodeChildrenRequest {
             drive_space_id: "kb-drv-kb-001".to_string(),
-            parent_drive_node_id: Some(wiki_page.nodes[0].drive_node_id.clone()),
+            parent_drive_node_id: Some(okf_schema.nodes[0].drive_node_id.clone()),
             cursor: None,
             page_size: 200,
         })
@@ -454,7 +451,7 @@ async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_b
     )
     .bind("tenant-001")
     .bind("kb-bucket")
-    .bind("knowledge/space/wiki/schema/AGENTS.md")
+    .bind("knowledge/space/okf/schema/AGENTS.md")
     .fetch_one(&pool)
     .await
     .unwrap();
@@ -470,13 +467,13 @@ async fn workspace_adapter_is_idempotent_for_repeated_initialization() {
     let request = EnsureKnowledgeDriveNodesRequest {
         drive_space_id: "kb-drv-kb-001".to_string(),
         nodes: vec![
-            folder_node("wiki"),
-            folder_node("wiki/schema"),
+            folder_node("okf"),
+            folder_node("okf/schema"),
             file_node(
-                "wiki/schema/AGENTS.md",
+                "okf/schema/AGENTS.md",
                 "provider-kb",
                 "kb-bucket",
-                "knowledge/space/wiki/schema/AGENTS.md",
+                "knowledge/space/okf/schema/AGENTS.md",
                 64,
             ),
         ],
@@ -489,7 +486,7 @@ async fn workspace_adapter_is_idempotent_for_repeated_initialization() {
     let schema = tree
         .resolve_path(ResolveKnowledgeDriveNodePathRequest {
             drive_space_id: "kb-drv-kb-001".to_string(),
-            logical_path: "wiki/schema".to_string(),
+            logical_path: "okf/schema".to_string(),
         })
         .await
         .unwrap()
@@ -519,13 +516,13 @@ async fn node_tree_adapter_resolves_paths_and_pages_children_from_drive_nodes() 
         .ensure_nodes(EnsureKnowledgeDriveNodesRequest {
             drive_space_id: "kb-drv-kb-001".to_string(),
             nodes: vec![
-                folder_node("wiki"),
-                folder_node("wiki/schema"),
+                folder_node("okf"),
+                folder_node("okf/schema"),
                 file_node(
-                    "wiki/index.md",
+                    "okf/index.md",
                     "provider-kb",
                     "kb-bucket",
-                    "knowledge/space/wiki/index.md",
+                    "knowledge/space/okf/index.md",
                     11,
                 ),
             ],
@@ -537,12 +534,12 @@ async fn node_tree_adapter_resolves_paths_and_pages_children_from_drive_nodes() 
     let root = tree
         .resolve_path(ResolveKnowledgeDriveNodePathRequest {
             drive_space_id: "kb-drv-kb-001".to_string(),
-            logical_path: "wiki".to_string(),
+            logical_path: "okf".to_string(),
         })
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(root.name, "wiki");
+    assert_eq!(root.name, "okf");
     assert_eq!(root.kind, DriveNodeKind::Folder);
 
     let page = tree
@@ -556,7 +553,7 @@ async fn node_tree_adapter_resolves_paths_and_pages_children_from_drive_nodes() 
         .unwrap();
     assert_eq!(page.nodes.len(), 2);
     assert_eq!(page.nodes[0].name, "schema");
-    assert_eq!(page.nodes[0].path, "wiki/schema");
+    assert_eq!(page.nodes[0].path, "okf/schema");
     assert_eq!(page.nodes[1].name, "index.md");
     assert_eq!(page.nodes[1].kind, DriveNodeKind::File);
     assert_eq!(page.nodes[1].content_type.as_deref(), Some("text/markdown"));
@@ -1333,7 +1330,7 @@ fn file_node(
                 bucket: bucket.to_string(),
                 object_key: object_key.to_string(),
                 logical_path: logical_path.to_string(),
-                object_role: "wiki_schema".to_string(),
+                object_role: "bundle_profile".to_string(),
                 content_type: "text/markdown; charset=utf-8".to_string(),
                 size_bytes,
                 checksum_sha256_hex: Some(

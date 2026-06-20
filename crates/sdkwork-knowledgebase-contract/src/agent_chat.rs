@@ -44,7 +44,7 @@ pub struct KnowledgeAgentChatCitation {
         serialize_with = "serialize_option_u64_as_string",
         deserialize_with = "deserialize_option_u64_from_string_or_number"
     )]
-    pub wiki_page_id: Option<u64>,
+    pub okf_concept_id: Option<u64>,
     pub title: String,
     pub source_uri: Option<String>,
     pub logical_path: Option<String>,

@@ -1,22 +1,22 @@
 pub const PREFIX: &str = "/backend/v3/api";
 pub const HEALTHZ: &str = "/healthz";
 pub const SOURCES: &str = "/backend/v3/api/knowledge/sources";
-pub const WIKI_COMPILE_JOBS: &str = "/backend/v3/api/knowledge/wiki_compile_jobs";
-pub const WIKI_CANDIDATES: &str = "/backend/v3/api/knowledge/wiki_candidates";
-pub const WIKI_CANDIDATE_APPROVE: &str =
-    "/backend/v3/api/knowledge/wiki_candidates/{candidate_id}/approve";
-pub const WIKI_CANDIDATE_REJECT: &str =
-    "/backend/v3/api/knowledge/wiki_candidates/{candidate_id}/reject";
-pub const WIKI_PAGE_PUBLISH: &str = "/backend/v3/api/knowledge/wiki_pages/{page_id}/publish";
-pub const WIKI_SCHEMA_PROFILES: &str = "/backend/v3/api/knowledge/wiki_schema_profiles";
-pub const WIKI_SCHEMA_PROFILE: &str = "/backend/v3/api/knowledge/wiki_schema_profiles/{profile_id}";
-pub const WIKI_INDEX_REBUILD: &str = "/backend/v3/api/knowledge/wiki_index/rebuild";
-pub const WIKI_LOG_ENTRIES: &str = "/backend/v3/api/knowledge/wiki_log_entries";
-pub const WIKI_EXPORTS: &str = "/backend/v3/api/knowledge/wiki_exports";
-pub const WIKI_EXPORT: &str = "/backend/v3/api/knowledge/wiki_exports/{export_id}";
-pub const WIKI_FILE_ENTRIES: &str = "/backend/v3/api/knowledge/wiki_file_entries";
-pub const WIKI_LINT_RUNS: &str = "/backend/v3/api/knowledge/wiki_lint_runs";
-pub const WIKI_EVAL_RUNS: &str = "/backend/v3/api/knowledge/wiki_eval_runs";
+pub const OKF_COMPILE_JOBS: &str = "/backend/v3/api/knowledge/okf/compile_jobs";
+pub const OKF_CANDIDATES: &str = "/backend/v3/api/knowledge/okf/candidates";
+pub const OKF_CANDIDATE_APPROVE: &str =
+    "/backend/v3/api/knowledge/okf/candidates/{candidate_id}/approve";
+pub const OKF_CANDIDATE_REJECT: &str =
+    "/backend/v3/api/knowledge/okf/candidates/{candidate_id}/reject";
+pub const OKF_CONCEPT_PUBLISH: &str = "/backend/v3/api/knowledge/okf/concepts/{concept_id}/publish";
+pub const OKF_PROFILES: &str = "/backend/v3/api/knowledge/okf/profile";
+pub const OKF_PROFILE: &str = "/backend/v3/api/knowledge/okf/profile/{profile_id}";
+pub const OKF_INDEX_REBUILD: &str = "/backend/v3/api/knowledge/okf/index/rebuild";
+pub const OKF_LOG_ENTRIES: &str = "/backend/v3/api/knowledge/okf/log_entries";
+pub const OKF_EXPORTS: &str = "/backend/v3/api/knowledge/okf/exports";
+pub const OKF_EXPORT: &str = "/backend/v3/api/knowledge/okf/exports/{export_id}";
+pub const OKF_BUNDLE_FILES: &str = "/backend/v3/api/knowledge/okf/bundle/files";
+pub const OKF_LINT_RUNS: &str = "/backend/v3/api/knowledge/okf/lint_runs";
+pub const OKF_EVAL_RUNS: &str = "/backend/v3/api/knowledge/okf/eval_runs";
 pub const INDEXES: &str = "/backend/v3/api/knowledge/indexes";
 pub const INDEX: &str = "/backend/v3/api/knowledge/indexes/{index_id}";
 pub const INDEX_REBUILD: &str = "/backend/v3/api/knowledge/indexes/{index_id}/rebuild";

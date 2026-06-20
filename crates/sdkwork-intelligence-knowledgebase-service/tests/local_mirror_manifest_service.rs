@@ -13,7 +13,7 @@ use sdkwork_knowledgebase_contract::mirror::{
 use std::sync::Mutex;
 
 #[tokio::test]
-async fn snapshot_manifest_is_projected_to_llm_wiki_local_mirror_and_written_through_drive() {
+async fn snapshot_manifest_is_projected_to_okf_local_mirror_and_written_through_drive() {
     let drive = RecordingDrive::default();
     let service = KnowledgeLocalMirrorManifestService::new(&drive);
 
@@ -48,29 +48,26 @@ async fn snapshot_manifest_is_projected_to_llm_wiki_local_mirror_and_written_thr
     assert_eq!(
         result
             .manifest
-            .llm_wiki_compatibility
+            .okf_bundle_compatibility
             .agent_instruction_path,
-        "AGENTS.md"
+        "schema/AGENTS.md"
     );
     assert_eq!(
-        result.manifest.llm_wiki_compatibility.schema_path,
-        "schema/wiki_schema.yaml"
+        result.manifest.okf_bundle_compatibility.profile_path,
+        "schema/okf_profile.yaml"
     );
-    assert_eq!(result.manifest.llm_wiki_compatibility.raw_root, "raw/");
-    assert_eq!(result.manifest.llm_wiki_compatibility.wiki_root, "wiki/");
+    assert_eq!(result.manifest.okf_bundle_compatibility.raw_root, "raw/");
+    assert_eq!(result.manifest.okf_bundle_compatibility.bundle_root, ".");
     assert_eq!(
-        result.manifest.llm_wiki_compatibility.index_path,
-        "wiki/index.md"
+        result.manifest.okf_bundle_compatibility.index_path,
+        "index.md"
     );
-    assert_eq!(
-        result.manifest.llm_wiki_compatibility.log_path,
-        "wiki/log.md"
-    );
+    assert_eq!(result.manifest.okf_bundle_compatibility.log_path, "log.md");
 
     let body = drive.last_body_text();
     assert!(body.contains("\"packageKind\": \"snapshot\""));
-    assert!(body.contains("\"agentInstructionPath\": \"AGENTS.md\""));
-    assert!(body.contains("\"schemaPath\": \"schema/wiki_schema.yaml\""));
+    assert!(body.contains("\"agentInstructionPath\": \"schema/AGENTS.md\""));
+    assert!(body.contains("\"profilePath\": \"schema/okf_profile.yaml\""));
     assert!(body.contains("\"objectsManifest\": \"drive_objects/objects_manifest.jsonl\""));
 }
 
@@ -149,7 +146,7 @@ fn mirror_policy() -> MirrorContentPolicy {
     MirrorContentPolicy {
         include_raw_sources: false,
         include_parsed_artifacts: true,
-        include_wiki: true,
+        include_okf_bundle: true,
         include_embeddings: true,
         include_eval_reports: false,
     }

@@ -26,29 +26,29 @@ pub const AGENT_PROFILES_BINDINGS_UPDATE: &str = "agentProfiles.bindings.update"
 pub const AGENT_PROFILES_BINDINGS_DELETE: &str = "agentProfiles.bindings.delete";
 pub const AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE: &str = "agentProfiles.retrievalPreview.create";
 pub const AGENT_PROFILES_CHAT_CREATE: &str = "agentProfiles.chat.create";
-pub const WIKI_PAGES_LIST: &str = "wiki.pages.list";
-pub const WIKI_PAGES_RETRIEVE: &str = "wiki.pages.retrieve";
-pub const WIKI_PAGES_REVISIONS_LIST: &str = "wiki.pages.revisions.list";
-pub const WIKI_PAGES_PUBLISH: &str = "wiki.pages.publish";
-pub const WIKI_INDEX_RETRIEVE: &str = "wiki.index.retrieve";
-pub const WIKI_INDEX_REBUILD: &str = "wiki.index.rebuild";
-pub const WIKI_LOG_RETRIEVE: &str = "wiki.log.retrieve";
-pub const WIKI_LOG_ENTRIES_CREATE: &str = "wiki.log.entries.create";
-pub const WIKI_SCHEMA_RETRIEVE: &str = "wiki.schema.retrieve";
-pub const WIKI_SCHEMA_PROFILES_CREATE: &str = "wiki.schema.profiles.create";
-pub const WIKI_SCHEMA_PROFILES_UPDATE: &str = "wiki.schema.profiles.update";
-pub const WIKI_QUERIES_CREATE: &str = "wiki.queries.create";
-pub const WIKI_QUERIES_FILE_ANSWER: &str = "wiki.queries.fileAnswer";
-pub const WIKI_CONTEXT_PACKS_CREATE: &str = "wiki.contextPacks.create";
-pub const WIKI_COMPILE_JOBS_CREATE: &str = "wiki.compileJobs.create";
-pub const WIKI_CANDIDATES_LIST: &str = "wiki.candidates.list";
-pub const WIKI_CANDIDATES_APPROVE: &str = "wiki.candidates.approve";
-pub const WIKI_CANDIDATES_REJECT: &str = "wiki.candidates.reject";
-pub const WIKI_EXPORTS_CREATE: &str = "wiki.exports.create";
-pub const WIKI_EXPORTS_RETRIEVE: &str = "wiki.exports.retrieve";
-pub const WIKI_FILE_ENTRIES_LIST: &str = "wiki.fileEntries.list";
-pub const WIKI_LINT_RUNS_CREATE: &str = "wiki.lintRuns.create";
-pub const WIKI_EVAL_RUNS_CREATE: &str = "wiki.evalRuns.create";
+pub const OKF_CONCEPTS_LIST: &str = "okf.concepts.list";
+pub const OKF_CONCEPTS_RETRIEVE: &str = "okf.concepts.retrieve";
+pub const OKF_CONCEPTS_REVISIONS_LIST: &str = "okf.concepts.revisions.list";
+pub const OKF_CONCEPTS_PUBLISH: &str = "okf.concepts.publish";
+pub const OKF_BUNDLE_INDEX_RETRIEVE: &str = "okf.bundle.index.retrieve";
+pub const OKF_BUNDLE_INDEX_REBUILD: &str = "okf.bundle.index.rebuild";
+pub const OKF_BUNDLE_LOG_RETRIEVE: &str = "okf.bundle.log.retrieve";
+pub const OKF_LOG_ENTRIES_CREATE: &str = "okf.log.entries.create";
+pub const OKF_BUNDLE_PROFILE_RETRIEVE: &str = "okf.bundle.profile.retrieve";
+pub const OKF_PROFILE_CREATE: &str = "okf.profile.create";
+pub const OKF_PROFILE_UPDATE: &str = "okf.profile.update";
+pub const OKF_QUERIES_CREATE: &str = "okf.queries.create";
+pub const OKF_QUERIES_FILE_ANSWER: &str = "okf.queries.fileAnswer";
+pub const OKF_CONTEXT_PACKS_CREATE: &str = "okf.contextPacks.create";
+pub const OKF_COMPILE_JOBS_CREATE: &str = "okf.compileJobs.create";
+pub const OKF_CANDIDATES_LIST: &str = "okf.candidates.list";
+pub const OKF_CANDIDATES_APPROVE: &str = "okf.candidates.approve";
+pub const OKF_CANDIDATES_REJECT: &str = "okf.candidates.reject";
+pub const OKF_BUNDLE_EXPORT_CREATE: &str = "okf.bundle.export.create";
+pub const OKF_BUNDLE_EXPORT_RETRIEVE: &str = "okf.bundle.export.retrieve";
+pub const OKF_BUNDLE_FILES_LIST: &str = "okf.bundle.files.list";
+pub const OKF_LINT_RUNS_CREATE: &str = "okf.lintRuns.create";
+pub const OKF_EVAL_RUNS_CREATE: &str = "okf.evalRuns.create";
 pub const INDEXES_CREATE: &str = "indexes.create";
 pub const INDEXES_RETRIEVE: &str = "indexes.retrieve";
 pub const INDEXES_REBUILD: &str = "indexes.rebuild";
@@ -95,29 +95,29 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     AGENT_PROFILES_BINDINGS_DELETE,
     AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE,
     AGENT_PROFILES_CHAT_CREATE,
-    WIKI_PAGES_LIST,
-    WIKI_PAGES_RETRIEVE,
-    WIKI_PAGES_REVISIONS_LIST,
-    WIKI_PAGES_PUBLISH,
-    WIKI_INDEX_RETRIEVE,
-    WIKI_INDEX_REBUILD,
-    WIKI_LOG_RETRIEVE,
-    WIKI_LOG_ENTRIES_CREATE,
-    WIKI_SCHEMA_RETRIEVE,
-    WIKI_SCHEMA_PROFILES_CREATE,
-    WIKI_SCHEMA_PROFILES_UPDATE,
-    WIKI_QUERIES_CREATE,
-    WIKI_QUERIES_FILE_ANSWER,
-    WIKI_CONTEXT_PACKS_CREATE,
-    WIKI_COMPILE_JOBS_CREATE,
-    WIKI_CANDIDATES_LIST,
-    WIKI_CANDIDATES_APPROVE,
-    WIKI_CANDIDATES_REJECT,
-    WIKI_EXPORTS_CREATE,
-    WIKI_EXPORTS_RETRIEVE,
-    WIKI_FILE_ENTRIES_LIST,
-    WIKI_LINT_RUNS_CREATE,
-    WIKI_EVAL_RUNS_CREATE,
+    OKF_CONCEPTS_LIST,
+    OKF_CONCEPTS_RETRIEVE,
+    OKF_CONCEPTS_REVISIONS_LIST,
+    OKF_CONCEPTS_PUBLISH,
+    OKF_BUNDLE_INDEX_RETRIEVE,
+    OKF_BUNDLE_INDEX_REBUILD,
+    OKF_BUNDLE_LOG_RETRIEVE,
+    OKF_LOG_ENTRIES_CREATE,
+    OKF_BUNDLE_PROFILE_RETRIEVE,
+    OKF_PROFILE_CREATE,
+    OKF_PROFILE_UPDATE,
+    OKF_QUERIES_CREATE,
+    OKF_QUERIES_FILE_ANSWER,
+    OKF_CONTEXT_PACKS_CREATE,
+    OKF_COMPILE_JOBS_CREATE,
+    OKF_CANDIDATES_LIST,
+    OKF_CANDIDATES_APPROVE,
+    OKF_CANDIDATES_REJECT,
+    OKF_BUNDLE_EXPORT_CREATE,
+    OKF_BUNDLE_EXPORT_RETRIEVE,
+    OKF_BUNDLE_FILES_LIST,
+    OKF_LINT_RUNS_CREATE,
+    OKF_EVAL_RUNS_CREATE,
     INDEXES_CREATE,
     INDEXES_RETRIEVE,
     INDEXES_REBUILD,

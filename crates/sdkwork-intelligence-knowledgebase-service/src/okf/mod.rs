@@ -1,0 +1,110 @@
+mod concept_service;
+mod document;
+mod file_registry;
+mod index_renderer;
+mod initializer;
+mod link_indexer;
+mod linter;
+mod log_renderer;
+mod schema_renderer;
+mod validator;
+
+use crate::ports::knowledge_drive_storage::{
+    KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError, PutKnowledgeObjectRequest,
+};
+use sdkwork_knowledgebase_contract::okf::{OkfBundlePaths, OkfConceptSummary, OkfLogEntry};
+
+pub use concept_service::{OkfConceptService, OkfConceptServiceError};
+pub use document::{
+    extract_concept_links, parse_okf_markdown, render_okf_concept_markdown, OkfConceptDocument,
+    OkfConceptLink, OkfDocumentError, OKF_VERSION,
+};
+pub use file_registry::{OkfBundleFileRegistryService, OkfBundleFileRegistryServiceError};
+pub use index_renderer::render_index_md;
+pub use initializer::{OkfBundleInitializerService, OkfBundleInitializerServiceError};
+pub use link_indexer::index_concept_links;
+pub use linter::{
+    lint_bundle_summaries, lint_published_concept_markdown, OkfBundleLintReport, OkfLintIssue,
+    OkfLintSeverity,
+};
+pub use log_renderer::render_log_md;
+pub use schema_renderer::{render_agents_md, render_okf_profile_yaml};
+pub use validator::{
+    validate_bundle_relative_path, validate_concept_document, validate_concept_id,
+    OkfConformanceError,
+};
+
+#[derive(Debug, Clone)]
+pub struct PersistStandardFilesRequest {
+    pub space_name: String,
+    pub concepts: Vec<OkfConceptSummary>,
+    pub log_entries: Vec<OkfLogEntry>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PersistedStandardFiles {
+    pub agents_md: KnowledgeObjectRef,
+    pub profile_yaml: KnowledgeObjectRef,
+    pub index_md: KnowledgeObjectRef,
+    pub log_md: KnowledgeObjectRef,
+}
+
+pub struct OkfBundleStandardFileService<'a> {
+    drive: &'a dyn KnowledgeDriveStorage,
+}
+
+impl<'a> OkfBundleStandardFileService<'a> {
+    pub fn new(drive: &'a dyn KnowledgeDriveStorage) -> Self {
+        Self { drive }
+    }
+
+    pub async fn persist_standard_files(
+        &self,
+        request: PersistStandardFilesRequest,
+    ) -> Result<PersistedStandardFiles, KnowledgeStorageError> {
+        let paths = OkfBundlePaths::default();
+        let agents_md = self
+            .drive
+            .put_object(PutKnowledgeObjectRequest::text(
+                paths.agents_md,
+                "bundle_profile",
+                render_agents_md(&request.space_name),
+                None,
+            ))
+            .await?;
+        let profile_yaml = self
+            .drive
+            .put_object(PutKnowledgeObjectRequest::text(
+                paths.profile_yaml,
+                "bundle_profile",
+                render_okf_profile_yaml(),
+                None,
+            ))
+            .await?;
+        let index_md = self
+            .drive
+            .put_object(PutKnowledgeObjectRequest::text(
+                paths.index_md,
+                "bundle_index",
+                render_index_md(&request.space_name, &request.concepts),
+                None,
+            ))
+            .await?;
+        let log_md = self
+            .drive
+            .put_object(PutKnowledgeObjectRequest::text(
+                paths.log_md,
+                "bundle_log",
+                render_log_md(&request.log_entries),
+                None,
+            ))
+            .await?;
+
+        Ok(PersistedStandardFiles {
+            agents_md,
+            profile_yaml,
+            index_md,
+            log_md,
+        })
+    }
+}

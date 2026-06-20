@@ -14,7 +14,7 @@ use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSpaceRequest, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
     KnowledgeAgentProfileRequest, KnowledgeBrowserView, KnowledgeContextPackRequest,
     KnowledgeDriveImportRequest, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
-    ListKnowledgeBrowserRequest, WikiContextPackRequest, WikiFileAnswerRequest, WikiQueryRequest,
+    ListKnowledgeBrowserRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfQueryRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -27,8 +27,8 @@ use crate::{
     auth::require_app_context,
     paths, ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi,
     KnowledgeAppRequestContext, KnowledgeBrowserApi, KnowledgeDocumentAppService,
-    KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeRetrievalAppService,
-    KnowledgeSpaceAppService, KnowledgeWikiAppService,
+    KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeOkfAppService,
+    KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
 };
 
 #[derive(Clone)]
@@ -116,7 +116,7 @@ pub fn build_router_with_full_app_api(
     drive_import: Arc<dyn KnowledgeDriveImportAppService>,
     ingest: Arc<dyn KnowledgeIngestAppService>,
     document: Arc<dyn KnowledgeDocumentAppService>,
-    wiki: Arc<dyn KnowledgeWikiAppService>,
+    okf: Arc<dyn KnowledgeOkfAppService>,
     browser: Arc<dyn KnowledgeBrowserApi>,
     retrieval: Arc<dyn KnowledgeRetrievalAppService>,
     agent: Arc<dyn KnowledgeAgentAppService>,
@@ -128,7 +128,7 @@ pub fn build_router_with_full_app_api(
         drive_import,
         ingest,
         document,
-        wiki,
+        okf,
         browser,
         retrieval,
         agent,
@@ -163,15 +163,18 @@ pub fn build_router_with_shared_app_api_and_readiness(
             paths::DOCUMENT_VERSIONS,
             get(list_document_versions).post(create_document_version),
         )
-        .route(paths::WIKI_PAGES, get(list_wiki_pages))
-        .route(paths::WIKI_PAGE, get(retrieve_wiki_page))
-        .route(paths::WIKI_PAGE_REVISIONS, get(list_wiki_page_revisions))
-        .route(paths::WIKI_INDEX, get(retrieve_wiki_index))
-        .route(paths::WIKI_LOG, get(retrieve_wiki_log))
-        .route(paths::WIKI_SCHEMA, get(retrieve_wiki_schema))
-        .route(paths::WIKI_QUERIES, post(create_wiki_query))
-        .route(paths::WIKI_QUERY_FILE_ANSWER, post(file_wiki_query_answer))
-        .route(paths::WIKI_CONTEXT_PACKS, post(create_wiki_context_pack))
+        .route(paths::OKF_CONCEPTS, get(list_okf_concepts))
+        .route(paths::OKF_CONCEPT, get(retrieve_okf_concept))
+        .route(
+            paths::OKF_CONCEPT_REVISIONS,
+            get(list_okf_concept_revisions),
+        )
+        .route(paths::OKF_INDEX, get(retrieve_okf_index))
+        .route(paths::OKF_LOG, get(retrieve_okf_log))
+        .route(paths::OKF_PROFILE, get(retrieve_okf_schema))
+        .route(paths::OKF_QUERIES, post(create_okf_query))
+        .route(paths::OKF_QUERY_FILE_ANSWER, post(file_okf_query_answer))
+        .route(paths::OKF_CONTEXT_PACKS, post(create_okf_context_pack))
         .route(paths::SPACE_BROWSER, get(list_browser))
         .route(paths::RETRIEVALS, post(create_retrieval))
         .route(paths::RETRIEVAL, get(retrieve_retrieval))
@@ -353,82 +356,82 @@ async fn create_document_version(
     )
 }
 
-async fn list_wiki_pages(
+async fn list_okf_concepts(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
-    ok_json(state.api.list_wiki_pages().await)
+    ok_json(state.api.list_okf_concepts().await)
 }
 
-async fn retrieve_wiki_page(
+async fn retrieve_okf_concept(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
-    Path(page_id): Path<u64>,
+    Path(concept_row_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
-    ok_json(state.api.retrieve_wiki_page(page_id).await)
+    ok_json(state.api.retrieve_okf_concept(concept_row_id).await)
 }
 
-async fn list_wiki_page_revisions(
+async fn list_okf_concept_revisions(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
-    Path(page_id): Path<u64>,
+    Path(concept_row_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
-    ok_json(state.api.list_wiki_page_revisions(page_id).await)
+    ok_json(state.api.list_okf_concept_revisions(concept_row_id).await)
 }
 
-async fn retrieve_wiki_index(
-    State(state): State<AppState>,
-    context: Option<Extension<KnowledgeAppRequestContext>>,
-) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.retrieve_wiki_index().await)
-}
-
-async fn retrieve_wiki_log(
+async fn retrieve_okf_index(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
-    ok_json(state.api.retrieve_wiki_log().await)
+    ok_json(state.api.retrieve_okf_index().await)
 }
 
-async fn retrieve_wiki_schema(
+async fn retrieve_okf_log(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
-    ok_json(state.api.retrieve_wiki_schema().await)
+    ok_json(state.api.retrieve_okf_log().await)
 }
 
-async fn create_wiki_query(
+async fn retrieve_okf_schema(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
-    Json(request): Json<WikiQueryRequest>,
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
-    created_json(state.api.create_wiki_query(request).await)
+    ok_json(state.api.retrieve_okf_schema().await)
 }
 
-async fn file_wiki_query_answer(
+async fn create_okf_query(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<OkfQueryRequest>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
+    created_json(state.api.create_okf_query(request).await)
+}
+
+async fn file_okf_query_answer(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(query_id): Path<u64>,
-    Json(request): Json<WikiFileAnswerRequest>,
+    Json(request): Json<OkfFileAnswerRequest>,
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
-    created_json(state.api.file_wiki_query_answer(query_id, request).await)
+    created_json(state.api.file_okf_query_answer(query_id, request).await)
 }
 
-async fn create_wiki_context_pack(
+async fn create_okf_context_pack(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
-    Json(request): Json<WikiContextPackRequest>,
+    Json(request): Json<OkfContextPackRequest>,
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
-    created_json(state.api.create_wiki_context_pack(request).await)
+    created_json(state.api.create_okf_context_pack(request).await)
 }
 
 async fn list_browser(
@@ -777,7 +780,7 @@ struct ListBrowserQuery {
 fn parse_view(value: Option<&str>) -> Result<KnowledgeBrowserView, ApiProblem> {
     match value.unwrap_or("files") {
         "files" => Ok(KnowledgeBrowserView::Files),
-        "wiki" => Ok(KnowledgeBrowserView::Wiki),
+        "okf_bundle" => Ok(KnowledgeBrowserView::OkfBundle),
         "outputs" => Ok(KnowledgeBrowserView::Outputs),
         value => Err(ApiProblem::new(
             StatusCode::BAD_REQUEST,

@@ -296,7 +296,7 @@ $activeSearchRoots = @(
 
 $forbiddenImportNames = @(
     "sdkwork_knowledgebase_core",
-    "sdkwork_knowledgebase_product",
+    "sdkworkuct",
     "sdkwork_knowledgebase_storage_sqlx",
     "sdkwork_knowledgebase_app_api",
     "sdkwork_knowledgebase_backend_api"

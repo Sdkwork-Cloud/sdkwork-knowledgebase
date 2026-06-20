@@ -61,7 +61,7 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "List knowledge sources",
+        "description": "List knowledge sources",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -131,15 +131,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a knowledge source",
+        "description": "Create a knowledge source",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_compile_jobs": {
+    "/backend/v3/api/knowledge/okf/compile_jobs": {
       "post": {
-        "operationId": "wiki.compileJobs.create",
+        "operationId": "okf.compileJobs.create",
         "tags": [
           "knowledge"
         ],
@@ -148,7 +148,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WikiCompileJobRequest"
+                "$ref": "#/components/schemas/OkfCompileJobRequest"
               }
             }
           }
@@ -203,15 +203,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki compile job",
+        "description": "Create an OKF compile job",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_candidates": {
+    "/backend/v3/api/knowledge/okf/candidates": {
       "get": {
-        "operationId": "wiki.candidates.list",
+        "operationId": "okf.candidates.list",
         "tags": [
           "knowledge"
         ],
@@ -221,7 +221,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WikiCandidateResultList"
+                  "$ref": "#/components/schemas/OkfCandidateResultList"
                 }
               }
             }
@@ -265,15 +265,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "List wiki candidates",
+        "description": "List OKF candidates",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_candidates/{candidateId}/approve": {
+    "/backend/v3/api/knowledge/okf/candidates/{candidateId}/approve": {
       "post": {
-        "operationId": "wiki.candidates.approve",
+        "operationId": "okf.candidates.approve",
         "tags": [
           "knowledge"
         ],
@@ -294,7 +294,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WikiCandidateResult"
+                  "$ref": "#/components/schemas/OkfCandidateResult"
                 }
               }
             }
@@ -335,7 +335,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WikiCandidateReviewRequest"
+                "$ref": "#/components/schemas/OkfCandidateReviewRequest"
               }
             }
           }
@@ -348,15 +348,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Approve a wiki candidate",
+        "description": "Approve an OKF candidate",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_candidates/{candidateId}/reject": {
+    "/backend/v3/api/knowledge/okf/candidates/{candidateId}/reject": {
       "post": {
-        "operationId": "wiki.candidates.reject",
+        "operationId": "okf.candidates.reject",
         "tags": [
           "knowledge"
         ],
@@ -377,7 +377,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WikiCandidateResult"
+                  "$ref": "#/components/schemas/OkfCandidateResult"
                 }
               }
             }
@@ -418,7 +418,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WikiCandidateReviewRequest"
+                "$ref": "#/components/schemas/OkfCandidateReviewRequest"
               }
             }
           }
@@ -431,21 +431,21 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Reject a wiki candidate",
+        "description": "Reject an OKF candidate",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_pages/{pageId}/publish": {
+    "/backend/v3/api/knowledge/okf/concepts/{conceptId}/publish": {
       "post": {
-        "operationId": "wiki.pages.publish",
+        "operationId": "okf.concepts.publish",
         "tags": [
           "knowledge"
         ],
         "parameters": [
           {
-            "name": "pageId",
+            "name": "conceptId",
             "in": "path",
             "required": true,
             "schema": {
@@ -460,7 +460,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WikiPageSummary"
+                  "$ref": "#/components/schemas/OkfConceptSummary"
                 }
               }
             }
@@ -501,7 +501,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WikiPagePublishRequest"
+                "$ref": "#/components/schemas/OkfConceptPublishRequest"
               }
             }
           }
@@ -514,15 +514,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Publish a wiki page",
+        "description": "Publish an OKF concept",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_schema_profiles": {
+    "/backend/v3/api/knowledge/okf/profile": {
       "post": {
-        "operationId": "wiki.schema.profiles.create",
+        "operationId": "okf.profile.create",
         "tags": [
           "knowledge"
         ],
@@ -531,7 +531,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/KnowledgeWikiSchemaProfileRequest"
+                "$ref": "#/components/schemas/KnowledgeOkfProfileRequest"
               }
             }
           }
@@ -542,7 +542,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KnowledgeWikiFileEntry"
+                  "$ref": "#/components/schemas/KnowledgeOkfBundleFile"
                 }
               }
             }
@@ -586,15 +586,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki schema profile",
+        "description": "Create an OKF profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_schema_profiles/{profileId}": {
+    "/backend/v3/api/knowledge/okf/profile/{profileId}": {
       "patch": {
-        "operationId": "wiki.schema.profiles.update",
+        "operationId": "okf.profile.update",
         "tags": [
           "knowledge"
         ],
@@ -614,7 +614,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/KnowledgeWikiSchemaProfileRequest"
+                "$ref": "#/components/schemas/KnowledgeOkfProfileRequest"
               }
             }
           }
@@ -625,7 +625,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KnowledgeWikiFileEntry"
+                  "$ref": "#/components/schemas/KnowledgeOkfBundleFile"
                 }
               }
             }
@@ -669,15 +669,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Update a wiki schema profile",
+        "description": "Update an OKF profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_index/rebuild": {
+    "/backend/v3/api/knowledge/okf/index/rebuild": {
       "post": {
-        "operationId": "wiki.index.rebuild",
+        "operationId": "okf.bundle.index.rebuild",
         "tags": [
           "knowledge"
         ],
@@ -687,7 +687,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WikiIndexDocument"
+                  "$ref": "#/components/schemas/OkfIndexDocument"
                 }
               }
             }
@@ -728,7 +728,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WikiIndexRebuildRequest"
+                "$ref": "#/components/schemas/OkfBundleIndexRebuildRequest"
               }
             }
           }
@@ -741,15 +741,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Rebuild the wiki index",
+        "description": "Rebuild the OKF bundle index",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_log_entries": {
+    "/backend/v3/api/knowledge/okf/log_entries": {
       "post": {
-        "operationId": "wiki.log.entries.create",
+        "operationId": "okf.log.entries.create",
         "tags": [
           "knowledge"
         ],
@@ -758,7 +758,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WikiLogEntry"
+                "$ref": "#/components/schemas/OkfLogEntry"
               }
             }
           }
@@ -769,7 +769,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WikiLogEntry"
+                  "$ref": "#/components/schemas/OkfLogEntry"
                 }
               }
             }
@@ -813,15 +813,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki log entry",
+        "description": "Create an OKF log entry",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_exports": {
+    "/backend/v3/api/knowledge/okf/exports": {
       "post": {
-        "operationId": "wiki.exports.create",
+        "operationId": "okf.bundle.export.create",
         "tags": [
           "knowledge"
         ],
@@ -830,7 +830,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WikiExportRequest"
+                "$ref": "#/components/schemas/OkfBundleExportRequest"
               }
             }
           }
@@ -841,7 +841,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KnowledgeWikiFileEntry"
+                  "$ref": "#/components/schemas/KnowledgeOkfBundleFile"
                 }
               }
             }
@@ -885,15 +885,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki export",
+        "description": "Create an OKF bundle export",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_exports/{exportId}": {
+    "/backend/v3/api/knowledge/okf/exports/{exportId}": {
       "get": {
-        "operationId": "wiki.exports.retrieve",
+        "operationId": "okf.bundle.export.retrieve",
         "tags": [
           "knowledge"
         ],
@@ -914,7 +914,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KnowledgeWikiFileEntry"
+                  "$ref": "#/components/schemas/KnowledgeOkfBundleFile"
                 }
               }
             }
@@ -958,15 +958,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Retrieve a wiki export",
+        "description": "Retrieve an OKF bundle export",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_file_entries": {
+    "/backend/v3/api/knowledge/okf/bundle/files": {
       "get": {
-        "operationId": "wiki.fileEntries.list",
+        "operationId": "okf.bundle.files.list",
         "tags": [
           "knowledge"
         ],
@@ -976,7 +976,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KnowledgeWikiFileEntryList"
+                  "$ref": "#/components/schemas/KnowledgeOkfBundleFileList"
                 }
               }
             }
@@ -1020,15 +1020,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "List wiki file entries",
+        "description": "List OKF bundle files",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_lint_runs": {
+    "/backend/v3/api/knowledge/okf/lint_runs": {
       "post": {
-        "operationId": "wiki.lintRuns.create",
+        "operationId": "okf.lintRuns.create",
         "tags": [
           "knowledge"
         ],
@@ -1038,7 +1038,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WikiQualityRun"
+                  "$ref": "#/components/schemas/OkfQualityRun"
                 }
               }
             }
@@ -1079,7 +1079,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WikiQualityRunRequest"
+                "$ref": "#/components/schemas/OkfQualityRunRequest"
               }
             }
           }
@@ -1092,15 +1092,15 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki lint run",
+        "description": "Create an OKF lint run",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
     },
-    "/backend/v3/api/knowledge/wiki_eval_runs": {
+    "/backend/v3/api/knowledge/okf/eval_runs": {
       "post": {
-        "operationId": "wiki.evalRuns.create",
+        "operationId": "okf.evalRuns.create",
         "tags": [
           "knowledge"
         ],
@@ -1110,7 +1110,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WikiQualityRun"
+                  "$ref": "#/components/schemas/OkfQualityRun"
                 }
               }
             }
@@ -1151,7 +1151,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WikiQualityRunRequest"
+                "$ref": "#/components/schemas/OkfQualityRunRequest"
               }
             }
           }
@@ -1164,7 +1164,7 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Create a wiki eval run",
+        "description": "Create an OKF eval run",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -1236,7 +1236,7 @@
             }
           }
         },
-        "summary": "Create a knowledge index",
+        "description": "Create a knowledge index",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -1310,7 +1310,7 @@
             }
           }
         ],
-        "summary": "Retrieve a knowledge index",
+        "description": "Retrieve a knowledge index",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -1328,7 +1328,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WikiIndexDocument"
+                  "$ref": "#/components/schemas/OkfIndexDocument"
                 }
               }
             }
@@ -1377,7 +1377,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WikiIndexRebuildRequest"
+                "$ref": "#/components/schemas/OkfBundleIndexRebuildRequest"
               }
             }
           }
@@ -1394,7 +1394,7 @@
             }
           }
         ],
-        "summary": "Rebuild a knowledge index",
+        "description": "Rebuild a knowledge index",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -1466,7 +1466,7 @@
             }
           }
         },
-        "summary": "Create a retrieval profile",
+        "description": "Create a retrieval profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -1540,7 +1540,7 @@
             }
           }
         ],
-        "summary": "Retrieve a retrieval profile",
+        "description": "Retrieve a retrieval profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -1622,7 +1622,7 @@
             }
           }
         ],
-        "summary": "Update a retrieval profile",
+        "description": "Update a retrieval profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -1684,7 +1684,7 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "List retrieval traces",
+        "description": "List retrieval traces",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -1758,7 +1758,7 @@
             }
           }
         ],
-        "summary": "Retrieve a retrieval trace",
+        "description": "Retrieve a retrieval trace",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -1820,7 +1820,7 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
-        "summary": "Retrieve provider health status",
+        "description": "Retrieve provider health status",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
@@ -1854,7 +1854,7 @@
           "uuid",
           "name",
           "status",
-          "llmWikiInitialized"
+          "okfBundleInitialized"
         ],
         "properties": {
           "id": {
@@ -1882,7 +1882,7 @@
           "status": {
             "$ref": "#/components/schemas/KnowledgeSpaceStatus"
           },
-          "llmWikiInitialized": {
+          "okfBundleInitialized": {
             "type": "boolean"
           }
         }
@@ -2226,7 +2226,7 @@
           "failed"
         ]
       },
-      "KnowledgeWikiFileEntry": {
+      "KnowledgeOkfBundleFile": {
         "type": "object",
         "required": [
           "id",
@@ -2250,7 +2250,7 @@
             "type": "string"
           },
           "entryType": {
-            "$ref": "#/components/schemas/WikiFileEntryType"
+            "$ref": "#/components/schemas/OkfBundleFileKind"
           },
           "artifactRole": {
             "type": "string"
@@ -2269,13 +2269,13 @@
           }
         }
       },
-      "WikiFileEntryType": {
+      "OkfBundleFileKind": {
         "type": "string",
         "enum": [
-          "wiki_schema",
-          "wiki_index",
-          "wiki_log",
-          "wiki_revision",
+          "bundle_profile",
+          "bundle_index",
+          "bundle_log",
+          "concept_revision",
           "graph_export",
           "context_pack",
           "output_export"
@@ -2475,7 +2475,7 @@
           }
         }
       },
-      "KnowledgeWikiFileEntryList": {
+      "KnowledgeOkfBundleFileList": {
         "type": "object",
         "required": [
           "items"
@@ -2484,7 +2484,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/KnowledgeWikiFileEntry"
+              "$ref": "#/components/schemas/KnowledgeOkfBundleFile"
             }
           }
         }
@@ -2596,7 +2596,7 @@
           }
         }
       },
-      "WikiIndexDocument": {
+      "OkfIndexDocument": {
         "type": "object",
         "required": [
           "markdown"
@@ -2607,7 +2607,7 @@
           }
         }
       },
-      "WikiLogDocument": {
+      "OkfLogDocument": {
         "type": "object",
         "required": [
           "markdown"
@@ -2618,7 +2618,7 @@
           }
         }
       },
-      "WikiSchemaDocument": {
+      "OkfProfileDocument": {
         "type": "object",
         "required": [
           "agentsMarkdown",
@@ -2633,14 +2633,14 @@
           }
         }
       },
-      "WikiPageSummary": {
+      "OkfConceptSummary": {
         "type": "object",
         "required": [
           "title",
-          "slug",
-          "pageType",
+          "conceptId",
+          "conceptType",
           "logicalPath",
-          "summary",
+          "description",
           "sourceCount",
           "updatedAt",
           "tags"
@@ -2649,16 +2649,16 @@
           "title": {
             "type": "string"
           },
-          "slug": {
+          "conceptId": {
             "type": "string"
           },
-          "pageType": {
+          "conceptType": {
             "type": "string"
           },
           "logicalPath": {
             "type": "string"
           },
-          "summary": {
+          "description": {
             "type": "string"
           },
           "sourceCount": {
@@ -2675,7 +2675,7 @@
           }
         }
       },
-      "WikiQueryRequest": {
+      "OkfQueryRequest": {
         "type": "object",
         "required": [
           "spaceId",
@@ -2691,7 +2691,7 @@
           }
         }
       },
-      "WikiQueryResult": {
+      "OkfQueryResult": {
         "type": "object",
         "required": [
           "answerMarkdown"
@@ -2708,7 +2708,7 @@
           }
         }
       },
-      "WikiFileAnswerRequest": {
+      "OkfFileAnswerRequest": {
         "type": "object",
         "required": [
           "title",
@@ -2723,7 +2723,7 @@
           }
         }
       },
-      "KnowledgeWikiSchemaProfileRequest": {
+      "KnowledgeOkfProfileRequest": {
         "type": "object",
         "required": [
           "spaceId",
@@ -2739,7 +2739,7 @@
           }
         }
       },
-      "WikiLogEntry": {
+      "OkfLogEntry": {
         "type": "object",
         "required": [
           "occurredAt",
@@ -2782,7 +2782,7 @@
           }
         }
       },
-      "WikiExportRequest": {
+      "OkfBundleExportRequest": {
         "type": "object",
         "required": [
           "spaceId",
@@ -2798,7 +2798,7 @@
           }
         }
       },
-      "WikiCompileJobRequest": {
+      "OkfCompileJobRequest": {
         "type": "object",
         "required": [
           "spaceId"
@@ -2817,7 +2817,7 @@
           }
         }
       },
-      "WikiContextPackRequest": {
+      "OkfContextPackRequest": {
         "type": "object",
         "required": [
           "spaceId"
@@ -2835,7 +2835,7 @@
           }
         }
       },
-      "WikiCandidateResult": {
+      "OkfCandidateResult": {
         "type": "object",
         "required": [
           "id",
@@ -2851,7 +2851,7 @@
           }
         }
       },
-      "WikiQualityRun": {
+      "OkfQualityRun": {
         "type": "object",
         "required": [
           "id",
@@ -2867,7 +2867,7 @@
           }
         }
       },
-      "WikiCandidateResultList": {
+      "OkfCandidateResultList": {
         "type": "object",
         "required": [
           "items"
@@ -2876,12 +2876,12 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/WikiCandidateResult"
+              "$ref": "#/components/schemas/OkfCandidateResult"
             }
           }
         }
       },
-      "WikiCandidateReviewRequest": {
+      "OkfCandidateReviewRequest": {
         "type": "object",
         "properties": {
           "reviewerId": {
@@ -2899,7 +2899,7 @@
           }
         }
       },
-      "WikiPagePublishRequest": {
+      "OkfConceptPublishRequest": {
         "type": "object",
         "properties": {
           "publisherId": {
@@ -2917,7 +2917,7 @@
           }
         }
       },
-      "WikiIndexRebuildRequest": {
+      "OkfBundleIndexRebuildRequest": {
         "type": "object",
         "required": [
           "spaceId"
@@ -2929,7 +2929,7 @@
           }
         }
       },
-      "WikiQualityRunRequest": {
+      "OkfQualityRunRequest": {
         "type": "object",
         "required": [
           "spaceId"

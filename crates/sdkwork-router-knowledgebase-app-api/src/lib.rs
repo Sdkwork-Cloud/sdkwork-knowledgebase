@@ -25,8 +25,8 @@ pub use http_route_manifest::app_route_manifest;
 pub use ports::{
     KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext, KnowledgeBrowserApi,
     KnowledgeContextBindingAppService, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
-    KnowledgeIngestAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
-    KnowledgeUploadSessionAppService, KnowledgeWikiAppService,
+    KnowledgeIngestAppService, KnowledgeOkfAppService, KnowledgeRetrievalAppService,
+    KnowledgeSpaceAppService, KnowledgeUploadSessionAppService,
 };
 pub use routes::{
     build_router_with_agent_and_retrieval_services, build_router_with_agent_service,

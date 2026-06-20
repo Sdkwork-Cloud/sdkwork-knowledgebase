@@ -9,8 +9,8 @@ use crate::agent_implementation::{
     validate_registered_agent_implementation, CONTRACT_MODEL_PROVIDER_ID,
 };
 use crate::{
-    ClawRouterChatModelProvider, KnowledgebaseRetrievalClient, LlmWikiKnowledgeClient,
-    LlmWikiKnowledgeProvider, SdkworkKnowledgebaseProvider, LLM_WIKI_KNOWLEDGE_PROVIDER_ID,
+    ClawRouterChatModelProvider, KnowledgebaseRetrievalClient, OkfKnowledgeClient,
+    OkfKnowledgeProvider, SdkworkKnowledgebaseProvider, OKF_KNOWLEDGE_PROVIDER_ID,
     SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
 };
 use sdkwork_agent_kernel::{
@@ -33,7 +33,7 @@ pub struct KnowledgeAgentRuntimeBuildRequest<R, W> {
     pub model_provider_id: String,
     pub mode: KnowledgeAgentKnowledgeMode,
     pub retrieval_client: R,
-    pub wiki_client: W,
+    pub okf_client: W,
     pub tenant_id: u64,
     pub claw_router_client: Option<Arc<clawrouter_open_sdk::SdkworkAiClient>>,
 }
@@ -43,7 +43,7 @@ pub fn build_knowledge_agent_runtime<R, W>(
 ) -> Result<AgentRuntime, String>
 where
     R: KnowledgebaseRetrievalClient + Send + Sync + 'static,
-    W: LlmWikiKnowledgeClient + Send + Sync + 'static,
+    W: OkfKnowledgeClient + Send + Sync + 'static,
 {
     validate_registered_agent_implementation(&request.agent_implementation_id)?;
 
@@ -66,9 +66,9 @@ where
             SdkworkKnowledgebaseProvider::new(request.retrieval_client, request.tenant_id),
         )
         .register_knowledge_provider(
-            LLM_WIKI_KNOWLEDGE_PROVIDER_ID,
+            OKF_KNOWLEDGE_PROVIDER_ID,
             "0.1.0",
-            LlmWikiKnowledgeProvider::new(request.wiki_client),
+            OkfKnowledgeProvider::new(request.okf_client),
         );
 
     builder

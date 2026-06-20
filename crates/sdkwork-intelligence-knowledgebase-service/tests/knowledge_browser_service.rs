@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::browser::KnowledgeBrowserService;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_browser_projection_store::{
-    KnowledgeBrowserDocumentProjection, KnowledgeBrowserProjectionStore,
-    KnowledgeBrowserProjectionStoreError, KnowledgeBrowserWikiPageProjection,
+    KnowledgeBrowserDocumentProjection, KnowledgeBrowserOkfConceptProjection,
+    KnowledgeBrowserProjectionStore, KnowledgeBrowserProjectionStoreError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_node_tree::{
     DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodePage, KnowledgeDriveNodeSummary,
@@ -17,7 +17,7 @@ use sdkwork_knowledgebase_contract::browser::{
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{KnowledgeSpace, KnowledgeSpaceStatus};
-use sdkwork_knowledgebase_contract::wiki::WikiPagePublishState;
+use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -67,7 +67,7 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
             ingest_state: "completed".to_string(),
             parse_state: "succeeded".to_string(),
             index_state: "indexed".to_string(),
-            wiki_state: "candidate_ready".to_string(),
+            okf_state: "candidate_ready".to_string(),
         }]);
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
@@ -195,27 +195,27 @@ async fn browser_caps_page_size_to_prevent_unbounded_directory_scans() {
 }
 
 #[tokio::test]
-async fn browser_wiki_root_lists_children_under_llm_wiki_drive_folder() {
+async fn browser_okf_root_lists_children_under_okf_drive_folder() {
     let spaces = MemorySpaceStore::bound("drv-kb-001");
     let drive_tree = RecordingDriveTree::with_nodes(vec![KnowledgeDriveNodeSummary {
         drive_node_id: "node-index".to_string(),
-        parent_drive_node_id: Some("node-wiki-root".to_string()),
+        parent_drive_node_id: Some("node-okf-root".to_string()),
         kind: DriveNodeKind::File,
         name: "index.md".to_string(),
-        path: "wiki/index.md".to_string(),
+        path: "okf/index.md".to_string(),
         content_type: Some("text/markdown; charset=utf-8".to_string()),
         size_bytes: Some(128),
         children_count: None,
         updated_at: "2026-06-04T12:02:00Z".to_string(),
     }])
-    .with_resolved_path("wiki", Some("node-wiki-root"))
-    .expect_parent_id(Some("node-wiki-root"));
+    .with_resolved_path("okf", Some("node-okf-root"))
+    .expect_parent_id(Some("node-okf-root"));
     let projections =
-        RecordingProjectionStore::with_wiki_pages(vec![KnowledgeBrowserWikiPageProjection {
-            logical_path: "wiki/index.md".to_string(),
-            page_id: 21,
+        RecordingProjectionStore::with_okf_concepts(vec![KnowledgeBrowserOkfConceptProjection {
+            logical_path: "okf/index.md".to_string(),
+            concept_row_id: 21,
             current_revision_id: Some(34),
-            publish_state: WikiPagePublishState::Published,
+            publish_state: OkfConceptPublishState::Published,
         }]);
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
@@ -225,7 +225,7 @@ async fn browser_wiki_root_lists_children_under_llm_wiki_drive_folder() {
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: None,
-                view: KnowledgeBrowserView::Wiki,
+                view: KnowledgeBrowserView::OkfBundle,
                 cursor: None,
                 page_size: Some(50),
             },
@@ -233,18 +233,21 @@ async fn browser_wiki_root_lists_children_under_llm_wiki_drive_folder() {
         .await
         .unwrap();
 
-    assert_eq!(page.view, KnowledgeBrowserView::Wiki);
-    assert_eq!(page.parent_id.as_deref(), Some("node-wiki-root"));
+    assert_eq!(page.view, KnowledgeBrowserView::OkfBundle);
+    assert_eq!(page.parent_id.as_deref(), Some("node-okf-root"));
     assert_eq!(page.items.len(), 1);
-    assert_eq!(page.items[0].node_type, KnowledgeBrowserNodeType::WikiPage);
+    assert_eq!(
+        page.items[0].node_type,
+        KnowledgeBrowserNodeType::OkfConcept
+    );
     assert_eq!(page.items[0].name, "index.md");
-    assert_eq!(page.items[0].wiki_page_id, Some(21));
-    assert_eq!(page.items[0].wiki_revision_id, Some(34));
-    assert_eq!(page.items[0].wiki_state.as_deref(), Some("published"));
-    assert_eq!(drive_tree.resolved_paths(), vec!["wiki".to_string()]);
+    assert_eq!(page.items[0].okf_concept_id, Some(21));
+    assert_eq!(page.items[0].okf_revision_id, Some(34));
+    assert_eq!(page.items[0].okf_state.as_deref(), Some("published"));
+    assert_eq!(drive_tree.resolved_paths(), vec!["okf".to_string()]);
     assert_eq!(drive_tree.calls(), 1);
     assert_eq!(projections.calls(), 1);
-    assert_eq!(projections.wiki_calls(), 1);
+    assert_eq!(projections.okf_calls(), 1);
 }
 
 #[tokio::test]
@@ -293,7 +296,7 @@ async fn browser_outputs_root_lists_children_under_standard_output_drive_folder(
 }
 
 #[tokio::test]
-async fn browser_rejects_wiki_parent_id_outside_wiki_drive_tree() {
+async fn browser_rejects_okf_parent_id_outside_okf_drive_tree() {
     let spaces = MemorySpaceStore::bound("drv-kb-001");
     let drive_tree = RecordingDriveTree::with_nodes(vec![KnowledgeDriveNodeSummary {
         drive_node_id: "node-source-file".to_string(),
@@ -326,7 +329,7 @@ async fn browser_rejects_wiki_parent_id_outside_wiki_drive_tree() {
             ListKnowledgeBrowserRequest {
                 space_id: 1,
                 parent_id: Some("node-sources-root".to_string()),
-                view: KnowledgeBrowserView::Wiki,
+                view: KnowledgeBrowserView::OkfBundle,
                 cursor: None,
                 page_size: Some(50),
             },
@@ -334,21 +337,21 @@ async fn browser_rejects_wiki_parent_id_outside_wiki_drive_tree() {
         .await
         .unwrap_err();
 
-    assert!(error.to_string().contains("outside wiki view"));
+    assert!(error.to_string().contains("outside okf view"));
     assert_eq!(drive_tree.calls(), 0);
     assert_eq!(projections.calls(), 0);
-    assert_eq!(projections.wiki_calls(), 0);
+    assert_eq!(projections.okf_calls(), 0);
 }
 
 #[tokio::test]
 async fn browser_rejects_outputs_parent_id_outside_output_drive_tree_even_when_empty() {
     let spaces = MemorySpaceStore::bound("drv-kb-001");
     let drive_tree = RecordingDriveTree::with_nodes(vec![]).with_node(KnowledgeDriveNodeSummary {
-        drive_node_id: "node-wiki-root".to_string(),
+        drive_node_id: "node-misc-root".to_string(),
         parent_drive_node_id: None,
         kind: DriveNodeKind::Folder,
-        name: "wiki".to_string(),
-        path: "wiki".to_string(),
+        name: "misc".to_string(),
+        path: "misc".to_string(),
         content_type: None,
         size_bytes: None,
         children_count: Some(0),
@@ -362,7 +365,7 @@ async fn browser_rejects_outputs_parent_id_outside_output_drive_tree_even_when_e
             None,
             ListKnowledgeBrowserRequest {
                 space_id: 1,
-                parent_id: Some("node-wiki-root".to_string()),
+                parent_id: Some("node-misc-root".to_string()),
                 view: KnowledgeBrowserView::Outputs,
                 cursor: None,
                 page_size: Some(50),
@@ -443,12 +446,12 @@ impl KnowledgeSpaceStore for MemorySpaceStore {
         Ok(space.clone())
     }
 
-    async fn mark_llm_wiki_initialized(
+    async fn mark_okf_bundle_initialized(
         &self,
         _space_id: u64,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         let mut space = self.space.lock().unwrap();
-        space.llm_wiki_initialized = true;
+        space.okf_bundle_initialized = true;
         Ok(space.clone())
     }
 
@@ -574,9 +577,9 @@ impl KnowledgeDriveNodeTree for RecordingDriveTree {
 #[derive(Default)]
 struct RecordingProjectionStore {
     documents: Vec<KnowledgeBrowserDocumentProjection>,
-    wiki_pages: Vec<KnowledgeBrowserWikiPageProjection>,
+    okf_concepts: Vec<KnowledgeBrowserOkfConceptProjection>,
     calls: Mutex<u32>,
-    wiki_calls: Mutex<u32>,
+    okf_calls: Mutex<u32>,
     requested_drive_node_ids: Mutex<Vec<String>>,
     requested_logical_paths: Mutex<Vec<String>>,
 }
@@ -585,20 +588,20 @@ impl RecordingProjectionStore {
     fn with_documents(documents: Vec<KnowledgeBrowserDocumentProjection>) -> Self {
         Self {
             documents,
-            wiki_pages: vec![],
+            okf_concepts: vec![],
             calls: Mutex::new(0),
-            wiki_calls: Mutex::new(0),
+            okf_calls: Mutex::new(0),
             requested_drive_node_ids: Mutex::new(vec![]),
             requested_logical_paths: Mutex::new(vec![]),
         }
     }
 
-    fn with_wiki_pages(wiki_pages: Vec<KnowledgeBrowserWikiPageProjection>) -> Self {
+    fn with_okf_concepts(okf_concepts: Vec<KnowledgeBrowserOkfConceptProjection>) -> Self {
         Self {
             documents: vec![],
-            wiki_pages,
+            okf_concepts,
             calls: Mutex::new(0),
-            wiki_calls: Mutex::new(0),
+            okf_calls: Mutex::new(0),
             requested_drive_node_ids: Mutex::new(vec![]),
             requested_logical_paths: Mutex::new(vec![]),
         }
@@ -612,8 +615,8 @@ impl RecordingProjectionStore {
         self.requested_drive_node_ids.lock().unwrap().clone()
     }
 
-    fn wiki_calls(&self) -> u32 {
-        *self.wiki_calls.lock().unwrap()
+    fn okf_calls(&self) -> u32 {
+        *self.okf_calls.lock().unwrap()
     }
 }
 
@@ -629,14 +632,15 @@ impl KnowledgeBrowserProjectionStore for RecordingProjectionStore {
         Ok(self.documents.clone())
     }
 
-    async fn batch_wiki_page_projections(
+    async fn batch_okf_concept_projections(
         &self,
         _space_id: u64,
         logical_paths: Vec<String>,
-    ) -> Result<Vec<KnowledgeBrowserWikiPageProjection>, KnowledgeBrowserProjectionStoreError> {
-        *self.wiki_calls.lock().unwrap() += 1;
+    ) -> Result<Vec<KnowledgeBrowserOkfConceptProjection>, KnowledgeBrowserProjectionStoreError>
+    {
+        *self.okf_calls.lock().unwrap() += 1;
         *self.requested_logical_paths.lock().unwrap() = logical_paths;
-        Ok(self.wiki_pages.clone())
+        Ok(self.okf_concepts.clone())
     }
 }
 
@@ -648,7 +652,7 @@ fn space(drive_space_id: Option<String>) -> KnowledgeSpace {
         description: None,
         drive_space_id,
         status: KnowledgeSpaceStatus::Active,
-        llm_wiki_initialized: false,
+        okf_bundle_initialized: false,
         knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
     }
 }

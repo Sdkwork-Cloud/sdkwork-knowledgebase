@@ -1,18 +1,18 @@
 use sdkwork_agent_kernel::{KnowledgeDocument, KnowledgeDocumentFilter};
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSpaceStore, SqliteKnowledgeWikiPageStore,
+    SqliteKnowledgeOkfConceptStore, SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSpaceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::{
     knowledge_drive_storage::{HeadKnowledgeObjectRequest, KnowledgeDriveStorage},
+    knowledge_okf_concept_store::KnowledgeOkfConceptStore,
     knowledge_space_store::KnowledgeSpaceStore,
-    knowledge_wiki_page_store::KnowledgeWikiPageStore,
 };
 use sdkwork_knowledgebase_agent_provider::{
     retrieval_methods_for_strategy, KnowledgeRetrievalPlan, KnowledgeRetrievalPlanResolver,
-    KnowledgeSpaceModeResolver, KnowledgebaseRetrievalClient, LlmWikiKnowledgeClient,
+    KnowledgeSpaceModeResolver, KnowledgebaseRetrievalClient, OkfKnowledgeClient,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
-use sdkwork_knowledgebase_contract::{rag::KnowledgeRetrievalRequest, wiki::WikiPageSummary};
+use sdkwork_knowledgebase_contract::{okf::OkfConceptSummary, rag::KnowledgeRetrievalRequest};
 use sdkwork_knowledgebase_drive::KnowledgebaseDriveStorageAdapter;
 use std::sync::Arc;
 
@@ -119,37 +119,40 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
 }
 
 #[derive(Clone)]
-pub struct RuntimeLlmWikiKnowledgeClient {
-    wiki_pages: Arc<SqliteKnowledgeWikiPageStore>,
+pub struct RuntimeOkfKnowledgeClient {
+    okf_concepts: Arc<SqliteKnowledgeOkfConceptStore>,
     drive: Arc<KnowledgebaseDriveStorageAdapter>,
 }
 
-impl RuntimeLlmWikiKnowledgeClient {
+impl RuntimeOkfKnowledgeClient {
     pub fn new(
-        wiki_pages: Arc<SqliteKnowledgeWikiPageStore>,
+        okf_concepts: Arc<SqliteKnowledgeOkfConceptStore>,
         drive: Arc<KnowledgebaseDriveStorageAdapter>,
     ) -> Self {
-        Self { wiki_pages, drive }
+        Self {
+            okf_concepts,
+            drive,
+        }
     }
 }
 
-impl LlmWikiKnowledgeClient for RuntimeLlmWikiKnowledgeClient {
-    fn search_wiki_pages(
+impl OkfKnowledgeClient for RuntimeOkfKnowledgeClient {
+    fn search_okf_concepts(
         &self,
         space_id: u64,
         query: &str,
         top_k: usize,
-    ) -> Result<Vec<WikiPageSummary>, String> {
+    ) -> Result<Vec<OkfConceptSummary>, String> {
         let pages = tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current()
-                .block_on(self.wiki_pages.list_page_summaries(space_id))
+                .block_on(self.okf_concepts.list_concept_summaries(space_id))
         })
         .map_err(|error| error.to_string())?;
 
         let normalized_query = normalize_query(query);
         let mut ranked = pages
             .into_iter()
-            .map(|page| (rank_wiki_page(&page, &normalized_query), page))
+            .map(|page| (rank_okf_concept(&page, &normalized_query), page))
             .filter(|(score, _)| *score > 0.0 || normalized_query.is_empty())
             .collect::<Vec<_>>();
 
@@ -167,14 +170,18 @@ impl LlmWikiKnowledgeClient for RuntimeLlmWikiKnowledgeClient {
             .collect())
     }
 
-    fn read_wiki_page_content(&self, _space_id: u64, logical_path: &str) -> Result<String, String> {
+    fn read_okf_concept_content(
+        &self,
+        _space_id: u64,
+        logical_path: &str,
+    ) -> Result<String, String> {
         let drive = self.drive.clone();
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async move {
                 let object_ref = drive
                     .head_object(HeadKnowledgeObjectRequest::managed_artifact(
                         logical_path,
-                        "wiki_page",
+                        "okf_concept",
                     ))
                     .await
                     .map_err(|error| error.to_string())?;
@@ -196,7 +203,7 @@ fn normalize_query(query: &str) -> Vec<String> {
         .collect()
 }
 
-fn rank_wiki_page(page: &WikiPageSummary, tokens: &[String]) -> f64 {
+fn rank_okf_concept(page: &OkfConceptSummary, tokens: &[String]) -> f64 {
     if tokens.is_empty() {
         return 0.5;
     }
@@ -204,7 +211,7 @@ fn rank_wiki_page(page: &WikiPageSummary, tokens: &[String]) -> f64 {
     let haystack = format!(
         "{} {} {}",
         page.title.to_lowercase(),
-        page.summary.to_lowercase(),
+        page.description.to_lowercase(),
         page.tags.join(" ").to_lowercase()
     );
 

@@ -25,7 +25,7 @@ async fn sqlite_space_insert_uses_injected_runtime_snowflake_id() {
         .create_space(CreateKnowledgeSpaceRecord {
             name: "Snowflake Space".to_string(),
             description: None,
-            llm_wiki_initialized: false,
+            okf_bundle_initialized: false,
             knowledge_mode: Default::default(),
         })
         .await
@@ -54,7 +54,7 @@ async fn sqlite_core_tables_reject_missing_runtime_ids() {
             organization_id,
             name,
             status,
-            llm_wiki_initialized,
+            okf_bundle_initialized,
             created_at,
             updated_at,
             version
@@ -96,8 +96,8 @@ fn sqlite_repository_inserts_declare_explicit_id_columns() {
             include_str!("../src/drive_object_ref_store.rs"),
         ),
         (
-            "src/wiki_page_store.rs",
-            include_str!("../src/wiki_page_store.rs"),
+            "src/okf_concept_store.rs",
+            include_str!("../src/okf_concept_store.rs"),
         ),
     ] {
         for insert in kb_insert_column_blocks(source) {

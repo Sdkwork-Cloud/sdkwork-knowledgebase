@@ -720,7 +720,7 @@ fn agent_id_error(error: crate::id::KnowledgeIdGeneratorError) -> KnowledgeAgent
 
 fn knowledge_mode_code(mode: KnowledgeAgentKnowledgeMode) -> &'static str {
     match mode {
-        KnowledgeAgentKnowledgeMode::LlmWiki => "llm_wiki",
+        KnowledgeAgentKnowledgeMode::OkfBundle => "okf_bundle",
         KnowledgeAgentKnowledgeMode::Rag => "rag",
     }
 }
@@ -729,7 +729,7 @@ fn knowledge_mode_from_code(
     value: String,
 ) -> Result<KnowledgeAgentKnowledgeMode, KnowledgeAgentProfileStoreError> {
     match value.as_str() {
-        "llm_wiki" => Ok(KnowledgeAgentKnowledgeMode::LlmWiki),
+        "okf_bundle" => Ok(KnowledgeAgentKnowledgeMode::OkfBundle),
         "rag" => Ok(KnowledgeAgentKnowledgeMode::Rag),
         other => Err(KnowledgeAgentProfileStoreError::Internal(format!(
             "unsupported knowledge_mode value: {other}"

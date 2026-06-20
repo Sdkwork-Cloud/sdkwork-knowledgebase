@@ -61,7 +61,7 @@ const client = new SdkworkBackendClient({
 ### knowledge
 
 ```typescript
-// List knowledge sources
+// GET /backend/v3/api/knowledge/sources
 const result = await client.knowledge.sources.list();
 ```
 

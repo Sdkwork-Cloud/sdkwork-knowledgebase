@@ -1,32 +1,32 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    SqliteKnowledgeSpaceStore, SqliteKnowledgeWikiFileEntryStore,
+    SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeSpaceStore,
+};
+use sdkwork_intelligence_knowledgebase_service::okf::{
+    OkfBundleFileRegistryService, OkfBundleInitializerService,
 };
 use sdkwork_intelligence_knowledgebase_service::space::KnowledgeSpaceService;
-use sdkwork_intelligence_knowledgebase_service::wiki::{
-    KnowledgeWikiFileRegistryService, KnowledgeWikiInitializerService,
-};
 use sdkwork_knowledgebase_contract::space::CreateKnowledgeSpaceRequest;
 use sdkwork_knowledgebase_test_support::fake_drive::FakeKnowledgeDriveStorage;
 use sqlx::{AnyPool, Row};
 
 #[tokio::test]
-async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
+async fn sqlite_space_repository_initializes_okf_bundle_standard_files() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001_u64;
     let organization_id = 7001_u64;
 
     let spaces = SqliteKnowledgeSpaceStore::new(pool.clone(), tenant_id, organization_id);
-    let wiki_file_entries = SqliteKnowledgeWikiFileEntryStore::new(pool.clone(), tenant_id);
+    let bundle_file_entries = SqliteKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id);
     let drive = FakeKnowledgeDriveStorage::default();
-    let registry = KnowledgeWikiFileRegistryService::new(&wiki_file_entries);
-    let wiki_initializer = KnowledgeWikiInitializerService::new(&drive).with_registry(&registry);
-    let service = KnowledgeSpaceService::new(&spaces, &wiki_initializer);
+    let registry = OkfBundleFileRegistryService::new(&bundle_file_entries);
+    let okf_initializer = OkfBundleInitializerService::new(&drive).with_registry(&registry);
+    let service = KnowledgeSpaceService::new(&spaces, &okf_initializer);
 
     let created = service
         .create_space(CreateKnowledgeSpaceRequest {
             name: "Research Space".to_string(),
-            description: Some("LLM Wiki research".to_string()),
+            description: Some("OKF research".to_string()),
             owner_subject_type: Some("user".to_string()),
             owner_subject_id: Some("test-owner".to_string()),
             knowledge_mode: Default::default(),
@@ -35,11 +35,11 @@ async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
         .unwrap();
 
     assert_ne!(created.id, 0);
-    assert!(created.llm_wiki_initialized);
+    assert!(created.okf_bundle_initialized);
 
     let space_row = sqlx::query(
         r#"
-        SELECT tenant_id, organization_id, name, description, llm_wiki_initialized, status
+        SELECT tenant_id, organization_id, name, description, okf_bundle_initialized, status
         FROM kb_space
         WHERE id = $1
         "#,
@@ -57,16 +57,16 @@ async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
     assert_eq!(space_row.get::<String, _>("name"), "Research Space");
     assert_eq!(
         space_row.get::<Option<String>, _>("description").as_deref(),
-        Some("LLM Wiki research")
+        Some("OKF research")
     );
-    assert_eq!(space_row.get::<i64, _>("llm_wiki_initialized"), 1);
+    assert_eq!(space_row.get::<i64, _>("okf_bundle_initialized"), 1);
     assert_eq!(space_row.get::<i64, _>("status"), 1);
 
     let rows = sqlx::query(
         r#"
-        SELECT logical_path, entry_type, artifact_role, drive_bucket, drive_object_key,
+        SELECT logical_path, file_kind, artifact_role, drive_bucket, drive_object_key,
                checksum_sha256_hex
-        FROM kb_wiki_file_entry
+        FROM kb_okf_bundle_file
         WHERE tenant_id = ? AND space_id = ?
         ORDER BY id
         "#,
@@ -86,20 +86,25 @@ async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
     assert_eq!(
         logical_paths,
         vec![
-            "wiki/schema/AGENTS.md",
-            "wiki/schema/wiki_schema.yaml",
-            "wiki/index.md",
-            "wiki/log.md"
+            "okf/schema/AGENTS.md",
+            "okf/schema/okf_profile.yaml",
+            "okf/index.md",
+            "okf/log.md"
         ]
     );
 
-    let entry_types = rows
+    let file_kinds = rows
         .iter()
-        .map(|row| row.get::<String, _>("entry_type"))
+        .map(|row| row.get::<String, _>("file_kind"))
         .collect::<Vec<_>>();
     assert_eq!(
-        entry_types,
-        vec!["wiki_schema", "wiki_schema", "wiki_index", "wiki_log"]
+        file_kinds,
+        vec![
+            "bundle_agents",
+            "bundle_profile",
+            "bundle_index",
+            "bundle_log"
+        ]
     );
 
     let artifact_roles = rows
@@ -108,7 +113,12 @@ async fn sqlite_space_repository_initializes_llm_wiki_standard_files() {
         .collect::<Vec<_>>();
     assert_eq!(
         artifact_roles,
-        vec!["wiki_schema", "wiki_schema", "wiki_index", "wiki_log"]
+        vec![
+            "bundle_profile",
+            "bundle_profile",
+            "bundle_index",
+            "bundle_log"
+        ]
     );
 
     for row in rows {

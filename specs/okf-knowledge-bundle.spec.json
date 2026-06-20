@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.okf-knowledge-bundle.spec",
+  "okfVersion": "0.1",
+  "normativeSpec": "external/knowledge-catalog/okf/SPEC.md",
+  "designDoc": "docs/superpowers/specs/2026-06-19-okf-knowledge-bundle-design.md",
+  "bundle": {
+    "driveRoot": "okf",
+    "reservedFilenames": ["index.md", "log.md"],
+    "schemaDirectory": "schema",
+    "conceptFileExtension": ".md",
+    "conceptIdRule": "path_within_bundle_root_without_md_suffix",
+    "bundleRelativeLinkPrefix": "/"
+  },
+  "standardFiles": {
+    "index": "index.md",
+    "log": "log.md",
+    "agentInstructions": "schema/AGENTS.md",
+    "profile": "schema/okf_profile.yaml"
+  },
+  "layers": {
+    "sources": {
+      "driveRoot": "sources/raw",
+      "immutable": true,
+      "partOfOkfBundle": false
+    },
+    "bundle": {
+      "driveRoot": "okf",
+      "persistent": true,
+      "partOfOkfBundle": true
+    },
+    "governance": {
+      "driveRoot": ".sdkwork/governance",
+      "partOfOkfBundle": false,
+      "exportable": false
+    }
+  },
+  "concept": {
+    "requiredFrontmatter": ["type"],
+    "recommendedFrontmatter": ["title", "description", "resource", "tags", "timestamp"],
+    "sdkworkExtensionKey": "sdkwork",
+    "stripSdkworkExtensionOnExport": ["okf_strict"],
+    "conventionalHeadings": ["Schema", "Examples", "Citations"],
+    "identifierPattern": "^[a-z0-9][a-z0-9_-]*$"
+  },
+  "agent": {
+    "providerId": "provider.knowledge.okf",
+    "knowledgeMode": "okf_bundle",
+    "documentIdFormat": "okf:{spaceId}:{conceptId}",
+    "namespaceFormat": "space:{spaceId}"
+  },
+  "database": {
+    "prefix": "kb_okf_",
+    "tables": [
+      "kb_okf_concept",
+      "kb_okf_concept_revision",
+      "kb_okf_concept_link",
+      "kb_okf_bundle_file",
+      "kb_okf_log_entry",
+      "kb_okf_candidate"
+    ],
+    "spaceFlag": "okf_bundle_initialized",
+    "forbiddenTablePrefixes": ["kb_wiki_"]
+  },
+  "api": {
+    "operationIdPrefix": "okf.",
+    "forbiddenOperationIdPrefixes": ["wiki."]
+  },
+  "export": {
+    "modes": {
+      "okf_strict": {
+        "includesBundleRoot": true,
+        "includesSources": false,
+        "includesGovernance": false,
+        "stripSdkworkFrontmatter": true
+      },
+      "okf_with_sources": {
+        "includesBundleRoot": true,
+        "includesSources": true,
+        "sourcesMountPath": "raw",
+        "includesGovernance": false,
+        "stripSdkworkFrontmatter": true
+      }
+    }
+  },
+  "lint": {
+    "checks": [
+      "okf_conformance",
+      "broken_links",
+      "orphan_concepts",
+      "missing_citations",
+      "stale_claims"
+    ],
+    "brokenLinksAreFatal": false
+  },
+  "forbiddenLegacy": {
+    "drivePaths": [
+      "wiki/",
+      "wiki/pages/",
+      "**/current.md"
+    ],
+    "symbols": [
+      "LlmWikiPaths",
+      "WikiPageType",
+      "llm_wiki_initialized",
+      "LlmWikiKnowledgeProvider",
+      "provider.knowledge.llm-wiki"
+    ]
+  }
+}

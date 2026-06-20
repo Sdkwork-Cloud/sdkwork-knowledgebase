@@ -3,17 +3,17 @@ use crate::ports::knowledge_drive_storage::{
 };
 use sdkwork_knowledgebase_contract::{
     mirror::{
-        DeltaManifest, DeltaOperations, LlmWikiCompatibility, MirrorContentPolicy, MirrorDatabase,
-        MirrorManifest,
+        DeltaManifest, DeltaOperations, MirrorContentPolicy, MirrorDatabase, MirrorManifest,
+        OkfBundleCompatibility,
     },
-    wiki::LlmWikiPaths,
+    OkfBundlePaths,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 const LOCAL_MIRROR_SCHEMA_VERSION: &str = "1.0.0";
-const LLM_WIKI_PROFILE: &str = "docs/llm-wiki.md";
+const OKF_BUNDLE_PROFILE: &str = "external/knowledge-catalog/okf/SPEC.md";
 const SNAPSHOT_PACKAGE_KIND: &str = "snapshot";
 const DELTA_PACKAGE_KIND: &str = "delta";
 const SNAPSHOT_OBJECT_ROLE: &str = "local_mirror_snapshot";
@@ -51,7 +51,7 @@ impl<'a> KnowledgeLocalMirrorManifestService<'a> {
             created_at: request.created_at,
             package_kind: SNAPSHOT_PACKAGE_KIND.to_string(),
             content_policy: request.content_policy,
-            llm_wiki_compatibility: llm_wiki_compatibility(),
+            okf_bundle_compatibility: okf_bundle_compatibility(),
             database: request.database,
             objects_manifest: request.objects_manifest,
             index_manifests: request.index_manifests,
@@ -190,16 +190,17 @@ pub enum KnowledgeLocalMirrorManifestServiceError {
     Internal(String),
 }
 
-fn llm_wiki_compatibility() -> LlmWikiCompatibility {
-    let paths = LlmWikiPaths::default();
-    LlmWikiCompatibility {
-        profile: LLM_WIKI_PROFILE.to_string(),
+fn okf_bundle_compatibility() -> OkfBundleCompatibility {
+    let paths = OkfBundlePaths::default();
+    OkfBundleCompatibility {
+        okf_version: "0.1".to_string(),
+        profile: OKF_BUNDLE_PROFILE.to_string(),
         agent_instruction_path: paths.local_mirror_agents_md.to_string(),
-        schema_path: format!("{}wiki_schema.yaml", paths.local_mirror_schema_root),
+        profile_path: paths.local_mirror_profile.to_string(),
         raw_root: paths.local_mirror_raw_root.to_string(),
-        wiki_root: paths.local_mirror_wiki_root.to_string(),
-        index_path: format!("{}index.md", paths.local_mirror_wiki_root),
-        log_path: format!("{}log.md", paths.local_mirror_wiki_root),
+        bundle_root: paths.local_mirror_bundle_root.to_string(),
+        index_path: "index.md".to_string(),
+        log_path: "log.md".to_string(),
     }
 }
 

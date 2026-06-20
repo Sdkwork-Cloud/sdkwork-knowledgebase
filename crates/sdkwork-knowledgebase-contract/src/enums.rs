@@ -2,71 +2,57 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum WikiPageType {
-    Source,
-    Entity,
-    Topic,
-    Concept,
-    HowTo,
-    Reference,
-    Faq,
-    Glossary,
-    Answer,
-    Comparison,
-    Presentation,
-    Chart,
-    Index,
-    Policy,
-    Runbook,
+pub enum OkfBundleFileKind {
+    BundleProfile,
+    BundleAgents,
+    BundleIndex,
+    BundleLog,
+    ConceptRevision,
+    GraphExport,
+    ContextPack,
+    OutputExport,
 }
 
-impl WikiPageType {
+impl OkfBundleFileKind {
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Source => "source",
-            Self::Entity => "entity",
-            Self::Topic => "topic",
-            Self::Concept => "concept",
-            Self::HowTo => "how_to",
-            Self::Reference => "reference",
-            Self::Faq => "faq",
-            Self::Glossary => "glossary",
-            Self::Answer => "answer",
-            Self::Comparison => "comparison",
-            Self::Presentation => "presentation",
-            Self::Chart => "chart",
-            Self::Index => "index",
-            Self::Policy => "policy",
-            Self::Runbook => "runbook",
+            Self::BundleProfile => "bundle_profile",
+            Self::BundleAgents => "bundle_agents",
+            Self::BundleIndex => "bundle_index",
+            Self::BundleLog => "bundle_log",
+            Self::ConceptRevision => "concept_revision",
+            Self::GraphExport => "graph_export",
+            Self::ContextPack => "context_pack",
+            Self::OutputExport => "output_export",
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum WikiCandidateType {
+pub enum OkfCandidateType {
     SourceSummary,
-    PageCreate,
-    PageUpdate,
+    ConceptCreate,
+    ConceptUpdate,
     QueryAnswer,
     Comparison,
     Presentation,
     Chart,
-    SchemaUpdate,
+    ProfileUpdate,
     IndexRebuild,
 }
 
-impl WikiCandidateType {
+impl OkfCandidateType {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::SourceSummary => "source_summary",
-            Self::PageCreate => "page_create",
-            Self::PageUpdate => "page_update",
+            Self::ConceptCreate => "concept_create",
+            Self::ConceptUpdate => "concept_update",
             Self::QueryAnswer => "query_answer",
             Self::Comparison => "comparison",
             Self::Presentation => "presentation",
             Self::Chart => "chart",
-            Self::SchemaUpdate => "schema_update",
+            Self::ProfileUpdate => "profile_update",
             Self::IndexRebuild => "index_rebuild",
         }
     }
@@ -74,7 +60,7 @@ impl WikiCandidateType {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum WikiLogEventType {
+pub enum OkfLogEventType {
     Ingest,
     Query,
     FiledAnswer,
@@ -88,7 +74,7 @@ pub enum WikiLogEventType {
     DeltaUpdate,
 }
 
-impl WikiLogEventType {
+impl OkfLogEventType {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Ingest => "ingest",

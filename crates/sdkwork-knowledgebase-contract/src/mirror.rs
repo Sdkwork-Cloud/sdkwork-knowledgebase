@@ -10,7 +10,7 @@ pub struct MirrorManifest {
     pub created_at: String,
     pub package_kind: String,
     pub content_policy: MirrorContentPolicy,
-    pub llm_wiki_compatibility: LlmWikiCompatibility,
+    pub okf_bundle_compatibility: OkfBundleCompatibility,
     pub database: MirrorDatabase,
     pub objects_manifest: String,
     pub index_manifests: Vec<String>,
@@ -22,19 +22,20 @@ pub struct MirrorManifest {
 pub struct MirrorContentPolicy {
     pub include_raw_sources: bool,
     pub include_parsed_artifacts: bool,
-    pub include_wiki: bool,
+    pub include_okf_bundle: bool,
     pub include_embeddings: bool,
     pub include_eval_reports: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LlmWikiCompatibility {
+pub struct OkfBundleCompatibility {
+    pub okf_version: String,
     pub profile: String,
     pub agent_instruction_path: String,
-    pub schema_path: String,
+    pub profile_path: String,
     pub raw_root: String,
-    pub wiki_root: String,
+    pub bundle_root: String,
     pub index_path: String,
     pub log_path: String,
 }

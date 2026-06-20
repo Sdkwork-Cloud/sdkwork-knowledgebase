@@ -43,27 +43,27 @@ async fn app_router_mounts_every_app_openapi_operation_path() {
 }
 
 #[test]
-fn app_openapi_uses_collection_schemas_for_wiki_list_operations() {
+fn app_openapi_uses_collection_schemas_for_okf_list_operations() {
     let spec: Value = serde_json::from_str(include_str!(
         "../../../sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json"
     ))
     .unwrap();
 
     assert_eq!(
-        success_schema_ref(&spec, "wiki.pages.list"),
-        "#/components/schemas/WikiPageSummaryList"
+        success_schema_ref(&spec, "okf.concepts.list"),
+        "#/components/schemas/OkfConceptSummaryList"
     );
     assert_eq!(
-        success_schema_ref(&spec, "wiki.pages.revisions.list"),
-        "#/components/schemas/KnowledgeWikiPageRevisionList"
+        success_schema_ref(&spec, "okf.concepts.revisions.list"),
+        "#/components/schemas/KnowledgeOkfConceptRevisionList"
     );
     assert!(
-        spec["components"]["schemas"]["WikiPageSummaryList"].is_object(),
-        "OpenAPI must define WikiPageSummaryList schema"
+        spec["components"]["schemas"]["OkfConceptSummaryList"].is_object(),
+        "OpenAPI must define OkfConceptSummaryList schema"
     );
     assert!(
-        spec["components"]["schemas"]["KnowledgeWikiPageRevisionList"].is_object(),
-        "OpenAPI must define KnowledgeWikiPageRevisionList schema"
+        spec["components"]["schemas"]["KnowledgeOkfConceptRevisionList"].is_object(),
+        "OpenAPI must define KnowledgeOkfConceptRevisionList schema"
     );
 }
 
@@ -269,7 +269,7 @@ fn concrete_uri(template_path: &str) -> String {
         .replace("{spaceId}", "7")
         .replace("{ingestId}", "11")
         .replace("{documentId}", "13")
-        .replace("{pageId}", "17")
+        .replace("{conceptId}", "17")
         .replace("{queryId}", "19");
     let path = path
         .replace("{retrievalId}", "23")
@@ -299,9 +299,9 @@ fn request_body(operation_id: &str) -> &'static str {
         "documents.versions.create" => {
             r#"{"documentId":13,"originalObjectRefId":23,"sizeBytes":128,"mimeType":"text/markdown"}"#
         }
-        "wiki.queries.create" => r#"{"spaceId":7,"query":"What changed?"}"#,
-        "wiki.queries.fileAnswer" => r##"{"title":"Answer","answerMarkdown":"# Answer"}"##,
-        "wiki.contextPacks.create" => r#"{"spaceId":7,"query":"Quarterly report"}"#,
+        "okf.queries.create" => r#"{"spaceId":7,"query":"What changed?"}"#,
+        "okf.queries.fileAnswer" => r##"{"title":"Answer","answerMarkdown":"# Answer"}"##,
+        "okf.contextPacks.create" => r#"{"spaceId":7,"query":"Quarterly report"}"#,
         "retrievals.create" => {
             r#"{"tenantId":"20001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
         }
@@ -318,7 +318,7 @@ fn request_body(operation_id: &str) -> &'static str {
             r#"{"tenantId":"20001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
         }
         "agentProfiles.chat.create" => {
-            r#"{"tenantId":"20001","message":"What changed in the quarterly report?","mode":"llm_wiki"}"#
+            r#"{"tenantId":"20001","message":"What changed in the quarterly report?","mode":"okf_bundle"}"#
         }
         "spaces.contextBindings.create" => {
             r#"{"spaceId":"7","contextType":"chat_group","contextId":"grp-ops","accessLevel":"reader"}"#

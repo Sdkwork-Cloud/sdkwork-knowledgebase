@@ -59,7 +59,7 @@ function mapNodeType(node: KnowledgeBrowserNode): DocumentMeta['type'] {
   if (node.nodeType === 'folder' || node.nodeType === 'virtual_folder') {
     return 'folder';
   }
-  if (node.nodeType === 'wiki_page') {
+  if (node.nodeType === 'okf_concept') {
     return 'markdown';
   }
 

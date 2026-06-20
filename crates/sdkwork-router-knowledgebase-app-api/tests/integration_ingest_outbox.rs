@@ -62,7 +62,7 @@ async fn seed_space(pool: &sqlx::AnyPool) {
         r#"
         INSERT INTO kb_space (
             id, uuid, tenant_id, organization_id, name, status,
-            llm_wiki_initialized, wiki_log_sequence_counter, created_at, updated_at, version
+            okf_bundle_initialized, okf_log_sequence_counter, created_at, updated_at, version
         )
         VALUES (1, '00000000-0000-4000-8000-000000000001', 1, 1, 'integration-space', 1, 0, 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 0)
         "#,

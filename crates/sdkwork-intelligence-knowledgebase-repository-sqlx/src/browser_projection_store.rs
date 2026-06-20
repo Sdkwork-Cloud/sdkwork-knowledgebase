@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_browser_projection_store::{
-    KnowledgeBrowserDocumentProjection, KnowledgeBrowserProjectionStore,
-    KnowledgeBrowserProjectionStoreError, KnowledgeBrowserWikiPageProjection,
+    KnowledgeBrowserDocumentProjection, KnowledgeBrowserOkfConceptProjection,
+    KnowledgeBrowserProjectionStore, KnowledgeBrowserProjectionStoreError,
 };
-use sdkwork_knowledgebase_contract::wiki::WikiPagePublishState;
+use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sqlx::{AnyPool, QueryBuilder, Row};
 
 const ACTIVE_STATUS: i64 = 1;
@@ -108,17 +108,18 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
                     ingest_state,
                     parse_state: parse_state_name,
                     index_state: index_state_name,
-                    wiki_state: "none".to_string(),
+                    okf_state: "none".to_string(),
                 })
             })
             .collect()
     }
 
-    async fn batch_wiki_page_projections(
+    async fn batch_okf_concept_projections(
         &self,
         space_id: u64,
         logical_paths: Vec<String>,
-    ) -> Result<Vec<KnowledgeBrowserWikiPageProjection>, KnowledgeBrowserProjectionStoreError> {
+    ) -> Result<Vec<KnowledgeBrowserOkfConceptProjection>, KnowledgeBrowserProjectionStoreError>
+    {
         if logical_paths.is_empty() {
             return Ok(vec![]);
         }
@@ -129,7 +130,7 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
         let mut builder = QueryBuilder::new(
             r#"
             SELECT logical_path, id, current_revision_id, publish_state
-            FROM kb_wiki_page
+            FROM kb_okf_concept
             WHERE tenant_id =
             "#,
         );
@@ -154,15 +155,15 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
         rows.into_iter()
             .map(|row| {
                 let publish_state: String = row.try_get("publish_state").map_err(sqlx_error)?;
-                Ok(KnowledgeBrowserWikiPageProjection {
+                Ok(KnowledgeBrowserOkfConceptProjection {
                     logical_path: row.try_get("logical_path").map_err(sqlx_error)?,
-                    page_id: from_i64("id", row.try_get("id").map_err(sqlx_error)?)?,
+                    concept_row_id: from_i64("id", row.try_get("id").map_err(sqlx_error)?)?,
                     current_revision_id: row
                         .try_get::<Option<i64>, _>("current_revision_id")
                         .map_err(sqlx_error)?
                         .map(|value| from_i64("current_revision_id", value))
                         .transpose()?,
-                    publish_state: wiki_publish_state_name(&publish_state)?,
+                    publish_state: okf_publish_state_name(&publish_state)?,
                 })
             })
             .collect()
@@ -214,19 +215,19 @@ fn ingest_state_name(parse_state: i64, index_state: i64) -> &'static str {
     "pending"
 }
 
-fn wiki_publish_state_name(
+fn okf_publish_state_name(
     value: &str,
-) -> Result<WikiPagePublishState, KnowledgeBrowserProjectionStoreError> {
+) -> Result<OkfConceptPublishState, KnowledgeBrowserProjectionStoreError> {
     match value {
-        "draft" => Ok(WikiPagePublishState::Draft),
-        "candidate_ready" => Ok(WikiPagePublishState::CandidateReady),
-        "needs_review" => Ok(WikiPagePublishState::NeedsReview),
-        "published" => Ok(WikiPagePublishState::Published),
-        "stale" => Ok(WikiPagePublishState::Stale),
-        "rejected" => Ok(WikiPagePublishState::Rejected),
-        "failed" => Ok(WikiPagePublishState::Failed),
+        "draft" => Ok(OkfConceptPublishState::Draft),
+        "candidate_ready" => Ok(OkfConceptPublishState::CandidateReady),
+        "needs_review" => Ok(OkfConceptPublishState::NeedsReview),
+        "published" => Ok(OkfConceptPublishState::Published),
+        "stale" => Ok(OkfConceptPublishState::Stale),
+        "rejected" => Ok(OkfConceptPublishState::Rejected),
+        "failed" => Ok(OkfConceptPublishState::Failed),
         _ => Err(KnowledgeBrowserProjectionStoreError::Internal(format!(
-            "unknown wiki publish state: {value}"
+            "unknown okf publish state: {value}"
         ))),
     }
 }

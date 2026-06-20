@@ -9,12 +9,10 @@
     "protocol": "http",
     "packageName": "@sdkwork/knowledgebase-backend-sdk"
   },
-  "changeFingerprint": "f2b09487b39834046c18c0b75a9f5d8b05118d6295794466afb666f4b3facba9",
+  "changeFingerprint": "54f85a150056f15069d19af681fe0248ee2b93d88a684b7c7988187b9e5d7b0f",
   "changes": {
     "createdGeneratedFiles": [],
-    "updatedGeneratedFiles": [
-      "src/http/client.ts"
-    ],
+    "updatedGeneratedFiles": [],
     "unchangedGeneratedFiles": [
       "bin/publish-core.mjs",
       "bin/publish.ps1",
@@ -31,6 +29,7 @@
       "src/api/knowledge.ts",
       "src/api/paths.ts",
       "src/auth/index.ts",
+      "src/http/client.ts",
       "src/http/index.ts",
       "src/index.ts",
       "src/sdk.ts",
@@ -67,6 +66,9 @@
       "src/types/knowledge-index.ts",
       "src/types/knowledge-ingest-request.ts",
       "src/types/knowledge-memory-context-fragment.ts",
+      "src/types/knowledge-okf-bundle-file-list.ts",
+      "src/types/knowledge-okf-bundle-file.ts",
+      "src/types/knowledge-okf-profile-request.ts",
       "src/types/knowledge-provider-health.ts",
       "src/types/knowledge-retrieval-binding.ts",
       "src/types/knowledge-retrieval-method.ts",
@@ -81,29 +83,26 @@
       "src/types/knowledge-source.ts",
       "src/types/knowledge-space-status.ts",
       "src/types/knowledge-space.ts",
-      "src/types/knowledge-wiki-file-entry-list.ts",
-      "src/types/knowledge-wiki-file-entry.ts",
-      "src/types/knowledge-wiki-schema-profile-request.ts",
+      "src/types/okf-bundle-export-request.ts",
+      "src/types/okf-bundle-file-kind.ts",
+      "src/types/okf-bundle-index-rebuild-request.ts",
+      "src/types/okf-candidate-result-list.ts",
+      "src/types/okf-candidate-result.ts",
+      "src/types/okf-candidate-review-request.ts",
+      "src/types/okf-compile-job-request.ts",
+      "src/types/okf-concept-publish-request.ts",
+      "src/types/okf-concept-summary.ts",
+      "src/types/okf-context-pack-request.ts",
+      "src/types/okf-file-answer-request.ts",
+      "src/types/okf-index-document.ts",
+      "src/types/okf-log-document.ts",
+      "src/types/okf-log-entry.ts",
+      "src/types/okf-profile-document.ts",
+      "src/types/okf-quality-run-request.ts",
+      "src/types/okf-quality-run.ts",
+      "src/types/okf-query-request.ts",
+      "src/types/okf-query-result.ts",
       "src/types/problem-details.ts",
-      "src/types/wiki-candidate-result-list.ts",
-      "src/types/wiki-candidate-result.ts",
-      "src/types/wiki-candidate-review-request.ts",
-      "src/types/wiki-compile-job-request.ts",
-      "src/types/wiki-context-pack-request.ts",
-      "src/types/wiki-export-request.ts",
-      "src/types/wiki-file-answer-request.ts",
-      "src/types/wiki-file-entry-type.ts",
-      "src/types/wiki-index-document.ts",
-      "src/types/wiki-index-rebuild-request.ts",
-      "src/types/wiki-log-document.ts",
-      "src/types/wiki-log-entry.ts",
-      "src/types/wiki-page-publish-request.ts",
-      "src/types/wiki-page-summary.ts",
-      "src/types/wiki-quality-run-request.ts",
-      "src/types/wiki-quality-run.ts",
-      "src/types/wiki-query-request.ts",
-      "src/types/wiki-query-result.ts",
-      "src/types/wiki-schema-document.ts",
       "tsconfig.json"
     ],
     "deletedGeneratedFiles": [],
@@ -116,79 +115,26 @@
   },
   "impact": {
     "schemaVersion": 1,
-    "areas": [
-      "api-surface",
-      "runtime"
-    ],
-    "details": [
-      {
-        "area": "api-surface",
-        "paths": [
-          "src/http/client.ts"
-        ]
-      },
-      {
-        "area": "runtime",
-        "paths": [
-          "src/http/client.ts"
-        ]
-      }
-    ],
-    "requiresVerification": true,
-    "summary": "Detected impact areas: api-surface, runtime. Verification is required."
+    "areas": [],
+    "details": [],
+    "requiresVerification": false,
+    "summary": "No generated, scaffold, or backup changes detected. Verification can be skipped."
   },
   "verificationPlan": {
-    "shouldRun": true,
-    "runPhase": "now",
-    "summary": "Detected impact areas: api-surface, runtime. Verification is required. Run the required verification commands now against the generated SDK output.",
-    "steps": [
-      {
-        "id": "check",
-        "title": "Unified package check",
-        "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, runtime.",
-        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
-        "command": "node",
-        "args": [
-          "./bin/publish-core.mjs",
-          "--language",
-          "typescript",
-          "--project-dir",
-          ".",
-          "--action",
-          "check"
-        ],
-        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action check"
-      },
-      {
-        "id": "build",
-        "title": "Unified package build",
-        "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, runtime.",
-        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
-        "command": "node",
-        "args": [
-          "./bin/publish-core.mjs",
-          "--language",
-          "typescript",
-          "--project-dir",
-          ".",
-          "--action",
-          "build"
-        ],
-        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action build"
-      }
-    ]
+    "shouldRun": false,
+    "runPhase": "skip",
+    "summary": "No generated, scaffold, or backup changes detected. Verification can be skipped.",
+    "steps": []
   },
   "executionDecision": {
     "schemaVersion": 1,
-    "riskLevel": "medium",
-    "nextAction": "verify",
+    "riskLevel": "low",
+    "nextAction": "skip",
     "requiresManualReview": false,
     "applyRequiresExpectedFingerprint": false,
-    "summary": "Changes have been applied. Run the required verification plan now.",
+    "summary": "No actionable changes were detected. No apply or verification step is required.",
     "reasons": [
-      "verification-required"
+      "no-actionable-changes"
     ]
   },
   "preservedLegacyFiles": false

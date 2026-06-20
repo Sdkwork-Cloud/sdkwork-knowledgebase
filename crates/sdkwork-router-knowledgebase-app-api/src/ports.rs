@@ -14,11 +14,11 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserPage,
     KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentList,
     KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest,
-    KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
-    KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeWikiFileEntry,
-    KnowledgeWikiPageRevisionList, ListKnowledgeBrowserRequest, WikiContextPackRequest,
-    WikiFileAnswerRequest, WikiIndexDocument, WikiLogDocument, WikiPageSummary,
-    WikiPageSummaryList, WikiQueryRequest, WikiQueryResult, WikiSchemaDocument,
+    KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeOkfBundleFile,
+    KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
+    KnowledgeSpace, ListKnowledgeBrowserRequest, OkfConceptSummary, OkfConceptSummaryList,
+    OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
+    OkfProfileDocument, OkfQueryRequest, OkfQueryResult,
 };
 
 use crate::{ApiError, ApiResult};
@@ -86,34 +86,34 @@ pub trait KnowledgeDocumentAppService: Send + Sync + 'static {
 }
 
 #[async_trait]
-pub trait KnowledgeWikiAppService: Send + Sync + 'static {
-    async fn list_wiki_pages(&self) -> ApiResult<WikiPageSummaryList>;
+pub trait KnowledgeOkfAppService: Send + Sync + 'static {
+    async fn list_okf_concepts(&self) -> ApiResult<OkfConceptSummaryList>;
 
-    async fn retrieve_wiki_page(&self, page_id: u64) -> ApiResult<WikiPageSummary>;
+    async fn retrieve_okf_concept(&self, concept_row_id: u64) -> ApiResult<OkfConceptSummary>;
 
-    async fn list_wiki_page_revisions(
+    async fn list_okf_concept_revisions(
         &self,
-        page_id: u64,
-    ) -> ApiResult<KnowledgeWikiPageRevisionList>;
+        concept_row_id: u64,
+    ) -> ApiResult<KnowledgeOkfConceptRevisionList>;
 
-    async fn retrieve_wiki_index(&self) -> ApiResult<WikiIndexDocument>;
+    async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument>;
 
-    async fn retrieve_wiki_log(&self) -> ApiResult<WikiLogDocument>;
+    async fn retrieve_okf_log(&self) -> ApiResult<OkfLogDocument>;
 
-    async fn retrieve_wiki_schema(&self) -> ApiResult<WikiSchemaDocument>;
+    async fn retrieve_okf_schema(&self) -> ApiResult<OkfProfileDocument>;
 
-    async fn create_wiki_query(&self, request: WikiQueryRequest) -> ApiResult<WikiQueryResult>;
+    async fn create_okf_query(&self, request: OkfQueryRequest) -> ApiResult<OkfQueryResult>;
 
-    async fn file_wiki_query_answer(
+    async fn file_okf_query_answer(
         &self,
         query_id: u64,
-        request: WikiFileAnswerRequest,
-    ) -> ApiResult<WikiQueryResult>;
+        request: OkfFileAnswerRequest,
+    ) -> ApiResult<OkfQueryResult>;
 
-    async fn create_wiki_context_pack(
+    async fn create_okf_context_pack(
         &self,
-        request: WikiContextPackRequest,
-    ) -> ApiResult<KnowledgeWikiFileEntry>;
+        request: OkfContextPackRequest,
+    ) -> ApiResult<KnowledgeOkfBundleFile>;
 }
 
 #[async_trait]
@@ -310,50 +310,50 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         Err(ApiError::not_implemented("documents.versions.create"))
     }
 
-    async fn list_wiki_pages(&self) -> ApiResult<WikiPageSummaryList> {
-        Err(ApiError::not_implemented("wiki.pages.list"))
+    async fn list_okf_concepts(&self) -> ApiResult<OkfConceptSummaryList> {
+        Err(ApiError::not_implemented("okf.concepts.list"))
     }
 
-    async fn retrieve_wiki_page(&self, _page_id: u64) -> ApiResult<WikiPageSummary> {
-        Err(ApiError::not_implemented("wiki.pages.retrieve"))
+    async fn retrieve_okf_concept(&self, _concept_row_id: u64) -> ApiResult<OkfConceptSummary> {
+        Err(ApiError::not_implemented("okf.concepts.retrieve"))
     }
 
-    async fn list_wiki_page_revisions(
+    async fn list_okf_concept_revisions(
         &self,
-        _page_id: u64,
-    ) -> ApiResult<KnowledgeWikiPageRevisionList> {
-        Err(ApiError::not_implemented("wiki.pages.revisions.list"))
+        _concept_row_id: u64,
+    ) -> ApiResult<KnowledgeOkfConceptRevisionList> {
+        Err(ApiError::not_implemented("okf.concepts.revisions.list"))
     }
 
-    async fn retrieve_wiki_index(&self) -> ApiResult<WikiIndexDocument> {
-        Err(ApiError::not_implemented("wiki.index.retrieve"))
+    async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument> {
+        Err(ApiError::not_implemented("okf.bundle.index.retrieve"))
     }
 
-    async fn retrieve_wiki_log(&self) -> ApiResult<WikiLogDocument> {
-        Err(ApiError::not_implemented("wiki.log.retrieve"))
+    async fn retrieve_okf_log(&self) -> ApiResult<OkfLogDocument> {
+        Err(ApiError::not_implemented("okf.bundle.log.retrieve"))
     }
 
-    async fn retrieve_wiki_schema(&self) -> ApiResult<WikiSchemaDocument> {
-        Err(ApiError::not_implemented("wiki.schema.retrieve"))
+    async fn retrieve_okf_schema(&self) -> ApiResult<OkfProfileDocument> {
+        Err(ApiError::not_implemented("okf.bundle.profile.retrieve"))
     }
 
-    async fn create_wiki_query(&self, _request: WikiQueryRequest) -> ApiResult<WikiQueryResult> {
-        Err(ApiError::not_implemented("wiki.queries.create"))
+    async fn create_okf_query(&self, _request: OkfQueryRequest) -> ApiResult<OkfQueryResult> {
+        Err(ApiError::not_implemented("okf.queries.create"))
     }
 
-    async fn file_wiki_query_answer(
+    async fn file_okf_query_answer(
         &self,
         _query_id: u64,
-        _request: WikiFileAnswerRequest,
-    ) -> ApiResult<WikiQueryResult> {
-        Err(ApiError::not_implemented("wiki.queries.fileAnswer"))
+        _request: OkfFileAnswerRequest,
+    ) -> ApiResult<OkfQueryResult> {
+        Err(ApiError::not_implemented("okf.queries.fileAnswer"))
     }
 
-    async fn create_wiki_context_pack(
+    async fn create_okf_context_pack(
         &self,
-        _request: WikiContextPackRequest,
-    ) -> ApiResult<KnowledgeWikiFileEntry> {
-        Err(ApiError::not_implemented("wiki.contextPacks.create"))
+        _request: OkfContextPackRequest,
+    ) -> ApiResult<KnowledgeOkfBundleFile> {
+        Err(ApiError::not_implemented("okf.contextPacks.create"))
     }
 
     async fn list_browser(

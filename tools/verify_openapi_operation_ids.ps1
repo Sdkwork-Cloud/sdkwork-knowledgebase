@@ -31,12 +31,12 @@ $required = @(
     "documents.retrieve",
     "documents.versions.create",
     "documents.versions.list",
-    "wiki.index.retrieve",
-    "wiki.log.retrieve",
-    "wiki.log.entries.create",
-    "wiki.schema.retrieve",
-    "wiki.schema.profiles.create",
-    "wiki.queries.fileAnswer",
+    "okf.bundle.index.retrieve",
+    "okf.bundle.log.retrieve",
+    "okf.log.entries.create",
+    "okf.bundle.profile.retrieve",
+    "okf.profile.create",
+    "okf.queries.fileAnswer",
     "indexes.create",
     "indexes.retrieve",
     "indexes.rebuild",
@@ -141,8 +141,8 @@ foreach ($operationId in $operationIds) {
         throw "operationId contains underscore: $operationId"
     }
 
-    if ($operationId -match "^(wikiIndex|wikiLog|wikiSchema|wikiPages)") {
-        throw "operationId uses flattened wiki resource name: $operationId"
+    if ($operationId -match "^(okfBundleIndex|okfBundleLog|okfBundleProfile|okfConcepts)") {
+        throw "operationId uses flattened okf resource name: $operationId"
     }
 }
 
@@ -167,7 +167,7 @@ $requiredSchemas = @(
     "KnowledgeDocument",
     "KnowledgeDocumentVersion",
     "KnowledgeSource",
-    "KnowledgeWikiFileEntry",
+    "KnowledgeOkfBundleFile",
     "KnowledgeRetrievalRequest",
     "KnowledgeRetrievalResult",
     "KnowledgeContextPackRequest",

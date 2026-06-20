@@ -14,6 +14,7 @@ use sdkwork_intelligence_knowledgebase_service::{
         KnowledgeApiMarkdownIndexServiceError, KnowledgeApiPayloadIngestServiceError,
         KnowledgeIngestionServiceError, KnowledgeUploadSessionServiceError,
     },
+    okf::OkfConceptServiceError,
     ports::{
         knowledge_agent_profile_store::KnowledgeAgentProfileStoreError,
         knowledge_context_binding_store::KnowledgeContextBindingStoreError,
@@ -27,7 +28,6 @@ use sdkwork_intelligence_knowledgebase_service::{
     },
     retrieval::KnowledgeRetrievalServiceError,
     space::KnowledgeSpaceServiceError,
-    wiki::KnowledgeWikiPageServiceError,
 };
 use sdkwork_knowledgebase_contract::ProblemDetails;
 
@@ -222,8 +222,8 @@ impl From<KnowledgeSpaceServiceError> for ApiError {
                 Self::invalid_request("invalid_knowledge_space_request", detail)
             }
             KnowledgeSpaceServiceError::Store(error) => Self::from(error),
-            KnowledgeSpaceServiceError::WikiInitializer(error) => Self::internal(
-                "knowledge_space_wiki_initialization_failed",
+            KnowledgeSpaceServiceError::OkfBundleInitializer(error) => Self::internal(
+                "knowledge_space_okf_initialization_failed",
                 error.to_string(),
             ),
             KnowledgeSpaceServiceError::DriveSpaceProvisioner(error) => Self::internal(
@@ -391,13 +391,13 @@ impl From<KnowledgeStorageError> for ApiError {
     }
 }
 
-impl From<KnowledgeWikiPageServiceError> for ApiError {
-    fn from(error: KnowledgeWikiPageServiceError) -> Self {
+impl From<OkfConceptServiceError> for ApiError {
+    fn from(error: OkfConceptServiceError) -> Self {
         match error {
-            KnowledgeWikiPageServiceError::InvalidRequest(detail) => {
-                Self::invalid_request("invalid_knowledge_wiki_page_request", detail)
+            OkfConceptServiceError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_knowledge_okf_concept_request", detail)
             }
-            other => Self::internal("knowledge_wiki_page_service_failed", other.to_string()),
+            other => Self::internal("knowledge_okf_concept_service_failed", other.to_string()),
         }
     }
 }

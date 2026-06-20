@@ -9,11 +9,11 @@
     "protocol": "http",
     "packageName": "@sdkwork/knowledgebase-app-sdk"
   },
-  "changeFingerprint": "cfa855861e571eb38ac41c840be46b1210d7123d60dbbca52b8d26781e992185",
+  "changeFingerprint": "240c01398c8a4eb759045efe91b19bc8f088de461d6cfb55fd3ce912e084d4d5",
   "changes": {
     "createdGeneratedFiles": [],
     "updatedGeneratedFiles": [
-      "src/http/client.ts"
+      "src/api/knowledge.ts"
     ],
     "unchangedGeneratedFiles": [
       "bin/publish-core.mjs",
@@ -28,9 +28,9 @@
       "sdkwork-sdk.json",
       "src/api/base.ts",
       "src/api/index.ts",
-      "src/api/knowledge.ts",
       "src/api/paths.ts",
       "src/auth/index.ts",
+      "src/http/client.ts",
       "src/http/index.ts",
       "src/index.ts",
       "src/sdk.ts",
@@ -81,6 +81,11 @@
       "src/types/knowledge-index.ts",
       "src/types/knowledge-ingest-request.ts",
       "src/types/knowledge-memory-context-fragment.ts",
+      "src/types/knowledge-okf-bundle-file-list.ts",
+      "src/types/knowledge-okf-bundle-file.ts",
+      "src/types/knowledge-okf-concept-revision-list.ts",
+      "src/types/knowledge-okf-concept-revision.ts",
+      "src/types/knowledge-okf-profile-request.ts",
       "src/types/knowledge-provider-health.ts",
       "src/types/knowledge-retrieval-binding.ts",
       "src/types/knowledge-retrieval-method.ts",
@@ -99,33 +104,29 @@
       "src/types/knowledge-space.ts",
       "src/types/knowledge-upload-session-status.ts",
       "src/types/knowledge-upload-session.ts",
-      "src/types/knowledge-wiki-file-entry-list.ts",
-      "src/types/knowledge-wiki-file-entry.ts",
-      "src/types/knowledge-wiki-page-revision-list.ts",
-      "src/types/knowledge-wiki-page-revision.ts",
-      "src/types/knowledge-wiki-schema-profile-request.ts",
       "src/types/list-knowledge-browser-request.ts",
+      "src/types/okf-bundle-export-request.ts",
+      "src/types/okf-bundle-file-kind.ts",
+      "src/types/okf-bundle-index-rebuild-request.ts",
+      "src/types/okf-candidate-result.ts",
+      "src/types/okf-candidate-review-request.ts",
+      "src/types/okf-compile-job-request.ts",
+      "src/types/okf-concept-publish-request.ts",
+      "src/types/okf-concept-summary-list.ts",
+      "src/types/okf-concept-summary.ts",
+      "src/types/okf-context-pack-request.ts",
+      "src/types/okf-file-answer-request.ts",
+      "src/types/okf-index-document.ts",
+      "src/types/okf-log-document.ts",
+      "src/types/okf-log-entry.ts",
+      "src/types/okf-profile-document.ts",
+      "src/types/okf-quality-run-request.ts",
+      "src/types/okf-quality-run.ts",
+      "src/types/okf-query-request.ts",
+      "src/types/okf-query-result.ts",
+      "src/types/okf-revision-review-state.ts",
       "src/types/problem-details.ts",
       "src/types/update-knowledge-space-context-binding-request.ts",
-      "src/types/wiki-candidate-result.ts",
-      "src/types/wiki-candidate-review-request.ts",
-      "src/types/wiki-compile-job-request.ts",
-      "src/types/wiki-context-pack-request.ts",
-      "src/types/wiki-export-request.ts",
-      "src/types/wiki-file-answer-request.ts",
-      "src/types/wiki-file-entry-type.ts",
-      "src/types/wiki-index-document.ts",
-      "src/types/wiki-index-rebuild-request.ts",
-      "src/types/wiki-log-document.ts",
-      "src/types/wiki-log-entry.ts",
-      "src/types/wiki-page-publish-request.ts",
-      "src/types/wiki-page-summary-list.ts",
-      "src/types/wiki-page-summary.ts",
-      "src/types/wiki-quality-run-request.ts",
-      "src/types/wiki-quality-run.ts",
-      "src/types/wiki-query-request.ts",
-      "src/types/wiki-query-result.ts",
-      "src/types/wiki-schema-document.ts",
       "tsconfig.json"
     ],
     "deletedGeneratedFiles": [],
@@ -139,36 +140,29 @@
   "impact": {
     "schemaVersion": 1,
     "areas": [
-      "api-surface",
-      "runtime"
+      "api-surface"
     ],
     "details": [
       {
         "area": "api-surface",
         "paths": [
-          "src/http/client.ts"
-        ]
-      },
-      {
-        "area": "runtime",
-        "paths": [
-          "src/http/client.ts"
+          "src/api/knowledge.ts"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: api-surface, runtime. Verification is required."
+    "summary": "Detected impact areas: api-surface. Verification is required."
   },
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: api-surface, runtime. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: api-surface. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, runtime.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -186,7 +180,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, runtime.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [

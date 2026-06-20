@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum KnowledgeBrowserView {
     Files,
-    Wiki,
+    OkfBundle,
     Outputs,
 }
 
@@ -13,7 +13,7 @@ pub enum KnowledgeBrowserView {
 pub enum KnowledgeBrowserNodeType {
     Folder,
     Document,
-    WikiPage,
+    OkfConcept,
     Candidate,
     Answer,
     Report,
@@ -54,14 +54,14 @@ pub struct KnowledgeBrowserNode {
     pub drive_node_id: Option<String>,
     pub document_id: Option<u64>,
     pub document_version_id: Option<u64>,
-    pub wiki_page_id: Option<u64>,
-    pub wiki_revision_id: Option<u64>,
+    pub okf_concept_id: Option<u64>,
+    pub okf_revision_id: Option<u64>,
     pub mime_type: Option<String>,
     pub size_bytes: Option<u64>,
     pub ingest_state: Option<String>,
     pub parse_state: Option<String>,
     pub index_state: Option<String>,
-    pub wiki_state: Option<String>,
+    pub okf_state: Option<String>,
     pub children_count: Option<u64>,
     pub updated_at: String,
     pub permissions: KnowledgeBrowserNodePermissions,

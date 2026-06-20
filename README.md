@@ -10,7 +10,7 @@ This repository follows SDKWork App Standard v3 and the canonical specs in `../s
 apis/                                      Authored OpenAPI authority sources and RPC placeholder.
 apps/sdkwork-knowledgebase-pc/             PC React + optional Tauri desktop app surface.
 crates/
-  sdkwork-knowledgebase-contract           Public DTOs, enums, IDs, operation IDs, and LLM Wiki/local mirror contracts.
+  sdkwork-knowledgebase-contract           Public DTOs, enums, IDs, operation IDs, and OKF bundle contracts.
   sdkwork-knowledgebase-agent-provider     Thin adapter from Knowledgebase retrieval contracts to sdkwork-agent-kernel KnowledgeProvider.
   sdkwork-intelligence-knowledgebase-object-key-service
                                              Object key planning helpers.
@@ -51,7 +51,7 @@ This workspace follows the standard project root directory dictionary from `../s
 
 `sdkwork-drive` is the only lower-level file/object storage boundary.
 
-Business logic must not write source files, parsed artifacts, LLM Wiki Markdown, schema files, `wiki/index.md`, `wiki/log.md`, local mirror packages, or delta packages through direct filesystem, S3, OSS, MinIO, Azure Blob, or GCS SDKs.
+Business logic must not write source files, parsed artifacts, OKF bundle Markdown, schema files, `okf/index.md`, `okf/log.md`, local mirror packages, or delta packages through direct filesystem, S3, OSS, MinIO, Azure Blob, or GCS SDKs.
 
 Business logic depends on `KnowledgeDriveStorage`. Only `crates/sdkwork-knowledgebase-drive` depends on `sdkwork-drive-storage-contract`.
 
@@ -61,26 +61,24 @@ Business logic depends on `KnowledgeDriveStorage`. Only `crates/sdkwork-knowledg
 
 Context pack assembly depends on the `KnowledgeMemoryContextProvider` port. Only `crates/sdkwork-knowledgebase-memory` adapts that port to `sdkwork-memory-spi`; retrieval and API crates must not call Memory HTTP APIs or copy Memory SDK DTOs. Memory context is returned as `memoryFragments` and remains separate from knowledge `fragments`, so Memory entries are not treated as knowledge chunks or citations.
 
-## LLM Wiki Standard Files
+## OKF Bundle Standard Files
 
-Phase 1 establishes renderers and contracts for:
+Each knowledge space initializes:
 
 ```text
-wiki/schema/AGENTS.md
-wiki/schema/wiki_schema.yaml
-wiki/index.md
-wiki/log.md
+okf/schema/AGENTS.md
+okf/schema/okf_profile.yaml
+okf/index.md
+okf/log.md
 ```
 
 Local mirror contracts expose:
 
 ```text
-AGENTS.md
-schema/**
+schema/AGENTS.md
+schema/okf_profile.yaml
 raw/**
-wiki/**
-llms.txt
-llms-full.txt
+**/*.md
 ```
 
 ## Verification
@@ -135,8 +133,8 @@ Valid values are `0` through `1023`. Local and test runs may omit the variable a
 
 ## Implemented Service Slices
 
-- Knowledge space creation can initialize LLM Wiki standard files through the drive storage port.
-- LLM Wiki standard file rendering covers `AGENTS.md`, `wiki_schema.yaml`, `wiki/index.md`, and `wiki/log.md`.
+- Knowledge space creation initializes OKF bundle standard files through the drive storage port.
+- OKF bundle rendering covers `AGENTS.md`, `okf_profile.yaml`, `okf/index.md`, and `okf/log.md`.
 - Ingestion jobs support idempotent creation and basic state transitions.
 - API Markdown payload ingest writes `inbox/api/{ingest_id}/payload.md` through `KnowledgeDriveStorage` and rejects empty payloads or unsafe idempotency keys.
 - Drive object import verifies the existing sdkwork-drive object with `head_object`, persists a stable `KnowledgeDriveObjectRef`, creates source/document/version metadata through service ports, and creates an idempotent ingest job.
@@ -146,10 +144,10 @@ Valid values are `0` through `1023`. Local and test runs may omit the variable a
 - SQL migration skeletons include source, document, document version, ingestion job, and ingestion job item tables for PostgreSQL and SQLite.
 - SQL migrations include chunk, index, embedding, retrieval profile, retrieval trace, retrieval hit, knowledge-agent profile, and knowledge-agent knowledge binding tables for PostgreSQL and SQLite.
 - SQLite SQLx repositories persist the drive-import metadata chain: source, document, document version, stable drive object ref, and ingestion job rows. `create_or_get` paths use `kb_*` unique indexes plus insert-first conflict handling so concurrent identical imports reuse existing metadata instead of creating duplicates.
-- SQLite SQLx repositories now persist knowledge spaces and LLM Wiki file entries, so space creation can initialize `wiki/schema/AGENTS.md`, `wiki/schema/wiki_schema.yaml`, `wiki/index.md`, and `wiki/log.md` through the drive port and then mark the space as LLM Wiki initialized.
-- Wiki page revision numbers and `wiki/log.md` sequence numbers are reserved with database-backed counters (`kb_wiki_page.revision_counter` and `kb_space.wiki_log_sequence_counter`) to avoid `MAX + 1` races under concurrent writes.
-- Local mirror snapshot and delta manifest services create LLM Wiki-compatible `mirror_manifest.json` and `delta_manifest.json` artifacts, compute SHA-256 checksums, reject unsafe path segments, and persist those manifests only through `KnowledgeDriveStorage`.
-- App and Backend OpenAPI authority files use SDKWork dotted operation IDs, including `wiki.index.retrieve`, `wiki.log.entries.create`, `driveImports.create`, `documents.versions.create`, and `sources.create`.
+- SQLite SQLx repositories persist knowledge spaces and OKF bundle file entries, so space creation can initialize `okf/schema/AGENTS.md`, `okf/schema/okf_profile.yaml`, `okf/index.md`, and `okf/log.md` through the drive port and then mark the space as `okf_bundle_initialized`.
+- OKF concept revision numbers and `okf/log.md` sequence numbers are reserved with database-backed counters to avoid `MAX + 1` races under concurrent writes.
+- Local mirror snapshot and delta manifest services create OKF-compatible export artifacts, compute SHA-256 checksums, reject unsafe path segments, and persist those manifests only through `KnowledgeDriveStorage`.
+- App and Backend OpenAPI authority files use SDKWork dotted operation IDs, including `okf.bundle.index.retrieve`, `okf.log.entries.create`, `driveImports.create`, `documents.versions.create`, and `sources.create`.
 - Generated App and Backend TypeScript SDKs are produced with the canonical `sdkwork-sdk-generator` using the SDKWork v3 standard profile.
 - App and Backend SDK families declare Appbase, Drive, and Memory dependency SDKs; dependency-owned Appbase, Drive, and Memory APIs are not generated into knowledgebase transports.
 - App and Backend Rust API crates mount every generated OpenAPI operation path. The hosted SQLx runtime (`KnowledgebaseRuntime`) wires all 67 operations to concrete service implementations; trait default stubs in route crates remain only for library-only injection tests.

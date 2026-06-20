@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest,
+    KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList, KnowledgeOkfProfileRequest,
     KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
     KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList,
-    KnowledgeWikiFileEntry, KnowledgeWikiFileEntryList, KnowledgeWikiSchemaProfileRequest,
-    WikiCandidateResult, WikiCandidateResultList, WikiCandidateReviewRequest,
-    WikiCompileJobRequest, WikiExportRequest, WikiIndexDocument, WikiIndexRebuildRequest,
-    WikiLogEntry, WikiPagePublishRequest, WikiPageSummary, WikiQualityRun, WikiQualityRunRequest,
+    OkfBundleExportRequest, OkfCandidateResult, OkfCandidateResultList, OkfCandidateReviewRequest,
+    OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument,
+    OkfIndexRebuildRequest, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
 
 use crate::error::{BackendApiError, BackendApiResult};
@@ -30,104 +30,99 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
         Err(BackendApiError::not_implemented("sources.create"))
     }
 
-    async fn create_wiki_compile_job(
+    async fn create_okf_compile_job(
         &self,
-        _request: WikiCompileJobRequest,
+        _request: OkfCompileJobRequest,
     ) -> BackendApiResult<IngestionJob> {
-        Err(BackendApiError::not_implemented("wiki.compileJobs.create"))
+        Err(BackendApiError::not_implemented("okf.compileJobs.create"))
     }
 
-    async fn list_wiki_candidates(&self) -> BackendApiResult<WikiCandidateResultList> {
-        Err(BackendApiError::not_implemented("wiki.candidates.list"))
+    async fn list_okf_candidates(&self) -> BackendApiResult<OkfCandidateResultList> {
+        Err(BackendApiError::not_implemented("okf.candidates.list"))
     }
 
-    async fn approve_wiki_candidate(
+    async fn approve_okf_candidate(
         &self,
         _candidate_id: u64,
-        _request: WikiCandidateReviewRequest,
-    ) -> BackendApiResult<WikiCandidateResult> {
-        Err(BackendApiError::not_implemented("wiki.candidates.approve"))
+        _request: OkfCandidateReviewRequest,
+    ) -> BackendApiResult<OkfCandidateResult> {
+        Err(BackendApiError::not_implemented("okf.candidates.approve"))
     }
 
-    async fn reject_wiki_candidate(
+    async fn reject_okf_candidate(
         &self,
         _candidate_id: u64,
-        _request: WikiCandidateReviewRequest,
-    ) -> BackendApiResult<WikiCandidateResult> {
-        Err(BackendApiError::not_implemented("wiki.candidates.reject"))
+        _request: OkfCandidateReviewRequest,
+    ) -> BackendApiResult<OkfCandidateResult> {
+        Err(BackendApiError::not_implemented("okf.candidates.reject"))
     }
 
-    async fn publish_wiki_page(
+    async fn publish_okf_concept(
         &self,
-        _page_id: u64,
-        _request: WikiPagePublishRequest,
-    ) -> BackendApiResult<WikiPageSummary> {
-        Err(BackendApiError::not_implemented("wiki.pages.publish"))
+        _concept_id: u64,
+        _request: OkfConceptPublishRequest,
+    ) -> BackendApiResult<OkfConceptSummary> {
+        Err(BackendApiError::not_implemented("okf.concepts.publish"))
     }
 
-    async fn create_wiki_schema_profile(
+    async fn create_okf_profile(
         &self,
-        _request: KnowledgeWikiSchemaProfileRequest,
-    ) -> BackendApiResult<KnowledgeWikiFileEntry> {
-        Err(BackendApiError::not_implemented(
-            "wiki.schema.profiles.create",
-        ))
+        _request: KnowledgeOkfProfileRequest,
+    ) -> BackendApiResult<KnowledgeOkfBundleFile> {
+        Err(BackendApiError::not_implemented("okf.profile.create"))
     }
 
-    async fn update_wiki_schema_profile(
+    async fn update_okf_profile(
         &self,
         _profile_id: u64,
-        _request: KnowledgeWikiSchemaProfileRequest,
-    ) -> BackendApiResult<KnowledgeWikiFileEntry> {
+        _request: KnowledgeOkfProfileRequest,
+    ) -> BackendApiResult<KnowledgeOkfBundleFile> {
+        Err(BackendApiError::not_implemented("okf.profile.update"))
+    }
+
+    async fn rebuild_okf_index(
+        &self,
+        _request: OkfIndexRebuildRequest,
+    ) -> BackendApiResult<OkfIndexDocument> {
+        Err(BackendApiError::not_implemented("okf.bundle.index.rebuild"))
+    }
+
+    async fn create_okf_log_entry(&self, _request: OkfLogEntry) -> BackendApiResult<OkfLogEntry> {
+        Err(BackendApiError::not_implemented("okf.log.entries.create"))
+    }
+
+    async fn create_okf_export(
+        &self,
+        _request: OkfBundleExportRequest,
+    ) -> BackendApiResult<KnowledgeOkfBundleFile> {
+        Err(BackendApiError::not_implemented("okf.bundle.export.create"))
+    }
+
+    async fn retrieve_okf_export(
+        &self,
+        _export_id: u64,
+    ) -> BackendApiResult<KnowledgeOkfBundleFile> {
         Err(BackendApiError::not_implemented(
-            "wiki.schema.profiles.update",
+            "okf.bundle.export.retrieve",
         ))
     }
 
-    async fn rebuild_wiki_index(
-        &self,
-        _request: WikiIndexRebuildRequest,
-    ) -> BackendApiResult<WikiIndexDocument> {
-        Err(BackendApiError::not_implemented("wiki.index.rebuild"))
+    async fn list_okf_bundle_files(&self) -> BackendApiResult<KnowledgeOkfBundleFileList> {
+        Err(BackendApiError::not_implemented("okf.bundle.files.list"))
     }
 
-    async fn create_wiki_log_entry(
+    async fn create_okf_lint_run(
         &self,
-        _request: WikiLogEntry,
-    ) -> BackendApiResult<WikiLogEntry> {
-        Err(BackendApiError::not_implemented("wiki.log.entries.create"))
+        _request: OkfQualityRunRequest,
+    ) -> BackendApiResult<OkfQualityRun> {
+        Err(BackendApiError::not_implemented("okf.lintRuns.create"))
     }
 
-    async fn create_wiki_export(
+    async fn create_okf_eval_run(
         &self,
-        _request: WikiExportRequest,
-    ) -> BackendApiResult<KnowledgeWikiFileEntry> {
-        Err(BackendApiError::not_implemented("wiki.exports.create"))
-    }
-
-    async fn retrieve_wiki_export(
-        &self,
-        _export_id: u64,
-    ) -> BackendApiResult<KnowledgeWikiFileEntry> {
-        Err(BackendApiError::not_implemented("wiki.exports.retrieve"))
-    }
-
-    async fn list_wiki_file_entries(&self) -> BackendApiResult<KnowledgeWikiFileEntryList> {
-        Err(BackendApiError::not_implemented("wiki.fileEntries.list"))
-    }
-
-    async fn create_wiki_lint_run(
-        &self,
-        _request: WikiQualityRunRequest,
-    ) -> BackendApiResult<WikiQualityRun> {
-        Err(BackendApiError::not_implemented("wiki.lintRuns.create"))
-    }
-
-    async fn create_wiki_eval_run(
-        &self,
-        _request: WikiQualityRunRequest,
-    ) -> BackendApiResult<WikiQualityRun> {
-        Err(BackendApiError::not_implemented("wiki.evalRuns.create"))
+        _request: OkfQualityRunRequest,
+    ) -> BackendApiResult<OkfQualityRun> {
+        Err(BackendApiError::not_implemented("okf.evalRuns.create"))
     }
 
     async fn create_index(
@@ -144,8 +139,8 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
     async fn rebuild_index(
         &self,
         _index_id: u64,
-        _request: WikiIndexRebuildRequest,
-    ) -> BackendApiResult<WikiIndexDocument> {
+        _request: OkfIndexRebuildRequest,
+    ) -> BackendApiResult<OkfIndexDocument> {
         Err(BackendApiError::not_implemented("indexes.rebuild"))
     }
 

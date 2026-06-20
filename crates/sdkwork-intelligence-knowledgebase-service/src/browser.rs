@@ -4,8 +4,8 @@ use crate::ports::{
         KnowledgeAccessRole,
     },
     knowledge_browser_projection_store::{
-        KnowledgeBrowserDocumentProjection, KnowledgeBrowserProjectionStore,
-        KnowledgeBrowserProjectionStoreError, KnowledgeBrowserWikiPageProjection,
+        KnowledgeBrowserDocumentProjection, KnowledgeBrowserOkfConceptProjection,
+        KnowledgeBrowserProjectionStore, KnowledgeBrowserProjectionStoreError,
     },
     knowledge_drive_node_tree::{
         DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodeSummary,
@@ -23,7 +23,7 @@ use thiserror::Error;
 
 const DEFAULT_BROWSER_PAGE_SIZE: u32 = 50;
 const MAX_BROWSER_PAGE_SIZE: u32 = 200;
-const WIKI_VIEW_ROOT_PATH: &str = "wiki";
+const OKF_VIEW_ROOT_PATH: &str = "okf";
 const OUTPUTS_VIEW_ROOT_PATH: &str = "output";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -129,7 +129,7 @@ impl<'a> KnowledgeBrowserService<'a> {
             .into_iter()
             .map(|projection| (projection.drive_node_id.clone(), projection))
             .collect::<HashMap<_, _>>();
-        let wiki_projection_by_path = if request.view == KnowledgeBrowserView::Wiki {
+        let okf_projection_by_path = if request.view == KnowledgeBrowserView::OkfBundle {
             let logical_paths = drive_page
                 .nodes
                 .iter()
@@ -137,7 +137,7 @@ impl<'a> KnowledgeBrowserService<'a> {
                 .map(|node| node.path.trim_start_matches('/').to_string())
                 .collect::<Vec<_>>();
             self.projections
-                .batch_wiki_page_projections(request.space_id, logical_paths)
+                .batch_okf_concept_projections(request.space_id, logical_paths)
                 .await?
                 .into_iter()
                 .map(|projection| (projection.logical_path.clone(), projection))
@@ -151,14 +151,13 @@ impl<'a> KnowledgeBrowserService<'a> {
             .into_iter()
             .map(|node| {
                 let projection = document_projection_by_node.get(&node.drive_node_id);
-                let wiki_projection =
-                    wiki_projection_by_path.get(node.path.trim_start_matches('/'));
+                let okf_projection = okf_projection_by_path.get(node.path.trim_start_matches('/'));
                 drive_node_to_browser_node(
                     &drive_space_id,
                     request.view,
                     node,
                     projection,
-                    wiki_projection,
+                    okf_projection,
                 )
             })
             .collect();
@@ -191,7 +190,7 @@ impl<'a> KnowledgeBrowserService<'a> {
 
         let root_path = match view {
             KnowledgeBrowserView::Files => return Ok(None),
-            KnowledgeBrowserView::Wiki => WIKI_VIEW_ROOT_PATH,
+            KnowledgeBrowserView::OkfBundle => OKF_VIEW_ROOT_PATH,
             KnowledgeBrowserView::Outputs => OUTPUTS_VIEW_ROOT_PATH,
         };
 
@@ -260,7 +259,7 @@ fn path_is_within_root(path: &str, root_path: &str) -> bool {
 fn view_name(view: KnowledgeBrowserView) -> &'static str {
     match view {
         KnowledgeBrowserView::Files => "files",
-        KnowledgeBrowserView::Wiki => "wiki",
+        KnowledgeBrowserView::OkfBundle => "okf",
         KnowledgeBrowserView::Outputs => "outputs",
     }
 }
@@ -276,7 +275,7 @@ fn drive_node_to_browser_node(
     view: KnowledgeBrowserView,
     node: KnowledgeDriveNodeSummary,
     projection: Option<&KnowledgeBrowserDocumentProjection>,
-    wiki_projection: Option<&KnowledgeBrowserWikiPageProjection>,
+    okf_projection: Option<&KnowledgeBrowserOkfConceptProjection>,
 ) -> KnowledgeBrowserNode {
     let node_type = browser_node_type(view, node.kind);
 
@@ -290,16 +289,16 @@ fn drive_node_to_browser_node(
         drive_node_id: Some(node.drive_node_id),
         document_id: projection.map(|projection| projection.document_id),
         document_version_id: projection.and_then(|projection| projection.current_version_id),
-        wiki_page_id: wiki_projection.map(|projection| projection.page_id),
-        wiki_revision_id: wiki_projection.and_then(|projection| projection.current_revision_id),
+        okf_concept_id: okf_projection.map(|projection| projection.concept_row_id),
+        okf_revision_id: okf_projection.and_then(|projection| projection.current_revision_id),
         mime_type: node.content_type,
         size_bytes: node.size_bytes,
         ingest_state: projection.map(|projection| projection.ingest_state.clone()),
         parse_state: projection.map(|projection| projection.parse_state.clone()),
         index_state: projection.map(|projection| projection.index_state.clone()),
-        wiki_state: wiki_projection
+        okf_state: okf_projection
             .map(|projection| projection.publish_state.as_str().to_string())
-            .or_else(|| projection.map(|projection| projection.wiki_state.clone())),
+            .or_else(|| projection.map(|projection| projection.okf_state.clone())),
         children_count: node.children_count,
         updated_at: node.updated_at,
         permissions: match node.kind {
@@ -313,11 +312,13 @@ fn browser_node_type(view: KnowledgeBrowserView, kind: DriveNodeKind) -> Knowled
     match (view, kind) {
         (_, DriveNodeKind::Folder) => match view {
             KnowledgeBrowserView::Outputs => KnowledgeBrowserNodeType::VirtualFolder,
-            KnowledgeBrowserView::Files | KnowledgeBrowserView::Wiki => {
+            KnowledgeBrowserView::Files | KnowledgeBrowserView::OkfBundle => {
                 KnowledgeBrowserNodeType::Folder
             }
         },
-        (KnowledgeBrowserView::Wiki, DriveNodeKind::File) => KnowledgeBrowserNodeType::WikiPage,
+        (KnowledgeBrowserView::OkfBundle, DriveNodeKind::File) => {
+            KnowledgeBrowserNodeType::OkfConcept
+        }
         (KnowledgeBrowserView::Outputs, DriveNodeKind::File) => KnowledgeBrowserNodeType::Report,
         (KnowledgeBrowserView::Files, DriveNodeKind::File) => KnowledgeBrowserNodeType::Document,
     }

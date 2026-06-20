@@ -9,6 +9,8 @@ mod id;
 mod index_store;
 pub mod mapper;
 pub mod migrations;
+mod okf_concept_link_store;
+mod okf_concept_store;
 pub mod repository;
 mod retrieval_profile_store;
 mod retrieval_store;
@@ -17,7 +19,6 @@ mod sqlite_context_binding_store;
 mod sqlite_import_stores;
 mod sqlite_outbox_store;
 mod sqlite_space_stores;
-mod wiki_page_store;
 
 pub mod postgres_pgvector_retrieval;
 
@@ -34,6 +35,8 @@ pub use drive_object_ref_store::SqliteKnowledgeDriveObjectRefStore;
 pub use embedding_store::SqliteKnowledgeEmbeddingStore;
 pub use id::{KnowledgeIdGenerator, KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator};
 pub use index_store::{KnowledgeIndexStoreError, SqliteKnowledgeIndexStore};
+pub use okf_concept_link_store::SqliteKnowledgeOkfConceptLinkStore;
+pub use okf_concept_store::SqliteKnowledgeOkfConceptStore;
 pub use postgres_pgvector_retrieval::PgVectorKnowledgeRetrievalBackend;
 pub use retrieval_profile_store::{
     KnowledgeRetrievalProfileStoreError, SqliteKnowledgeRetrievalProfileStore,
@@ -46,5 +49,4 @@ pub use sqlite_import_stores::{
     SqliteKnowledgeSourceStore,
 };
 pub use sqlite_outbox_store::SqliteKnowledgeOutboxStore;
-pub use sqlite_space_stores::{SqliteKnowledgeSpaceStore, SqliteKnowledgeWikiFileEntryStore};
-pub use wiki_page_store::SqliteKnowledgeWikiPageStore;
+pub use sqlite_space_stores::{SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeSpaceStore};

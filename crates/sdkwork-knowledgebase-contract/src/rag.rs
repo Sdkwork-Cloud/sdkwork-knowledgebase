@@ -32,9 +32,9 @@ pub enum KnowledgeAgentStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum KnowledgeAgentKnowledgeMode {
-    /// Karpathy-style llm-wiki page lookup over wiki pages and index.
+    /// OKF bundle concept lookup over published concepts and bundle index.
     #[default]
-    LlmWiki,
+    OkfBundle,
     /// Chunk-based hybrid / vector retrieval over indexed knowledge.
     Rag,
 }

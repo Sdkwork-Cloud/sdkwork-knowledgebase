@@ -76,7 +76,6 @@
   "database": {
     "appPrefix": "SDKWORK_KNOWLEDGEBASE"
   },
-  "iamDevDefaultsProfile": "configs/topology/standalone.unified-process.development.env",
   "components": {
     "appApiRouter": {
       "crate": "sdkwork-knowledgebase-api-server",

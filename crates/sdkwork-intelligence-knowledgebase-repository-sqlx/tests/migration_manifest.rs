@@ -24,11 +24,11 @@ const REQUIRED_CORE_TABLES: [&str; 22] = [
     "kb_agent_knowledge_binding",
     "kb_ingestion_job",
     "kb_ingestion_job_item",
-    "kb_wiki_page",
-    "kb_wiki_page_revision",
-    "kb_wiki_file_entry",
-    "kb_wiki_schema_profile",
-    "kb_wiki_log_entry",
+    "kb_okf_concept",
+    "kb_okf_concept_revision",
+    "kb_okf_bundle_file",
+    "kb_okf_schema_profile",
+    "kb_okf_log_entry",
     "kb_local_mirror_package",
 ];
 
@@ -71,16 +71,16 @@ const REQUIRED_CORE_INDEXES: [&str; 49] = [
     "uk_kb_ingestion_job_uuid",
     "uk_kb_ingestion_job_idempotency",
     "uk_kb_ingestion_job_item_uuid",
-    "uk_kb_wiki_page_uuid",
-    "uk_kb_wiki_page_slug",
-    "uk_kb_wiki_page_path",
-    "idx_kb_wiki_page_state",
-    "uk_kb_wiki_page_revision_uuid",
-    "uk_kb_wiki_page_revision_no",
-    "uk_kb_wiki_file_entry_uuid",
-    "uk_kb_wiki_file_entry_path",
-    "uk_kb_wiki_schema_profile_uuid",
-    "uk_kb_wiki_log_entry_uuid",
+    "uk_kb_okf_concept_uuid",
+    "uk_kb_okf_concept_id",
+    "uk_kb_okf_concept_path",
+    "idx_kb_okf_concept_state",
+    "uk_kb_okf_concept_revision_uuid",
+    "uk_kb_okf_concept_revision_no",
+    "uk_kb_okf_bundle_file_uuid",
+    "uk_kb_okf_bundle_file_path",
+    "uk_kb_okf_schema_profile_uuid",
+    "uk_kb_okf_log_entry_uuid",
     "uk_kb_local_mirror_package_uuid",
 ];
 
@@ -88,7 +88,7 @@ const REQUIRED_CORE_INDEXES: [&str; 49] = [
 fn core_migrations_include_required_knowledgebase_tables() {
     for migration in [POSTGRES_CORE_MIGRATION, SQLITE_CORE_MIGRATION] {
         assert!(migration.contains("description"));
-        assert!(migration.contains("llm_wiki_initialized"));
+        assert!(migration.contains("okf_bundle_initialized"));
 
         let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
         for table in REQUIRED_CORE_TABLES {
@@ -161,10 +161,10 @@ fn core_migrations_define_identity_and_idempotency_uniques() {
             "uk_kb_document_identity",
             "uk_kb_document_version_no",
             "uk_kb_ingestion_job_idempotency",
-            "uk_kb_wiki_page_slug",
-            "uk_kb_wiki_page_revision_no",
-            "uk_kb_wiki_file_entry_path",
-            "uk_kb_wiki_log_entry_sequence",
+            "uk_kb_okf_concept_id",
+            "uk_kb_okf_concept_revision_no",
+            "uk_kb_okf_bundle_file_path",
+            "uk_kb_okf_log_entry_sequence",
         ] {
             assert!(
                 indexes.contains(index),
@@ -204,8 +204,8 @@ fn core_migrations_define_document_identity_scope_strategy() {
 fn core_migrations_harden_nullable_identity_columns() {
     assert!(POSTGRES_CORE_MIGRATION.contains("idempotency_key VARCHAR(128) NOT NULL"));
     assert!(SQLITE_CORE_MIGRATION.contains("idempotency_key TEXT NOT NULL"));
-    assert!(POSTGRES_CORE_MIGRATION.contains("wiki_log_sequence_counter BIGINT NOT NULL DEFAULT 0"));
-    assert!(SQLITE_CORE_MIGRATION.contains("wiki_log_sequence_counter INTEGER NOT NULL DEFAULT 0"));
+    assert!(POSTGRES_CORE_MIGRATION.contains("okf_log_sequence_counter BIGINT NOT NULL DEFAULT 0"));
+    assert!(SQLITE_CORE_MIGRATION.contains("okf_log_sequence_counter INTEGER NOT NULL DEFAULT 0"));
     assert!(POSTGRES_CORE_MIGRATION.contains("revision_counter BIGINT NOT NULL DEFAULT 0"));
     assert!(SQLITE_CORE_MIGRATION.contains("revision_counter INTEGER NOT NULL DEFAULT 0"));
 

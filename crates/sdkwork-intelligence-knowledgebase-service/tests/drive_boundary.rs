@@ -39,14 +39,14 @@ fn service_exposes_drive_storage_port() {
 #[test]
 fn storage_requests_preserve_logical_path_and_role() {
     let request = PutKnowledgeObjectRequest::text(
-        "wiki/index.md",
-        "wiki_index",
+        "okf/index.md",
+        "bundle_index",
         "# Index",
         Some("abc123".to_string()),
     );
 
-    assert_eq!(request.logical_path, "wiki/index.md");
-    assert_eq!(request.object_role, "wiki_index");
+    assert_eq!(request.logical_path, "okf/index.md");
+    assert_eq!(request.object_role, "bundle_index");
     assert_eq!(request.content_type, "text/markdown; charset=utf-8");
     assert_eq!(request.body, b"# Index");
     assert_eq!(request.checksum_sha256_hex.as_deref(), Some("abc123"));

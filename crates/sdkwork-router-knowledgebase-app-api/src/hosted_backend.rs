@@ -5,14 +5,14 @@ use sdkwork_intelligence_knowledgebase_service::{
     ports::{
         knowledge_drive_storage::{KnowledgeDriveStorage, PutKnowledgeObjectRequest},
         knowledge_ingestion_job_store::{CreateIngestionJobRecord, IngestionJobStore},
+        knowledge_okf_bundle_file_store::{
+            CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
+        },
+        knowledge_okf_concept_store::{
+            AppendKnowledgeOkfLogEntryRecord, KnowledgeOkfConceptStore,
+            MarkKnowledgeOkfConceptCurrentRevisionRecord,
+        },
         knowledge_source_store::{CreateKnowledgeSourceRecord, KnowledgeSourceStore},
-        knowledge_wiki_file_entry_store::{
-            CreateKnowledgeWikiFileEntryRecord, KnowledgeWikiFileEntryStore,
-        },
-        knowledge_wiki_page_store::{
-            AppendKnowledgeWikiLogEntryRecord, KnowledgeWikiPageStore,
-            MarkKnowledgeWikiCurrentRevisionRecord,
-        },
     },
     retrieval::KnowledgeRetrievalService,
 };
@@ -20,23 +20,23 @@ use sdkwork_knowledgebase_agent_provider::{
     resolve_claw_router_client_from_env, ClawRouterEmbeddingClient,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
-use sdkwork_knowledgebase_contract::wiki::WikiPagePublishState;
-use sdkwork_knowledgebase_contract::wiki_file::WikiFileEntryType;
+use sdkwork_knowledgebase_contract::OkfBundleFileKind;
+use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest,
+    KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList, KnowledgeOkfProfileRequest,
     KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
     KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList,
-    KnowledgeWikiFileEntry, KnowledgeWikiFileEntryList, KnowledgeWikiSchemaProfileRequest,
-    WikiCandidateResult, WikiCandidateResultList, WikiCandidateReviewRequest,
-    WikiCompileJobRequest, WikiExportRequest, WikiIndexDocument, WikiIndexRebuildRequest,
-    WikiLogEntry, WikiPagePublishRequest, WikiPageSummary, WikiQualityRun, WikiQualityRunRequest,
+    OkfBundleExportRequest, OkfCandidateResult, OkfCandidateResultList, OkfCandidateReviewRequest,
+    OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument,
+    OkfIndexRebuildRequest, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
 use sdkwork_router_knowledgebase_backend_api::{
     BackendApiError, BackendApiResult, KnowledgeBackendApi,
 };
 
 use crate::{
-    hosted_support::{page_to_summary, persist_wiki_schema_profile, rebuild_wiki_index_document},
+    hosted_support::{concept_to_summary, persist_okf_profile, rebuild_okf_index_document},
     runtime::KnowledgebaseRuntime,
 };
 use std::sync::Arc;
@@ -51,18 +51,18 @@ impl HostedBackendApi {
         Self { runtime }
     }
 
-    async fn wiki_space_for_log(&self) -> BackendApiResult<u64> {
+    async fn okf_space_for_log(&self) -> BackendApiResult<u64> {
         self.runtime
             .space_store()
-            .find_first_wiki_initialized_space()
+            .find_first_okf_bundle_initialized_space()
             .await
             .map_err(|error| map_internal(error.to_string()))?
             .map(|space| space.id)
             .ok_or_else(|| {
                 BackendApiError::new(
                     axum::http::StatusCode::NOT_FOUND,
-                    "wiki_space_not_initialized",
-                    "no wiki-initialized knowledge space is available for this tenant",
+                    "okf_bundle_not_initialized",
+                    "no okf-bundle-initialized knowledge space is available for this tenant",
                 )
             })
     }
@@ -152,14 +152,14 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .map_err(|error| map_internal(error.to_string()))
     }
 
-    async fn create_wiki_compile_job(
+    async fn create_okf_compile_job(
         &self,
-        request: WikiCompileJobRequest,
+        request: OkfCompileJobRequest,
     ) -> BackendApiResult<IngestionJob> {
         if request.space_id == 0 {
             return Err(BackendApiError::new(
                 axum::http::StatusCode::BAD_REQUEST,
-                "invalid_wiki_compile_job_request",
+                "invalid_okf_compile_job_request",
                 "space_id is required",
             ));
         }
@@ -167,14 +167,14 @@ impl KnowledgeBackendApi for HostedBackendApi {
         let runtime = self.runtime.clone();
         self.create_and_run_background_job(
             space_id,
-            "wiki_compile",
+            "okf_compile",
             format!(
-                "wiki-compile:{}:{}",
+                "okf-compile:{}:{}",
                 request.space_id,
                 request.source_id.unwrap_or(0)
             ),
             || async move {
-                rebuild_wiki_index_document(&runtime, space_id)
+                rebuild_okf_index_document(&runtime, space_id)
                     .await
                     .map(|_| ())
                     .map_err(|error| format!("{error:?}"))
@@ -183,156 +183,156 @@ impl KnowledgeBackendApi for HostedBackendApi {
         .await
     }
 
-    async fn list_wiki_candidates(&self) -> BackendApiResult<WikiCandidateResultList> {
+    async fn list_okf_candidates(&self) -> BackendApiResult<OkfCandidateResultList> {
         let items = self
             .runtime
-            .wiki_page_store()
-            .list_candidate_pages()
+            .okf_concept_store()
+            .list_candidate_concepts()
             .await
-            .map_err(map_wiki_page)?
+            .map_err(map_okf_concept)?
             .into_iter()
-            .map(|(id, state)| WikiCandidateResult {
+            .map(|(id, state)| OkfCandidateResult {
                 id,
                 state: state.as_str().to_string(),
             })
             .collect();
-        Ok(WikiCandidateResultList { items })
+        Ok(OkfCandidateResultList { items })
     }
 
-    async fn approve_wiki_candidate(
+    async fn approve_okf_candidate(
         &self,
         candidate_id: u64,
-        _request: WikiCandidateReviewRequest,
-    ) -> BackendApiResult<WikiCandidateResult> {
+        _request: OkfCandidateReviewRequest,
+    ) -> BackendApiResult<OkfCandidateResult> {
         self.runtime
-            .wiki_page_store()
-            .update_page_publish_state(candidate_id, WikiPagePublishState::Published)
+            .okf_concept_store()
+            .update_concept_publish_state(candidate_id, OkfConceptPublishState::Published)
             .await
-            .map_err(map_wiki_page)?;
-        Ok(WikiCandidateResult {
+            .map_err(map_okf_concept)?;
+        Ok(OkfCandidateResult {
             id: candidate_id,
-            state: WikiPagePublishState::Published.as_str().to_string(),
+            state: OkfConceptPublishState::Published.as_str().to_string(),
         })
     }
 
-    async fn reject_wiki_candidate(
+    async fn reject_okf_candidate(
         &self,
         candidate_id: u64,
-        _request: WikiCandidateReviewRequest,
-    ) -> BackendApiResult<WikiCandidateResult> {
+        _request: OkfCandidateReviewRequest,
+    ) -> BackendApiResult<OkfCandidateResult> {
         self.runtime
-            .wiki_page_store()
-            .update_page_publish_state(candidate_id, WikiPagePublishState::Rejected)
+            .okf_concept_store()
+            .update_concept_publish_state(candidate_id, OkfConceptPublishState::Rejected)
             .await
-            .map_err(map_wiki_page)?;
-        Ok(WikiCandidateResult {
+            .map_err(map_okf_concept)?;
+        Ok(OkfCandidateResult {
             id: candidate_id,
-            state: WikiPagePublishState::Rejected.as_str().to_string(),
+            state: OkfConceptPublishState::Rejected.as_str().to_string(),
         })
     }
 
-    async fn publish_wiki_page(
+    async fn publish_okf_concept(
         &self,
-        page_id: u64,
-        _request: WikiPagePublishRequest,
-    ) -> BackendApiResult<WikiPageSummary> {
+        concept_id: u64,
+        _request: OkfConceptPublishRequest,
+    ) -> BackendApiResult<OkfConceptSummary> {
         let page = self
             .runtime
-            .wiki_page_store()
-            .get_page_by_id(page_id)
+            .okf_concept_store()
+            .get_concept_by_row_id(concept_id)
             .await
-            .map_err(map_wiki_page)?;
+            .map_err(map_okf_concept)?;
         let revision_id = page.current_revision_id.ok_or_else(|| {
             BackendApiError::new(
                 axum::http::StatusCode::CONFLICT,
-                "wiki_page_not_ready",
-                format!("wiki page {page_id} has no current revision to publish"),
+                "okf_concept_not_ready",
+                format!("okf concept {concept_id} has no current revision to publish"),
             )
         })?;
         let published = self
             .runtime
-            .wiki_page_store()
-            .mark_current_revision(MarkKnowledgeWikiCurrentRevisionRecord {
-                page_id,
+            .okf_concept_store()
+            .mark_current_revision(MarkKnowledgeOkfConceptCurrentRevisionRecord {
+                concept_row_id: concept_id,
                 revision_id,
-                publish_state: WikiPagePublishState::Published,
+                publish_state: OkfConceptPublishState::Published,
             })
             .await
-            .map_err(map_wiki_page)?;
-        Ok(page_to_summary(published))
+            .map_err(map_okf_concept)?;
+        Ok(concept_to_summary(published))
     }
 
-    async fn create_wiki_schema_profile(
+    async fn create_okf_profile(
         &self,
-        request: KnowledgeWikiSchemaProfileRequest,
-    ) -> BackendApiResult<KnowledgeWikiFileEntry> {
+        request: KnowledgeOkfProfileRequest,
+    ) -> BackendApiResult<KnowledgeOkfBundleFile> {
         if request.space_id == 0 {
             return Err(BackendApiError::new(
                 axum::http::StatusCode::BAD_REQUEST,
-                "invalid_wiki_schema_profile_request",
+                "invalid_okf_profile_request",
                 "space_id is required",
             ));
         }
-        persist_wiki_schema_profile(&self.runtime, request.space_id)
+        persist_okf_profile(&self.runtime, request.space_id)
             .await
             .map_err(map_api_error)
     }
 
-    async fn update_wiki_schema_profile(
+    async fn update_okf_profile(
         &self,
         _profile_id: u64,
-        request: KnowledgeWikiSchemaProfileRequest,
-    ) -> BackendApiResult<KnowledgeWikiFileEntry> {
-        self.create_wiki_schema_profile(request).await
+        request: KnowledgeOkfProfileRequest,
+    ) -> BackendApiResult<KnowledgeOkfBundleFile> {
+        self.create_okf_profile(request).await
     }
 
-    async fn rebuild_wiki_index(
+    async fn rebuild_okf_index(
         &self,
-        request: WikiIndexRebuildRequest,
-    ) -> BackendApiResult<WikiIndexDocument> {
+        request: OkfIndexRebuildRequest,
+    ) -> BackendApiResult<OkfIndexDocument> {
         if request.space_id == 0 {
             return Err(BackendApiError::new(
                 axum::http::StatusCode::BAD_REQUEST,
-                "invalid_wiki_index_rebuild_request",
+                "invalid_okf_index_rebuild_request",
                 "space_id is required",
             ));
         }
-        rebuild_wiki_index_document(&self.runtime, request.space_id)
+        rebuild_okf_index_document(&self.runtime, request.space_id)
             .await
             .map_err(map_api_error)
     }
 
-    async fn create_wiki_log_entry(&self, request: WikiLogEntry) -> BackendApiResult<WikiLogEntry> {
-        let space_id = self.wiki_space_for_log().await?;
+    async fn create_okf_log_entry(&self, request: OkfLogEntry) -> BackendApiResult<OkfLogEntry> {
+        let space_id = self.okf_space_for_log().await?;
         self.runtime
-            .wiki_page_store()
-            .append_log_entry(AppendKnowledgeWikiLogEntryRecord {
+            .okf_concept_store()
+            .append_log_entry(AppendKnowledgeOkfLogEntryRecord {
                 space_id,
                 event_type: request.event_type.as_str().to_string(),
                 event_time: request.occurred_at,
                 title: request.title.clone(),
                 actor: request.actor.clone(),
-                affected_pages: request.affected_pages.clone(),
+                affected_concepts: request.affected_concepts.clone(),
                 audit_event_id: request.audit_event_id.clone(),
                 warnings: request.warnings.clone(),
                 privacy_level: "internal".to_string(),
             })
             .await
-            .map_err(map_wiki_page)
+            .map_err(map_okf_concept)
     }
 
-    async fn create_wiki_export(
+    async fn create_okf_export(
         &self,
-        request: WikiExportRequest,
-    ) -> BackendApiResult<KnowledgeWikiFileEntry> {
+        request: OkfBundleExportRequest,
+    ) -> BackendApiResult<KnowledgeOkfBundleFile> {
         if request.space_id == 0 || request.export_type.trim().is_empty() {
             return Err(BackendApiError::new(
                 axum::http::StatusCode::BAD_REQUEST,
-                "invalid_wiki_export_request",
+                "invalid_okf_export_request",
                 "space_id and export_type are required",
             ));
         }
-        let document = rebuild_wiki_index_document(&self.runtime, request.space_id)
+        let document = rebuild_okf_index_document(&self.runtime, request.space_id)
             .await
             .map_err(map_api_error)?;
         let logical_path = format!(
@@ -352,11 +352,11 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .await
             .map_err(|error| map_api_error(error.into()))?;
         self.runtime
-            .wiki_file_entry_store()
-            .create_file_entry(CreateKnowledgeWikiFileEntryRecord {
+            .okf_bundle_file_store()
+            .create_file_entry(CreateKnowledgeOkfBundleFileRecord {
                 space_id: request.space_id,
                 logical_path,
-                entry_type: WikiFileEntryType::OutputExport,
+                file_kind: OkfBundleFileKind::OutputExport,
                 artifact_role: object_ref.object_role.clone(),
                 drive_bucket: object_ref.bucket.clone(),
                 drive_object_key: object_ref.object_key.clone(),
@@ -366,20 +366,20 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .map_err(|error| map_internal(error.to_string()))
     }
 
-    async fn retrieve_wiki_export(
+    async fn retrieve_okf_export(
         &self,
         export_id: u64,
-    ) -> BackendApiResult<KnowledgeWikiFileEntry> {
+    ) -> BackendApiResult<KnowledgeOkfBundleFile> {
         self.runtime
-            .wiki_file_entry_store()
+            .okf_bundle_file_store()
             .get_file_entry_by_id(export_id)
             .await
             .map_err(|error| {
                 let detail = error.to_string();
-                if detail.contains("missing wiki file entry") {
+                if detail.contains("missing okf bundle file") {
                     BackendApiError::new(
                         axum::http::StatusCode::NOT_FOUND,
-                        "wiki_export_not_found",
+                        "okf_export_not_found",
                         detail,
                     )
                 } else {
@@ -388,24 +388,24 @@ impl KnowledgeBackendApi for HostedBackendApi {
             })
     }
 
-    async fn list_wiki_file_entries(&self) -> BackendApiResult<KnowledgeWikiFileEntryList> {
+    async fn list_okf_bundle_files(&self) -> BackendApiResult<KnowledgeOkfBundleFileList> {
         let items = self
             .runtime
-            .wiki_file_entry_store()
+            .okf_bundle_file_store()
             .list_file_entries()
             .await
             .map_err(|error| map_internal(error.to_string()))?;
-        Ok(KnowledgeWikiFileEntryList { items })
+        Ok(KnowledgeOkfBundleFileList { items })
     }
 
-    async fn create_wiki_lint_run(
+    async fn create_okf_lint_run(
         &self,
-        request: WikiQualityRunRequest,
-    ) -> BackendApiResult<WikiQualityRun> {
+        request: OkfQualityRunRequest,
+    ) -> BackendApiResult<OkfQualityRun> {
         if request.space_id == 0 {
             return Err(BackendApiError::new(
                 axum::http::StatusCode::BAD_REQUEST,
-                "invalid_wiki_quality_run_request",
+                "invalid_okf_quality_run_request",
                 "space_id is required",
             ));
         }
@@ -414,34 +414,34 @@ impl KnowledgeBackendApi for HostedBackendApi {
         let job = self
             .create_and_run_background_job(
                 space_id,
-                "wiki_lint_run",
+                "okf_lint_run",
                 format!(
-                    "wiki-lint:{}:{}",
+                    "okf-lint:{}:{}",
                     request.space_id,
                     request.profile.as_deref().unwrap_or("default")
                 ),
                 || async move {
-                    rebuild_wiki_index_document(&runtime, space_id)
+                    rebuild_okf_index_document(&runtime, space_id)
                         .await
                         .map(|_| ())
                         .map_err(|error| format!("{error:?}"))
                 },
             )
             .await?;
-        Ok(WikiQualityRun {
+        Ok(OkfQualityRun {
             id: job.id,
             state: format!("{:?}", job.state).to_ascii_lowercase(),
         })
     }
 
-    async fn create_wiki_eval_run(
+    async fn create_okf_eval_run(
         &self,
-        request: WikiQualityRunRequest,
-    ) -> BackendApiResult<WikiQualityRun> {
+        request: OkfQualityRunRequest,
+    ) -> BackendApiResult<OkfQualityRun> {
         if request.space_id == 0 {
             return Err(BackendApiError::new(
                 axum::http::StatusCode::BAD_REQUEST,
-                "invalid_wiki_quality_run_request",
+                "invalid_okf_quality_run_request",
                 "space_id is required",
             ));
         }
@@ -450,21 +450,21 @@ impl KnowledgeBackendApi for HostedBackendApi {
         let job = self
             .create_and_run_background_job(
                 space_id,
-                "wiki_eval_run",
+                "okf_eval_run",
                 format!(
-                    "wiki-eval:{}:{}",
+                    "okf-eval:{}:{}",
                     request.space_id,
                     request.profile.as_deref().unwrap_or("default")
                 ),
                 || async move {
-                    persist_wiki_schema_profile(&runtime, space_id)
+                    persist_okf_profile(&runtime, space_id)
                         .await
                         .map(|_| ())
                         .map_err(|error| format!("{error:?}"))
                 },
             )
             .await?;
-        Ok(WikiQualityRun {
+        Ok(OkfQualityRun {
             id: job.id,
             state: format!("{:?}", job.state).to_ascii_lowercase(),
         })
@@ -530,8 +530,8 @@ impl KnowledgeBackendApi for HostedBackendApi {
     async fn rebuild_index(
         &self,
         index_id: u64,
-        request: WikiIndexRebuildRequest,
-    ) -> BackendApiResult<WikiIndexDocument> {
+        request: OkfIndexRebuildRequest,
+    ) -> BackendApiResult<OkfIndexDocument> {
         let index = self.retrieve_index(index_id).await?;
         let space_id = if request.space_id == 0 {
             index.space_id
@@ -561,14 +561,14 @@ impl KnowledgeBackendApi for HostedBackendApi {
                 ));
             };
 
-            return Ok(WikiIndexDocument {
+            return Ok(OkfIndexDocument {
                 markdown: format!(
                     "# RAG embedding index rebuild\n\nIndexed {indexed} chunk embedding(s) for index {index_id} in space {space_id}."
                 ),
             });
         }
 
-        rebuild_wiki_index_document(&self.runtime, space_id)
+        rebuild_okf_index_document(&self.runtime, space_id)
             .await
             .map_err(map_api_error)
     }
@@ -685,14 +685,14 @@ fn map_api_error(error: crate::ApiError) -> BackendApiError {
     error.to_backend_api_error()
 }
 
-fn map_wiki_page(
-    error: sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_page_store::KnowledgeWikiPageStoreError,
+fn map_okf_concept(
+    error: sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::KnowledgeOkfConceptStoreError,
 ) -> BackendApiError {
     let detail = error.to_string();
-    if detail.contains("missing wiki page") {
+    if detail.contains("missing okf concept") {
         BackendApiError::new(
             axum::http::StatusCode::NOT_FOUND,
-            "wiki_page_not_found",
+            "okf_concept_not_found",
             detail,
         )
     } else {

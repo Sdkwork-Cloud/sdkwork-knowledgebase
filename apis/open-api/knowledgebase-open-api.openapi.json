@@ -75,7 +75,7 @@
             }
           }
         },
-        "summary": "Create a knowledge retrieval",
+        "description": "Create a knowledge retrieval",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "open-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
@@ -150,7 +150,7 @@
             }
           }
         ],
-        "summary": "Retrieve a knowledge retrieval result",
+        "description": "Retrieve a knowledge retrieval result",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "open-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
@@ -223,7 +223,7 @@
             }
           }
         },
-        "summary": "Create a knowledge context pack",
+        "description": "Create a knowledge context pack",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "open-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
@@ -296,7 +296,7 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
-        "summary": "Create an ingestion job",
+        "description": "Create an ingestion job",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "open-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
@@ -370,7 +370,7 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
-        "summary": "Retrieve an ingestion job",
+        "description": "Retrieve an ingestion job",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "open-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
@@ -433,7 +433,7 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
-        "summary": "List knowledge documents",
+        "description": "List knowledge documents",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "open-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
@@ -507,7 +507,7 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
-        "summary": "Retrieve a knowledge document",
+        "description": "Retrieve a knowledge document",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "open-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
@@ -624,7 +624,7 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
-        "summary": "List browser view of a knowledge space",
+        "description": "List browser view of a knowledge space",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "open-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-open-api",
@@ -1485,7 +1485,7 @@
         "type": "string",
         "enum": [
           "files",
-          "wiki",
+          "okf_bundle",
           "outputs"
         ]
       },
@@ -1593,14 +1593,14 @@
             ],
             "format": "uint64"
           },
-          "wikiPageId": {
+          "conceptId": {
             "type": [
               "integer",
               "null"
             ],
             "format": "uint64"
           },
-          "wikiRevisionId": {
+          "conceptRevisionId": {
             "type": [
               "integer",
               "null"
@@ -1638,7 +1638,7 @@
               "null"
             ]
           },
-          "wikiState": {
+          "okfState": {
             "type": [
               "string",
               "null"
@@ -1664,7 +1664,7 @@
         "enum": [
           "folder",
           "document",
-          "wiki_page",
+          "okf_concept",
           "candidate",
           "answer",
           "report",

@@ -8,6 +8,6 @@ export interface KnowledgeSpace {
   description?: string | null;
   driveSpaceId?: string | null;
   status: KnowledgeSpaceStatus;
-  llmWikiInitialized: boolean;
+  okfBundleInitialized: boolean;
   knowledgeMode?: KnowledgeAgentKnowledgeMode;
 }

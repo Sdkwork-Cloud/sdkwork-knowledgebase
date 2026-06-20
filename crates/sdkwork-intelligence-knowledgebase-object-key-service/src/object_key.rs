@@ -23,7 +23,7 @@ impl KnowledgeObjectKeyPlanner {
         format!("knowledge/{}/{}/", self.tenant_id, self.space_uuid)
     }
 
-    pub fn llm_wiki_file(&self, logical_path: &str) -> Result<String, ObjectKeyPlanError> {
+    pub fn okf_bundle_file(&self, logical_path: &str) -> Result<String, ObjectKeyPlanError> {
         let relative_path = safe_relative_path(logical_path)?;
         Ok(format!(
             "knowledge/{}/{}/{}",

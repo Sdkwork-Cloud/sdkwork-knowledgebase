@@ -18,7 +18,7 @@ pub trait KnowledgeSpaceStore: Send + Sync {
         drive_space_id: String,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError>;
 
-    async fn mark_llm_wiki_initialized(
+    async fn mark_okf_bundle_initialized(
         &self,
         space_id: u64,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError>;
@@ -30,7 +30,7 @@ pub trait KnowledgeSpaceStore: Send + Sync {
 pub struct CreateKnowledgeSpaceRecord {
     pub name: String,
     pub description: Option<String>,
-    pub llm_wiki_initialized: bool,
+    pub okf_bundle_initialized: bool,
     pub knowledge_mode: KnowledgeAgentKnowledgeMode,
 }
 

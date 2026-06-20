@@ -1,6 +1,6 @@
 export interface KnowledgeAgentChatCitation {
   documentId?: string | null;
-  wikiPageId?: string | null;
+  conceptId?: string | null;
   title: string;
   sourceUri?: string | null;
   logicalPath?: string | null;

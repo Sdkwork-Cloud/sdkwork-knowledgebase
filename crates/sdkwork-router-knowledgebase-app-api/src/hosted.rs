@@ -6,6 +6,7 @@ use sdkwork_intelligence_knowledgebase_service::{
     browser::{KnowledgeBrowserAccessContext, KnowledgeBrowserService},
     imports::KnowledgeDriveImportService,
     ingest::KnowledgeApiPayloadIngestService,
+    okf::{OkfBundleFileRegistryService, OkfBundleInitializerService, OkfConceptService},
     ports::{
         knowledge_document_store::{
             CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
@@ -14,41 +15,38 @@ use sdkwork_intelligence_knowledgebase_service::{
             CreateKnowledgeDocumentVersionRecord, KnowledgeDocumentVersionStore,
         },
         knowledge_ingestion_job_store::IngestionJobStore,
+        knowledge_okf_bundle_file_store::{
+            CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
+        },
         knowledge_source_store::KnowledgeSourceStore,
         knowledge_space_store::KnowledgeSpaceStore,
-        knowledge_wiki_file_entry_store::{
-            CreateKnowledgeWikiFileEntryRecord, KnowledgeWikiFileEntryStore,
-        },
     },
     retrieval::KnowledgeRetrievalService,
     space::KnowledgeSpaceService,
-    wiki::{
-        KnowledgeWikiFileRegistryService, KnowledgeWikiInitializerService, KnowledgeWikiPageService,
-    },
 };
-use sdkwork_knowledgebase_contract::wiki_file::WikiFileEntryType;
+use sdkwork_knowledgebase_contract::OkfBundleFileKind;
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeBrowserPage, KnowledgeContextPackRequest,
     KnowledgeDocument, KnowledgeDocumentList, KnowledgeDocumentVersion,
     KnowledgeDocumentVersionList, KnowledgeDriveImportRequest, KnowledgeDriveImportResult,
-    KnowledgeIngestRequest, KnowledgeRetrievalRequest, KnowledgeSpace, KnowledgeWikiFileEntry,
-    KnowledgeWikiPageRevisionList, ListKnowledgeBrowserRequest, PublishKnowledgeWikiPageRequest,
-    WikiContextPackRequest, WikiFileAnswerRequest, WikiIndexDocument, WikiLogDocument,
-    WikiPageSummary, WikiPageSummaryList, WikiPageType, WikiQueryRequest, WikiQueryResult,
-    WikiSchemaDocument,
+    KnowledgeIngestRequest, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList,
+    KnowledgeRetrievalRequest, KnowledgeSpace, ListKnowledgeBrowserRequest, OkfConceptSummary,
+    OkfConceptSummaryList, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument,
+    OkfLogDocument, OkfProfileDocument, OkfQueryRequest, OkfQueryResult,
+    PublishKnowledgeOkfConceptRequest,
 };
 
 use crate::{
     hosted_support::{
-        default_retrieval_methods, format_retrieval_answer, page_to_summary,
-        read_managed_wiki_text, space_binding, wiki_answer_slug, wiki_not_initialized_detail,
-        wiki_paths,
+        concept_to_summary, default_retrieval_methods, format_retrieval_answer,
+        okf_answer_concept_id, okf_bundle_not_initialized_detail, okf_paths, read_managed_okf_text,
+        space_binding,
     },
     runtime::KnowledgebaseRuntime,
     ApiError, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
     KnowledgeDocumentAppService, KnowledgeDriveImportAppService, KnowledgeIngestAppService,
-    KnowledgeSpaceAppService, KnowledgeWikiAppService,
+    KnowledgeOkfAppService, KnowledgeSpaceAppService,
 };
 
 #[derive(Clone)]
@@ -68,11 +66,10 @@ impl KnowledgeSpaceAppService for HostedSpaceService {
         &self,
         request: CreateKnowledgeSpaceRequest,
     ) -> ApiResult<KnowledgeSpace> {
-        let file_registry =
-            KnowledgeWikiFileRegistryService::new(self.runtime.wiki_file_entry_store());
-        let wiki_initializer = KnowledgeWikiInitializerService::new(self.runtime.drive_storage())
+        let file_registry = OkfBundleFileRegistryService::new(self.runtime.okf_bundle_file_store());
+        let okf_initializer = OkfBundleInitializerService::new(self.runtime.drive_storage())
             .with_registry(&file_registry);
-        let service = KnowledgeSpaceService::new(self.runtime.space_store(), &wiki_initializer)
+        let service = KnowledgeSpaceService::new(self.runtime.space_store(), &okf_initializer)
             .with_drive_context(self.runtime.tenant_id_str(), self.runtime.operator_id())
             .with_drive_space_provisioner(self.runtime.drive_space_provisioner())
             .with_access_control(self.runtime.access_control());
@@ -445,22 +442,22 @@ impl KnowledgeBrowserApi for HostedBrowserService {
 }
 
 #[derive(Clone)]
-pub(crate) struct HostedWikiService {
+pub(crate) struct HostedOkfService {
     runtime: KnowledgebaseRuntime,
 }
 
-impl HostedWikiService {
+impl HostedOkfService {
     pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
 
-    fn wiki_page_service(&self) -> KnowledgeWikiPageService<'_> {
-        KnowledgeWikiPageService::new(
+    fn okf_concept_service(&self) -> OkfConceptService<'_> {
+        OkfConceptService::new(
             self.runtime.drive_storage(),
             self.runtime.object_ref_store(),
-            self.runtime.wiki_page_store(),
+            self.runtime.okf_concept_store(),
         )
-        .with_file_entry_store(self.runtime.wiki_file_entry_store())
+        .with_file_entry_store(self.runtime.okf_bundle_file_store())
         .with_drive_workspace(self.runtime.drive_workspace())
     }
 
@@ -471,95 +468,101 @@ impl HostedWikiService {
         )
     }
 
-    async fn resolve_wiki_space(&self) -> ApiResult<KnowledgeSpace> {
+    async fn resolve_okf_space(&self) -> ApiResult<KnowledgeSpace> {
         self.runtime
             .space_store()
-            .find_first_wiki_initialized_space()
+            .find_first_okf_bundle_initialized_space()
             .await
             .map_err(ApiError::from)?
             .ok_or_else(|| {
-                ApiError::not_found("wiki_space_not_initialized", wiki_not_initialized_detail())
+                ApiError::not_found(
+                    "okf_bundle_not_initialized",
+                    okf_bundle_not_initialized_detail(),
+                )
             })
     }
 }
 
 #[async_trait]
-impl KnowledgeWikiAppService for HostedWikiService {
-    async fn list_wiki_pages(&self) -> ApiResult<WikiPageSummaryList> {
+impl KnowledgeOkfAppService for HostedOkfService {
+    async fn list_okf_concepts(&self) -> ApiResult<OkfConceptSummaryList> {
         let items = self
             .runtime
-            .wiki_page_store()
-            .list_all_page_summaries()
+            .okf_concept_store()
+            .list_all_concept_summaries()
             .await
-            .map_err(map_wiki_page_store_error)?;
-        Ok(WikiPageSummaryList { items })
+            .map_err(map_okf_concept_store_error)?;
+        Ok(OkfConceptSummaryList { items })
     }
 
-    async fn retrieve_wiki_page(&self, page_id: u64) -> ApiResult<WikiPageSummary> {
+    async fn retrieve_okf_concept(&self, concept_row_id: u64) -> ApiResult<OkfConceptSummary> {
         let page = self
             .runtime
-            .wiki_page_store()
-            .get_page_by_id(page_id)
+            .okf_concept_store()
+            .get_concept_by_row_id(concept_row_id)
             .await
-            .map_err(map_wiki_page_store_error)?;
-        Ok(page_to_summary(page))
+            .map_err(map_okf_concept_store_error)?;
+        Ok(concept_to_summary(page))
     }
 
-    async fn list_wiki_page_revisions(
+    async fn list_okf_concept_revisions(
         &self,
-        page_id: u64,
-    ) -> ApiResult<KnowledgeWikiPageRevisionList> {
+        concept_row_id: u64,
+    ) -> ApiResult<KnowledgeOkfConceptRevisionList> {
         let items = self
             .runtime
-            .wiki_page_store()
-            .list_page_revisions(page_id)
+            .okf_concept_store()
+            .list_concept_revisions(concept_row_id)
             .await
-            .map_err(map_wiki_page_store_error)?;
-        Ok(KnowledgeWikiPageRevisionList { items })
+            .map_err(map_okf_concept_store_error)?;
+        Ok(KnowledgeOkfConceptRevisionList { items })
     }
 
-    async fn retrieve_wiki_index(&self) -> ApiResult<WikiIndexDocument> {
-        let paths = wiki_paths();
+    async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument> {
+        let paths = okf_paths();
         let markdown =
-            read_managed_wiki_text(self.runtime.drive_storage(), paths.index_md, "wiki_index")
+            read_managed_okf_text(self.runtime.drive_storage(), paths.index_md, "bundle_index")
                 .await?;
-        Ok(WikiIndexDocument { markdown })
+        Ok(OkfIndexDocument { markdown })
     }
 
-    async fn retrieve_wiki_log(&self) -> ApiResult<WikiLogDocument> {
-        let paths = wiki_paths();
+    async fn retrieve_okf_log(&self) -> ApiResult<OkfLogDocument> {
+        let paths = okf_paths();
         let markdown =
-            read_managed_wiki_text(self.runtime.drive_storage(), paths.log_md, "wiki_log").await?;
-        Ok(WikiLogDocument { markdown })
+            read_managed_okf_text(self.runtime.drive_storage(), paths.log_md, "bundle_log").await?;
+        Ok(OkfLogDocument { markdown })
     }
 
-    async fn retrieve_wiki_schema(&self) -> ApiResult<WikiSchemaDocument> {
-        let paths = wiki_paths();
-        let agents_markdown =
-            read_managed_wiki_text(self.runtime.drive_storage(), paths.agents_md, "wiki_schema")
-                .await?;
-        let schema_yaml = read_managed_wiki_text(
+    async fn retrieve_okf_schema(&self) -> ApiResult<OkfProfileDocument> {
+        let paths = okf_paths();
+        let agents_markdown = read_managed_okf_text(
             self.runtime.drive_storage(),
-            paths.schema_yaml,
-            "wiki_schema",
+            paths.agents_md,
+            "bundle_profile",
         )
         .await?;
-        Ok(WikiSchemaDocument {
+        let profile_yaml = read_managed_okf_text(
+            self.runtime.drive_storage(),
+            paths.profile_yaml,
+            "bundle_profile",
+        )
+        .await?;
+        Ok(OkfProfileDocument {
             agents_markdown,
-            schema_yaml,
+            profile_yaml,
         })
     }
 
-    async fn create_wiki_query(&self, request: WikiQueryRequest) -> ApiResult<WikiQueryResult> {
+    async fn create_okf_query(&self, request: OkfQueryRequest) -> ApiResult<OkfQueryResult> {
         if request.space_id == 0 {
             return Err(ApiError::invalid_request(
-                "invalid_wiki_query_request",
+                "invalid_okf_query_request",
                 "space_id is required",
             ));
         }
         if request.query.trim().is_empty() {
             return Err(ApiError::invalid_request(
-                "invalid_wiki_query_request",
+                "invalid_okf_query_request",
                 "query is required",
             ));
         }
@@ -582,44 +585,45 @@ impl KnowledgeWikiAppService for HostedWikiService {
             .await
             .map_err(ApiError::from)?;
 
-        Ok(WikiQueryResult {
+        Ok(OkfQueryResult {
             answer_markdown: format_retrieval_answer(&retrieval.hits),
             trace_id: Some(retrieval.retrieval_id.to_string()),
         })
     }
 
-    async fn file_wiki_query_answer(
+    async fn file_okf_query_answer(
         &self,
         query_id: u64,
-        request: WikiFileAnswerRequest,
-    ) -> ApiResult<WikiQueryResult> {
+        request: OkfFileAnswerRequest,
+    ) -> ApiResult<OkfQueryResult> {
         if request.title.trim().is_empty() {
             return Err(ApiError::invalid_request(
-                "invalid_wiki_file_answer_request",
+                "invalid_okf_file_answer_request",
                 "title is required",
             ));
         }
         if request.answer_markdown.trim().is_empty() {
             return Err(ApiError::invalid_request(
-                "invalid_wiki_file_answer_request",
+                "invalid_okf_file_answer_request",
                 "answer_markdown is required",
             ));
         }
 
-        let space = self.resolve_wiki_space().await?;
-        let summary = request.title.clone();
+        let space = self.resolve_okf_space().await?;
+        let concept_id = okf_answer_concept_id(query_id);
+        let description = request.title.clone();
         let publication = self
-            .wiki_page_service()
-            .publish_page(
-                PublishKnowledgeWikiPageRequest {
+            .okf_concept_service()
+            .publish_concept(
+                PublishKnowledgeOkfConceptRequest {
                     space_id: space.id,
-                    slug: wiki_answer_slug(query_id),
+                    concept_id,
                     title: request.title,
-                    page_type: WikiPageType::Answer,
-                    summary,
+                    concept_type: "Answer".to_string(),
+                    description,
                     markdown: request.answer_markdown.clone(),
                     source_count: 1,
-                    tags: vec!["wiki-query".to_string()],
+                    tags: vec!["okf-query".to_string()],
                     actor: self.runtime.operator_id().to_string(),
                 },
                 space.drive_space_id.as_deref(),
@@ -627,19 +631,19 @@ impl KnowledgeWikiAppService for HostedWikiService {
             .await
             .map_err(ApiError::from)?;
 
-        Ok(WikiQueryResult {
+        Ok(OkfQueryResult {
             answer_markdown: request.answer_markdown,
-            trace_id: Some(publication.page.id.to_string()),
+            trace_id: Some(publication.concept.id.to_string()),
         })
     }
 
-    async fn create_wiki_context_pack(
+    async fn create_okf_context_pack(
         &self,
-        request: WikiContextPackRequest,
-    ) -> ApiResult<KnowledgeWikiFileEntry> {
+        request: OkfContextPackRequest,
+    ) -> ApiResult<KnowledgeOkfBundleFile> {
         if request.space_id == 0 {
             return Err(ApiError::invalid_request(
-                "invalid_wiki_context_pack_request",
+                "invalid_okf_context_pack_request",
                 "space_id is required",
             ));
         }
@@ -661,7 +665,7 @@ impl KnowledgeWikiAppService for HostedWikiService {
             .map_err(ApiError::from)?;
 
         let body = serde_json::to_vec_pretty(&context_pack).map_err(|error| {
-            ApiError::internal("wiki_context_pack_serialization_failed", error.to_string())
+            ApiError::internal("okf_context_pack_serialization_failed", error.to_string())
         })?;
         let logical_path = format!("context_packs/cp-{}.json", context_pack.context_pack_id);
         let object_ref = self
@@ -677,18 +681,18 @@ impl KnowledgeWikiAppService for HostedWikiService {
             .await?;
 
         self.runtime
-            .wiki_file_entry_store()
-            .create_file_entry(CreateKnowledgeWikiFileEntryRecord {
+            .okf_bundle_file_store()
+            .create_file_entry(CreateKnowledgeOkfBundleFileRecord {
                 space_id: request.space_id,
                 logical_path,
-                entry_type: WikiFileEntryType::ContextPack,
+                file_kind: OkfBundleFileKind::ContextPack,
                 artifact_role: object_ref.object_role.clone(),
                 drive_bucket: object_ref.bucket.clone(),
                 drive_object_key: object_ref.object_key.clone(),
                 checksum_sha256_hex: object_ref.checksum_sha256_hex.clone(),
             })
             .await
-            .map_err(map_wiki_file_entry_error)
+            .map_err(map_okf_bundle_file_error)
     }
 }
 
@@ -698,19 +702,19 @@ fn map_document_version_error(
     ApiError::internal("knowledge_document_version_store_failed", error.to_string())
 }
 
-fn map_wiki_page_store_error(
-    error: sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_page_store::KnowledgeWikiPageStoreError,
+fn map_okf_concept_store_error(
+    error: sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::KnowledgeOkfConceptStoreError,
 ) -> ApiError {
     let detail = error.to_string();
-    if detail.contains("missing wiki page") {
-        ApiError::not_found("wiki_page_not_found", detail)
+    if detail.contains("missing okf concept") {
+        ApiError::not_found("okf_concept_not_found", detail)
     } else {
-        ApiError::internal("knowledge_wiki_page_store_failed", detail)
+        ApiError::internal("knowledge_okf_concept_store_failed", detail)
     }
 }
 
-fn map_wiki_file_entry_error(
-    error: sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_file_entry_store::KnowledgeWikiFileEntryStoreError,
+fn map_okf_bundle_file_error(
+    error: sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_bundle_file_store::KnowledgeOkfBundleFileStoreError,
 ) -> ApiError {
-    ApiError::internal("knowledge_wiki_file_entry_store_failed", error.to_string())
+    ApiError::internal("knowledge_okf_bundle_file_store_failed", error.to_string())
 }

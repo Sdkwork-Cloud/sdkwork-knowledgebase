@@ -1,7 +1,7 @@
 import { appApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserPage, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceContextBindingList, KnowledgeUploadSession, KnowledgeWikiFileEntry, KnowledgeWikiPageRevisionList, UpdateKnowledgeSpaceContextBindingRequest, WikiContextPackRequest, WikiFileAnswerRequest, WikiIndexDocument, WikiLogDocument, WikiPageSummary, WikiPageSummaryList, WikiQueryRequest, WikiQueryResult, WikiSchemaDocument } from '../types';
+import type { CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserPage, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceContextBindingList, KnowledgeUploadSession, OkfConceptSummary, OkfConceptSummaryList, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQueryRequest, OkfQueryResult, UpdateKnowledgeSpaceContextBindingRequest } from '../types';
 
 
 export class KnowledgeUploadSessionsApi {
@@ -55,8 +55,7 @@ export class KnowledgeAgentProfilesChatApi {
   }
 
 
-/** Chat with a knowledge-backed agent profile */
-  async create(profileId: string, body: KnowledgeAgentChatRequest): Promise<KnowledgeAgentChatResponse> {
+async create(profileId: string, body: KnowledgeAgentChatRequest): Promise<KnowledgeAgentChatResponse> {
     return this.client.post<KnowledgeAgentChatResponse>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/chat`), body, undefined, undefined, 'application/json');
   }
 }
@@ -69,8 +68,7 @@ export class KnowledgeAgentProfilesRetrievalPreviewApi {
   }
 
 
-/** Preview retrieval for an agent profile */
-  async create(profileId: string, body: KnowledgeRetrievalRequest): Promise<KnowledgeRetrievalResult> {
+async create(profileId: string, body: KnowledgeRetrievalRequest): Promise<KnowledgeRetrievalResult> {
     return this.client.post<KnowledgeRetrievalResult>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/retrieval_preview`), body, undefined, undefined, 'application/json');
   }
 }
@@ -83,23 +81,19 @@ export class KnowledgeAgentProfilesBindingsApi {
   }
 
 
-/** List agent profile bindings */
-  async list(profileId: string): Promise<unknown> {
+async list(profileId: string): Promise<unknown> {
     return this.client.get<unknown>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings`));
   }
 
-/** Create an agent profile binding */
-  async create(profileId: string, body: KnowledgeAgentBindingRequest): Promise<KnowledgeAgentBinding> {
+async create(profileId: string, body: KnowledgeAgentBindingRequest): Promise<KnowledgeAgentBinding> {
     return this.client.post<KnowledgeAgentBinding>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings`), body, undefined, undefined, 'application/json');
   }
 
-/** Update an agent profile binding */
-  async update(profileId: string, bindingId: string, body: KnowledgeAgentBindingRequest): Promise<KnowledgeAgentBinding> {
+async update(profileId: string, bindingId: string, body: KnowledgeAgentBindingRequest): Promise<KnowledgeAgentBinding> {
     return this.client.patch<KnowledgeAgentBinding>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
   }
 
-/** Delete an agent profile binding */
-  async delete(profileId: string, bindingId: string): Promise<void> {
+async delete(profileId: string, bindingId: string): Promise<void> {
     return this.client.delete<void>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`));
   }
 }
@@ -118,23 +112,19 @@ export class KnowledgeAgentProfilesApi {
   }
 
 
-/** Create a knowledge agent profile */
-  async create(body: KnowledgeAgentProfileRequest): Promise<KnowledgeAgentProfile> {
+async create(body: KnowledgeAgentProfileRequest): Promise<KnowledgeAgentProfile> {
     return this.client.post<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles`), body, undefined, undefined, 'application/json');
   }
 
-/** Retrieve a knowledge agent profile */
-  async retrieve(profileId: string): Promise<KnowledgeAgentProfile> {
+async retrieve(profileId: string): Promise<KnowledgeAgentProfile> {
     return this.client.get<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`));
   }
 
-/** Update a knowledge agent profile */
-  async update(profileId: string, body: KnowledgeAgentProfileRequest): Promise<KnowledgeAgentProfile> {
+async update(profileId: string, body: KnowledgeAgentProfileRequest): Promise<KnowledgeAgentProfile> {
     return this.client.patch<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
   }
 
-/** Delete a knowledge agent profile */
-  async delete(profileId: string): Promise<void> {
+async delete(profileId: string): Promise<void> {
     return this.client.delete<void>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`));
   }
 }
@@ -147,8 +137,7 @@ export class KnowledgeContextPacksApi {
   }
 
 
-/** Create a knowledge context pack */
-  async create(body: KnowledgeContextPackRequest): Promise<KnowledgeContextPack> {
+async create(body: KnowledgeContextPackRequest): Promise<KnowledgeContextPack> {
     return this.client.post<KnowledgeContextPack>(appApiPath(`/knowledge/context_packs`), body, undefined, undefined, 'application/json');
   }
 }
@@ -161,18 +150,16 @@ export class KnowledgeRetrievalsApi {
   }
 
 
-/** Create a knowledge retrieval */
-  async create(body: KnowledgeRetrievalRequest): Promise<KnowledgeRetrievalResult> {
+async create(body: KnowledgeRetrievalRequest): Promise<KnowledgeRetrievalResult> {
     return this.client.post<KnowledgeRetrievalResult>(appApiPath(`/knowledge/retrievals`), body, undefined, undefined, 'application/json');
   }
 
-/** Retrieve a knowledge retrieval result */
-  async retrieve(retrievalId: string): Promise<KnowledgeRetrievalResult> {
+async retrieve(retrievalId: string): Promise<KnowledgeRetrievalResult> {
     return this.client.get<KnowledgeRetrievalResult>(appApiPath(`/knowledge/retrievals/${serializePathParameter(retrievalId, { name: 'retrievalId', style: 'simple', explode: false })}`));
   }
 }
 
-export class KnowledgeWikiContextPacksApi {
+export class KnowledgeOkfContextPacksApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -180,13 +167,12 @@ export class KnowledgeWikiContextPacksApi {
   }
 
 
-/** Create a wiki context pack */
-  async create(body: WikiContextPackRequest): Promise<KnowledgeWikiFileEntry> {
-    return this.client.post<KnowledgeWikiFileEntry>(appApiPath(`/knowledge/wiki_context_packs`), body, undefined, undefined, 'application/json');
+async create(body: OkfContextPackRequest): Promise<KnowledgeOkfBundleFile> {
+    return this.client.post<KnowledgeOkfBundleFile>(appApiPath(`/knowledge/okf/context_packs`), body, undefined, undefined, 'application/json');
   }
 }
 
-export class KnowledgeWikiQueriesApi {
+export class KnowledgeOkfQueriesApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -194,18 +180,16 @@ export class KnowledgeWikiQueriesApi {
   }
 
 
-/** Create a wiki query */
-  async create(body: WikiQueryRequest): Promise<WikiQueryResult> {
-    return this.client.post<WikiQueryResult>(appApiPath(`/knowledge/wiki_queries`), body, undefined, undefined, 'application/json');
+async create(body: OkfQueryRequest): Promise<OkfQueryResult> {
+    return this.client.post<OkfQueryResult>(appApiPath(`/knowledge/okf/queries`), body, undefined, undefined, 'application/json');
   }
 
-/** File an answer for a wiki query */
-  async fileAnswer(queryId: number, body: WikiFileAnswerRequest): Promise<WikiQueryResult> {
-    return this.client.post<WikiQueryResult>(appApiPath(`/knowledge/wiki_queries/${serializePathParameter(queryId, { name: 'queryId', style: 'simple', explode: false })}/file_answer`), body, undefined, undefined, 'application/json');
+async fileAnswer(queryId: number, body: OkfFileAnswerRequest): Promise<OkfQueryResult> {
+    return this.client.post<OkfQueryResult>(appApiPath(`/knowledge/okf/queries/${serializePathParameter(queryId, { name: 'queryId', style: 'simple', explode: false })}/file_answer`), body, undefined, undefined, 'application/json');
   }
 }
 
-export class KnowledgeWikiSchemaApi {
+export class KnowledgeOkfBundleProfileApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -213,13 +197,12 @@ export class KnowledgeWikiSchemaApi {
   }
 
 
-/** Retrieve the wiki schema */
-  async retrieve(): Promise<WikiSchemaDocument> {
-    return this.client.get<WikiSchemaDocument>(appApiPath(`/knowledge/wiki_schema`));
+async retrieve(): Promise<OkfProfileDocument> {
+    return this.client.get<OkfProfileDocument>(appApiPath(`/knowledge/okf/profile`));
   }
 }
 
-export class KnowledgeWikiLogApi {
+export class KnowledgeOkfBundleLogApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -227,13 +210,12 @@ export class KnowledgeWikiLogApi {
   }
 
 
-/** Retrieve the wiki log */
-  async retrieve(): Promise<WikiLogDocument> {
-    return this.client.get<WikiLogDocument>(appApiPath(`/knowledge/wiki_log`));
+async retrieve(): Promise<OkfLogDocument> {
+    return this.client.get<OkfLogDocument>(appApiPath(`/knowledge/okf/log`));
   }
 }
 
-export class KnowledgeWikiIndexApi {
+export class KnowledgeOkfBundleIndexApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -241,13 +223,27 @@ export class KnowledgeWikiIndexApi {
   }
 
 
-/** Retrieve the wiki index */
-  async retrieve(): Promise<WikiIndexDocument> {
-    return this.client.get<WikiIndexDocument>(appApiPath(`/knowledge/wiki_index`));
+async retrieve(): Promise<OkfIndexDocument> {
+    return this.client.get<OkfIndexDocument>(appApiPath(`/knowledge/okf/index`));
   }
 }
 
-export class KnowledgeWikiPagesRevisionsApi {
+export class KnowledgeOkfBundleApi {
+  private client: HttpClient;
+  public readonly index: KnowledgeOkfBundleIndexApi;
+  public readonly log: KnowledgeOkfBundleLogApi;
+  public readonly profile: KnowledgeOkfBundleProfileApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.index = new KnowledgeOkfBundleIndexApi(client);
+    this.log = new KnowledgeOkfBundleLogApi(client);
+    this.profile = new KnowledgeOkfBundleProfileApi(client);
+  }
+
+}
+
+export class KnowledgeOkfConceptsRevisionsApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
@@ -255,50 +251,43 @@ export class KnowledgeWikiPagesRevisionsApi {
   }
 
 
-/** List wiki page revisions */
-  async list(pageId: number): Promise<KnowledgeWikiPageRevisionList> {
-    return this.client.get<KnowledgeWikiPageRevisionList>(appApiPath(`/knowledge/wiki_pages/${serializePathParameter(pageId, { name: 'pageId', style: 'simple', explode: false })}/revisions`));
+async list(conceptId: number): Promise<KnowledgeOkfConceptRevisionList> {
+    return this.client.get<KnowledgeOkfConceptRevisionList>(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}/revisions`));
   }
 }
 
-export class KnowledgeWikiPagesApi {
+export class KnowledgeOkfConceptsApi {
   private client: HttpClient;
-  public readonly revisions: KnowledgeWikiPagesRevisionsApi;
+  public readonly revisions: KnowledgeOkfConceptsRevisionsApi;
 
   constructor(client: HttpClient) {
     this.client = client;
-    this.revisions = new KnowledgeWikiPagesRevisionsApi(client);
+    this.revisions = new KnowledgeOkfConceptsRevisionsApi(client);
   }
 
 
-/** List wiki pages */
-  async list(): Promise<WikiPageSummaryList> {
-    return this.client.get<WikiPageSummaryList>(appApiPath(`/knowledge/wiki_pages`));
+async list(): Promise<OkfConceptSummaryList> {
+    return this.client.get<OkfConceptSummaryList>(appApiPath(`/knowledge/okf/concepts`));
   }
 
-/** Retrieve a wiki page */
-  async retrieve(pageId: number): Promise<WikiPageSummary> {
-    return this.client.get<WikiPageSummary>(appApiPath(`/knowledge/wiki_pages/${serializePathParameter(pageId, { name: 'pageId', style: 'simple', explode: false })}`));
+async retrieve(conceptId: number): Promise<OkfConceptSummary> {
+    return this.client.get<OkfConceptSummary>(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}`));
   }
 }
 
-export class KnowledgeWikiApi {
+export class KnowledgeOkfApi {
   private client: HttpClient;
-  public readonly pages: KnowledgeWikiPagesApi;
-  public readonly index: KnowledgeWikiIndexApi;
-  public readonly log: KnowledgeWikiLogApi;
-  public readonly schema: KnowledgeWikiSchemaApi;
-  public readonly queries: KnowledgeWikiQueriesApi;
-  public readonly contextPacks: KnowledgeWikiContextPacksApi;
+  public readonly concepts: KnowledgeOkfConceptsApi;
+  public readonly bundle: KnowledgeOkfBundleApi;
+  public readonly queries: KnowledgeOkfQueriesApi;
+  public readonly contextPacks: KnowledgeOkfContextPacksApi;
 
   constructor(client: HttpClient) {
     this.client = client;
-    this.pages = new KnowledgeWikiPagesApi(client);
-    this.index = new KnowledgeWikiIndexApi(client);
-    this.log = new KnowledgeWikiLogApi(client);
-    this.schema = new KnowledgeWikiSchemaApi(client);
-    this.queries = new KnowledgeWikiQueriesApi(client);
-    this.contextPacks = new KnowledgeWikiContextPacksApi(client);
+    this.concepts = new KnowledgeOkfConceptsApi(client);
+    this.bundle = new KnowledgeOkfBundleApi(client);
+    this.queries = new KnowledgeOkfQueriesApi(client);
+    this.contextPacks = new KnowledgeOkfContextPacksApi(client);
   }
 
 }
@@ -311,13 +300,11 @@ export class KnowledgeDocumentsVersionsApi {
   }
 
 
-/** List document versions */
-  async list(documentId: number): Promise<KnowledgeDocumentVersionList> {
+async list(documentId: number): Promise<KnowledgeDocumentVersionList> {
     return this.client.get<KnowledgeDocumentVersionList>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/versions`));
   }
 
-/** Create a document version */
-  async create(documentId: number, body: CreateKnowledgeDocumentVersionRequest): Promise<KnowledgeDocumentVersion> {
+async create(documentId: number, body: CreateKnowledgeDocumentVersionRequest): Promise<KnowledgeDocumentVersion> {
     return this.client.post<KnowledgeDocumentVersion>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/versions`), body, undefined, undefined, 'application/json');
   }
 }
@@ -332,28 +319,23 @@ export class KnowledgeDocumentsApi {
   }
 
 
-/** List knowledge documents */
-  async list(): Promise<KnowledgeDocumentList> {
+async list(): Promise<KnowledgeDocumentList> {
     return this.client.get<KnowledgeDocumentList>(appApiPath(`/knowledge/documents`));
   }
 
-/** Create a knowledge document */
-  async create(body: CreateKnowledgeDocumentRequest): Promise<KnowledgeDocument> {
+async create(body: CreateKnowledgeDocumentRequest): Promise<KnowledgeDocument> {
     return this.client.post<KnowledgeDocument>(appApiPath(`/knowledge/documents`), body, undefined, undefined, 'application/json');
   }
 
-/** Retrieve a knowledge document */
-  async retrieve(documentId: number): Promise<KnowledgeDocument> {
+async retrieve(documentId: number): Promise<KnowledgeDocument> {
     return this.client.get<KnowledgeDocument>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`));
   }
 
-/** Update a knowledge document */
-  async update(documentId: number, body: CreateKnowledgeDocumentRequest): Promise<KnowledgeDocument> {
+async update(documentId: number, body: CreateKnowledgeDocumentRequest): Promise<KnowledgeDocument> {
     return this.client.patch<KnowledgeDocument>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
   }
 
-/** Delete a knowledge document */
-  async delete(documentId: number): Promise<void> {
+async delete(documentId: number): Promise<void> {
     return this.client.delete<void>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`));
   }
 }
@@ -366,13 +348,11 @@ export class KnowledgeIngestsApi {
   }
 
 
-/** Create an ingestion job */
-  async create(body: KnowledgeIngestRequest): Promise<IngestionJob> {
+async create(body: KnowledgeIngestRequest): Promise<IngestionJob> {
     return this.client.post<IngestionJob>(appApiPath(`/knowledge/ingests`), body, undefined, undefined, 'application/json');
   }
 
-/** Retrieve an ingestion job */
-  async retrieve(ingestId: number): Promise<IngestionJob> {
+async retrieve(ingestId: number): Promise<IngestionJob> {
     return this.client.get<IngestionJob>(appApiPath(`/knowledge/ingests/${serializePathParameter(ingestId, { name: 'ingestId', style: 'simple', explode: false })}`));
   }
 }
@@ -385,8 +365,7 @@ export class KnowledgeDriveImportsApi {
   }
 
 
-/** Import a drive object into knowledgebase */
-  async create(body: KnowledgeDriveImportRequest): Promise<KnowledgeDriveImportResult> {
+async create(body: KnowledgeDriveImportRequest): Promise<KnowledgeDriveImportResult> {
     return this.client.post<KnowledgeDriveImportResult>(appApiPath(`/knowledge/drive_imports`), body, undefined, undefined, 'application/json');
   }
 }
@@ -425,8 +404,7 @@ export class KnowledgeSpacesBrowserApi {
   }
 
 
-/** List browser view of a knowledge space */
-  async list(spaceId: number, params: KnowledgeSpacesBrowserListParams): Promise<KnowledgeBrowserPage> {
+async list(spaceId: number, params: KnowledgeSpacesBrowserListParams): Promise<KnowledgeBrowserPage> {
     const query = buildQueryString([
       { name: 'view', value: params.view, style: 'form', explode: true, allowReserved: false },
       { name: 'parentId', value: params.parentId, style: 'form', explode: true, allowReserved: false },
@@ -449,13 +427,11 @@ export class KnowledgeSpacesApi {
   }
 
 
-/** Create a knowledge space */
-  async create(body: CreateKnowledgeSpaceRequest): Promise<KnowledgeSpace> {
+async create(body: CreateKnowledgeSpaceRequest): Promise<KnowledgeSpace> {
     return this.client.post<KnowledgeSpace>(appApiPath(`/knowledge/spaces`), body, undefined, undefined, 'application/json');
   }
 
-/** Retrieve a knowledge space */
-  async retrieve(spaceId: number): Promise<KnowledgeSpace> {
+async retrieve(spaceId: number): Promise<KnowledgeSpace> {
     return this.client.get<KnowledgeSpace>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`));
   }
 }
@@ -466,7 +442,7 @@ export class KnowledgeApi {
   public readonly driveImports: KnowledgeDriveImportsApi;
   public readonly ingests: KnowledgeIngestsApi;
   public readonly documents: KnowledgeDocumentsApi;
-  public readonly wiki: KnowledgeWikiApi;
+  public readonly okf: KnowledgeOkfApi;
   public readonly retrievals: KnowledgeRetrievalsApi;
   public readonly contextPacks: KnowledgeContextPacksApi;
   public readonly agentProfiles: KnowledgeAgentProfilesApi;
@@ -479,7 +455,7 @@ export class KnowledgeApi {
     this.driveImports = new KnowledgeDriveImportsApi(client);
     this.ingests = new KnowledgeIngestsApi(client);
     this.documents = new KnowledgeDocumentsApi(client);
-    this.wiki = new KnowledgeWikiApi(client);
+    this.okf = new KnowledgeOkfApi(client);
     this.retrievals = new KnowledgeRetrievalsApi(client);
     this.contextPacks = new KnowledgeContextPacksApi(client);
     this.agentProfiles = new KnowledgeAgentProfilesApi(client);

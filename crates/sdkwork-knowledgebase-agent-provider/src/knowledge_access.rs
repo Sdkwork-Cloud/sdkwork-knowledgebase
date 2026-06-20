@@ -8,8 +8,8 @@ use sdkwork_knowledgebase_contract::rag::{
 };
 
 use crate::{
-    citations_from_rag_hits, citations_from_wiki_pages, kernel_methods_for_retrieval,
-    merge_retrieval_plan, KnowledgeRetrievalPlan, LlmWikiKnowledgeClient,
+    citations_from_okf_concepts, citations_from_rag_hits, kernel_methods_for_retrieval,
+    merge_retrieval_plan, KnowledgeRetrievalPlan, OkfKnowledgeClient,
 };
 
 #[derive(Debug, Clone)]
@@ -32,23 +32,23 @@ pub struct KnowledgeAccessResult {
     pub kernel_methods: Vec<KernelKnowledgeRetrievalMethod>,
 }
 
-pub struct KnowledgeAccessGateway<W, E> {
-    wiki_client: W,
+pub struct KnowledgeAccessGateway<O, E> {
+    okf_client: O,
     retrieval_executor: E,
 }
 
-impl<W, E> KnowledgeAccessGateway<W, E> {
-    pub fn new(wiki_client: W, retrieval_executor: E) -> Self {
+impl<O, E> KnowledgeAccessGateway<O, E> {
+    pub fn new(okf_client: O, retrieval_executor: E) -> Self {
         Self {
-            wiki_client,
+            okf_client,
             retrieval_executor,
         }
     }
 }
 
-impl<W, E> KnowledgeAccessGateway<W, E>
+impl<O, E> KnowledgeAccessGateway<O, E>
 where
-    W: LlmWikiKnowledgeClient + Clone,
+    O: OkfKnowledgeClient + Clone,
     E: KnowledgeAccessRetrievalExecutor,
 {
     pub async fn fetch(
@@ -102,15 +102,15 @@ where
                     kernel_methods,
                 })
             }
-            KnowledgeAgentKnowledgeMode::LlmWiki => {
-                let pages = self.wiki_client.search_wiki_pages(
+            KnowledgeAgentKnowledgeMode::OkfBundle => {
+                let concepts = self.okf_client.search_okf_concepts(
                     primary_space_id,
                     request.message,
                     request.top_k,
                 )?;
 
                 Ok(KnowledgeAccessResult {
-                    citations: citations_from_wiki_pages(primary_space_id, &pages),
+                    citations: citations_from_okf_concepts(primary_space_id, &concepts),
                     retrieval_id: None,
                     namespace,
                     kernel_methods: vec![KernelKnowledgeRetrievalMethod::Keyword],
@@ -218,19 +218,19 @@ mod tests {
     use sdkwork_knowledgebase_contract::rag::KnowledgeContextFragment;
 
     #[derive(Clone)]
-    struct FakeWiki;
+    struct FakeOkf;
 
-    impl LlmWikiKnowledgeClient for FakeWiki {
-        fn search_wiki_pages(
+    impl OkfKnowledgeClient for FakeOkf {
+        fn search_okf_concepts(
             &self,
             _space_id: u64,
             _query: &str,
             _top_k: usize,
-        ) -> Result<Vec<sdkwork_knowledgebase_contract::wiki::WikiPageSummary>, String> {
+        ) -> Result<Vec<sdkwork_knowledgebase_contract::OkfConceptSummary>, String> {
             Ok(vec![])
         }
 
-        fn read_wiki_page_content(
+        fn read_okf_concept_content(
             &self,
             _space_id: u64,
             _logical_path: &str,
@@ -272,7 +272,7 @@ mod tests {
 
     #[tokio::test]
     async fn rag_access_uses_retrieval_plan_methods() {
-        let gateway = KnowledgeAccessGateway::new(FakeWiki, FakeRetrieval);
+        let gateway = KnowledgeAccessGateway::new(FakeOkf, FakeRetrieval);
         let bindings = vec![KnowledgeRetrievalBinding {
             space_id: 7,
             collection_id: None,

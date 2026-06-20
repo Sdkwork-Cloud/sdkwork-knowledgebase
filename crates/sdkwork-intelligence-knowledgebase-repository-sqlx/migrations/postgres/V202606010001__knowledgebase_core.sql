@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS kb_space (
     description TEXT,
     drive_space_id VARCHAR(128),
     status INTEGER NOT NULL,
-    llm_wiki_initialized INTEGER NOT NULL DEFAULT 0,
-    wiki_log_sequence_counter BIGINT NOT NULL DEFAULT 0,
+    okf_bundle_initialized INTEGER NOT NULL DEFAULT 0,
+    okf_log_sequence_counter BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0
@@ -474,16 +474,16 @@ CREATE TABLE IF NOT EXISTS kb_ingestion_job_item (
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_ingestion_job_item_uuid
     ON kb_ingestion_job_item (tenant_id, uuid);
 
-CREATE TABLE IF NOT EXISTS kb_wiki_page (
+CREATE TABLE IF NOT EXISTS kb_okf_concept (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
     space_id BIGINT NOT NULL,
-    slug VARCHAR(256) NOT NULL,
+    concept_id VARCHAR(256) NOT NULL,
     title VARCHAR(512) NOT NULL,
-    page_type VARCHAR(64) NOT NULL,
+    concept_type VARCHAR(64) NOT NULL,
     logical_path VARCHAR(2048) NOT NULL,
-    summary TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
     source_count INTEGER NOT NULL DEFAULT 0,
     tags JSONB,
     current_revision_id BIGINT,
@@ -495,23 +495,23 @@ CREATE TABLE IF NOT EXISTS kb_wiki_page (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_uuid
-    ON kb_wiki_page (tenant_id, uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_uuid
+    ON kb_okf_concept (tenant_id, uuid);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_slug
-    ON kb_wiki_page (tenant_id, space_id, slug);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_id
+    ON kb_okf_concept (tenant_id, space_id, concept_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_path
-    ON kb_wiki_page (tenant_id, space_id, logical_path);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_path
+    ON kb_okf_concept (tenant_id, space_id, logical_path);
 
-CREATE INDEX IF NOT EXISTS idx_kb_wiki_page_state
-    ON kb_wiki_page (tenant_id, space_id, publish_state, updated_at);
+CREATE INDEX IF NOT EXISTS idx_kb_okf_concept_state
+    ON kb_okf_concept (tenant_id, space_id, publish_state, updated_at);
 
-CREATE TABLE IF NOT EXISTS kb_wiki_page_revision (
+CREATE TABLE IF NOT EXISTS kb_okf_concept_revision (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
-    page_id BIGINT NOT NULL,
+    concept_row_id BIGINT NOT NULL,
     revision_no BIGINT NOT NULL,
     markdown_object_ref_id BIGINT NOT NULL,
     content_hash VARCHAR(128) NOT NULL,
@@ -522,19 +522,19 @@ CREATE TABLE IF NOT EXISTS kb_wiki_page_revision (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_revision_uuid
-    ON kb_wiki_page_revision (tenant_id, uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_revision_uuid
+    ON kb_okf_concept_revision (tenant_id, uuid);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_page_revision_no
-    ON kb_wiki_page_revision (tenant_id, page_id, revision_no);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_revision_no
+    ON kb_okf_concept_revision (tenant_id, concept_row_id, revision_no);
 
-CREATE TABLE IF NOT EXISTS kb_wiki_file_entry (
+CREATE TABLE IF NOT EXISTS kb_okf_bundle_file (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
     space_id BIGINT NOT NULL,
     logical_path VARCHAR(2048) NOT NULL,
-    entry_type VARCHAR(64) NOT NULL,
+    file_kind VARCHAR(64) NOT NULL,
     artifact_role VARCHAR(64) NOT NULL,
     drive_bucket VARCHAR(256) NOT NULL,
     drive_object_key VARCHAR(2048) NOT NULL,
@@ -545,13 +545,13 @@ CREATE TABLE IF NOT EXISTS kb_wiki_file_entry (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_file_entry_uuid
-    ON kb_wiki_file_entry (tenant_id, uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_bundle_file_uuid
+    ON kb_okf_bundle_file (tenant_id, uuid);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_file_entry_path
-    ON kb_wiki_file_entry (tenant_id, space_id, logical_path);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_bundle_file_path
+    ON kb_okf_bundle_file (tenant_id, space_id, logical_path);
 
-CREATE TABLE IF NOT EXISTS kb_wiki_schema_profile (
+CREATE TABLE IF NOT EXISTS kb_okf_schema_profile (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -566,10 +566,10 @@ CREATE TABLE IF NOT EXISTS kb_wiki_schema_profile (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_schema_profile_uuid
-    ON kb_wiki_schema_profile (tenant_id, uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_schema_profile_uuid
+    ON kb_okf_schema_profile (tenant_id, uuid);
 
-CREATE TABLE IF NOT EXISTS kb_wiki_log_entry (
+CREATE TABLE IF NOT EXISTS kb_okf_log_entry (
     id BIGINT PRIMARY KEY,
     uuid VARCHAR(64) NOT NULL,
     tenant_id BIGINT NOT NULL,
@@ -586,11 +586,11 @@ CREATE TABLE IF NOT EXISTS kb_wiki_log_entry (
     version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_log_entry_uuid
-    ON kb_wiki_log_entry (tenant_id, uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_log_entry_uuid
+    ON kb_okf_log_entry (tenant_id, uuid);
 
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_wiki_log_entry_sequence
-    ON kb_wiki_log_entry (tenant_id, space_id, sequence_no);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_log_entry_sequence
+    ON kb_okf_log_entry (tenant_id, space_id, sequence_no);
 
 CREATE TABLE IF NOT EXISTS kb_local_mirror_package (
     id BIGINT PRIMARY KEY,

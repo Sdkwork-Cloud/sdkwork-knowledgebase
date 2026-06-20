@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sdkwork_knowledgebase_contract::wiki::WikiPagePublishState;
+use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use thiserror::Error;
 
 #[async_trait]
@@ -10,11 +10,11 @@ pub trait KnowledgeBrowserProjectionStore: Send + Sync {
         drive_node_ids: Vec<String>,
     ) -> Result<Vec<KnowledgeBrowserDocumentProjection>, KnowledgeBrowserProjectionStoreError>;
 
-    async fn batch_wiki_page_projections(
+    async fn batch_okf_concept_projections(
         &self,
         space_id: u64,
         logical_paths: Vec<String>,
-    ) -> Result<Vec<KnowledgeBrowserWikiPageProjection>, KnowledgeBrowserProjectionStoreError>;
+    ) -> Result<Vec<KnowledgeBrowserOkfConceptProjection>, KnowledgeBrowserProjectionStoreError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,15 +25,15 @@ pub struct KnowledgeBrowserDocumentProjection {
     pub ingest_state: String,
     pub parse_state: String,
     pub index_state: String,
-    pub wiki_state: String,
+    pub okf_state: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct KnowledgeBrowserWikiPageProjection {
+pub struct KnowledgeBrowserOkfConceptProjection {
     pub logical_path: String,
-    pub page_id: u64,
+    pub concept_row_id: u64,
     pub current_revision_id: Option<u64>,
-    pub publish_state: WikiPagePublishState,
+    pub publish_state: OkfConceptPublishState,
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

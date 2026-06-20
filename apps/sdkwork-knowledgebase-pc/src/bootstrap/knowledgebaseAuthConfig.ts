@@ -1,4 +1,4 @@
-import i18n from '../i18n';
+﻿import i18n from '../i18n';
 import { resolveKnowledgebaseAuthLocaleFromAppLanguage } from '../i18n/locale';
 
 export interface SdkworkAuthAppearanceConfig {
@@ -48,8 +48,8 @@ export function resolveKnowledgebaseAuthRuntimeConfig(): SdkworkAuthRuntimeConfi
   };
 
   if (import.meta.env.DEV) {
-    const email = import.meta.env.VITE_SDKWORK_IAM_LOCAL_BOOTSTRAP_EMAIL;
-    const password = import.meta.env.VITE_SDKWORK_IAM_LOCAL_BOOTSTRAP_PASSWORD;
+    const email = import.meta.env.VITE_SDKWORK_KNOWLEDGEBASE_AUTH_DEV_EMAIL;
+    const password = import.meta.env.VITE_SDKWORK_KNOWLEDGEBASE_AUTH_DEV_PASSWORD;
     if (email && password) {
       config.developmentPrefill = {
         email,

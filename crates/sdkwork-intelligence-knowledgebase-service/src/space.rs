@@ -1,3 +1,4 @@
+use crate::okf::{OkfBundleInitializerService, OkfBundleInitializerServiceError};
 use crate::ports::{
     knowledge_access_control::{
         KnowledgeAccessControl, KnowledgeAccessControlError, KnowledgeAccessRole,
@@ -11,14 +12,13 @@ use crate::ports::{
         CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
     },
 };
-use crate::wiki::{KnowledgeWikiInitializerService, KnowledgeWikiInitializerServiceError};
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{CreateKnowledgeSpaceRequest, KnowledgeSpace};
 use thiserror::Error;
 
 pub struct KnowledgeSpaceService<'a> {
     store: &'a dyn KnowledgeSpaceStore,
-    wiki_initializer: &'a KnowledgeWikiInitializerService<'a>,
+    okf_bundle_initializer: &'a OkfBundleInitializerService<'a>,
     drive_space_provisioner: Option<&'a dyn KnowledgeDriveSpaceProvisioner>,
     access_control: Option<&'a dyn KnowledgeAccessControl>,
     drive_context: Option<KnowledgeSpaceDriveContext>,
@@ -27,11 +27,11 @@ pub struct KnowledgeSpaceService<'a> {
 impl<'a> KnowledgeSpaceService<'a> {
     pub fn new(
         store: &'a dyn KnowledgeSpaceStore,
-        wiki_initializer: &'a KnowledgeWikiInitializerService<'a>,
+        okf_bundle_initializer: &'a OkfBundleInitializerService<'a>,
     ) -> Self {
         Self {
             store,
-            wiki_initializer,
+            okf_bundle_initializer,
             drive_space_provisioner: None,
             access_control: None,
             drive_context: None,
@@ -83,7 +83,7 @@ impl<'a> KnowledgeSpaceService<'a> {
         let drive_context = if self.drive_space_provisioner.is_some() {
             Some(self.require_drive_context()?.clone())
         } else {
-            if self.wiki_initializer.requires_drive_space_binding() {
+            if self.okf_bundle_initializer.requires_drive_space_binding() {
                 return Err(KnowledgeSpaceServiceError::InvalidRequest(
                     "drive_space_id is required when drive workspace initialization is enabled"
                         .to_string(),
@@ -97,7 +97,7 @@ impl<'a> KnowledgeSpaceService<'a> {
             .create_space(CreateKnowledgeSpaceRecord {
                 name: request.name,
                 description: request.description,
-                llm_wiki_initialized: false,
+                okf_bundle_initialized: false,
                 knowledge_mode: request.knowledge_mode,
             })
             .await
@@ -320,12 +320,12 @@ impl<'a> KnowledgeSpaceService<'a> {
             };
         }
 
-        if space.knowledge_mode == KnowledgeAgentKnowledgeMode::LlmWiki {
+        if space.knowledge_mode == KnowledgeAgentKnowledgeMode::OkfBundle {
             if let Err(error) = self
-                .wiki_initializer
+                .okf_bundle_initializer
                 .initialize_standard_files(space.id, &space.name, space.drive_space_id.as_deref())
                 .await
-                .map_err(KnowledgeSpaceServiceError::WikiInitializer)
+                .map_err(KnowledgeSpaceServiceError::OkfBundleInitializer)
             {
                 return Err(self
                     .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
@@ -334,7 +334,7 @@ impl<'a> KnowledgeSpaceService<'a> {
 
             return match self
                 .store
-                .mark_llm_wiki_initialized(space.id)
+                .mark_okf_bundle_initialized(space.id)
                 .await
                 .map_err(KnowledgeSpaceServiceError::Store)
             {
@@ -433,7 +433,7 @@ pub enum KnowledgeSpaceServiceError {
     #[error(transparent)]
     Store(#[from] KnowledgeSpaceStoreError),
     #[error(transparent)]
-    WikiInitializer(#[from] KnowledgeWikiInitializerServiceError),
+    OkfBundleInitializer(#[from] OkfBundleInitializerServiceError),
     #[error(transparent)]
     DriveSpaceProvisioner(#[from] KnowledgeDriveSpaceProvisionerError),
     #[error(transparent)]

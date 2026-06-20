@@ -21,7 +21,7 @@ async fn context_binding_store_round_trips_after_migration_install() {
         .create_space(CreateKnowledgeSpaceRecord {
             name: "Binding Space".to_string(),
             description: None,
-            llm_wiki_initialized: false,
+            okf_bundle_initialized: false,
             knowledge_mode: Default::default(),
         })
         .await

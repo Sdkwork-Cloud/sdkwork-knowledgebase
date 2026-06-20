@@ -173,7 +173,7 @@ struct ListBrowserQuery {
 fn parse_view(value: Option<&str>) -> Result<KnowledgeBrowserView, ApiProblem> {
     match value.unwrap_or("files") {
         "files" => Ok(KnowledgeBrowserView::Files),
-        "wiki" => Ok(KnowledgeBrowserView::Wiki),
+        "okf_bundle" => Ok(KnowledgeBrowserView::OkfBundle),
         "outputs" => Ok(KnowledgeBrowserView::Outputs),
         value => Err(ApiProblem::new(
             StatusCode::BAD_REQUEST,

@@ -106,14 +106,14 @@ async fn agent_chat_route_calls_injected_service() {
         .oneshot(request(
             "POST",
             "/app/v3/api/knowledge/agent_profiles/501/chat",
-            r#"{"tenantId":"20001","message":"What is enterprise renewal support?","mode":"llm_wiki"}"#,
+            r#"{"tenantId":"20001","message":"What is enterprise renewal support?","mode":"okf_bundle"}"#,
         ))
         .await
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::CREATED);
     let body = response_json(response).await;
-    assert_eq!(body["mode"], "llm_wiki");
+    assert_eq!(body["mode"], "okf_bundle");
     assert_eq!(body["citations"][0]["title"], "Support Playbook");
 }
 
@@ -255,7 +255,7 @@ impl KnowledgeAgentAppService for RecordingAgentService {
         Ok(KnowledgeAgentChatResponse {
             chat_id: "chat.1".to_string(),
             answer: "enterprise renewal support answer".to_string(),
-            mode: KnowledgeAgentKnowledgeMode::LlmWiki,
+            mode: KnowledgeAgentKnowledgeMode::OkfBundle,
             agent_implementation_id: sdkwork_knowledgebase_contract::RIG_AGENT_IMPLEMENTATION_ID
                 .to_string(),
             model_provider_id: "provider.model.rig-rust".to_string(),
@@ -263,10 +263,10 @@ impl KnowledgeAgentAppService for RecordingAgentService {
             citations: vec![
                 sdkwork_knowledgebase_contract::agent_chat::KnowledgeAgentChatCitation {
                     document_id: None,
-                    wiki_page_id: None,
+                    okf_concept_id: None,
                     title: "Support Playbook".to_string(),
-                    source_uri: Some("wiki/support-playbook.md".to_string()),
-                    logical_path: Some("wiki/support-playbook.md".to_string()),
+                    source_uri: Some("okf/playbooks/support-playbook.md".to_string()),
+                    logical_path: Some("okf/playbooks/support-playbook.md".to_string()),
                     locator: None,
                     score: Some(0.91),
                     snippet: Some("enterprise renewal support answer".to_string()),

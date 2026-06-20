@@ -259,6 +259,138 @@
     },
     {
       "method": "GET",
+      "path": "/app/v3/api/knowledge/okf/concepts",
+      "operationId": "okf.concepts.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/okf/concepts/{conceptId}",
+      "operationId": "okf.concepts.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/okf/concepts/{conceptId}/revisions",
+      "operationId": "okf.concepts.revisions.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/okf/index",
+      "operationId": "okf.bundle.index.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/okf/log",
+      "operationId": "okf.bundle.log.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/okf/profile",
+      "operationId": "okf.bundle.profile.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
       "path": "/app/v3/api/knowledge/retrievals/{retrievalId}",
       "operationId": "retrievals.retrieve",
       "tags": [
@@ -327,138 +459,6 @@
       "method": "GET",
       "path": "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
       "operationId": "spaces.contextBindings.list",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/wiki_index",
-      "operationId": "wiki.index.retrieve",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/wiki_log",
-      "operationId": "wiki.log.retrieve",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/wiki_pages",
-      "operationId": "wiki.pages.list",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/wiki_pages/{pageId}",
-      "operationId": "wiki.pages.retrieve",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/wiki_pages/{pageId}/revisions",
-      "operationId": "wiki.pages.revisions.list",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/wiki_schema",
-      "operationId": "wiki.schema.retrieve",
       "tags": [
         "knowledge"
       ],
@@ -765,6 +765,72 @@
     },
     {
       "method": "POST",
+      "path": "/app/v3/api/knowledge/okf/context_packs",
+      "operationId": "okf.contextPacks.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/okf/queries",
+      "operationId": "okf.queries.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/okf/queries/{queryId}/file_answer",
+      "operationId": "okf.queries.fileAnswer",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
       "path": "/app/v3/api/knowledge/retrievals",
       "operationId": "retrievals.create",
       "tags": [
@@ -855,72 +921,6 @@
       "method": "POST",
       "path": "/app/v3/api/knowledge/upload_sessions/{sessionId}/complete",
       "operationId": "uploadSessions.complete",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/wiki_context_packs",
-      "operationId": "wiki.contextPacks.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/wiki_queries",
-      "operationId": "wiki.queries.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/wiki_queries/{queryId}/file_answer",
-      "operationId": "wiki.queries.fileAnswer",
       "tags": [
         "knowledge"
       ],

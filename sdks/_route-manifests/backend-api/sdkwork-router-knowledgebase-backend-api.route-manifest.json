@@ -259,8 +259,8 @@
     },
     {
       "method": "GET",
-      "path": "/backend/v3/api/knowledge/wiki_candidates",
-      "operationId": "wiki.candidates.list",
+      "path": "/backend/v3/api/knowledge/okf/candidates",
+      "operationId": "okf.candidates.list",
       "tags": [
         "knowledge"
       ],
@@ -281,8 +281,8 @@
     },
     {
       "method": "POST",
-      "path": "/backend/v3/api/knowledge/wiki_candidates/{candidateId}/approve",
-      "operationId": "wiki.candidates.approve",
+      "path": "/backend/v3/api/knowledge/okf/candidates/{candidateId}/approve",
+      "operationId": "okf.candidates.approve",
       "tags": [
         "knowledge"
       ],
@@ -303,8 +303,8 @@
     },
     {
       "method": "POST",
-      "path": "/backend/v3/api/knowledge/wiki_candidates/{candidateId}/reject",
-      "operationId": "wiki.candidates.reject",
+      "path": "/backend/v3/api/knowledge/okf/candidates/{candidateId}/reject",
+      "operationId": "okf.candidates.reject",
       "tags": [
         "knowledge"
       ],
@@ -325,8 +325,8 @@
     },
     {
       "method": "POST",
-      "path": "/backend/v3/api/knowledge/wiki_compile_jobs",
-      "operationId": "wiki.compileJobs.create",
+      "path": "/backend/v3/api/knowledge/okf/compile_jobs",
+      "operationId": "okf.compileJobs.create",
       "tags": [
         "knowledge"
       ],
@@ -347,8 +347,8 @@
     },
     {
       "method": "POST",
-      "path": "/backend/v3/api/knowledge/wiki_eval_runs",
-      "operationId": "wiki.evalRuns.create",
+      "path": "/backend/v3/api/knowledge/okf/eval_runs",
+      "operationId": "okf.evalRuns.create",
       "tags": [
         "knowledge"
       ],
@@ -369,8 +369,8 @@
     },
     {
       "method": "POST",
-      "path": "/backend/v3/api/knowledge/wiki_exports",
-      "operationId": "wiki.exports.create",
+      "path": "/backend/v3/api/knowledge/okf/exports",
+      "operationId": "okf.bundle.export.create",
       "tags": [
         "knowledge"
       ],
@@ -391,8 +391,8 @@
     },
     {
       "method": "GET",
-      "path": "/backend/v3/api/knowledge/wiki_exports/{exportId}",
-      "operationId": "wiki.exports.retrieve",
+      "path": "/backend/v3/api/knowledge/okf/exports/{exportId}",
+      "operationId": "okf.bundle.export.retrieve",
       "tags": [
         "knowledge"
       ],
@@ -413,8 +413,8 @@
     },
     {
       "method": "GET",
-      "path": "/backend/v3/api/knowledge/wiki_file_entries",
-      "operationId": "wiki.fileEntries.list",
+      "path": "/backend/v3/api/knowledge/okf/bundle/files",
+      "operationId": "okf.bundle.files.list",
       "tags": [
         "knowledge"
       ],
@@ -435,8 +435,8 @@
     },
     {
       "method": "POST",
-      "path": "/backend/v3/api/knowledge/wiki_index/rebuild",
-      "operationId": "wiki.index.rebuild",
+      "path": "/backend/v3/api/knowledge/okf/index/rebuild",
+      "operationId": "okf.bundle.index.rebuild",
       "tags": [
         "knowledge"
       ],
@@ -457,8 +457,8 @@
     },
     {
       "method": "POST",
-      "path": "/backend/v3/api/knowledge/wiki_lint_runs",
-      "operationId": "wiki.lintRuns.create",
+      "path": "/backend/v3/api/knowledge/okf/lint_runs",
+      "operationId": "okf.lintRuns.create",
       "tags": [
         "knowledge"
       ],
@@ -479,8 +479,8 @@
     },
     {
       "method": "POST",
-      "path": "/backend/v3/api/knowledge/wiki_log_entries",
-      "operationId": "wiki.log.entries.create",
+      "path": "/backend/v3/api/knowledge/okf/log_entries",
+      "operationId": "okf.log.entries.create",
       "tags": [
         "knowledge"
       ],
@@ -501,8 +501,8 @@
     },
     {
       "method": "POST",
-      "path": "/backend/v3/api/knowledge/wiki_pages/{pageId}/publish",
-      "operationId": "wiki.pages.publish",
+      "path": "/backend/v3/api/knowledge/okf/concepts/{conceptId}/publish",
+      "operationId": "okf.concepts.publish",
       "tags": [
         "knowledge"
       ],
@@ -523,8 +523,8 @@
     },
     {
       "method": "POST",
-      "path": "/backend/v3/api/knowledge/wiki_schema_profiles",
-      "operationId": "wiki.schema.profiles.create",
+      "path": "/backend/v3/api/knowledge/okf/profile",
+      "operationId": "okf.profile.create",
       "tags": [
         "knowledge"
       ],
@@ -545,8 +545,8 @@
     },
     {
       "method": "PATCH",
-      "path": "/backend/v3/api/knowledge/wiki_schema_profiles/{profileId}",
-      "operationId": "wiki.schema.profiles.update",
+      "path": "/backend/v3/api/knowledge/okf/profile/{profileId}",
+      "operationId": "okf.profile.update",
       "tags": [
         "knowledge"
       ],

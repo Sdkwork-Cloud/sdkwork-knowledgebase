@@ -4,31 +4,28 @@ use sdkwork_knowledgebase_contract::operations::{
     AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE, AGENT_PROFILES_RETRIEVE, AGENT_PROFILES_UPDATE,
     ALL_OPERATION_IDS, CONTEXT_PACKS_CREATE, DOCUMENTS_CREATE, DOCUMENTS_LIST, DOCUMENTS_RETRIEVE,
     DOCUMENTS_VERSIONS_CREATE, DRIVE_IMPORTS_CREATE, INGESTS_CREATE, INGESTS_RETRIEVE,
-    RETRIEVALS_CREATE, RETRIEVALS_RETRIEVE, SOURCES_CREATE, SOURCES_LIST, SPACES_BROWSER_LIST,
-    WIKI_INDEX_REBUILD, WIKI_INDEX_RETRIEVE, WIKI_LOG_ENTRIES_CREATE, WIKI_SCHEMA_PROFILES_CREATE,
+    OKF_BUNDLE_INDEX_REBUILD, OKF_BUNDLE_INDEX_RETRIEVE, OKF_LOG_ENTRIES_CREATE,
+    OKF_PROFILE_CREATE, RETRIEVALS_CREATE, RETRIEVALS_RETRIEVE, SOURCES_CREATE, SOURCES_LIST,
+    SPACES_BROWSER_LIST,
 };
 
 #[test]
-fn wiki_operation_ids_are_nested_under_wiki_resource() {
-    assert_eq!(WIKI_INDEX_RETRIEVE, "wiki.index.retrieve");
-    assert_eq!(WIKI_INDEX_REBUILD, "wiki.index.rebuild");
-    assert_eq!(WIKI_LOG_ENTRIES_CREATE, "wiki.log.entries.create");
-    assert_eq!(WIKI_SCHEMA_PROFILES_CREATE, "wiki.schema.profiles.create");
+fn okf_operation_ids_are_nested_under_okf_resource() {
+    assert_eq!(OKF_BUNDLE_INDEX_RETRIEVE, "okf.bundle.index.retrieve");
+    assert_eq!(OKF_BUNDLE_INDEX_REBUILD, "okf.bundle.index.rebuild");
+    assert_eq!(OKF_LOG_ENTRIES_CREATE, "okf.log.entries.create");
+    assert_eq!(OKF_PROFILE_CREATE, "okf.profile.create");
 }
 
 #[test]
 fn operation_ids_follow_sdkwork_dotted_style() {
     assert!(!ALL_OPERATION_IDS.iter().any(|id| id.contains('_')));
-    assert!(!ALL_OPERATION_IDS
-        .iter()
-        .any(|id| id.starts_with("wikiIndex")));
-    assert!(!ALL_OPERATION_IDS
-        .iter()
-        .any(|id| id.starts_with("wikiPages")));
+    assert!(!ALL_OPERATION_IDS.iter().any(|id| id.starts_with("wiki")));
+    assert!(!ALL_OPERATION_IDS.iter().any(|id| id.contains("wiki.")));
     assert!(
         ALL_OPERATION_IDS
             .iter()
-            .filter(|id| id.starts_with("wiki."))
+            .filter(|id| id.starts_with("okf."))
             .count()
             >= 6
     );

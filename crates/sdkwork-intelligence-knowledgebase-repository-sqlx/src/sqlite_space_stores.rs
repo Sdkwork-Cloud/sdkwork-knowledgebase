@@ -1,14 +1,14 @@
 use async_trait::async_trait;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_bundle_file_store::{
+    CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
+    KnowledgeOkfBundleFileStoreError,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
 };
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_file_entry_store::{
-    CreateKnowledgeWikiFileEntryRecord, KnowledgeWikiFileEntryStore,
-    KnowledgeWikiFileEntryStoreError,
-};
+use sdkwork_knowledgebase_contract::okf_bundle_file::{KnowledgeOkfBundleFile, OkfBundleFileKind};
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{KnowledgeSpace, KnowledgeSpaceStatus};
-use sdkwork_knowledgebase_contract::wiki_file::{KnowledgeWikiFileEntry, WikiFileEntryType};
 use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -74,14 +74,14 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
                 description,
                 drive_space_id,
                 status,
-                llm_wiki_initialized,
+                okf_bundle_initialized,
                 knowledge_mode,
                 created_at,
                 updated_at,
                 version
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-            RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode, knowledge_mode
+            RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode, knowledge_mode
             "#,
         )
         .bind(id)
@@ -92,7 +92,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         .bind(record.description)
         .bind(None::<String>)
         .bind(space_status_code(KnowledgeSpaceStatus::Active))
-        .bind(bool_code(record.llm_wiki_initialized))
+        .bind(bool_code(record.okf_bundle_initialized))
         .bind(space_knowledge_mode_code(record.knowledge_mode))
         .bind(now.clone())
         .bind(now)
@@ -111,7 +111,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
 
         let row = sqlx::query(
             r#"
-            SELECT id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
+            SELECT id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             FROM kb_space
             WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = $4
             "#,
@@ -143,7 +143,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             UPDATE kb_space
             SET drive_space_id = $1, updated_at = $2, version = version + 1
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
-            RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
+            RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         )
         .bind(drive_space_id)
@@ -159,7 +159,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         space_from_row(&row)
     }
 
-    async fn mark_llm_wiki_initialized(
+    async fn mark_okf_bundle_initialized(
         &self,
         space_id: u64,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
@@ -171,9 +171,9 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_space
-            SET llm_wiki_initialized = 1, updated_at = $1, version = version + 1
+            SET okf_bundle_initialized = 1, updated_at = $1, version = version + 1
             WHERE tenant_id = $2 AND organization_id = $3 AND id = $4 AND status = $5
-            RETURNING id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
+            RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         )
         .bind(now)
@@ -216,16 +216,16 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
 }
 
 impl SqliteKnowledgeSpaceStore {
-    pub async fn find_first_wiki_initialized_space(
+    pub async fn find_first_okf_bundle_initialized_space(
         &self,
     ) -> Result<Option<KnowledgeSpace>, KnowledgeSpaceStoreError> {
         let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = space_to_i64("organization_id", self.organization_id)?;
         let row = sqlx::query(
             r#"
-            SELECT id, uuid, name, description, drive_space_id, status, llm_wiki_initialized, knowledge_mode
+            SELECT id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             FROM kb_space
-            WHERE tenant_id = $1 AND organization_id = $2 AND status = $3 AND llm_wiki_initialized = 1
+            WHERE tenant_id = $1 AND organization_id = $2 AND status = $3 AND okf_bundle_initialized = 1
             ORDER BY id ASC
             LIMIT 1
             "#,
@@ -242,13 +242,13 @@ impl SqliteKnowledgeSpaceStore {
 }
 
 #[derive(Debug, Clone)]
-pub struct SqliteKnowledgeWikiFileEntryStore {
+pub struct SqliteKnowledgeOkfBundleFileStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
 }
 
-impl SqliteKnowledgeWikiFileEntryStore {
+impl SqliteKnowledgeOkfBundleFileStore {
     pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
@@ -267,41 +267,41 @@ impl SqliteKnowledgeWikiFileEntryStore {
 }
 
 #[async_trait]
-impl KnowledgeWikiFileEntryStore for SqliteKnowledgeWikiFileEntryStore {
+impl KnowledgeOkfBundleFileStore for SqliteKnowledgeOkfBundleFileStore {
     async fn create_file_entry(
         &self,
-        record: CreateKnowledgeWikiFileEntryRecord,
-    ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
+        record: CreateKnowledgeOkfBundleFileRecord,
+    ) -> Result<KnowledgeOkfBundleFile, KnowledgeOkfBundleFileStoreError> {
         self.insert_file_entry(record).await
     }
 
     async fn upsert_file_entry(
         &self,
-        record: CreateKnowledgeWikiFileEntryRecord,
-    ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
+        record: CreateKnowledgeOkfBundleFileRecord,
+    ) -> Result<KnowledgeOkfBundleFile, KnowledgeOkfBundleFileStoreError> {
         self.upsert_file_entry_record(record).await
     }
 }
 
-impl SqliteKnowledgeWikiFileEntryStore {
+impl SqliteKnowledgeOkfBundleFileStore {
     async fn insert_file_entry(
         &self,
-        record: CreateKnowledgeWikiFileEntryRecord,
-    ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
-        let tenant_id = wiki_entry_to_i64("tenant_id", self.tenant_id)?;
-        let space_id = wiki_entry_to_i64("space_id", record.space_id)?;
-        let id = next_i64_id(&self.id_generator).map_err(wiki_entry_id_error)?;
-        let now = wiki_entry_now()?;
+        record: CreateKnowledgeOkfBundleFileRecord,
+    ) -> Result<KnowledgeOkfBundleFile, KnowledgeOkfBundleFileStoreError> {
+        let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
+        let space_id = okf_bundle_file_to_i64("space_id", record.space_id)?;
+        let id = next_i64_id(&self.id_generator).map_err(okf_bundle_file_id_error)?;
+        let now = okf_bundle_file_now()?;
 
         let row = sqlx::query(
             r#"
-            INSERT INTO kb_wiki_file_entry (
+            INSERT INTO kb_okf_bundle_file (
                 id,
                 uuid,
                 tenant_id,
                 space_id,
                 logical_path,
-                entry_type,
+                file_kind,
                 artifact_role,
                 drive_bucket,
                 drive_object_key,
@@ -316,7 +316,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
                 id,
                 space_id,
                 logical_path,
-                entry_type,
+                file_kind,
                 artifact_role,
                 drive_bucket,
                 drive_object_key,
@@ -328,7 +328,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
         .bind(tenant_id)
         .bind(space_id)
         .bind(record.logical_path)
-        .bind(wiki_entry_type_code(record.entry_type))
+        .bind(okf_bundle_file_type_code(record.file_kind))
         .bind(record.artifact_role)
         .bind(record.drive_bucket)
         .bind(record.drive_object_key)
@@ -339,29 +339,29 @@ impl SqliteKnowledgeWikiFileEntryStore {
         .bind(INITIAL_VERSION)
         .fetch_one(&self.pool)
         .await
-        .map_err(wiki_entry_sqlx_error)?;
+        .map_err(okf_bundle_file_sqlx_error)?;
 
-        wiki_file_entry_from_row(&row)
+        okf_bundle_file_from_row(&row)
     }
 
     async fn upsert_file_entry_record(
         &self,
-        record: CreateKnowledgeWikiFileEntryRecord,
-    ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
-        let tenant_id = wiki_entry_to_i64("tenant_id", self.tenant_id)?;
-        let space_id = wiki_entry_to_i64("space_id", record.space_id)?;
-        let id = next_i64_id(&self.id_generator).map_err(wiki_entry_id_error)?;
-        let now = wiki_entry_now()?;
+        record: CreateKnowledgeOkfBundleFileRecord,
+    ) -> Result<KnowledgeOkfBundleFile, KnowledgeOkfBundleFileStoreError> {
+        let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
+        let space_id = okf_bundle_file_to_i64("space_id", record.space_id)?;
+        let id = next_i64_id(&self.id_generator).map_err(okf_bundle_file_id_error)?;
+        let now = okf_bundle_file_now()?;
 
         let row = sqlx::query(
             r#"
-            INSERT INTO kb_wiki_file_entry (
+            INSERT INTO kb_okf_bundle_file (
                 id,
                 uuid,
                 tenant_id,
                 space_id,
                 logical_path,
-                entry_type,
+                file_kind,
                 artifact_role,
                 drive_bucket,
                 drive_object_key,
@@ -374,19 +374,19 @@ impl SqliteKnowledgeWikiFileEntryStore {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             ON CONFLICT(tenant_id, space_id, logical_path)
             DO UPDATE SET
-                entry_type = excluded.entry_type,
+                file_kind = excluded.file_kind,
                 artifact_role = excluded.artifact_role,
                 drive_bucket = excluded.drive_bucket,
                 drive_object_key = excluded.drive_object_key,
                 checksum_sha256_hex = excluded.checksum_sha256_hex,
                 status = excluded.status,
                 updated_at = excluded.updated_at,
-                version = kb_wiki_file_entry.version + 1
+                version = kb_okf_bundle_file.version + 1
             RETURNING
                 id,
                 space_id,
                 logical_path,
-                entry_type,
+                file_kind,
                 artifact_role,
                 drive_bucket,
                 drive_object_key,
@@ -398,7 +398,7 @@ impl SqliteKnowledgeWikiFileEntryStore {
         .bind(tenant_id)
         .bind(space_id)
         .bind(record.logical_path)
-        .bind(wiki_entry_type_code(record.entry_type))
+        .bind(okf_bundle_file_type_code(record.file_kind))
         .bind(record.artifact_role)
         .bind(record.drive_bucket)
         .bind(record.drive_object_key)
@@ -409,27 +409,27 @@ impl SqliteKnowledgeWikiFileEntryStore {
         .bind(INITIAL_VERSION)
         .fetch_one(&self.pool)
         .await
-        .map_err(wiki_entry_sqlx_error)?;
+        .map_err(okf_bundle_file_sqlx_error)?;
 
-        wiki_file_entry_from_row(&row)
+        okf_bundle_file_from_row(&row)
     }
 
     pub async fn list_file_entries(
         &self,
-    ) -> Result<Vec<KnowledgeWikiFileEntry>, KnowledgeWikiFileEntryStoreError> {
-        let tenant_id = wiki_entry_to_i64("tenant_id", self.tenant_id)?;
+    ) -> Result<Vec<KnowledgeOkfBundleFile>, KnowledgeOkfBundleFileStoreError> {
+        let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
         let rows = sqlx::query(
             r#"
             SELECT
                 id,
                 space_id,
                 logical_path,
-                entry_type,
+                file_kind,
                 artifact_role,
                 drive_bucket,
                 drive_object_key,
                 checksum_sha256_hex
-            FROM kb_wiki_file_entry
+            FROM kb_okf_bundle_file
             WHERE tenant_id = $1 AND status = $2
             ORDER BY id ASC
             LIMIT 200
@@ -439,29 +439,29 @@ impl SqliteKnowledgeWikiFileEntryStore {
         .bind(ACTIVE_STATUS)
         .fetch_all(&self.pool)
         .await
-        .map_err(wiki_entry_sqlx_error)?;
+        .map_err(okf_bundle_file_sqlx_error)?;
 
-        rows.iter().map(wiki_file_entry_from_row).collect()
+        rows.iter().map(okf_bundle_file_from_row).collect()
     }
 
     pub async fn get_file_entry_by_id(
         &self,
         entry_id: u64,
-    ) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
-        let tenant_id = wiki_entry_to_i64("tenant_id", self.tenant_id)?;
-        let entry_id = wiki_entry_to_i64("entry_id", entry_id)?;
+    ) -> Result<KnowledgeOkfBundleFile, KnowledgeOkfBundleFileStoreError> {
+        let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
+        let entry_id = okf_bundle_file_to_i64("entry_id", entry_id)?;
         let row = sqlx::query(
             r#"
             SELECT
                 id,
                 space_id,
                 logical_path,
-                entry_type,
+                file_kind,
                 artifact_role,
                 drive_bucket,
                 drive_object_key,
                 checksum_sha256_hex
-            FROM kb_wiki_file_entry
+            FROM kb_okf_bundle_file
             WHERE tenant_id = $1 AND id = $2 AND status = $3
             LIMIT 1
             "#,
@@ -471,21 +471,21 @@ impl SqliteKnowledgeWikiFileEntryStore {
         .bind(ACTIVE_STATUS)
         .fetch_optional(&self.pool)
         .await
-        .map_err(wiki_entry_sqlx_error)?
+        .map_err(okf_bundle_file_sqlx_error)?
         .ok_or_else(|| {
-            KnowledgeWikiFileEntryStoreError::Internal(format!(
-                "missing wiki file entry: {entry_id}"
+            KnowledgeOkfBundleFileStoreError::Internal(format!(
+                "missing okf bundle file: {entry_id}"
             ))
         })?;
 
-        wiki_file_entry_from_row(&row)
+        okf_bundle_file_from_row(&row)
     }
 }
 
 fn space_from_row(row: &AnyRow) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
     let status_code: i64 = row.try_get("status").map_err(space_sqlx_error)?;
-    let llm_wiki_initialized: i64 = row
-        .try_get("llm_wiki_initialized")
+    let okf_bundle_initialized: i64 = row
+        .try_get("okf_bundle_initialized")
         .map_err(space_sqlx_error)?;
     Ok(KnowledgeSpace {
         id: space_from_i64("id", row.try_get("id").map_err(space_sqlx_error)?)?,
@@ -494,14 +494,14 @@ fn space_from_row(row: &AnyRow) -> Result<KnowledgeSpace, KnowledgeSpaceStoreErr
         description: row.try_get("description").map_err(space_sqlx_error)?,
         drive_space_id: row.try_get("drive_space_id").map_err(space_sqlx_error)?,
         status: space_status_from_code(status_code)?,
-        llm_wiki_initialized: llm_wiki_initialized != 0,
+        okf_bundle_initialized: okf_bundle_initialized != 0,
         knowledge_mode: space_knowledge_mode_from_row(row)?,
     })
 }
 
 fn space_knowledge_mode_code(mode: KnowledgeAgentKnowledgeMode) -> &'static str {
     match mode {
-        KnowledgeAgentKnowledgeMode::LlmWiki => "llm_wiki",
+        KnowledgeAgentKnowledgeMode::OkfBundle => "okf_bundle",
         KnowledgeAgentKnowledgeMode::Rag => "rag",
     }
 }
@@ -510,8 +510,8 @@ fn space_knowledge_mode_from_row(
     row: &AnyRow,
 ) -> Result<KnowledgeAgentKnowledgeMode, KnowledgeSpaceStoreError> {
     let value: Option<String> = row.try_get("knowledge_mode").map_err(space_sqlx_error)?;
-    match value.as_deref().unwrap_or("llm_wiki") {
-        "llm_wiki" => Ok(KnowledgeAgentKnowledgeMode::LlmWiki),
+    match value.as_deref().unwrap_or("okf_bundle") {
+        "okf_bundle" => Ok(KnowledgeAgentKnowledgeMode::OkfBundle),
         "rag" => Ok(KnowledgeAgentKnowledgeMode::Rag),
         other => Err(KnowledgeSpaceStoreError::Internal(format!(
             "unsupported knowledge_mode value: {other}"
@@ -537,28 +537,35 @@ fn require_safe_drive_id(
     Ok(value)
 }
 
-fn wiki_file_entry_from_row(
+fn okf_bundle_file_from_row(
     row: &AnyRow,
-) -> Result<KnowledgeWikiFileEntry, KnowledgeWikiFileEntryStoreError> {
-    let entry_type: String = row.try_get("entry_type").map_err(wiki_entry_sqlx_error)?;
-    Ok(KnowledgeWikiFileEntry {
-        id: wiki_entry_from_i64("id", row.try_get("id").map_err(wiki_entry_sqlx_error)?)?,
-        space_id: wiki_entry_from_i64(
+) -> Result<KnowledgeOkfBundleFile, KnowledgeOkfBundleFileStoreError> {
+    let file_kind: String = row
+        .try_get("file_kind")
+        .map_err(okf_bundle_file_sqlx_error)?;
+    Ok(KnowledgeOkfBundleFile {
+        id: okf_bundle_file_from_i64("id", row.try_get("id").map_err(okf_bundle_file_sqlx_error)?)?,
+        space_id: okf_bundle_file_from_i64(
             "space_id",
-            row.try_get("space_id").map_err(wiki_entry_sqlx_error)?,
+            row.try_get("space_id")
+                .map_err(okf_bundle_file_sqlx_error)?,
         )?,
-        logical_path: row.try_get("logical_path").map_err(wiki_entry_sqlx_error)?,
-        entry_type: wiki_entry_type_from_code(&entry_type)?,
+        logical_path: row
+            .try_get("logical_path")
+            .map_err(okf_bundle_file_sqlx_error)?,
+        file_kind: okf_bundle_file_type_from_code(&file_kind)?,
         artifact_role: row
             .try_get("artifact_role")
-            .map_err(wiki_entry_sqlx_error)?,
-        drive_bucket: row.try_get("drive_bucket").map_err(wiki_entry_sqlx_error)?,
+            .map_err(okf_bundle_file_sqlx_error)?,
+        drive_bucket: row
+            .try_get("drive_bucket")
+            .map_err(okf_bundle_file_sqlx_error)?,
         drive_object_key: row
             .try_get("drive_object_key")
-            .map_err(wiki_entry_sqlx_error)?,
+            .map_err(okf_bundle_file_sqlx_error)?,
         checksum_sha256_hex: row
             .try_get("checksum_sha256_hex")
-            .map_err(wiki_entry_sqlx_error)?,
+            .map_err(okf_bundle_file_sqlx_error)?,
     })
 }
 
@@ -581,31 +588,33 @@ fn space_status_from_code(code: i64) -> Result<KnowledgeSpaceStatus, KnowledgeSp
     }
 }
 
-fn wiki_entry_type_code(value: WikiFileEntryType) -> &'static str {
+fn okf_bundle_file_type_code(value: OkfBundleFileKind) -> &'static str {
     match value {
-        WikiFileEntryType::WikiSchema => "wiki_schema",
-        WikiFileEntryType::WikiIndex => "wiki_index",
-        WikiFileEntryType::WikiLog => "wiki_log",
-        WikiFileEntryType::WikiRevision => "wiki_revision",
-        WikiFileEntryType::GraphExport => "graph_export",
-        WikiFileEntryType::ContextPack => "context_pack",
-        WikiFileEntryType::OutputExport => "output_export",
+        OkfBundleFileKind::BundleProfile => "bundle_profile",
+        OkfBundleFileKind::BundleAgents => "bundle_agents",
+        OkfBundleFileKind::BundleIndex => "bundle_index",
+        OkfBundleFileKind::BundleLog => "bundle_log",
+        OkfBundleFileKind::ConceptRevision => "concept_revision",
+        OkfBundleFileKind::GraphExport => "graph_export",
+        OkfBundleFileKind::ContextPack => "context_pack",
+        OkfBundleFileKind::OutputExport => "output_export",
     }
 }
 
-fn wiki_entry_type_from_code(
+fn okf_bundle_file_type_from_code(
     value: &str,
-) -> Result<WikiFileEntryType, KnowledgeWikiFileEntryStoreError> {
+) -> Result<OkfBundleFileKind, KnowledgeOkfBundleFileStoreError> {
     match value {
-        "wiki_schema" => Ok(WikiFileEntryType::WikiSchema),
-        "wiki_index" => Ok(WikiFileEntryType::WikiIndex),
-        "wiki_log" => Ok(WikiFileEntryType::WikiLog),
-        "wiki_revision" => Ok(WikiFileEntryType::WikiRevision),
-        "graph_export" => Ok(WikiFileEntryType::GraphExport),
-        "context_pack" => Ok(WikiFileEntryType::ContextPack),
-        "output_export" => Ok(WikiFileEntryType::OutputExport),
-        _ => Err(KnowledgeWikiFileEntryStoreError::Internal(format!(
-            "unknown wiki file entry type: {value}"
+        "bundle_profile" => Ok(OkfBundleFileKind::BundleProfile),
+        "bundle_agents" => Ok(OkfBundleFileKind::BundleAgents),
+        "bundle_index" => Ok(OkfBundleFileKind::BundleIndex),
+        "bundle_log" => Ok(OkfBundleFileKind::BundleLog),
+        "concept_revision" => Ok(OkfBundleFileKind::ConceptRevision),
+        "graph_export" => Ok(OkfBundleFileKind::GraphExport),
+        "context_pack" => Ok(OkfBundleFileKind::ContextPack),
+        "output_export" => Ok(OkfBundleFileKind::OutputExport),
+        _ => Err(KnowledgeOkfBundleFileStoreError::Internal(format!(
+            "unknown okf bundle file kind: {value}"
         ))),
     }
 }
@@ -622,8 +631,8 @@ fn space_now() -> Result<String, KnowledgeSpaceStoreError> {
     now_rfc3339().map_err(KnowledgeSpaceStoreError::Internal)
 }
 
-fn wiki_entry_now() -> Result<String, KnowledgeWikiFileEntryStoreError> {
-    now_rfc3339().map_err(KnowledgeWikiFileEntryStoreError::Internal)
+fn okf_bundle_file_now() -> Result<String, KnowledgeOkfBundleFileStoreError> {
+    now_rfc3339().map_err(KnowledgeOkfBundleFileStoreError::Internal)
 }
 
 fn now_rfc3339() -> Result<String, String> {
@@ -636,16 +645,22 @@ fn space_to_i64(field: &str, value: u64) -> Result<i64, KnowledgeSpaceStoreError
     to_i64(field, value).map_err(KnowledgeSpaceStoreError::Internal)
 }
 
-fn wiki_entry_to_i64(field: &str, value: u64) -> Result<i64, KnowledgeWikiFileEntryStoreError> {
-    to_i64(field, value).map_err(KnowledgeWikiFileEntryStoreError::Internal)
+fn okf_bundle_file_to_i64(
+    field: &str,
+    value: u64,
+) -> Result<i64, KnowledgeOkfBundleFileStoreError> {
+    to_i64(field, value).map_err(KnowledgeOkfBundleFileStoreError::Internal)
 }
 
 fn space_from_i64(field: &str, value: i64) -> Result<u64, KnowledgeSpaceStoreError> {
     from_i64(field, value).map_err(KnowledgeSpaceStoreError::Internal)
 }
 
-fn wiki_entry_from_i64(field: &str, value: i64) -> Result<u64, KnowledgeWikiFileEntryStoreError> {
-    from_i64(field, value).map_err(KnowledgeWikiFileEntryStoreError::Internal)
+fn okf_bundle_file_from_i64(
+    field: &str,
+    value: i64,
+) -> Result<u64, KnowledgeOkfBundleFileStoreError> {
+    from_i64(field, value).map_err(KnowledgeOkfBundleFileStoreError::Internal)
 }
 
 fn to_i64(field: &str, value: u64) -> Result<i64, String> {
@@ -664,14 +679,14 @@ fn space_id_error(error: crate::KnowledgeIdGeneratorError) -> KnowledgeSpaceStor
     KnowledgeSpaceStoreError::Internal(error.to_string())
 }
 
-fn wiki_entry_sqlx_error(error: sqlx::Error) -> KnowledgeWikiFileEntryStoreError {
-    KnowledgeWikiFileEntryStoreError::Internal(error.to_string())
+fn okf_bundle_file_sqlx_error(error: sqlx::Error) -> KnowledgeOkfBundleFileStoreError {
+    KnowledgeOkfBundleFileStoreError::Internal(error.to_string())
 }
 
-fn wiki_entry_id_error(
+fn okf_bundle_file_id_error(
     error: crate::KnowledgeIdGeneratorError,
-) -> KnowledgeWikiFileEntryStoreError {
-    KnowledgeWikiFileEntryStoreError::Internal(error.to_string())
+) -> KnowledgeOkfBundleFileStoreError {
+    KnowledgeOkfBundleFileStoreError::Internal(error.to_string())
 }
 
 fn space_fetch_error(space_id: u64, error: sqlx::Error) -> KnowledgeSpaceStoreError {

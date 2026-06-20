@@ -4,10 +4,10 @@ use axum::{
     Extension, Json,
 };
 use sdkwork_knowledgebase_contract::{
-    CreateKnowledgeSourceRequest, KnowledgeIndexRequest, KnowledgeRetrievalProfileRequest,
-    KnowledgeWikiSchemaProfileRequest, WikiCandidateReviewRequest, WikiCompileJobRequest,
-    WikiExportRequest, WikiIndexRebuildRequest, WikiLogEntry, WikiPagePublishRequest,
-    WikiQualityRunRequest,
+    CreateKnowledgeSourceRequest, KnowledgeIndexRequest, KnowledgeOkfProfileRequest,
+    KnowledgeRetrievalProfileRequest, OkfBundleExportRequest, OkfCandidateReviewRequest,
+    OkfCompileJobRequest, OkfConceptPublishRequest, OkfIndexRebuildRequest, OkfLogEntry,
+    OkfQualityRunRequest,
 };
 
 use crate::{
@@ -47,134 +47,124 @@ pub(crate) async fn create_source(
     created_json(state.api.create_source(request).await)
 }
 
-pub(crate) async fn create_wiki_compile_job(
+pub(crate) async fn create_okf_compile_job(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
-    Json(request): Json<WikiCompileJobRequest>,
+    Json(request): Json<OkfCompileJobRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    created_json(state.api.create_wiki_compile_job(request).await)
+    created_json(state.api.create_okf_compile_job(request).await)
 }
 
-backend_handler!(list_wiki_candidates, |state: BackendState| async move {
-    ok_json(state.api.list_wiki_candidates().await)
+backend_handler!(list_okf_candidates, |state: BackendState| async move {
+    ok_json(state.api.list_okf_candidates().await)
 });
 
-pub(crate) async fn approve_wiki_candidate(
+pub(crate) async fn approve_okf_candidate(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
     Path(candidate_id): Path<u64>,
-    Json(request): Json<WikiCandidateReviewRequest>,
+    Json(request): Json<OkfCandidateReviewRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    created_json(
-        state
-            .api
-            .approve_wiki_candidate(candidate_id, request)
-            .await,
-    )
+    created_json(state.api.approve_okf_candidate(candidate_id, request).await)
 }
 
-pub(crate) async fn reject_wiki_candidate(
+pub(crate) async fn reject_okf_candidate(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
     Path(candidate_id): Path<u64>,
-    Json(request): Json<WikiCandidateReviewRequest>,
+    Json(request): Json<OkfCandidateReviewRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    created_json(state.api.reject_wiki_candidate(candidate_id, request).await)
+    created_json(state.api.reject_okf_candidate(candidate_id, request).await)
 }
 
-pub(crate) async fn publish_wiki_page(
+pub(crate) async fn publish_okf_concept(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
-    Path(page_id): Path<u64>,
-    Json(request): Json<WikiPagePublishRequest>,
+    Path(concept_id): Path<u64>,
+    Json(request): Json<OkfConceptPublishRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    created_json(state.api.publish_wiki_page(page_id, request).await)
+    created_json(state.api.publish_okf_concept(concept_id, request).await)
 }
 
-pub(crate) async fn create_wiki_schema_profile(
+pub(crate) async fn create_okf_profile(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
-    Json(request): Json<KnowledgeWikiSchemaProfileRequest>,
+    Json(request): Json<KnowledgeOkfProfileRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    created_json(state.api.create_wiki_schema_profile(request).await)
+    created_json(state.api.create_okf_profile(request).await)
 }
 
-pub(crate) async fn update_wiki_schema_profile(
+pub(crate) async fn update_okf_profile(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
     Path(profile_id): Path<u64>,
-    Json(request): Json<KnowledgeWikiSchemaProfileRequest>,
+    Json(request): Json<KnowledgeOkfProfileRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    ok_json(
-        state
-            .api
-            .update_wiki_schema_profile(profile_id, request)
-            .await,
-    )
+    ok_json(state.api.update_okf_profile(profile_id, request).await)
 }
 
-pub(crate) async fn rebuild_wiki_index(
+pub(crate) async fn rebuild_okf_index(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
-    Json(request): Json<WikiIndexRebuildRequest>,
+    Json(request): Json<OkfIndexRebuildRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    ok_json(state.api.rebuild_wiki_index(request).await)
+    ok_json(state.api.rebuild_okf_index(request).await)
 }
 
-pub(crate) async fn create_wiki_log_entry(
+pub(crate) async fn create_okf_log_entry(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
-    Json(request): Json<WikiLogEntry>,
+    Json(request): Json<OkfLogEntry>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    created_json(state.api.create_wiki_log_entry(request).await)
+    created_json(state.api.create_okf_log_entry(request).await)
 }
 
-pub(crate) async fn create_wiki_export(
+pub(crate) async fn create_okf_export(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
-    Json(request): Json<WikiExportRequest>,
+    Json(request): Json<OkfBundleExportRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    created_json(state.api.create_wiki_export(request).await)
+    created_json(state.api.create_okf_export(request).await)
 }
 
-pub(crate) async fn retrieve_wiki_export(
+pub(crate) async fn retrieve_okf_export(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
     Path(export_id): Path<u64>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    ok_json(state.api.retrieve_wiki_export(export_id).await)
+    ok_json(state.api.retrieve_okf_export(export_id).await)
 }
 
-backend_handler!(list_wiki_file_entries, |state: BackendState| async move {
-    ok_json(state.api.list_wiki_file_entries().await)
+backend_handler!(list_okf_bundle_files, |state: BackendState| async move {
+    ok_json(state.api.list_okf_bundle_files().await)
 });
 
-pub(crate) async fn create_wiki_lint_run(
+pub(crate) async fn create_okf_lint_run(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
-    Json(request): Json<WikiQualityRunRequest>,
+    Json(request): Json<OkfQualityRunRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    created_json(state.api.create_wiki_lint_run(request).await)
+    created_json(state.api.create_okf_lint_run(request).await)
 }
 
-pub(crate) async fn create_wiki_eval_run(
+pub(crate) async fn create_okf_eval_run(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
-    Json(request): Json<WikiQualityRunRequest>,
+    Json(request): Json<OkfQualityRunRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
-    created_json(state.api.create_wiki_eval_run(request).await)
+    created_json(state.api.create_okf_eval_run(request).await)
 }
 
 pub(crate) async fn create_index(
@@ -204,7 +194,7 @@ pub(crate) async fn rebuild_index(
     State(state): State<BackendState>,
     context: Option<Extension<KnowledgeBackendRequestContext>>,
     Path(index_id): Path<u64>,
-    Json(request): Json<WikiIndexRebuildRequest>,
+    Json(request): Json<OkfIndexRebuildRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
     ok_json(state.api.rebuild_index(index_id, request).await)

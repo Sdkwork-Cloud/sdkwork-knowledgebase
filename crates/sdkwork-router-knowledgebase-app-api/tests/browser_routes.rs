@@ -29,7 +29,7 @@ async fn app_router_exposes_browser_route_with_query_parameters() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/app/v3/api/knowledge/spaces/7/browser?view=wiki&pageSize=25&parentId=node-wiki&cursor=c1")
+                .uri("/app/v3/api/knowledge/spaces/7/browser?view=okf_bundle&pageSize=25&parentId=node-okf&cursor=c1")
                 .extension(app_request_context())
                 .body(Body::empty())
                 .unwrap(),
@@ -41,14 +41,17 @@ async fn app_router_exposes_browser_route_with_query_parameters() {
     let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
     let page: KnowledgeBrowserPage = serde_json::from_slice(&body).unwrap();
     assert_eq!(page.space_id, 7);
-    assert_eq!(page.view, KnowledgeBrowserView::Wiki);
-    assert_eq!(page.items[0].node_type, KnowledgeBrowserNodeType::WikiPage);
+    assert_eq!(page.view, KnowledgeBrowserView::OkfBundle);
+    assert_eq!(
+        page.items[0].node_type,
+        KnowledgeBrowserNodeType::OkfConcept
+    );
     assert_eq!(
         browser.last_request().unwrap(),
         ListKnowledgeBrowserRequest {
             space_id: 7,
-            parent_id: Some("node-wiki".to_string()),
-            view: KnowledgeBrowserView::Wiki,
+            parent_id: Some("node-okf".to_string()),
+            view: KnowledgeBrowserView::OkfBundle,
             cursor: Some("c1".to_string()),
             page_size: Some(25),
         }
@@ -114,22 +117,22 @@ impl KnowledgeBrowserApi for RecordingBrowserApi {
             page_size: request.page_size.unwrap_or(50),
             items: vec![KnowledgeBrowserNode {
                 id: "node-index".to_string(),
-                node_type: KnowledgeBrowserNodeType::WikiPage,
+                node_type: KnowledgeBrowserNodeType::OkfConcept,
                 name: "index.md".to_string(),
-                parent_id: Some("node-wiki".to_string()),
-                path: "wiki/index.md".to_string(),
+                parent_id: Some("node-okf".to_string()),
+                path: "okf/index.md".to_string(),
                 drive_space_id: Some("drv-kb-001".to_string()),
                 drive_node_id: Some("node-index".to_string()),
                 document_id: None,
                 document_version_id: None,
-                wiki_page_id: Some(1),
-                wiki_revision_id: Some(2),
+                okf_concept_id: Some(1),
+                okf_revision_id: Some(2),
                 mime_type: Some("text/markdown; charset=utf-8".to_string()),
                 size_bytes: Some(64),
                 ingest_state: None,
                 parse_state: None,
                 index_state: None,
-                wiki_state: Some("published".to_string()),
+                okf_state: Some("published".to_string()),
                 children_count: None,
                 updated_at: "2026-06-04T12:00:00Z".to_string(),
                 permissions: KnowledgeBrowserNodePermissions::read_only(),

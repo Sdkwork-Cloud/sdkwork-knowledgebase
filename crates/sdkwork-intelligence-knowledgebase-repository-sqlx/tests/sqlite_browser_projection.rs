@@ -14,11 +14,11 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_re
     CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore, MANAGED_DRIVE_ACCESS_MODE,
     SDKWORK_DRIVE_PROVIDER_KIND,
 };
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_page_store::{
-    KnowledgeWikiPageStore, UpsertKnowledgeWikiPageRecord,
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
+    KnowledgeOkfConceptStore, UpsertKnowledgeOkfConceptRecord,
 };
-use sdkwork_knowledgebase_contract::wiki::{WikiPagePublishState, WikiPageType};
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
+use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sqlx::{AnyPool, Row};
 
 #[tokio::test]
@@ -31,7 +31,7 @@ async fn sqlite_space_store_persists_drive_space_binding() {
         .create_space(sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::CreateKnowledgeSpaceRecord {
             name: "Research Space".to_string(),
             description: None,
-            llm_wiki_initialized: false,
+            okf_bundle_initialized: false,
             knowledge_mode: Default::default(),
         })
         .await
@@ -65,7 +65,7 @@ async fn sqlite_space_store_deleted_space_releases_active_drive_space_binding() 
         .create_space(sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::CreateKnowledgeSpaceRecord {
             name: "Failed Initialization".to_string(),
             description: None,
-            llm_wiki_initialized: false,
+            okf_bundle_initialized: false,
             knowledge_mode: Default::default(),
         })
         .await
@@ -80,7 +80,7 @@ async fn sqlite_space_store_deleted_space_releases_active_drive_space_binding() 
         .create_space(sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::CreateKnowledgeSpaceRecord {
             name: "Retried Initialization".to_string(),
             description: None,
-            llm_wiki_initialized: false,
+            okf_bundle_initialized: false,
             knowledge_mode: Default::default(),
         })
         .await
@@ -175,47 +175,48 @@ async fn sqlite_browser_projection_batches_document_status_by_drive_node_id() {
 }
 
 #[tokio::test]
-async fn sqlite_browser_projection_batches_wiki_page_status_by_logical_path() {
+async fn sqlite_browser_projection_batches_okf_concept_status_by_logical_path() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001;
-    let wiki_pages =
-        sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeWikiPageStore::new(
+    insert_space(&pool, tenant_id, 7).await;
+    let concepts =
+        sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeOkfConceptStore::new(
             pool.clone(),
             tenant_id,
         );
     let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, tenant_id);
 
-    let page = wiki_pages
-        .upsert_page(UpsertKnowledgeWikiPageRecord {
+    let concept = concepts
+        .upsert_concept(UpsertKnowledgeOkfConceptRecord {
             space_id: 7,
-            slug: "entity-name".to_string(),
+            concept_id: "entities/entity-name".to_string(),
             title: "Entity Name".to_string(),
-            page_type: WikiPageType::Entity,
-            logical_path: "wiki/pages/entities/entity-name/current.md".to_string(),
-            summary: "Entity summary.".to_string(),
+            concept_type: "Entity".to_string(),
+            logical_path: "okf/entities/entity-name.md".to_string(),
+            description: "Entity summary.".to_string(),
             source_count: 1,
             tags: vec![],
-            publish_state: WikiPagePublishState::Published,
+            publish_state: OkfConceptPublishState::Published,
         })
         .await
         .unwrap();
 
     let batch = projections
-        .batch_wiki_page_projections(
+        .batch_okf_concept_projections(
             7,
             vec![
-                "wiki/index.md".to_string(),
-                "wiki/pages/entities/entity-name/current.md".to_string(),
+                "okf/index.md".to_string(),
+                "okf/entities/entity-name.md".to_string(),
             ],
         )
         .await
         .unwrap();
 
     assert_eq!(batch.len(), 1);
-    assert_eq!(batch[0].logical_path, page.logical_path);
-    assert_eq!(batch[0].page_id, page.id);
-    assert_eq!(batch[0].publish_state, WikiPagePublishState::Published);
+    assert_eq!(batch[0].logical_path, concept.logical_path);
+    assert_eq!(batch[0].concept_row_id, concept.id);
+    assert_eq!(batch[0].publish_state, OkfConceptPublishState::Published);
 }
 
 #[tokio::test]
@@ -238,16 +239,16 @@ async fn sqlite_browser_projection_rejects_unbounded_document_projection_batches
 }
 
 #[tokio::test]
-async fn sqlite_browser_projection_rejects_unbounded_wiki_projection_batches() {
+async fn sqlite_browser_projection_rejects_unbounded_okf_projection_batches() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, 9001);
 
     let error = projections
-        .batch_wiki_page_projections(
+        .batch_okf_concept_projections(
             7,
             (0..201)
-                .map(|index| format!("wiki/pages/entities/entity-{index}/current.md"))
+                .map(|index| format!("okf/entities/entity-{index}.md"))
                 .collect(),
         )
         .await
@@ -262,6 +263,35 @@ async fn sqlite_pool() -> AnyPool {
     )
     .await
     .unwrap()
+}
+
+async fn insert_space(pool: &AnyPool, tenant_id: u64, space_id: u64) {
+    sqlx::query(
+        r#"
+        INSERT INTO kb_space (
+            id,
+            uuid,
+            tenant_id,
+            organization_id,
+            name,
+            status,
+            okf_bundle_initialized,
+            created_at,
+            updated_at,
+            version
+        )
+        VALUES ($1, $2, $3, 0, $4, 1, 1, $5, $6, 0)
+        "#,
+    )
+    .bind(space_id as i64)
+    .bind(format!("space-{space_id}"))
+    .bind(tenant_id as i64)
+    .bind(format!("Knowledge Space {space_id}"))
+    .bind("2026-06-05T00:00:00Z")
+    .bind("2026-06-05T00:00:00Z")
+    .execute(pool)
+    .await
+    .unwrap();
 }
 
 async fn apply_sqlite_migration(_pool: &AnyPool) {}

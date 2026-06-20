@@ -12,18 +12,18 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeBrowserPage, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument,
     KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList,
     KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest,
-    KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeUploadSession,
-    KnowledgeWikiFileEntry, KnowledgeWikiPageRevisionList, ListKnowledgeBrowserRequest,
-    WikiContextPackRequest, WikiFileAnswerRequest, WikiIndexDocument, WikiLogDocument,
-    WikiPageSummary, WikiPageSummaryList, WikiQueryRequest, WikiQueryResult, WikiSchemaDocument,
+    KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest,
+    KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeUploadSession, ListKnowledgeBrowserRequest,
+    OkfConceptSummary, OkfConceptSummaryList, OkfContextPackRequest, OkfFileAnswerRequest,
+    OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQueryRequest, OkfQueryResult,
 };
 use std::sync::Arc;
 
 use crate::{
     ApiResult, KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext,
     KnowledgeBrowserApi, KnowledgeContextBindingAppService, KnowledgeDocumentAppService,
-    KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeRetrievalAppService,
-    KnowledgeSpaceAppService, KnowledgeUploadSessionAppService, KnowledgeWikiAppService,
+    KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeOkfAppService,
+    KnowledgeRetrievalAppService, KnowledgeSpaceAppService, KnowledgeUploadSessionAppService,
 };
 
 pub struct BrowserOnlyAppApi {
@@ -289,7 +289,7 @@ pub struct FullAppApi {
     drive_import: Arc<dyn KnowledgeDriveImportAppService>,
     ingest: Arc<dyn KnowledgeIngestAppService>,
     document: Arc<dyn KnowledgeDocumentAppService>,
-    wiki: Arc<dyn KnowledgeWikiAppService>,
+    okf: Arc<dyn KnowledgeOkfAppService>,
     browser: Arc<dyn KnowledgeBrowserApi>,
     retrieval: Arc<dyn KnowledgeRetrievalAppService>,
     agent: Arc<dyn KnowledgeAgentAppService>,
@@ -304,7 +304,7 @@ impl FullAppApi {
         drive_import: Arc<dyn KnowledgeDriveImportAppService>,
         ingest: Arc<dyn KnowledgeIngestAppService>,
         document: Arc<dyn KnowledgeDocumentAppService>,
-        wiki: Arc<dyn KnowledgeWikiAppService>,
+        okf: Arc<dyn KnowledgeOkfAppService>,
         browser: Arc<dyn KnowledgeBrowserApi>,
         retrieval: Arc<dyn KnowledgeRetrievalAppService>,
         agent: Arc<dyn KnowledgeAgentAppService>,
@@ -316,7 +316,7 @@ impl FullAppApi {
             drive_import,
             ingest,
             document,
-            wiki,
+            okf,
             browser,
             retrieval,
             agent,
@@ -398,50 +398,50 @@ impl KnowledgeAppApi for FullAppApi {
             .await
     }
 
-    async fn list_wiki_pages(&self) -> ApiResult<WikiPageSummaryList> {
-        self.wiki.list_wiki_pages().await
+    async fn list_okf_concepts(&self) -> ApiResult<OkfConceptSummaryList> {
+        self.okf.list_okf_concepts().await
     }
 
-    async fn retrieve_wiki_page(&self, page_id: u64) -> ApiResult<WikiPageSummary> {
-        self.wiki.retrieve_wiki_page(page_id).await
+    async fn retrieve_okf_concept(&self, concept_row_id: u64) -> ApiResult<OkfConceptSummary> {
+        self.okf.retrieve_okf_concept(concept_row_id).await
     }
 
-    async fn list_wiki_page_revisions(
+    async fn list_okf_concept_revisions(
         &self,
-        page_id: u64,
-    ) -> ApiResult<KnowledgeWikiPageRevisionList> {
-        self.wiki.list_wiki_page_revisions(page_id).await
+        concept_row_id: u64,
+    ) -> ApiResult<KnowledgeOkfConceptRevisionList> {
+        self.okf.list_okf_concept_revisions(concept_row_id).await
     }
 
-    async fn retrieve_wiki_index(&self) -> ApiResult<WikiIndexDocument> {
-        self.wiki.retrieve_wiki_index().await
+    async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument> {
+        self.okf.retrieve_okf_index().await
     }
 
-    async fn retrieve_wiki_log(&self) -> ApiResult<WikiLogDocument> {
-        self.wiki.retrieve_wiki_log().await
+    async fn retrieve_okf_log(&self) -> ApiResult<OkfLogDocument> {
+        self.okf.retrieve_okf_log().await
     }
 
-    async fn retrieve_wiki_schema(&self) -> ApiResult<WikiSchemaDocument> {
-        self.wiki.retrieve_wiki_schema().await
+    async fn retrieve_okf_schema(&self) -> ApiResult<OkfProfileDocument> {
+        self.okf.retrieve_okf_schema().await
     }
 
-    async fn create_wiki_query(&self, request: WikiQueryRequest) -> ApiResult<WikiQueryResult> {
-        self.wiki.create_wiki_query(request).await
+    async fn create_okf_query(&self, request: OkfQueryRequest) -> ApiResult<OkfQueryResult> {
+        self.okf.create_okf_query(request).await
     }
 
-    async fn file_wiki_query_answer(
+    async fn file_okf_query_answer(
         &self,
         query_id: u64,
-        request: WikiFileAnswerRequest,
-    ) -> ApiResult<WikiQueryResult> {
-        self.wiki.file_wiki_query_answer(query_id, request).await
+        request: OkfFileAnswerRequest,
+    ) -> ApiResult<OkfQueryResult> {
+        self.okf.file_okf_query_answer(query_id, request).await
     }
 
-    async fn create_wiki_context_pack(
+    async fn create_okf_context_pack(
         &self,
-        request: WikiContextPackRequest,
-    ) -> ApiResult<KnowledgeWikiFileEntry> {
-        self.wiki.create_wiki_context_pack(request).await
+        request: OkfContextPackRequest,
+    ) -> ApiResult<KnowledgeOkfBundleFile> {
+        self.okf.create_okf_context_pack(request).await
     }
 
     async fn list_browser(

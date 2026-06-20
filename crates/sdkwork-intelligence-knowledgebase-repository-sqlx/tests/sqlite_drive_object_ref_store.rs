@@ -109,13 +109,13 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
 }
 
 #[tokio::test]
-async fn sqlite_drive_object_ref_store_keeps_content_versions_for_stable_wiki_paths() {
+async fn sqlite_drive_object_ref_store_keeps_content_versions_for_stable_okf_paths() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     let store = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), 9001);
 
     let first = store
-        .create_or_get_object_ref(stable_wiki_object_ref_record(
+        .create_or_get_object_ref(stable_okf_object_ref_record(
             "sha256:index-v1",
             "checksum-index-v1",
             128,
@@ -123,7 +123,7 @@ async fn sqlite_drive_object_ref_store_keeps_content_versions_for_stable_wiki_pa
         .await
         .unwrap();
     let replay = store
-        .create_or_get_object_ref(stable_wiki_object_ref_record(
+        .create_or_get_object_ref(stable_okf_object_ref_record(
             "sha256:index-v1",
             "checksum-index-v1",
             128,
@@ -131,7 +131,7 @@ async fn sqlite_drive_object_ref_store_keeps_content_versions_for_stable_wiki_pa
         .await
         .unwrap();
     let second = store
-        .create_or_get_object_ref(stable_wiki_object_ref_record(
+        .create_or_get_object_ref(stable_okf_object_ref_record(
             "sha256:index-v2",
             "checksum-index-v2",
             256,
@@ -157,8 +157,8 @@ async fn sqlite_drive_object_ref_store_keeps_content_versions_for_stable_wiki_pa
         WHERE tenant_id = 9001
           AND space_id = 7
           AND drive_bucket = 'knowledgebase-test'
-          AND drive_object_key = 'knowledge/tenant/space/wiki/index.md'
-          AND object_role = 'wiki_index'
+          AND drive_object_key = 'knowledge/tenant/space/okf/index.md'
+          AND object_role = 'bundle_index'
           AND status = 1
         "#,
     )
@@ -178,7 +178,7 @@ async fn sqlite_pool() -> AnyPool {
 
 async fn apply_sqlite_migration(_pool: &AnyPool) {}
 
-fn stable_wiki_object_ref_record(
+fn stable_okf_object_ref_record(
     drive_object_version: &str,
     checksum_sha256_hex: &str,
     size_bytes: u64,
@@ -187,17 +187,17 @@ fn stable_wiki_object_ref_record(
         space_id: 7,
         drive_space_id: Some("drv-kb-001".to_string()),
         drive_node_id: Some("node-index".to_string()),
-        logical_path: Some("wiki/index.md".to_string()),
+        logical_path: Some("okf/index.md".to_string()),
         drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
         drive_storage_provider_id: "provider-kb".to_string(),
         drive_bucket: "knowledgebase-test".to_string(),
-        drive_object_key: "knowledge/tenant/space/wiki/index.md".to_string(),
+        drive_object_key: "knowledge/tenant/space/okf/index.md".to_string(),
         drive_object_version: Some(drive_object_version.to_string()),
         drive_etag: None,
         content_type: Some("text/markdown; charset=utf-8".to_string()),
         size_bytes,
         checksum_sha256_hex: Some(checksum_sha256_hex.to_string()),
-        object_role: "wiki_index".to_string(),
+        object_role: "bundle_index".to_string(),
         access_mode: MANAGED_DRIVE_ACCESS_MODE.to_string(),
     }
 }

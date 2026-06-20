@@ -6,8 +6,8 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeChunkRetrievalStore,
     SqliteKnowledgeChunkStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
     SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeEmbeddingStore, SqliteKnowledgeIndexStore,
-    SqliteKnowledgeOutboxStore, SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore,
-    SqliteKnowledgeSpaceStore, SqliteKnowledgeWikiFileEntryStore, SqliteKnowledgeWikiPageStore,
+    SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
+    SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
     agent::KnowledgeAgentService, agent_chat::KnowledgeAgentChatService,
@@ -39,13 +39,13 @@ use sdkwork_knowledgebase_agent_provider::{
 
 use crate::{
     agent_chat_runtime::{
-        RuntimeKnowledgebaseRetrievalClient, RuntimeLlmWikiKnowledgeClient,
+        RuntimeKnowledgebaseRetrievalClient, RuntimeOkfKnowledgeClient,
         RuntimeRetrievalPlanResolver, RuntimeSpaceModeResolver,
     },
     build_router_with_shared_app_api_and_readiness,
     hosted::{
         HostedBrowserService, HostedDocumentService, HostedDriveImportService, HostedIngestService,
-        HostedSpaceService, HostedWikiService,
+        HostedOkfService, HostedSpaceService,
     },
     hosted_backend::HostedBackendApi,
     hosted_context_binding::HostedContextBindingService,
@@ -73,8 +73,8 @@ pub struct KnowledgebaseRuntime {
     embedding_store: Arc<SqliteKnowledgeEmbeddingStore>,
     agent_store: Arc<SqliteKnowledgeAgentProfileStore>,
     space_store: Arc<SqliteKnowledgeSpaceStore>,
-    wiki_file_entry_store: Arc<SqliteKnowledgeWikiFileEntryStore>,
-    wiki_page_store: Arc<SqliteKnowledgeWikiPageStore>,
+    okf_bundle_file_store: Arc<SqliteKnowledgeOkfBundleFileStore>,
+    okf_concept_store: Arc<SqliteKnowledgeOkfConceptStore>,
     document_store: Arc<SqliteKnowledgeDocumentStore>,
     source_store: Arc<SqliteKnowledgeSourceStore>,
     version_store: Arc<SqliteKnowledgeDocumentVersionStore>,
@@ -167,11 +167,14 @@ impl KnowledgebaseRuntime {
                 tenant_id,
                 organization_id,
             )),
-            wiki_file_entry_store: Arc::new(SqliteKnowledgeWikiFileEntryStore::new(
+            okf_bundle_file_store: Arc::new(SqliteKnowledgeOkfBundleFileStore::new(
                 pool.clone(),
                 tenant_id,
             )),
-            wiki_page_store: Arc::new(SqliteKnowledgeWikiPageStore::new(pool.clone(), tenant_id)),
+            okf_concept_store: Arc::new(SqliteKnowledgeOkfConceptStore::new(
+                pool.clone(),
+                tenant_id,
+            )),
             document_store: Arc::new(SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id)),
             source_store: Arc::new(SqliteKnowledgeSourceStore::new(pool.clone(), tenant_id)),
             version_store: Arc::new(SqliteKnowledgeDocumentVersionStore::new(
@@ -248,7 +251,7 @@ impl KnowledgebaseRuntime {
                 Arc::new(HostedDriveImportService::new(self.clone())),
                 Arc::new(HostedIngestService::new(self.clone())),
                 Arc::new(HostedDocumentService::new(self.clone())),
-                Arc::new(HostedWikiService::new(self.clone())),
+                Arc::new(HostedOkfService::new(self.clone())),
                 Arc::new(HostedBrowserService::new(self.clone())),
                 Arc::new(HostedRetrievalService::new(self.clone())),
                 Arc::new(HostedAgentService::new(self.clone())),
@@ -313,8 +316,8 @@ impl KnowledgebaseRuntime {
         &self.embedding_store
     }
 
-    pub(crate) fn wiki_page_store(&self) -> &SqliteKnowledgeWikiPageStore {
-        &self.wiki_page_store
+    pub(crate) fn okf_concept_store(&self) -> &SqliteKnowledgeOkfConceptStore {
+        &self.okf_concept_store
     }
 
     pub(crate) fn space_store(&self) -> &SqliteKnowledgeSpaceStore {
@@ -341,8 +344,8 @@ impl KnowledgebaseRuntime {
         &self.context_binding_store
     }
 
-    pub(crate) fn wiki_file_entry_store(&self) -> &SqliteKnowledgeWikiFileEntryStore {
-        &self.wiki_file_entry_store
+    pub(crate) fn okf_bundle_file_store(&self) -> &SqliteKnowledgeOkfBundleFileStore {
+        &self.okf_bundle_file_store
     }
 
     pub(crate) fn source_store(&self) -> &SqliteKnowledgeSourceStore {
@@ -646,8 +649,8 @@ impl KnowledgeAgentAppService for HostedAgentService {
         request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
         let retrieval_client = RuntimeKnowledgebaseRetrievalClient::new(self.runtime.clone());
-        let wiki_client = RuntimeLlmWikiKnowledgeClient::new(
-            self.runtime.wiki_page_store.clone(),
+        let okf_client = RuntimeOkfKnowledgeClient::new(
+            self.runtime.okf_concept_store.clone(),
             self.runtime.drive_storage.clone(),
         );
         let claw_router_client = resolve_claw_router_client_from_env()
@@ -661,7 +664,7 @@ impl KnowledgeAgentAppService for HostedAgentService {
             self.runtime.agent_store.as_ref(),
             &retrieval,
             retrieval_client,
-            wiki_client,
+            okf_client,
             claw_router_client,
             Some(&plan_resolver),
             Some(&space_mode_resolver),

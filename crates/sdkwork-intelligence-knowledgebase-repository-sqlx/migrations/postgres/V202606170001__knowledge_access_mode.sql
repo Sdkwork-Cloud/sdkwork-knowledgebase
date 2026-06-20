@@ -1,10 +1,10 @@
 -- Knowledge access mode defaults and embedding vector storage for claw-router RAG.
 
 ALTER TABLE kb_agent_profile
-    ADD COLUMN IF NOT EXISTS knowledge_mode VARCHAR(32) NOT NULL DEFAULT 'llm_wiki';
+    ADD COLUMN IF NOT EXISTS knowledge_mode VARCHAR(32) NOT NULL DEFAULT 'okf_bundle';
 
 ALTER TABLE kb_space
-    ADD COLUMN IF NOT EXISTS knowledge_mode VARCHAR(32) NOT NULL DEFAULT 'llm_wiki';
+    ADD COLUMN IF NOT EXISTS knowledge_mode VARCHAR(32) NOT NULL DEFAULT 'okf_bundle';
 
 ALTER TABLE kb_embedding
     ADD COLUMN IF NOT EXISTS vector_json TEXT;

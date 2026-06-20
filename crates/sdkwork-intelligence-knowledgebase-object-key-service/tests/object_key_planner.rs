@@ -3,16 +3,16 @@ use sdkwork_intelligence_knowledgebase_object_key_service::object_key::{
 };
 
 #[test]
-fn planner_generates_standard_llm_wiki_object_keys() {
+fn planner_generates_standard_okf_bundle_object_keys() {
     let planner = KnowledgeObjectKeyPlanner::new("tenant-1", "space-uuid").unwrap();
 
     assert_eq!(
-        planner.llm_wiki_file("wiki/index.md").unwrap(),
-        "knowledge/tenant-1/space-uuid/wiki/index.md"
+        planner.okf_bundle_file("okf/index.md").unwrap(),
+        "knowledge/tenant-1/space-uuid/okf/index.md"
     );
     assert_eq!(
-        planner.llm_wiki_file("wiki/schema/AGENTS.md").unwrap(),
-        "knowledge/tenant-1/space-uuid/wiki/schema/AGENTS.md"
+        planner.okf_bundle_file("okf/schema/AGENTS.md").unwrap(),
+        "knowledge/tenant-1/space-uuid/okf/schema/AGENTS.md"
     );
 }
 
@@ -35,11 +35,11 @@ fn planner_rejects_path_traversal_and_absolute_paths() {
     let planner = KnowledgeObjectKeyPlanner::new("tenant-1", "space-uuid").unwrap();
 
     assert!(matches!(
-        planner.llm_wiki_file("../secrets.md"),
+        planner.okf_bundle_file("../secrets.md"),
         Err(ObjectKeyPlanError::UnsafePath(_))
     ));
     assert!(matches!(
-        planner.llm_wiki_file("/wiki/index.md"),
+        planner.okf_bundle_file("/okf/index.md"),
         Err(ObjectKeyPlanError::UnsafePath(_))
     ));
 }

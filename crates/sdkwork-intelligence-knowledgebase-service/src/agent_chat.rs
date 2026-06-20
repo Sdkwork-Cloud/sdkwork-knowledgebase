@@ -10,7 +10,7 @@ use sdkwork_knowledgebase_agent_provider::{
     validate_rag_profile_requirements, validate_registered_agent_implementation,
     KnowledgeAccessGateway, KnowledgeAccessRequest, KnowledgeAccessRetrievalExecutor,
     KnowledgeAgentRuntimeBuildRequest, KnowledgeRetrievalPlanResolver, KnowledgeSpaceModeResolver,
-    KnowledgebaseRetrievalClient, LlmWikiKnowledgeClient, LLM_WIKI_KNOWLEDGE_PROVIDER_ID,
+    KnowledgebaseRetrievalClient, OkfKnowledgeClient, OKF_KNOWLEDGE_PROVIDER_ID,
     SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
 };
 use sdkwork_knowledgebase_contract::agent_chat::{
@@ -30,7 +30,7 @@ pub struct KnowledgeAgentChatService<'a, R, W> {
     profiles: &'a dyn KnowledgeAgentProfileStore,
     retrieval: &'a dyn KnowledgeRetrievalExecutor,
     retrieval_client: R,
-    wiki_client: W,
+    okf_client: W,
     claw_router_client: Option<Arc<clawrouter_open_sdk::SdkworkAiClient>>,
     retrieval_plan_resolver: Option<&'a dyn KnowledgeRetrievalPlanResolver>,
     space_mode_resolver: Option<&'a dyn KnowledgeSpaceModeResolver>,
@@ -39,13 +39,13 @@ pub struct KnowledgeAgentChatService<'a, R, W> {
 impl<'a, R, W> KnowledgeAgentChatService<'a, R, W>
 where
     R: KnowledgebaseRetrievalClient + Send + Sync + Clone + 'static,
-    W: LlmWikiKnowledgeClient + Send + Sync + Clone + 'static,
+    W: OkfKnowledgeClient + Send + Sync + Clone + 'static,
 {
     pub fn new(
         profiles: &'a dyn KnowledgeAgentProfileStore,
         retrieval: &'a dyn KnowledgeRetrievalExecutor,
         retrieval_client: R,
-        wiki_client: W,
+        okf_client: W,
         claw_router_client: Option<Arc<clawrouter_open_sdk::SdkworkAiClient>>,
         retrieval_plan_resolver: Option<&'a dyn KnowledgeRetrievalPlanResolver>,
         space_mode_resolver: Option<&'a dyn KnowledgeSpaceModeResolver>,
@@ -54,7 +54,7 @@ where
             profiles,
             retrieval,
             retrieval_client,
-            wiki_client,
+            okf_client,
             claw_router_client,
             retrieval_plan_resolver,
             space_mode_resolver,
@@ -137,7 +137,7 @@ where
         };
 
         let access = KnowledgeAccessGateway::new(
-            self.wiki_client.clone(),
+            self.okf_client.clone(),
             RetrievalExecutorAdapter {
                 retrieval: self.retrieval,
             },
@@ -186,7 +186,7 @@ where
             model_provider_id: resolved_model_provider_id.clone(),
             mode,
             retrieval_client: self.retrieval_client.clone(),
-            wiki_client: self.wiki_client.clone(),
+            okf_client: self.okf_client.clone(),
             tenant_id: request.tenant_id,
             claw_router_client: self.claw_router_client.clone(),
         })
@@ -261,7 +261,7 @@ impl KnowledgeAccessRetrievalExecutor for RetrievalExecutorAdapter<'_> {
 
 fn knowledge_provider_id(mode: KnowledgeAgentKnowledgeMode) -> &'static str {
     match mode {
-        KnowledgeAgentKnowledgeMode::LlmWiki => LLM_WIKI_KNOWLEDGE_PROVIDER_ID,
+        KnowledgeAgentKnowledgeMode::OkfBundle => OKF_KNOWLEDGE_PROVIDER_ID,
         KnowledgeAgentKnowledgeMode::Rag => SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
     }
 }
@@ -292,23 +292,21 @@ mod tests {
     };
     use async_trait::async_trait;
     use sdkwork_agent_kernel::{KnowledgeDocument, KnowledgeDocumentFilter, KnowledgeDocumentKind};
+    use sdkwork_knowledgebase_contract::okf::OkfConceptSummary;
     use sdkwork_knowledgebase_contract::rag::{
         KnowledgeAgentBinding, KnowledgeAgentProfile, KnowledgeAgentProfileRequest,
         KnowledgeAgentStatus, KnowledgeContextFragment, KnowledgeRetrievalMethod,
         KnowledgeRetrievalResult, KnowledgeRetrievalTrace,
     };
-    use sdkwork_knowledgebase_contract::WikiPageType;
-    use sdkwork_knowledgebase_contract::{
-        wiki::WikiPageSummary, KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID,
-    };
+    use sdkwork_knowledgebase_contract::KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID;
 
     #[tokio::test]
-    async fn chat_defaults_to_llm_wiki_mode_with_citations_and_contract_model() {
+    async fn chat_defaults_to_okf_bundle_mode_with_citations_and_contract_model() {
         let service = KnowledgeAgentChatService::new(
             &FakeProfileStore,
             &FakeRetrieval,
             FakeRetrievalClient,
-            FakeWikiClient,
+            FakeOkfClient,
             None,
             None,
             None,
@@ -321,7 +319,7 @@ mod tests {
                     tenant_id: 20001,
                     actor_id: None,
                     message: "What is the RAG boundary?".to_string(),
-                    mode: Some(KnowledgeAgentKnowledgeMode::LlmWiki),
+                    mode: Some(KnowledgeAgentKnowledgeMode::OkfBundle),
                     session_id: Some("session.1".to_string()),
                     model_provider_id: Some(CONTRACT_MODEL_PROVIDER_ID.to_string()),
                     model_id: Some("contract.default".to_string()),
@@ -331,9 +329,9 @@ mod tests {
                 },
             )
             .await
-            .expect("llm-wiki chat succeeds");
+            .expect("okf bundle chat succeeds");
 
-        assert_eq!(response.mode, KnowledgeAgentKnowledgeMode::LlmWiki);
+        assert_eq!(response.mode, KnowledgeAgentKnowledgeMode::OkfBundle);
         assert_eq!(
             response.agent_implementation_id,
             KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID
@@ -342,7 +340,7 @@ mod tests {
         assert_eq!(response.citations.len(), 1);
         assert_eq!(
             response.citations[0].logical_path.as_deref(),
-            Some("wiki/rag-boundary.md")
+            Some("okf/concepts/rag-boundary.md")
         );
         assert!(response.answer.contains("RAG Boundary"));
     }
@@ -353,7 +351,7 @@ mod tests {
             &FakeProfileStore,
             &FakeRetrieval,
             FakeRetrievalClient,
-            FakeWikiClient,
+            FakeOkfClient,
             None,
             None,
             None,
@@ -412,7 +410,7 @@ mod tests {
                 memory_policy_ref: None,
                 tool_policy_ref: None,
                 answer_policy: None,
-                knowledge_mode: KnowledgeAgentKnowledgeMode::LlmWiki,
+                knowledge_mode: KnowledgeAgentKnowledgeMode::OkfBundle,
                 agent_implementation_id: KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID.to_string(),
                 status: KnowledgeAgentStatus::Active,
                 bindings: vec![KnowledgeAgentBinding {
@@ -560,36 +558,37 @@ mod tests {
     }
 
     #[derive(Clone)]
-    struct FakeWikiClient;
+    struct FakeOkfClient;
 
-    impl LlmWikiKnowledgeClient for FakeWikiClient {
-        fn search_wiki_pages(
+    impl OkfKnowledgeClient for FakeOkfClient {
+        fn search_okf_concepts(
             &self,
             space_id: u64,
             query: &str,
             top_k: usize,
-        ) -> Result<Vec<WikiPageSummary>, String> {
+        ) -> Result<Vec<OkfConceptSummary>, String> {
             assert_eq!(space_id, 7);
             assert_eq!(query, "What is the RAG boundary?");
             assert_eq!(top_k, 4);
-            Ok(vec![WikiPageSummary {
+            Ok(vec![OkfConceptSummary {
                 title: "RAG Boundary".to_string(),
-                slug: "rag-boundary".to_string(),
-                page_type: WikiPageType::Concept,
-                logical_path: "wiki/rag-boundary.md".to_string(),
-                summary: "Knowledge retrieval is separate from model generation.".to_string(),
+                concept_id: "concepts/rag-boundary".to_string(),
+                concept_type: "Knowledge Concept".to_string(),
+                logical_path: "okf/concepts/rag-boundary.md".to_string(),
+                bundle_relative_path: "concepts/rag-boundary.md".to_string(),
+                description: "Knowledge retrieval is separate from model generation.".to_string(),
                 source_count: 2,
                 updated_at: "2026-06-01T00:00:00Z".to_string(),
                 tags: vec!["rag".to_string()],
             }])
         }
 
-        fn read_wiki_page_content(
+        fn read_okf_concept_content(
             &self,
             _space_id: u64,
             _logical_path: &str,
         ) -> Result<String, String> {
-            Ok("wiki page".to_string())
+            Ok("okf concept".to_string())
         }
     }
 }
