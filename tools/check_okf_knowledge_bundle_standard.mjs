@@ -127,6 +127,18 @@ async function assertRequiredOkfStorageSymbols() {
       root,
       "crates/sdkwork-intelligence-knowledgebase-service/src/okf/linter.rs",
     ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/okf_candidate_store.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/concept_service.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/importer.rs",
+    ),
   ];
   const combined = (
     await Promise.all(files.map((file) => readFile(file, "utf8")))
