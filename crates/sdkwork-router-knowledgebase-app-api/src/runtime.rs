@@ -6,7 +6,9 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeChunkRetrievalStore,
     SqliteKnowledgeChunkStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
     SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeEmbeddingStore, SqliteKnowledgeIndexStore,
-    SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
+    SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeOkfCandidateStore,
+    SqliteKnowledgeOkfConceptLinkStore,
+    SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
     SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
@@ -75,6 +77,8 @@ pub struct KnowledgebaseRuntime {
     space_store: Arc<SqliteKnowledgeSpaceStore>,
     okf_bundle_file_store: Arc<SqliteKnowledgeOkfBundleFileStore>,
     okf_concept_store: Arc<SqliteKnowledgeOkfConceptStore>,
+    okf_concept_link_store: Arc<SqliteKnowledgeOkfConceptLinkStore>,
+    okf_candidate_store: Arc<SqliteKnowledgeOkfCandidateStore>,
     document_store: Arc<SqliteKnowledgeDocumentStore>,
     source_store: Arc<SqliteKnowledgeSourceStore>,
     version_store: Arc<SqliteKnowledgeDocumentVersionStore>,
@@ -172,6 +176,14 @@ impl KnowledgebaseRuntime {
                 tenant_id,
             )),
             okf_concept_store: Arc::new(SqliteKnowledgeOkfConceptStore::new(
+                pool.clone(),
+                tenant_id,
+            )),
+            okf_concept_link_store: Arc::new(SqliteKnowledgeOkfConceptLinkStore::new(
+                pool.clone(),
+                tenant_id,
+            )),
+            okf_candidate_store: Arc::new(SqliteKnowledgeOkfCandidateStore::new(
                 pool.clone(),
                 tenant_id,
             )),
@@ -318,6 +330,14 @@ impl KnowledgebaseRuntime {
 
     pub(crate) fn okf_concept_store(&self) -> &SqliteKnowledgeOkfConceptStore {
         &self.okf_concept_store
+    }
+
+    pub(crate) fn okf_concept_link_store(&self) -> &SqliteKnowledgeOkfConceptLinkStore {
+        &self.okf_concept_link_store
+    }
+
+    pub(crate) fn okf_candidate_store(&self) -> &SqliteKnowledgeOkfCandidateStore {
+        &self.okf_candidate_store
     }
 
     pub(crate) fn space_store(&self) -> &SqliteKnowledgeSpaceStore {

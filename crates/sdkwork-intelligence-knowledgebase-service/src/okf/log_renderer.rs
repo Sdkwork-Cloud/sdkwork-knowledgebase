@@ -38,11 +38,7 @@ pub fn render_log_md(entries: &[OkfLogEntry]) -> String {
 }
 
 fn log_date(timestamp: &str) -> String {
-    timestamp
-        .split('T')
-        .next()
-        .unwrap_or(timestamp)
-        .to_string()
+    timestamp.split('T').next().unwrap_or(timestamp).to_string()
 }
 
 fn event_label(event_type: OkfLogEventType) -> &'static str {

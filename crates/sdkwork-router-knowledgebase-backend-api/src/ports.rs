@@ -4,9 +4,10 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList, KnowledgeOkfProfileRequest,
     KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
     KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList,
-    OkfBundleExportRequest, OkfCandidateResult, OkfCandidateResultList, OkfCandidateReviewRequest,
-    OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument,
-    OkfIndexRebuildRequest, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
+    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfCandidateResult,
+    OkfCandidateResultList, OkfCandidateReviewRequest, OkfCompileJobRequest,
+    OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfIndexRebuildRequest,
+    OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
 
 use crate::error::{BackendApiError, BackendApiResult};
@@ -96,6 +97,13 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
         _request: OkfBundleExportRequest,
     ) -> BackendApiResult<KnowledgeOkfBundleFile> {
         Err(BackendApiError::not_implemented("okf.bundle.export.create"))
+    }
+
+    async fn create_okf_import(
+        &self,
+        _request: OkfBundleImportRequest,
+    ) -> BackendApiResult<OkfBundleImportResult> {
+        Err(BackendApiError::not_implemented("okf.bundle.import.create"))
     }
 
     async fn retrieve_okf_export(

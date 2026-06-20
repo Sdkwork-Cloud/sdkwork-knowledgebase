@@ -174,6 +174,39 @@ impl SqliteKnowledgeOkfConceptStore {
         rows.iter().map(revision_from_row).collect()
     }
 
+    pub async fn get_revision_by_id(
+        &self,
+        revision_id: u64,
+    ) -> Result<KnowledgeOkfConceptRevision, KnowledgeOkfConceptStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let revision_id = to_i64("revision_id", revision_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                concept_row_id,
+                revision_no,
+                markdown_object_ref_id,
+                content_hash,
+                review_state,
+                created_at
+            FROM kb_okf_concept_revision
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(revision_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(sqlx_error)?
+        .ok_or_else(|| {
+            KnowledgeOkfConceptStoreError::Internal(format!("missing okf revision: {revision_id}"))
+        })?;
+
+        revision_from_row(&row)
+    }
+
     pub async fn list_candidate_concepts(
         &self,
     ) -> Result<Vec<(u64, OkfConceptPublishState)>, KnowledgeOkfConceptStoreError> {
@@ -465,6 +498,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 tags
             FROM kb_okf_concept
             WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+              AND publish_state = 'published'
             ORDER BY concept_type ASC, title ASC, id ASC
             LIMIT $4
             "#,

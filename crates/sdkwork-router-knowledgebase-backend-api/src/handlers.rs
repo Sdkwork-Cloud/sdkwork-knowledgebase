@@ -5,9 +5,9 @@ use axum::{
 };
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSourceRequest, KnowledgeIndexRequest, KnowledgeOkfProfileRequest,
-    KnowledgeRetrievalProfileRequest, OkfBundleExportRequest, OkfCandidateReviewRequest,
-    OkfCompileJobRequest, OkfConceptPublishRequest, OkfIndexRebuildRequest, OkfLogEntry,
-    OkfQualityRunRequest,
+    KnowledgeRetrievalProfileRequest, OkfBundleExportRequest, OkfBundleImportRequest,
+    OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest,
+    OkfIndexRebuildRequest, OkfLogEntry, OkfQualityRunRequest,
 };
 
 use crate::{
@@ -134,6 +134,15 @@ pub(crate) async fn create_okf_export(
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(context)?;
     created_json(state.api.create_okf_export(request).await)
+}
+
+pub(crate) async fn create_okf_import(
+    State(state): State<BackendState>,
+    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    Json(request): Json<OkfBundleImportRequest>,
+) -> Result<Response, BackendApiProblem> {
+    require_backend_context(context)?;
+    created_json(state.api.create_okf_import(request).await)
 }
 
 pub(crate) async fn retrieve_okf_export(

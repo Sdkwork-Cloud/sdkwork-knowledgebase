@@ -174,6 +174,52 @@ impl SqliteKnowledgeDriveObjectRefStore {
         object_ref_from_row(&row)
     }
 
+    pub async fn list_object_refs_by_logical_path_prefix(
+        &self,
+        space_id: u64,
+        prefix: &str,
+    ) -> Result<Vec<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let space_id = to_i64("space_id", space_id)?;
+        let prefix = format!("{}%", prefix.trim_end_matches('/'));
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                space_id,
+                drive_provider_kind,
+                drive_space_id,
+                drive_node_id,
+                logical_path,
+                drive_storage_provider_id,
+                drive_bucket,
+                drive_object_key,
+                drive_object_version,
+                drive_etag,
+                content_type,
+                size_bytes,
+                checksum_sha256_hex,
+                object_role,
+                access_mode
+            FROM kb_drive_object_ref
+            WHERE tenant_id = $1
+              AND space_id = $2
+              AND logical_path LIKE $3
+              AND status = $4
+            ORDER BY logical_path ASC
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(space_id)
+        .bind(prefix)
+        .bind(ACTIVE_STATUS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_error)?;
+
+        rows.iter().map(object_ref_from_row).collect()
+    }
+
     async fn insert_object_ref_if_absent(
         &self,
         record: CreateKnowledgeDriveObjectRefRecord,

@@ -12,22 +12,58 @@
   "mode": "apply",
   "hasChanges": true,
   "hasDestructiveChanges": false,
-  "changeFingerprint": "240c01398c8a4eb759045efe91b19bc8f088de461d6cfb55fd3ce912e084d4d5",
+  "changeFingerprint": "32a1790c9392773c079d1c23962581fffceaca86b4ab6309232796923e81e05d",
   "changeImpact": {
     "schemaVersion": 1,
     "areas": [
-      "api-surface"
+      "api-surface",
+      "models",
+      "runtime",
+      "build-metadata",
+      "documentation"
     ],
     "details": [
       {
         "area": "api-surface",
         "paths": [
-          "src/api/knowledge.ts"
+          "src/api/knowledge.ts",
+          "src/http/client.ts",
+          "src/sdk.ts"
+        ]
+      },
+      {
+        "area": "models",
+        "paths": [
+          "src/types/common.ts",
+          "src/types/index.ts",
+          "src/types/okf-bundle-import-request.ts",
+          "src/types/okf-bundle-import-result.ts",
+          "src/types/okf-concept-upsert-request.ts"
+        ]
+      },
+      {
+        "area": "runtime",
+        "paths": [
+          "src/http/client.ts"
+        ]
+      },
+      {
+        "area": "build-metadata",
+        "paths": [
+          "package.json",
+          "sdkwork-sdk.json"
+        ]
+      },
+      {
+        "area": "documentation",
+        "paths": [
+          "CHANGELOG.md",
+          "README.md"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: api-surface. Verification is required."
+    "summary": "Detected impact areas: api-surface, models, runtime, build-metadata, documentation. Verification is required."
   },
   "executionDecision": {
     "schemaVersion": 1,
@@ -48,7 +84,7 @@
         "id": "verify-check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, runtime, build-metadata, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -66,7 +102,7 @@
         "id": "verify-build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, runtime, build-metadata, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -85,13 +121,13 @@
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: api-surface. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: api-surface, models, runtime, build-metadata, documentation. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, runtime, build-metadata, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -109,7 +145,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, runtime, build-metadata, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -126,8 +162,8 @@
     ]
   },
   "sdk": {
-    "name": "KnowledgebaseApp",
-    "version": "0.1.0",
+    "name": "sdkwork-knowledgebase-app-sdk",
+    "version": "0.1.1",
     "language": "typescript",
     "sdkType": "app",
     "protocol": "http",
@@ -135,29 +171,43 @@
     "packageName": "@sdkwork/knowledgebase-app-sdk"
   },
   "versioning": {
-    "resolvedVersion": "0.1.0",
-    "localVersions": []
+    "resolvedVersion": "0.1.1",
+    "localVersions": [
+      "0.1.0"
+    ]
   },
   "stats": {
-    "totalFiles": 115,
-    "models": 91,
+    "totalFiles": 118,
+    "models": 94,
     "apis": 1,
-    "types": 93
+    "types": 96
   },
   "warnings": [],
   "syncSummary": {
     "dryRun": false,
     "controlPlaneEnabled": true,
-    "writtenFiles": 1,
+    "writtenFiles": 12,
     "skippedScaffoldFiles": 2,
-    "skippedUnchangedGeneratedFiles": 112,
+    "skippedUnchangedGeneratedFiles": 104,
     "deletedGeneratedFiles": 0,
     "changeSummaryPath": ".sdkwork/sdkwork-generator-changes.json",
-    "changeFingerprint": "240c01398c8a4eb759045efe91b19bc8f088de461d6cfb55fd3ce912e084d4d5",
+    "changeFingerprint": "32a1790c9392773c079d1c23962581fffceaca86b4ab6309232796923e81e05d",
     "changes": {
-      "createdGeneratedFiles": [],
+      "createdGeneratedFiles": [
+        "src/types/okf-bundle-import-request.ts",
+        "src/types/okf-bundle-import-result.ts",
+        "src/types/okf-concept-upsert-request.ts"
+      ],
       "updatedGeneratedFiles": [
-        "src/api/knowledge.ts"
+        "CHANGELOG.md",
+        "package.json",
+        "README.md",
+        "sdkwork-sdk.json",
+        "src/api/knowledge.ts",
+        "src/http/client.ts",
+        "src/sdk.ts",
+        "src/types/common.ts",
+        "src/types/index.ts"
       ],
       "unchangedGeneratedFiles": [
         "bin/publish-core.mjs",
@@ -165,20 +215,13 @@
         "bin/publish.sh",
         "bin/sdk-gen.bat",
         "bin/sdk-gen.sh",
-        "CHANGELOG.md",
         "LICENSE",
-        "package.json",
-        "README.md",
-        "sdkwork-sdk.json",
         "src/api/base.ts",
         "src/api/index.ts",
         "src/api/paths.ts",
         "src/auth/index.ts",
-        "src/http/client.ts",
         "src/http/index.ts",
         "src/index.ts",
-        "src/sdk.ts",
-        "src/types/common.ts",
         "src/types/complete-knowledge-upload-session-request.ts",
         "src/types/create-knowledge-document-request.ts",
         "src/types/create-knowledge-document-version-request.ts",
@@ -186,7 +229,6 @@
         "src/types/create-knowledge-space-context-binding-request.ts",
         "src/types/create-knowledge-space-request.ts",
         "src/types/create-knowledge-upload-session-request.ts",
-        "src/types/index.ts",
         "src/types/ingestion-job-state.ts",
         "src/types/ingestion-job.ts",
         "src/types/knowledge-access-level.ts",
@@ -284,29 +326,65 @@
     "impact": {
       "schemaVersion": 1,
       "areas": [
-        "api-surface"
+        "api-surface",
+        "models",
+        "runtime",
+        "build-metadata",
+        "documentation"
       ],
       "details": [
         {
           "area": "api-surface",
           "paths": [
-            "src/api/knowledge.ts"
+            "src/api/knowledge.ts",
+            "src/http/client.ts",
+            "src/sdk.ts"
+          ]
+        },
+        {
+          "area": "models",
+          "paths": [
+            "src/types/common.ts",
+            "src/types/index.ts",
+            "src/types/okf-bundle-import-request.ts",
+            "src/types/okf-bundle-import-result.ts",
+            "src/types/okf-concept-upsert-request.ts"
+          ]
+        },
+        {
+          "area": "runtime",
+          "paths": [
+            "src/http/client.ts"
+          ]
+        },
+        {
+          "area": "build-metadata",
+          "paths": [
+            "package.json",
+            "sdkwork-sdk.json"
+          ]
+        },
+        {
+          "area": "documentation",
+          "paths": [
+            "CHANGELOG.md",
+            "README.md"
           ]
         }
       ],
       "requiresVerification": true,
-      "summary": "Detected impact areas: api-surface. Verification is required."
+      "summary": "Detected impact areas: api-surface, models, runtime, build-metadata, documentation. Verification is required."
     },
     "verificationPlan": {
       "shouldRun": true,
       "runPhase": "now",
-      "summary": "Detected impact areas: api-surface. Verification is required. Run the required verification commands now against the generated SDK output.",
+      "summary": "Detected impact areas: api-surface, models, runtime, build-metadata, documentation. Verification is required. Run the required verification commands now against the generated SDK output.",
       "steps": [
         {
           "id": "check",
           "title": "Unified package check",
           "required": true,
-          "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface.",
+          "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, runtime, build-metadata, documentation.",
           "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
           "command": "node",
           "args": [
@@ -324,7 +402,7 @@
           "id": "build",
           "title": "Unified package build",
           "required": true,
-          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface.",
+          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, runtime, build-metadata, documentation.",
           "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
           "command": "node",
           "args": [

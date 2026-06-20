@@ -1,6 +1,6 @@
-# KnowledgebaseBackend
+# sdkwork-knowledgebase-backend-sdk
 
-Generated SDKWork v3 dual-token transport SDK.
+Professional TypeScript SDK for SDKWork API.
 
 ## Installation
 
@@ -22,21 +22,37 @@ const client = new SdkworkBackendClient({
   timeout: 30000,
 });
 
-// Authentication
-client.setAuthToken('your-auth-token');
-client.setAccessToken('your-access-token');
+// Mode A: API Key (recommended for server-to-server calls)
+client.setApiKey('your-api-key');
 
 // Use the SDK
-const result = await client.knowledge.sources.list();
+const result = await client.knowledge.sourcesList();
 ```
 
-## Authentication
+## Authentication Modes (Mutually Exclusive)
 
-```text
-Authorization: Bearer <authToken>
-Access-Token: <accessToken>
+Choose exactly one mode for the same client instance.
+
+### Mode A: API Key
+
+```typescript
+const client = new SdkworkBackendClient({ baseUrl: 'http://localhost:8080' });
+client.setApiKey('your-api-key');
+// Sends: Access-Token: <apiKey>
 ```
 
+### Mode B: Dual Token
+
+```typescript
+const client = new SdkworkBackendClient({ baseUrl: 'http://localhost:8080' });
+client.setAuthToken('your-auth-token');
+client.setAccessToken('your-access-token');
+// Sends:
+// Authorization: Bearer <authToken>
+// Access-Token: <accessToken>
+```
+
+> Do not call `setApiKey(...)` together with `setAuthToken(...)` + `setAccessToken(...)` on the same client.
 
 ## Configuration (Non-Auth)
 
@@ -62,7 +78,7 @@ const client = new SdkworkBackendClient({
 
 ```typescript
 // GET /backend/v3/api/knowledge/sources
-const result = await client.knowledge.sources.list();
+const result = await client.knowledge.sourcesList();
 ```
 
 ## Error Handling
@@ -71,7 +87,7 @@ const result = await client.knowledge.sources.list();
 import { SdkworkBackendClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-backend-sdk';
 
 try {
-  const result = await client.knowledge.sources.list();
+  const result = await client.knowledge.sourcesList();
 } catch (error) {
   if (error instanceof AuthenticationError) {
     console.error('Authentication failed:', error.message);
@@ -108,7 +124,7 @@ This SDK includes cross-platform publish scripts in `bin/`:
 .\bin\publish.ps1 --action publish --channel test --dry-run
 ```
 
-> Configure npm registry credentials before release publish.
+> Set `NPM_TOKEN` (and optional `NPM_REGISTRY_URL`) before release publish.
 
 ## License
 

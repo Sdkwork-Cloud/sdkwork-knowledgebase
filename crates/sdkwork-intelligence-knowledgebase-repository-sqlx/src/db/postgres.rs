@@ -3,7 +3,7 @@
 use sqlx::{AnyPool, PgPool};
 use std::fmt;
 
-use crate::migrations::POSTGRES_MIGRATIONS;
+use sdkwork_knowledgebase_database_host::bootstrap_knowledgebase_database;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PostgresRepositoryError {
@@ -34,24 +34,35 @@ pub async fn connect_postgres_pool(database_url: &str) -> Result<PgPool, Postgre
         .map_err(|error| PostgresRepositoryError::Sqlx(error.to_string()))
 }
 
-pub async fn install_postgres_schema(pool: &AnyPool) -> Result<(), PostgresRepositoryError> {
-    for migration in POSTGRES_MIGRATIONS {
-        sqlx::raw_sql(migration)
-            .execute(pool)
-            .await
-            .map_err(|error| PostgresRepositoryError::Sqlx(error.to_string()))?;
-    }
-    Ok(())
+#[deprecated(
+    since = "0.2.0",
+    note = "Use sdkwork_knowledgebase_database_host::bootstrap_knowledgebase_database via connect_postgres_via_framework_lifecycle instead"
+)]
+pub async fn install_postgres_schema(_pool: &AnyPool) -> Result<(), PostgresRepositoryError> {
+    Err(PostgresRepositoryError::Sqlx(
+        "install_postgres_schema is deprecated; use application-root database/ lifecycle bootstrap"
+            .to_string(),
+    ))
+}
+
+pub async fn connect_postgres_via_framework_lifecycle(
+    database_url: &str,
+) -> Result<AnyPool, PostgresRepositoryError> {
+    let pool = crate::db::bootstrap::connect_knowledgebase_pool_from_url(database_url)
+        .await
+        .map_err(|error| PostgresRepositoryError::Sqlx(error.to_string()))?;
+    bootstrap_knowledgebase_database(pool)
+        .await
+        .map_err(|error| PostgresRepositoryError::Sqlx(error))?;
+    crate::db::bootstrap::connect_knowledgebase_any_pool_from_url(database_url)
+        .await
+        .map_err(|error| PostgresRepositoryError::Sqlx(error.to_string()))
 }
 
 pub async fn connect_postgres_and_install_schema(
     database_url: &str,
 ) -> Result<AnyPool, PostgresRepositoryError> {
-    let pool = crate::db::bootstrap::connect_knowledgebase_any_pool_from_url(database_url)
-        .await
-        .map_err(|error| PostgresRepositoryError::Sqlx(error.to_string()))?;
-    install_postgres_schema(&pool).await?;
-    Ok(pool)
+    connect_postgres_via_framework_lifecycle(database_url).await
 }
 
 pub async fn postgres_health_check(pool: &PgPool) -> Result<(), PostgresRepositoryError> {

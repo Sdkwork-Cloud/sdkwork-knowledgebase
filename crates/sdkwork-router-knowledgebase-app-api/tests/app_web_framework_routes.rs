@@ -21,7 +21,7 @@ const DEV_ACCESS_TOKEN: &str =
 #[test]
 fn app_route_manifest_declares_dual_token_auth_for_all_operations() {
     let manifest = app_route_manifest();
-    assert_eq!(manifest::ROUTES.len(), 42);
+    assert_eq!(manifest::ROUTES.len(), 47);
     for entry in manifest::ROUTES {
         let matched = manifest
             .match_route(entry.method, entry.path)

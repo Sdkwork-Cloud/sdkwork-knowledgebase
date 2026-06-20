@@ -13,8 +13,9 @@ pub use bootstrap::{
     knowledgebase_database_engine_from_url, KnowledgebaseDatabasePool,
 };
 pub use postgres::{
-    connect_postgres_and_install_schema, connect_postgres_pool, install_postgres_schema,
-    is_postgres_database_url, postgres_health_check, PostgresRepositoryError,
+    connect_postgres_and_install_schema, connect_postgres_pool,
+    connect_postgres_via_framework_lifecycle, is_postgres_database_url, postgres_health_check,
+    PostgresRepositoryError,
 };
 pub use sqlite::{
     connect_sqlite_and_install_schema, connect_sqlite_pool, install_sqlite_core_schema,
@@ -31,13 +32,9 @@ pub async fn connect_knowledgebase_and_install_schema(
             sqlite::connect_sqlite_and_install_schema(database_url).await
         }
         sdkwork_database_config::DatabaseEngine::Postgres => {
-            let pool = connect_knowledgebase_any_pool_from_url(database_url)
+            postgres::connect_postgres_via_framework_lifecycle(database_url)
                 .await
-                .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
-            postgres::install_postgres_schema(&pool)
-                .await
-                .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
-            Ok(pool)
+                .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))
         }
     }
 }

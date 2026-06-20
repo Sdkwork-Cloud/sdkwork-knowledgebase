@@ -71,3 +71,33 @@ pub fn validate_bundle_relative_path(path: &str) -> Result<(), OkfConformanceErr
     let concept_id = path.strip_suffix(".md").unwrap_or(path);
     validate_concept_id(concept_id)
 }
+
+pub fn validate_concept_bundle_relative_path(path: &str) -> Result<(), OkfConformanceError> {
+    let normalized = path.trim().replace('\\', "/");
+    if normalized == "index.md"
+        || normalized == "log.md"
+        || normalized.ends_with("/index.md")
+        || normalized.ends_with("/log.md")
+    {
+        return Err(OkfConformanceError::InvalidDocument(
+            "index.md and log.md are reserved bundle files, not concepts".to_string(),
+        ));
+    }
+    validate_bundle_relative_path(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn concept_bundle_path_rejects_reserved_files() {
+        assert_eq!(
+            validate_concept_bundle_relative_path("index.md"),
+            Err(OkfConformanceError::InvalidDocument(
+                "index.md and log.md are reserved bundle files, not concepts".to_string()
+            ))
+        );
+        validate_concept_bundle_relative_path("tables/users.md").expect("concept path is valid");
+    }
+}

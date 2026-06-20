@@ -37,10 +37,10 @@ pub use knowledge_access::{
 pub use okf::{
     citations_from_okf_concepts, citations_from_rag_hits, OkfKnowledgeClient, OkfKnowledgeProvider,
 };
-pub use sdkwork_knowledgebase_contract::okf::okf_document_id;
 pub use provider::{SdkworkKnowledgebaseProvider, SDKWORK_KNOWLEDGEBASE_PROVIDER_ID};
 pub use retrieval_plan::{
     default_rag_methods, kernel_methods_for_retrieval, merge_retrieval_plan,
     retrieval_methods_for_strategy, KnowledgeRetrievalPlan,
 };
+pub use sdkwork_knowledgebase_contract::okf::okf_document_id;
 pub use sdkwork_knowledgebase_contract::OKF_KNOWLEDGE_PROVIDER_ID;

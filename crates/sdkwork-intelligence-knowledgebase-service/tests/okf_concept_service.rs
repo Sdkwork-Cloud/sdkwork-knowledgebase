@@ -1,5 +1,8 @@
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::okf::OkfConceptService;
+use sdkwork_intelligence_knowledgebase_service::okf::{
+    discover_bundle_files_from_directory, stackoverflow_bundle_root, ImportOkfBundleRequest,
+    OkfBundleImporterService, OkfConceptService, PublishExistingOkfConceptRevisionRequest,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_ref_store::{
     CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore,
     KnowledgeDriveObjectRefStoreError,
@@ -14,6 +17,14 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_workspace
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_bundle_file_store::{
     CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
     KnowledgeOkfBundleFileStoreError,
+};
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_store::{
+    KnowledgeOkfCandidateListItem, KnowledgeOkfCandidateStore, KnowledgeOkfCandidateStoreError,
+    UpsertKnowledgeOkfCandidateRecord,
+};
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
+    KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
+    ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
     AppendKnowledgeOkfLogEntryRecord, CreateKnowledgeOkfConceptRevisionRecord,
@@ -74,10 +85,12 @@ async fn okf_concept_service_publishes_concept_and_rebuilds_standard_files() {
         OkfRevisionReviewState::Approved
     );
 
-    assert_eq!(
-        drive.body_at("okf/entities/entity-name.md"),
-        Some("# Entity Name\n\nA durable synthesis.".to_string())
-    );
+    let published_body = drive.body_at("okf/entities/entity-name.md").unwrap();
+    assert!(published_body.starts_with("---\n"));
+    assert!(published_body.contains("type: Entity"));
+    assert!(published_body.contains("title: \"Entity Name\""));
+    assert!(published_body.contains("description: \"Entity summary.\""));
+    assert!(published_body.contains("# Entity Name\n\nA durable synthesis."));
     assert!(object_refs
         .ref_by_path("okf/entities/entity-name.md")
         .is_some());
@@ -95,11 +108,147 @@ async fn okf_concept_service_publishes_concept_and_rebuilds_standard_files() {
 
     let index_ref = file_entries.object_key_for("okf/index.md").unwrap();
     let index_content = drive.body_at(&index_ref).unwrap();
-    assert!(index_content.contains("[[entities/entity-name|Entity Name]]"));
+    assert!(index_content.contains("okf_version: \"0.1\""));
+    assert!(index_content.contains("* [Entity Name](entities/entity-name.md)"));
 
     let log_ref = file_entries.object_key_for("okf/log.md").unwrap();
     let log_content = drive.body_at(&log_ref).unwrap();
-    assert!(log_content.contains("publish | Published Entity Name"));
+    assert!(log_content.contains("* **Publish**: Published Entity Name"));
+}
+
+#[tokio::test]
+async fn stackoverflow_bundle_imports_as_candidates_by_default() {
+    let drive = MemoryDrive::default();
+    let object_refs = MemoryObjectRefStore::default();
+    let concepts = MemoryOkfConceptStore::default();
+    let candidates = MemoryCandidateStore::default();
+    let file_entries = MemoryOkfBundleFileStore::default();
+    let workspace = MemoryDriveWorkspace::default();
+    let service = OkfConceptService::new(&drive, &object_refs, &concepts)
+        .with_candidate_store(&candidates)
+        .with_file_entry_store(&file_entries)
+        .with_drive_workspace(&workspace);
+    let importer = OkfBundleImporterService::new(service);
+
+    let bundle_root = stackoverflow_bundle_root();
+    assert!(
+        bundle_root.exists(),
+        "stackoverflow bundle fixture must exist"
+    );
+    let files = discover_bundle_files_from_directory(&bundle_root).expect("bundle walk");
+
+    let result = importer
+        .import_bundle(
+            ImportOkfBundleRequest {
+                space_id: 42,
+                actor: "compliance-test".to_string(),
+                publish: false,
+                files,
+            },
+            Some("drv-kb-001"),
+        )
+        .await
+        .expect("stackoverflow bundle import");
+
+    assert!(result.imported_concept_count >= 1);
+    assert!(drive.body_at("okf/tables/users.md").is_none());
+    assert!(candidates.count() >= 1);
+    assert_eq!(
+        result.publications[0].concept.publish_state,
+        OkfConceptPublishState::CandidateReady
+    );
+}
+
+#[tokio::test]
+async fn stackoverflow_bundle_imports_published_concepts_when_requested() {
+    let drive = MemoryDrive::default();
+    let object_refs = MemoryObjectRefStore::default();
+    let concepts = MemoryOkfConceptStore::default();
+    let links = MemoryLinkStore::default();
+    let file_entries = MemoryOkfBundleFileStore::default();
+    let workspace = MemoryDriveWorkspace::default();
+    let service = OkfConceptService::new(&drive, &object_refs, &concepts)
+        .with_link_store(&links)
+        .with_file_entry_store(&file_entries)
+        .with_drive_workspace(&workspace);
+    let importer = OkfBundleImporterService::new(service);
+
+    let bundle_root = stackoverflow_bundle_root();
+    let files = discover_bundle_files_from_directory(&bundle_root).expect("bundle walk");
+
+    let result = importer
+        .import_bundle(
+            ImportOkfBundleRequest {
+                space_id: 42,
+                actor: "compliance-test".to_string(),
+                publish: true,
+                files,
+            },
+            Some("drv-kb-001"),
+        )
+        .await
+        .expect("stackoverflow bundle import");
+
+    assert!(result.imported_concept_count >= 1);
+    assert!(drive.body_at("okf/tables/users.md").is_some());
+    assert!(file_entries.paths().contains(&"okf/index.md".to_string()));
+}
+
+#[tokio::test]
+async fn publish_existing_revision_projects_governance_markdown_to_bundle() {
+    let drive = MemoryDrive::default();
+    let object_refs = MemoryObjectRefStore::default();
+    let concepts = MemoryOkfConceptStore::default();
+    let file_entries = MemoryOkfBundleFileStore::default();
+    let workspace = MemoryDriveWorkspace::default();
+    let service = OkfConceptService::new(&drive, &object_refs, &concepts)
+        .with_file_entry_store(&file_entries)
+        .with_drive_workspace(&workspace);
+
+    let staged = service
+        .upsert_concept_from_markdown(
+            sdkwork_knowledgebase_contract::okf::OkfConceptUpsertRequest {
+                space_id: 7,
+                concept_id: "entities/entity-name".to_string(),
+                markdown: r#"---
+type: Entity
+title: Entity Name
+description: Entity summary.
+tags: [entity]
+---
+# Entity Name
+
+A durable synthesis."#
+                    .to_string(),
+                actor: "author".to_string(),
+                publish: false,
+            },
+            Some("drv-kb-001"),
+        )
+        .await
+        .expect("draft upsert");
+
+    assert_eq!(
+        staged.concept.publish_state,
+        OkfConceptPublishState::CandidateReady
+    );
+    assert!(drive.body_at("okf/entities/entity-name.md").is_none());
+
+    service
+        .publish_existing_revision(
+            PublishExistingOkfConceptRevisionRequest {
+                space_id: 7,
+                concept: staged.concept.clone(),
+                revision: staged.revision,
+                actor: "reviewer".to_string(),
+            },
+            Some("drv-kb-001"),
+        )
+        .await
+        .expect("publish existing revision");
+
+    assert!(drive.body_at("okf/entities/entity-name.md").is_some());
+    assert!(file_entries.paths().contains(&"okf/index.md".to_string()));
 }
 
 #[tokio::test]
@@ -416,7 +565,10 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
             .lock()
             .unwrap()
             .iter()
-            .filter(|concept| concept.space_id == space_id)
+            .filter(|concept| {
+                concept.space_id == space_id
+                    && concept.publish_state == OkfConceptPublishState::Published
+            })
             .map(|concept| OkfConceptSummary {
                 title: concept.title.clone(),
                 concept_id: concept.concept_id.clone(),
@@ -528,20 +680,4 @@ struct MemoryDriveWorkspace {
 }
 
 impl MemoryDriveWorkspace {
-    fn paths(&self) -> Vec<String> {
-        self.paths.lock().unwrap().clone()
-    }
-}
-
-#[async_trait]
-impl KnowledgeDriveWorkspace for MemoryDriveWorkspace {
-    async fn ensure_nodes(
-        &self,
-        request: EnsureKnowledgeDriveNodesRequest,
-    ) -> Result<(), KnowledgeDriveWorkspaceError> {
-        for node in request.nodes {
-            self.paths.lock().unwrap().push(node.logical_path);
-        }
-        Ok(())
-    }
-}
+    fn

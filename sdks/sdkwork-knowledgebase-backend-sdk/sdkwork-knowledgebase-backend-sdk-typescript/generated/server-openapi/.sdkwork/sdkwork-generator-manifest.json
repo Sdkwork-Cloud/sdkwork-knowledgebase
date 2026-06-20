@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "generator": "@sdkwork/sdk-generator",
   "sdk": {
-    "name": "KnowledgebaseBackend",
-    "version": "0.1.0",
+    "name": "sdkwork-knowledgebase-backend-sdk",
+    "version": "0.1.1",
     "language": "typescript",
     "sdkType": "backend",
     "protocol": "http",
@@ -32,7 +32,7 @@
     },
     {
       "path": "CHANGELOG.md",
-      "sha256": "fb941a0806986a54fc192f98a98f6d9c282b8d350b2b19a3e71dda404e92d545"
+      "sha256": "43b1142ae71ee0c2ea06365431a5534ad5c6ad625dc13380927d8bb1c0e91d47"
     },
     {
       "path": "LICENSE",
@@ -40,15 +40,15 @@
     },
     {
       "path": "package.json",
-      "sha256": "3fda84d1dcbebd188cd02f891b68d02c0e1f584d8e17a188f21150d4e81ac72f"
+      "sha256": "ac7593a198fd5860d4be995e5ad94908f89889ddc03e78908d2520999d513fa0"
     },
     {
       "path": "README.md",
-      "sha256": "6f1d7be062e71731d77e8c6719f89302a1a62ff696d7a25133539fbdf5a51d2d"
+      "sha256": "d2c1c6bbe542afd7e57f13f2a86ed2fe6a72194741b6fadc7d6e8a53e34b7534"
     },
     {
       "path": "sdkwork-sdk.json",
-      "sha256": "419b808395559530497ce2778de10fff47786754f444b5ca1a6a68044d102920"
+      "sha256": "abe739b28331a299396b669c8fdeeca7a835b4b2ead7516183c4f8d9ebfd1ba8"
     },
     {
       "path": "src/api/base.ts",
@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "907f19c4a8132ff8080da782e176982e330b659edc437d56cca27b35319a6b5e"
+      "sha256": "84f8bd08274d11440638eb8cd1bd8a5fe2e84a454f9373f2f4dfd7313814b26b"
     },
     {
       "path": "src/api/paths.ts",
@@ -72,7 +72,7 @@
     },
     {
       "path": "src/http/client.ts",
-      "sha256": "1d339275acee6ec54660a32eb9effcc718ebf0992c5e9bfdb80a3452e0702137"
+      "sha256": "90ea961015be5c9045789e2684bcfaccc76ecd2cf5352871e1a0b6edde1a91fe"
     },
     {
       "path": "src/http/index.ts",
@@ -84,11 +84,11 @@
     },
     {
       "path": "src/sdk.ts",
-      "sha256": "20da09b2327c06d47eaa66237062ddc867bc529ee2140a52dba6252b058eaa62"
+      "sha256": "8ef1ca1e8c04f51f6b9e4a587184ccd54d85369e2d8bd1fd89c617c56e31d292"
     },
     {
       "path": "src/types/common.ts",
-      "sha256": "351d721c3c6f48f4453f92276856105120d72eb8d2fa9cd28de8e3854bf10f6c"
+      "sha256": "c6adbdca8ccdb1656d1cb904e35cfc765d4a9075923190fba4b8787afd0cc710"
     },
     {
       "path": "src/types/create-knowledge-document-request.ts",
@@ -108,7 +108,7 @@
     },
     {
       "path": "src/types/index.ts",
-      "sha256": "dd342a935732b966c388ec1dfddec9fe2a8303ae83f7a59087d2db74406ada02"
+      "sha256": "c42170cb8e9b81ceb7b5522f22d5fbafb14d02e39500c7e3d7a014bb048e93d3"
     },
     {
       "path": "src/types/ingestion-job-state.ts",
@@ -293,6 +293,14 @@
     {
       "path": "src/types/okf-bundle-file-kind.ts",
       "sha256": "4ed2a548348c7ca7a151eed8a2956dec3a8a5a378b41a415c621a886e7eec861"
+    },
+    {
+      "path": "src/types/okf-bundle-import-request.ts",
+      "sha256": "d667c2658c6bff58d53120f719be66ff00d22ab123849d3a0846262e8eaa91ef"
+    },
+    {
+      "path": "src/types/okf-bundle-import-result.ts",
+      "sha256": "8565c829eba1a6ef4ecfbaa4be0445629cfc0433258f25bae5939f340fe679e9"
     },
     {
       "path": "src/types/okf-bundle-index-rebuild-request.ts",

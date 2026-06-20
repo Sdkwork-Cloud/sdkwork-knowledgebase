@@ -412,6 +412,42 @@ fn postgres_pgvector_migration_defines_vector_embedding_column() {
     }
 }
 
+#[test]
+fn okf_migrations_define_link_and_candidate_tables() {
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
+        POSTGRES_OKF_LINK_CANDIDATE_MIGRATION, SQLITE_OKF_LINK_CANDIDATE_MIGRATION,
+    };
+
+    for migration in [
+        POSTGRES_OKF_LINK_CANDIDATE_MIGRATION,
+        SQLITE_OKF_LINK_CANDIDATE_MIGRATION,
+    ] {
+        let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
+        assert!(tables.contains("kb_okf_concept_link"));
+        assert!(tables.contains("kb_okf_candidate"));
+        let indexes = defined_database_objects(migration, "CREATE INDEX IF NOT EXISTS ")
+            .into_iter()
+            .chain(defined_database_objects(
+                migration,
+                "CREATE UNIQUE INDEX IF NOT EXISTS ",
+            ))
+            .collect::<BTreeSet<_>>();
+        for index in [
+            "uk_kb_okf_concept_link_uuid",
+            "uk_kb_okf_concept_link_edge",
+            "idx_kb_okf_concept_link_space_from",
+            "idx_kb_okf_concept_link_space_to",
+            "uk_kb_okf_candidate_uuid",
+            "idx_kb_okf_candidate_space_state",
+        ] {
+            assert!(
+                indexes.contains(index),
+                "missing okf migration index: {index}"
+            );
+        }
+    }
+}
+
 fn defined_database_objects(migration: &'static str, prefix: &str) -> BTreeSet<&'static str> {
     migration
         .lines()

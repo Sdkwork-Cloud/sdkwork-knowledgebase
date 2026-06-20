@@ -260,6 +260,7 @@ fn request_body(operation_id: &str) -> &'static str {
             r#"{"occurredAt":"2026-06-05T00:00:00Z","eventType":"publish","title":"Published","actor":"system","affectedConcepts":[],"warnings":[]}"#
         }
         "okf.bundle.export.create" => r#"{"spaceId":7,"exportType":"snapshot"}"#,
+        "okf.bundle.import.create" => r#"{"spaceId":7,"importType":"okf_strict"}"#,
         "okf.lintRuns.create" | "okf.evalRuns.create" => r#"{"spaceId":7}"#,
         "indexes.create" => {
             r#"{"tenantId":"20001","spaceId":"7","indexKind":"hybrid","embeddingProviderId":"provider.embedding.openai","embeddingModel":"text-embedding-3-large","dimension":3072,"metric":"cosine"}"#

@@ -5,6 +5,11 @@ use sdkwork_database_sqlx::{
     create_any_pool_from_config, create_pool_from_config, DatabasePool, PoolError,
 };
 
+pub use sdkwork_knowledgebase_database_host::{
+    bootstrap_knowledgebase_database, bootstrap_knowledgebase_database_from_env,
+    KnowledgebaseDatabaseHost,
+};
+
 pub type KnowledgebaseDatabasePool = DatabasePool;
 
 const KNOWLEDGEBASE_POOL_MAX_CONNECTIONS: u32 = 5;
@@ -81,4 +86,13 @@ pub async fn connect_postgres_pool_via_framework(
     pool.as_postgres()
         .cloned()
         .ok_or_else(|| sqlx::Error::Configuration("expected postgres database url".into()))
+}
+
+/// Create the knowledgebase pool and apply the application-root `database/` lifecycle when enabled.
+pub async fn create_and_bootstrap_knowledgebase_database_pool_from_env(
+) -> Result<KnowledgebaseDatabaseHost, String> {
+    let pool = connect_knowledgebase_pool_from_env()
+        .await
+        .map_err(|error| error.to_string())?;
+    bootstrap_knowledgebase_database(pool).await
 }

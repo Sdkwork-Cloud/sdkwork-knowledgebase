@@ -2,16 +2,15 @@ use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
 use sdkwork_intelligence_knowledgebase_service::{
     knowledge_embedding_build::KnowledgeEmbeddingBuildService,
+    okf::{load_import_bundle_from_drive, ExportOkfBundleRequest, OkfBundleExporterService},
     ports::{
         knowledge_drive_storage::{KnowledgeDriveStorage, PutKnowledgeObjectRequest},
         knowledge_ingestion_job_store::{CreateIngestionJobRecord, IngestionJobStore},
         knowledge_okf_bundle_file_store::{
             CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
         },
-        knowledge_okf_concept_store::{
-            AppendKnowledgeOkfLogEntryRecord, KnowledgeOkfConceptStore,
-            MarkKnowledgeOkfConceptCurrentRevisionRecord,
-        },
+        knowledge_okf_candidate_store::KnowledgeOkfCandidateStore,
+        knowledge_okf_concept_store::{AppendKnowledgeOkfLogEntryRecord, KnowledgeOkfConceptStore},
         knowledge_source_store::{CreateKnowledgeSourceRecord, KnowledgeSourceStore},
     },
     retrieval::KnowledgeRetrievalService,
@@ -27,16 +26,20 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList, KnowledgeOkfProfileRequest,
     KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
     KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList,
-    OkfBundleExportRequest, OkfCandidateResult, OkfCandidateResultList, OkfCandidateReviewRequest,
-    OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument,
-    OkfIndexRebuildRequest, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
+    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfCandidateResult,
+    OkfCandidateResultList, OkfCandidateReviewRequest, OkfCompileJobRequest,
+    OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfIndexRebuildRequest,
+    OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
 use sdkwork_router_knowledgebase_backend_api::{
     BackendApiError, BackendApiResult, KnowledgeBackendApi,
 };
 
 use crate::{
-    hosted_support::{concept_to_summary, persist_okf_profile, rebuild_okf_index_document},
+    hosted_support::{
+        concept_to_summary, import_okf_bundle, persist_okf_profile, rebuild_okf_index_document,
+        run_okf_bundle_lint,
+    },
     runtime::KnowledgebaseRuntime,
 };
 use std::sync::Arc;
@@ -186,14 +189,14 @@ impl KnowledgeBackendApi for HostedBackendApi {
     async fn list_okf_candidates(&self) -> BackendApiResult<OkfCandidateResultList> {
         let items = self
             .runtime
-            .okf_concept_store()
-            .list_candidate_concepts()
+            .okf_candidate_store()
+            .list_open_candidates(None)
             .await
-            .map_err(map_okf_concept)?
+            .map_err(|error| map_internal(error.to_string()))?
             .into_iter()
-            .map(|(id, state)| OkfCandidateResult {
-                id,
-                state: state.as_str().to_string(),
+            .map(|candidate| OkfCandidateResult {
+                id: candidate.concept_row_id,
+                state: candidate.publish_state.as_str().to_string(),
             })
             .collect();
         Ok(OkfCandidateResultList { items })
@@ -204,27 +207,40 @@ impl KnowledgeBackendApi for HostedBackendApi {
         candidate_id: u64,
         _request: OkfCandidateReviewRequest,
     ) -> BackendApiResult<OkfCandidateResult> {
-        self.runtime
-            .okf_concept_store()
-            .update_concept_publish_state(candidate_id, OkfConceptPublishState::Published)
-            .await
-            .map_err(map_okf_concept)?;
+        let actor = self.runtime.operator_id().to_string();
+        let published = crate::hosted_support::publish_okf_concept_revision(
+            &self.runtime,
+            candidate_id,
+            &actor,
+        )
+        .await
+        .map_err(map_api_error)?;
         Ok(OkfCandidateResult {
-            id: candidate_id,
-            state: OkfConceptPublishState::Published.as_str().to_string(),
+            id: published.id,
+            state: published.publish_state.as_str().to_string(),
         })
     }
 
     async fn reject_okf_candidate(
         &self,
         candidate_id: u64,
-        _request: OkfCandidateReviewRequest,
+        request: OkfCandidateReviewRequest,
     ) -> BackendApiResult<OkfCandidateResult> {
         self.runtime
             .okf_concept_store()
             .update_concept_publish_state(candidate_id, OkfConceptPublishState::Rejected)
             .await
             .map_err(map_okf_concept)?;
+        self.runtime
+            .okf_candidate_store()
+            .update_candidate_state_by_concept_row_id(
+                candidate_id,
+                OkfConceptPublishState::Rejected,
+                request.reviewer_id,
+                request.note,
+            )
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
         Ok(OkfCandidateResult {
             id: candidate_id,
             state: OkfConceptPublishState::Rejected.as_str().to_string(),
@@ -236,29 +252,11 @@ impl KnowledgeBackendApi for HostedBackendApi {
         concept_id: u64,
         _request: OkfConceptPublishRequest,
     ) -> BackendApiResult<OkfConceptSummary> {
-        let page = self
-            .runtime
-            .okf_concept_store()
-            .get_concept_by_row_id(concept_id)
-            .await
-            .map_err(map_okf_concept)?;
-        let revision_id = page.current_revision_id.ok_or_else(|| {
-            BackendApiError::new(
-                axum::http::StatusCode::CONFLICT,
-                "okf_concept_not_ready",
-                format!("okf concept {concept_id} has no current revision to publish"),
-            )
-        })?;
-        let published = self
-            .runtime
-            .okf_concept_store()
-            .mark_current_revision(MarkKnowledgeOkfConceptCurrentRevisionRecord {
-                concept_row_id: concept_id,
-                revision_id,
-                publish_state: OkfConceptPublishState::Published,
-            })
-            .await
-            .map_err(map_okf_concept)?;
+        let actor = self.runtime.operator_id().to_string();
+        let published =
+            crate::hosted_support::publish_okf_concept_revision(&self.runtime, concept_id, &actor)
+                .await
+                .map_err(map_api_error)?;
         Ok(concept_to_summary(published))
     }
 
@@ -332,38 +330,69 @@ impl KnowledgeBackendApi for HostedBackendApi {
                 "space_id and export_type are required",
             ));
         }
-        let document = rebuild_okf_index_document(&self.runtime, request.space_id)
-            .await
-            .map_err(map_api_error)?;
-        let logical_path = format!(
-            "output/exports/{}-{}.md",
-            request.export_type.trim(),
-            request.space_id
-        );
-        let object_ref = self
-            .runtime
-            .drive_storage()
-            .put_object(PutKnowledgeObjectRequest::text(
-                logical_path.clone(),
-                "output_export",
-                document.markdown,
-                None,
-            ))
-            .await
-            .map_err(|error| map_api_error(error.into()))?;
+        let source_object_refs = if request.export_type.trim() == "okf_with_sources" {
+            self.runtime
+                .object_ref_store()
+                .list_object_refs_by_logical_path_prefix(request.space_id, "sources/raw/")
+                .await
+                .map_err(|error| map_internal(error.to_string()))?
+        } else {
+            Vec::new()
+        };
+        let exported = OkfBundleExporterService::new(
+            self.runtime.drive_storage(),
+            self.runtime.okf_concept_store(),
+        )
+        .with_source_object_refs(source_object_refs)
+        .export_bundle(ExportOkfBundleRequest {
+            space_id: request.space_id,
+            export_type: request.export_type,
+        })
+        .await
+        .map_err(|error| map_internal(error.to_string()))?;
         self.runtime
             .okf_bundle_file_store()
             .create_file_entry(CreateKnowledgeOkfBundleFileRecord {
                 space_id: request.space_id,
-                logical_path,
+                logical_path: exported.manifest_path,
                 file_kind: OkfBundleFileKind::OutputExport,
-                artifact_role: object_ref.object_role.clone(),
-                drive_bucket: object_ref.bucket.clone(),
-                drive_object_key: object_ref.object_key.clone(),
-                checksum_sha256_hex: object_ref.checksum_sha256_hex.clone(),
+                artifact_role: exported.manifest_ref.object_role.clone(),
+                drive_bucket: exported.manifest_ref.bucket.clone(),
+                drive_object_key: exported.manifest_ref.object_key.clone(),
+                checksum_sha256_hex: exported.manifest_ref.checksum_sha256_hex.clone(),
             })
             .await
             .map_err(|error| map_internal(error.to_string()))
+    }
+
+    async fn create_okf_import(
+        &self,
+        request: OkfBundleImportRequest,
+    ) -> BackendApiResult<OkfBundleImportResult> {
+        if request.space_id == 0 || request.import_type.trim().is_empty() {
+            return Err(BackendApiError::new(
+                axum::http::StatusCode::BAD_REQUEST,
+                "invalid_okf_import_request",
+                "space_id and import_type are required",
+            ));
+        }
+        let import_type = request.import_type.trim();
+        if import_type != "okf_strict" && import_type != "okf_bundle" {
+            return Err(BackendApiError::new(
+                axum::http::StatusCode::BAD_REQUEST,
+                "invalid_okf_import_request",
+                format!("unsupported import_type: {import_type}"),
+            ));
+        }
+        let publish = import_type == "okf_strict";
+        let space_id = request.space_id;
+        let files = load_import_bundle_from_drive(self.runtime.drive_storage(), space_id)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        let actor = self.runtime.operator_id().to_string();
+        import_okf_bundle(&self.runtime, space_id, &actor, publish, files)
+            .await
+            .map_err(map_api_error)
     }
 
     async fn retrieve_okf_export(
@@ -421,6 +450,29 @@ impl KnowledgeBackendApi for HostedBackendApi {
                     request.profile.as_deref().unwrap_or("default")
                 ),
                 || async move {
+                    let lint_result = run_okf_bundle_lint(&runtime, space_id)
+                        .await
+                        .map_err(|error| format!("{error:?}"))?;
+                    let report_path = format!("output/lint-reports/{space_id}.json");
+                    runtime
+                        .drive_storage()
+                        .put_object(PutKnowledgeObjectRequest {
+                            logical_path: report_path,
+                            object_role: "output_export".to_string(),
+                            content_type: "application/json; charset=utf-8".to_string(),
+                            body: serde_json::to_vec_pretty(&lint_result).map_err(|error| {
+                                format!("failed to serialize lint report: {error}")
+                            })?,
+                            checksum_sha256_hex: None,
+                        })
+                        .await
+                        .map_err(|error| format!("{error:?}"))?;
+                    if lint_result.conformance != "pass" {
+                        return Err(format!(
+                            "okf bundle lint failed with {} issue(s)",
+                            lint_result.issues.len()
+                        ));
+                    }
                     rebuild_okf_index_document(&runtime, space_id)
                         .await
                         .map(|_| ())

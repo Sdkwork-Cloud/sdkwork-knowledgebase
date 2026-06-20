@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    KnowledgeOkfConceptLinkRecord, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
+    KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
     ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sqlx::AnyPool;
@@ -72,7 +72,7 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
         .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
 
         for link in record.links {
-            let id = next_i64_id(self.id_generator.as_ref()).map_err(id_error)?;
+            let id = next_i64_id(&self.id_generator).map_err(id_error)?;
             sqlx::query(
                 r#"
                 INSERT INTO kb_okf_concept_link (

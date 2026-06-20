@@ -29,13 +29,13 @@ pub fn render_index_md(_space_name: &str, concepts: &[OkfConceptSummary]) -> Str
         }
         for concept in items {
             output.push_str("* [");
-            output.push_str(one_line(&concept.title));
+            output.push_str(&one_line(&concept.title));
             output.push_str("](");
             output.push_str(&concept.bundle_relative_path);
             output.push(')');
             if !concept.description.trim().is_empty() {
                 output.push_str(" - ");
-                output.push_str(one_line(&concept.description));
+                output.push_str(&one_line(&concept.description));
             }
             output.push('\n');
         }

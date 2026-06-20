@@ -80,6 +80,12 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "okf.bundle.export.retrieve",
     ),
     HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/imports",
+        "knowledge",
+        "okf.bundle.import.create",
+    ),
+    HttpRoute::dual_token(
         HttpMethod::Get,
         "/backend/v3/api/knowledge/okf/bundle/files",
         "knowledge",

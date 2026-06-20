@@ -18,6 +18,15 @@ pub trait KnowledgeDriveStorage: Send + Sync {
         &self,
         object_ref: &KnowledgeObjectRef,
     ) -> Result<String, KnowledgeStorageError>;
+
+    async fn get_object_bytes(
+        &self,
+        object_ref: &KnowledgeObjectRef,
+    ) -> Result<Vec<u8>, KnowledgeStorageError> {
+        self.get_object_text(object_ref)
+            .await
+            .map(|text| text.into_bytes())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

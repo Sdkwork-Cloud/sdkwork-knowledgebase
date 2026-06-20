@@ -37,8 +37,18 @@
     "api:check": "node tools/materialize-apis-authority.mjs --check",
     "sdk:generate:check": "node sdks/standardize-knowledgebase-sdk-family.mjs --check",
     "sdk:check": "node sdks/test/verify-sdk-ownership-boundaries.test.mjs",
-    "db:validate": "cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx",
+    "db:materialize:contract": "node tools/materialize_knowledgebase_database_contract.mjs",
+    "db:validate": "node ../sdkwork-specs/tools/check-database-framework-standard.mjs --root .",
     "topology:validate": "node ../sdkwork-app-topology/scripts/sdkwork-topology.mjs validate --root . --spec specs/topology.spec.json",
-    "topology:plan": "node ../sdkwork-app-topology/scripts/sdkwork-topology.mjs plan --root . --spec specs/topology.spec.json"
+    "topology:plan": "node ../sdkwork-app-topology/scripts/sdkwork-topology.mjs plan --root . --spec specs/topology.spec.json",
+    "db:plan": "cargo run --manifest-path ../sdkwork-database/Cargo.toml -p sdkwork-database-cli -- --app-root . plan",
+    "db:init": "cargo run --manifest-path ../sdkwork-database/Cargo.toml -p sdkwork-database-cli -- --app-root . init",
+    "db:migrate": "cargo run --manifest-path ../sdkwork-database/Cargo.toml -p sdkwork-database-cli -- --app-root . migrate",
+    "db:seed": "cargo run --manifest-path ../sdkwork-database/Cargo.toml -p sdkwork-database-cli -- --app-root . seed",
+    "db:status": "cargo run --manifest-path ../sdkwork-database/Cargo.toml -p sdkwork-database-cli -- --app-root . status",
+    "db:drift": "cargo run --manifest-path ../sdkwork-database/Cargo.toml -p sdkwork-database-cli -- --app-root . drift",
+    "db:drift:check": "cargo run --manifest-path ../sdkwork-database/Cargo.toml -p sdkwork-database-cli -- --app-root . drift-check",
+    "db:bootstrap": "cargo run --manifest-path ../sdkwork-database/Cargo.toml -p sdkwork-database-cli -- --app-root . bootstrap",
+    "test:contract:database": "node ../sdkwork-specs/tools/check-database-framework-standard.mjs --root ."
   }
 }

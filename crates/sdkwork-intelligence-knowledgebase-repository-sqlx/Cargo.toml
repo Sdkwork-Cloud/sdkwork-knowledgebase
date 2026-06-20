@@ -8,6 +8,7 @@ license.workspace = true
 sdkwork-database-config.workspace = true
 sdkwork-database-sqlx.workspace = true
 sdkwork-database-repository.workspace = true
+sdkwork-knowledgebase-database-host.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true

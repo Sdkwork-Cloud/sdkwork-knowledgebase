@@ -14,6 +14,7 @@ pub const OKF_INDEX_REBUILD: &str = "/backend/v3/api/knowledge/okf/index/rebuild
 pub const OKF_LOG_ENTRIES: &str = "/backend/v3/api/knowledge/okf/log_entries";
 pub const OKF_EXPORTS: &str = "/backend/v3/api/knowledge/okf/exports";
 pub const OKF_EXPORT: &str = "/backend/v3/api/knowledge/okf/exports/{export_id}";
+pub const OKF_IMPORTS: &str = "/backend/v3/api/knowledge/okf/imports";
 pub const OKF_BUNDLE_FILES: &str = "/backend/v3/api/knowledge/okf/bundle/files";
 pub const OKF_LINT_RUNS: &str = "/backend/v3/api/knowledge/okf/lint_runs";
 pub const OKF_EVAL_RUNS: &str = "/backend/v3/api/knowledge/okf/eval_runs";

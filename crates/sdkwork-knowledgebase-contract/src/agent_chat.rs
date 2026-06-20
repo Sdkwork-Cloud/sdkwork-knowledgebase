@@ -39,12 +39,7 @@ pub struct KnowledgeAgentChatCitation {
         deserialize_with = "deserialize_option_u64_from_string_or_number"
     )]
     pub document_id: Option<u64>,
-    #[serde(
-        default,
-        serialize_with = "serialize_option_u64_as_string",
-        deserialize_with = "deserialize_option_u64_from_string_or_number"
-    )]
-    pub okf_concept_id: Option<u64>,
+    pub concept_id: Option<String>,
     pub title: String,
     pub source_uri: Option<String>,
     pub logical_path: Option<String>,

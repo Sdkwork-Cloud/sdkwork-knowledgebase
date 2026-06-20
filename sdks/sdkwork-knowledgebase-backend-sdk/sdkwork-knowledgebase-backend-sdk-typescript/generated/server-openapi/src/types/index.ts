@@ -67,3 +67,5 @@ export type { KnowledgeRetrievalProfile } from './knowledge-retrieval-profile';
 export type { KnowledgeRetrievalTraceList } from './knowledge-retrieval-trace-list';
 export type { KnowledgeProviderHealth } from './knowledge-provider-health';
 export type { KnowledgeMemoryContextFragment } from './knowledge-memory-context-fragment';
+export type { OkfBundleImportRequest } from './okf-bundle-import-request';
+export type { OkfBundleImportResult } from './okf-bundle-import-result';

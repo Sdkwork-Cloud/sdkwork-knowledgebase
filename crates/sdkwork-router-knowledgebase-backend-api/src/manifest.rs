@@ -81,6 +81,11 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         operation_id: "okf.bundle.export.retrieve",
     },
     RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/okf/imports",
+        operation_id: "okf.bundle.import.create",
+    },
+    RouteManifestEntry {
         method: "GET",
         path: "/backend/v3/api/knowledge/okf/bundle/files",
         operation_id: "okf.bundle.files.list",

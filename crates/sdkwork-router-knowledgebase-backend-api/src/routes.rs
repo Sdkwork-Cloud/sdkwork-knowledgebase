@@ -48,6 +48,7 @@ pub fn build_router_with_shared_backend_api(api: Arc<dyn KnowledgeBackendApi>) -
         .route(paths::OKF_LOG_ENTRIES, post(handlers::create_okf_log_entry))
         .route(paths::OKF_EXPORTS, post(handlers::create_okf_export))
         .route(paths::OKF_EXPORT, get(handlers::retrieve_okf_export))
+        .route(paths::OKF_IMPORTS, post(handlers::create_okf_import))
         .route(
             paths::OKF_BUNDLE_FILES,
             get(handlers::list_okf_bundle_files),

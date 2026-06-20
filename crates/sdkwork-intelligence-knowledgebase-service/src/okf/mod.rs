@@ -1,12 +1,16 @@
+mod bundle_linter;
 mod concept_service;
 mod document;
+mod exporter;
 mod file_registry;
+mod importer;
 mod index_renderer;
 mod initializer;
 mod link_indexer;
 mod linter;
 mod log_renderer;
 mod schema_renderer;
+mod storage;
 mod validator;
 
 use crate::ports::knowledge_drive_storage::{
@@ -14,24 +18,38 @@ use crate::ports::knowledge_drive_storage::{
 };
 use sdkwork_knowledgebase_contract::okf::{OkfBundlePaths, OkfConceptSummary, OkfLogEntry};
 
-pub use concept_service::{OkfConceptService, OkfConceptServiceError};
+pub use bundle_linter::{to_contract_lint_result, OkfBundleLinterError, OkfBundleLinterService};
+pub use concept_service::{
+    OkfConceptService, OkfConceptServiceError, PublishExistingOkfConceptRevisionRequest,
+};
 pub use document::{
-    extract_concept_links, parse_okf_markdown, render_okf_concept_markdown, OkfConceptDocument,
-    OkfConceptLink, OkfDocumentError, OKF_VERSION,
+    extract_concept_links, parse_okf_markdown, render_okf_concept_markdown,
+    strip_sdkwork_frontmatter, OkfConceptDocument, OkfConceptLink, OkfDocumentError, OKF_VERSION,
+    SDKWORK_FRONTMATTER_KEY,
+};
+pub use exporter::{
+    ExportOkfBundleRequest, ExportedOkfBundle, OkfBundleExporterError, OkfBundleExporterService,
 };
 pub use file_registry::{OkfBundleFileRegistryService, OkfBundleFileRegistryServiceError};
+pub use importer::{
+    bundle_relative_path_from_logical_path, concept_id_from_bundle_relative_path,
+    discover_bundle_files_from_directory, load_import_bundle_from_drive, stackoverflow_bundle_root,
+    ImportOkfBundleFile, ImportOkfBundleRequest, ImportOkfBundleResult, OkfBundleImporterError,
+    OkfBundleImporterService,
+};
 pub use index_renderer::render_index_md;
 pub use initializer::{OkfBundleInitializerService, OkfBundleInitializerServiceError};
 pub use link_indexer::index_concept_links;
 pub use linter::{
-    lint_bundle_summaries, lint_published_concept_markdown, OkfBundleLintReport, OkfLintIssue,
-    OkfLintSeverity,
+    extract_index_linked_concept_ids, lint_bundle_summaries, lint_published_concept_markdown,
+    OkfBundleLintReport, OkfLintIssue, OkfLintSeverity,
 };
 pub use log_renderer::render_log_md;
 pub use schema_renderer::{render_agents_md, render_okf_profile_yaml};
+pub use storage::{read_managed_markdown, read_managed_object_bytes};
 pub use validator::{
-    validate_bundle_relative_path, validate_concept_document, validate_concept_id,
-    OkfConformanceError,
+    validate_bundle_relative_path, validate_concept_bundle_relative_path,
+    validate_concept_document, validate_concept_id, OkfConformanceError,
 };
 
 #[derive(Debug, Clone)]

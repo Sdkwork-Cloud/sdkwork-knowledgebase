@@ -81,6 +81,11 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         operation_id: "okf.concepts.list",
     },
     RouteManifestEntry {
+        method: "PUT",
+        path: "/app/v3/api/knowledge/okf/concepts/upsert",
+        operation_id: "okf.concepts.upsert",
+    },
+    RouteManifestEntry {
         method: "GET",
         path: "/app/v3/api/knowledge/okf/concepts/{conceptId}",
         operation_id: "okf.concepts.retrieve",
@@ -119,6 +124,26 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         method: "POST",
         path: "/app/v3/api/knowledge/okf/context_packs",
         operation_id: "okf.contextPacks.create",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/okf/exports",
+        operation_id: "okf.bundle.export.create",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/okf/exports/{exportId}",
+        operation_id: "okf.bundle.export.retrieve",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/okf/imports",
+        operation_id: "okf.bundle.import.create",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/okf/lint_runs",
+        operation_id: "okf.lintRuns.create",
     },
     RouteManifestEntry {
         method: "GET",

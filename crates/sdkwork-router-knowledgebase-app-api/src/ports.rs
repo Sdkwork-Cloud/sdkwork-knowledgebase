@@ -16,9 +16,10 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest,
     KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeOkfBundleFile,
     KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
-    KnowledgeSpace, ListKnowledgeBrowserRequest, OkfConceptSummary, OkfConceptSummaryList,
+    KnowledgeSpace, ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
+    OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest,
     OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
-    OkfProfileDocument, OkfQueryRequest, OkfQueryResult,
+    OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult,
 };
 
 use crate::{ApiError, ApiResult};
@@ -96,6 +97,11 @@ pub trait KnowledgeOkfAppService: Send + Sync + 'static {
         concept_row_id: u64,
     ) -> ApiResult<KnowledgeOkfConceptRevisionList>;
 
+    async fn upsert_okf_concept(
+        &self,
+        request: OkfConceptUpsertRequest,
+    ) -> ApiResult<OkfConceptSummary>;
+
     async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument>;
 
     async fn retrieve_okf_log(&self) -> ApiResult<OkfLogDocument>;
@@ -114,6 +120,20 @@ pub trait KnowledgeOkfAppService: Send + Sync + 'static {
         &self,
         request: OkfContextPackRequest,
     ) -> ApiResult<KnowledgeOkfBundleFile>;
+
+    async fn create_okf_export(
+        &self,
+        request: OkfBundleExportRequest,
+    ) -> ApiResult<KnowledgeOkfBundleFile>;
+
+    async fn retrieve_okf_export(&self, export_id: u64) -> ApiResult<KnowledgeOkfBundleFile>;
+
+    async fn create_okf_import(
+        &self,
+        request: OkfBundleImportRequest,
+    ) -> ApiResult<OkfBundleImportResult>;
+
+    async fn create_okf_lint_run(&self, request: OkfQualityRunRequest) -> ApiResult<OkfQualityRun>;
 }
 
 #[async_trait]
@@ -325,6 +345,13 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         Err(ApiError::not_implemented("okf.concepts.revisions.list"))
     }
 
+    async fn upsert_okf_concept(
+        &self,
+        _request: OkfConceptUpsertRequest,
+    ) -> ApiResult<OkfConceptSummary> {
+        Err(ApiError::not_implemented("okf.concepts.upsert"))
+    }
+
     async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument> {
         Err(ApiError::not_implemented("okf.bundle.index.retrieve"))
     }
@@ -354,6 +381,31 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _request: OkfContextPackRequest,
     ) -> ApiResult<KnowledgeOkfBundleFile> {
         Err(ApiError::not_implemented("okf.contextPacks.create"))
+    }
+
+    async fn create_okf_export(
+        &self,
+        _request: OkfBundleExportRequest,
+    ) -> ApiResult<KnowledgeOkfBundleFile> {
+        Err(ApiError::not_implemented("okf.bundle.export.create"))
+    }
+
+    async fn retrieve_okf_export(&self, _export_id: u64) -> ApiResult<KnowledgeOkfBundleFile> {
+        Err(ApiError::not_implemented("okf.bundle.export.retrieve"))
+    }
+
+    async fn create_okf_import(
+        &self,
+        _request: OkfBundleImportRequest,
+    ) -> ApiResult<OkfBundleImportResult> {
+        Err(ApiError::not_implemented("okf.bundle.import.create"))
+    }
+
+    async fn create_okf_lint_run(
+        &self,
+        _request: OkfQualityRunRequest,
+    ) -> ApiResult<OkfQualityRun> {
+        Err(ApiError::not_implemented("okf.lintRuns.create"))
     }
 
     async fn list_browser(

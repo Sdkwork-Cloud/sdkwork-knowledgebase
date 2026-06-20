@@ -64,7 +64,110 @@ async function walk(dir, out = []) {
   return out;
 }
 
+const requiredOkfServiceModules = [
+  "concept_service.rs",
+  "document.rs",
+  "validator.rs",
+  "index_renderer.rs",
+  "log_renderer.rs",
+  "bundle_linter.rs",
+  "importer.rs",
+  "exporter.rs",
+  "initializer.rs",
+  "storage.rs",
+  "linter.rs",
+];
+
+const requiredOkfStorageSymbols = [
+  "read_managed_object_bytes",
+  "get_object_bytes",
+  "export_manifest.yaml",
+  "validate_concept_bundle_relative_path",
+  "extract_index_linked_concept_ids",
+];
+
+const requiredOkfMigrationTables = ["kb_okf_concept", "kb_okf_concept_link", "kb_okf_candidate"];
+
+async function assertRequiredOkfModules() {
+  const okfDir = path.join(
+    root,
+    "crates/sdkwork-intelligence-knowledgebase-service/src/okf",
+  );
+  const entries = await readdir(okfDir);
+  for (const moduleName of requiredOkfServiceModules) {
+    if (!entries.includes(moduleName)) {
+      violations.push(`missing okf service module: okf/${moduleName}`);
+    }
+  }
+}
+
+async function assertRequiredOkfStorageSymbols() {
+  const files = [
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/storage.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_drive_storage.rs",
+    ),
+    path.join(root, "crates/sdkwork-knowledgebase-drive/src/adapter.rs"),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/exporter.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/validator.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/linter.rs",
+    ),
+  ];
+  const combined = (
+    await Promise.all(files.map((file) => readFile(file, "utf8")))
+  ).join("\n");
+  for (const symbol of requiredOkfStorageSymbols) {
+    if (!combined.includes(symbol)) {
+      violations.push(`missing okf storage/export symbol: ${symbol}`);
+    }
+  }
+}
+
+async function assertRequiredOkfMigrations() {
+  const migrationsDir = path.join(
+    root,
+    "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations",
+  );
+  const migrationRoots = await readdir(migrationsDir, { withFileTypes: true });
+  let migrationSql = "";
+  for (const entry of migrationRoots) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const files = await readdir(path.join(migrationsDir, entry.name));
+    for (const file of files) {
+      if (file.endsWith(".sql")) {
+        migrationSql += await readFile(
+          path.join(migrationsDir, entry.name, file),
+          "utf8",
+        );
+      }
+    }
+  }
+  for (const tableName of requiredOkfMigrationTables) {
+    if (!migrationSql.includes(tableName)) {
+      violations.push(`missing okf migration table: ${tableName}`);
+    }
+  }
+}
+
 const violations = [];
+await assertRequiredOkfModules();
+await assertRequiredOkfStorageSymbols();
+await assertRequiredOkfMigrations();
+
 for (const file of await walk(root)) {
   const content = await readFile(file, "utf8");
   for (const pattern of forbiddenPatterns) {

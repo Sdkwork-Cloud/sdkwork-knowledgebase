@@ -9,6 +9,7 @@ mod id;
 mod index_store;
 pub mod mapper;
 pub mod migrations;
+mod okf_candidate_store;
 mod okf_concept_link_store;
 mod okf_concept_store;
 pub mod repository;
@@ -26,15 +27,16 @@ pub use agent_profile_store::SqliteKnowledgeAgentProfileStore;
 pub use browser_projection_store::SqliteKnowledgeBrowserProjectionStore;
 pub use db::{
     connect_knowledgebase_and_install_schema, connect_postgres_and_install_schema,
-    connect_postgres_pool, connect_sqlite_and_install_schema, connect_sqlite_pool,
-    install_postgres_schema, install_sqlite_core_schema, install_sqlite_schema,
-    is_postgres_database_url, knowledgebase_health_check, postgres_health_check,
-    sqlite_health_check, PostgresRepositoryError,
+    connect_postgres_pool, connect_postgres_via_framework_lifecycle,
+    connect_sqlite_and_install_schema, connect_sqlite_pool, install_sqlite_core_schema,
+    install_sqlite_schema, is_postgres_database_url, knowledgebase_health_check,
+    postgres_health_check, sqlite_health_check, PostgresRepositoryError,
 };
 pub use drive_object_ref_store::SqliteKnowledgeDriveObjectRefStore;
 pub use embedding_store::SqliteKnowledgeEmbeddingStore;
 pub use id::{KnowledgeIdGenerator, KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator};
 pub use index_store::{KnowledgeIndexStoreError, SqliteKnowledgeIndexStore};
+pub use okf_candidate_store::SqliteKnowledgeOkfCandidateStore;
 pub use okf_concept_link_store::SqliteKnowledgeOkfConceptLinkStore;
 pub use okf_concept_store::SqliteKnowledgeOkfConceptStore;
 pub use postgres_pgvector_retrieval::PgVectorKnowledgeRetrievalBackend;

@@ -178,6 +178,13 @@ pub struct OkfBundleImportRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct OkfBundleImportResult {
+    pub imported_concept_count: u32,
+    pub skipped_files: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OkfQualityRunRequest {
     pub space_id: u64,
     pub profile: Option<String>,

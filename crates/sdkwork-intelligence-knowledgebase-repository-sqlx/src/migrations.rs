@@ -51,6 +51,10 @@ pub const POSTGRES_MIGRATIONS: &[&str] = &[
     POSTGRES_CONTEXT_BINDING_MIGRATION,
     POSTGRES_ACCESS_MODE_MIGRATION,
     POSTGRES_AGENT_IMPLEMENTATION_MIGRATION,
+    POSTGRES_PGVECTOR_MIGRATION,
     POSTGRES_OUTBOX_MIGRATION,
     POSTGRES_OKF_LINK_CANDIDATE_MIGRATION,
 ];
+
+// Legacy migration SQL retained for contract tests only. Runtime PostgreSQL bootstrap uses
+// application-root `database/` via `sdkwork-knowledgebase-database-host`.

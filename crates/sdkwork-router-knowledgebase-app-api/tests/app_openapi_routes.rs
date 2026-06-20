@@ -260,6 +260,7 @@ fn method_from_openapi(method_name: &str) -> Method {
         "get" => Method::GET,
         "patch" => Method::PATCH,
         "post" => Method::POST,
+        "put" => Method::PUT,
         value => panic!("unsupported OpenAPI method: {value}"),
     }
 }
@@ -275,6 +276,7 @@ fn concrete_uri(template_path: &str) -> String {
         .replace("{retrievalId}", "23")
         .replace("{profileId}", "41")
         .replace("{bindingId}", "61")
+        .replace("{exportId}", "71")
         .replace("{spaceId}", "7");
 
     if path.ends_with("/browser") {
@@ -300,8 +302,14 @@ fn request_body(operation_id: &str) -> &'static str {
             r#"{"documentId":13,"originalObjectRefId":23,"sizeBytes":128,"mimeType":"text/markdown"}"#
         }
         "okf.queries.create" => r#"{"spaceId":7,"query":"What changed?"}"#,
+        "okf.concepts.upsert" => {
+            r##"{"spaceId":7,"conceptId":"tables/users","markdown":"---\ntype: Entity\ntitle: Users\n---\n# Users\n","actor":"author","publish":false}"##
+        }
         "okf.queries.fileAnswer" => r##"{"title":"Answer","answerMarkdown":"# Answer"}"##,
         "okf.contextPacks.create" => r#"{"spaceId":7,"query":"Quarterly report"}"#,
+        "okf.bundle.export.create" => r#"{"spaceId":7,"exportType":"okf_strict"}"#,
+        "okf.bundle.import.create" => r#"{"spaceId":7,"importType":"okf_strict"}"#,
+        "okf.lintRuns.create" => r#"{"spaceId":7,"profile":"default"}"#,
         "retrievals.create" => {
             r#"{"tenantId":"20001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
         }

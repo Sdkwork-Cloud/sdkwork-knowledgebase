@@ -24,11 +24,25 @@ pub struct OkfBundleLintReport {
 
 impl OkfBundleLintReport {
     pub fn conformance_passed(&self) -> bool {
-        !self
-            .issues
-            .iter()
-            .any(|issue| issue.check == "okf_conformance" && issue.severity == OkfLintSeverity::Error)
+        !self.issues.iter().any(|issue| {
+            issue.check == "okf_conformance" && issue.severity == OkfLintSeverity::Error
+        })
     }
+}
+
+pub fn extract_index_linked_concept_ids(
+    index_markdown: &str,
+    known_concept_ids: &[String],
+) -> BTreeSet<String> {
+    let body = index_markdown
+        .split("\n---\n")
+        .nth(1)
+        .and_then(|rest| rest.split("\n---\n").nth(1))
+        .unwrap_or(index_markdown);
+    extract_concept_links(body, "", known_concept_ids)
+        .into_iter()
+        .filter_map(|link| link.target_concept_id)
+        .collect()
 }
 
 pub fn lint_published_concept_markdown(
@@ -60,6 +74,24 @@ pub fn lint_published_concept_markdown(
                     });
                 }
             }
+            if !has_citations_section(&document.body) {
+                issues.push(OkfLintIssue {
+                    check: "missing_citations",
+                    severity: OkfLintSeverity::Warning,
+                    message: format!(
+                        "concept {} is missing a # Citations section for external source lineage",
+                        concept_id
+                    ),
+                    concept_id: Some(concept_id.to_string()),
+                });
+            } else if citations_section_is_empty(&document.body) {
+                issues.push(OkfLintIssue {
+                    check: "stale_claims",
+                    severity: OkfLintSeverity::Warning,
+                    message: format!("concept {} has an empty # Citations section", concept_id),
+                    concept_id: Some(concept_id.to_string()),
+                });
+            }
             if document.body.contains("TODO") || document.body.contains("FIXME") {
                 issues.push(OkfLintIssue {
                     check: "stale_claims",
@@ -75,7 +107,8 @@ pub fn lint_published_concept_markdown(
         Ok(None) => issues.push(OkfLintIssue {
             check: "okf_conformance",
             severity: OkfLintSeverity::Error,
-            message: "published concept markdown must include YAML frontmatter with type".to_string(),
+            message: "published concept markdown must include YAML frontmatter with type"
+                .to_string(),
             concept_id: Some(concept_id.to_string()),
         }),
         Err(error) => issues.push(OkfLintIssue {
@@ -131,4 +164,63 @@ pub fn lint_bundle_summaries(
     }
 
     OkfBundleLintReport { issues }
+}
+
+fn has_citations_section(body: &str) -> bool {
+    section_content_lines(body, "# Citations").is_some()
+}
+
+fn citations_section_is_empty(body: &str) -> bool {
+    match section_content_lines(body, "# Citations") {
+        Some(lines) => lines.is_empty(),
+        None => false,
+    }
+}
+
+fn section_content_lines(body: &str, heading: &str) -> Option<Vec<String>> {
+    let mut in_section = false;
+    let mut lines = Vec::new();
+    for line in body.lines() {
+        let stripped = line.trim();
+        if stripped.starts_with("# ") {
+            in_section = stripped == heading;
+            continue;
+        }
+        if in_section && !stripped.is_empty() {
+            lines.push(line.to_string());
+        }
+    }
+    if in_section {
+        Some(lines)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn citations_section_detection_matches_okf_reference() {
+        let body = "Prose.\n\n# Schema\n\n- `id` STRING\n\n# Citations\n\n[1] [Src](https://example.com)\n";
+        assert!(has_citations_section(body));
+        assert!(!citations_section_is_empty(body));
+    }
+
+    #[test]
+    fn missing_citations_flags_concepts_without_section() {
+        let markdown = r#"---
+type: Entity
+title: Users
+---
+# Schema
+
+- `id` STRING
+"#;
+        let issues = lint_published_concept_markdown("tables/users", markdown, &[]);
+        assert!(issues
+            .iter()
+            .any(|issue| issue.check == "missing_citations"));
+    }
 }

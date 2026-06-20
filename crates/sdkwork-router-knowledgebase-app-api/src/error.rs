@@ -402,6 +402,24 @@ impl From<OkfConceptServiceError> for ApiError {
     }
 }
 
+impl From<sdkwork_intelligence_knowledgebase_service::okf::OkfBundleImporterError> for ApiError {
+    fn from(
+        error: sdkwork_intelligence_knowledgebase_service::okf::OkfBundleImporterError,
+    ) -> Self {
+        use sdkwork_intelligence_knowledgebase_service::okf::OkfBundleImporterError;
+        match error {
+            OkfBundleImporterError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_okf_bundle_import_request", detail)
+            }
+            OkfBundleImporterError::Conformance(detail) => {
+                Self::invalid_request("okf_bundle_import_conformance_failed", detail)
+            }
+            OkfBundleImporterError::Storage(storage_error) => storage_error.into(),
+            OkfBundleImporterError::ConceptService(service_error) => service_error.into(),
+        }
+    }
+}
+
 impl From<KnowledgeContextBindingServiceError> for ApiError {
     fn from(error: KnowledgeContextBindingServiceError) -> Self {
         match error {

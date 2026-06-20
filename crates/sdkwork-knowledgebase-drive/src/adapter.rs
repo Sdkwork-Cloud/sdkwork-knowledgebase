@@ -253,6 +253,21 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
         &self,
         request: PutKnowledgeObjectRequest,
     ) -> Result<KnowledgeObjectRef, KnowledgeStorageError> {
+        let safe_logical_path = safe_logical_path(&request.logical_path)?;
+        if safe_logical_path.starts_with("sources/raw/") {
+            let exists = self
+                .head_object(HeadKnowledgeObjectRequest::managed_artifact(
+                    safe_logical_path.clone(),
+                    request.object_role.clone(),
+                ))
+                .await
+                .is_ok();
+            if exists {
+                return Err(KnowledgeStorageError::InvalidRequest(
+                    "sources/raw objects are immutable once written".to_string(),
+                ));
+            }
+        }
         let locator = self.locator_for(&request.logical_path)?;
         let size_bytes = request.body.len() as u64;
         let computed_checksum_sha256_hex = checksum_sha256_hex(&request.body);
@@ -344,8 +359,17 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
         &self,
         object_ref: &KnowledgeObjectRef,
     ) -> Result<String, KnowledgeStorageError> {
+        let bytes = self.get_object_bytes(object_ref).await?;
+        String::from_utf8(bytes)
+            .map_err(|error| KnowledgeStorageError::InvalidRequest(error.to_string()))
+    }
+
+    async fn get_object_bytes(
+        &self,
+        object_ref: &KnowledgeObjectRef,
+    ) -> Result<Vec<u8>, KnowledgeStorageError> {
         if object_ref.size_bytes == 0 {
-            return Ok(String::new());
+            return Ok(Vec::new());
         }
 
         let end_inclusive = object_ref.size_bytes.saturating_sub(1);
@@ -369,8 +393,7 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
             bytes.extend_from_slice(&chunk);
         }
 
-        String::from_utf8(bytes)
-            .map_err(|error| KnowledgeStorageError::InvalidRequest(error.to_string()))
+        Ok(bytes)
     }
 }
 

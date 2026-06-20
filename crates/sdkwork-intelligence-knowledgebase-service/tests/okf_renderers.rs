@@ -52,14 +52,14 @@ fn index_md_renders_categories_and_okf_links() {
 
     let content = render_index_md("Research Space", &pages);
 
-    assert!(content.contains("# Index"));
-    assert!(content.contains("## Entity"));
-    assert!(content.contains("[[entities/entity-name|Entity Name]]"));
-    assert!(content.contains("sources: 4"));
+    assert!(content.contains("okf_version: \"0.1\""));
+    assert!(content.contains("## Entities"));
+    assert!(content.contains("* [Entity Name](entities/entity-name.md)"));
+    assert!(content.contains("One-line entity summary."));
 }
 
 #[test]
-fn log_md_uses_parseable_heading_prefix() {
+fn log_md_uses_okf_daily_sections() {
     let entries = vec![OkfLogEntry {
         occurred_at: "2026-06-01T00:00:00Z".to_string(),
         event_type: OkfLogEventType::Ingest,
@@ -72,9 +72,10 @@ fn log_md_uses_parseable_heading_prefix() {
 
     let content = render_log_md(&entries);
 
-    assert!(content.contains("## [2026-06-01T00:00:00Z] ingest | Source Title"));
-    assert!(content.contains("- actor: system"));
-    assert!(content.contains("- auditEventId: audit-1"));
+    assert!(content.contains("# Log"));
+    assert!(content.contains("## 2026-06-01"));
+    assert!(content.contains("* **Creation**: Source Title"));
+    assert!(content.contains("Entity Name"));
 }
 
 #[tokio::test]

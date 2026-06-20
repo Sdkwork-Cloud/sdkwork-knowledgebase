@@ -1,0 +1,89 @@
+schema_version: 1
+kind: sdkwork.database.schema
+module_id: knowledgebase
+contract_version: 1.0.0
+owner_team: knowledgebase-platform
+compliance_level: L2
+engines:
+  - postgres
+  - sqlite
+table_prefix: kb_
+tables:
+  - name: kb_space
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_collection
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_source
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_drive_object_ref
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_document
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_document_version
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_chunk
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_index
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_embedding
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_retrieval_profile
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_retrieval_trace
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_retrieval_hit
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_agent_profile
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_agent_knowledge_binding
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_ingestion_job
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_ingestion_job_item
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_okf_concept
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_okf_concept_revision
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_okf_bundle_file
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_okf_schema_profile
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_okf_log_entry
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_local_mirror_package
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_space_context_binding
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_outbox_event
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_okf_concept_link
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_okf_candidate
+    lifecycle_status: active
+    owner: knowledgebase-platform

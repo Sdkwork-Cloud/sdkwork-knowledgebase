@@ -15,6 +15,7 @@ pub mod knowledge_embedding_store;
 pub mod knowledge_ingestion_job_store;
 pub mod knowledge_memory_context;
 pub mod knowledge_okf_bundle_file_store;
+pub mod knowledge_okf_candidate_store;
 pub mod knowledge_okf_concept_link_store;
 pub mod knowledge_okf_concept_store;
 pub mod knowledge_outbox_store;

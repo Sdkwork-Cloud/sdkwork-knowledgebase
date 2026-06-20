@@ -1,8 +1,7 @@
 {
   "name": "@sdkwork/knowledgebase-app-sdk",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Generator-owned TypeScript transport SDK for sdkwork-knowledgebase-app-sdk.",
+  "version": "0.1.1",
+  "description": "sdkwork-knowledgebase-app-sdk",
   "author": "SDKWork Team",
   "license": "MIT",
   "type": "module",

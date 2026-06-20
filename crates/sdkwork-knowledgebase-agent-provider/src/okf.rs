@@ -202,7 +202,7 @@ pub fn citations_from_rag_hits(
         .map(
             |hit| sdkwork_knowledgebase_contract::KnowledgeAgentChatCitation {
                 document_id: Some(hit.document_id),
-                okf_concept_id: None,
+                concept_id: None,
                 title: hit.title.clone(),
                 source_uri: hit
                     .citation
@@ -228,8 +228,8 @@ pub fn citations_from_okf_concepts(
         .iter()
         .map(
             |concept| sdkwork_knowledgebase_contract::KnowledgeAgentChatCitation {
-                document_id: Some(okf_document_id(space_id, &concept.concept_id)),
-                okf_concept_id: Some(concept.concept_id.clone()),
+                document_id: None,
+                concept_id: Some(concept.concept_id.clone()),
                 title: concept.title.clone(),
                 source_uri: Some(concept.logical_path.clone()),
                 logical_path: Some(concept.logical_path.clone()),

@@ -2,7 +2,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, patch, post},
+    routing::{get, patch, post, put},
     Extension, Json, Router,
 };
 use sdkwork_knowledgebase_contract::{
@@ -14,7 +14,9 @@ use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSpaceRequest, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
     KnowledgeAgentProfileRequest, KnowledgeBrowserView, KnowledgeContextPackRequest,
     KnowledgeDriveImportRequest, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
-    ListKnowledgeBrowserRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfQueryRequest,
+    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
+    OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfQualityRunRequest,
+    OkfQueryRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -164,6 +166,7 @@ pub fn build_router_with_shared_app_api_and_readiness(
             get(list_document_versions).post(create_document_version),
         )
         .route(paths::OKF_CONCEPTS, get(list_okf_concepts))
+        .route(paths::OKF_CONCEPT_UPSERT, put(upsert_okf_concept))
         .route(paths::OKF_CONCEPT, get(retrieve_okf_concept))
         .route(
             paths::OKF_CONCEPT_REVISIONS,
@@ -175,6 +178,10 @@ pub fn build_router_with_shared_app_api_and_readiness(
         .route(paths::OKF_QUERIES, post(create_okf_query))
         .route(paths::OKF_QUERY_FILE_ANSWER, post(file_okf_query_answer))
         .route(paths::OKF_CONTEXT_PACKS, post(create_okf_context_pack))
+        .route(paths::OKF_EXPORTS, post(create_okf_export))
+        .route(paths::OKF_EXPORT, get(retrieve_okf_export))
+        .route(paths::OKF_IMPORTS, post(create_okf_import))
+        .route(paths::OKF_LINT_RUNS, post(create_okf_lint_run))
         .route(paths::SPACE_BROWSER, get(list_browser))
         .route(paths::RETRIEVALS, post(create_retrieval))
         .route(paths::RETRIEVAL, get(retrieve_retrieval))
@@ -364,6 +371,15 @@ async fn list_okf_concepts(
     ok_json(state.api.list_okf_concepts().await)
 }
 
+async fn upsert_okf_concept(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<OkfConceptUpsertRequest>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
+    ok_json(state.api.upsert_okf_concept(request).await)
+}
+
 async fn retrieve_okf_concept(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
@@ -432,6 +448,42 @@ async fn create_okf_context_pack(
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
     created_json(state.api.create_okf_context_pack(request).await)
+}
+
+async fn create_okf_export(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<OkfBundleExportRequest>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
+    created_json(state.api.create_okf_export(request).await)
+}
+
+async fn retrieve_okf_export(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(export_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
+    ok_json(state.api.retrieve_okf_export(export_id).await)
+}
+
+async fn create_okf_import(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<OkfBundleImportRequest>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
+    created_json(state.api.create_okf_import(request).await)
+}
+
+async fn create_okf_lint_run(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<OkfQualityRunRequest>,
+) -> Result<Response, ApiProblem> {
+    require_app_context(context)?;
+    created_json(state.api.create_okf_lint_run(request).await)
 }
 
 async fn list_browser(

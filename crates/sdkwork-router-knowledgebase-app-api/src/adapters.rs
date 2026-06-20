@@ -14,8 +14,10 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest,
     KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest,
     KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeUploadSession, ListKnowledgeBrowserRequest,
-    OkfConceptSummary, OkfConceptSummaryList, OkfContextPackRequest, OkfFileAnswerRequest,
-    OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQueryRequest, OkfQueryResult,
+    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary,
+    OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest,
+    OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest,
+    OkfQueryRequest, OkfQueryResult,
 };
 use std::sync::Arc;
 
@@ -413,6 +415,13 @@ impl KnowledgeAppApi for FullAppApi {
         self.okf.list_okf_concept_revisions(concept_row_id).await
     }
 
+    async fn upsert_okf_concept(
+        &self,
+        request: OkfConceptUpsertRequest,
+    ) -> ApiResult<OkfConceptSummary> {
+        self.okf.upsert_okf_concept(request).await
+    }
+
     async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument> {
         self.okf.retrieve_okf_index().await
     }
@@ -442,6 +451,28 @@ impl KnowledgeAppApi for FullAppApi {
         request: OkfContextPackRequest,
     ) -> ApiResult<KnowledgeOkfBundleFile> {
         self.okf.create_okf_context_pack(request).await
+    }
+
+    async fn create_okf_export(
+        &self,
+        request: OkfBundleExportRequest,
+    ) -> ApiResult<KnowledgeOkfBundleFile> {
+        self.okf.create_okf_export(request).await
+    }
+
+    async fn retrieve_okf_export(&self, export_id: u64) -> ApiResult<KnowledgeOkfBundleFile> {
+        self.okf.retrieve_okf_export(export_id).await
+    }
+
+    async fn create_okf_import(
+        &self,
+        request: OkfBundleImportRequest,
+    ) -> ApiResult<OkfBundleImportResult> {
+        self.okf.create_okf_import(request).await
+    }
+
+    async fn create_okf_lint_run(&self, request: OkfQualityRunRequest) -> ApiResult<OkfQualityRun> {
+        self.okf.create_okf_lint_run(request).await
     }
 
     async fn list_browser(

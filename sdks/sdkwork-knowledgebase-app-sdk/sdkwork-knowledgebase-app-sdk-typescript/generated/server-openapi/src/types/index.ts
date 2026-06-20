@@ -90,3 +90,6 @@ export type { KnowledgeUploadSessionStatus } from './knowledge-upload-session-st
 export type { CreateKnowledgeUploadSessionRequest } from './create-knowledge-upload-session-request';
 export type { CompleteKnowledgeUploadSessionRequest } from './complete-knowledge-upload-session-request';
 export type { KnowledgeUploadSession } from './knowledge-upload-session';
+export type { OkfConceptUpsertRequest } from './okf-concept-upsert-request';
+export type { OkfBundleImportRequest } from './okf-bundle-import-request';
+export type { OkfBundleImportResult } from './okf-bundle-import-result';

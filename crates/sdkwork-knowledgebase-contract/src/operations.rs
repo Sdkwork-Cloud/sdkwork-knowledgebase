@@ -28,6 +28,7 @@ pub const AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE: &str = "agentProfiles.retriev
 pub const AGENT_PROFILES_CHAT_CREATE: &str = "agentProfiles.chat.create";
 pub const OKF_CONCEPTS_LIST: &str = "okf.concepts.list";
 pub const OKF_CONCEPTS_RETRIEVE: &str = "okf.concepts.retrieve";
+pub const OKF_CONCEPTS_UPSERT: &str = "okf.concepts.upsert";
 pub const OKF_CONCEPTS_REVISIONS_LIST: &str = "okf.concepts.revisions.list";
 pub const OKF_CONCEPTS_PUBLISH: &str = "okf.concepts.publish";
 pub const OKF_BUNDLE_INDEX_RETRIEVE: &str = "okf.bundle.index.retrieve";
@@ -46,6 +47,7 @@ pub const OKF_CANDIDATES_APPROVE: &str = "okf.candidates.approve";
 pub const OKF_CANDIDATES_REJECT: &str = "okf.candidates.reject";
 pub const OKF_BUNDLE_EXPORT_CREATE: &str = "okf.bundle.export.create";
 pub const OKF_BUNDLE_EXPORT_RETRIEVE: &str = "okf.bundle.export.retrieve";
+pub const OKF_BUNDLE_IMPORT_CREATE: &str = "okf.bundle.import.create";
 pub const OKF_BUNDLE_FILES_LIST: &str = "okf.bundle.files.list";
 pub const OKF_LINT_RUNS_CREATE: &str = "okf.lintRuns.create";
 pub const OKF_EVAL_RUNS_CREATE: &str = "okf.evalRuns.create";
@@ -97,6 +99,7 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     AGENT_PROFILES_CHAT_CREATE,
     OKF_CONCEPTS_LIST,
     OKF_CONCEPTS_RETRIEVE,
+    OKF_CONCEPTS_UPSERT,
     OKF_CONCEPTS_REVISIONS_LIST,
     OKF_CONCEPTS_PUBLISH,
     OKF_BUNDLE_INDEX_RETRIEVE,
@@ -115,6 +118,7 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     OKF_CANDIDATES_REJECT,
     OKF_BUNDLE_EXPORT_CREATE,
     OKF_BUNDLE_EXPORT_RETRIEVE,
+    OKF_BUNDLE_IMPORT_CREATE,
     OKF_BUNDLE_FILES_LIST,
     OKF_LINT_RUNS_CREATE,
     OKF_EVAL_RUNS_CREATE,

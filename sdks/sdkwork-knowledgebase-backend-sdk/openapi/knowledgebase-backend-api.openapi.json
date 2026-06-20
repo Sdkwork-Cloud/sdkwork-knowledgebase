@@ -1825,6 +1825,78 @@
         "x-sdkwork-api-surface": "backend-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
       }
+    },
+    "/backend/v3/api/knowledge/okf/imports": {
+      "post": {
+        "operationId": "okf.bundle.import.create",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfBundleImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfBundleImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Import an OKF bundle from drive staging",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
+      }
     }
   },
   "components": {
@@ -4240,6 +4312,41 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "OkfBundleImportRequest": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "importType"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "importType": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfBundleImportResult": {
+        "type": "object",
+        "required": [
+          "importedConceptCount",
+          "skippedFiles"
+        ],
+        "properties": {
+          "importedConceptCount": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "skippedFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }

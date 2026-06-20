@@ -83,6 +83,55 @@ async fn hosted_backend_router_lists_sources() {
 }
 
 #[tokio::test]
+async fn hosted_app_router_upserts_okf_concept() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"OKF Test Space","description":"Hosted upsert integration"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space = response_body_json(space_response).await;
+    let space_id = space["id"].as_u64().expect("created space id");
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::PUT)
+                .uri("/app/v3/api/knowledge/okf/concepts/upsert")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r##"{{"spaceId":{space_id},"conceptId":"tables/users","markdown":"---\ntype: Entity\ntitle: Users\n---\n# Users\n","actor":"author","publish":false}}"##
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_ne!(
+        response.status(),
+        StatusCode::NOT_IMPLEMENTED,
+        "hosted app api must not return operation_not_implemented for okf.concepts.upsert"
+    );
+
+    let body = response_body_json(response).await;
+    assert_eq!(body["conceptId"], "tables/users");
+    assert_eq!(body["title"], "Users");
+}
+
+#[tokio::test]
 async fn hosted_open_router_lists_documents() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_open_auth(runtime.build_open_api_router(), 1, Some(42));

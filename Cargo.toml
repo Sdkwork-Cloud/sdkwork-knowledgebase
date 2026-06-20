@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/sdkwork-knowledgebase-database-host",
     "crates/sdkwork-knowledgebase-contract",
     "crates/sdkwork-knowledgebase-agent-provider",
     "crates/sdkwork-intelligence-knowledgebase-object-key-service",
@@ -49,9 +50,17 @@ sdkwork-intelligence-knowledgebase-repository-sqlx = { path = "crates/sdkwork-in
 sdkwork-iam-web-adapter = { path = "../sdkwork-appbase/crates/sdkwork-iam-web-adapter" }
 sdkwork-web-axum = { path = "../sdkwork-web-framework/crates/sdkwork-web-axum" }
 sdkwork-web-core = { path = "../sdkwork-web-framework/crates/sdkwork-web-core" }
-sdkwork-database-config = { path = "../sdkwork-database/crates/sdkwork-database-config" }
-sdkwork-database-sqlx = { path = "../sdkwork-database/crates/sdkwork-database-sqlx" }
-sdkwork-database-repository = { path = "../sdkwork-database/crates/sdkwork-database-repository" }
+sdkwork-database-config = { path = "../sdkwork-database/crates/sdkwork-database-config", package = "sdkwork-database-config" }
+sdkwork-database-lifecycle = { path = "../sdkwork-database/crates/sdkwork-database-lifecycle", package = "sdkwork-database-lifecycle" }
+sdkwork-database-spi = { path = "../sdkwork-database/crates/sdkwork-database-spi", package = "sdkwork-database-spi" }
+sdkwork-database-sqlx = { path = "../sdkwork-database/crates/sdkwork-database-sqlx", package = "sdkwork-database-sqlx" }
+sdkwork-database-repository = { path = "../sdkwork-database/crates/sdkwork-database-repository", package = "sdkwork-database-repository" }
+sdkwork-knowledgebase-database-host = { path = "crates/sdkwork-knowledgebase-database-host" }
+sdkwork_database_config = { path = "../sdkwork-database/crates/sdkwork-database-config", package = "sdkwork-database-config" }
+sdkwork_database_lifecycle = { path = "../sdkwork-database/crates/sdkwork-database-lifecycle", package = "sdkwork-database-lifecycle" }
+sdkwork_database_spi = { path = "../sdkwork-database/crates/sdkwork-database-spi", package = "sdkwork-database-spi" }
+sdkwork_database_sqlx = { path = "../sdkwork-database/crates/sdkwork-database-sqlx", package = "sdkwork-database-sqlx" }
+sdkwork_database_repository = { path = "../sdkwork-database/crates/sdkwork-database-repository", package = "sdkwork-database-repository" }
 
 # Local workspace dependency. This keeps sdkwork-drive as the only lower-level
 # storage provider and prevents knowledgebase service crates from using object

@@ -1,6 +1,5 @@
 //! OKF v0.1 concept document parse/render (aligned with knowledge-catalog `layouts/okf.ts`).
 
-use sdkwork_knowledgebase_contract::OkfBundlePaths;
 use thiserror::Error;
 
 pub const OKF_VERSION: &str = "0.1";
@@ -45,11 +44,21 @@ pub fn parse_okf_markdown(content: &str) -> Result<Option<OkfConceptDocument>, O
     let frontmatter = lines[1..end_index].join("\n");
     let body = lines[(end_index + 1)..].join("\n");
     let fields = parse_simple_yaml(&frontmatter)?;
-    let concept_type = fields
+    let concept_type = match fields
         .get("type")
         .cloned()
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| OkfDocumentError::Invalid("frontmatter type is required".to_string()))?;
+    {
+        Some(concept_type) => concept_type,
+        None => {
+            if fields.contains_key("okf_version") {
+                return Ok(None);
+            }
+            return Err(OkfDocumentError::Invalid(
+                "frontmatter type is required".to_string(),
+            ));
+        }
+    };
     Ok(Some(OkfConceptDocument {
         concept_type,
         title: fields.get("title").cloned(),
@@ -133,7 +142,10 @@ pub fn resolve_link_target(from_concept_id: &str, raw_target: &str) -> Option<St
     if target.is_empty() || target.ends_with('/') {
         return None;
     }
-    if target.starts_with("http://") || target.starts_with("https://") {
+    if target.starts_with("http://")
+        || target.starts_with("https://")
+        || target.starts_with("mailto:")
+    {
         return None;
     }
     let path = target
@@ -144,20 +156,22 @@ pub fn resolve_link_target(from_concept_id: &str, raw_target: &str) -> Option<St
         return None;
     }
     let path = path.strip_suffix(".md")?;
-    if path.is_empty() || path.contains("..") {
+    if path.is_empty() {
         return None;
     }
-    if target.starts_with('/') {
-        return Some(path.to_string());
-    }
-    let parent = from_concept_id
-        .rsplit_once('/')
-        .map(|(parent, _)| parent)
-        .unwrap_or("");
-    let joined = if parent.is_empty() {
+
+    let joined = if target.starts_with('/') {
         path.to_string()
     } else {
-        format!("{parent}/{path}")
+        let parent = from_concept_id
+            .rsplit_once('/')
+            .map(|(parent, _)| parent)
+            .unwrap_or("");
+        if parent.is_empty() {
+            path.to_string()
+        } else {
+            format!("{parent}/{path}")
+        }
     };
     normalize_concept_path(&joined)
 }
@@ -169,9 +183,10 @@ fn normalize_concept_path(path: &str) -> Option<String> {
             continue;
         }
         if segment == ".." {
-            return None;
+            segments.pop()?;
+            continue;
         }
-        segments.push(segment);
+        segments.push(segment.to_string());
     }
     if segments.is_empty() {
         None
@@ -205,7 +220,9 @@ fn markdown_links(body: &str) -> Vec<(String, String)> {
     links
 }
 
-fn parse_simple_yaml(input: &str) -> Result<std::collections::BTreeMap<String, String>, OkfDocumentError> {
+fn parse_simple_yaml(
+    input: &str,
+) -> Result<std::collections::BTreeMap<String, String>, OkfDocumentError> {
     let mut map = std::collections::BTreeMap::new();
     for line in input.lines() {
         let line = line.trim_end();
@@ -260,8 +277,32 @@ fn yaml_scalar(value: &str) -> String {
     }
 }
 
-pub fn concept_logical_path(concept_id: &str) -> String {
-    OkfBundlePaths::concept_logical_path(concept_id)
+pub fn strip_sdkwork_frontmatter(markdown: &str) -> String {
+    let lines: Vec<&str> = markdown.split('\n').collect();
+    if lines.first().map(|line| line.trim()) != Some("---") {
+        return markdown.to_string();
+    }
+    let Some(closing_index) = lines.iter().skip(1).position(|line| line.trim() == "---") else {
+        return markdown.to_string();
+    };
+    let end_index = closing_index + 1;
+    let mut frontmatter_lines = vec!["---"];
+    for line in &lines[1..end_index] {
+        let trimmed = line.trim();
+        if trimmed.starts_with("sdkwork:") || trimmed.starts_with("sdkwork.") {
+            continue;
+        }
+        frontmatter_lines.push(line);
+    }
+    frontmatter_lines.push("---");
+    let body = lines[(end_index + 1)..].join("\n");
+    if body.is_empty() {
+        format!("{}\n", frontmatter_lines.join("\n"))
+    } else if body.ends_with('\n') {
+        format!("{}\n{body}", frontmatter_lines.join("\n"))
+    } else {
+        format!("{}\n{body}\n", frontmatter_lines.join("\n"))
+    }
 }
 
 #[cfg(test)]
@@ -310,5 +351,37 @@ See [customers](/tables/customers.md).
         assert_eq!(links.len(), 2);
         assert!(!links[0].broken);
         assert!(links[1].broken);
+    }
+
+    #[test]
+    fn resolve_parent_relative_and_sibling_links() {
+        assert_eq!(
+            resolve_link_target("tables/votes", "../datasets/stackoverflow.md").as_deref(),
+            Some("datasets/stackoverflow")
+        );
+        assert_eq!(
+            resolve_link_target("tables/posts_questions", "posts_answers.md").as_deref(),
+            Some("tables/posts_answers")
+        );
+        assert_eq!(
+            resolve_link_target("tables/posts_tag_wiki", "tags.md").as_deref(),
+            Some("tables/tags")
+        );
+    }
+
+    #[test]
+    fn strip_sdkwork_frontmatter_removes_extension_block() {
+        let markdown = r#"---
+type: Entity
+title: Users
+sdkwork:
+  revisionId: 42
+---
+# Body
+"#;
+        let stripped = strip_sdkwork_frontmatter(markdown);
+        assert!(!stripped.contains("sdkwork:"));
+        assert!(stripped.contains("type: Entity"));
+        assert!(stripped.contains("# Body"));
     }
 }

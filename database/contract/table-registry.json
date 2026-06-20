@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.database.table-registry",
+  "tables": [
+    {
+      "table_name": "kb_space",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_collection",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_source",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_drive_object_ref",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_document",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_document_version",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_chunk",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_index",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_embedding",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_retrieval_profile",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_retrieval_trace",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_retrieval_hit",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_agent_profile",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_agent_knowledge_binding",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_ingestion_job",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_ingestion_job_item",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_okf_concept",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_okf_concept_revision",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_okf_bundle_file",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_okf_schema_profile",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_okf_log_entry",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_local_mirror_package",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_space_context_binding",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_outbox_event",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_okf_concept_link",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_okf_candidate",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    }
+  ]
+}

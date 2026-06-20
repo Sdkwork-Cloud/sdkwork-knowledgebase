@@ -1,0 +1,766 @@
+-- Consolidated legacy baseline imported by bootstrap-database-module.mjs
+-- Review and replace with contract-first migrations.
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606010001__knowledgebase_core.sql
+CREATE TABLE IF NOT EXISTS kb_space (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    organization_id BIGINT NOT NULL DEFAULT 0,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    drive_space_id VARCHAR(128),
+    status INTEGER NOT NULL,
+    okf_bundle_initialized INTEGER NOT NULL DEFAULT 0,
+    okf_log_sequence_counter BIGINT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_uuid
+    ON kb_space (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_drive_space
+    ON kb_space (tenant_id, drive_space_id)
+    WHERE drive_space_id IS NOT NULL AND status = 1;
+
+CREATE TABLE IF NOT EXISTS kb_collection (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    parent_id BIGINT NOT NULL DEFAULT 0,
+    name VARCHAR(200) NOT NULL,
+    path VARCHAR(2048) NOT NULL,
+    level_no INTEGER NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_collection_uuid
+    ON kb_collection (tenant_id, uuid);
+
+CREATE TABLE IF NOT EXISTS kb_source (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    source_type VARCHAR(64) NOT NULL,
+    provider VARCHAR(128),
+    drive_bucket VARCHAR(256),
+    drive_prefix VARCHAR(1024),
+    sync_policy JSONB,
+    last_sync_at TIMESTAMP,
+    last_sync_job_id BIGINT,
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_source_uuid
+    ON kb_source (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_source_identity
+    ON kb_source (
+        tenant_id,
+        space_id,
+        source_type,
+        COALESCE(provider, ''),
+        COALESCE(drive_bucket, ''),
+        COALESCE(drive_prefix, '')
+    )
+    WHERE status = 1;
+
+CREATE TABLE IF NOT EXISTS kb_drive_object_ref (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    drive_provider_kind VARCHAR(64) NOT NULL,
+    drive_space_id VARCHAR(128),
+    drive_node_id VARCHAR(128),
+    logical_path TEXT,
+    drive_storage_provider_id VARCHAR(64) NOT NULL,
+    drive_bucket VARCHAR(256) NOT NULL,
+    drive_object_key VARCHAR(2048) NOT NULL,
+    drive_object_version VARCHAR(256),
+    drive_etag VARCHAR(256),
+    content_type VARCHAR(256),
+    size_bytes BIGINT NOT NULL,
+    checksum_sha256_hex VARCHAR(128),
+    drive_metadata JSONB,
+    object_role VARCHAR(64) NOT NULL,
+    access_mode VARCHAR(64) NOT NULL,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_drive_object_ref_uuid
+    ON kb_drive_object_ref (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_drive_object_locator
+    ON kb_drive_object_ref (
+        tenant_id,
+        drive_storage_provider_id,
+        drive_bucket,
+        drive_object_key,
+        drive_object_version
+    );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_drive_object_ref_locator
+    ON kb_drive_object_ref (
+        tenant_id,
+        space_id,
+        drive_storage_provider_id,
+        drive_bucket,
+        drive_object_key,
+        COALESCE(drive_object_version, ''),
+        object_role
+    );
+
+CREATE INDEX IF NOT EXISTS idx_kb_drive_object_role
+    ON kb_drive_object_ref (tenant_id, object_role, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_kb_drive_object_drive_node
+    ON kb_drive_object_ref (tenant_id, space_id, drive_space_id, drive_node_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_document (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    collection_id BIGINT NOT NULL DEFAULT 0,
+    source_id BIGINT,
+    identity_scope VARCHAR(64) NOT NULL DEFAULT 'source_and_original_drive_node',
+    original_file_drive_node_id VARCHAR(128),
+    title VARCHAR(512) NOT NULL,
+    mime_type VARCHAR(256),
+    language VARCHAR(32),
+    current_version_id BIGINT,
+    visibility INTEGER NOT NULL,
+    content_state INTEGER NOT NULL,
+    index_state INTEGER NOT NULL,
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_uuid
+    ON kb_document (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_document_drive_node
+    ON kb_document (tenant_id, space_id, original_file_drive_node_id, status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_identity
+    ON kb_document (
+        tenant_id,
+        space_id,
+        collection_id,
+        identity_scope,
+        COALESCE(source_id, 0),
+        CASE
+            WHEN identity_scope = 'source_only' THEN ''
+            ELSE COALESCE(original_file_drive_node_id, '')
+        END
+    )
+    WHERE status = 1;
+
+CREATE TABLE IF NOT EXISTS kb_document_version (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    document_id BIGINT NOT NULL,
+    version_no BIGINT NOT NULL,
+    original_object_ref_id BIGINT NOT NULL,
+    checksum_sha256_hex VARCHAR(128),
+    size_bytes BIGINT NOT NULL,
+    mime_type VARCHAR(256),
+    parser_profile_id BIGINT,
+    parse_state INTEGER NOT NULL,
+    index_state INTEGER NOT NULL,
+    submitted_by BIGINT,
+    submitted_at TIMESTAMP NOT NULL,
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_version_uuid
+    ON kb_document_version (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_version_no
+    ON kb_document_version (tenant_id, document_id, version_no);
+
+CREATE TABLE IF NOT EXISTS kb_chunk (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    collection_id BIGINT NOT NULL DEFAULT 0,
+    document_id BIGINT NOT NULL,
+    document_version_id BIGINT NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    content_text TEXT NOT NULL,
+    content_hash VARCHAR(128) NOT NULL,
+    token_count INTEGER,
+    locator JSONB,
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_chunk_uuid
+    ON kb_chunk (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_chunk_document_version_chunk
+    ON kb_chunk (tenant_id, document_version_id, chunk_index);
+
+CREATE INDEX IF NOT EXISTS idx_kb_chunk_document_version
+    ON kb_chunk (tenant_id, document_version_id, status, chunk_index);
+
+CREATE INDEX IF NOT EXISTS idx_kb_chunk_space_status
+    ON kb_chunk (tenant_id, space_id, collection_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_index (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    collection_id BIGINT NOT NULL DEFAULT 0,
+    index_kind VARCHAR(64) NOT NULL,
+    embedding_provider_id VARCHAR(128),
+    embedding_model VARCHAR(128),
+    dimension INTEGER,
+    metric VARCHAR(64),
+    schema_version VARCHAR(128) NOT NULL,
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_index_uuid
+    ON kb_index (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_index_scope
+    ON kb_index (tenant_id, space_id, collection_id, index_kind, status);
+
+CREATE TABLE IF NOT EXISTS kb_embedding (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    index_id BIGINT NOT NULL,
+    chunk_id BIGINT NOT NULL,
+    embedding_hash VARCHAR(128) NOT NULL,
+    vector_ref TEXT NOT NULL,
+    dimension INTEGER NOT NULL,
+    provider_id VARCHAR(128),
+    model VARCHAR(128),
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_embedding_uuid
+    ON kb_embedding (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_embedding_index_chunk
+    ON kb_embedding (tenant_id, index_id, chunk_id);
+
+CREATE INDEX IF NOT EXISTS idx_kb_embedding_chunk
+    ON kb_embedding (tenant_id, chunk_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_retrieval_profile (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    strategy VARCHAR(64) NOT NULL,
+    top_k INTEGER NOT NULL,
+    min_score DOUBLE PRECISION,
+    rerank_enabled INTEGER NOT NULL DEFAULT 0,
+    rerank_provider_id VARCHAR(128),
+    query_rewrite_enabled INTEGER NOT NULL DEFAULT 0,
+    citation_policy JSONB,
+    filter_policy JSONB,
+    context_budget_tokens INTEGER NOT NULL,
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_retrieval_profile_uuid
+    ON kb_retrieval_profile (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_retrieval_profile_tenant_status
+    ON kb_retrieval_profile (tenant_id, status, updated_at);
+
+CREATE TABLE IF NOT EXISTS kb_retrieval_trace (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    actor_id BIGINT,
+    retrieval_profile_id BIGINT,
+    query_hash VARCHAR(128) NOT NULL,
+    query_text_redacted TEXT,
+    request_payload JSONB,
+    latency_ms BIGINT,
+    result_count INTEGER NOT NULL DEFAULT 0,
+    error_code VARCHAR(128),
+    error_detail VARCHAR(4000),
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_retrieval_trace_uuid
+    ON kb_retrieval_trace (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_retrieval_trace_profile_created
+    ON kb_retrieval_trace (tenant_id, retrieval_profile_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_kb_retrieval_trace_actor_created
+    ON kb_retrieval_trace (tenant_id, actor_id, created_at);
+
+CREATE TABLE IF NOT EXISTS kb_retrieval_hit (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    retrieval_trace_id BIGINT NOT NULL,
+    chunk_id BIGINT NOT NULL,
+    document_id BIGINT NOT NULL,
+    document_version_id BIGINT,
+    score DOUBLE PRECISION,
+    result_rank INTEGER NOT NULL,
+    match_reason VARCHAR(256),
+    citation JSONB,
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_retrieval_hit_uuid
+    ON kb_retrieval_hit (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_retrieval_hit_trace_rank
+    ON kb_retrieval_hit (tenant_id, retrieval_trace_id, result_rank);
+
+CREATE INDEX IF NOT EXISTS idx_kb_retrieval_hit_chunk
+    ON kb_retrieval_hit (tenant_id, chunk_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_agent_profile (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    system_instruction TEXT NOT NULL,
+    model_provider_id VARCHAR(128) NOT NULL,
+    model_id VARCHAR(128) NOT NULL,
+    model_parameters JSONB,
+    retrieval_profile_id BIGINT,
+    citation_policy JSONB,
+    memory_policy_ref VARCHAR(256),
+    tool_policy_ref VARCHAR(256),
+    answer_policy JSONB,
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_agent_profile_uuid
+    ON kb_agent_profile (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_agent_profile_model
+    ON kb_agent_profile (tenant_id, model_provider_id, model_id, status);
+
+CREATE TABLE IF NOT EXISTS kb_agent_knowledge_binding (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    profile_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    collection_id BIGINT,
+    source_filter JSONB,
+    document_filter JSONB,
+    priority INTEGER NOT NULL DEFAULT 0,
+    top_k INTEGER,
+    min_score DOUBLE PRECISION,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_agent_knowledge_binding_uuid
+    ON kb_agent_knowledge_binding (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_agent_knowledge_binding_profile
+    ON kb_agent_knowledge_binding (tenant_id, profile_id, enabled, priority);
+
+CREATE TABLE IF NOT EXISTS kb_ingestion_job (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    source_id BIGINT,
+    job_type VARCHAR(64) NOT NULL,
+    state INTEGER NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 0,
+    progress INTEGER NOT NULL DEFAULT 0,
+    requested_by BIGINT,
+    idempotency_key VARCHAR(128) NOT NULL,
+    request_id VARCHAR(64),
+    trace_id VARCHAR(128),
+    error_code VARCHAR(128),
+    error_detail VARCHAR(4000),
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_ingestion_job_uuid
+    ON kb_ingestion_job (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_ingestion_job_idempotency
+    ON kb_ingestion_job (tenant_id, space_id, idempotency_key);
+
+CREATE TABLE IF NOT EXISTS kb_ingestion_job_item (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    job_id BIGINT NOT NULL,
+    document_id BIGINT,
+    document_version_id BIGINT,
+    input_object_ref_id BIGINT,
+    stage VARCHAR(64) NOT NULL,
+    state INTEGER NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    error_code VARCHAR(128),
+    error_detail VARCHAR(4000),
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_ingestion_job_item_uuid
+    ON kb_ingestion_job_item (tenant_id, uuid);
+
+CREATE TABLE IF NOT EXISTS kb_okf_concept (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    concept_id VARCHAR(256) NOT NULL,
+    title VARCHAR(512) NOT NULL,
+    concept_type VARCHAR(64) NOT NULL,
+    logical_path VARCHAR(2048) NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    source_count INTEGER NOT NULL DEFAULT 0,
+    tags JSONB,
+    current_revision_id BIGINT,
+    publish_state VARCHAR(64) NOT NULL,
+    revision_counter BIGINT NOT NULL DEFAULT 0,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_uuid
+    ON kb_okf_concept (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_id
+    ON kb_okf_concept (tenant_id, space_id, concept_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_path
+    ON kb_okf_concept (tenant_id, space_id, logical_path);
+
+CREATE INDEX IF NOT EXISTS idx_kb_okf_concept_state
+    ON kb_okf_concept (tenant_id, space_id, publish_state, updated_at);
+
+CREATE TABLE IF NOT EXISTS kb_okf_concept_revision (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    concept_row_id BIGINT NOT NULL,
+    revision_no BIGINT NOT NULL,
+    markdown_object_ref_id BIGINT NOT NULL,
+    content_hash VARCHAR(128) NOT NULL,
+    review_state VARCHAR(64) NOT NULL,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_revision_uuid
+    ON kb_okf_concept_revision (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_revision_no
+    ON kb_okf_concept_revision (tenant_id, concept_row_id, revision_no);
+
+CREATE TABLE IF NOT EXISTS kb_okf_bundle_file (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    logical_path VARCHAR(2048) NOT NULL,
+    file_kind VARCHAR(64) NOT NULL,
+    artifact_role VARCHAR(64) NOT NULL,
+    drive_bucket VARCHAR(256) NOT NULL,
+    drive_object_key VARCHAR(2048) NOT NULL,
+    checksum_sha256_hex VARCHAR(128),
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_bundle_file_uuid
+    ON kb_okf_bundle_file (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_bundle_file_path
+    ON kb_okf_bundle_file (tenant_id, space_id, logical_path);
+
+CREATE TABLE IF NOT EXISTS kb_okf_schema_profile (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    profile_version VARCHAR(128) NOT NULL,
+    schema_object_ref_id BIGINT NOT NULL,
+    agents_md_object_ref_id BIGINT NOT NULL,
+    state VARCHAR(64) NOT NULL,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_schema_profile_uuid
+    ON kb_okf_schema_profile (tenant_id, uuid);
+
+CREATE TABLE IF NOT EXISTS kb_okf_log_entry (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    sequence_no BIGINT NOT NULL,
+    event_type VARCHAR(64) NOT NULL,
+    event_time TIMESTAMP NOT NULL,
+    title VARCHAR(512) NOT NULL,
+    privacy_level VARCHAR(64) NOT NULL,
+    metadata JSONB,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_log_entry_uuid
+    ON kb_okf_log_entry (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_log_entry_sequence
+    ON kb_okf_log_entry (tenant_id, space_id, sequence_no);
+
+CREATE TABLE IF NOT EXISTS kb_local_mirror_package (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    package_type VARCHAR(64) NOT NULL,
+    snapshot_version VARCHAR(128) NOT NULL,
+    object_ref_id BIGINT NOT NULL,
+    manifest_object_ref_id BIGINT NOT NULL,
+    checksum_sha256_hex VARCHAR(128) NOT NULL,
+    state VARCHAR(64) NOT NULL,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_local_mirror_package_uuid
+    ON kb_local_mirror_package (tenant_id, uuid);
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606140001__knowledgebase_context_binding.sql
+-- Knowledge space context binding: maps spaces to external contexts
+-- (chat groups, organizations, circles, channels, etc.)
+-- Members are NOT stored here. All permission management is delegated to
+-- sdkwork-drive's dr_drive_node_permission table.
+
+CREATE TABLE IF NOT EXISTS kb_space_context_binding (
+    id BIGINT NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    context_type VARCHAR(32) NOT NULL,
+    context_id VARCHAR(128) NOT NULL,
+    context_name VARCHAR(256),
+    access_level VARCHAR(32) NOT NULL DEFAULT 'reader',
+    status INTEGER NOT NULL DEFAULT 1,
+    created_by VARCHAR(128) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    FOREIGN KEY (space_id) REFERENCES kb_space(id)
+);
+
+-- Prevent duplicate bindings for the same space-context pair
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_context
+    ON kb_space_context_binding (tenant_id, space_id, context_type, context_id)
+    WHERE status = 1;
+
+-- Fast lookup: what spaces are bound to a given context?
+CREATE INDEX IF NOT EXISTS idx_kb_space_context_lookup
+    ON kb_space_context_binding (tenant_id, context_type, context_id, status);
+
+-- Fast lookup: what contexts are bound to a given space?
+CREATE INDEX IF NOT EXISTS idx_kb_space_context_space
+    ON kb_space_context_binding (tenant_id, space_id, status);
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606170001__knowledge_access_mode.sql
+-- Knowledge access mode defaults and embedding vector storage for claw-router RAG.
+
+ALTER TABLE kb_agent_profile
+    ADD COLUMN IF NOT EXISTS knowledge_mode VARCHAR(32) NOT NULL DEFAULT 'okf_bundle';
+
+ALTER TABLE kb_space
+    ADD COLUMN IF NOT EXISTS knowledge_mode VARCHAR(32) NOT NULL DEFAULT 'okf_bundle';
+
+ALTER TABLE kb_embedding
+    ADD COLUMN IF NOT EXISTS vector_json TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_kb_agent_profile_knowledge_mode
+    ON kb_agent_profile (tenant_id, knowledge_mode, status);
+
+CREATE INDEX IF NOT EXISTS idx_kb_space_knowledge_mode
+    ON kb_space (tenant_id, knowledge_mode, status);
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606180001__agent_implementation.sql
+-- Configurable agent runtime implementation (Rig is the default).
+
+ALTER TABLE kb_agent_profile
+    ADD COLUMN agent_implementation_id TEXT NOT NULL DEFAULT 'plugin.intelligence.rig';
+
+CREATE INDEX IF NOT EXISTS idx_kb_agent_profile_agent_implementation
+    ON kb_agent_profile (tenant_id, agent_implementation_id, status);
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606190001__knowledgebase_pgvector.sql
+-- PostgreSQL pgvector extension and ANN-ready embedding column (forward-compatible).
+CREATE EXTENSION IF NOT EXISTS vector;
+
+ALTER TABLE kb_embedding
+    ADD COLUMN IF NOT EXISTS embedding_vector vector(1536);
+
+CREATE INDEX IF NOT EXISTS idx_kb_embedding_vector_hnsw
+    ON kb_embedding
+    USING hnsw (embedding_vector vector_cosine_ops)
+    WHERE embedding_vector IS NOT NULL AND status = 1;
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606200001__knowledgebase_outbox.sql
+CREATE TABLE IF NOT EXISTS kb_outbox_event (
+    id BIGINT PRIMARY KEY,
+    uuid VARCHAR(64) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    aggregate_type VARCHAR(64) NOT NULL,
+    aggregate_id BIGINT NOT NULL,
+    event_type VARCHAR(128) NOT NULL,
+    payload JSONB NOT NULL,
+    status INTEGER NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    published_at TIMESTAMP,
+    version BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_outbox_event_uuid
+    ON kb_outbox_event (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_outbox_event_status_created
+    ON kb_outbox_event (tenant_id, status, created_at);
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606210001__okf_link_and_candidate.sql
+CREATE TABLE IF NOT EXISTS kb_okf_concept_link (
+    id BIGINT NOT NULL,
+    uuid VARCHAR(36) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    from_concept_id VARCHAR(256) NOT NULL,
+    to_concept_id VARCHAR(256) NOT NULL,
+    anchor_text VARCHAR(512) NOT NULL DEFAULT '',
+    status INTEGER NOT NULL,
+    created_at VARCHAR(64) NOT NULL,
+    updated_at VARCHAR(64) NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_link_uuid
+    ON kb_okf_concept_link (tenant_id, uuid);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_concept_link_edge
+    ON kb_okf_concept_link (tenant_id, space_id, from_concept_id, to_concept_id, anchor_text);
+
+CREATE INDEX IF NOT EXISTS idx_kb_okf_concept_link_space_from
+    ON kb_okf_concept_link (tenant_id, space_id, from_concept_id);
+
+CREATE INDEX IF NOT EXISTS idx_kb_okf_concept_link_space_to
+    ON kb_okf_concept_link (tenant_id, space_id, to_concept_id);
+
+CREATE TABLE IF NOT EXISTS kb_okf_candidate (
+    id BIGINT NOT NULL,
+    uuid VARCHAR(36) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    concept_id VARCHAR(256) NOT NULL,
+    candidate_type VARCHAR(64) NOT NULL,
+    state VARCHAR(64) NOT NULL,
+    markdown_object_ref_id BIGINT,
+    reviewer_id BIGINT,
+    review_note TEXT,
+    status INTEGER NOT NULL,
+    created_at VARCHAR(64) NOT NULL,
+    updated_at VARCHAR(64) NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_candidate_uuid
+    ON kb_okf_candidate (tenant_id, uuid);
+
+CREATE INDEX IF NOT EXISTS idx_kb_okf_candidate_space_state
+    ON kb_okf_candidate (tenant_id, space_id, state, updated_at);
+

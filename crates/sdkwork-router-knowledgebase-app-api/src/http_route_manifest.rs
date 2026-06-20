@@ -80,6 +80,12 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "okf.concepts.list",
     ),
     HttpRoute::dual_token(
+        HttpMethod::Put,
+        "/app/v3/api/knowledge/okf/concepts/upsert",
+        "knowledge",
+        "okf.concepts.upsert",
+    ),
+    HttpRoute::dual_token(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/concepts/{conceptId}",
         "knowledge",
@@ -126,6 +132,30 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "/app/v3/api/knowledge/okf/context_packs",
         "knowledge",
         "okf.contextPacks.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/okf/exports",
+        "knowledge",
+        "okf.bundle.export.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/app/v3/api/knowledge/okf/exports/{exportId}",
+        "knowledge",
+        "okf.bundle.export.retrieve",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/okf/imports",
+        "knowledge",
+        "okf.bundle.import.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/okf/lint_runs",
+        "knowledge",
+        "okf.lintRuns.create",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,

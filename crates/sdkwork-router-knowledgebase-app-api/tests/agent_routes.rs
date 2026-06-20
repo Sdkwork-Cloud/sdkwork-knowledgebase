@@ -263,7 +263,7 @@ impl KnowledgeAgentAppService for RecordingAgentService {
             citations: vec![
                 sdkwork_knowledgebase_contract::agent_chat::KnowledgeAgentChatCitation {
                     document_id: None,
-                    okf_concept_id: None,
+                    concept_id: Some("tables/users".to_string()),
                     title: "Support Playbook".to_string(),
                     source_uri: Some("okf/playbooks/support-playbook.md".to_string()),
                     logical_path: Some("okf/playbooks/support-playbook.md".to_string()),

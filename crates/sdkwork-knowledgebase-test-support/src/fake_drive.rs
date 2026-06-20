@@ -120,6 +120,15 @@ impl KnowledgeDriveStorage for FakeKnowledgeDriveStorage {
         &self,
         object_ref: &KnowledgeObjectRef,
     ) -> Result<String, KnowledgeStorageError> {
+        let bytes = self.get_object_bytes(object_ref).await?;
+        String::from_utf8(bytes)
+            .map_err(|error| KnowledgeStorageError::InvalidRequest(error.to_string()))
+    }
+
+    async fn get_object_bytes(
+        &self,
+        object_ref: &KnowledgeObjectRef,
+    ) -> Result<Vec<u8>, KnowledgeStorageError> {
         let objects = self.objects.lock().await;
         let object = objects
             .get(&object_ref.object_key)
@@ -131,8 +140,7 @@ impl KnowledgeDriveStorage for FakeKnowledgeDriveStorage {
             ));
         }
 
-        String::from_utf8(object.body.clone())
-            .map_err(|error| KnowledgeStorageError::InvalidRequest(error.to_string()))
+        Ok(object.body.clone())
     }
 }
 
