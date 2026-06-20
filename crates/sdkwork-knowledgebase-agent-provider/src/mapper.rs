@@ -21,6 +21,15 @@ pub(crate) fn parse_namespace_space_id(value: Option<&str>) -> KernelResult<u64>
         .map_err(|_| KernelError::validation("knowledge namespace must be a numeric space id"))
 }
 
+pub(crate) fn format_scoped_document_id(space_id: u64, document_id: &str) -> String {
+    format!("{space_id}/{document_id}")
+}
+
+pub(crate) fn parse_scoped_document_id(document_id: &str) -> Option<(u64, String)> {
+    let (space_id, scoped_id) = document_id.split_once('/')?;
+    Some((space_id.parse().ok()?, scoped_id.to_string()))
+}
+
 pub(crate) fn map_method(
     method: KnowledgeRetrievalMethod,
 ) -> sdkwork_knowledgebase_contract::KnowledgeRetrievalMethod {
@@ -56,8 +65,9 @@ pub(crate) fn map_method(
 }
 
 pub(crate) fn hit_to_search_result(hit: KnowledgeContextFragment) -> KnowledgeSearchResult {
+    let document_ref_id = scoped_knowledge_document_ref(hit.space_id, hit.document_id);
     let mut result = KnowledgeSearchResult::new(
-        hit.chunk_id.to_string(),
+        document_ref_id,
         KnowledgeDocumentKind::Other,
         hit.title,
         map_contract_method(hit.retrieval_method),
@@ -97,6 +107,10 @@ pub(crate) fn hit_to_search_result(hit: KnowledgeContextFragment) -> KnowledgeSe
     result
 }
 
+pub(crate) fn scoped_knowledge_document_ref(space_id: u64, document_id: u64) -> String {
+    format!("{space_id}/{document_id}")
+}
+
 fn map_contract_method(
     method: sdkwork_knowledgebase_contract::KnowledgeRetrievalMethod,
 ) -> KnowledgeRetrievalMethod {
@@ -128,5 +142,45 @@ fn map_contract_method(
         sdkwork_knowledgebase_contract::KnowledgeRetrievalMethod::External => {
             KnowledgeRetrievalMethod::External
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sdkwork_knowledgebase_contract::KnowledgeContextFragment;
+
+    #[test]
+    fn search_result_uses_scoped_document_ref_for_read_alignment() {
+        let hit = KnowledgeContextFragment {
+            chunk_id: 201,
+            document_id: 301,
+            document_version_id: None,
+            space_id: 7,
+            collection_id: None,
+            title: "Hybrid Retrieval".to_string(),
+            content: "chunk body".to_string(),
+            score: Some(0.88),
+            rank: 1,
+            token_count: Some(4),
+            retrieval_method: sdkwork_knowledgebase_contract::KnowledgeRetrievalMethod::Hybrid,
+            citation: None,
+        };
+
+        let result = hit_to_search_result(hit);
+        assert_eq!(result.document_id, "7/301");
+        assert_eq!(
+            result
+                .metadata
+                .iter()
+                .find(|(key, _)| key == "sdkwork.knowledge.chunk_id")
+                .map(|(_, value)| value.as_str()),
+            Some("201")
+        );
+    }
+
+    #[test]
+    fn scoped_document_ref_formats_space_and_document_ids() {
+        assert_eq!(scoped_knowledge_document_ref(7, 301), "7/301");
     }
 }

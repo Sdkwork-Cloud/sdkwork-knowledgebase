@@ -15,6 +15,25 @@ pub trait KnowledgeDocumentStore: Send + Sync {
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
         self.create_document(record).await
     }
+
+    async fn get_document_by_id(
+        &self,
+        document_id: u64,
+    ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        let _ = document_id;
+        Err(KnowledgeDocumentStoreError::Internal(
+            "get_document_by_id is not implemented for this knowledge document store".to_string(),
+        ))
+    }
+
+    async fn list_documents_for_space(
+        &self,
+        space_id: u64,
+        limit: u32,
+    ) -> Result<Vec<KnowledgeDocument>, KnowledgeDocumentStoreError> {
+        let _ = (space_id, limit);
+        Ok(Vec::new())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

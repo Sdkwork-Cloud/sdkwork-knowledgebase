@@ -295,6 +295,9 @@ const requiredSkeletonPaths = [
   'apps/README.md',
   'apps/sdkwork-knowledgebase-pc/AGENTS.md',
   'specs/topology.spec.json',
+  'specs/knowledge-engine-spi.spec.json',
+  'specs/external-knowledge-engine-catalog.spec.json',
+  'external/knowledge-engines/catalog.manifest.json',
 ];
 
 for (const relativePath of requiredSkeletonPaths) {

@@ -10,4 +10,6 @@ export interface KnowledgeOkfBundleFile {
   driveBucket: string;
   driveObjectKey: string;
   checksumSha256Hex?: string | null;
+  stagedImportRoot?: string;
+  importId?: string;
 }

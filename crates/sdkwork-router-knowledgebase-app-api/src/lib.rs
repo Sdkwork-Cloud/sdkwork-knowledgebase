@@ -13,6 +13,7 @@ mod hosted_open;
 mod hosted_support;
 mod hosted_upload;
 pub mod http_route_manifest;
+mod knowledge_engine_adapters;
 pub mod manifest;
 pub mod paths;
 mod ports;

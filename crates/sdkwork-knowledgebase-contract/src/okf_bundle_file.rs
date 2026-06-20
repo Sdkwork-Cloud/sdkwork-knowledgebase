@@ -11,6 +11,10 @@ pub struct KnowledgeOkfBundleFile {
     pub drive_bucket: String,
     pub drive_object_key: String,
     pub checksum_sha256_hex: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub staged_import_root: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub import_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -38,7 +38,10 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
         Err(BackendApiError::not_implemented("okf.compileJobs.create"))
     }
 
-    async fn list_okf_candidates(&self) -> BackendApiResult<OkfCandidateResultList> {
+    async fn list_okf_candidates(
+        &self,
+        _space_id: u64,
+    ) -> BackendApiResult<OkfCandidateResultList> {
         Err(BackendApiError::not_implemented("okf.candidates.list"))
     }
 

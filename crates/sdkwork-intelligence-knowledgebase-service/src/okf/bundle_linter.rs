@@ -1,6 +1,7 @@
+use crate::okf::document::parse_okf_markdown;
 use crate::okf::linter::{
-    extract_index_linked_concept_ids, lint_bundle_summaries, lint_published_concept_markdown,
-    OkfBundleLintReport, OkfLintIssue,
+    extract_citation_urls, extract_index_linked_concept_ids, lint_bundle_summaries,
+    lint_concept_stale_claims, lint_published_concept_markdown, OkfBundleLintReport, OkfLintIssue,
 };
 use crate::okf::storage::read_managed_markdown;
 use crate::ports::knowledge_drive_storage::KnowledgeDriveStorage;
@@ -10,6 +11,7 @@ use crate::ports::knowledge_okf_concept_link_store::{
 use crate::ports::knowledge_okf_concept_store::{
     KnowledgeOkfConceptStore, KnowledgeOkfConceptStoreError,
 };
+use crate::ports::knowledge_source_store::{KnowledgeSourceStore, KnowledgeSourceStoreError};
 use sdkwork_knowledgebase_contract::okf::{OkfBundleLintResult, OkfBundlePaths};
 use thiserror::Error;
 
@@ -17,6 +19,7 @@ pub struct OkfBundleLinterService<'a> {
     drive: &'a dyn KnowledgeDriveStorage,
     concept_store: &'a dyn KnowledgeOkfConceptStore,
     link_store: Option<&'a dyn KnowledgeOkfConceptLinkStore>,
+    source_store: Option<&'a dyn KnowledgeSourceStore>,
 }
 
 impl<'a> OkfBundleLinterService<'a> {
@@ -28,11 +31,17 @@ impl<'a> OkfBundleLinterService<'a> {
             drive,
             concept_store,
             link_store: None,
+            source_store: None,
         }
     }
 
     pub fn with_link_store(mut self, link_store: &'a dyn KnowledgeOkfConceptLinkStore) -> Self {
         self.link_store = Some(link_store);
+        self
+    }
+
+    pub fn with_source_store(mut self, source_store: &'a dyn KnowledgeSourceStore) -> Self {
+        self.source_store = Some(source_store);
         self
     }
 
@@ -46,6 +55,12 @@ impl<'a> OkfBundleLinterService<'a> {
             .map(|concept| concept.concept_id.clone())
             .collect::<Vec<_>>();
 
+        let source_lineage = if let Some(source_store) = self.source_store {
+            Some(source_store.list_space_source_lineage(space_id).await?)
+        } else {
+            None
+        };
+
         let mut issues = Vec::new();
         for concept in &concepts {
             match read_managed_markdown(self.drive, &concept.logical_path).await {
@@ -55,6 +70,19 @@ impl<'a> OkfBundleLinterService<'a> {
                         &markdown,
                         &known,
                     ));
+                    if let Some(sources) = source_lineage.as_deref() {
+                        let resource = parse_okf_markdown(&markdown)
+                            .ok()
+                            .flatten()
+                            .and_then(|document| document.resource);
+                        let citation_urls = extract_citation_urls(&markdown);
+                        issues.extend(lint_concept_stale_claims(
+                            concept,
+                            resource.as_deref(),
+                            &citation_urls,
+                            sources,
+                        ));
+                    }
                 }
                 Err(error) => issues.push(OkfLintIssue {
                     check: "okf_conformance",
@@ -114,4 +142,6 @@ pub enum OkfBundleLinterError {
     ConceptStore(#[from] KnowledgeOkfConceptStoreError),
     #[error(transparent)]
     LinkStore(#[from] KnowledgeOkfConceptLinkStoreError),
+    #[error(transparent)]
+    SourceStore(#[from] KnowledgeSourceStoreError),
 }

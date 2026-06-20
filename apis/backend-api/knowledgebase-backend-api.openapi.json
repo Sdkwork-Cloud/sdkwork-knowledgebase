@@ -268,7 +268,18 @@
         "description": "List OKF candidates",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "backend-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api"
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "parameters": [
+          {
+            "name": "spaceId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ]
       }
     },
     "/backend/v3/api/knowledge/okf/candidates/{candidateId}/approve": {
@@ -2135,6 +2146,13 @@
               "string",
               "null"
             ]
+          },
+          "connectorMetadataJson": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "JSON connector config for external knowledge engines (for example Dify datasetId)."
           }
         }
       },
@@ -2338,6 +2356,12 @@
               "string",
               "null"
             ]
+          },
+          "stagedImportRoot": {
+            "type": "string"
+          },
+          "importId": {
+            "type": "string"
           }
         }
       },
@@ -2592,6 +2616,13 @@
               "string",
               "null"
             ]
+          },
+          "connectorMetadataJson": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "JSON connector config for external knowledge engines (for example Dify datasetId)."
           }
         }
       },
@@ -2866,6 +2897,13 @@
             "format": "uint64"
           },
           "exportType": {
+            "type": "string"
+          },
+          "stageForImport": {
+            "type": "boolean",
+            "default": false
+          },
+          "importId": {
             "type": "string"
           }
         }
@@ -4327,6 +4365,9 @@
             "format": "uint64"
           },
           "importType": {
+            "type": "string"
+          },
+          "importId": {
             "type": "string"
           }
         }

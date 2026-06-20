@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine.vendor",
+  "vendorId": "open-webui",
+  "displayName": "Open WebUI",
+  "category": "knowledge_platform",
+  "implementationId": "engine.knowledge.external.open-webui",
+  "agentProviderId": "provider.knowledge.external.open-webui",
+  "integrationTier": "catalog",
+  "upstream": {
+    "repositoryUrl": "https://github.com/open-webui/open-webui",
+    "defaultBranch": "main",
+    "submodulePath": "external/knowledge-engines/upstream/open-webui",
+    "license": "BSD-3-Clause",
+    "homepage": "https://openwebui.com"
+  },
+  "spiMapping": {
+    "search": true,
+    "read": true,
+    "list": true,
+    "health": true,
+    "ingest": true,
+    "syncSources": false
+  },
+  "authModels": ["api_key", "bearer_token"],
+  "adapterCrate": "crates/sdkwork-knowledgebase-engine-open-webui",
+  "notes": "Self-hosted chat UI with RAG, document libraries, and tool plugins."
+}

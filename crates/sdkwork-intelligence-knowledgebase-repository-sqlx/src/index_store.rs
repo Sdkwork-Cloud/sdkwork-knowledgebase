@@ -1,3 +1,7 @@
+use async_trait::async_trait;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_index_store::{
+    KnowledgeIndexStore, KnowledgeIndexStoreError as PortKnowledgeIndexStoreError,
+};
 use sdkwork_knowledgebase_contract::rag::{KnowledgeIndex, KnowledgeIndexRequest};
 use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
@@ -169,6 +173,32 @@ impl SqliteKnowledgeIndexStore {
         })
         .await
     }
+}
+
+#[async_trait]
+impl KnowledgeIndexStore for SqliteKnowledgeIndexStore {
+    async fn get_index(
+        &self,
+        index_id: u64,
+    ) -> Result<KnowledgeIndex, PortKnowledgeIndexStoreError> {
+        SqliteKnowledgeIndexStore::get_index(self, index_id)
+            .await
+            .map_err(map_index_store_port_error)
+    }
+
+    async fn get_or_create_active_vector_index(
+        &self,
+        space_id: u64,
+        collection_id: u64,
+    ) -> Result<KnowledgeIndex, PortKnowledgeIndexStoreError> {
+        SqliteKnowledgeIndexStore::get_or_create_active_vector_index(self, space_id, collection_id)
+            .await
+            .map_err(map_index_store_port_error)
+    }
+}
+
+fn map_index_store_port_error(error: KnowledgeIndexStoreError) -> PortKnowledgeIndexStoreError {
+    PortKnowledgeIndexStoreError::Internal(error.to_string())
 }
 
 fn index_from_row(row: &AnyRow) -> Result<KnowledgeIndex, KnowledgeIndexStoreError> {

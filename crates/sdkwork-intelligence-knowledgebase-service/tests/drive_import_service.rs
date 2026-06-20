@@ -579,6 +579,7 @@ impl MemorySourceStore {
             provider: record.provider,
             drive_bucket: record.drive_bucket,
             drive_prefix: record.drive_prefix,
+            connector_metadata_json: record.connector_metadata_json,
         };
         if let (Some(bucket), Some(prefix)) = (&source.drive_bucket, &source.drive_prefix) {
             self.by_locator.lock().unwrap().insert(
@@ -637,6 +638,40 @@ impl KnowledgeDocumentStore for MemoryDocumentStore {
             return Ok(document);
         }
         self.insert_document(record)
+    }
+
+    async fn get_document_by_id(
+        &self,
+        document_id: u64,
+    ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        let mut document = None;
+        for value in self.by_identity.lock().unwrap().values() {
+            if value.id == document_id {
+                document = Some(value.clone());
+                break;
+            }
+        }
+        document.ok_or_else(|| {
+            KnowledgeDocumentStoreError::Internal(format!(
+                "missing knowledge document: {document_id}"
+            ))
+        })
+    }
+
+    async fn list_documents_for_space(
+        &self,
+        space_id: u64,
+        limit: u32,
+    ) -> Result<Vec<KnowledgeDocument>, KnowledgeDocumentStoreError> {
+        Ok(self
+            .by_identity
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|document| document.space_id == space_id)
+            .take(limit.max(1) as usize)
+            .cloned()
+            .collect())
     }
 }
 
@@ -740,6 +775,27 @@ impl KnowledgeDriveObjectRefStore for MemoryDriveObjectRefStore {
         }
         drop(refs);
         self.insert_object_ref(record)
+    }
+
+    async fn list_object_refs_by_logical_path_prefix(
+        &self,
+        space_id: u64,
+        prefix: &str,
+    ) -> Result<Vec<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
+        Ok(self
+            .created_refs
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|object_ref| {
+                object_ref.space_id == space_id
+                    && object_ref
+                        .logical_path
+                        .as_deref()
+                        .is_some_and(|path| path.starts_with(prefix))
+            })
+            .cloned()
+            .collect())
     }
 }
 

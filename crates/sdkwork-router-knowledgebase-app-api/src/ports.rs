@@ -88,7 +88,7 @@ pub trait KnowledgeDocumentAppService: Send + Sync + 'static {
 
 #[async_trait]
 pub trait KnowledgeOkfAppService: Send + Sync + 'static {
-    async fn list_okf_concepts(&self) -> ApiResult<OkfConceptSummaryList>;
+    async fn list_okf_concepts(&self, space_id: u64) -> ApiResult<OkfConceptSummaryList>;
 
     async fn retrieve_okf_concept(&self, concept_row_id: u64) -> ApiResult<OkfConceptSummary>;
 
@@ -330,7 +330,8 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         Err(ApiError::not_implemented("documents.versions.create"))
     }
 
-    async fn list_okf_concepts(&self) -> ApiResult<OkfConceptSummaryList> {
+    async fn list_okf_concepts(&self, space_id: u64) -> ApiResult<OkfConceptSummaryList> {
+        let _ = space_id;
         Err(ApiError::not_implemented("okf.concepts.list"))
     }
 

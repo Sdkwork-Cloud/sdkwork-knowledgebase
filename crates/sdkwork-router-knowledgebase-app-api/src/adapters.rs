@@ -400,8 +400,8 @@ impl KnowledgeAppApi for FullAppApi {
             .await
     }
 
-    async fn list_okf_concepts(&self) -> ApiResult<OkfConceptSummaryList> {
-        self.okf.list_okf_concepts().await
+    async fn list_okf_concepts(&self, space_id: u64) -> ApiResult<OkfConceptSummaryList> {
+        self.okf.list_okf_concepts(space_id).await
     }
 
     async fn retrieve_okf_concept(&self, concept_row_id: u64) -> ApiResult<OkfConceptSummary> {

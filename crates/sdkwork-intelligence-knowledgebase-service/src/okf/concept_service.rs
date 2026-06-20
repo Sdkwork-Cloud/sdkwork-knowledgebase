@@ -188,6 +188,8 @@ impl<'a> OkfConceptService<'a> {
             source_count: 0,
             tags: document.tags,
             actor: request.actor,
+            resource: document.resource,
+            timestamp: document.timestamp,
         };
 
         let staged = self
@@ -346,9 +348,9 @@ impl<'a> OkfConceptService<'a> {
             concept_type: request.concept_type.clone(),
             title: Some(request.title.clone()),
             description: Some(request.description.clone()),
-            resource: None,
+            resource: request.resource.clone(),
             tags: request.tags.clone(),
-            timestamp: Some(now_rfc3339()?),
+            timestamp: request.timestamp.clone().or_else(|| now_rfc3339().ok()),
             body: request.markdown.clone(),
         };
         validate_concept_document(&concept_document, &concept_id)

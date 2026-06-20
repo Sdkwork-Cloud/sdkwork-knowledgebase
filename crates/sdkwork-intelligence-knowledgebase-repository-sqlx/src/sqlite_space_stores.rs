@@ -500,10 +500,7 @@ fn space_from_row(row: &AnyRow) -> Result<KnowledgeSpace, KnowledgeSpaceStoreErr
 }
 
 fn space_knowledge_mode_code(mode: KnowledgeAgentKnowledgeMode) -> &'static str {
-    match mode {
-        KnowledgeAgentKnowledgeMode::OkfBundle => "okf_bundle",
-        KnowledgeAgentKnowledgeMode::Rag => "rag",
-    }
+    mode.as_str()
 }
 
 fn space_knowledge_mode_from_row(
@@ -513,6 +510,7 @@ fn space_knowledge_mode_from_row(
     match value.as_deref().unwrap_or("okf_bundle") {
         "okf_bundle" => Ok(KnowledgeAgentKnowledgeMode::OkfBundle),
         "rag" => Ok(KnowledgeAgentKnowledgeMode::Rag),
+        "external" => Ok(KnowledgeAgentKnowledgeMode::External),
         other => Err(KnowledgeSpaceStoreError::Internal(format!(
             "unsupported knowledge_mode value: {other}"
         ))),
@@ -566,6 +564,8 @@ fn okf_bundle_file_from_row(
         checksum_sha256_hex: row
             .try_get("checksum_sha256_hex")
             .map_err(okf_bundle_file_sqlx_error)?,
+        staged_import_root: None,
+        import_id: None,
     })
 }
 

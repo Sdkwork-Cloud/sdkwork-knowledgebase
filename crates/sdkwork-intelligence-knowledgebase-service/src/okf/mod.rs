@@ -4,6 +4,7 @@ mod document;
 mod exporter;
 mod file_registry;
 mod importer;
+mod index_rebuild;
 mod index_renderer;
 mod initializer;
 mod link_indexer;
@@ -33,16 +34,19 @@ pub use exporter::{
 pub use file_registry::{OkfBundleFileRegistryService, OkfBundleFileRegistryServiceError};
 pub use importer::{
     bundle_relative_path_from_logical_path, concept_id_from_bundle_relative_path,
-    discover_bundle_files_from_directory, load_import_bundle_from_drive, stackoverflow_bundle_root,
-    ImportOkfBundleFile, ImportOkfBundleRequest, ImportOkfBundleResult, OkfBundleImporterError,
+    discover_bundle_files_from_directory, drive_import_root, load_import_bundle_from_drive,
+    stackoverflow_bundle_root, stage_export_bundle_for_drive_import, ImportOkfBundleFile,
+    ImportOkfBundleRequest, ImportOkfBundleResult, OkfBundleImporterError,
     OkfBundleImporterService,
 };
+pub use index_rebuild::{rebuild_bundle_index_for_space, OkfIndexRebuildError};
 pub use index_renderer::render_index_md;
 pub use initializer::{OkfBundleInitializerService, OkfBundleInitializerServiceError};
 pub use link_indexer::index_concept_links;
 pub use linter::{
-    extract_index_linked_concept_ids, lint_bundle_summaries, lint_published_concept_markdown,
-    OkfBundleLintReport, OkfLintIssue, OkfLintSeverity,
+    extract_citation_urls, extract_index_linked_concept_ids, lint_bundle_summaries,
+    lint_concept_stale_claims, lint_published_concept_markdown,
+    lint_stale_claims_against_source_lineage, OkfBundleLintReport, OkfLintIssue, OkfLintSeverity,
 };
 pub use log_renderer::render_log_md;
 pub use schema_renderer::{render_agents_md, render_okf_profile_yaml};

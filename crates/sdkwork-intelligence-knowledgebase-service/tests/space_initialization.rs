@@ -598,6 +598,8 @@ impl KnowledgeOkfBundleFileStore for MemoryOkfBundleFileEntryStore {
             drive_bucket: record.drive_bucket,
             drive_object_key: record.drive_object_key,
             checksum_sha256_hex: record.checksum_sha256_hex,
+            staged_import_root: None,
+            import_id: None,
         })
     }
 }

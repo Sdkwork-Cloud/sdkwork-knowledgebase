@@ -573,6 +573,7 @@ async fn sqlite_source_store_rejects_duplicate_source_identity() {
         provider: Some("sdkwork-drive".to_string()),
         drive_bucket: Some("knowledgebase-test".to_string()),
         drive_prefix: Some("incoming/quarterly-report.md".to_string()),
+        connector_metadata_json: None,
     };
 
     let first = store.create_source(record.clone()).await.unwrap();

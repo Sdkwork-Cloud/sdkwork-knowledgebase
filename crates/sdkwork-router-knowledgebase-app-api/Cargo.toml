@@ -20,6 +20,9 @@ sdkwork-drive-storage-local = { path = "../../../sdkwork-drive/crates/sdkwork-dr
 sdkwork-intelligence-knowledgebase-service.workspace = true
 sdkwork-intelligence-knowledgebase-repository-sqlx.workspace = true
 sdkwork-knowledgebase-agent-provider.workspace = true
+sdkwork-knowledgebase-engine-dify.workspace = true
+sdkwork-knowledgebase-engine-ragflow.workspace = true
+sdkwork-knowledgebase-engine-onyx.workspace = true
 clawrouter-open-sdk.workspace = true
 sdkwork-agent-kernel.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "any"] }
@@ -29,5 +32,6 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net"] }
 tokio.workspace = true
 tower.workspace = true
 serde_json.workspace = true
+wiremock.workspace = true
 sdkwork-knowledgebase-worker = { path = "../sdkwork-knowledgebase-worker" }
 sdkwork-knowledgebase-contract.workspace = true

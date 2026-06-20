@@ -99,6 +99,7 @@ impl HostedUploadSessionService {
                     provider: Some("upload-session".to_string()),
                     drive_bucket: None,
                     drive_prefix: Some(format!("upload_sessions/{job_id}")),
+                    connector_metadata_json: None,
                 },
             )
             .await

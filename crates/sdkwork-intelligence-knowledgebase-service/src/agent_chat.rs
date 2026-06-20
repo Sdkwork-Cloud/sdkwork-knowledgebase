@@ -10,8 +10,8 @@ use sdkwork_knowledgebase_agent_provider::{
     validate_rag_profile_requirements, validate_registered_agent_implementation,
     KnowledgeAccessGateway, KnowledgeAccessRequest, KnowledgeAccessRetrievalExecutor,
     KnowledgeAgentRuntimeBuildRequest, KnowledgeRetrievalPlanResolver, KnowledgeSpaceModeResolver,
-    KnowledgebaseRetrievalClient, OkfKnowledgeClient, OKF_KNOWLEDGE_PROVIDER_ID,
-    SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
+    KnowledgebaseRetrievalClient, OkfKnowledgeClient, SpaceKnowledgeEngineClient,
+    OKF_KNOWLEDGE_PROVIDER_ID, SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
 };
 use sdkwork_knowledgebase_contract::agent_chat::{
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentKnowledgeMode,
@@ -34,6 +34,7 @@ pub struct KnowledgeAgentChatService<'a, R, W> {
     claw_router_client: Option<Arc<clawrouter_open_sdk::SdkworkAiClient>>,
     retrieval_plan_resolver: Option<&'a dyn KnowledgeRetrievalPlanResolver>,
     space_mode_resolver: Option<&'a dyn KnowledgeSpaceModeResolver>,
+    space_engine_client: Option<Arc<dyn SpaceKnowledgeEngineClient>>,
 }
 
 impl<'a, R, W> KnowledgeAgentChatService<'a, R, W>
@@ -49,6 +50,7 @@ where
         claw_router_client: Option<Arc<clawrouter_open_sdk::SdkworkAiClient>>,
         retrieval_plan_resolver: Option<&'a dyn KnowledgeRetrievalPlanResolver>,
         space_mode_resolver: Option<&'a dyn KnowledgeSpaceModeResolver>,
+        space_engine_client: Option<Arc<dyn SpaceKnowledgeEngineClient>>,
     ) -> Self {
         Self {
             profiles,
@@ -58,6 +60,7 @@ where
             claw_router_client,
             retrieval_plan_resolver,
             space_mode_resolver,
+            space_engine_client,
         }
     }
 
@@ -136,12 +139,19 @@ where
             None
         };
 
-        let access = KnowledgeAccessGateway::new(
-            self.okf_client.clone(),
-            RetrievalExecutorAdapter {
-                retrieval: self.retrieval,
-            },
-        );
+        let access = {
+            let gateway = KnowledgeAccessGateway::new(
+                self.okf_client.clone(),
+                RetrievalExecutorAdapter {
+                    retrieval: self.retrieval,
+                },
+            );
+            if let Some(space_engine) = self.space_engine_client.clone() {
+                gateway.with_space_engine(space_engine)
+            } else {
+                gateway
+            }
+        };
         let access_result = access
             .fetch(KnowledgeAccessRequest {
                 tenant_id: request.tenant_id,
@@ -181,6 +191,11 @@ where
             .unwrap_or_else(|| profile.model_id.clone());
 
         let chat_id = format!("chat.{}", Uuid::new_v4());
+        let external_knowledge_provider_ids = access_result
+            .resolved_knowledge_provider_id
+            .clone()
+            .into_iter()
+            .collect::<Vec<_>>();
         let runtime = build_knowledge_agent_runtime(KnowledgeAgentRuntimeBuildRequest {
             agent_implementation_id: agent_implementation_id.clone(),
             model_provider_id: resolved_model_provider_id.clone(),
@@ -189,15 +204,22 @@ where
             okf_client: self.okf_client.clone(),
             tenant_id: request.tenant_id,
             claw_router_client: self.claw_router_client.clone(),
+            space_engine_client: self.space_engine_client.clone(),
+            external_knowledge_provider_ids,
         })
         .map_err(KnowledgeAgentChatServiceError::Runtime)?;
+
+        let knowledge_provider_id = access_result
+            .resolved_knowledge_provider_id
+            .as_deref()
+            .unwrap_or_else(|| default_knowledge_provider_id(mode));
 
         let mut chat_request =
             AgentChatRequest::new(chat_id.clone(), vec![request.message.clone()])
                 .with_provider_id(resolved_model_provider_id.clone())
                 .with_model_id(model_id.clone())
                 .with_knowledge_query(&request.message)
-                .with_knowledge_provider_id(knowledge_provider_id(mode))
+                .with_knowledge_provider_id(knowledge_provider_id)
                 .with_knowledge_tenant_id(request.tenant_id.to_string())
                 .with_knowledge_namespace(knowledge_namespace)
                 .with_knowledge_top_k(default_top_k(&bindings));
@@ -217,9 +239,17 @@ where
             );
         }
 
-        let response = AgentChatService::new()
-            .invoke(&runtime, chat_request)
-            .map_err(map_kernel_error)?;
+        let response = tokio::task::spawn_blocking({
+            let chat_request = chat_request;
+            move || AgentChatService::new().invoke(&runtime, chat_request)
+        })
+        .await
+        .map_err(|error| {
+            KnowledgeAgentChatServiceError::AgentKernel(format!(
+                "agent chat worker join failed: {error}"
+            ))
+        })?
+        .map_err(map_kernel_error)?;
 
         let answer = response
             .model_response
@@ -259,10 +289,11 @@ impl KnowledgeAccessRetrievalExecutor for RetrievalExecutorAdapter<'_> {
     }
 }
 
-fn knowledge_provider_id(mode: KnowledgeAgentKnowledgeMode) -> &'static str {
+fn default_knowledge_provider_id(mode: KnowledgeAgentKnowledgeMode) -> &'static str {
     match mode {
         KnowledgeAgentKnowledgeMode::OkfBundle => OKF_KNOWLEDGE_PROVIDER_ID,
         KnowledgeAgentKnowledgeMode::Rag => SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
+        KnowledgeAgentKnowledgeMode::External => "provider.knowledge.external.unresolved",
     }
 }
 
@@ -307,6 +338,7 @@ mod tests {
             &FakeRetrieval,
             FakeRetrievalClient,
             FakeOkfClient,
+            None,
             None,
             None,
             None,
@@ -355,6 +387,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let response = service
@@ -379,6 +412,211 @@ mod tests {
         assert_eq!(response.mode, KnowledgeAgentKnowledgeMode::Rag);
         assert_eq!(response.retrieval_id, Some(101));
         assert_eq!(response.citations[0].document_id, Some(301));
+    }
+
+    #[tokio::test]
+    async fn chat_external_mode_registers_engine_provider_and_returns_citations() {
+        struct ExternalProfileStore;
+
+        #[async_trait]
+        impl KnowledgeAgentProfileStore for ExternalProfileStore {
+            async fn create_profile(
+                &self,
+                _request: KnowledgeAgentProfileRequest,
+            ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
+                unimplemented!()
+            }
+
+            async fn retrieve_profile(
+                &self,
+                profile_id: u64,
+            ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
+                Ok(KnowledgeAgentProfile {
+                    profile_id,
+                    tenant_id: 20001,
+                    name: "External Agent".to_string(),
+                    description: None,
+                    system_instruction: "Answer with citations.".to_string(),
+                    model_provider_id: CONTRACT_MODEL_PROVIDER_ID.to_string(),
+                    model_id: "contract".to_string(),
+                    model_parameters: None,
+                    retrieval_profile_id: None,
+                    citation_policy: None,
+                    memory_policy_ref: None,
+                    tool_policy_ref: None,
+                    answer_policy: None,
+                    knowledge_mode: KnowledgeAgentKnowledgeMode::External,
+                    agent_implementation_id: KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID
+                        .to_string(),
+                    status: KnowledgeAgentStatus::Active,
+                    bindings: vec![KnowledgeAgentBinding {
+                        binding_id: 701,
+                        profile_id,
+                        tenant_id: 20001,
+                        space_id: 9,
+                        collection_id: None,
+                        source_filter: None,
+                        document_filter: None,
+                        priority: 0,
+                        top_k: Some(4),
+                        min_score: None,
+                        enabled: true,
+                    }],
+                })
+            }
+
+            async fn update_profile(
+                &self,
+                _profile_id: u64,
+                _request: KnowledgeAgentProfileRequest,
+            ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
+                unimplemented!()
+            }
+
+            async fn delete_profile(
+                &self,
+                _profile_id: u64,
+            ) -> Result<(), KnowledgeAgentProfileStoreError> {
+                unimplemented!()
+            }
+
+            async fn list_bindings(
+                &self,
+                _profile_id: u64,
+            ) -> Result<Vec<KnowledgeAgentBinding>, KnowledgeAgentProfileStoreError> {
+                unimplemented!()
+            }
+
+            async fn create_binding(
+                &self,
+                _request: sdkwork_knowledgebase_contract::rag::KnowledgeAgentBindingRequest,
+            ) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
+                unimplemented!()
+            }
+
+            async fn update_binding(
+                &self,
+                _profile_id: u64,
+                _binding_id: u64,
+                _request: sdkwork_knowledgebase_contract::rag::KnowledgeAgentBindingRequest,
+            ) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
+                unimplemented!()
+            }
+
+            async fn delete_binding(
+                &self,
+                _profile_id: u64,
+                _binding_id: u64,
+            ) -> Result<(), KnowledgeAgentProfileStoreError> {
+                unimplemented!()
+            }
+        }
+
+        #[derive(Clone)]
+        struct FakeExternalSpaceModeResolver;
+
+        #[async_trait]
+        impl KnowledgeSpaceModeResolver for FakeExternalSpaceModeResolver {
+            async fn knowledge_mode_for_space(
+                &self,
+                _space_id: u64,
+            ) -> Result<KnowledgeAgentKnowledgeMode, String> {
+                Ok(KnowledgeAgentKnowledgeMode::External)
+            }
+        }
+
+        #[derive(Clone)]
+        struct FakeSpaceEngine;
+
+        #[async_trait]
+        impl SpaceKnowledgeEngineClient for FakeSpaceEngine {
+            async fn search_space(
+                &self,
+                _tenant_id: u64,
+                space_id: u64,
+                query: &str,
+                top_k: u32,
+            ) -> Result<
+                sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineSearchResult,
+                String,
+            > {
+                assert_eq!(space_id, 9);
+                assert_eq!(query, "What is in the external knowledge base?");
+                assert_eq!(top_k, 4);
+                Ok(
+                    sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineSearchResult {
+                        implementation_id: "engine.knowledge.external.dify".to_string(),
+                        hits: vec![
+                            sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineSearchHit {
+                                document:
+                                    sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineDocumentRef {
+                                        document_id: "9/seg-1".to_string(),
+                                        title: "External Doc".to_string(),
+                                        source_uri: Some("external://doc-1".to_string()),
+                                    },
+                                snippet: "external snippet".to_string(),
+                                score: Some(0.91),
+                            },
+                        ],
+                    },
+                )
+            }
+
+            async fn agent_provider_id_for_space(&self, _space_id: u64) -> Result<String, String> {
+                Ok("provider.knowledge.external.dify".to_string())
+            }
+
+            async fn read_space_document(
+                &self,
+                _tenant_id: u64,
+                _space_id: u64,
+                _scoped_document_id: &str,
+            ) -> Result<
+                sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineDocument,
+                String,
+            > {
+                Err("not implemented".to_string())
+            }
+        }
+
+        let service = KnowledgeAgentChatService::new(
+            &ExternalProfileStore,
+            &FakeRetrieval,
+            FakeRetrievalClient,
+            FakeOkfClient,
+            None,
+            None,
+            Some(&FakeExternalSpaceModeResolver),
+            Some(Arc::new(FakeSpaceEngine)),
+        );
+
+        let response = service
+            .chat(
+                801,
+                KnowledgeAgentChatRequest {
+                    tenant_id: 20001,
+                    actor_id: None,
+                    message: "What is in the external knowledge base?".to_string(),
+                    mode: Some(KnowledgeAgentKnowledgeMode::External),
+                    session_id: None,
+                    model_provider_id: Some(CONTRACT_MODEL_PROVIDER_ID.to_string()),
+                    model_id: Some("contract".to_string()),
+                    agent_implementation_id: Some(
+                        KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID.to_string(),
+                    ),
+                },
+            )
+            .await
+            .expect("external chat succeeds");
+
+        assert_eq!(response.mode, KnowledgeAgentKnowledgeMode::External);
+        assert_eq!(response.citations.len(), 1);
+        assert_eq!(response.citations[0].title, "External Doc");
+        assert_eq!(
+            response.citations[0].logical_path.as_deref(),
+            Some("9/seg-1")
+        );
+        assert!(response.answer.contains("External Doc"));
     }
 
     struct FakeProfileStore;

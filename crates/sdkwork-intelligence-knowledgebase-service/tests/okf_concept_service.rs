@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::okf::{
-    discover_bundle_files_from_directory, stackoverflow_bundle_root, ImportOkfBundleRequest,
-    OkfBundleImporterService, OkfConceptService, PublishExistingOkfConceptRevisionRequest,
+    discover_bundle_files_from_directory, load_import_bundle_from_drive, stackoverflow_bundle_root,
+    stage_export_bundle_for_drive_import, ExportOkfBundleRequest, ImportOkfBundleRequest,
+    OkfBundleExporterService, OkfBundleImporterService, OkfBundleStandardFileService,
+    OkfConceptService, PersistStandardFilesRequest, PublishExistingOkfConceptRevisionRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_ref_store::{
     CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore,
@@ -23,7 +25,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_s
     UpsertKnowledgeOkfCandidateRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
+    KnowledgeOkfConceptLinkRecord, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
     ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
@@ -36,7 +38,7 @@ use sdkwork_knowledgebase_contract::okf::{
     OkfLogEntry, OkfLogEventType, OkfRevisionReviewState, PublishKnowledgeOkfConceptRequest,
 };
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Mutex;
 
 #[tokio::test]
@@ -62,6 +64,8 @@ async fn okf_concept_service_publishes_concept_and_rebuilds_standard_files() {
                 source_count: 2,
                 tags: vec!["entity".to_string()],
                 actor: "system".to_string(),
+                resource: None,
+                timestamp: None,
             },
             Some("drv-kb-001"),
         )
@@ -175,6 +179,16 @@ async fn stackoverflow_bundle_imports_published_concepts_when_requested() {
 
     let bundle_root = stackoverflow_bundle_root();
     let files = discover_bundle_files_from_directory(&bundle_root).expect("bundle walk");
+    let expected_concept_count = files
+        .iter()
+        .filter(|file| {
+            let path = file.bundle_relative_path.replace('\\', "/");
+            path.ends_with(".md")
+                && path != "index.md"
+                && path != "log.md"
+                && !path.ends_with("/index.md")
+        })
+        .count();
 
     let result = importer
         .import_bundle(
@@ -192,6 +206,202 @@ async fn stackoverflow_bundle_imports_published_concepts_when_requested() {
     assert!(result.imported_concept_count >= 1);
     assert!(drive.body_at("okf/tables/users.md").is_some());
     assert!(file_entries.paths().contains(&"okf/index.md".to_string()));
+
+    let report = sdkwork_intelligence_knowledgebase_service::okf::OkfBundleLinterService::new(
+        &drive, &concepts,
+    )
+    .with_link_store(&links)
+    .lint_space(42)
+    .await
+    .expect("stackoverflow bundle lint");
+    assert!(
+        report.conformance_passed(),
+        "expected OKF conformance pass, issues: {:?}",
+        report.issues
+    );
+    let published = concepts
+        .list_concept_summaries(42)
+        .await
+        .expect("list published concepts");
+    assert_eq!(
+        published.len(),
+        expected_concept_count,
+        "published concept count should match bundle concept files"
+    );
+    assert!(
+        expected_concept_count >= 40,
+        "stackoverflow fixture should include many concepts"
+    );
+}
+
+#[tokio::test]
+async fn stackoverflow_published_bundle_lints_without_stale_claims_when_sources_fresh() {
+    use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
+        CreateKnowledgeSourceRecord, KnowledgeSourceLineageSnapshot, KnowledgeSourceStore,
+        KnowledgeSourceStoreError,
+    };
+
+    struct MemorySourceStore {
+        lineage: Vec<KnowledgeSourceLineageSnapshot>,
+    }
+
+    #[async_trait::async_trait]
+    impl KnowledgeSourceStore for MemorySourceStore {
+        async fn create_source(
+            &self,
+            _record: CreateKnowledgeSourceRecord,
+        ) -> Result<
+            sdkwork_knowledgebase_contract::source::KnowledgeSource,
+            KnowledgeSourceStoreError,
+        > {
+            Err(KnowledgeSourceStoreError::Internal(
+                "not used in lint test".to_string(),
+            ))
+        }
+
+        async fn list_space_source_lineage(
+            &self,
+            _space_id: u64,
+        ) -> Result<Vec<KnowledgeSourceLineageSnapshot>, KnowledgeSourceStoreError> {
+            Ok(self.lineage.clone())
+        }
+    }
+
+    let drive = MemoryDrive::default();
+    let object_refs = MemoryObjectRefStore::default();
+    let concepts = MemoryOkfConceptStore::default();
+    let links = MemoryLinkStore::default();
+    let file_entries = MemoryOkfBundleFileStore::default();
+    let workspace = MemoryDriveWorkspace::default();
+    let sources = MemorySourceStore {
+        lineage: vec![KnowledgeSourceLineageSnapshot {
+            source_id: 1,
+            updated_at: "2020-01-01T00:00:00Z".to_string(),
+            last_sync_at: None,
+            provider: Some("stackoverflow".to_string()),
+            drive_prefix: Some("sources/raw/stackoverflow".to_string()),
+            drive_bucket: None,
+        }],
+    };
+    let service = OkfConceptService::new(&drive, &object_refs, &concepts)
+        .with_link_store(&links)
+        .with_file_entry_store(&file_entries)
+        .with_drive_workspace(&workspace);
+    let importer = OkfBundleImporterService::new(service);
+
+    let bundle_root = stackoverflow_bundle_root();
+    let files = discover_bundle_files_from_directory(&bundle_root).expect("bundle walk");
+    importer
+        .import_bundle(
+            ImportOkfBundleRequest {
+                space_id: 42,
+                actor: "compliance-test".to_string(),
+                publish: true,
+                files,
+            },
+            Some("drv-kb-001"),
+        )
+        .await
+        .expect("stackoverflow bundle import");
+
+    let report = sdkwork_intelligence_knowledgebase_service::okf::OkfBundleLinterService::new(
+        &drive, &concepts,
+    )
+    .with_link_store(&links)
+    .with_source_store(&sources)
+    .lint_space(42)
+    .await
+    .expect("stackoverflow bundle lint with sources");
+    assert!(
+        report
+            .issues
+            .iter()
+            .all(|issue| issue.check != "stale_claims"),
+        "fresh kb_source lineage should not produce stale_claims warnings: {:?}",
+        report.issues
+    );
+}
+
+#[tokio::test]
+async fn export_bundle_round_trips_through_drive_import_inbox() {
+    let drive = MemoryDrive::default();
+    let object_refs = MemoryObjectRefStore::default();
+    let source_concepts = MemoryOkfConceptStore::default();
+    let target_concepts = MemoryOkfConceptStore::default();
+    let file_entries = MemoryOkfBundleFileStore::default();
+    let workspace = MemoryDriveWorkspace::default();
+    let source_service = OkfConceptService::new(&drive, &object_refs, &source_concepts)
+        .with_file_entry_store(&file_entries)
+        .with_drive_workspace(&workspace);
+
+    source_service
+        .publish_concept(
+            PublishKnowledgeOkfConceptRequest {
+                space_id: 7,
+                concept_id: "entities/widget".to_string(),
+                title: "Widget".to_string(),
+                concept_type: "Entity".to_string(),
+                description: "Widget summary.".to_string(),
+                markdown: "# Widget\n\nA durable widget.".to_string(),
+                source_count: 0,
+                tags: vec!["entity".to_string()],
+                actor: "author".to_string(),
+                resource: None,
+                timestamp: None,
+            },
+            Some("drv-kb-001"),
+        )
+        .await
+        .expect("publish source concept");
+
+    let summaries = source_concepts
+        .list_concept_summaries(7)
+        .await
+        .expect("list source concepts");
+    OkfBundleStandardFileService::new(&drive)
+        .persist_standard_files(PersistStandardFilesRequest {
+            space_name: "Space Seven".to_string(),
+            concepts: summaries,
+            log_entries: vec![],
+        })
+        .await
+        .expect("persist standard bundle files");
+
+    let exported = OkfBundleExporterService::new(&drive, &source_concepts)
+        .export_bundle(ExportOkfBundleRequest {
+            space_id: 7,
+            export_type: "okf_strict".to_string(),
+        })
+        .await
+        .expect("export okf bundle");
+
+    stage_export_bundle_for_drive_import(&drive, &exported.export_root, 99, "roundtrip")
+        .await
+        .expect("stage export for import");
+
+    let files = load_import_bundle_from_drive(&drive, 99, Some("roundtrip"))
+        .await
+        .expect("load staged import bundle");
+    let target_service = OkfConceptService::new(&drive, &object_refs, &target_concepts)
+        .with_file_entry_store(&file_entries)
+        .with_drive_workspace(&workspace);
+    let importer = OkfBundleImporterService::new(target_service);
+    let result = importer
+        .import_bundle(
+            ImportOkfBundleRequest {
+                space_id: 99,
+                actor: "roundtrip".to_string(),
+                publish: true,
+                files,
+            },
+            Some("drv-kb-002"),
+        )
+        .await
+        .expect("import staged bundle");
+
+    assert!(result.imported_concept_count >= 1);
+    assert_eq!(target_concepts.concept_count(), 1);
+    assert!(drive.body_at("okf/entities/widget.md").is_some());
 }
 
 #[tokio::test]
@@ -274,6 +484,8 @@ async fn okf_concept_service_requires_drive_space_when_workspace_enabled() {
                 source_count: 2,
                 tags: vec!["entity".to_string()],
                 actor: "system".to_string(),
+                resource: None,
+                timestamp: None,
             },
             None,
         )
@@ -431,6 +643,30 @@ impl KnowledgeDriveObjectRefStore for MemoryObjectRefStore {
         };
         self.refs.lock().unwrap().push(object_ref.clone());
         Ok(object_ref)
+    }
+
+    async fn list_object_refs_by_logical_path_prefix(
+        &self,
+        space_id: u64,
+        prefix: &str,
+    ) -> Result<
+        Vec<sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef>,
+        KnowledgeDriveObjectRefStoreError,
+    > {
+        Ok(self
+            .refs
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|object_ref| {
+                object_ref.space_id == space_id
+                    && object_ref
+                        .logical_path
+                        .as_deref()
+                        .is_some_and(|path| path.starts_with(prefix))
+            })
+            .cloned()
+            .collect())
     }
 }
 
@@ -670,6 +906,8 @@ impl KnowledgeOkfBundleFileStore for MemoryOkfBundleFileStore {
             drive_bucket: record.drive_bucket,
             drive_object_key: record.drive_object_key,
             checksum_sha256_hex: record.checksum_sha256_hex,
+            staged_import_root: None,
+            import_id: None,
         })
     }
 }
@@ -738,30 +976,63 @@ impl KnowledgeOkfCandidateStore for MemoryCandidateStore {
 }
 
 #[derive(Default)]
-struct MemoryLinkStore;
+struct MemoryLinkStore {
+    outbound: Mutex<HashMap<(u64, String), Vec<KnowledgeOkfConceptLinkRecord>>>,
+}
 
 #[async_trait]
 impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
     async fn replace_outbound_links(
         &self,
-        _record: ReplaceKnowledgeOkfConceptLinksRecord,
+        record: ReplaceKnowledgeOkfConceptLinksRecord,
     ) -> Result<(), KnowledgeOkfConceptLinkStoreError> {
+        self.outbound
+            .lock()
+            .unwrap()
+            .insert((record.space_id, record.from_concept_id), record.links);
         Ok(())
     }
 
     async fn list_inbound_concept_ids(
         &self,
-        _space_id: u64,
-        _to_concept_id: &str,
+        space_id: u64,
+        to_concept_id: &str,
     ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
-        Ok(vec![])
+        let inbound = self
+            .outbound
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(|((link_space_id, from_concept_id), links)| {
+                if *link_space_id != space_id {
+                    return None;
+                }
+                links
+                    .iter()
+                    .any(|link| link.to_concept_id == to_concept_id)
+                    .then(|| from_concept_id.clone())
+            })
+            .collect();
+        Ok(inbound)
     }
 
     async fn list_orphan_concept_ids(
         &self,
-        _space_id: u64,
-        _published_concept_ids: &[String],
+        space_id: u64,
+        published_concept_ids: &[String],
     ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
-        Ok(vec![])
+        let inbound: BTreeSet<String> = self
+            .outbound
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|((link_space_id, _), _)| *link_space_id == space_id)
+            .flat_map(|(_, links)| links.iter().map(|link| link.to_concept_id.clone()))
+            .collect();
+        Ok(published_concept_ids
+            .iter()
+            .filter(|concept_id| !inbound.contains(*concept_id))
+            .cloned()
+            .collect())
     }
 }

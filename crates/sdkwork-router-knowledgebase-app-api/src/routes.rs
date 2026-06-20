@@ -14,9 +14,9 @@ use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSpaceRequest, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
     KnowledgeAgentProfileRequest, KnowledgeBrowserView, KnowledgeContextPackRequest,
     KnowledgeDriveImportRequest, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
-    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
-    OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfQualityRunRequest,
-    OkfQueryRequest,
+    ListKnowledgeBrowserRequest, ListOkfConceptsQuery, OkfBundleExportRequest,
+    OkfBundleImportRequest, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest,
+    OkfQualityRunRequest, OkfQueryRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -366,9 +366,10 @@ async fn create_document_version(
 async fn list_okf_concepts(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
+    Query(query): Query<ListOkfConceptsQuery>,
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
-    ok_json(state.api.list_okf_concepts().await)
+    ok_json(state.api.list_okf_concepts(query.space_id).await)
 }
 
 async fn upsert_okf_concept(

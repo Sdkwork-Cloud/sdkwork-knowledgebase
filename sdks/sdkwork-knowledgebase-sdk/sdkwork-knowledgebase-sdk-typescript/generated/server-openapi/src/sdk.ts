@@ -3,7 +3,7 @@ import type { SdkworkCustomConfig } from './types/common';
 
 import { KnowledgeApi, createKnowledgeApi } from './api/knowledge';
 
-export class SdkworkKnowledgebaseClient {
+export class SdkworkCustomClient {
   private httpClient: HttpClient;
 
   public readonly knowledge: KnowledgeApi;
@@ -22,8 +22,8 @@ export class SdkworkKnowledgebaseClient {
   }
 }
 
-export function createClient(config: SdkworkCustomConfig): SdkworkKnowledgebaseClient {
-  return new SdkworkKnowledgebaseClient(config);
+export function createClient(config: SdkworkCustomConfig): SdkworkCustomClient {
+  return new SdkworkCustomClient(config);
 }
 
-export default SdkworkKnowledgebaseClient;
+export default SdkworkCustomClient;

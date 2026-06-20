@@ -59,6 +59,17 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
         self.enrich_object_ref_drive_binding(object_ref, &record)
             .await
     }
+
+    async fn list_object_refs_by_logical_path_prefix(
+        &self,
+        space_id: u64,
+        prefix: &str,
+    ) -> Result<Vec<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
+        SqliteKnowledgeDriveObjectRefStore::list_object_refs_by_logical_path_prefix(
+            self, space_id, prefix,
+        )
+        .await
+    }
 }
 
 impl SqliteKnowledgeDriveObjectRefStore {

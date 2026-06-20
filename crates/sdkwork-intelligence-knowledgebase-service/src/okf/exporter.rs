@@ -136,7 +136,11 @@ impl<'a> OkfBundleExporterService<'a> {
         }
 
         let manifest_path = format!("{export_root}/export_manifest.yaml");
-        let manifest_body = render_export_manifest_yaml(export_type, &exported_files);
+        let manifest_files = exported_files
+            .iter()
+            .map(|path| bundle_relative_path_from_export(&export_root, path))
+            .collect::<Vec<_>>();
+        let manifest_body = render_export_manifest_yaml(export_type, &manifest_files);
         let manifest_ref = self
             .drive
             .put_object(PutKnowledgeObjectRequest {
@@ -180,6 +184,17 @@ standardFiles:
             .collect::<Vec<_>>()
             .join("\n")
     )
+}
+
+fn bundle_relative_path_from_export(export_root: &str, export_path: &str) -> String {
+    let normalized_root = export_root.trim().replace('\\', "/");
+    let normalized_path = export_path.trim().replace('\\', "/");
+    normalized_path
+        .strip_prefix(&format!("{normalized_root}/"))
+        .or_else(|| normalized_path.strip_prefix(&normalized_root))
+        .unwrap_or(normalized_path.as_str())
+        .trim_start_matches('/')
+        .to_string()
 }
 
 async fn export_standard_file(
@@ -242,10 +257,23 @@ mod tests {
         assert!(yaml.contains("okfVersion: \"0.1\""));
         assert!(yaml.contains("bundleRoot: \".\""));
         assert!(yaml.contains("profile: \"schema/okf_profile.yaml\""));
+        assert!(yaml.contains("  - \"index.md\""));
+        assert!(!yaml.contains("output/exports"));
         assert!(!yaml.contains("sourcesRoot"));
 
         let with_sources =
             render_export_manifest_yaml("okf_with_sources", &["raw/source.bin".to_string()]);
         assert!(with_sources.contains("sourcesRoot: \"raw\""));
+    }
+
+    #[test]
+    fn bundle_relative_path_from_export_strips_export_root_prefix() {
+        assert_eq!(
+            bundle_relative_path_from_export(
+                "output/exports/okf_strict/7",
+                "output/exports/okf_strict/7/tables/users.md"
+            ),
+            "tables/users.md"
+        );
     }
 }

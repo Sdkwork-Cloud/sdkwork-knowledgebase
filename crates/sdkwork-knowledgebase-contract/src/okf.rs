@@ -70,6 +70,12 @@ pub struct OkfConceptSummaryList {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ListOkfConceptsQuery {
+    pub space_id: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OkfIndexDocument {
     pub markdown: String,
 }
@@ -167,6 +173,10 @@ pub struct OkfIndexRebuildRequest {
 pub struct OkfBundleExportRequest {
     pub space_id: u64,
     pub export_type: String,
+    #[serde(default)]
+    pub stage_for_import: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub import_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -174,6 +184,8 @@ pub struct OkfBundleExportRequest {
 pub struct OkfBundleImportRequest {
     pub space_id: u64,
     pub import_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub import_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -314,6 +326,10 @@ pub struct PublishKnowledgeOkfConceptRequest {
     pub source_count: u32,
     pub tags: Vec<String>,
     pub actor: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

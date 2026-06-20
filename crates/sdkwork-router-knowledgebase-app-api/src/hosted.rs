@@ -18,6 +18,7 @@ use sdkwork_intelligence_knowledgebase_service::{
         knowledge_okf_bundle_file_store::{
             CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
         },
+        knowledge_okf_concept_store::KnowledgeOkfConceptStore,
         knowledge_source_store::KnowledgeSourceStore,
         knowledge_space_store::KnowledgeSpaceStore,
     },
@@ -136,6 +137,7 @@ impl KnowledgeIngestAppService for HostedIngestService {
                         provider: Some("api-ingest".to_string()),
                         drive_bucket: None,
                         drive_prefix: Some(format!("inbox/api/{}", job.id)),
+                        connector_metadata_json: None,
                     },
                 )
                 .await
@@ -454,14 +456,7 @@ impl HostedOkfService {
     }
 
     fn okf_concept_service(&self) -> OkfConceptService<'_> {
-        OkfConceptService::new(
-            self.runtime.drive_storage(),
-            self.runtime.object_ref_store(),
-            self.runtime.okf_concept_store(),
-        )
-        .with_link_store(self.runtime.okf_concept_link_store())
-        .with_file_entry_store(self.runtime.okf_bundle_file_store())
-        .with_drive_workspace(self.runtime.drive_workspace())
+        crate::hosted_support::okf_concept_service(&self.runtime)
     }
 
     fn retrieval_service(&self) -> KnowledgeRetrievalService<'_> {
@@ -488,11 +483,17 @@ impl HostedOkfService {
 
 #[async_trait]
 impl KnowledgeOkfAppService for HostedOkfService {
-    async fn list_okf_concepts(&self) -> ApiResult<OkfConceptSummaryList> {
+    async fn list_okf_concepts(&self, space_id: u64) -> ApiResult<OkfConceptSummaryList> {
+        if space_id == 0 {
+            return Err(ApiError::invalid_request(
+                "invalid_okf_concept_list_request",
+                "space_id is required",
+            ));
+        }
         let items = self
             .runtime
             .okf_concept_store()
-            .list_all_concept_summaries()
+            .list_concept_summaries(space_id)
             .await
             .map_err(map_okf_concept_store_error)?;
         Ok(OkfConceptSummaryList { items })
@@ -675,6 +676,8 @@ impl KnowledgeOkfAppService for HostedOkfService {
                     source_count: 1,
                     tags: vec!["okf-query".to_string()],
                     actor: self.runtime.operator_id().to_string(),
+                    resource: None,
+                    timestamp: None,
                 },
                 space.drive_space_id.as_deref(),
             )

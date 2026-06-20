@@ -930,7 +930,18 @@
         "description": "List OKF concepts",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "parameters": [
+          {
+            "name": "spaceId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ]
       }
     },
     "/app/v3/api/knowledge/okf/concepts/{conceptId}": {
@@ -3926,6 +3937,12 @@
               "string",
               "null"
             ]
+          },
+          "stagedImportRoot": {
+            "type": "string"
+          },
+          "importId": {
+            "type": "string"
           }
         }
       },
@@ -4529,6 +4546,13 @@
             "format": "uint64"
           },
           "exportType": {
+            "type": "string"
+          },
+          "stageForImport": {
+            "type": "boolean",
+            "default": false
+          },
+          "importId": {
             "type": "string"
           }
         }
@@ -6716,6 +6740,9 @@
             "format": "uint64"
           },
           "importType": {
+            "type": "string"
+          },
+          "importId": {
             "type": "string"
           }
         }

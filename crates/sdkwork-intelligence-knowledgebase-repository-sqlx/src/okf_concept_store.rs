@@ -207,36 +207,6 @@ impl SqliteKnowledgeOkfConceptStore {
         revision_from_row(&row)
     }
 
-    pub async fn list_candidate_concepts(
-        &self,
-    ) -> Result<Vec<(u64, OkfConceptPublishState)>, KnowledgeOkfConceptStoreError> {
-        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
-        let rows = sqlx::query(
-            r#"
-            SELECT id, publish_state
-            FROM kb_okf_concept
-            WHERE tenant_id = $1 AND status = $2
-              AND publish_state IN ('candidate_ready', 'needs_review')
-            ORDER BY id ASC
-            LIMIT $3
-            "#,
-        )
-        .bind(tenant_id)
-        .bind(ACTIVE_STATUS)
-        .bind(MAX_OKF_LIST_ROWS)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
-
-        rows.iter()
-            .map(|row| {
-                let id = from_i64("id", row.try_get("id").map_err(sqlx_error)?)?;
-                let publish_state: String = row.try_get("publish_state").map_err(sqlx_error)?;
-                Ok((id, publish_state_from_str(&publish_state)?))
-            })
-            .collect()
-    }
-
     pub async fn update_concept_publish_state(
         &self,
         concept_row_id: u64,

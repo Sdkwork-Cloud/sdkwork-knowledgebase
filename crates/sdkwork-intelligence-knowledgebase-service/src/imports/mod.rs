@@ -171,6 +171,7 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 provider: Some("sdkwork-drive".to_string()),
                 drive_bucket: Some(request.drive_bucket),
                 drive_prefix: Some(request.drive_object_key),
+                connector_metadata_json: None,
             })
             .await?;
 

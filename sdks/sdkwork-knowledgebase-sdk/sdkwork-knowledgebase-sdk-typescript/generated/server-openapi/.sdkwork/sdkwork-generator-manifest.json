@@ -44,7 +44,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "585b5b0d6baffeab3acb5c8ebe3d59f3b1121d83ff68252119006e77ef686253"
+      "sha256": "5b4c04eee0e999e76de21585b5f169bf51be62c36f90e5b3db6d104133e10ccc"
     },
     {
       "path": "sdkwork-sdk.json",
@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "95fd57fea332c33e6aa3cb56c02be70085bb63a12ea1893f4044dece2f09e1e3"
+      "sha256": "14cf748f57e795b68b47f48a30241491582ac823d7768534efbf985b8fde210d"
     },
     {
       "path": "src/api/paths.ts",
@@ -80,11 +80,11 @@
     },
     {
       "path": "src/index.ts",
-      "sha256": "cbfe847dbf33b0fd119d4c0e2d2c1f73183356f05c3d20211baa6772121c1fb5"
+      "sha256": "be1ba971d7c153f90af599aff97d71c8047fbb6b97a0adb57c2fceaaca4a4749"
     },
     {
       "path": "src/sdk.ts",
-      "sha256": "06c6f077d28b0727678977b130b31f58f79b1756d9a86830432b67d28dfa1c76"
+      "sha256": "43f003a16dae38eea00c4d321a5e85e2c77d90462091e117ebf86881137085b2"
     },
     {
       "path": "src/types/common.ts",
@@ -108,11 +108,11 @@
     },
     {
       "path": "src/types/knowledge-browser-node-type.ts",
-      "sha256": "aeb2de69356ad5b6ff49525a71e04e232e0799f297cd381f98938d9d18c286e9"
+      "sha256": "ecaa8aee7ae548206de5b363b520b81defed6620cc62d4a1e1ed73e2afeeabb7"
     },
     {
       "path": "src/types/knowledge-browser-node.ts",
-      "sha256": "4c72866451f624721eaac75daf8d9fc2da4bbcc30d6db6c9d5b573ea472daaf4"
+      "sha256": "7c1497b9288371a6b64aab14475f9dd52c043753c3c797b3d190cd5d9e5a9de9"
     },
     {
       "path": "src/types/knowledge-browser-page.ts",
@@ -120,7 +120,7 @@
     },
     {
       "path": "src/types/knowledge-browser-view.ts",
-      "sha256": "55b1d179ac5737e921c5efb61a6767441c92f125927b63ef6e33b4599f377094"
+      "sha256": "87f49b3eba0ec7c4d106908295e4bea9a1db71250d17d71d2c25475ce238b6ff"
     },
     {
       "path": "src/types/knowledge-citation.ts",

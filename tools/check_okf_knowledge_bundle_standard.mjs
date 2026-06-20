@@ -9,6 +9,7 @@ const forbiddenPatterns = [
   /\bllm_wiki\b/,
   /\bLlmWiki\b/,
   /\bWikiPageType\b/,
+  /\bWikiPage\b/,
   /\bkb_wiki_/,
   /\bwiki\.pages\b/,
   /\bwiki_schema\.yaml\b/,
@@ -17,6 +18,11 @@ const forbiddenPatterns = [
   /\bupsert_page\b/,
   /\bget_page_by_id\b/,
   /\blist_okf_pages\b/,
+  /\bwiki_page\b/,
+  /\bwikiPageId\b/,
+  /\bwikiRevisionId\b/,
+  /\bwikiState\b/,
+  /\| 'wiki' \|/,
 ];
 
 const skipPathParts = [
@@ -87,6 +93,12 @@ const requiredOkfStorageSymbols = [
   "kb_okf_candidate",
   "SqliteKnowledgeOkfCandidateStore",
   "stage_concept_candidate",
+  "stage_export_bundle_for_drive_import",
+  "lint_stale_claims_against_source_lineage",
+  "lint_concept_stale_claims",
+  "extract_citation_urls",
+  "list_space_source_lineage",
+  "newest_lineage_activity_at",
 ];
 
 const requiredOkfMigrationTables = ["kb_okf_concept", "kb_okf_concept_link", "kb_okf_candidate"];
@@ -138,6 +150,18 @@ async function assertRequiredOkfStorageSymbols() {
     path.join(
       root,
       "crates/sdkwork-intelligence-knowledgebase-service/src/okf/importer.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/bundle_linter.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_source_store.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_import_stores.rs",
     ),
   ];
   const combined = (

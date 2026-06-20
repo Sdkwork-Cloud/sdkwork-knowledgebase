@@ -11,8 +11,14 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
-    agent::KnowledgeAgentService, agent_chat::KnowledgeAgentChatService,
+    agent::KnowledgeAgentService,
+    agent_chat::KnowledgeAgentChatService,
     embedding_retrieval_backend::ClawRouterEmbeddingRetrievalBackend,
+    knowledge_engine::{
+        build_default_registry, DefaultKnowledgeEngineRegistry, KnowledgeEngineRuntimeDeps,
+        KnowledgeEngineSpaceResolver,
+    },
+    ports::knowledge_retrieval_backend::KnowledgeRetrievalBackend,
     retrieval::KnowledgeRetrievalService,
 };
 use sdkwork_knowledgebase_contract::agent_chat::{
@@ -41,7 +47,7 @@ use sdkwork_knowledgebase_agent_provider::{
 use crate::{
     agent_chat_runtime::{
         RuntimeKnowledgebaseRetrievalClient, RuntimeOkfKnowledgeClient,
-        RuntimeRetrievalPlanResolver, RuntimeSpaceModeResolver,
+        RuntimeRetrievalPlanResolver, RuntimeSpaceKnowledgeEngineClient, RuntimeSpaceModeResolver,
     },
     build_router_with_shared_app_api_and_readiness,
     hosted::{
@@ -92,6 +98,7 @@ pub struct KnowledgebaseRuntime {
     drive_tree: Arc<KnowledgebaseDriveNodeTreeAdapter>,
     drive_workspace: Arc<KnowledgebaseDriveWorkspaceAdapter>,
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
+    knowledge_engines: Arc<DefaultKnowledgeEngineRegistry>,
 }
 
 impl KnowledgebaseRuntime {
@@ -152,6 +159,68 @@ impl KnowledgebaseRuntime {
                 ))
             });
 
+        let retrieval_backend: Arc<dyn KnowledgeRetrievalBackend> =
+            match &embedding_retrieval_backend {
+                Some(backend) => backend.clone(),
+                None => retrieval_store.clone(),
+            };
+
+        let okf_concept_store =
+            Arc::new(SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id));
+        let space_store = Arc::new(SqliteKnowledgeSpaceStore::new(
+            pool.clone(),
+            tenant_id,
+            organization_id,
+        ));
+        let okf_bundle_file_store = Arc::new(SqliteKnowledgeOkfBundleFileStore::new(
+            pool.clone(),
+            tenant_id,
+        ));
+        let okf_concept_link_store = Arc::new(SqliteKnowledgeOkfConceptLinkStore::new(
+            pool.clone(),
+            tenant_id,
+        ));
+        let okf_candidate_store = Arc::new(SqliteKnowledgeOkfCandidateStore::new(
+            pool.clone(),
+            tenant_id,
+        ));
+        let source_store = Arc::new(SqliteKnowledgeSourceStore::new(pool.clone(), tenant_id));
+        let object_ref_store = Arc::new(SqliteKnowledgeDriveObjectRefStore::new(
+            pool.clone(),
+            tenant_id,
+        ));
+        let document_store = Arc::new(SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id));
+        let index_store = Arc::new(SqliteKnowledgeIndexStore::new(pool.clone(), tenant_id));
+        let embedding_store = Arc::new(SqliteKnowledgeEmbeddingStore::new(pool.clone(), tenant_id));
+        let rag_embedder = resolve_claw_router_client_from_env()
+            .ok()
+            .map(|client| ClawRouterEmbeddingClient::new(Arc::new(client)));
+
+        let knowledge_engines = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
+            tenant_id,
+            okf: KnowledgeEngineRuntimeDeps::okf_from_stores(
+                okf_concept_store.clone(),
+                drive_storage.clone(),
+                object_ref_store.clone(),
+                okf_concept_link_store.clone(),
+                okf_candidate_store.clone(),
+                okf_bundle_file_store.clone(),
+                drive_workspace.clone(),
+                source_store.clone(),
+                space_store.clone(),
+            ),
+            rag_documents: document_store.clone(),
+            retrieval_backend,
+            retrieval_traces: retrieval_store.clone(),
+            rag_index_store: Some(index_store.clone()),
+            rag_embedding_store: Some(embedding_store.clone()),
+            rag_embedder,
+            external_engines:
+                crate::knowledge_engine_adapters::load_runtime_external_adapter_engines(
+                    source_store.clone(),
+                ),
+        }));
+
         Self {
             retrieval_store,
             embedding_retrieval_backend,
@@ -159,43 +228,24 @@ impl KnowledgebaseRuntime {
                 pool.clone(),
                 tenant_id,
             )),
-            index_store: Arc::new(SqliteKnowledgeIndexStore::new(pool.clone(), tenant_id)),
-            embedding_store: Arc::new(SqliteKnowledgeEmbeddingStore::new(pool.clone(), tenant_id)),
+            index_store,
+            embedding_store: embedding_store,
             agent_store: Arc::new(SqliteKnowledgeAgentProfileStore::new(
                 pool.clone(),
                 tenant_id,
             )),
-            space_store: Arc::new(SqliteKnowledgeSpaceStore::new(
-                pool.clone(),
-                tenant_id,
-                organization_id,
-            )),
-            okf_bundle_file_store: Arc::new(SqliteKnowledgeOkfBundleFileStore::new(
-                pool.clone(),
-                tenant_id,
-            )),
-            okf_concept_store: Arc::new(SqliteKnowledgeOkfConceptStore::new(
-                pool.clone(),
-                tenant_id,
-            )),
-            okf_concept_link_store: Arc::new(SqliteKnowledgeOkfConceptLinkStore::new(
-                pool.clone(),
-                tenant_id,
-            )),
-            okf_candidate_store: Arc::new(SqliteKnowledgeOkfCandidateStore::new(
-                pool.clone(),
-                tenant_id,
-            )),
-            document_store: Arc::new(SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id)),
-            source_store: Arc::new(SqliteKnowledgeSourceStore::new(pool.clone(), tenant_id)),
+            space_store,
+            okf_bundle_file_store,
+            okf_concept_store,
+            okf_concept_link_store,
+            okf_candidate_store,
+            document_store,
+            source_store,
             version_store: Arc::new(SqliteKnowledgeDocumentVersionStore::new(
                 pool.clone(),
                 tenant_id,
             )),
-            object_ref_store: Arc::new(SqliteKnowledgeDriveObjectRefStore::new(
-                pool.clone(),
-                tenant_id,
-            )),
+            object_ref_store,
             ingestion_job_store: Arc::new(SqliteIngestionJobStore::new(pool.clone(), tenant_id)),
             outbox_store: Arc::new(SqliteKnowledgeOutboxStore::new(pool.clone(), tenant_id)),
             chunk_store: Arc::new(SqliteKnowledgeChunkStore::new(pool.clone(), tenant_id)),
@@ -214,6 +264,7 @@ impl KnowledgebaseRuntime {
             drive_tree,
             drive_workspace,
             access_control,
+            knowledge_engines,
         }
     }
 
@@ -369,6 +420,35 @@ impl KnowledgebaseRuntime {
 
     pub(crate) fn source_store(&self) -> &SqliteKnowledgeSourceStore {
         &self.source_store
+    }
+
+    pub(crate) fn knowledge_engine_registry(&self) -> &DefaultKnowledgeEngineRegistry {
+        &self.knowledge_engines
+    }
+
+    pub(crate) fn knowledge_engines(&self) -> &DefaultKnowledgeEngineRegistry {
+        &self.knowledge_engines
+    }
+
+    pub(crate) fn knowledge_engine_space_resolver(
+        &self,
+    ) -> KnowledgeEngineSpaceResolver<DefaultKnowledgeEngineRegistry> {
+        KnowledgeEngineSpaceResolver::new(
+            self.knowledge_engines.clone(),
+            self.space_store.clone(),
+            self.source_store.clone(),
+        )
+    }
+
+    pub async fn resolve_knowledge_engine_implementation_id_for_space(
+        &self,
+        space_id: u64,
+    ) -> Result<String, String> {
+        self.knowledge_engine_space_resolver()
+            .resolve_for_space(space_id, None)
+            .await
+            .map(|engine| engine.descriptor().implementation_id)
+            .map_err(|error| error.to_string())
     }
 
     pub(crate) fn object_ref_store(&self) -> &SqliteKnowledgeDriveObjectRefStore {
@@ -679,6 +759,8 @@ impl KnowledgeAgentAppService for HostedAgentService {
         let plan_resolver =
             RuntimeRetrievalPlanResolver::new(self.runtime.retrieval_profile_store.clone());
         let space_mode_resolver = RuntimeSpaceModeResolver::new(self.runtime.space_store.clone());
+        let space_engine_client =
+            Arc::new(RuntimeSpaceKnowledgeEngineClient::new(self.runtime.clone()));
         let service = KnowledgeAgentChatService::new(
             self.runtime.agent_store.as_ref(),
             &retrieval,
@@ -687,6 +769,7 @@ impl KnowledgeAgentAppService for HostedAgentService {
             claw_router_client,
             Some(&plan_resolver),
             Some(&space_mode_resolver),
+            Some(space_engine_client),
         );
         service.chat(profile_id, request).await.map_err(Into::into)
     }

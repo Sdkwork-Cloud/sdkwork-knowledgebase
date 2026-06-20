@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.knowledge-engine-spi.spec",
+  "owner": "sdkwork-knowledgebase",
+  "normativeSpecs": [
+    "../sdkwork-specs/WEB_BACKEND_SPEC.md",
+    "../sdkwork-specs/API_SPEC.md",
+    "../sdkwork-specs/MODULE_SPEC.md",
+    "../sdkwork-specs/SDK_SPEC.md",
+    "../sdkwork-specs/DOMAIN_SPEC.md"
+  ],
+  "relatedLocalSpecs": [
+    "specs/okf-knowledge-bundle.spec.json",
+    "specs/external-knowledge-engine-catalog.spec.json",
+    "specs/component.spec.json"
+  ],
+  "designDocs": [
+    "docs/superpowers/specs/2026-06-19-okf-knowledge-bundle-design.md",
+    "docs/superpowers/specs/2026-06-09-knowledgebase-agent-rag-design.md"
+  ],
+  "purpose": "Product-level Service Provider Interface (SPI) for switchable knowledge engines: native OKF bundle, native RAG, and third-party knowledge backends.",
+  "layering": {
+    "api": {
+      "role": "Stable HTTP contract (OpenAPI authority). Consumers use generated SDKs only.",
+      "owners": [
+        "sdkwork-knowledgebase-app-api",
+        "sdkwork-knowledgebase-backend-api",
+        "sdkwork-knowledgebase-open-api"
+      ],
+      "mustNot": [
+        "embed implementation-specific types in public schemas",
+        "call third-party HTTP directly from handlers"
+      ]
+    },
+    "routerPorts": {
+      "role": "Thin HTTP adapters (KnowledgeAppApi, KnowledgeBackendApi, KnowledgeOpenApi).",
+      "location": "crates/sdkwork-router-knowledgebase-*-api/src/ports.rs",
+      "mustNot": ["own business rules", "choose implementation without registry"]
+    },
+    "knowledgeEngineSpi": {
+      "role": "Switchable product backend selected per space/source/profile.",
+      "contractCrate": "sdkwork-knowledgebase-contract",
+      "serviceCrate": "sdkwork-intelligence-knowledgebase-service",
+      "registry": "KnowledgeEngineRegistry"
+    },
+    "persistencePorts": {
+      "role": "Repository and Drive integration boundaries.",
+      "location": "crates/sdkwork-intelligence-knowledgebase-service/src/ports/"
+    },
+    "agentBridge": {
+      "role": "Thin sdkwork-agent-kernel KnowledgeProvider adapters. Kernel stays provider-neutral.",
+      "crate": "sdkwork-knowledgebase-agent-provider",
+      "mustNot": ["add OKF-specific enums to sdkwork-agent-kernel"]
+    }
+  },
+  "engineKinds": [
+    {
+      "id": "okf_bundle",
+      "displayName": "OKF Bundle (native)",
+      "knowledgeMode": "okf_bundle",
+      "implementationId": "engine.knowledge.okf.native",
+      "agentProviderId": "provider.knowledge.okf",
+      "nativeCapabilities": [
+        "concept.upsert",
+        "concept.publish",
+        "bundle.lint",
+        "bundle.import",
+        "bundle.export",
+        "bundle.index",
+        "candidate.review"
+      ],
+      "normativeBundleSpec": "specs/okf-knowledge-bundle.spec.json"
+    },
+    {
+      "id": "rag",
+      "displayName": "RAG (native)",
+      "knowledgeMode": "rag",
+      "implementationId": "engine.knowledge.rag.native",
+      "agentProviderId": "provider.knowledge.sdkwork-knowledgebase",
+      "nativeCapabilities": [
+        "ingest",
+        "chunk.index",
+        "retrieval.hybrid",
+        "context_pack",
+        "retrieval_trace"
+      ]
+    },
+    {
+      "id": "external",
+      "displayName": "Third-party knowledge backend",
+      "knowledgeMode": "external",
+      "implementationIdPattern": "engine.knowledge.external.{vendor}",
+      "agentProviderIdPattern": "provider.knowledge.external.{vendor}",
+      "nativeCapabilities": [
+        "search",
+        "read",
+        "list",
+        "health"
+      ],
+      "integrationRule": "Third-party access MUST live in an approved provider adapter crate; handlers and services MUST NOT use raw HTTP."
+    }
+  ],
+  "selection": {
+    "primaryKey": "space",
+    "fields": {
+      "spaceKnowledgeMode": "kb_space.knowledge_mode",
+      "spaceOkfInitialized": "kb_space.okf_bundle_initialized",
+      "sourceProvider": "kb_source.provider",
+      "sourceType": "kb_source.source_type",
+      "agentProfileMode": "kb_agent_profile.knowledge_mode",
+      "agentBindingSpace": "kb_agent_knowledge_binding.space_id"
+    },
+    "resolutionOrder": [
+      "explicit request mode (agent chat / retrieval preview)",
+      "agent profile knowledge_mode",
+      "space knowledge_mode",
+      "default okf_bundle for new OKF-initialized spaces"
+    ]
+  },
+  "spiSurface": {
+    "trait": "KnowledgeEngine",
+    "module": "knowledge_engine",
+    "requiredMethods": [
+      "descriptor",
+      "health",
+      "search",
+      "read_document",
+      "list_documents"
+    ],
+    "okfExtensionTrait": "OkfBundleEngine",
+    "okfExtensionMethods": [
+      "upsert_concept",
+      "publish_concept",
+      "list_concepts",
+      "lint_bundle",
+      "import_bundle",
+      "export_bundle",
+      "rebuild_index"
+    ],
+    "ragExtensionTrait": "RagKnowledgeEngine",
+    "ragExtensionMethods": [
+      "retrieve",
+      "create_context_pack",
+      "rebuild_index"
+    ],
+    "externalExtensionTrait": "ExternalKnowledgeEngine",
+    "externalExtensionMethods": [
+      "connector_health",
+      "sync_sources"
+    ]
+  },
+  "registry": {
+    "trait": "KnowledgeEngineRegistry",
+    "registrarTrait": "KnowledgeEngineRegistrar",
+    "spaceRegistryTrait": "KnowledgeEngineSpaceRegistry",
+    "methods": {
+      "KnowledgeEngineRegistry": [
+        "resolve_for_mode",
+        "resolve_by_id",
+        "list_registered"
+      ],
+      "KnowledgeEngineRegistrar": ["register"],
+      "KnowledgeEngineSpaceRegistry": ["resolve_for_space"]
+    },
+    "builtInImplementations": [
+      "engine.knowledge.okf.native",
+      "engine.knowledge.rag.native"
+    ]
+  },
+  "switching": {
+    "supportedScopes": ["space", "agent_profile", "request_override"],
+    "unsupported": [
+      "per-request switch between incompatible engines without mode validation",
+      "mixing okf_bundle and rag bindings in one chat without explicit multi-binding policy"
+    ],
+    "validation": "validate_bindings_support_mode before agent chat and retrieval"
+  },
+  "thirdParty": {
+    "catalogSpec": "specs/external-knowledge-engine-catalog.spec.json",
+    "catalogManifest": "external/knowledge-engines/catalog.manifest.json",
+    "upstreamSubmoduleRoot": "external/knowledge-engines/upstream",
+    "sourceTypes": ["connector", "api"],
+    "configStorage": "kb_source.provider + encrypted connector config (future kb_source_connector_config)",
+    "adapterCratePattern": "crates/sdkwork-knowledgebase-engine-{vendorId}",
+    "integrationTiers": ["catalog", "stub", "adapter", "production"],
+    "sdkRule": "Consume vendor SDK or composed facade; raw HTTP only inside adapter integration tests"
+  },
+  "verification": {
+    "commands": [
+      "cargo test -p sdkwork-knowledgebase-contract knowledge_engine",
+      "cargo test -p sdkwork-intelligence-knowledgebase-service knowledge_engine",
+      "node tools/check_external_knowledge_engine_catalog.mjs",
+      "node tools/check_okf_knowledge_bundle_standard.mjs",
+      "pnpm verify"
+    ]
+  }
+}

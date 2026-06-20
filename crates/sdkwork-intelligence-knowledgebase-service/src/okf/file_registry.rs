@@ -52,7 +52,7 @@ impl<'a> OkfBundleFileRegistryService<'a> {
         file_kind: OkfBundleFileKind,
     ) -> Result<KnowledgeOkfBundleFile, OkfBundleFileRegistryServiceError> {
         self.store
-            .create_file_entry(CreateKnowledgeOkfBundleFileRecord {
+            .upsert_file_entry(CreateKnowledgeOkfBundleFileRecord {
                 space_id,
                 logical_path: object_ref.logical_path.clone(),
                 file_kind,

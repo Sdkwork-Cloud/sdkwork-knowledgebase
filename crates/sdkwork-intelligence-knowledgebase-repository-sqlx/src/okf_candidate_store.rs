@@ -200,7 +200,7 @@ impl KnowledgeOkfCandidateStore for SqliteKnowledgeOkfCandidateStore {
             let space_id = to_i64("space_id", space_id)?;
             sqlx::query_as::<_, (i64, String)>(
                 r#"
-                SELECT c.id, c.publish_state
+                SELECT c.id, k.state
                 FROM kb_okf_concept c
                 INNER JOIN kb_okf_candidate k
                   ON k.tenant_id = c.tenant_id
@@ -225,7 +225,7 @@ impl KnowledgeOkfCandidateStore for SqliteKnowledgeOkfCandidateStore {
         } else {
             sqlx::query_as::<_, (i64, String)>(
                 r#"
-                SELECT c.id, c.publish_state
+                SELECT c.id, k.state
                 FROM kb_okf_concept c
                 INNER JOIN kb_okf_candidate k
                   ON k.tenant_id = c.tenant_id

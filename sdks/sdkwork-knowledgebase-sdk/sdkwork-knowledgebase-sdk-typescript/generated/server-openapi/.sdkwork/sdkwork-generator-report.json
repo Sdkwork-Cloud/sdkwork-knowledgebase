@@ -12,38 +12,57 @@
   "mode": "apply",
   "hasChanges": true,
   "hasDestructiveChanges": false,
-  "changeFingerprint": "f83bb26bebd342ff5b9623c834526981d4bc19496a617048ce1e648674dc9a3c",
+  "changeFingerprint": "e55cbc59acac0088232827ded6a4f15ea89d28b0ddc67edf7d477d1ded4c0b93",
   "changeImpact": {
     "schemaVersion": 1,
     "areas": [
       "api-surface",
-      "runtime"
+      "models",
+      "documentation",
+      "unknown"
     ],
     "details": [
       {
         "area": "api-surface",
         "paths": [
-          "src/http/client.ts"
+          "src/api/knowledge.ts",
+          "src/sdk.ts"
         ]
       },
       {
-        "area": "runtime",
+        "area": "models",
         "paths": [
-          "src/http/client.ts"
+          "src/types/knowledge-browser-node-type.ts",
+          "src/types/knowledge-browser-node.ts",
+          "src/types/knowledge-browser-view.ts"
+        ]
+      },
+      {
+        "area": "documentation",
+        "paths": [
+          "README.md"
+        ]
+      },
+      {
+        "area": "unknown",
+        "paths": [
+          "src/index.ts"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: api-surface, runtime. Verification is required."
+    "summary": "Detected impact areas: api-surface, models, documentation, unknown. Verification is required."
   },
   "executionDecision": {
     "schemaVersion": 1,
-    "riskLevel": "medium",
+    "riskLevel": "high",
     "nextAction": "verify",
     "requiresManualReview": false,
     "applyRequiresExpectedFingerprint": false,
     "summary": "Changes have been applied. Run the required verification plan now.",
     "reasons": [
+      "manual-review-required",
+      "unknown-impact",
       "verification-required"
     ]
   },
@@ -55,7 +74,7 @@
         "id": "verify-check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, runtime.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, documentation, unknown.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -73,7 +92,7 @@
         "id": "verify-build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, runtime.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, documentation, unknown.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -92,13 +111,13 @@
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: api-surface, runtime. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: api-surface, models, documentation, unknown. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, runtime.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, documentation, unknown.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -116,7 +135,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, runtime.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, documentation, unknown.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -155,16 +174,22 @@
   "syncSummary": {
     "dryRun": false,
     "controlPlaneEnabled": true,
-    "writtenFiles": 1,
+    "writtenFiles": 7,
     "skippedScaffoldFiles": 2,
-    "skippedUnchangedGeneratedFiles": 46,
+    "skippedUnchangedGeneratedFiles": 40,
     "deletedGeneratedFiles": 0,
     "changeSummaryPath": ".sdkwork/sdkwork-generator-changes.json",
-    "changeFingerprint": "f83bb26bebd342ff5b9623c834526981d4bc19496a617048ce1e648674dc9a3c",
+    "changeFingerprint": "e55cbc59acac0088232827ded6a4f15ea89d28b0ddc67edf7d477d1ded4c0b93",
     "changes": {
       "createdGeneratedFiles": [],
       "updatedGeneratedFiles": [
-        "src/http/client.ts"
+        "README.md",
+        "src/api/knowledge.ts",
+        "src/index.ts",
+        "src/sdk.ts",
+        "src/types/knowledge-browser-node-type.ts",
+        "src/types/knowledge-browser-node.ts",
+        "src/types/knowledge-browser-view.ts"
       ],
       "unchangedGeneratedFiles": [
         "bin/publish-core.mjs",
@@ -175,25 +200,19 @@
         "CHANGELOG.md",
         "LICENSE",
         "package.json",
-        "README.md",
         "sdkwork-sdk.json",
         "src/api/base.ts",
         "src/api/index.ts",
-        "src/api/knowledge.ts",
         "src/api/paths.ts",
         "src/auth/index.ts",
+        "src/http/client.ts",
         "src/http/index.ts",
-        "src/index.ts",
-        "src/sdk.ts",
         "src/types/common.ts",
         "src/types/index.ts",
         "src/types/ingestion-job-state.ts",
         "src/types/ingestion-job.ts",
         "src/types/knowledge-browser-node-permissions.ts",
-        "src/types/knowledge-browser-node-type.ts",
-        "src/types/knowledge-browser-node.ts",
         "src/types/knowledge-browser-page.ts",
-        "src/types/knowledge-browser-view.ts",
         "src/types/knowledge-citation.ts",
         "src/types/knowledge-context-fragment.ts",
         "src/types/knowledge-context-pack-request.ts",
@@ -226,35 +245,52 @@
       "schemaVersion": 1,
       "areas": [
         "api-surface",
-        "runtime"
+        "models",
+        "documentation",
+        "unknown"
       ],
       "details": [
         {
           "area": "api-surface",
           "paths": [
-            "src/http/client.ts"
+            "src/api/knowledge.ts",
+            "src/sdk.ts"
           ]
         },
         {
-          "area": "runtime",
+          "area": "models",
           "paths": [
-            "src/http/client.ts"
+            "src/types/knowledge-browser-node-type.ts",
+            "src/types/knowledge-browser-node.ts",
+            "src/types/knowledge-browser-view.ts"
+          ]
+        },
+        {
+          "area": "documentation",
+          "paths": [
+            "README.md"
+          ]
+        },
+        {
+          "area": "unknown",
+          "paths": [
+            "src/index.ts"
           ]
         }
       ],
       "requiresVerification": true,
-      "summary": "Detected impact areas: api-surface, runtime. Verification is required."
+      "summary": "Detected impact areas: api-surface, models, documentation, unknown. Verification is required."
     },
     "verificationPlan": {
       "shouldRun": true,
       "runPhase": "now",
-      "summary": "Detected impact areas: api-surface, runtime. Verification is required. Run the required verification commands now against the generated SDK output.",
+      "summary": "Detected impact areas: api-surface, models, documentation, unknown. Verification is required. Run the required verification commands now against the generated SDK output.",
       "steps": [
         {
           "id": "check",
           "title": "Unified package check",
           "required": true,
-          "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, runtime.",
+          "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, documentation, unknown.",
           "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
           "command": "node",
           "args": [
@@ -272,7 +308,7 @@
           "id": "build",
           "title": "Unified package build",
           "required": true,
-          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, runtime.",
+          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, documentation, unknown.",
           "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
           "command": "node",
           "args": [
@@ -290,12 +326,14 @@
     },
     "executionDecision": {
       "schemaVersion": 1,
-      "riskLevel": "medium",
+      "riskLevel": "high",
       "nextAction": "verify",
       "requiresManualReview": false,
       "applyRequiresExpectedFingerprint": false,
       "summary": "Changes have been applied. Run the required verification plan now.",
       "reasons": [
+        "manual-review-required",
+        "unknown-impact",
         "verification-required"
       ]
     },

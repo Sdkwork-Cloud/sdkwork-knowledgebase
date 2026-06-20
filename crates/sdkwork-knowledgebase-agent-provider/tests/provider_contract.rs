@@ -45,7 +45,7 @@ fn search_maps_kernel_request_to_knowledgebase_retrieval_and_back() {
         .unwrap();
 
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0].document_id, "201");
+    assert_eq!(results[0].document_id, "7/301");
     assert_eq!(results[0].title, "RAG Boundary");
     assert_eq!(
         results[0].retrieval_method,
@@ -64,6 +64,14 @@ fn search_maps_kernel_request_to_knowledgebase_retrieval_and_back() {
             .find(|(key, _)| key == "sdkwork.knowledge.space_id")
             .map(|(_, value)| value.as_str()),
         Some("7")
+    );
+    assert_eq!(
+        results[0]
+            .metadata
+            .iter()
+            .find(|(key, _)| key == "sdkwork.knowledge.chunk_id")
+            .map(|(_, value)| value.as_str()),
+        Some("201")
     );
 }
 

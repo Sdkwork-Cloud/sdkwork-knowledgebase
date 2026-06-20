@@ -235,13 +235,18 @@ fn method_from_openapi(method_name: &str) -> Method {
 }
 
 fn concrete_uri(template_path: &str) -> String {
-    template_path
+    let path = template_path
         .replace("{candidateId}", "31")
         .replace("{conceptId}", "17")
         .replace("{profileId}", "23")
         .replace("{exportId}", "29")
         .replace("{indexId}", "37")
-        .replace("{traceId}", "41")
+        .replace("{traceId}", "41");
+    if path.ends_with("/okf/candidates") {
+        format!("{path}?spaceId=7")
+    } else {
+        path
+    }
 }
 
 fn request_body(operation_id: &str) -> &'static str {
@@ -259,7 +264,9 @@ fn request_body(operation_id: &str) -> &'static str {
         "okf.log.entries.create" => {
             r#"{"occurredAt":"2026-06-05T00:00:00Z","eventType":"publish","title":"Published","actor":"system","affectedConcepts":[],"warnings":[]}"#
         }
-        "okf.bundle.export.create" => r#"{"spaceId":7,"exportType":"snapshot"}"#,
+        "okf.bundle.export.create" => {
+            r#"{"spaceId":7,"exportType":"okf_strict","stageForImport":true,"importId":"openapi-roundtrip"}"#
+        }
         "okf.bundle.import.create" => r#"{"spaceId":7,"importType":"okf_strict"}"#,
         "okf.lintRuns.create" | "okf.evalRuns.create" => r#"{"spaceId":7}"#,
         "indexes.create" => {

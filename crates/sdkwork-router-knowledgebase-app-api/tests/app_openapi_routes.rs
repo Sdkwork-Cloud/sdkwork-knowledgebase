@@ -281,6 +281,8 @@ fn concrete_uri(template_path: &str) -> String {
 
     if path.ends_with("/browser") {
         format!("{path}?view=files&pageSize=1")
+    } else if path.ends_with("/okf/concepts") {
+        format!("{path}?spaceId=7")
     } else {
         path
     }

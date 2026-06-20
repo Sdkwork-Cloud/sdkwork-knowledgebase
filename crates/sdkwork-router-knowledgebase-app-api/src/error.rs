@@ -202,7 +202,11 @@ impl From<KnowledgeAgentChatServiceError> for ApiError {
             }
             KnowledgeAgentChatServiceError::Retrieval(error) => Self::from(error),
             KnowledgeAgentChatServiceError::KnowledgeProvider(detail) => {
-                Self::internal("knowledge_agent_chat_provider_failed", detail)
+                if detail.contains("capability unsupported") {
+                    Self::invalid_request("knowledge_agent_chat_provider_unsupported", detail)
+                } else {
+                    Self::internal("knowledge_agent_chat_provider_failed", detail)
+                }
             }
             KnowledgeAgentChatServiceError::Runtime(detail) => {
                 Self::internal("knowledge_agent_chat_runtime_failed", detail)

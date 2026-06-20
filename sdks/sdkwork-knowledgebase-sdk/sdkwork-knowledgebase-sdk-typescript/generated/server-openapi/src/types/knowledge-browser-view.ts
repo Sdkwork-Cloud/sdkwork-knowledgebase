@@ -1,1 +1,1 @@
-export type KnowledgeBrowserView = 'files' | 'wiki' | 'outputs';
+export type KnowledgeBrowserView = 'files' | 'okf_bundle' | 'outputs';

@@ -1,8 +1,8 @@
 use crate::okf::concept_service::{OkfConceptService, OkfConceptServiceError};
-use crate::okf::document::parse_okf_markdown;
-use crate::okf::storage::read_managed_markdown;
+use crate::okf::document::{parse_okf_markdown, OkfConceptDocument};
+use crate::okf::storage::{read_managed_markdown, read_managed_object_bytes};
 use crate::okf::validator::{validate_concept_bundle_relative_path, validate_concept_document};
-use crate::ports::knowledge_drive_storage::KnowledgeDriveStorage;
+use crate::ports::knowledge_drive_storage::{KnowledgeDriveStorage, PutKnowledgeObjectRequest};
 use sdkwork_knowledgebase_contract::okf::{
     KnowledgeOkfConceptPublication, OkfBundlePaths, PublishKnowledgeOkfConceptRequest,
 };
@@ -97,40 +97,20 @@ impl<'a> OkfBundleImporterService<'a> {
                 .clone()
                 .filter(|value| !value.trim().is_empty())
                 .unwrap_or_else(|| title_from_concept_id(&concept_id));
-            let description = document.description.clone().unwrap_or_default();
+            let publish_request = publish_request_from_document(
+                request.space_id,
+                concept_id,
+                title,
+                document,
+                request.actor.clone(),
+            );
             let publication = if request.publish {
                 self.concept_service
-                    .publish_concept(
-                        PublishKnowledgeOkfConceptRequest {
-                            space_id: request.space_id,
-                            concept_id,
-                            title,
-                            concept_type: document.concept_type,
-                            description,
-                            markdown: document.body,
-                            source_count: 0,
-                            tags: document.tags,
-                            actor: request.actor.clone(),
-                        },
-                        drive_space_id,
-                    )
+                    .publish_concept(publish_request, drive_space_id)
                     .await?
             } else {
                 self.concept_service
-                    .stage_concept_candidate(
-                        PublishKnowledgeOkfConceptRequest {
-                            space_id: request.space_id,
-                            concept_id,
-                            title,
-                            concept_type: document.concept_type,
-                            description,
-                            markdown: document.body,
-                            source_count: 0,
-                            tags: document.tags,
-                            actor: request.actor.clone(),
-                        },
-                        drive_space_id,
-                    )
+                    .stage_concept_candidate(publish_request, drive_space_id)
                     .await?
             };
             publications.push(publication);
@@ -164,6 +144,28 @@ fn is_reserved_bundle_file(bundle_relative_path: &str) -> bool {
         normalized.as_str(),
         "schema/AGENTS.md" | "schema/okf_profile.yaml"
     ) || normalized.starts_with("schema/")
+}
+
+fn publish_request_from_document(
+    space_id: u64,
+    concept_id: String,
+    title: String,
+    document: OkfConceptDocument,
+    actor: String,
+) -> PublishKnowledgeOkfConceptRequest {
+    PublishKnowledgeOkfConceptRequest {
+        space_id,
+        concept_id,
+        title,
+        concept_type: document.concept_type,
+        description: document.description.unwrap_or_default(),
+        markdown: document.body,
+        source_count: 0,
+        tags: document.tags,
+        actor,
+        resource: document.resource,
+        timestamp: document.timestamp,
+    }
 }
 
 fn title_from_concept_id(concept_id: &str) -> String {
@@ -235,27 +237,25 @@ struct ImportManifest {
     files: Vec<String>,
 }
 
+pub fn drive_import_root(space_id: u64, import_id: Option<&str>) -> String {
+    let import_key = import_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| space_id.to_string());
+    format!("inbox/drive-imports/{import_key}")
+}
+
 pub async fn load_import_bundle_from_drive(
     drive: &dyn KnowledgeDriveStorage,
     space_id: u64,
+    import_id: Option<&str>,
 ) -> Result<Vec<ImportOkfBundleFile>, OkfBundleImporterError> {
-    let import_root = format!("input/imports/{space_id}");
-    let manifest_path = format!("{import_root}/import_manifest.json");
-    let manifest_body = read_managed_markdown(drive, &manifest_path)
-        .await
-        .map_err(|error| {
-            OkfBundleImporterError::InvalidRequest(format!(
-                "missing import manifest at {manifest_path}: {error}"
-            ))
-        })?;
-    let manifest: ImportManifest = serde_json::from_str(&manifest_body).map_err(|error| {
-        OkfBundleImporterError::InvalidRequest(format!(
-            "invalid import manifest at {manifest_path}: {error}"
-        ))
-    })?;
+    let import_root = drive_import_root(space_id, import_id);
+    let (manifest_path, manifest_files) = read_import_manifest_files(drive, &import_root).await?;
 
     let mut files = Vec::new();
-    for bundle_relative_path in manifest.files {
+    for bundle_relative_path in manifest_files {
         let normalized = bundle_relative_path.trim().replace('\\', "/");
         if is_reserved_bundle_file(&normalized) || !normalized.ends_with(".md") {
             continue;
@@ -275,11 +275,195 @@ pub async fn load_import_bundle_from_drive(
     }
 
     if files.is_empty() {
-        return Err(OkfBundleImporterError::InvalidRequest(
-            "import manifest did not reference any concept markdown files".to_string(),
-        ));
+        return Err(OkfBundleImporterError::InvalidRequest(format!(
+            "import manifest at {manifest_path} did not reference any concept markdown files"
+        )));
     }
     Ok(files)
+}
+
+async fn read_import_manifest_files(
+    drive: &dyn KnowledgeDriveStorage,
+    import_root: &str,
+) -> Result<(String, Vec<String>), OkfBundleImporterError> {
+    const MANIFEST_CANDIDATES: &[&str] = &[
+        "import_manifest.yaml",
+        "import_manifest.json",
+        "export_manifest.yaml",
+    ];
+
+    for manifest_name in MANIFEST_CANDIDATES {
+        let manifest_path = format!("{import_root}/{manifest_name}");
+        let manifest_body = match read_managed_markdown(drive, &manifest_path).await {
+            Ok(body) => body,
+            Err(_) => continue,
+        };
+        let files = parse_bundle_manifest_files(&manifest_body).map_err(|error| {
+            OkfBundleImporterError::InvalidRequest(format!(
+                "invalid import manifest at {manifest_path}: {error}"
+            ))
+        })?;
+        if files.is_empty() {
+            return Err(OkfBundleImporterError::InvalidRequest(format!(
+                "import manifest at {manifest_path} did not list any bundle files"
+            )));
+        }
+        return Ok((manifest_path, files));
+    }
+
+    Err(OkfBundleImporterError::InvalidRequest(format!(
+        "missing import manifest under {import_root}; expected import_manifest.yaml, import_manifest.json, or export_manifest.yaml"
+    )))
+}
+
+fn parse_bundle_manifest_files(body: &str) -> Result<Vec<String>, String> {
+    if let Ok(manifest) = serde_json::from_str::<ImportManifest>(body) {
+        return Ok(normalize_manifest_file_paths(manifest.files));
+    }
+
+    parse_yaml_manifest_files(body)
+}
+
+fn parse_yaml_manifest_files(body: &str) -> Result<Vec<String>, String> {
+    let mut in_files_section = false;
+    let mut files = Vec::new();
+
+    for line in body.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if trimmed == "files:" {
+            in_files_section = true;
+            continue;
+        }
+        if !in_files_section {
+            continue;
+        }
+        if !trimmed.starts_with('-') {
+            if trimmed.ends_with(':') {
+                break;
+            }
+            continue;
+        }
+        let value = trimmed.trim_start_matches('-').trim();
+        if value.is_empty() {
+            continue;
+        }
+        files.push(unquote_manifest_path(value));
+    }
+
+    if files.is_empty() {
+        return Err("yaml manifest is missing a files list".to_string());
+    }
+    Ok(normalize_manifest_file_paths(files))
+}
+
+fn normalize_manifest_file_paths(paths: Vec<String>) -> Vec<String> {
+    paths
+        .into_iter()
+        .map(|path| path.trim().replace('\\', "/"))
+        .filter(|path| !path.is_empty())
+        .collect()
+}
+
+fn unquote_manifest_path(value: &str) -> String {
+    let trimmed = value.trim();
+    if (trimmed.starts_with('"') && trimmed.ends_with('"'))
+        || (trimmed.starts_with('\'') && trimmed.ends_with('\''))
+    {
+        trimmed[1..trimmed.len() - 1].to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+const STAGED_IMPORT_OBJECT_ROLE: &str = "output_export";
+
+pub async fn stage_export_bundle_for_drive_import(
+    drive: &dyn KnowledgeDriveStorage,
+    export_root: &str,
+    space_id: u64,
+    import_id: &str,
+) -> Result<String, OkfBundleImporterError> {
+    let (manifest_path, manifest_files) = read_export_manifest_files(drive, export_root).await?;
+    let import_root = drive_import_root(space_id, Some(import_id));
+    for bundle_relative_path in manifest_files {
+        let normalized = bundle_relative_path.trim().replace('\\', "/");
+        if normalized.is_empty() {
+            continue;
+        }
+        let source_path = format!("{export_root}/{normalized}");
+        let bytes = read_managed_object_bytes(drive, &source_path)
+            .await
+            .map_err(OkfBundleImporterError::Storage)?;
+        let target_path = format!("{import_root}/{normalized}");
+        drive
+            .put_object(PutKnowledgeObjectRequest {
+                logical_path: target_path,
+                object_role: STAGED_IMPORT_OBJECT_ROLE.to_string(),
+                content_type: content_type_for_bundle_path(&normalized),
+                body: bytes,
+                checksum_sha256_hex: None,
+            })
+            .await?;
+    }
+    let manifest_body = read_managed_markdown(drive, &manifest_path)
+        .await
+        .map_err(OkfBundleImporterError::Storage)?;
+    drive
+        .put_object(PutKnowledgeObjectRequest {
+            logical_path: format!("{import_root}/import_manifest.yaml"),
+            object_role: STAGED_IMPORT_OBJECT_ROLE.to_string(),
+            content_type: "application/yaml; charset=utf-8".to_string(),
+            body: manifest_body.into_bytes(),
+            checksum_sha256_hex: None,
+        })
+        .await?;
+    Ok(import_root)
+}
+
+async fn read_export_manifest_files(
+    drive: &dyn KnowledgeDriveStorage,
+    export_root: &str,
+) -> Result<(String, Vec<String>), OkfBundleImporterError> {
+    const MANIFEST_CANDIDATES: &[&str] = &[
+        "export_manifest.yaml",
+        "import_manifest.yaml",
+        "import_manifest.json",
+    ];
+
+    for manifest_name in MANIFEST_CANDIDATES {
+        let manifest_path = format!("{export_root}/{manifest_name}");
+        let manifest_body = match read_managed_markdown(drive, &manifest_path).await {
+            Ok(body) => body,
+            Err(_) => continue,
+        };
+        let files = parse_bundle_manifest_files(&manifest_body).map_err(|error| {
+            OkfBundleImporterError::InvalidRequest(format!(
+                "invalid export manifest at {manifest_path}: {error}"
+            ))
+        })?;
+        if !files.is_empty() {
+            return Ok((manifest_path, files));
+        }
+    }
+
+    Err(OkfBundleImporterError::InvalidRequest(format!(
+        "missing export manifest under {export_root}"
+    )))
+}
+
+fn content_type_for_bundle_path(path: &str) -> String {
+    if path.ends_with(".md") {
+        "text/markdown; charset=utf-8".to_string()
+    } else if path.ends_with(".yaml") || path.ends_with(".yml") {
+        "application/yaml; charset=utf-8".to_string()
+    } else if path.ends_with(".json") {
+        "application/json; charset=utf-8".to_string()
+    } else {
+        "application/octet-stream".to_string()
+    }
 }
 
 pub fn stackoverflow_bundle_root() -> PathBuf {
@@ -297,4 +481,41 @@ pub enum OkfBundleImporterError {
     Storage(#[from] crate::ports::knowledge_drive_storage::KnowledgeStorageError),
     #[error(transparent)]
     ConceptService(#[from] OkfConceptServiceError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn drive_import_root_uses_import_id_when_present() {
+        assert_eq!(
+            drive_import_root(42, Some("batch-001")),
+            "inbox/drive-imports/batch-001"
+        );
+        assert_eq!(drive_import_root(42, None), "inbox/drive-imports/42");
+        assert_eq!(drive_import_root(42, Some("  ")), "inbox/drive-imports/42");
+    }
+
+    #[test]
+    fn parse_yaml_manifest_files_reads_export_manifest_shape() {
+        let yaml = r#"okfVersion: "0.1"
+exportType: "okf_strict"
+files:
+  - "index.md"
+  - "tables/users.md"
+"#;
+        let files = parse_yaml_manifest_files(yaml).expect("yaml manifest");
+        assert_eq!(
+            files,
+            vec!["index.md".to_string(), "tables/users.md".to_string()]
+        );
+    }
+
+    #[test]
+    fn parse_bundle_manifest_files_accepts_json_manifest() {
+        let json = r#"{"files":["entities/a.md"]}"#;
+        let files = parse_bundle_manifest_files(json).expect("json manifest");
+        assert_eq!(files, vec!["entities/a.md".to_string()]);
+    }
 }

@@ -18,6 +18,12 @@ pub trait KnowledgeDriveObjectRefStore: Send + Sync {
     ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
         self.create_object_ref(record).await
     }
+
+    async fn list_object_refs_by_logical_path_prefix(
+        &self,
+        space_id: u64,
+        prefix: &str,
+    ) -> Result<Vec<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -4,6 +4,7 @@ use sdkwork_agent_kernel::{
     ProviderHealth, ProviderManifest, RedactionClassification, TrustLevel,
 };
 use sdkwork_knowledgebase_contract::{
+    knowledge_engine::KnowledgeEngineSearchHit,
     okf::{okf_document_id, OkfBundlePaths},
     OkfConceptSummary, OKF_KNOWLEDGE_PROVIDER_ID,
 };
@@ -85,7 +86,7 @@ where
 
         Ok(KnowledgeDocument::new(
             document_id,
-            KnowledgeDocumentKind::WikiPage,
+            KnowledgeDocumentKind::Spec,
             concept_id.clone(),
             content,
         )
@@ -108,7 +109,7 @@ where
             .map(|page| {
                 KnowledgeDocument::new(
                     okf_document_id(space_id, &page.concept_id),
-                    KnowledgeDocumentKind::WikiPage,
+                    KnowledgeDocumentKind::Spec,
                     page.title.clone(),
                     page.description.clone(),
                 )
@@ -133,7 +134,7 @@ fn okf_concept_to_search_result(
     let title = page.title.clone();
     KnowledgeSearchResult::new(
         okf_document_id(space_id, &page.concept_id),
-        KnowledgeDocumentKind::WikiPage,
+        KnowledgeDocumentKind::Spec,
         title.clone(),
         KnowledgeRetrievalMethod::Keyword,
     )
@@ -238,5 +239,41 @@ pub fn citations_from_okf_concepts(
                 snippet: Some(concept.description.clone()),
             },
         )
+        .collect()
+}
+
+pub fn citations_from_engine_hits(
+    space_id: u64,
+    hits: &[KnowledgeEngineSearchHit],
+) -> Vec<sdkwork_knowledgebase_contract::KnowledgeAgentChatCitation> {
+    hits.iter()
+        .map(|hit| {
+            let scoped_ref = if hit.document.document_id.contains('/') {
+                hit.document.document_id.clone()
+            } else {
+                format!("{space_id}/{}", hit.document.document_id)
+            };
+            let document_key = hit
+                .document
+                .document_id
+                .rsplit('/')
+                .next()
+                .unwrap_or(hit.document.document_id.as_str());
+            let numeric_document_id = document_key.parse::<u64>().ok();
+            sdkwork_knowledgebase_contract::KnowledgeAgentChatCitation {
+                document_id: numeric_document_id,
+                concept_id: if numeric_document_id.is_some() {
+                    None
+                } else {
+                    Some(document_key.to_string())
+                },
+                title: hit.document.title.clone(),
+                source_uri: hit.document.source_uri.clone(),
+                logical_path: Some(scoped_ref),
+                locator: Some(format!("space:{space_id}")),
+                score: hit.score,
+                snippet: Some(hit.snippet.clone()),
+            }
+        })
         .collect()
 }

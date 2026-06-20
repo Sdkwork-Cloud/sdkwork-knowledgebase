@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine-catalog.spec",
+  "owner": "sdkwork-knowledgebase",
+  "catalogRoot": "external/knowledge-engines",
+  "catalogManifest": "external/knowledge-engines/catalog.manifest.json",
+  "vendorManifestPattern": "external/knowledge-engines/vendors/{vendorId}/engine.manifest.json",
+  "upstreamSubmoduleRoot": "external/knowledge-engines/upstream",
+  "relatedSpecs": [
+    "specs/knowledge-engine-spi.spec.json",
+    "specs/okf-knowledge-bundle.spec.json"
+  ],
+  "vendorIdPattern": "^[a-z0-9][a-z0-9_-]*$",
+  "implementationIdPattern": "^engine\\.knowledge\\.external\\.[a-z0-9][a-z0-9_-]*$",
+  "agentProviderIdPattern": "^provider\\.knowledge\\.external\\.[a-z0-9][a-z0-9_-]*$",
+  "integrationTiers": ["catalog", "stub", "adapter", "production"],
+  "categories": [
+    "knowledge_platform",
+    "rag_engine",
+    "enterprise_search",
+    "workflow_builder",
+    "retrieval_framework",
+    "vector_store"
+  ],
+  "requiredVendorFields": [
+    "vendorId",
+    "displayName",
+    "category",
+    "implementationId",
+    "agentProviderId",
+    "integrationTier",
+    "upstream",
+    "spiMapping"
+  ],
+  "requiredUpstreamFields": ["repositoryUrl", "defaultBranch", "submodulePath"],
+  "requiredSpiMappingFields": [
+    "search",
+    "read",
+    "list",
+    "health",
+    "ingest",
+    "syncSources"
+  ],
+  "adapterCratePattern": "crates/sdkwork-knowledgebase-engine-{vendorId}",
+  "rules": [
+    "Catalog metadata is authoritative for external engine registration; upstream git submodules are optional pins under external/knowledge-engines/upstream/{vendorId}.",
+    "SDKWork handlers and services MUST NOT call vendor HTTP APIs directly; only approved adapter crates may integrate upstream code or APIs.",
+    "Native OKF and native RAG engines are NOT listed in this catalog; they are defined in specs/knowledge-engine-spi.spec.json.",
+    "Adding a vendor requires engine.manifest.json, catalog.manifest.json entry, and passing tools/check_external_knowledge_engine_catalog.mjs."
+  ],
+  "verification": {
+    "commands": [
+      "node tools/check_external_knowledge_engine_catalog.mjs",
+      "cargo test -p sdkwork-knowledgebase-contract --test knowledge_engine_contract"
+    ]
+  }
+}

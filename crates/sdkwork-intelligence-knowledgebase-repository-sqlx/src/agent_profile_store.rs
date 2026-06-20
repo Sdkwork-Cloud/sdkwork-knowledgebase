@@ -719,10 +719,7 @@ fn agent_id_error(error: crate::id::KnowledgeIdGeneratorError) -> KnowledgeAgent
 }
 
 fn knowledge_mode_code(mode: KnowledgeAgentKnowledgeMode) -> &'static str {
-    match mode {
-        KnowledgeAgentKnowledgeMode::OkfBundle => "okf_bundle",
-        KnowledgeAgentKnowledgeMode::Rag => "rag",
-    }
+    mode.as_str()
 }
 
 fn knowledge_mode_from_code(
@@ -731,6 +728,7 @@ fn knowledge_mode_from_code(
     match value.as_str() {
         "okf_bundle" => Ok(KnowledgeAgentKnowledgeMode::OkfBundle),
         "rag" => Ok(KnowledgeAgentKnowledgeMode::Rag),
+        "external" => Ok(KnowledgeAgentKnowledgeMode::External),
         other => Err(KnowledgeAgentProfileStoreError::Internal(format!(
             "unsupported knowledge_mode value: {other}"
         ))),

@@ -37,6 +37,18 @@ pub enum KnowledgeAgentKnowledgeMode {
     OkfBundle,
     /// Chunk-based hybrid / vector retrieval over indexed knowledge.
     Rag,
+    /// Third-party knowledge backend bound via kb_source connector provider.
+    External,
+}
+
+impl KnowledgeAgentKnowledgeMode {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::OkfBundle => "okf_bundle",
+            Self::Rag => "rag",
+            Self::External => "external",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "generator": "@sdkwork/sdk-generator",
   "sdk": {
-    "name": "sdkwork-knowledgebase-app-sdk",
-    "version": "0.1.1",
+    "name": "KnowledgebaseApp",
+    "version": "0.1.0",
     "language": "typescript",
     "sdkType": "app",
     "protocol": "http",
@@ -32,7 +32,7 @@
     },
     {
       "path": "CHANGELOG.md",
-      "sha256": "43b1142ae71ee0c2ea06365431a5534ad5c6ad625dc13380927d8bb1c0e91d47"
+      "sha256": "fb941a0806986a54fc192f98a98f6d9c282b8d350b2b19a3e71dda404e92d545"
     },
     {
       "path": "LICENSE",
@@ -40,15 +40,15 @@
     },
     {
       "path": "package.json",
-      "sha256": "c40153005cd0d3422c823b2999f5c4ca152344cc0c78c9801f0720ffd3c83964"
+      "sha256": "b9a29cd40fed20e65115c1f06b244f5fc275d2da6e28a170506790357c0468da"
     },
     {
       "path": "README.md",
-      "sha256": "4ed9bd0b77a06d3a5813be8b12a2c000e60cb034d5b1e9350598b88432293400"
+      "sha256": "78cd76bbcd34070196493fb328171d806423289ea520fb8765e20145a06cbabe"
     },
     {
       "path": "sdkwork-sdk.json",
-      "sha256": "5007e0d379842441a1f58cf4691a3c6d2a0d364afbaf86c40709f25beb7fc7b8"
+      "sha256": "13ed57754068f1e086e2f658a0e048402a3864625e874521d350d38e8a9e24df"
     },
     {
       "path": "src/api/base.ts",
@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "28c54751a91fae525dab0d923d1443275a745a1749b853c67a553c35a01f5004"
+      "sha256": "f0d370615cfe3b66b10ad59ca9bb2204b4e21290aa1c387fa7fe5002b860492e"
     },
     {
       "path": "src/api/paths.ts",
@@ -72,7 +72,7 @@
     },
     {
       "path": "src/http/client.ts",
-      "sha256": "e92220665664d0195397641d2555665277f90b8c19541ecdd159102568c1c822"
+      "sha256": "7c5521163579261418c56e8126b0389dd78be9e0931e5e6064749c7cc9df0edc"
     },
     {
       "path": "src/http/index.ts",
@@ -84,11 +84,11 @@
     },
     {
       "path": "src/sdk.ts",
-      "sha256": "13f89659d224d58623c286ccfd1532bd2c3d0425137c886f221701cbc8bc6b1b"
+      "sha256": "aa8845d660347d82978df34dce06a4ee98cdfc7856d74ff7bb12a6422bd8f89d"
     },
     {
       "path": "src/types/common.ts",
-      "sha256": "ac5b348259c39e2cd8357dfcf8269268ee1da5f8a6e0770d714ab5eb796b3050"
+      "sha256": "d2506be8c4bdbe8e7059393467e6e71d75ef1d8c018dbf997bb0ab2a77b6c7b6"
     },
     {
       "path": "src/types/complete-knowledge-upload-session-request.ts",
@@ -280,7 +280,7 @@
     },
     {
       "path": "src/types/knowledge-okf-bundle-file.ts",
-      "sha256": "7d98cc35ea79c73a994bfd40f895efff3bb66d9cb182cadb18d546526ed319f2"
+      "sha256": "1ac0b5535b74f9815b4835a48e4eb4596ee6971017b3f3ca3e0577cdfcaee7fd"
     },
     {
       "path": "src/types/knowledge-okf-concept-revision-list.ts",
@@ -372,7 +372,7 @@
     },
     {
       "path": "src/types/okf-bundle-export-request.ts",
-      "sha256": "0f1d25d98184d403e98ea29fa4179f6de7af63eb252793e48d4726f65bb10fdd"
+      "sha256": "f1c23fca8359c2c216c4e493868fd0d6c956c3b780487e7241bdd3acb39ec2e5"
     },
     {
       "path": "src/types/okf-bundle-file-kind.ts",
@@ -380,7 +380,7 @@
     },
     {
       "path": "src/types/okf-bundle-import-request.ts",
-      "sha256": "d667c2658c6bff58d53120f719be66ff00d22ab123849d3a0846262e8eaa91ef"
+      "sha256": "5fb7b19208de52b2af2ae48e8f65b99659791056fa741497ded2f9c3501c6d07"
     },
     {
       "path": "src/types/okf-bundle-import-result.ts",

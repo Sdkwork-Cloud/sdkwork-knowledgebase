@@ -15,9 +15,9 @@ pnpm add @sdkwork/knowledgebase-sdk
 ## Quick Start
 
 ```typescript
-import { SdkworkKnowledgebaseClient } from '@sdkwork/knowledgebase-sdk';
+import { SdkworkCustomClient } from '@sdkwork/knowledgebase-sdk';
 
-const client = new SdkworkKnowledgebaseClient({
+const client = new SdkworkCustomClient({
   baseUrl: '/knowledge/v3/api',
   timeout: 30000,
 });
@@ -44,9 +44,9 @@ client.setApiKey('your-api-key');
 ## Configuration (Non-Auth)
 
 ```typescript
-import { SdkworkKnowledgebaseClient } from '@sdkwork/knowledgebase-sdk';
+import { SdkworkCustomClient } from '@sdkwork/knowledgebase-sdk';
 
-const client = new SdkworkKnowledgebaseClient({
+const client = new SdkworkCustomClient({
   baseUrl: '/knowledge/v3/api',
   timeout: 30000, // Request timeout in ms
   headers: {      // Custom headers
@@ -64,14 +64,14 @@ const client = new SdkworkKnowledgebaseClient({
 ### knowledge
 
 ```typescript
-// List knowledge documents
+// GET /knowledge/v3/api/documents
 const result = await client.knowledge.documents.list();
 ```
 
 ## Error Handling
 
 ```typescript
-import { SdkworkKnowledgebaseClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-sdk';
+import { SdkworkCustomClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-sdk';
 
 try {
   const result = await client.knowledge.documents.list();

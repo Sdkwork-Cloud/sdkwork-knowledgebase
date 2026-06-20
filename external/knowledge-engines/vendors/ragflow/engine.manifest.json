@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine.vendor",
+  "vendorId": "ragflow",
+  "displayName": "RAGFlow",
+  "category": "rag_engine",
+  "implementationId": "engine.knowledge.external.ragflow",
+  "agentProviderId": "provider.knowledge.external.ragflow",
+  "integrationTier": "adapter",
+  "upstream": {
+    "repositoryUrl": "https://github.com/infiniflow/ragflow",
+    "defaultBranch": "main",
+    "submodulePath": "external/knowledge-engines/upstream/ragflow",
+    "license": "Apache-2.0",
+    "homepage": "https://ragflow.io"
+  },
+  "spiMapping": {
+    "search": true,
+    "read": true,
+    "list": true,
+    "health": true,
+    "ingest": true,
+    "syncSources": true
+  },
+  "authModels": ["api_key", "bearer_token"],
+  "adapterCrate": "crates/sdkwork-knowledgebase-engine-ragflow",
+  "notes": "Deep document parsing RAG engine with agentic retrieval and ingestion pipelines."
+}

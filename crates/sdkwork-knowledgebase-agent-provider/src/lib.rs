@@ -2,9 +2,11 @@
 
 pub mod agent_implementation;
 pub mod agent_runtime;
+pub mod async_bridge;
 pub mod claw_router;
 pub mod claw_router_embeddings;
 pub mod client;
+pub mod external_space_engine_provider;
 pub mod knowledge_access;
 mod mapper;
 pub mod okf;
@@ -28,14 +30,18 @@ pub use claw_router_embeddings::{
     DEFAULT_CLAW_ROUTER_EMBEDDING_MODEL_ID,
 };
 pub use client::KnowledgebaseRetrievalClient;
+pub use external_space_engine_provider::{
+    engine_hit_to_search_result, SpaceEngineKnowledgeProvider,
+};
 pub use knowledge_access::{
     default_top_k, enabled_bindings, resolve_chat_knowledge_mode, validate_bindings_support_mode,
     validate_rag_profile_requirements, KnowledgeAccessGateway, KnowledgeAccessRequest,
     KnowledgeAccessResult, KnowledgeAccessRetrievalExecutor, KnowledgeRetrievalPlanResolver,
-    KnowledgeSpaceModeResolver,
+    KnowledgeSpaceModeResolver, SpaceKnowledgeEngineClient,
 };
 pub use okf::{
-    citations_from_okf_concepts, citations_from_rag_hits, OkfKnowledgeClient, OkfKnowledgeProvider,
+    citations_from_engine_hits, citations_from_okf_concepts, citations_from_rag_hits,
+    OkfKnowledgeClient, OkfKnowledgeProvider,
 };
 pub use provider::{SdkworkKnowledgebaseProvider, SDKWORK_KNOWLEDGEBASE_PROVIDER_ID};
 pub use retrieval_plan::{

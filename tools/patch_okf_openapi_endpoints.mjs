@@ -128,6 +128,7 @@ const backendSchemas = {
     properties: {
       spaceId: { type: "integer", format: "uint64" },
       importType: { type: "string" },
+      importId: { type: "string" },
     },
   },
   OkfBundleImportResult: {
@@ -291,6 +292,17 @@ const appSchemas = {
     properties: {
       spaceId: { type: "integer", format: "uint64" },
       importType: { type: "string" },
+      importId: { type: "string" },
+    },
+  },
+  OkfBundleExportRequest: {
+    type: "object",
+    required: ["spaceId", "exportType"],
+    properties: {
+      spaceId: { type: "integer", format: "uint64" },
+      exportType: { type: "string" },
+      stageForImport: { type: "boolean", default: false },
+      importId: { type: "string" },
     },
   },
   OkfBundleImportResult: {
@@ -303,6 +315,8 @@ const appSchemas = {
   },
 };
 
+const backendCandidatesPath = "/backend/v3/api/knowledge/okf/candidates";
+
 for (const relativePath of targets) {
   const filePath = path.join(root, relativePath);
   const spec = JSON.parse(await readFile(filePath, "utf8"));
@@ -312,12 +326,53 @@ for (const relativePath of targets) {
   if (isBackend) {
     spec.paths[backendImportPath] = backendImportOperation;
     Object.assign(spec.components.schemas, backendSchemas);
+    const bundleFile = spec.components.schemas.KnowledgeOkfBundleFile;
+    if (bundleFile?.properties) {
+      bundleFile.properties.stagedImportRoot = { type: "string" };
+      bundleFile.properties.importId = { type: "string" };
+    }
+    const exportRequest = spec.components.schemas.OkfBundleExportRequest;
+    if (exportRequest?.properties) {
+      exportRequest.properties.stageForImport = { type: "boolean", default: false };
+      exportRequest.properties.importId = { type: "string" };
+    }
+    if (spec.paths[backendCandidatesPath]?.get) {
+      spec.paths[backendCandidatesPath].get.parameters = [
+        {
+          name: "spaceId",
+          in: "query",
+          required: true,
+          schema: { type: "integer", format: "uint64" },
+        },
+      ];
+    }
   }
 
   if (isApp) {
     spec.paths[appUpsertPath] = appUpsertOperation;
     Object.assign(spec.paths, appBundlePaths);
     Object.assign(spec.components.schemas, appSchemas);
+    const appConceptsListPath = "/app/v3/api/knowledge/okf/concepts";
+    if (spec.paths[appConceptsListPath]?.get) {
+      spec.paths[appConceptsListPath].get.parameters = [
+        {
+          name: "spaceId",
+          in: "query",
+          required: true,
+          schema: { type: "integer", format: "uint64" },
+        },
+      ];
+    }
+    const bundleFile = spec.components.schemas.KnowledgeOkfBundleFile;
+    if (bundleFile?.properties) {
+      bundleFile.properties.stagedImportRoot = { type: "string" };
+      bundleFile.properties.importId = { type: "string" };
+    }
+    const exportRequest = spec.components.schemas.OkfBundleExportRequest;
+    if (exportRequest?.properties) {
+      exportRequest.properties.stageForImport = { type: "boolean", default: false };
+      exportRequest.properties.importId = { type: "string" };
+    }
     const citation = spec.components.schemas.KnowledgeAgentChatCitation;
     if (citation?.properties?.conceptId) {
       citation.properties.conceptId = {

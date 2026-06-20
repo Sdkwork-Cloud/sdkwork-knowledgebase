@@ -11,14 +11,14 @@ export interface KnowledgeBrowserNode {
   driveNodeId?: string | null;
   documentId?: number | null;
   documentVersionId?: number | null;
-  wikiPageId?: number | null;
-  wikiRevisionId?: number | null;
+  conceptId?: number | null;
+  conceptRevisionId?: number | null;
   mimeType?: string | null;
   sizeBytes?: number | null;
   ingestState?: string | null;
   parseState?: string | null;
   indexState?: string | null;
-  wikiState?: string | null;
+  okfState?: string | null;
   childrenCount?: number | null;
   updatedAt: string;
   permissions: KnowledgeBrowserNodePermissions;

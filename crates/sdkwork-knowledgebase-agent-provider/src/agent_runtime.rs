@@ -10,8 +10,8 @@ use crate::agent_implementation::{
 };
 use crate::{
     ClawRouterChatModelProvider, KnowledgebaseRetrievalClient, OkfKnowledgeClient,
-    OkfKnowledgeProvider, SdkworkKnowledgebaseProvider, OKF_KNOWLEDGE_PROVIDER_ID,
-    SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
+    OkfKnowledgeProvider, SdkworkKnowledgebaseProvider, SpaceEngineKnowledgeProvider,
+    OKF_KNOWLEDGE_PROVIDER_ID, SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
 };
 use sdkwork_agent_kernel::{
     AgentManifest, AgentRuntime, KernelError, ModelProvider, ModelRequest, ModelResponse,
@@ -26,6 +26,8 @@ use sdkwork_knowledgebase_contract::{
 };
 use std::sync::Arc;
 
+use crate::knowledge_access::SpaceKnowledgeEngineClient;
+
 pub const CLAW_ROUTER_OPEN_HTTP_URL_ENV: &str = crate::claw_router::CLAW_ROUTER_OPEN_HTTP_URL_ENV;
 
 pub struct KnowledgeAgentRuntimeBuildRequest<R, W> {
@@ -36,6 +38,8 @@ pub struct KnowledgeAgentRuntimeBuildRequest<R, W> {
     pub okf_client: W,
     pub tenant_id: u64,
     pub claw_router_client: Option<Arc<clawrouter_open_sdk::SdkworkAiClient>>,
+    pub space_engine_client: Option<Arc<dyn SpaceKnowledgeEngineClient>>,
+    pub external_knowledge_provider_ids: Vec<String>,
 }
 
 pub fn build_knowledge_agent_runtime<R, W>(
@@ -70,6 +74,24 @@ where
             "0.1.0",
             OkfKnowledgeProvider::new(request.okf_client),
         );
+
+    if !request.external_knowledge_provider_ids.is_empty() {
+        let space_engine_client = request.space_engine_client.ok_or_else(|| {
+            "external knowledge provider registration requires space engine client wiring"
+                .to_string()
+        })?;
+        for provider_id in request.external_knowledge_provider_ids {
+            builder = builder.register_knowledge_provider(
+                provider_id.as_str(),
+                "0.1.0",
+                SpaceEngineKnowledgeProvider::new(
+                    provider_id.clone(),
+                    space_engine_client.clone(),
+                    request.tenant_id,
+                ),
+            );
+        }
+    }
 
     builder
         .bootstrap()

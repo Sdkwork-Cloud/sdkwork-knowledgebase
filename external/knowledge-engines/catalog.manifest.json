@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine-catalog",
+  "catalogVersion": "2026-06-19",
+  "owner": "sdkwork-knowledgebase",
+  "normativeSpec": "specs/external-knowledge-engine-catalog.spec.json",
+  "spiSpec": "specs/knowledge-engine-spi.spec.json",
+  "upstreamSubmoduleRoot": "external/knowledge-engines/upstream",
+  "vendors": [
+    {
+      "vendorId": "dify",
+      "manifestPath": "external/knowledge-engines/vendors/dify/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.dify",
+      "integrationTier": "stub",
+      "category": "knowledge_platform"
+    },
+    {
+      "vendorId": "ragflow",
+      "manifestPath": "external/knowledge-engines/vendors/ragflow/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.ragflow",
+      "integrationTier": "catalog",
+      "category": "rag_engine"
+    },
+    {
+      "vendorId": "onyx",
+      "manifestPath": "external/knowledge-engines/vendors/onyx/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.onyx",
+      "integrationTier": "catalog",
+      "category": "enterprise_search"
+    },
+    {
+      "vendorId": "anythingllm",
+      "manifestPath": "external/knowledge-engines/vendors/anythingllm/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.anythingllm",
+      "integrationTier": "catalog",
+      "category": "knowledge_platform"
+    },
+    {
+      "vendorId": "open-webui",
+      "manifestPath": "external/knowledge-engines/vendors/open-webui/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.open-webui",
+      "integrationTier": "catalog",
+      "category": "knowledge_platform"
+    },
+    {
+      "vendorId": "flowise",
+      "manifestPath": "external/knowledge-engines/vendors/flowise/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.flowise",
+      "integrationTier": "catalog",
+      "category": "workflow_builder"
+    },
+    {
+      "vendorId": "langchain",
+      "manifestPath": "external/knowledge-engines/vendors/langchain/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.langchain",
+      "integrationTier": "catalog",
+      "category": "retrieval_framework"
+    },
+    {
+      "vendorId": "llamaindex",
+      "manifestPath": "external/knowledge-engines/vendors/llamaindex/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.llamaindex",
+      "integrationTier": "catalog",
+      "category": "retrieval_framework"
+    },
+    {
+      "vendorId": "haystack",
+      "manifestPath": "external/knowledge-engines/vendors/haystack/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.haystack",
+      "integrationTier": "catalog",
+      "category": "retrieval_framework"
+    },
+    {
+      "vendorId": "qdrant",
+      "manifestPath": "external/knowledge-engines/vendors/qdrant/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.qdrant",
+      "integrationTier": "catalog",
+      "category": "vector_store"
+    },
+    {
+      "vendorId": "weaviate",
+      "manifestPath": "external/knowledge-engines/vendors/weaviate/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.weaviate",
+      "integrationTier": "catalog",
+      "category": "vector_store"
+    },
+    {
+      "vendorId": "chroma",
+      "manifestPath": "external/knowledge-engines/vendors/chroma/engine.manifest.json",
+      "implementationId": "engine.knowledge.external.chroma",
+      "integrationTier": "catalog",
+      "category": "vector_store"
+    }
+  ]
+}

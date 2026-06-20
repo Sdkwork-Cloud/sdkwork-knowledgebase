@@ -1,8 +1,10 @@
 # SDKWork Knowledgebase Backend Design
 
 Date: 2026-06-01
-Status: draft for review
+Status: draft for review (superseded in part by OKF bundle design)
 Owner: sdkwork-knowledgebase
+
+> **OKF supersession (2026-06-19):** LLM Wiki (`wiki/*`, `kb_wiki_*`, `wiki.*` APIs) is removed from the implementation. Authoritative knowledge-bundle behavior is defined in [`2026-06-19-okf-knowledge-bundle-design.md`](2026-06-19-okf-knowledge-bundle-design.md). Sections below that still describe wiki tables, routes, or Drive paths are historical context only.
 
 ## 1. Purpose
 

@@ -12,7 +12,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_s
     IngestionJobStoreError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
-    CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
+    CreateKnowledgeSourceRecord, KnowledgeSourceLineageSnapshot, KnowledgeSourceStore,
+    KnowledgeSourceStoreError,
 };
 use sdkwork_knowledgebase_contract::document::{
     KnowledgeDocument, KnowledgeDocumentState, KnowledgeDocumentVersion,
@@ -74,6 +75,27 @@ impl KnowledgeSourceStore for SqliteKnowledgeSourceStore {
 
         self.get_source_by_identity(&record).await
     }
+
+    async fn newest_lineage_activity_at(
+        &self,
+        space_id: u64,
+    ) -> Result<Option<String>, KnowledgeSourceStoreError> {
+        self.query_newest_lineage_activity_at(space_id).await
+    }
+
+    async fn list_space_source_lineage(
+        &self,
+        space_id: u64,
+    ) -> Result<Vec<KnowledgeSourceLineageSnapshot>, KnowledgeSourceStoreError> {
+        self.query_space_source_lineage(space_id).await
+    }
+
+    async fn list_sources_for_space(
+        &self,
+        space_id: u64,
+    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
+        self.query_sources_for_space(space_id).await
+    }
 }
 
 impl SqliteKnowledgeSourceStore {
@@ -86,7 +108,7 @@ impl SqliteKnowledgeSourceStore {
         let source_type_value = record.source_type.as_str().to_string();
         let row = sqlx::query(
             r#"
-            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix
+            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, metadata
             FROM kb_source
             WHERE tenant_id = $1
               AND space_id = $2
@@ -152,14 +174,15 @@ impl SqliteKnowledgeSourceStore {
                 provider,
                 drive_bucket,
                 drive_prefix,
+                metadata,
                 status,
                 created_at,
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             {conflict_clause}
-            RETURNING id, space_id, source_type, provider, drive_bucket, drive_prefix
+            RETURNING id, space_id, source_type, provider, drive_bucket, drive_prefix, metadata
             "#
         );
 
@@ -172,6 +195,7 @@ impl SqliteKnowledgeSourceStore {
             .bind(record.provider.clone())
             .bind(record.drive_bucket.clone())
             .bind(record.drive_prefix.clone())
+            .bind(record.connector_metadata_json.clone())
             .bind(ACTIVE_STATUS)
             .bind(now.clone())
             .bind(now)
@@ -183,13 +207,74 @@ impl SqliteKnowledgeSourceStore {
         row.map(|row| source_from_row(&row)).transpose()
     }
 
+    pub async fn query_newest_lineage_activity_at(
+        &self,
+        space_id: u64,
+    ) -> Result<Option<String>, KnowledgeSourceStoreError> {
+        let tenant_id = source_to_i64("tenant_id", self.tenant_id)?;
+        let space_id = source_to_i64("space_id", space_id)?;
+        let newest = sqlx::query_scalar::<_, Option<String>>(
+            r#"
+            SELECT MAX(COALESCE(last_sync_at, updated_at))
+            FROM kb_source
+            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(space_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(source_sqlx_error)?;
+        Ok(newest)
+    }
+
+    pub async fn query_space_source_lineage(
+        &self,
+        space_id: u64,
+    ) -> Result<Vec<KnowledgeSourceLineageSnapshot>, KnowledgeSourceStoreError> {
+        let tenant_id = source_to_i64("tenant_id", self.tenant_id)?;
+        let space_id = source_to_i64("space_id", space_id)?;
+        let rows = sqlx::query(
+            r#"
+            SELECT id, updated_at, last_sync_at, provider, drive_bucket, drive_prefix
+            FROM kb_source
+            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+            ORDER BY id ASC
+            LIMIT 200
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(space_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(source_sqlx_error)?;
+
+        rows.iter()
+            .map(|row| {
+                Ok(KnowledgeSourceLineageSnapshot {
+                    source_id: source_from_i64(
+                        "id",
+                        row.try_get("id").map_err(source_sqlx_error)?,
+                    )?,
+                    updated_at: row.try_get("updated_at").map_err(source_sqlx_error)?,
+                    last_sync_at: row.try_get("last_sync_at").map_err(source_sqlx_error)?,
+                    provider: row.try_get("provider").map_err(source_sqlx_error)?,
+                    drive_bucket: row.try_get("drive_bucket").map_err(source_sqlx_error)?,
+                    drive_prefix: row.try_get("drive_prefix").map_err(source_sqlx_error)?,
+                })
+            })
+            .collect()
+    }
+
     pub async fn list_active_sources(
         &self,
     ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
         let tenant_id = source_to_i64("tenant_id", self.tenant_id)?;
         let rows = sqlx::query(
             r#"
-            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix
+            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, metadata
             FROM kb_source
             WHERE tenant_id = $1 AND status = $2
             ORDER BY id ASC
@@ -197,6 +282,31 @@ impl SqliteKnowledgeSourceStore {
             "#,
         )
         .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(source_sqlx_error)?;
+
+        rows.iter().map(source_from_row).collect()
+    }
+
+    async fn query_sources_for_space(
+        &self,
+        space_id: u64,
+    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
+        let tenant_id = source_to_i64("tenant_id", self.tenant_id)?;
+        let space_id = source_to_i64("space_id", space_id)?;
+        let rows = sqlx::query(
+            r#"
+            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, metadata
+            FROM kb_source
+            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+            ORDER BY id ASC
+            LIMIT 200
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(space_id)
         .bind(ACTIVE_STATUS)
         .fetch_all(&self.pool)
         .await
@@ -254,6 +364,21 @@ impl KnowledgeDocumentStore for SqliteKnowledgeDocumentStore {
             record.original_file_drive_node_id.as_deref(),
         )
         .await
+    }
+
+    async fn get_document_by_id(
+        &self,
+        document_id: u64,
+    ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        SqliteKnowledgeDocumentStore::get_document_by_id(self, document_id).await
+    }
+
+    async fn list_documents_for_space(
+        &self,
+        space_id: u64,
+        limit: u32,
+    ) -> Result<Vec<KnowledgeDocument>, KnowledgeDocumentStoreError> {
+        self.list_active_documents_for_space(space_id, limit).await
     }
 }
 
@@ -331,6 +456,35 @@ impl SqliteKnowledgeDocumentStore {
             "#,
         )
         .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(document_sqlx_error)?;
+
+        rows.iter().map(document_from_row).collect()
+    }
+
+    pub async fn list_active_documents_for_space(
+        &self,
+        space_id: u64,
+        limit: u32,
+    ) -> Result<Vec<KnowledgeDocument>, KnowledgeDocumentStoreError> {
+        let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
+        let space_id = document_to_i64("space_id", space_id)?;
+        let limit = i64::from(limit.clamp(1, 200));
+        let rows = sqlx::query(
+            r#"
+            SELECT id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
+                   current_version_id, visibility, content_state, index_state
+            FROM kb_document
+            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+            ORDER BY id ASC
+            LIMIT $4
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(space_id)
         .bind(ACTIVE_STATUS)
         .bind(limit)
         .fetch_all(&self.pool)
@@ -1154,6 +1308,7 @@ fn source_from_row(row: &AnyRow) -> Result<KnowledgeSource, KnowledgeSourceStore
         provider: row.try_get("provider").map_err(source_sqlx_error)?,
         drive_bucket: row.try_get("drive_bucket").map_err(source_sqlx_error)?,
         drive_prefix: row.try_get("drive_prefix").map_err(source_sqlx_error)?,
+        connector_metadata_json: row.try_get("metadata").map_err(source_sqlx_error)?,
     })
 }
 

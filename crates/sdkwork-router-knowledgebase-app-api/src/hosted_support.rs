@@ -1,11 +1,10 @@
 use sdkwork_intelligence_knowledgebase_service::{
     ingest::KnowledgeIngestionService,
     okf::{
-        load_import_bundle_from_drive, render_index_md, render_log_md, to_contract_lint_result,
-        ExportOkfBundleRequest, ImportOkfBundleRequest, OkfBundleExporterService,
-        OkfBundleFileRegistryService, OkfBundleImporterService, OkfBundleLinterService,
-        OkfBundleStandardFileService, OkfConceptService, PersistStandardFilesRequest,
-        PublishExistingOkfConceptRevisionRequest,
+        load_import_bundle_from_drive, to_contract_lint_result, ExportOkfBundleRequest,
+        ImportOkfBundleRequest, OkfBundleExporterService, OkfBundleFileRegistryService,
+        OkfBundleImporterService, OkfBundleLinterService, OkfBundleStandardFileService,
+        OkfConceptService, PersistStandardFilesRequest, PublishExistingOkfConceptRevisionRequest,
     },
     ports::{
         knowledge_drive_storage::{
@@ -182,6 +181,7 @@ pub(crate) async fn run_okf_bundle_lint(
 ) -> Result<OkfBundleLintResult, ApiError> {
     let report = OkfBundleLinterService::new(runtime.drive_storage(), runtime.okf_concept_store())
         .with_link_store(runtime.okf_concept_link_store())
+        .with_source_store(runtime.source_store())
         .lint_space(space_id)
         .await
         .map_err(|error| ApiError::internal("okf_bundle_lint_failed", error.to_string()))?;
@@ -192,38 +192,21 @@ pub(crate) async fn rebuild_okf_index_document(
     runtime: &crate::runtime::KnowledgebaseRuntime,
     space_id: u64,
 ) -> Result<OkfIndexDocument, ApiError> {
-    let space = runtime.space_store().get_space(space_id).await?;
+    runtime
+        .knowledge_engines()
+        .rebuild_okf_index(space_id)
+        .await
+        .map_err(|error| ApiError::internal("okf_index_rebuild_failed", error.to_string()))?;
+
     let concepts = runtime
         .okf_concept_store()
         .list_concept_summaries(space_id)
         .await
         .map_err(map_okf_concept_store)?;
-    let logs = runtime
-        .okf_concept_store()
-        .list_log_entries(space_id)
-        .await
-        .map_err(map_okf_concept_store)?;
-    let markdown = render_index_md(&space.name, &concepts);
-    let log_markdown = render_log_md(&logs);
-    let paths = okf_paths();
-    runtime
-        .drive_storage()
-        .put_object(PutKnowledgeObjectRequest::text(
-            paths.index_md,
-            "bundle_index",
-            markdown.clone(),
-            None,
-        ))
-        .await?;
-    runtime
-        .drive_storage()
-        .put_object(PutKnowledgeObjectRequest::text(
-            paths.log_md,
-            "bundle_log",
-            log_markdown,
-            None,
-        ))
-        .await?;
+    let markdown = sdkwork_intelligence_knowledgebase_service::okf::render_index_md(
+        &runtime.space_store().get_space(space_id).await?.name,
+        &concepts,
+    );
     Ok(OkfIndexDocument { markdown })
 }
 
@@ -295,7 +278,7 @@ pub(crate) async fn create_okf_bundle_export(
             })
             .await
             .map_err(|error| ApiError::internal("okf_export_failed", error.to_string()))?;
-    runtime
+    let file_entry = runtime
         .okf_bundle_file_store()
         .create_file_entry(CreateKnowledgeOkfBundleFileRecord {
             space_id: request.space_id,
@@ -307,7 +290,36 @@ pub(crate) async fn create_okf_bundle_export(
             checksum_sha256_hex: exported.manifest_ref.checksum_sha256_hex.clone(),
         })
         .await
-        .map_err(|error| ApiError::internal("okf_export_failed", error.to_string()))
+        .map_err(|error| ApiError::internal("okf_export_failed", error.to_string()))?;
+
+    let mut staged_import_root = None;
+    let mut response_import_id = None;
+    if request.stage_for_import {
+        let import_id = request
+            .import_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("export-{}", file_entry.id));
+        let staged =
+            sdkwork_intelligence_knowledgebase_service::okf::stage_export_bundle_for_drive_import(
+                runtime.drive_storage(),
+                &exported.export_root,
+                request.space_id,
+                &import_id,
+            )
+            .await
+            .map_err(|error| ApiError::internal("okf_export_stage_failed", error.to_string()))?;
+        staged_import_root = Some(staged);
+        response_import_id = Some(import_id);
+    }
+
+    Ok(KnowledgeOkfBundleFile {
+        staged_import_root,
+        import_id: response_import_id,
+        ..file_entry
+    })
 }
 
 pub(crate) async fn retrieve_okf_bundle_export(
@@ -348,9 +360,13 @@ pub(crate) async fn create_okf_bundle_import(
     }
     let publish = import_type == "okf_strict";
     let space_id = request.space_id;
-    let files = load_import_bundle_from_drive(runtime.drive_storage(), space_id)
-        .await
-        .map_err(|error| ApiError::internal("okf_import_failed", error.to_string()))?;
+    let files = load_import_bundle_from_drive(
+        runtime.drive_storage(),
+        space_id,
+        request.import_id.as_deref(),
+    )
+    .await
+    .map_err(|error| ApiError::internal("okf_import_failed", error.to_string()))?;
     import_okf_bundle(runtime, space_id, actor, publish, files).await
 }
 

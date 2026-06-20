@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "name": "sdkwork-knowledgebase-app-sdk",
-  "version": "0.1.1",
+  "name": "KnowledgebaseApp",
+  "version": "0.1.0",
   "language": "typescript",
   "sdkType": "app",
   "packageName": "@sdkwork/knowledgebase-app-sdk",

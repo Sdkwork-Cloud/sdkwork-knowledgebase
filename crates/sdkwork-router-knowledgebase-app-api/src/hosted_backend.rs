@@ -1,14 +1,9 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
 use sdkwork_intelligence_knowledgebase_service::{
-    knowledge_embedding_build::KnowledgeEmbeddingBuildService,
-    okf::{load_import_bundle_from_drive, ExportOkfBundleRequest, OkfBundleExporterService},
     ports::{
         knowledge_drive_storage::{KnowledgeDriveStorage, PutKnowledgeObjectRequest},
         knowledge_ingestion_job_store::{CreateIngestionJobRecord, IngestionJobStore},
-        knowledge_okf_bundle_file_store::{
-            CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
-        },
         knowledge_okf_candidate_store::KnowledgeOkfCandidateStore,
         knowledge_okf_concept_store::{AppendKnowledgeOkfLogEntryRecord, KnowledgeOkfConceptStore},
         knowledge_source_store::{CreateKnowledgeSourceRecord, KnowledgeSourceStore},
@@ -19,7 +14,6 @@ use sdkwork_knowledgebase_agent_provider::{
     resolve_claw_router_client_from_env, ClawRouterEmbeddingClient,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
-use sdkwork_knowledgebase_contract::OkfBundleFileKind;
 use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest,
@@ -37,7 +31,8 @@ use sdkwork_router_knowledgebase_backend_api::{
 
 use crate::{
     hosted_support::{
-        concept_to_summary, import_okf_bundle, persist_okf_profile, rebuild_okf_index_document,
+        concept_to_summary, create_okf_bundle_export, create_okf_bundle_import,
+        persist_okf_profile, rebuild_okf_index_document, retrieve_okf_bundle_export,
         run_okf_bundle_lint,
     },
     runtime::KnowledgebaseRuntime,
@@ -150,6 +145,7 @@ impl KnowledgeBackendApi for HostedBackendApi {
                 provider: request.provider,
                 drive_bucket: request.drive_bucket,
                 drive_prefix: request.drive_prefix,
+                connector_metadata_json: request.connector_metadata_json,
             })
             .await
             .map_err(|error| map_internal(error.to_string()))
@@ -186,11 +182,18 @@ impl KnowledgeBackendApi for HostedBackendApi {
         .await
     }
 
-    async fn list_okf_candidates(&self) -> BackendApiResult<OkfCandidateResultList> {
+    async fn list_okf_candidates(&self, space_id: u64) -> BackendApiResult<OkfCandidateResultList> {
+        if space_id == 0 {
+            return Err(BackendApiError::new(
+                axum::http::StatusCode::BAD_REQUEST,
+                "invalid_okf_candidate_list_request",
+                "space_id is required",
+            ));
+        }
         let items = self
             .runtime
             .okf_candidate_store()
-            .list_open_candidates(None)
+            .list_open_candidates(Some(space_id))
             .await
             .map_err(|error| map_internal(error.to_string()))?
             .into_iter()
@@ -323,74 +326,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
         &self,
         request: OkfBundleExportRequest,
     ) -> BackendApiResult<KnowledgeOkfBundleFile> {
-        if request.space_id == 0 || request.export_type.trim().is_empty() {
-            return Err(BackendApiError::new(
-                axum::http::StatusCode::BAD_REQUEST,
-                "invalid_okf_export_request",
-                "space_id and export_type are required",
-            ));
-        }
-        let source_object_refs = if request.export_type.trim() == "okf_with_sources" {
-            self.runtime
-                .object_ref_store()
-                .list_object_refs_by_logical_path_prefix(request.space_id, "sources/raw/")
-                .await
-                .map_err(|error| map_internal(error.to_string()))?
-        } else {
-            Vec::new()
-        };
-        let exported = OkfBundleExporterService::new(
-            self.runtime.drive_storage(),
-            self.runtime.okf_concept_store(),
-        )
-        .with_source_object_refs(source_object_refs)
-        .export_bundle(ExportOkfBundleRequest {
-            space_id: request.space_id,
-            export_type: request.export_type,
-        })
-        .await
-        .map_err(|error| map_internal(error.to_string()))?;
-        self.runtime
-            .okf_bundle_file_store()
-            .create_file_entry(CreateKnowledgeOkfBundleFileRecord {
-                space_id: request.space_id,
-                logical_path: exported.manifest_path,
-                file_kind: OkfBundleFileKind::OutputExport,
-                artifact_role: exported.manifest_ref.object_role.clone(),
-                drive_bucket: exported.manifest_ref.bucket.clone(),
-                drive_object_key: exported.manifest_ref.object_key.clone(),
-                checksum_sha256_hex: exported.manifest_ref.checksum_sha256_hex.clone(),
-            })
+        create_okf_bundle_export(&self.runtime, request)
             .await
-            .map_err(|error| map_internal(error.to_string()))
+            .map_err(map_api_error)
     }
 
     async fn create_okf_import(
         &self,
         request: OkfBundleImportRequest,
     ) -> BackendApiResult<OkfBundleImportResult> {
-        if request.space_id == 0 || request.import_type.trim().is_empty() {
-            return Err(BackendApiError::new(
-                axum::http::StatusCode::BAD_REQUEST,
-                "invalid_okf_import_request",
-                "space_id and import_type are required",
-            ));
-        }
-        let import_type = request.import_type.trim();
-        if import_type != "okf_strict" && import_type != "okf_bundle" {
-            return Err(BackendApiError::new(
-                axum::http::StatusCode::BAD_REQUEST,
-                "invalid_okf_import_request",
-                format!("unsupported import_type: {import_type}"),
-            ));
-        }
-        let publish = import_type == "okf_strict";
-        let space_id = request.space_id;
-        let files = load_import_bundle_from_drive(self.runtime.drive_storage(), space_id)
-            .await
-            .map_err(|error| map_internal(error.to_string()))?;
         let actor = self.runtime.operator_id().to_string();
-        import_okf_bundle(&self.runtime, space_id, &actor, publish, files)
+        create_okf_bundle_import(&self.runtime, request, &actor)
             .await
             .map_err(map_api_error)
     }
@@ -399,22 +345,9 @@ impl KnowledgeBackendApi for HostedBackendApi {
         &self,
         export_id: u64,
     ) -> BackendApiResult<KnowledgeOkfBundleFile> {
-        self.runtime
-            .okf_bundle_file_store()
-            .get_file_entry_by_id(export_id)
+        retrieve_okf_bundle_export(&self.runtime, export_id)
             .await
-            .map_err(|error| {
-                let detail = error.to_string();
-                if detail.contains("missing okf bundle file") {
-                    BackendApiError::new(
-                        axum::http::StatusCode::NOT_FOUND,
-                        "okf_export_not_found",
-                        detail,
-                    )
-                } else {
-                    map_internal(detail)
-                }
-            })
+            .map_err(map_api_error)
     }
 
     async fn list_okf_bundle_files(&self) -> BackendApiResult<KnowledgeOkfBundleFileList> {
@@ -543,16 +476,10 @@ impl KnowledgeBackendApi for HostedBackendApi {
         if space.knowledge_mode == KnowledgeAgentKnowledgeMode::Rag {
             if let Ok(client) = resolve_claw_router_client_from_env() {
                 let embedder = ClawRouterEmbeddingClient::new(Arc::new(client));
-                let build =
-                    KnowledgeEmbeddingBuildService::new(self.runtime.embedding_store(), embedder);
-                let _ = build
-                    .embed_space_chunks(
-                        self.runtime.tenant_id(),
-                        index.index_id,
-                        index.space_id,
-                        None,
-                        None,
-                    )
+                let _ = self
+                    .runtime
+                    .knowledge_engines()
+                    .embed_rag_index(index.index_id, index.space_id, embedder)
                     .await;
             }
         }
@@ -599,19 +526,12 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .map_err(|error| map_internal(error.to_string()))?;
 
         if space.knowledge_mode == KnowledgeAgentKnowledgeMode::Rag {
-            let indexed = if let Ok(client) = resolve_claw_router_client_from_env() {
-                let embedder = ClawRouterEmbeddingClient::new(Arc::new(client));
-                let build =
-                    KnowledgeEmbeddingBuildService::new(self.runtime.embedding_store(), embedder);
-                build
-                    .embed_space_chunks(self.runtime.tenant_id(), index_id, space_id, None, None)
-                    .await
-                    .map_err(|error| map_internal(error.to_string()))?
-            } else {
-                return Err(map_internal(
-                    "rag index rebuild requires claw-router embedding client".to_string(),
-                ));
-            };
+            let indexed = self
+                .runtime
+                .knowledge_engines()
+                .rebuild_rag_index(space_id)
+                .await
+                .map_err(|error| map_internal(error.to_string()))?;
 
             return Ok(OkfIndexDocument {
                 markdown: format!(
@@ -717,9 +637,38 @@ impl KnowledgeBackendApi for HostedBackendApi {
                 error.to_string(),
             )
         })?;
+
+        use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngineRegistry;
+        use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineHealthStatus;
+
+        let registry = self.runtime.knowledge_engine_registry();
+        let mut engine_ids = Vec::new();
+        let mut degraded = false;
+
+        for descriptor in registry.list_registered() {
+            engine_ids.push(descriptor.implementation_id.clone());
+            if !descriptor.native {
+                continue;
+            }
+            let engine = registry
+                .resolve_by_id(&descriptor.implementation_id)
+                .map_err(|error| map_internal(error.to_string()))?;
+            let health = engine
+                .health()
+                .await
+                .map_err(|error| map_internal(error.to_string()))?;
+            if health.status != KnowledgeEngineHealthStatus::Available {
+                degraded = true;
+            }
+        }
+
         Ok(KnowledgeProviderHealth {
-            status: "ok".to_string(),
-            provider_id: "sdkwork-knowledgebase-sqlx".to_string(),
+            status: if degraded {
+                "degraded".to_string()
+            } else {
+                "ok".to_string()
+            },
+            provider_id: engine_ids.join(","),
             checked_at: None,
         })
     }

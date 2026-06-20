@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::Response,
     Extension, Json,
 };
@@ -9,6 +9,7 @@ use sdkwork_knowledgebase_contract::{
     OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest,
     OkfIndexRebuildRequest, OkfLogEntry, OkfQualityRunRequest,
 };
+use serde::Deserialize;
 
 use crate::{
     auth::require_backend_context,
@@ -34,6 +35,12 @@ macro_rules! backend_handler {
     };
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ListOkfCandidatesQuery {
+    pub space_id: u64,
+}
+
 backend_handler!(list_sources, |state: BackendState| async move {
     ok_json(state.api.list_sources().await)
 });
@@ -56,9 +63,14 @@ pub(crate) async fn create_okf_compile_job(
     created_json(state.api.create_okf_compile_job(request).await)
 }
 
-backend_handler!(list_okf_candidates, |state: BackendState| async move {
-    ok_json(state.api.list_okf_candidates().await)
-});
+pub(crate) async fn list_okf_candidates(
+    State(state): State<BackendState>,
+    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    Query(query): Query<ListOkfCandidatesQuery>,
+) -> Result<Response, BackendApiProblem> {
+    require_backend_context(context)?;
+    ok_json(state.api.list_okf_candidates(query.space_id).await)
+}
 
 pub(crate) async fn approve_okf_candidate(
     State(state): State<BackendState>,
