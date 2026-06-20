@@ -3,7 +3,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_s
     KnowledgeOkfCandidateListItem, KnowledgeOkfCandidateStore, KnowledgeOkfCandidateStoreError,
     UpsertKnowledgeOkfCandidateRecord,
 };
-use sdkwork_knowledgebase_contract::{OkfCandidateType, OkfConceptPublishState};
+use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sqlx::AnyPool;
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -48,7 +48,7 @@ impl KnowledgeOkfCandidateStore for SqliteKnowledgeOkfCandidateStore {
     ) -> Result<(), KnowledgeOkfCandidateStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", record.space_id)?;
-        let concept_row_id = to_i64("concept_row_id", record.concept_row_id)?;
+        let _concept_row_id = to_i64("concept_row_id", record.concept_row_id)?;
         let markdown_object_ref_id =
             to_i64("markdown_object_ref_id", record.markdown_object_ref_id)?;
         let now = now_rfc3339()?;
@@ -162,7 +162,9 @@ impl KnowledgeOkfCandidateStore for SqliteKnowledgeOkfCandidateStore {
         .await
         .map_err(sqlx_error)?;
 
-        let reviewer_id = reviewer_id.map(|value| to_i64("reviewer_id", value)).transpose()?;
+        let reviewer_id = reviewer_id
+            .map(|value| to_i64("reviewer_id", value))
+            .transpose()?;
         let now = now_rfc3339()?;
         sqlx::query(
             r#"
@@ -263,18 +265,18 @@ fn now_rfc3339() -> Result<String, KnowledgeOkfCandidateStoreError> {
 }
 
 fn to_i64(field: &str, value: u64) -> Result<i64, KnowledgeOkfCandidateStoreError> {
-    i64::try_from(value).map_err(|_| {
-        KnowledgeOkfCandidateStoreError::Internal(format!("{field} is out of range"))
-    })
+    i64::try_from(value)
+        .map_err(|_| KnowledgeOkfCandidateStoreError::Internal(format!("{field} is out of range")))
 }
 
 fn from_i64(field: &str, value: i64) -> Result<u64, KnowledgeOkfCandidateStoreError> {
-    u64::try_from(value).map_err(|_| {
-        KnowledgeOkfCandidateStoreError::Internal(format!("{field} is out of range"))
-    })
+    u64::try_from(value)
+        .map_err(|_| KnowledgeOkfCandidateStoreError::Internal(format!("{field} is out of range")))
 }
 
-fn publish_state_from_str(value: &str) -> Result<OkfConceptPublishState, KnowledgeOkfCandidateStoreError> {
+fn publish_state_from_str(
+    value: &str,
+) -> Result<OkfConceptPublishState, KnowledgeOkfCandidateStoreError> {
     match value {
         "draft" => Ok(OkfConceptPublishState::Draft),
         "candidate_ready" => Ok(OkfConceptPublishState::CandidateReady),

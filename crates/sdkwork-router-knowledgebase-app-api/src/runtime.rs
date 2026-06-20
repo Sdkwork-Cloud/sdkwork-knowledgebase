@@ -7,8 +7,7 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeChunkStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
     SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeEmbeddingStore, SqliteKnowledgeIndexStore,
     SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeOkfCandidateStore,
-    SqliteKnowledgeOkfConceptLinkStore,
-    SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
+    SqliteKnowledgeOkfConceptLinkStore, SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
     SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
