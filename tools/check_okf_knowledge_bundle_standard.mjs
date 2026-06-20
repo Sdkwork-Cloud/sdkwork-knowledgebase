@@ -84,6 +84,9 @@ const requiredOkfStorageSymbols = [
   "export_manifest.yaml",
   "validate_concept_bundle_relative_path",
   "extract_index_linked_concept_ids",
+  "kb_okf_candidate",
+  "SqliteKnowledgeOkfCandidateStore",
+  "stage_concept_candidate",
 ];
 
 const requiredOkfMigrationTables = ["kb_okf_concept", "kb_okf_concept_link", "kb_okf_candidate"];

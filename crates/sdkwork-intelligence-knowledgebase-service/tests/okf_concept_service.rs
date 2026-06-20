@@ -680,4 +680,156 @@ struct MemoryDriveWorkspace {
 }
 
 impl MemoryDriveWorkspace {
-    fn
+    fn paths(&self) -> Vec<String> {
+        self.paths.lock().unwrap().clone()
+    }
+}
+
+#[async_trait]
+impl KnowledgeDriveWorkspace for MemoryDriveWorkspace {
+    async fn ensure_nodes(
+        &self,
+        request: EnsureKnowledgeDriveNodesRequest,
+    ) -> Result<(), KnowledgeDriveWorkspaceError> {
+        for node in request.nodes {
+            self.paths.lock().unwrap().push(node.logical_path);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+struct MemoryCandidateStore {
+    records: Mutex<Vec<UpsertKnowledgeOkfCandidateRecord>>,
+}
+
+impl MemoryCandidateStore {
+    fn count(&self) -> usize {
+        self.records.lock().unwrap().len()
+    }
+}
+
+#[async_trait]
+impl KnowledgeOkfCandidateStore for MemoryCandidateStore {
+    async fn upsert_candidate(
+        &self,
+        record: UpsertKnowledgeOkfCandidateRecord,
+    ) -> Result<(), KnowledgeOkfCandidateStoreError> {
+        self.records.lock().unwrap().push(record);
+        Ok(())
+    }
+
+    async fn update_candidate_state_by_concept_row_id(
+        &self,
+        _concept_row_id: u64,
+        _state: OkfConceptPublishState,
+        _reviewer_id: Option<u64>,
+        _review_note: Option<String>,
+    ) -> Result<(), KnowledgeOkfCandidateStoreError> {
+        Ok(())
+    }
+
+    async fn list_open_candidates(
+        &self,
+        _space_id: Option<u64>,
+    ) -> Result<Vec<KnowledgeOkfCandidateListItem>, KnowledgeOkfCandidateStoreError> {
+        Ok(vec![])
+    }
+}
+
+#[derive(Default)]
+struct MemoryLinkStore;
+
+#[async_trait]
+impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
+    async fn replace_outbound_links(
+        &self,
+        _record: ReplaceKnowledgeOkfConceptLinksRecord,
+    ) -> Result<(), KnowledgeOkfConceptLinkStoreError> {
+        Ok(())
+    }
+
+    async fn list_inbound_concept_ids(
+        &self,
+        _space_id: u64,
+        _to_concept_id: &str,
+    ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
+        Ok(vec![])
+    }
+
+    async fn list_orphan_concept_ids(
+        &self,
+        _space_id: u64,
+        _published_concept_ids: &[String],
+    ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
+        Ok(vec![])
+    }
+}
+
+#[derive(Default)]
+struct MemoryCandidateStore {
+    records: Mutex<Vec<UpsertKnowledgeOkfCandidateRecord>>,
+}
+
+impl MemoryCandidateStore {
+    fn count(&self) -> usize {
+        self.records.lock().unwrap().len()
+    }
+}
+
+#[async_trait]
+impl KnowledgeOkfCandidateStore for MemoryCandidateStore {
+    async fn upsert_candidate(
+        &self,
+        record: UpsertKnowledgeOkfCandidateRecord,
+    ) -> Result<(), KnowledgeOkfCandidateStoreError> {
+        self.records.lock().unwrap().push(record);
+        Ok(())
+    }
+
+    async fn update_candidate_state_by_concept_row_id(
+        &self,
+        _concept_row_id: u64,
+        _state: OkfConceptPublishState,
+        _reviewer_id: Option<u64>,
+        _review_note: Option<String>,
+    ) -> Result<(), KnowledgeOkfCandidateStoreError> {
+        Ok(())
+    }
+
+    async fn list_open_candidates(
+        &self,
+        _space_id: Option<u64>,
+    ) -> Result<Vec<KnowledgeOkfCandidateListItem>, KnowledgeOkfCandidateStoreError> {
+        Ok(vec![])
+    }
+}
+
+#[derive(Default)]
+struct MemoryLinkStore;
+
+#[async_trait]
+impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
+    async fn replace_outbound_links(
+        &self,
+        _record: ReplaceKnowledgeOkfConceptLinksRecord,
+    ) -> Result<(), KnowledgeOkfConceptLinkStoreError> {
+        Ok(())
+    }
+
+    async fn list_inbound_concept_ids(
+        &self,
+        _space_id: u64,
+        _to_concept_id: &str,
+    ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
+        Ok(vec![])
+    }
+
+    async fn list_orphan_concept_ids(
+        &self,
+        _space_id: u64,
+        _published_concept_ids: &[String],
+    ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
+        Ok(vec![])
+    }
+}
