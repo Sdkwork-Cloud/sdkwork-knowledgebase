@@ -28,10 +28,10 @@ async fn api_markdown_ingest_writes_payload_through_drive_and_creates_idempotent
     };
 
     let first = service
-        .ingest_markdown_payload(request.clone())
+        .ingest_markdown_payload(request.clone(), None)
         .await
         .unwrap();
-    let second = service.ingest_markdown_payload(request).await.unwrap();
+    let second = service.ingest_markdown_payload(request, None).await.unwrap();
 
     assert_eq!(first.job.id, second.job.id);
     assert_eq!(first.job.source_type, "api");
@@ -68,11 +68,11 @@ async fn api_markdown_ingest_does_not_overwrite_existing_payload_for_same_idempo
     };
 
     let first = service
-        .ingest_markdown_payload(first_request)
+        .ingest_markdown_payload(first_request, None)
         .await
         .unwrap();
     let replay = service
-        .ingest_markdown_payload(replay_request)
+        .ingest_markdown_payload(replay_request, None)
         .await
         .unwrap();
 
@@ -102,9 +102,9 @@ async fn api_markdown_ingest_trims_idempotency_key_before_lookup() {
         ..request.clone()
     };
 
-    let first = service.ingest_markdown_payload(request).await.unwrap();
+    let first = service.ingest_markdown_payload(request, None).await.unwrap();
     let replay = service
-        .ingest_markdown_payload(replay_request)
+        .ingest_markdown_payload(replay_request, None)
         .await
         .unwrap();
 
@@ -137,10 +137,10 @@ async fn api_markdown_ingest_rejects_empty_payload_and_unsafe_idempotency_key() 
     };
 
     assert!(service
-        .ingest_markdown_payload(empty_payload)
+        .ingest_markdown_payload(empty_payload, None)
         .await
         .is_err());
-    assert!(service.ingest_markdown_payload(unsafe_key).await.is_err());
+    assert!(service.ingest_markdown_payload(unsafe_key, None).await.is_err());
 }
 
 #[derive(Default)]

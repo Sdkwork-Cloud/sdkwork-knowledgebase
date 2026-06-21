@@ -6,6 +6,12 @@ export interface RegisteredKnowledgebaseSpace {
   spaceId: number;
   kbType: KnowledgebaseSpaceKbType;
   icon?: string;
+  avatar?: string;
+  isDeployed?: boolean;
+  deployedUrl?: string;
+  customDomain?: string;
+  siteName?: string;
+  siteLogo?: string;
   createdAt: string;
 }
 
@@ -73,7 +79,19 @@ export function removeRegisteredSpace(tenantId: string, spaceId: number): Regist
 export function updateRegisteredSpace(
   tenantId: string,
   spaceId: number,
-  patch: Partial<Pick<RegisteredKnowledgebaseSpace, 'kbType' | 'icon'>>,
+  patch: Partial<
+    Pick<
+      RegisteredKnowledgebaseSpace,
+      | 'kbType'
+      | 'icon'
+      | 'avatar'
+      | 'isDeployed'
+      | 'deployedUrl'
+      | 'customDomain'
+      | 'siteName'
+      | 'siteLogo'
+    >
+  >,
 ): RegisteredKnowledgebaseSpace[] {
   const next = readRegisteredSpaces(tenantId).map((space) =>
     space.spaceId === spaceId ? { ...space, ...patch } : space,

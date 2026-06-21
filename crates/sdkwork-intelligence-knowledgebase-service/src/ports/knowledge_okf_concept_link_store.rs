@@ -19,6 +19,18 @@ pub trait KnowledgeOkfConceptLinkStore: Send + Sync {
         space_id: u64,
         published_concept_ids: &[String],
     ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError>;
+
+    async fn list_active_link_edges(
+        &self,
+        space_id: u64,
+    ) -> Result<Vec<KnowledgeOkfConceptLinkEdge>, KnowledgeOkfConceptLinkStoreError>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnowledgeOkfConceptLinkEdge {
+    pub from_concept_id: String,
+    pub to_concept_id: String,
+    pub anchor_text: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -193,16 +193,19 @@ async fn adapter_puts_and_reads_objects_through_drive_object_store() {
         store,
         "provider-kb",
         "kb-bucket",
-        "knowledge/tenant/space",
+        "tenant",
     );
 
     let object_ref = adapter
-        .put_object(PutKnowledgeObjectRequest::text(
-            "okf/index.md",
-            "bundle_index",
-            "# Index",
-            None,
-        ))
+        .put_object(
+            PutKnowledgeObjectRequest::text(
+                "okf/index.md",
+                "bundle_index",
+                "# Index",
+                None,
+            )
+            .with_space_uuid("space"),
+        )
         .await
         .unwrap();
 
@@ -220,16 +223,19 @@ async fn storage_adapter_returns_computed_checksum_when_request_omits_checksum()
         store,
         "provider-kb",
         "kb-bucket",
-        "knowledge/tenant/space",
+        "tenant",
     );
 
     let object_ref = adapter
-        .put_object(PutKnowledgeObjectRequest::text(
-            "okf/index.md",
-            "bundle_index",
-            "# Index",
-            None,
-        ))
+        .put_object(
+            PutKnowledgeObjectRequest::text(
+                "okf/index.md",
+                "bundle_index",
+                "# Index",
+                None,
+            )
+            .with_space_uuid("space"),
+        )
         .await
         .unwrap();
 
@@ -246,16 +252,19 @@ async fn storage_adapter_rejects_mismatched_request_checksum_before_drive_write(
         store.clone(),
         "provider-kb",
         "kb-bucket",
-        "knowledge/tenant/space",
+        "tenant",
     );
 
     let error = adapter
-        .put_object(PutKnowledgeObjectRequest::text(
+        .put_object(
+            PutKnowledgeObjectRequest::text(
             "okf/index.md",
             "bundle_index",
             "# Index",
             Some("0000000000000000000000000000000000000000000000000000000000000000".to_string()),
-        ))
+        )
+        .with_space_uuid("space"),
+        )
         .await
         .unwrap_err();
 
@@ -270,25 +279,31 @@ async fn storage_adapter_synthesizes_content_version_for_versionless_drive_store
         store,
         "provider-kb",
         "kb-bucket",
-        "knowledge/tenant/space",
+        "tenant",
     );
 
     let first = adapter
-        .put_object(PutKnowledgeObjectRequest::text(
+        .put_object(
+            PutKnowledgeObjectRequest::text(
             "okf/index.md",
             "bundle_index",
             "# Index v1",
             None,
-        ))
+        )
+        .with_space_uuid("space"),
+        )
         .await
         .unwrap();
     let second = adapter
-        .put_object(PutKnowledgeObjectRequest::text(
+        .put_object(
+            PutKnowledgeObjectRequest::text(
             "okf/index.md",
             "bundle_index",
             "# Index v2",
             None,
-        ))
+        )
+        .with_space_uuid("space"),
+        )
         .await
         .unwrap();
 
@@ -310,16 +325,19 @@ async fn storage_adapter_treats_blank_provider_version_as_versionless() {
         store,
         "provider-kb",
         "kb-bucket",
-        "knowledge/tenant/space",
+        "tenant",
     );
 
     let object_ref = adapter
-        .put_object(PutKnowledgeObjectRequest::text(
+        .put_object(
+            PutKnowledgeObjectRequest::text(
             "okf/log.md",
             "bundle_log",
             "# Log",
             None,
-        ))
+        )
+        .with_space_uuid("space"),
+        )
         .await
         .unwrap();
 
@@ -336,16 +354,19 @@ async fn adapter_rejects_unsafe_managed_logical_paths_before_drive_write() {
         store.clone(),
         "provider-kb",
         "kb-bucket",
-        "knowledge/tenant/space",
+        "tenant",
     );
 
     let error = adapter
-        .put_object(PutKnowledgeObjectRequest::text(
+        .put_object(
+            PutKnowledgeObjectRequest::text(
             "../escape.md",
             "bundle_index",
             "# Escape",
             None,
-        ))
+        )
+        .with_space_uuid("space"),
+        )
         .await
         .unwrap_err();
 
@@ -360,16 +381,19 @@ async fn adapter_reads_empty_text_object_without_requesting_invalid_range() {
         store.clone(),
         "provider-kb",
         "kb-bucket",
-        "knowledge/tenant/space",
+        "tenant",
     );
 
     let object_ref = adapter
-        .put_object(PutKnowledgeObjectRequest::text(
+        .put_object(
+            PutKnowledgeObjectRequest::text(
             "okf/empty.md",
             "concept_markdown",
             "",
             None,
-        ))
+        )
+        .with_space_uuid("space"),
+        )
         .await
         .unwrap();
 

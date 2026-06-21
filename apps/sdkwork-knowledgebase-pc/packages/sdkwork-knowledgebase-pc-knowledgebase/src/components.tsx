@@ -368,7 +368,9 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         setActiveKb(prev => prev ? { ...prev, ...updates } : null);
       }
     } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
       console.error(e);
+      toast.error(detail);
     }
   };
 
@@ -467,36 +469,20 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
     setSelectedDocIds(newKeys);
   };
 
-  const handleImportCloudDrive = async (selectedItems: any[]) => {
+  const handleImportCloudDrive = async (selectedItems: Array<{ title: string; type: string; content?: string; documentId?: number }>) => {
     if (!cloudDriveKb) return;
     try {
-      if (selectedItems && selectedItems.length > 0) {
-        for (const item of selectedItems) {
-          await DocumentService.createDocument({
-            title: item.title,
-            type: item.type,
-            content: item.content || '',
-            url: item.url,
-            kbId: cloudDriveKb.id,
-            parentId: null
-          });
-        }
-      } else {
-        await DocumentService.createDocument({
-          title: t('cloudDrive', { defaultValue: '云端网盘' }),
-          type: 'folder',
-          kbId: cloudDriveKb.id,
-          parentId: null
-        });
+      if (!selectedItems || selectedItems.length === 0) {
+        // Drive import already materializes browser nodes; no placeholder folder is needed.
       }
-      
+
       if (activeKb && activeKb.id === cloudDriveKb.id) {
         setLoadingDocs(true);
         const refreshedDocs = await DocumentService.getDocuments(activeKb.id);
         setDocs(refreshedDocs);
         setLoadingDocs(false);
       }
-      
+
       setCloudDriveKb(null);
       toast.success(t('importSuccess', { defaultValue: '从网盘中导入成功！' }));
     } catch (e) {
@@ -518,7 +504,9 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
             setIsDeployModalOpen(true);
           }}
           onOpenSettings={(kb) => {
-            setSettingsKb(kb);
+            DocumentService.hydrateKnowledgeBase(kb)
+              .then((hydrated) => setSettingsKb(hydrated))
+              .catch(() => setSettingsKb(kb));
           }}
           onOpenMarket={() => setIsMarketOpen(true)}
           onImportGit={(kb) => {
@@ -705,7 +693,9 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
               }
               setSettingsKb(null);
             } catch (e) {
+              const detail = e instanceof Error ? e.message : String(e);
               console.error(e);
+              toast.error(detail);
             }
           }}
         />
@@ -754,6 +744,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         <CloudDriveModal
           isOpen={!!cloudDriveKb}
           onClose={() => setCloudDriveKb(null)}
+          spaceId={cloudDriveKb.id}
           onConfirm={handleImportCloudDrive}
         />
       )}

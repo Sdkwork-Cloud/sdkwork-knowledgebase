@@ -291,6 +291,7 @@ fn concrete_uri(template_path: &str) -> String {
 fn request_body(operation_id: &str) -> &'static str {
     match operation_id {
         "spaces.create" => r#"{"name":"Knowledge Space","description":"Demo"}"#,
+        "spaces.update" => r#"{"name":"Renamed Knowledge Space"}"#,
         "driveImports.create" => {
             r#"{"spaceId":7,"title":"Quarterly Report","driveStorageProviderId":"provider-kb","driveBucket":"knowledgebase-source","driveObjectKey":"incoming/report.md","idempotencyKey":"drive-report"}"#
         }
@@ -313,25 +314,28 @@ fn request_body(operation_id: &str) -> &'static str {
         "okf.bundle.import.create" => r#"{"spaceId":7,"importType":"okf_strict"}"#,
         "okf.lintRuns.create" => r#"{"spaceId":7,"profile":"default"}"#,
         "retrievals.create" => {
-            r#"{"tenantId":"20001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
+            r#"{"tenantId":"100001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
         }
         "contextPacks.create" => {
-            r#"{"tenantId":"20001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"contextBudgetTokens":1200,"includeCitations":true}"#
+            r#"{"tenantId":"100001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"contextBudgetTokens":1200,"includeCitations":true}"#
         }
         "agentProfiles.create" | "agentProfiles.update" => {
-            r#"{"tenantId":"20001","name":"Support Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.openai","modelId":"gpt-4.1","status":"active"}"#
+            r#"{"tenantId":"100001","name":"Support Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.openai","modelId":"gpt-4.1","status":"active"}"#
         }
         "agentProfiles.bindings.create" | "agentProfiles.bindings.update" => {
-            r#"{"tenantId":"20001","profileId":"41","spaceId":"7","priority":10,"enabled":true}"#
+            r#"{"tenantId":"100001","profileId":"41","spaceId":"7","priority":10,"enabled":true}"#
         }
         "agentProfiles.retrievalPreview.create" => {
-            r#"{"tenantId":"20001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
+            r#"{"tenantId":"100001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
         }
         "agentProfiles.chat.create" => {
-            r#"{"tenantId":"20001","message":"What changed in the quarterly report?","mode":"okf_bundle"}"#
+            r#"{"tenantId":"100001","message":"What changed in the quarterly report?","mode":"okf_bundle"}"#
         }
         "spaces.contextBindings.create" => {
             r#"{"spaceId":"7","contextType":"chat_group","contextId":"grp-ops","accessLevel":"reader"}"#
+        }
+        "spaces.members.grant" => {
+            r#"{"subjectType":"user","subjectId":"editor@company.com","role":"writer"}"#
         }
         "contextBindings.update" => r#"{"accessLevel":"writer"}"#,
         _ => "",

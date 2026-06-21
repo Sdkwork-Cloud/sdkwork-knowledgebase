@@ -59,6 +59,7 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
     async fn list_documents(
         &self,
         _context: KnowledgeOpenApiRequestContext,
+        _space_id: u64,
     ) -> ApiResult<KnowledgeDocumentList> {
         Err(ApiError::not_implemented("documents.list"))
     }

@@ -23,7 +23,7 @@ async fn adapter_maps_memory_spi_context_into_knowledgebase_memory_fragments() {
 
     let result = adapter
         .build_memory_context(KnowledgeMemoryContextRequest {
-            tenant_id: 20001,
+            tenant_id: 100001,
             actor_id: Some(30001),
             query: "concise sdkwork examples".to_string(),
             memory_policy_ref: "memory.session.summary".to_string(),

@@ -70,6 +70,7 @@ impl<'a> KnowledgeUploadSessionService<'a> {
         &self,
         session: &KnowledgeUploadSession,
         request: &CompleteKnowledgeUploadSessionRequest,
+        drive_space_id: Option<&str>,
     ) -> Result<String, KnowledgeUploadSessionServiceError> {
         if let Some(payload_markdown) = &request.payload_markdown {
             if is_blank(Some(payload_markdown)) {
@@ -78,22 +79,28 @@ impl<'a> KnowledgeUploadSessionService<'a> {
                 ));
             }
             self.drive
-                .put_object(PutKnowledgeObjectRequest::text(
-                    session.upload_logical_path.clone(),
-                    "upload_payload",
-                    payload_markdown,
-                    None,
-                ))
+                .put_object(
+                    PutKnowledgeObjectRequest::text(
+                        session.upload_logical_path.clone(),
+                        "upload_payload",
+                        payload_markdown,
+                        None,
+                    )
+                    .with_drive_space_id(drive_space_id),
+                )
                 .await?;
             return Ok(payload_markdown.clone());
         }
 
         let object_ref = self
             .drive
-            .head_object(HeadKnowledgeObjectRequest::managed_artifact(
-                session.upload_logical_path.clone(),
-                "upload_payload",
-            ))
+            .head_object(
+                HeadKnowledgeObjectRequest::managed_artifact(
+                    session.upload_logical_path.clone(),
+                    "upload_payload",
+                )
+                .with_drive_space_id(drive_space_id),
+            )
             .await
             .map_err(|error| match error {
                 KnowledgeStorageError::NotFound(_) => {

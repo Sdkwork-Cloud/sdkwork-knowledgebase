@@ -26,6 +26,16 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         operation_id: "spaces.retrieve",
     },
     RouteManifestEntry {
+        method: "PATCH",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}",
+        operation_id: "spaces.update",
+    },
+    RouteManifestEntry {
+        method: "DELETE",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}",
+        operation_id: "spaces.delete",
+    },
+    RouteManifestEntry {
         method: "POST",
         path: "/app/v3/api/knowledge/drive_imports",
         operation_id: "driveImports.create",
@@ -89,6 +99,11 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         method: "GET",
         path: "/app/v3/api/knowledge/okf/concepts/{conceptId}",
         operation_id: "okf.concepts.retrieve",
+    },
+    RouteManifestEntry {
+        method: "DELETE",
+        path: "/app/v3/api/knowledge/okf/concepts/{conceptId}",
+        operation_id: "okf.concepts.delete",
     },
     RouteManifestEntry {
         method: "GET",
@@ -224,6 +239,21 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         method: "POST",
         path: "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
         operation_id: "spaces.contextBindings.create",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/members",
+        operation_id: "spaces.members.list",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/members",
+        operation_id: "spaces.members.grant",
+    },
+    RouteManifestEntry {
+        method: "DELETE",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/members",
+        operation_id: "spaces.members.revoke",
     },
     RouteManifestEntry {
         method: "GET",

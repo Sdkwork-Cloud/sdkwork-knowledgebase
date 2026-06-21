@@ -3,12 +3,25 @@ use axum::Router;
 use crate::{dev_auth, KnowledgebaseRuntime};
 
 pub fn dev_auth_bypass_enabled() -> bool {
+    let bypass_flag = std::env::var("SDKWORK_KNOWLEDGEBASE_DEV_AUTH_BYPASS")
+        .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    if bypass_flag {
+        let environment = knowledgebase_environment()
+            .map(|value| value.to_ascii_lowercase())
+            .unwrap_or_else(|| "development".to_string());
+        if environment != "development" {
+            eprintln!(
+                "SDKWORK_KNOWLEDGEBASE_DEV_AUTH_BYPASS is only allowed when SDKWORK_KNOWLEDGEBASE_ENVIRONMENT=development"
+            );
+            std::process::exit(1);
+        }
+        return true;
+    }
+
     knowledgebase_environment()
         .map(|environment| environment.eq_ignore_ascii_case("development"))
         .unwrap_or(false)
-        || std::env::var("SDKWORK_KNOWLEDGEBASE_DEV_AUTH_BYPASS")
-            .map(|value| value == "1" || value.eq_ignore_ascii_case("true"))
-            .unwrap_or(false)
 }
 
 pub fn knowledgebase_environment() -> Option<String> {

@@ -10,10 +10,13 @@ use crate::ports::{
     },
     knowledge_space_store::{
         CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
+        UpdateKnowledgeSpaceRecord,
     },
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
-use sdkwork_knowledgebase_contract::space::{CreateKnowledgeSpaceRequest, KnowledgeSpace};
+use sdkwork_knowledgebase_contract::space::{
+    CreateKnowledgeSpaceRequest, KnowledgeSpace, UpdateKnowledgeSpaceRequest,
+};
 use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 
@@ -121,11 +124,75 @@ impl<'a> KnowledgeSpaceService<'a> {
         Ok(space)
     }
 
+    pub async fn update_space(
+        &self,
+        space_id: u64,
+        tenant_id: &str,
+        actor_id: &str,
+        request: UpdateKnowledgeSpaceRequest,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
+        self.get_space_with_access_check(space_id, tenant_id, actor_id)
+            .await?;
+
+        if request.name.as_ref().is_some_and(|name| is_blank(Some(name.as_str()))) {
+            return Err(KnowledgeSpaceServiceError::InvalidRequest(
+                "name must not be blank".to_string(),
+            ));
+        }
+
+        if request.name.is_none() && request.description.is_none() {
+            return Err(KnowledgeSpaceServiceError::InvalidRequest(
+                "at least one of name or description is required".to_string(),
+            ));
+        }
+
+        self.store
+            .update_space(
+                space_id,
+                UpdateKnowledgeSpaceRecord {
+                    name: request.name,
+                    description: request.description,
+                },
+            )
+            .await
+            .map_err(KnowledgeSpaceServiceError::Store)
+    }
+
+    pub async fn delete_space(
+        &self,
+        space_id: u64,
+        tenant_id: &str,
+        actor_id: &str,
+    ) -> Result<(), KnowledgeSpaceServiceError> {
+        self.get_space_with_access_check(space_id, tenant_id, actor_id)
+            .await?;
+        self.store
+            .mark_space_deleted(space_id)
+            .await
+            .map_err(KnowledgeSpaceServiceError::Store)
+    }
+
     pub async fn get_space_with_access_check(
         &self,
         space_id: u64,
         tenant_id: &str,
         actor_id: &str,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
+        self.get_space_with_role_check(
+            space_id,
+            tenant_id,
+            actor_id,
+            KnowledgeAccessRole::Reader,
+        )
+        .await
+    }
+
+    pub async fn get_space_with_role_check(
+        &self,
+        space_id: u64,
+        tenant_id: &str,
+        actor_id: &str,
+        required_role: KnowledgeAccessRole,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
         let space = self
             .store
@@ -142,7 +209,7 @@ impl<'a> KnowledgeSpaceService<'a> {
                         tenant_id: tenant_id.to_string(),
                         actor_id: actor_id.to_string(),
                         drive_space_id: drive_space_id.clone(),
-                        required_role: KnowledgeAccessRole::Reader,
+                        required_role,
                     },
                 )
                 .await
@@ -166,6 +233,14 @@ impl<'a> KnowledgeSpaceService<'a> {
         role: KnowledgeAccessRole,
         operator_id: &str,
     ) -> Result<(), KnowledgeSpaceServiceError> {
+        self.get_space_with_role_check(
+            space_id,
+            tenant_id,
+            operator_id,
+            KnowledgeAccessRole::Owner,
+        )
+        .await?;
+
         let space = self
             .store
             .get_space(space_id)
@@ -205,6 +280,14 @@ impl<'a> KnowledgeSpaceService<'a> {
         subject_id: &str,
         operator_id: &str,
     ) -> Result<(), KnowledgeSpaceServiceError> {
+        self.get_space_with_role_check(
+            space_id,
+            tenant_id,
+            operator_id,
+            KnowledgeAccessRole::Owner,
+        )
+        .await?;
+
         let space = self
             .store
             .get_space(space_id)
@@ -239,10 +322,14 @@ impl<'a> KnowledgeSpaceService<'a> {
         &self,
         space_id: u64,
         tenant_id: &str,
+        actor_id: &str,
     ) -> Result<
         crate::ports::knowledge_access_control::KnowledgeSpaceMemberList,
         KnowledgeSpaceServiceError,
     > {
+        self.get_space_with_access_check(space_id, tenant_id, actor_id)
+            .await?;
+
         let space = self
             .store
             .get_space(space_id)
@@ -333,20 +420,65 @@ impl<'a> KnowledgeSpaceService<'a> {
                     .await);
             }
 
-            return match self
+            space = match self
                 .store
                 .mark_okf_bundle_initialized(space.id)
                 .await
                 .map_err(KnowledgeSpaceServiceError::Store)
             {
-                Ok(space) => Ok(space),
-                Err(error) => Err(self
-                    .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
-                    .await),
+                Ok(space) => space,
+                Err(error) => {
+                    return Err(self
+                        .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
+                        .await)
+                }
             };
         }
 
+        self.grant_created_space_owner_access(
+            &space,
+            drive_context,
+            owner_subject_type,
+            owner_subject_id,
+        )
+        .await?;
+
         Ok(space)
+    }
+
+    async fn grant_created_space_owner_access(
+        &self,
+        space: &KnowledgeSpace,
+        drive_context: Option<&KnowledgeSpaceDriveContext>,
+        owner_subject_type: &str,
+        owner_subject_id: &str,
+    ) -> Result<(), KnowledgeSpaceServiceError> {
+        let Some(access) = self.access_control else {
+            return Ok(());
+        };
+        let Some(drive_context) = drive_context else {
+            return Ok(());
+        };
+        let Some(drive_space_id) = space.drive_space_id.as_deref() else {
+            return Ok(());
+        };
+
+        let subject_type = KnowledgeSubjectType::from_drive_subject_type(owner_subject_type)
+            .unwrap_or(KnowledgeSubjectType::User);
+        access
+            .grant_space_access(
+                crate::ports::knowledge_access_control::GrantKnowledgeSpaceAccessRequest {
+                    tenant_id: drive_context.tenant_id.clone(),
+                    drive_space_id: drive_space_id.to_string(),
+                    drive_node_id: None,
+                    subject_type,
+                    subject_id: owner_subject_id.to_string(),
+                    role: KnowledgeAccessRole::Owner,
+                    operator_id: drive_context.operator_id.clone(),
+                },
+            )
+            .await
+            .map_err(KnowledgeSpaceServiceError::AccessControl)
     }
 
     async fn cleanup_created_drive_space(

@@ -102,6 +102,7 @@ async fn standard_files_are_persisted_through_drive_port() {
                 tags: vec!["entity".to_string()],
             }],
             log_entries: vec![],
+            drive_space_id: None,
         })
         .await
         .unwrap();

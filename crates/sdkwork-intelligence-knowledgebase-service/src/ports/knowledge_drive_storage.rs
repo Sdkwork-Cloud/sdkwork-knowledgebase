@@ -37,6 +37,9 @@ pub struct PutKnowledgeObjectRequest {
     pub content_type: String,
     pub body: Vec<u8>,
     pub checksum_sha256_hex: Option<String>,
+    /// Knowledge space UUID for per-space object key planning (`knowledge/{tenant}/{space}/...`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub space_uuid: Option<String>,
 }
 
 impl PutKnowledgeObjectRequest {
@@ -52,6 +55,43 @@ impl PutKnowledgeObjectRequest {
             content_type: "text/markdown; charset=utf-8".to_string(),
             body: body.into().into_bytes(),
             checksum_sha256_hex,
+            space_uuid: None,
+        }
+    }
+
+    pub fn with_space_uuid(mut self, space_uuid: impl Into<String>) -> Self {
+        self.space_uuid = Some(space_uuid.into());
+        self
+    }
+
+    pub fn with_drive_space_id(mut self, drive_space_id: Option<&str>) -> Self {
+        self.space_uuid = drive_space_id.and_then(space_uuid_from_drive_space_id);
+        self
+    }
+
+    pub fn managed_text(
+        logical_path: impl Into<String>,
+        object_role: impl Into<String>,
+        body: impl Into<String>,
+        drive_space_id: Option<&str>,
+    ) -> Self {
+        Self::text(logical_path, object_role, body, None).with_drive_space_id(drive_space_id)
+    }
+
+    pub fn managed_json(
+        logical_path: impl Into<String>,
+        object_role: impl Into<String>,
+        body: Vec<u8>,
+        checksum_sha256_hex: impl Into<String>,
+        space_uuid: impl Into<String>,
+    ) -> Self {
+        Self {
+            logical_path: logical_path.into(),
+            object_role: object_role.into(),
+            content_type: "application/json; charset=utf-8".to_string(),
+            body,
+            checksum_sha256_hex: Some(checksum_sha256_hex.into()),
+            space_uuid: Some(space_uuid.into()),
         }
     }
 }
@@ -64,6 +104,8 @@ pub struct HeadKnowledgeObjectRequest {
     pub object_key: String,
     pub logical_path: Option<String>,
     pub object_role: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub space_uuid: Option<String>,
 }
 
 impl HeadKnowledgeObjectRequest {
@@ -79,6 +121,7 @@ impl HeadKnowledgeObjectRequest {
             logical_path: Some(object_key.clone()),
             object_key,
             object_role: "original_document".to_string(),
+            space_uuid: None,
         }
     }
 
@@ -93,8 +136,27 @@ impl HeadKnowledgeObjectRequest {
             object_key: logical_path.clone(),
             logical_path: Some(logical_path),
             object_role: object_role.into(),
+            space_uuid: None,
         }
     }
+
+    pub fn with_space_uuid(mut self, space_uuid: impl Into<String>) -> Self {
+        self.space_uuid = Some(space_uuid.into());
+        self
+    }
+
+    pub fn with_drive_space_id(mut self, drive_space_id: Option<&str>) -> Self {
+        self.space_uuid = drive_space_id.and_then(space_uuid_from_drive_space_id);
+        self
+    }
+}
+
+pub fn space_uuid_from_drive_space_id(drive_space_id: &str) -> Option<String> {
+    drive_space_id
+        .strip_prefix("kb-")
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

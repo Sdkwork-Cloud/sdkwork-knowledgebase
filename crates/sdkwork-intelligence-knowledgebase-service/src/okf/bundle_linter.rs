@@ -3,6 +3,7 @@ use crate::okf::linter::{
     extract_citation_urls, extract_index_linked_concept_ids, lint_bundle_summaries,
     lint_concept_stale_claims, lint_published_concept_markdown, OkfBundleLintReport, OkfLintIssue,
 };
+use sdkwork_knowledgebase_observability::record_okf_bundle_lint_completed;
 use crate::okf::storage::read_managed_markdown;
 use crate::ports::knowledge_drive_storage::KnowledgeDriveStorage;
 use crate::ports::knowledge_okf_concept_link_store::{
@@ -49,6 +50,7 @@ impl<'a> OkfBundleLinterService<'a> {
     pub async fn lint_space(
         &self,
         space_id: u64,
+        drive_space_id: Option<&str>,
     ) -> Result<OkfBundleLintReport, OkfBundleLinterError> {
         let concepts = self.concept_store.list_concept_summaries(space_id).await?;
         let known = concepts
@@ -64,7 +66,7 @@ impl<'a> OkfBundleLinterService<'a> {
 
         let mut issues = Vec::new();
         for concept in &concepts {
-            match read_managed_markdown(self.drive, &concept.logical_path).await {
+            match read_managed_markdown(self.drive, &concept.logical_path, drive_space_id).await {
                 Ok(markdown) => {
                     issues.extend(lint_published_concept_markdown(
                         &concept.concept_id,
@@ -100,24 +102,41 @@ impl<'a> OkfBundleLinterService<'a> {
         let orphan_concept_ids = if let Some(link_store) = self.link_store {
             let mut orphans = link_store.list_orphan_concept_ids(space_id, &known).await?;
             let index_linked_concepts =
-                self.read_all_index_linked_concepts(&concepts, &known).await;
+                self.read_all_index_linked_concepts(&concepts, &known, drive_space_id)
+                    .await;
             orphans.retain(|concept_id| !index_linked_concepts.contains(concept_id));
             orphans
         } else {
             Vec::new()
         };
         issues.extend(lint_bundle_summaries(&concepts, &orphan_concept_ids).issues);
-        Ok(OkfBundleLintReport { issues })
+        let report = OkfBundleLintReport { issues };
+        let conformance_failures = report
+            .issues
+            .iter()
+            .filter(|issue| {
+                issue.check == "okf_conformance" && issue.severity == crate::okf::linter::OkfLintSeverity::Error
+            })
+            .count() as u64;
+        record_okf_bundle_lint_completed(
+            space_id,
+            report.issues.len() as u64,
+            conformance_failures,
+        );
+        Ok(report)
     }
 
     async fn read_all_index_linked_concepts(
         &self,
         concepts: &[sdkwork_knowledgebase_contract::okf::OkfConceptSummary],
         known: &[String],
+        drive_space_id: Option<&str>,
     ) -> BTreeSet<String> {
         let mut linked = BTreeSet::new();
         for logical_path in hierarchical_index_paths(concepts) {
-            if let Ok(index_markdown) = read_managed_markdown(self.drive, &logical_path).await {
+            if let Ok(index_markdown) =
+                read_managed_markdown(self.drive, &logical_path, drive_space_id).await
+            {
                 linked.extend(extract_index_linked_concept_ids(&index_markdown, known));
             }
         }

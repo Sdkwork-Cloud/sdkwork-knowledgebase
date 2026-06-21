@@ -1,11 +1,19 @@
 use sdkwork_knowledgebase_contract::okf::OkfConceptSummary;
+use std::collections::HashMap;
+
+use crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkEdge;
 
 const TITLE_WEIGHT: f64 = 3.0;
 const CONCEPT_ID_WEIGHT: f64 = 2.5;
 const TAG_WEIGHT: f64 = 1.5;
 const DESCRIPTION_WEIGHT: f64 = 1.0;
+const BODY_WEIGHT: f64 = 2.0;
 const SEGMENT_EXACT_BONUS: f64 = 0.35;
 const SEGMENT_PREFIX_BONUS: f64 = 0.15;
+const LINK_OUTBOUND_BOOST: f64 = 0.3;
+const LINK_INBOUND_BOOST: f64 = 0.2;
+const ANCHOR_MATCH_BOOST: f64 = 0.45;
+const DEFAULT_SNIPPET_CHARS: usize = 320;
 
 pub fn normalize_query(query: &str) -> Vec<String> {
     query
@@ -103,10 +111,19 @@ pub fn rank_okf_concepts(
     top_k: u32,
 ) -> Vec<(f64, OkfConceptSummary)> {
     let normalized_query = normalize_query(query);
+    let mut ranked = rank_okf_concepts_with_tokens(pages, &normalized_query);
+    ranked.truncate(top_k.max(1) as usize);
+    ranked
+}
+
+pub fn rank_okf_concepts_with_tokens(
+    pages: Vec<OkfConceptSummary>,
+    tokens: &[String],
+) -> Vec<(f64, OkfConceptSummary)> {
     let mut ranked = pages
         .into_iter()
-        .map(|page| (rank_okf_concept(&page, &normalized_query), page))
-        .filter(|(score, _)| *score > 0.0 || normalized_query.is_empty())
+        .map(|page| (rank_okf_concept(&page, tokens), page))
+        .filter(|(score, _)| *score > 0.0 || tokens.is_empty())
         .collect::<Vec<_>>();
 
     ranked.sort_by(|left, right| {
@@ -117,8 +134,187 @@ pub fn rank_okf_concepts(
             .then_with(|| left.1.concept_id.cmp(&right.1.concept_id))
     });
 
-    ranked.truncate(top_k.max(1) as usize);
     ranked
+}
+
+pub fn expand_ranked_with_link_edges(
+    mut ranked: Vec<(f64, OkfConceptSummary)>,
+    edges: &[KnowledgeOkfConceptLinkEdge],
+    summaries_by_id: &HashMap<String, OkfConceptSummary>,
+    tokens: &[String],
+    max_candidates: usize,
+) -> Vec<(f64, OkfConceptSummary)> {
+    if edges.is_empty() {
+        return ranked;
+    }
+
+    let mut score_by_id = ranked
+        .iter()
+        .map(|(score, concept)| (concept.concept_id.clone(), *score))
+        .collect::<HashMap<_, _>>();
+
+    let seeds = ranked
+        .iter()
+        .filter(|(score, _)| *score > 0.0)
+        .map(|(score, concept)| (*score, concept.concept_id.clone()))
+        .collect::<Vec<_>>();
+
+    for (score, concept_id) in seeds {
+        for edge in edges {
+            if edge.from_concept_id == concept_id {
+                let anchor_bonus = tokens.iter().any(|token| {
+                    !token.is_empty()
+                        && edge
+                            .anchor_text
+                            .to_lowercase()
+                            .contains(token.as_str())
+                });
+                let boost = score * LINK_OUTBOUND_BOOST
+                    + if anchor_bonus { ANCHOR_MATCH_BOOST } else { 0.0 };
+                apply_link_boost(
+                    &mut score_by_id,
+                    &edge.to_concept_id,
+                    boost,
+                    summaries_by_id,
+                    &mut ranked,
+                    max_candidates,
+                );
+            }
+            if edge.to_concept_id == concept_id {
+                apply_link_boost(
+                    &mut score_by_id,
+                    &edge.from_concept_id,
+                    score * LINK_INBOUND_BOOST,
+                    summaries_by_id,
+                    &mut ranked,
+                    max_candidates,
+                );
+            }
+        }
+    }
+
+    ranked.sort_by(|left, right| {
+        right
+            .0
+            .partial_cmp(&left.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left.1.concept_id.cmp(&right.1.concept_id))
+    });
+    ranked.truncate(max_candidates);
+    ranked
+}
+
+pub fn combine_metadata_and_body_score(metadata_score: f64, body_score: f64) -> f64 {
+    if metadata_score <= 0.0 && body_score <= 0.0 {
+        return 0.0;
+    }
+    let weighted = metadata_score + body_score * BODY_WEIGHT;
+    (weighted / (1.0 + BODY_WEIGHT)).clamp(0.0, 1.5)
+}
+
+pub fn strip_okf_frontmatter(markdown: &str) -> &str {
+    let trimmed = markdown.trim_start();
+    if !trimmed.starts_with("---") {
+        return markdown;
+    }
+    let rest = trimmed.strip_prefix("---").unwrap_or(trimmed);
+    let Some(end) = rest.find("\n---") else {
+        return markdown;
+    };
+    rest[end + 4..].trim_start()
+}
+
+pub fn body_match_score(body: &str, tokens: &[String]) -> f64 {
+    if tokens.is_empty() {
+        return 0.0;
+    }
+    let body = strip_okf_frontmatter(body).to_lowercase();
+    let matches = tokens
+        .iter()
+        .filter(|token| !token.is_empty() && body.contains(token.as_str()))
+        .count();
+    matches as f64 / tokens.len() as f64
+}
+
+pub fn extract_body_snippet(body: &str, query: &str, max_len: usize) -> String {
+    let normalized = strip_okf_frontmatter(body).replace('\r', "");
+    let tokens = normalize_query(query);
+    if tokens.is_empty() {
+        return truncate_chars(&normalized, max_len);
+    }
+
+    let lower = normalized.to_lowercase();
+    let match_pos = tokens
+        .iter()
+        .find_map(|token| lower.find(token.as_str()))
+        .unwrap_or(0);
+    let start = match_pos.saturating_sub(48);
+    let mut snippet = normalized
+        .chars()
+        .skip(start)
+        .take(max_len)
+        .collect::<String>();
+    if start > 0 {
+        snippet = format!("…{snippet}");
+    }
+    if normalized.chars().count() > start + max_len {
+        snippet.push('…');
+    }
+    snippet
+}
+
+pub fn snippet_for_concept(
+    description: &str,
+    body: Option<&str>,
+    query: &str,
+) -> String {
+    if let Some(body) = body {
+        let body_snippet = extract_body_snippet(body, query, DEFAULT_SNIPPET_CHARS);
+        if !body_snippet.trim().is_empty() {
+            return body_snippet;
+        }
+    }
+    description.trim().to_string()
+}
+
+fn apply_link_boost(
+    score_by_id: &mut HashMap<String, f64>,
+    concept_id: &str,
+    boost: f64,
+    summaries_by_id: &HashMap<String, OkfConceptSummary>,
+    ranked: &mut Vec<(f64, OkfConceptSummary)>,
+    max_candidates: usize,
+) {
+    if boost <= 0.0 {
+        return;
+    }
+    if let Some(score) = score_by_id.get_mut(concept_id) {
+        *score += boost;
+        let updated_score = *score;
+        if let Some(entry) = ranked
+            .iter_mut()
+            .find(|(_, concept)| concept.concept_id == concept_id)
+        {
+            entry.0 = updated_score;
+        }
+        return;
+    }
+    if ranked.len() >= max_candidates {
+        return;
+    }
+    let Some(summary) = summaries_by_id.get(concept_id) else {
+        return;
+    };
+    score_by_id.insert(concept_id.to_string(), boost);
+    ranked.push((boost, summary.clone()));
+}
+
+fn truncate_chars(value: &str, max_len: usize) -> String {
+    let mut snippet = value.chars().take(max_len).collect::<String>();
+    if value.chars().count() > max_len {
+        snippet.push('…');
+    }
+    snippet
 }
 
 #[cfg(test)]
@@ -183,5 +379,36 @@ mod tests {
 
         assert_eq!(ranked.len(), 1);
         assert_eq!(ranked[0].1.concept_id, "posts/tag_wiki");
+    }
+
+    #[test]
+    fn extract_body_snippet_prefers_query_context() {
+        let body = "---\ntype: Entity\ntitle: Users\n---\n# Users\n\nOwnership rules apply here.";
+        let snippet = extract_body_snippet(body, "ownership", 40);
+        assert!(snippet.to_lowercase().contains("ownership"));
+    }
+
+    #[test]
+    fn expand_ranked_with_link_edges_boosts_linked_targets() {
+        use crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkEdge;
+
+        let pages = vec![
+            sample_concept("tables/users", "Users", "User dimension table"),
+            sample_concept("tables/orders", "Orders", "Order fact table"),
+        ];
+        let summaries = pages
+            .iter()
+            .map(|page| (page.concept_id.clone(), page.clone()))
+            .collect();
+        let ranked = vec![(0.8, pages[0].clone())];
+        let edges = vec![KnowledgeOkfConceptLinkEdge {
+            from_concept_id: "tables/users".to_string(),
+            to_concept_id: "tables/orders".to_string(),
+            anchor_text: "orders".to_string(),
+        }];
+
+        let expanded = expand_ranked_with_link_edges(ranked, &edges, &summaries, &[], 4);
+
+        assert!(expanded.iter().any(|(_, page)| page.concept_id == "tables/orders"));
     }
 }

@@ -14,6 +14,13 @@ pub struct CreateKnowledgeSpaceRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UpdateKnowledgeSpaceRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KnowledgeSpace {
     pub id: u64,
     pub uuid: String,

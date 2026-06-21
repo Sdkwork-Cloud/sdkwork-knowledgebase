@@ -25,8 +25,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_s
     UpsertKnowledgeOkfCandidateRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    KnowledgeOkfConceptLinkRecord, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
-    ReplaceKnowledgeOkfConceptLinksRecord,
+    KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkRecord, KnowledgeOkfConceptLinkStore,
+    KnowledgeOkfConceptLinkStoreError, ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
     AppendKnowledgeOkfLogEntryRecord, CreateKnowledgeOkfConceptRevisionRecord,
@@ -214,7 +214,7 @@ async fn stackoverflow_bundle_imports_published_concepts_when_requested() {
         &drive, &concepts,
     )
     .with_link_store(&links)
-    .lint_space(42)
+    .lint_space(42, None)
     .await
     .expect("stackoverflow bundle lint");
     assert!(
@@ -312,7 +312,7 @@ async fn stackoverflow_published_bundle_lints_without_stale_claims_when_sources_
     )
     .with_link_store(&links)
     .with_source_store(&sources)
-    .lint_space(42)
+    .lint_space(42, None)
     .await
     .expect("stackoverflow bundle lint with sources");
     assert!(
@@ -366,15 +366,19 @@ async fn export_bundle_round_trips_through_drive_import_inbox() {
             space_name: "Space Seven".to_string(),
             concepts: summaries,
             log_entries: vec![],
+            drive_space_id: None,
         })
         .await
         .expect("persist standard bundle files");
 
     let exported = OkfBundleExporterService::new(&drive, &source_concepts)
-        .export_bundle(ExportOkfBundleRequest {
-            space_id: 7,
-            export_type: "okf_strict".to_string(),
-        })
+        .export_bundle(
+            ExportOkfBundleRequest {
+                space_id: 7,
+                export_type: "okf_strict".to_string(),
+            },
+            None,
+        )
         .await
         .expect("export okf bundle");
 
@@ -392,11 +396,11 @@ async fn export_bundle_round_trips_through_drive_import_inbox() {
         "exported bundle must contain nested directory index"
     );
 
-    stage_export_bundle_for_drive_import(&drive, &exported.export_root, 99, "roundtrip")
+    stage_export_bundle_for_drive_import(&drive, &exported.export_root, 99, "roundtrip", None)
         .await
         .expect("stage export for import");
 
-    let files = load_import_bundle_from_drive(&drive, 99, Some("roundtrip"))
+    let files = load_import_bundle_from_drive(&drive, 99, Some("roundtrip"), None)
         .await
         .expect("load staged import bundle");
     let target_service = OkfConceptService::new(&drive, &object_refs, &target_concepts)
@@ -867,6 +871,23 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
     ) -> Result<Vec<KnowledgeOkfConceptProjection>, KnowledgeOkfConceptStoreError> {
         Ok(vec![])
     }
+
+    async fn mark_concept_deleted(
+        &self,
+        space_id: u64,
+        concept_row_id: u64,
+    ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {
+        let mut concepts = self.concepts.lock().unwrap();
+        let index = concepts
+            .iter()
+            .position(|concept| concept.id == concept_row_id && concept.space_id == space_id)
+            .ok_or_else(|| {
+                KnowledgeOkfConceptStoreError::Internal(format!(
+                    "missing okf concept: {concept_row_id}"
+                ))
+            })?;
+        Ok(concepts.remove(index))
+    }
 }
 
 #[derive(Default)]
@@ -1051,5 +1072,26 @@ impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
             .filter(|concept_id| !inbound.contains(*concept_id))
             .cloned()
             .collect())
+    }
+
+    async fn list_active_link_edges(
+        &self,
+        space_id: u64,
+    ) -> Result<Vec<KnowledgeOkfConceptLinkEdge>, KnowledgeOkfConceptLinkStoreError> {
+        let edges = self
+            .outbound
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|((link_space_id, _), _)| *link_space_id == space_id)
+            .flat_map(|((_, from_concept_id), links)| {
+                links.iter().map(|link| KnowledgeOkfConceptLinkEdge {
+                    from_concept_id: from_concept_id.clone(),
+                    to_concept_id: link.to_concept_id.clone(),
+                    anchor_text: link.anchor_text.clone(),
+                })
+            })
+            .collect();
+        Ok(edges)
     }
 }

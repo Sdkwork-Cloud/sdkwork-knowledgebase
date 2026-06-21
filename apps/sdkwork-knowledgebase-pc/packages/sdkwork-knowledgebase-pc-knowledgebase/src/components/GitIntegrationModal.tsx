@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, GitBranch, Share, CheckCircle, Database, HelpCircle, Loader2, ArrowRight, ShieldCheck, Check } from 'lucide-react';
 import { KnowledgeBase, DocumentService } from '../services/document';
+import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 import { useTranslation } from 'react-i18next';
 
 export interface GitIntegrationModalProps {
@@ -19,6 +20,7 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
   const [commitMsg, setCommitMsg] = useState('sync: update knowledge base assets');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [step, setStep] = useState<number>(0);
   const [progressMsg, setProgressMsg] = useState('');
   const [isUrlValid, setIsUrlValid] = useState(true);
@@ -58,21 +60,58 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
     if (isBlank(repoUrl) || !isUrlValid) return;
 
     setLoading(true);
+    setErrorMessage(null);
     setStep(0);
     setProgressMsg(activeSteps[0]);
 
-    // Loop steps with delays to show rich state simulation
-    for (let i = 0; i < activeSteps.length; i++) {
-      setStep(i);
-      setProgressMsg(activeSteps[i]);
-      await new Promise((resolve) => setTimeout(resolve, 600));
+    if (isKnowledgebaseApiAvailable() && mode === 'sync') {
+      setErrorMessage(
+        t('git.syncUnavailable', {
+          defaultValue: 'Git 同步尚未接入 Knowledgebase API。',
+        }),
+      );
+      setLoading(false);
+      return;
+    }
+
+    const useApiImport = isKnowledgebaseApiAvailable() && mode === 'import';
+    if (!useApiImport) {
+      for (let i = 0; i < activeSteps.length; i++) {
+        setStep(i);
+        setProgressMsg(activeSteps[i]);
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
     }
 
     try {
       if (mode === 'import') {
-        await DocumentService.importGitRepository(kb.id, repoUrl, branch);
+        const imported = await DocumentService.importGitRepository(kb.id, repoUrl, branch, {
+          accessToken: accessToken.trim() || undefined,
+          onProgress: useApiImport
+            ? (progress) => {
+                setProgressMsg(progress.message);
+                if (progress.totalCount) {
+                  setStep(Math.min(activeSteps.length - 1, progress.importedCount ?? 0));
+                }
+              }
+            : undefined,
+        });
+        if (!imported) {
+          throw new Error(
+            t('git.importUnavailable', {
+              defaultValue: 'Git 仓库导入失败，请检查仓库 URL、分支与访问令牌。',
+            }),
+          );
+        }
       } else {
-        await DocumentService.syncGitRepository(kb.id, commitMsg);
+        const synced = await DocumentService.syncGitRepository(kb.id, commitMsg);
+        if (!synced.success) {
+          throw new Error(
+            t('git.syncUnavailable', {
+              defaultValue: 'Git 同步尚未接入 Knowledgebase API。',
+            }),
+          );
+        }
       }
       setSuccess(true);
       setTimeout(() => {
@@ -81,6 +120,7 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
       }, 1500);
     } catch (err) {
       console.error(err);
+      setErrorMessage(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -237,6 +277,10 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
               </>
             )}
           </div>
+
+          {errorMessage && !loading && !success ? (
+            <div className="px-6 pb-2 text-[12px] text-red-600 dark:text-red-400">{errorMessage}</div>
+          ) : null}
 
           {/* Action buttons footer */}
           {!loading && !success && (

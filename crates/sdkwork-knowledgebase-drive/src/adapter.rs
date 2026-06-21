@@ -16,14 +16,16 @@ use sdkwork_drive_workspace_service::application::workspace_service::{
 use sdkwork_drive_workspace_service::domain::space::DriveSpaceType;
 use sdkwork_drive_workspace_service::DriveServiceError;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_node_tree::{
-    DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodePage, KnowledgeDriveNodeSummary,
-    KnowledgeDriveNodeTree, KnowledgeDriveNodeTreeError, ListKnowledgeDriveNodeChildrenRequest,
+    DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodeObjectLocator,
+    KnowledgeDriveNodePage, KnowledgeDriveNodeSummary, KnowledgeDriveNodeTree,
+    KnowledgeDriveNodeTreeError, ListKnowledgeDriveNodeChildrenRequest,
     ResolveKnowledgeDriveNodePathRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_space::{
     CreateKnowledgeDriveSpaceRequest, DeleteKnowledgeDriveSpaceRequest, KnowledgeDriveSpaceBinding,
     KnowledgeDriveSpaceProvisioner, KnowledgeDriveSpaceProvisionerError,
 };
+use sdkwork_intelligence_knowledgebase_object_key_service::object_key::KnowledgeObjectKeyPlanner;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::{
     HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError,
     PutKnowledgeObjectRequest,
@@ -34,14 +36,14 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_workspace
 };
 use sdkwork_utils_rust::{is_blank, sha256_hash};
 use sqlx::AnyPool;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 pub struct KnowledgebaseDriveStorageAdapter {
     store: Arc<dyn DriveObjectStore>,
     storage_provider_id: String,
     bucket: String,
-    object_key_root: String,
+    tenant_id: String,
 }
 
 #[derive(Debug, Clone)]
@@ -96,7 +98,7 @@ impl KnowledgebaseDriveStorageAdapter {
         store: Arc<S>,
         storage_provider_id: impl Into<String>,
         bucket: impl Into<String>,
-        object_key_root: impl Into<String>,
+        tenant_id: impl Into<String>,
     ) -> Self
     where
         S: DriveObjectStore + 'static,
@@ -105,16 +107,26 @@ impl KnowledgebaseDriveStorageAdapter {
             store,
             storage_provider_id: storage_provider_id.into(),
             bucket: bucket.into(),
-            object_key_root: trim_slashes(&object_key_root.into()),
+            tenant_id: tenant_id.into(),
         }
     }
 
-    fn locator_for(&self, logical_path: &str) -> Result<DriveObjectLocator, KnowledgeStorageError> {
+    fn locator_for(
+        &self,
+        logical_path: &str,
+        space_uuid: Option<&str>,
+    ) -> Result<DriveObjectLocator, KnowledgeStorageError> {
         let safe_logical_path = safe_logical_path(logical_path)?;
-        let object_key = if self.object_key_root.is_empty() {
-            safe_logical_path
-        } else {
-            format!("{}/{}", self.object_key_root, safe_logical_path)
+        let object_key = match space_uuid {
+            Some(space_uuid) => KnowledgeObjectKeyPlanner::new(&self.tenant_id, space_uuid)
+                .map_err(|error| KnowledgeStorageError::InvalidRequest(error.to_string()))?
+                .okf_bundle_file(&safe_logical_path)
+                .map_err(|error| KnowledgeStorageError::InvalidRequest(error.to_string()))?,
+            None => {
+                return Err(KnowledgeStorageError::InvalidRequest(
+                    "space_uuid is required for knowledge object storage".to_string(),
+                ));
+            }
         };
 
         Ok(DriveObjectLocator {
@@ -256,10 +268,23 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
         let safe_logical_path = safe_logical_path(&request.logical_path)?;
         if safe_logical_path.starts_with("sources/raw/") {
             let exists = self
-                .head_object(HeadKnowledgeObjectRequest::managed_artifact(
-                    safe_logical_path.clone(),
-                    request.object_role.clone(),
-                ))
+                .head_object(
+                    HeadKnowledgeObjectRequest::managed_artifact(
+                        safe_logical_path.clone(),
+                        request.object_role.clone(),
+                    )
+                    .with_space_uuid(
+                        request
+                            .space_uuid
+                            .clone()
+                            .ok_or_else(|| {
+                                KnowledgeStorageError::InvalidRequest(
+                                    "space_uuid is required for knowledge object storage"
+                                        .to_string(),
+                                )
+                            })?,
+                    ),
+                )
                 .await
                 .is_ok();
             if exists {
@@ -268,7 +293,10 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
                 ));
             }
         }
-        let locator = self.locator_for(&request.logical_path)?;
+        let locator = self.locator_for(
+            &request.logical_path,
+            request.space_uuid.as_deref(),
+        )?;
         let size_bytes = request.body.len() as u64;
         let computed_checksum_sha256_hex = sha256_hash(&request.body);
         let checksum_sha256_hex = verified_request_checksum(
@@ -322,7 +350,7 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
             .clone()
             .unwrap_or_else(|| request.object_key.clone());
         let locator = if request.bucket.is_empty() {
-            self.locator_for(&logical_path)?
+            self.locator_for(&logical_path, request.space_uuid.as_deref())?
         } else {
             DriveObjectLocator {
                 bucket: request.bucket,
@@ -441,16 +469,23 @@ impl KnowledgeDriveNodeTree for KnowledgebaseDriveNodeTreeAdapter {
             .map_err(|error| KnowledgeDriveNodeTreeError::InvalidRequest(error.to_string()))?;
         let logical_path = safe_logical_path(&request.logical_path)
             .map_err(|error| KnowledgeDriveNodeTreeError::InvalidRequest(error.to_string()))?;
-        self.workspace_service()
+        let node = self
+            .workspace_service()
             .resolve_path(ResolveDriveWorkspacePathCommand {
                 tenant_id: self.tenant_id.clone(),
                 space_id: drive_space_id,
                 logical_path,
             })
             .await
-            .map_err(map_tree_service_error)?
-            .map(knowledge_summary_from_drive_node)
-            .transpose()
+            .map_err(map_tree_service_error)?;
+        let Some(node) = node else {
+            return Ok(None);
+        };
+        let locator = self
+            .resolve_object_locator(&node.id)
+            .await
+            .map_err(map_tree_service_error)?;
+        Ok(Some(knowledge_summary_from_drive_node(node, locator)?))
     }
 
     async fn get_node(
@@ -461,16 +496,23 @@ impl KnowledgeDriveNodeTree for KnowledgebaseDriveNodeTreeAdapter {
             .map_err(|error| KnowledgeDriveNodeTreeError::InvalidRequest(error.to_string()))?;
         let drive_node_id = safe_drive_id(&request.drive_node_id, "drive_node_id")
             .map_err(|error| KnowledgeDriveNodeTreeError::InvalidRequest(error.to_string()))?;
-        self.workspace_service()
+        let node = self
+            .workspace_service()
             .get_node(GetDriveWorkspaceNodeCommand {
                 tenant_id: self.tenant_id.clone(),
                 space_id: drive_space_id,
                 node_id: drive_node_id,
             })
             .await
-            .map_err(map_tree_service_error)?
-            .map(knowledge_summary_from_drive_node)
-            .transpose()
+            .map_err(map_tree_service_error)?;
+        let Some(node) = node else {
+            return Ok(None);
+        };
+        let locator = self
+            .resolve_object_locator(&node.id)
+            .await
+            .map_err(map_tree_service_error)?;
+        Ok(Some(knowledge_summary_from_drive_node(node, locator)?))
     }
 
     async fn list_children(
@@ -493,7 +535,17 @@ impl KnowledgeDriveNodeTree for KnowledgebaseDriveNodeTreeAdapter {
             })
             .await
             .map_err(map_tree_service_error)?;
-        knowledge_page_from_drive_page(page)
+        let file_node_ids = page
+            .nodes
+            .iter()
+            .filter(|node| node.kind == DriveWorkspaceNodeKind::File)
+            .map(|node| node.id.clone())
+            .collect::<Vec<_>>();
+        let locators = self
+            .batch_resolve_object_locators(&file_node_ids)
+            .await
+            .map_err(map_tree_service_error)?;
+        knowledge_page_from_drive_page(page, &locators)
     }
 }
 
@@ -501,10 +553,45 @@ impl KnowledgebaseDriveNodeTreeAdapter {
     fn workspace_service(&self) -> SqlDriveWorkspaceService {
         SqlDriveWorkspaceService::new(self.pool.clone())
     }
-}
 
-fn trim_slashes(value: &str) -> String {
-    value.trim_matches('/').replace('\\', "/")
+    async fn resolve_object_locator(
+        &self,
+        node_id: &str,
+    ) -> Result<Option<KnowledgeDriveNodeObjectLocator>, DriveServiceError> {
+        let locators = self
+            .batch_resolve_object_locators(&[node_id.to_string()])
+            .await?;
+        Ok(locators.get(node_id).cloned())
+    }
+
+    async fn batch_resolve_object_locators(
+        &self,
+        node_ids: &[String],
+    ) -> Result<HashMap<String, KnowledgeDriveNodeObjectLocator>, DriveServiceError> {
+        if node_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let workspace = self.workspace_service();
+        let mut locators = HashMap::with_capacity(node_ids.len());
+        for node_id in node_ids {
+            let object = workspace
+                .find_latest_active_storage_object_by_node(&self.tenant_id, node_id)
+                .await?;
+            let Some(object) = object else {
+                continue;
+            };
+            locators.insert(
+                node_id.clone(),
+                KnowledgeDriveNodeObjectLocator {
+                    storage_provider_id: object.storage_provider_id,
+                    bucket: object.bucket,
+                    object_key: object.object_key,
+                },
+            );
+        }
+        Ok(locators)
+    }
 }
 
 fn safe_logical_path(value: &str) -> Result<String, KnowledgeStorageError> {
@@ -692,6 +779,7 @@ fn knowledge_node_to_drive_node(
 
 fn knowledge_summary_from_drive_node(
     node: DriveWorkspaceNode,
+    object_locator: Option<KnowledgeDriveNodeObjectLocator>,
 ) -> Result<KnowledgeDriveNodeSummary, KnowledgeDriveNodeTreeError> {
     let kind = match node.kind {
         DriveWorkspaceNodeKind::Folder => DriveNodeKind::Folder,
@@ -723,16 +811,21 @@ fn knowledge_summary_from_drive_node(
         size_bytes,
         children_count: Some(children_count),
         updated_at: node.updated_at,
+        object_locator,
     })
 }
 
 fn knowledge_page_from_drive_page(
     page: DriveWorkspaceChildrenPage,
+    locators: &HashMap<String, KnowledgeDriveNodeObjectLocator>,
 ) -> Result<KnowledgeDriveNodePage, KnowledgeDriveNodeTreeError> {
     let nodes = page
         .nodes
         .into_iter()
-        .map(knowledge_summary_from_drive_node)
+        .map(|node| {
+            let locator = locators.get(&node.id).cloned();
+            knowledge_summary_from_drive_node(node, locator)
+        })
         .collect::<Result<Vec<_>, _>>()?;
     Ok(KnowledgeDriveNodePage {
         nodes,

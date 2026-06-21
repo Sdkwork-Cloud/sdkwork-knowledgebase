@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { toast } from './components/ui/toast-manager';
 import { KnowledgeBase, DocumentService } from './services/document';
+import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 
 interface DeployWebsiteModalProps {
   isOpen: boolean;
@@ -101,7 +102,14 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
     try {
       const selectedPlatform = 'vercel'; // mock platform since no UI selects it yet
       const res = await DocumentService.publishWebsite(selectedPlatform, activeKb.id);
-      
+
+      if (!res.success) {
+        setDeployStep('网站部署尚未接入 Knowledgebase API。');
+        setIsDeploying(false);
+        toast.error('网站部署尚未接入 Knowledgebase API。');
+        return;
+      }
+
       setDeployStep('正在激活 SSL 服务证书与配置边缘路由...');
       
       const newUrl = res.url || `https://${siteName.toLowerCase().replace(/\s+/g, '-')}.${selectedPlatform}.app`;
@@ -117,9 +125,11 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
         deployedUrl: newUrl
       });
     } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
       console.error(e);
-      setDeployStep('部署失败，发生了错误！');
+      setDeployStep(detail);
       setIsDeploying(false);
+      toast.error(detail);
     }
   };
 

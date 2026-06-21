@@ -15,7 +15,7 @@ use tower::util::ServiceExt;
 
 fn app_request_context() -> KnowledgeAppRequestContext {
     KnowledgeAppRequestContext {
-        tenant_id: 20001,
+        tenant_id: 100001,
         actor_id: Some(30001),
         organization_id: None,
         session_id: None,
@@ -47,7 +47,7 @@ async fn retrieval_route_calls_injected_retrieval_service() {
     assert_eq!(body["retrievalId"], "701");
     assert_eq!(body["hits"][0]["chunkId"], "11");
     let request = service.last_retrieval_request().unwrap();
-    assert_eq!(request.tenant_id, 20001);
+    assert_eq!(request.tenant_id, 100001);
     assert_eq!(request.actor_id, Some(30001));
 }
 
@@ -77,7 +77,7 @@ async fn context_pack_route_calls_injected_retrieval_service() {
     assert_eq!(body["fragments"][0]["chunkId"], "11");
     assert_eq!(body["estimatedTokens"], 8);
     let request = service.last_context_pack_request().unwrap();
-    assert_eq!(request.tenant_id, 20001);
+    assert_eq!(request.tenant_id, 100001);
     assert_eq!(request.actor_id, Some(30001));
 }
 
@@ -121,7 +121,7 @@ async fn retrieval_retrieve_route_uses_tenant_from_app_request_context() {
                 .method("GET")
                 .uri("/app/v3/api/knowledge/retrievals/701")
                 .extension(KnowledgeAppRequestContext {
-                    tenant_id: 20001,
+                    tenant_id: 100001,
                     actor_id: Some(30001),
                     organization_id: None,
                     session_id: None,
@@ -134,7 +134,7 @@ async fn retrieval_retrieve_route_uses_tenant_from_app_request_context() {
 
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response_json(response).await["retrievalId"], "701");
-    assert_eq!(service.retrieve_requests(), vec![(20001, 701)]);
+    assert_eq!(service.retrieve_requests(), vec![(100001, 701)]);
 }
 
 #[tokio::test]

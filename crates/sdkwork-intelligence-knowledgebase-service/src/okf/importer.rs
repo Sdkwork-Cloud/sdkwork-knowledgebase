@@ -9,6 +9,7 @@ use crate::ports::knowledge_drive_storage::{KnowledgeDriveStorage, PutKnowledgeO
 use sdkwork_knowledgebase_contract::okf::{
     KnowledgeOkfConceptPublication, OkfBundlePaths, PublishKnowledgeOkfConceptRequest,
 };
+use sdkwork_knowledgebase_observability::record_okf_bundle_imported;
 use sdkwork_utils_rust::is_blank;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -134,8 +135,11 @@ impl<'a> OkfBundleImporterService<'a> {
             )));
         }
 
+        let imported_concept_count = publications.len() as u32;
+        record_okf_bundle_imported(request.space_id, imported_concept_count, &request.actor);
+
         Ok(ImportOkfBundleResult {
-            imported_concept_count: publications.len() as u32,
+            imported_concept_count,
             skipped_files,
             publications,
         })
@@ -261,9 +265,11 @@ pub async fn load_import_bundle_from_drive(
     drive: &dyn KnowledgeDriveStorage,
     space_id: u64,
     import_id: Option<&str>,
+    drive_space_id: Option<&str>,
 ) -> Result<Vec<ImportOkfBundleFile>, OkfBundleImporterError> {
     let import_root = drive_import_root(space_id, import_id);
-    let (manifest_path, manifest_files) = read_import_manifest_files(drive, &import_root).await?;
+    let (manifest_path, manifest_files) =
+        read_import_manifest_files(drive, &import_root, drive_space_id).await?;
 
     let mut files = Vec::new();
     for bundle_relative_path in manifest_files {
@@ -272,7 +278,7 @@ pub async fn load_import_bundle_from_drive(
             continue;
         }
         let drive_path = format!("{import_root}/{normalized}");
-        let markdown = read_managed_markdown(drive, &drive_path)
+        let markdown = read_managed_markdown(drive, &drive_path, drive_space_id)
             .await
             .map_err(|error| {
                 OkfBundleImporterError::InvalidRequest(format!(
@@ -296,6 +302,7 @@ pub async fn load_import_bundle_from_drive(
 async fn read_import_manifest_files(
     drive: &dyn KnowledgeDriveStorage,
     import_root: &str,
+    drive_space_id: Option<&str>,
 ) -> Result<(String, Vec<String>), OkfBundleImporterError> {
     const MANIFEST_CANDIDATES: &[&str] = &[
         "import_manifest.yaml",
@@ -305,7 +312,7 @@ async fn read_import_manifest_files(
 
     for manifest_name in MANIFEST_CANDIDATES {
         let manifest_path = format!("{import_root}/{manifest_name}");
-        let manifest_body = match read_managed_markdown(drive, &manifest_path).await {
+        let manifest_body = match read_managed_markdown(drive, &manifest_path, drive_space_id).await {
             Ok(body) => body,
             Err(_) => continue,
         };
@@ -396,8 +403,10 @@ pub async fn stage_export_bundle_for_drive_import(
     export_root: &str,
     space_id: u64,
     import_id: &str,
+    drive_space_id: Option<&str>,
 ) -> Result<String, OkfBundleImporterError> {
-    let (manifest_path, manifest_files) = read_export_manifest_files(drive, export_root).await?;
+    let (manifest_path, manifest_files) =
+        read_export_manifest_files(drive, export_root, drive_space_id).await?;
     let import_root = drive_import_root(space_id, Some(import_id));
     for bundle_relative_path in manifest_files {
         let normalized = bundle_relative_path.trim().replace('\\', "/");
@@ -405,31 +414,39 @@ pub async fn stage_export_bundle_for_drive_import(
             continue;
         }
         let source_path = format!("{export_root}/{normalized}");
-        let bytes = read_managed_object_bytes(drive, &source_path)
+        let bytes = read_managed_object_bytes(drive, &source_path, drive_space_id)
             .await
             .map_err(OkfBundleImporterError::Storage)?;
         let target_path = format!("{import_root}/{normalized}");
         drive
-            .put_object(PutKnowledgeObjectRequest {
-                logical_path: target_path,
-                object_role: STAGED_IMPORT_OBJECT_ROLE.to_string(),
-                content_type: content_type_for_bundle_path(&normalized),
-                body: bytes,
-                checksum_sha256_hex: None,
-            })
+            .put_object(
+                PutKnowledgeObjectRequest {
+                    logical_path: target_path,
+                    object_role: STAGED_IMPORT_OBJECT_ROLE.to_string(),
+                    content_type: content_type_for_bundle_path(&normalized),
+                    body: bytes,
+                    checksum_sha256_hex: None,
+                    space_uuid: None,
+                }
+                .with_drive_space_id(drive_space_id),
+            )
             .await?;
     }
-    let manifest_body = read_managed_markdown(drive, &manifest_path)
+    let manifest_body = read_managed_markdown(drive, &manifest_path, drive_space_id)
         .await
         .map_err(OkfBundleImporterError::Storage)?;
     drive
-        .put_object(PutKnowledgeObjectRequest {
-            logical_path: format!("{import_root}/import_manifest.yaml"),
-            object_role: STAGED_IMPORT_OBJECT_ROLE.to_string(),
-            content_type: "application/yaml; charset=utf-8".to_string(),
-            body: manifest_body.into_bytes(),
-            checksum_sha256_hex: None,
-        })
+        .put_object(
+            PutKnowledgeObjectRequest {
+                logical_path: format!("{import_root}/import_manifest.yaml"),
+                object_role: STAGED_IMPORT_OBJECT_ROLE.to_string(),
+                content_type: "application/yaml; charset=utf-8".to_string(),
+                body: manifest_body.into_bytes(),
+                checksum_sha256_hex: None,
+                space_uuid: None,
+            }
+            .with_drive_space_id(drive_space_id),
+        )
         .await?;
     Ok(import_root)
 }
@@ -437,6 +454,7 @@ pub async fn stage_export_bundle_for_drive_import(
 async fn read_export_manifest_files(
     drive: &dyn KnowledgeDriveStorage,
     export_root: &str,
+    drive_space_id: Option<&str>,
 ) -> Result<(String, Vec<String>), OkfBundleImporterError> {
     const MANIFEST_CANDIDATES: &[&str] = &[
         "export_manifest.yaml",
@@ -446,7 +464,7 @@ async fn read_export_manifest_files(
 
     for manifest_name in MANIFEST_CANDIDATES {
         let manifest_path = format!("{export_root}/{manifest_name}");
-        let manifest_body = match read_managed_markdown(drive, &manifest_path).await {
+        let manifest_body = match read_managed_markdown(drive, &manifest_path, drive_space_id).await {
             Ok(body) => body,
             Err(_) => continue,
         };

@@ -23,7 +23,8 @@ pub async fn rebuild_bundle_index_for_space(
     space_store: &dyn KnowledgeSpaceStore,
     space_id: u64,
 ) -> Result<(), OkfIndexRebuildError> {
-    space_store.get_space(space_id).await?;
+    let space = space_store.get_space(space_id).await?;
+    let drive_space_id = space.drive_space_id.as_deref();
     let concepts = concept_store.list_concept_summaries(space_id).await?;
     let logs = concept_store.list_log_entries(space_id).await?;
     let index_documents = render_index_documents(&concepts);
@@ -37,21 +38,27 @@ pub async fn rebuild_bundle_index_for_space(
             format!("okf/{bundle_relative_path}")
         };
         drive
-            .put_object(PutKnowledgeObjectRequest::text(
-                logical_path,
-                "bundle_index",
-                markdown,
-                None,
-            ))
+            .put_object(
+                PutKnowledgeObjectRequest::text(
+                    logical_path,
+                    "bundle_index",
+                    markdown,
+                    None,
+                )
+                .with_drive_space_id(drive_space_id),
+            )
             .await?;
     }
     drive
-        .put_object(PutKnowledgeObjectRequest::text(
-            paths.log_md,
-            "bundle_log",
-            log_markdown,
-            None,
-        ))
+        .put_object(
+            PutKnowledgeObjectRequest::text(
+                paths.log_md,
+                "bundle_log",
+                log_markdown,
+                None,
+            )
+            .with_drive_space_id(drive_space_id),
+        )
         .await?;
 
     Ok(())

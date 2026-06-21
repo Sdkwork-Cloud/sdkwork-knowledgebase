@@ -7,6 +7,7 @@ pub mod bootstrap;
 pub mod dev_auth;
 mod error;
 pub mod hosted;
+mod hosted_access;
 mod hosted_backend;
 mod hosted_context_binding;
 mod hosted_open;

@@ -132,7 +132,7 @@ impl KnowledgebaseRuntime {
             object_store,
             DEFAULT_DRIVE_PROVIDER_ID,
             DEFAULT_DRIVE_BUCKET,
-            format!("knowledge/{tenant_id_str}"),
+            tenant_id_str.clone(),
         ));
         let drive_space_provisioner = Arc::new(KnowledgebaseDriveSpaceProvisionerAdapter::new(
             drive_pool.clone(),

@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
+    KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
     ReplaceKnowledgeOkfConceptLinksRecord,
 };
+use sqlx::Row;
 use sqlx::AnyPool;
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -154,6 +155,37 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
             .iter()
             .filter(|concept_id| !inbound.contains(*concept_id))
             .cloned()
+            .collect())
+    }
+
+    async fn list_active_link_edges(
+        &self,
+        space_id: u64,
+    ) -> Result<Vec<KnowledgeOkfConceptLinkEdge>, KnowledgeOkfConceptLinkStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let space_id = to_i64("space_id", space_id)?;
+        let rows = sqlx::query(
+            r#"
+            SELECT from_concept_id, to_concept_id, anchor_text
+            FROM kb_okf_concept_link
+            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+            ORDER BY from_concept_id ASC, to_concept_id ASC, anchor_text ASC
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(space_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| KnowledgeOkfConceptLinkEdge {
+                from_concept_id: row.get("from_concept_id"),
+                to_concept_id: row.get("to_concept_id"),
+                anchor_text: row.get("anchor_text"),
+            })
             .collect())
     }
 }

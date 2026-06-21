@@ -349,7 +349,7 @@ mod tests {
             .chat(
                 501,
                 KnowledgeAgentChatRequest {
-                    tenant_id: 20001,
+                    tenant_id: 100001,
                     actor_id: None,
                     message: "What is the RAG boundary?".to_string(),
                     mode: Some(KnowledgeAgentKnowledgeMode::OkfBundle),
@@ -403,7 +403,7 @@ mod tests {
             .chat(
                 501,
                 KnowledgeAgentChatRequest {
-                    tenant_id: 20001,
+                    tenant_id: 100001,
                     actor_id: None,
                     message: "Explain hybrid retrieval".to_string(),
                     mode: Some(KnowledgeAgentKnowledgeMode::Rag),
@@ -442,7 +442,7 @@ mod tests {
             ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
                 Ok(KnowledgeAgentProfile {
                     profile_id,
-                    tenant_id: 20001,
+                    tenant_id: 100001,
                     name: "External Agent".to_string(),
                     description: None,
                     system_instruction: "Answer with citations.".to_string(),
@@ -461,7 +461,7 @@ mod tests {
                     bindings: vec![KnowledgeAgentBinding {
                         binding_id: 701,
                         profile_id,
-                        tenant_id: 20001,
+                        tenant_id: 100001,
                         space_id: 9,
                         collection_id: None,
                         source_filter: None,
@@ -603,7 +603,7 @@ mod tests {
             .chat(
                 801,
                 KnowledgeAgentChatRequest {
-                    tenant_id: 20001,
+                    tenant_id: 100001,
                     actor_id: None,
                     message: "What is in the external knowledge base?".to_string(),
                     mode: Some(KnowledgeAgentKnowledgeMode::External),
@@ -645,7 +645,7 @@ mod tests {
         ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
             Ok(KnowledgeAgentProfile {
                 profile_id,
-                tenant_id: 20001,
+                tenant_id: 100001,
                 name: "Support Agent".to_string(),
                 description: None,
                 system_instruction: "Answer with citations.".to_string(),
@@ -663,7 +663,7 @@ mod tests {
                 bindings: vec![KnowledgeAgentBinding {
                     binding_id: 601,
                     profile_id,
-                    tenant_id: 20001,
+                    tenant_id: 100001,
                     space_id: 7,
                     collection_id: None,
                     source_filter: None,

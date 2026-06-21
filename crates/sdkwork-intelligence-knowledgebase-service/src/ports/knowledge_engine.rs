@@ -153,6 +153,17 @@ pub trait OkfBundleEngine: KnowledgeEngine {
         ))
     }
 
+    async fn delete_concept(
+        &self,
+        _space_id: u64,
+        _concept_row_id: u64,
+        _actor: &str,
+    ) -> Result<(), KnowledgeEngineError> {
+        Err(KnowledgeEngineError::Unsupported(
+            "okf delete_concept requires hosted OkfConceptService wiring".to_string(),
+        ))
+    }
+
     async fn publish_concept(
         &self,
         _request: sdkwork_knowledgebase_contract::okf::PublishKnowledgeOkfConceptRequest,

@@ -78,6 +78,9 @@
       ],
       "@sdkwork/ui-pc-react": [
         "../../../sdkwork-ui/sdkwork-ui-pc-react/src/index.ts"
+      ],
+      "@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils": [
+        "./packages/sdkwork-knowledgebase-pc-commons/src/stringUtils.ts"
       ]
     },
     "allowImportingTsExtensions": true,

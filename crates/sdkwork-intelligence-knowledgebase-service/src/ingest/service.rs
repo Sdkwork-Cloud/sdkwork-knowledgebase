@@ -152,6 +152,7 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
     pub async fn ingest_markdown_payload(
         &self,
         request: KnowledgeIngestRequest,
+        drive_space_id: Option<&str>,
     ) -> Result<ApiPayloadIngestResult, KnowledgeApiPayloadIngestServiceError> {
         if request.space_id == 0 {
             return Err(KnowledgeApiPayloadIngestServiceError::InvalidRequest(
@@ -188,10 +189,13 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
         if !job_result.created {
             match self
                 .drive
-                .head_object(HeadKnowledgeObjectRequest::managed_artifact(
-                    payload_path.clone(),
-                    "api_payload",
-                ))
+                .head_object(
+                    HeadKnowledgeObjectRequest::managed_artifact(
+                        payload_path.clone(),
+                        "api_payload",
+                    )
+                    .with_drive_space_id(drive_space_id),
+                )
                 .await
             {
                 Ok(existing_payload) => {
@@ -207,12 +211,15 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
 
         let payload_object_ref = self
             .drive
-            .put_object(PutKnowledgeObjectRequest::text(
-                payload_path,
-                "api_payload",
-                payload_markdown,
-                None,
-            ))
+            .put_object(
+                PutKnowledgeObjectRequest::text(
+                    payload_path,
+                    "api_payload",
+                    payload_markdown,
+                    None,
+                )
+                .with_drive_space_id(drive_space_id),
+            )
             .await?;
 
         Ok(ApiPayloadIngestResult {

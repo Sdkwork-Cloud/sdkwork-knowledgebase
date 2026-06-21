@@ -109,8 +109,8 @@ async fn open_retrieval_route_calls_injected_service_with_api_key_context() {
     let body = response_json(response).await;
     assert_eq!(body["retrievalId"], "701");
     assert_eq!(body["hits"][0]["chunkId"], "11");
-    assert_eq!(service.contexts(), vec![("api-key-001".to_string(), 20001)]);
-    assert_eq!(service.last_retrieval_tenant_id(), Some(20001));
+    assert_eq!(service.contexts(), vec![("api-key-001".to_string(), 100001)]);
+    assert_eq!(service.last_retrieval_tenant_id(), Some(100001));
 }
 
 #[tokio::test]
@@ -304,7 +304,7 @@ async fn open_router_web_framework_accepts_dev_inline_api_key_before_handler() {
                 .header("content-type", "application/json")
                 .header(
                     "x-api-key",
-                    "api_key_id=api-key-001;tenant_id=20001;user_id=30001;app_id=knowledgebase",
+                    "api_key_id=api-key-001;tenant_id=100001;user_id=30001;app_id=knowledgebase",
                 )
                 .body(Body::from(
                     r#"{"actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
@@ -315,7 +315,7 @@ async fn open_router_web_framework_accepts_dev_inline_api_key_before_handler() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::CREATED);
-    assert_eq!(service.contexts(), vec![("api-key-001".to_string(), 20001)]);
+    assert_eq!(service.contexts(), vec![("api-key-001".to_string(), 100001)]);
 }
 
 fn assert_route(method: &str, path: &str, operation_id: &str) {
@@ -330,7 +330,7 @@ fn assert_route(method: &str, path: &str, operation_id: &str) {
 fn open_context() -> KnowledgeOpenApiRequestContext {
     KnowledgeOpenApiRequestContext {
         api_key_id: "api-key-001".to_string(),
-        tenant_id: 20001,
+        tenant_id: 100001,
         actor_id: Some(30001),
     }
 }
@@ -468,8 +468,8 @@ impl KnowledgeOpenApi for RecordingOpenApi {
                 drive_node_id: Some("node-index".to_string()),
                 document_id: None,
                 document_version_id: None,
-                okf_concept_id: Some(1),
-                okf_revision_id: Some(2),
+                concept_id: Some(1),
+                concept_revision_id: Some(2),
                 mime_type: Some("text/markdown; charset=utf-8".to_string()),
                 size_bytes: Some(64),
                 ingest_state: None,
@@ -479,6 +479,9 @@ impl KnowledgeOpenApi for RecordingOpenApi {
                 children_count: None,
                 updated_at: "2026-06-04T12:00:00Z".to_string(),
                 permissions: KnowledgeBrowserNodePermissions::read_only(),
+                drive_storage_provider_id: None,
+                drive_bucket: None,
+                drive_object_key: None,
             }],
             next_cursor: None,
         })

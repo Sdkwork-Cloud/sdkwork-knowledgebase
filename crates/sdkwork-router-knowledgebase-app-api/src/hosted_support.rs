@@ -6,9 +6,7 @@ use sdkwork_intelligence_knowledgebase_service::{
         PersistStandardFilesRequest, PublishExistingOkfConceptRevisionRequest,
     },
     ports::{
-        knowledge_drive_storage::{
-            HeadKnowledgeObjectRequest, KnowledgeDriveStorage, PutKnowledgeObjectRequest,
-        },
+        knowledge_drive_storage::{KnowledgeDriveStorage, PutKnowledgeObjectRequest},
         knowledge_ingestion_job_store::{CreateIngestionJobRecord, IngestionJobStore},
         knowledge_okf_concept_store::KnowledgeOkfConceptStore,
         knowledge_space_store::KnowledgeSpaceStore,
@@ -155,14 +153,16 @@ pub(crate) async fn read_managed_okf_text(
     drive: &dyn KnowledgeDriveStorage,
     logical_path: &str,
     object_role: &str,
+    drive_space_id: Option<&str>,
 ) -> Result<String, ApiError> {
-    let object_ref = drive
-        .head_object(HeadKnowledgeObjectRequest::managed_artifact(
-            logical_path,
-            object_role,
-        ))
-        .await?;
-    drive.get_object_text(&object_ref).await.map_err(Into::into)
+    let _ = object_role;
+    sdkwork_intelligence_knowledgebase_service::okf::read_managed_markdown(
+        drive,
+        logical_path,
+        drive_space_id,
+    )
+    .await
+    .map_err(Into::into)
 }
 
 pub(crate) fn okf_concept_service(
@@ -356,6 +356,7 @@ pub(crate) async fn persist_okf_profile(
             space_name: space.name,
             concepts: concepts,
             log_entries: logs,
+            drive_space_id: space.drive_space_id.clone(),
         })
         .await?;
     let registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
@@ -423,12 +424,14 @@ pub(crate) async fn create_okf_bundle_export(
             .filter(|value| !value.is_empty())
             .map(str::to_string)
             .unwrap_or_else(|| format!("export-{}", file_entry.id));
+        let space = runtime.space_store().get_space(request.space_id).await?;
         let staged =
             sdkwork_intelligence_knowledgebase_service::okf::stage_export_bundle_for_drive_import(
                 runtime.drive_storage(),
                 &export_root,
                 request.space_id,
                 &import_id,
+                space.drive_space_id.as_deref(),
             )
             .await
             .map_err(|error| ApiError::internal("okf_export_stage_failed", error.to_string()))?;
@@ -512,20 +515,29 @@ pub(crate) async fn create_okf_lint_run(
             request.profile.as_deref().unwrap_or("default")
         ),
         || async move {
+            let space = runtime_in_closure
+                .space_store()
+                .get_space(space_id)
+                .await
+                .map_err(|error| format!("{error:?}"))?;
             let lint_result = run_okf_bundle_lint(&runtime_in_closure, space_id)
                 .await
                 .map_err(|error| format!("{error:?}"))?;
             let report_path = format!("output/lint-reports/{space_id}.json");
             runtime_in_closure
                 .drive_storage()
-                .put_object(PutKnowledgeObjectRequest {
-                    logical_path: report_path,
-                    object_role: "output_export".to_string(),
-                    content_type: "application/json; charset=utf-8".to_string(),
-                    body: serde_json::to_vec_pretty(&lint_result)
-                        .map_err(|error| format!("failed to serialize lint report: {error}"))?,
-                    checksum_sha256_hex: None,
-                })
+                .put_object(
+                    PutKnowledgeObjectRequest {
+                        logical_path: report_path,
+                        object_role: "output_export".to_string(),
+                        content_type: "application/json; charset=utf-8".to_string(),
+                        body: serde_json::to_vec_pretty(&lint_result)
+                            .map_err(|error| format!("failed to serialize lint report: {error}"))?,
+                        checksum_sha256_hex: None,
+                        space_uuid: None,
+                    }
+                    .with_drive_space_id(space.drive_space_id.as_deref()),
+                )
                 .await
                 .map_err(|error| format!("{error:?}"))?;
             if lint_result.conformance != "pass" {

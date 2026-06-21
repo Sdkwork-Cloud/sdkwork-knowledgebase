@@ -9,6 +9,7 @@ use sdkwork_knowledgebase_contract::context_binding::{
 };
 
 use crate::{
+    hosted_access::require_space_access,
     runtime::KnowledgebaseRuntime, ApiError, ApiResult, KnowledgeAppRequestContext,
     KnowledgeContextBindingAppService,
 };
@@ -53,6 +54,7 @@ impl KnowledgeContextBindingAppService for HostedContextBindingService {
         context: KnowledgeAppRequestContext,
         space_id: u64,
     ) -> ApiResult<KnowledgeSpaceContextBindingList> {
+        require_space_access(&self.runtime, &context, space_id).await?;
         let service = KnowledgeContextBindingService::new(self.runtime.context_binding_store());
         service
             .list_space_bindings(context.tenant_id, space_id, None)
@@ -72,6 +74,7 @@ impl KnowledgeContextBindingAppService for HostedContextBindingService {
                 "spaceId in body must match spaceId in path",
             ));
         }
+        require_space_access(&self.runtime, &context, space_id).await?;
 
         let drive_space_id = self.drive_space_id_for_space(space_id).await?;
         let created_by = Self::created_by(&context, self.runtime.operator_id());

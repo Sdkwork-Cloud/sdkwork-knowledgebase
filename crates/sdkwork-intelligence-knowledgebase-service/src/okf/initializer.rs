@@ -49,13 +49,14 @@ impl<'a> OkfBundleInitializerService<'a> {
         space_name: &str,
         drive_space_id: Option<&str>,
     ) -> Result<PersistedStandardFiles, OkfBundleInitializerServiceError> {
-        let drive_space_id = self.required_drive_space_id(drive_space_id)?;
+        let bound_drive_space_id = self.bound_drive_space_id(drive_space_id)?;
         let files = self
             .standard_files
             .persist_standard_files(PersistStandardFilesRequest {
                 space_name: space_name.to_string(),
                 concepts: vec![],
                 log_entries: vec![],
+                drive_space_id: bound_drive_space_id.clone(),
             })
             .await
             .map_err(OkfBundleInitializerServiceError::Storage)?;
@@ -65,6 +66,12 @@ impl<'a> OkfBundleInitializerService<'a> {
         }
 
         if let Some(drive_workspace) = self.drive_workspace {
+            let drive_space_id = bound_drive_space_id.ok_or_else(|| {
+                OkfBundleInitializerServiceError::InvalidRequest(
+                    "drive_space_id is required when drive workspace initialization is enabled"
+                        .to_string(),
+                )
+            })?;
             drive_workspace
                 .ensure_nodes(EnsureKnowledgeDriveNodesRequest {
                     drive_space_id,
@@ -76,24 +83,23 @@ impl<'a> OkfBundleInitializerService<'a> {
         Ok(files)
     }
 
-    fn required_drive_space_id(
+    fn bound_drive_space_id(
         &self,
         drive_space_id: Option<&str>,
-    ) -> Result<String, OkfBundleInitializerServiceError> {
-        if self.drive_workspace.is_none() {
-            return Ok(String::new());
-        }
-        drive_space_id
+    ) -> Result<Option<String>, OkfBundleInitializerServiceError> {
+        let bound = drive_space_id
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .map(ToOwned::to_owned)
-            .ok_or_else(|| {
-                OkfBundleInitializerServiceError::InvalidRequest(
-                    "drive_space_id is required when drive workspace initialization is enabled"
-                        .to_string(),
-                )
-            })
+            .map(ToOwned::to_owned);
+        if self.drive_workspace.is_some() && bound.is_none() {
+            return Err(OkfBundleInitializerServiceError::InvalidRequest(
+                "drive_space_id is required when drive workspace initialization is enabled"
+                    .to_string(),
+            ));
+        }
+        Ok(bound)
     }
+
 }
 
 fn standard_drive_nodes(files: &PersistedStandardFiles) -> Vec<EnsureKnowledgeDriveNodeRequest> {

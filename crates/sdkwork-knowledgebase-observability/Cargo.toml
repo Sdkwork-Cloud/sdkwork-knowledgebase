@@ -9,6 +9,7 @@ axum.workspace = true
 http = "1"
 tokio = { workspace = true, features = ["sync"] }
 tower.workspace = true
+tracing = "0.1"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

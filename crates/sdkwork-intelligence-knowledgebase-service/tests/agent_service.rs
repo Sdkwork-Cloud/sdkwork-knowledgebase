@@ -66,7 +66,7 @@ async fn retrieval_preview_uses_enabled_agent_bindings_and_profile_model_policy(
         .preview_retrieval(
             501,
             KnowledgeRetrievalRequest {
-                tenant_id: 20001,
+                tenant_id: 100001,
                 actor_id: Some(30001),
                 query: "enterprise renewal support".to_string(),
                 retrieval_profile_id: None,
@@ -86,7 +86,7 @@ async fn retrieval_preview_uses_enabled_agent_bindings_and_profile_model_policy(
     assert_eq!(
         retrieval.requests(),
         vec![KnowledgeRetrievalRequest {
-            tenant_id: 20001,
+            tenant_id: 100001,
             actor_id: Some(30001),
             query: "enterprise renewal support".to_string(),
             retrieval_profile_id: Some(31),
@@ -345,7 +345,7 @@ impl KnowledgeRetrievalExecutor for RecordingRetrievalExecutor {
 
 fn profile_request(name: &str) -> KnowledgeAgentProfileRequest {
     KnowledgeAgentProfileRequest {
-        tenant_id: 20001,
+        tenant_id: 100001,
         name: name.to_string(),
         description: Some("Answers from support knowledge bases.".to_string()),
         system_instruction: "Answer with citations.".to_string(),
@@ -370,7 +370,7 @@ fn binding_request(
     enabled: bool,
 ) -> KnowledgeAgentBindingRequest {
     KnowledgeAgentBindingRequest {
-        tenant_id: 20001,
+        tenant_id: 100001,
         profile_id,
         space_id,
         collection_id: None,
@@ -390,7 +390,7 @@ fn profile(
 ) -> KnowledgeAgentProfile {
     KnowledgeAgentProfile {
         profile_id,
-        tenant_id: 20001,
+        tenant_id: 100001,
         name: name.to_string(),
         description: Some("Answers from support knowledge bases.".to_string()),
         system_instruction: "Answer with citations.".to_string(),
@@ -419,7 +419,7 @@ fn binding(
     KnowledgeAgentBinding {
         binding_id,
         profile_id,
-        tenant_id: 20001,
+        tenant_id: 100001,
         space_id,
         collection_id: None,
         source_filter: None,

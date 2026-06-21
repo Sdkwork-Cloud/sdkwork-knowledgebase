@@ -14,6 +14,18 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "spaces.retrieve",
     ),
     HttpRoute::dual_token(
+        HttpMethod::Patch,
+        "/app/v3/api/knowledge/spaces/{spaceId}",
+        "knowledge",
+        "spaces.update",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Delete,
+        "/app/v3/api/knowledge/spaces/{spaceId}",
+        "knowledge",
+        "spaces.delete",
+    ),
+    HttpRoute::dual_token(
         HttpMethod::Post,
         "/app/v3/api/knowledge/drive_imports",
         "knowledge",
@@ -90,6 +102,12 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "/app/v3/api/knowledge/okf/concepts/{conceptId}",
         "knowledge",
         "okf.concepts.retrieve",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Delete,
+        "/app/v3/api/knowledge/okf/concepts/{conceptId}",
+        "knowledge",
+        "okf.concepts.delete",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
@@ -252,6 +270,24 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
         "knowledge",
         "spaces.contextBindings.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/app/v3/api/knowledge/spaces/{spaceId}/members",
+        "knowledge",
+        "spaces.members.list",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/spaces/{spaceId}/members",
+        "knowledge",
+        "spaces.members.grant",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Delete,
+        "/app/v3/api/knowledge/spaces/{spaceId}/members",
+        "knowledge",
+        "spaces.members.revoke",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,

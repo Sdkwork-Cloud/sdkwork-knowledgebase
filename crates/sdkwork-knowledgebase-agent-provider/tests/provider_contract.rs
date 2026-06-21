@@ -12,7 +12,7 @@ use sdkwork_knowledgebase_contract::{
 
 #[test]
 fn provider_manifest_declares_standard_knowledge_capabilities() {
-    let provider = SdkworkKnowledgebaseProvider::new(FakeKnowledgebaseClient, 20001);
+    let provider = SdkworkKnowledgebaseProvider::new(FakeKnowledgebaseClient, 100001);
 
     let manifest = provider.provider_manifest();
 
@@ -31,12 +31,12 @@ fn provider_manifest_declares_standard_knowledge_capabilities() {
 
 #[test]
 fn search_maps_kernel_request_to_knowledgebase_retrieval_and_back() {
-    let provider = SdkworkKnowledgebaseProvider::new(FakeKnowledgebaseClient, 20001);
+    let provider = SdkworkKnowledgebaseProvider::new(FakeKnowledgebaseClient, 100001);
 
     let results = provider
         .search(
             KnowledgeSearchRequest::new("RAG boundary")
-                .with_tenant_id("20001")
+                .with_tenant_id("100001")
                 .with_namespace("space:7")
                 .with_top_k(3)
                 .with_method(KnowledgeRetrievalMethod::Hybrid)
@@ -77,7 +77,7 @@ fn search_maps_kernel_request_to_knowledgebase_retrieval_and_back() {
 
 #[test]
 fn search_requires_namespace_space_id_to_preserve_scope() {
-    let provider = SdkworkKnowledgebaseProvider::new(FakeKnowledgebaseClient, 20001);
+    let provider = SdkworkKnowledgebaseProvider::new(FakeKnowledgebaseClient, 100001);
 
     let error = provider
         .search(KnowledgeSearchRequest::new("missing scope"))
@@ -88,7 +88,7 @@ fn search_requires_namespace_space_id_to_preserve_scope() {
 
 #[test]
 fn read_and_list_delegate_to_typed_client() {
-    let provider = SdkworkKnowledgebaseProvider::new(FakeKnowledgebaseClient, 20001);
+    let provider = SdkworkKnowledgebaseProvider::new(FakeKnowledgebaseClient, 100001);
 
     let document = provider.read("301").unwrap();
     let documents = provider
@@ -107,7 +107,7 @@ impl KnowledgebaseRetrievalClient for FakeKnowledgebaseClient {
         &self,
         request: KnowledgeRetrievalRequest,
     ) -> Result<KnowledgeRetrievalResult, String> {
-        assert_eq!(request.tenant_id, 20001);
+        assert_eq!(request.tenant_id, 100001);
         assert_eq!(request.bindings[0].space_id, 7);
         assert_eq!(request.bindings[0].top_k, Some(3));
         assert_eq!(request.retrieval_profile_id, Some(31));

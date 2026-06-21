@@ -20,6 +20,8 @@ use sdkwork_knowledgebase_contract::{
     OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest,
     OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
     OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult,
+    GrantKnowledgeSpaceMemberRequest, KnowledgeSpaceMemberList, KnowledgeSpaceMemberSubjectType,
+    UpdateKnowledgeSpaceRequest,
 };
 
 use crate::{ApiError, ApiResult};
@@ -34,53 +36,119 @@ pub struct KnowledgeAppRequestContext {
 
 #[async_trait]
 pub trait KnowledgeSpaceAppService: Send + Sync + 'static {
-    async fn create_space(&self, request: CreateKnowledgeSpaceRequest)
-        -> ApiResult<KnowledgeSpace>;
+    async fn create_space(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: CreateKnowledgeSpaceRequest,
+    ) -> ApiResult<KnowledgeSpace>;
 
-    async fn retrieve_space(&self, space_id: u64) -> ApiResult<KnowledgeSpace>;
+    async fn retrieve_space(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeSpace>;
+
+    async fn update_space(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: UpdateKnowledgeSpaceRequest,
+    ) -> ApiResult<KnowledgeSpace>;
+
+    async fn delete_space(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<()>;
+
+    async fn list_space_members(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeSpaceMemberList>;
+
+    async fn grant_space_member(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: GrantKnowledgeSpaceMemberRequest,
+    ) -> ApiResult<()>;
+
+    async fn revoke_space_member(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        subject_type: KnowledgeSpaceMemberSubjectType,
+        subject_id: String,
+    ) -> ApiResult<()>;
 }
 
 #[async_trait]
 pub trait KnowledgeDriveImportAppService: Send + Sync + 'static {
     async fn import_drive_object(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeDriveImportRequest,
     ) -> ApiResult<KnowledgeDriveImportResult>;
 }
 
 #[async_trait]
 pub trait KnowledgeIngestAppService: Send + Sync + 'static {
-    async fn create_ingest(&self, request: KnowledgeIngestRequest) -> ApiResult<IngestionJob>;
+    async fn create_ingest(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeIngestRequest,
+    ) -> ApiResult<IngestionJob>;
 
-    async fn retrieve_ingest(&self, ingest_id: u64) -> ApiResult<IngestionJob>;
+    async fn retrieve_ingest(
+        &self,
+        context: KnowledgeAppRequestContext,
+        ingest_id: u64,
+    ) -> ApiResult<IngestionJob>;
 }
 
 #[async_trait]
 pub trait KnowledgeDocumentAppService: Send + Sync + 'static {
-    async fn list_documents(&self) -> ApiResult<KnowledgeDocumentList>;
+    async fn list_documents(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeDocumentList>;
 
     async fn create_document(
         &self,
+        context: KnowledgeAppRequestContext,
         request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument>;
 
-    async fn retrieve_document(&self, document_id: u64) -> ApiResult<KnowledgeDocument>;
+    async fn retrieve_document(
+        &self,
+        context: KnowledgeAppRequestContext,
+        document_id: u64,
+    ) -> ApiResult<KnowledgeDocument>;
 
     async fn update_document(
         &self,
+        context: KnowledgeAppRequestContext,
         document_id: u64,
         request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument>;
 
-    async fn delete_document(&self, document_id: u64) -> ApiResult<()>;
+    async fn delete_document(
+        &self,
+        context: KnowledgeAppRequestContext,
+        document_id: u64,
+    ) -> ApiResult<()>;
 
     async fn list_document_versions(
         &self,
+        context: KnowledgeAppRequestContext,
         document_id: u64,
     ) -> ApiResult<KnowledgeDocumentVersionList>;
 
     async fn create_document_version(
         &self,
+        context: KnowledgeAppRequestContext,
         document_id: u64,
         request: CreateKnowledgeDocumentVersionRequest,
     ) -> ApiResult<KnowledgeDocumentVersion>;
@@ -101,6 +169,12 @@ pub trait KnowledgeOkfAppService: Send + Sync + 'static {
         &self,
         request: OkfConceptUpsertRequest,
     ) -> ApiResult<OkfConceptSummary>;
+
+    async fn delete_okf_concept(
+        &self,
+        context: KnowledgeAppRequestContext,
+        concept_row_id: u64,
+    ) -> ApiResult<()>;
 
     async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument>;
 
@@ -264,59 +338,132 @@ pub trait KnowledgeAgentAppService: Send + Sync + 'static {
 pub trait KnowledgeAppApi: Send + Sync + 'static {
     async fn create_space(
         &self,
+        _context: KnowledgeAppRequestContext,
         _request: CreateKnowledgeSpaceRequest,
     ) -> ApiResult<KnowledgeSpace> {
         Err(ApiError::not_implemented("spaces.create"))
     }
 
-    async fn retrieve_space(&self, _space_id: u64) -> ApiResult<KnowledgeSpace> {
+    async fn retrieve_space(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+    ) -> ApiResult<KnowledgeSpace> {
         Err(ApiError::not_implemented("spaces.retrieve"))
+    }
+
+    async fn update_space(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+        _request: UpdateKnowledgeSpaceRequest,
+    ) -> ApiResult<KnowledgeSpace> {
+        Err(ApiError::not_implemented("spaces.update"))
+    }
+
+    async fn delete_space(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+    ) -> ApiResult<()> {
+        Err(ApiError::not_implemented("spaces.delete"))
+    }
+
+    async fn list_space_members(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+    ) -> ApiResult<KnowledgeSpaceMemberList> {
+        Err(ApiError::not_implemented("spaces.members.list"))
+    }
+
+    async fn grant_space_member(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+        _request: GrantKnowledgeSpaceMemberRequest,
+    ) -> ApiResult<()> {
+        Err(ApiError::not_implemented("spaces.members.grant"))
+    }
+
+    async fn revoke_space_member(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+        _subject_type: KnowledgeSpaceMemberSubjectType,
+        _subject_id: String,
+    ) -> ApiResult<()> {
+        Err(ApiError::not_implemented("spaces.members.revoke"))
     }
 
     async fn create_drive_import(
         &self,
+        _context: KnowledgeAppRequestContext,
         _request: KnowledgeDriveImportRequest,
     ) -> ApiResult<KnowledgeDriveImportResult> {
         Err(ApiError::not_implemented("driveImports.create"))
     }
 
-    async fn create_ingest(&self, _request: KnowledgeIngestRequest) -> ApiResult<IngestionJob> {
+    async fn create_ingest(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _request: KnowledgeIngestRequest,
+    ) -> ApiResult<IngestionJob> {
         Err(ApiError::not_implemented("ingests.create"))
     }
 
-    async fn retrieve_ingest(&self, _ingest_id: u64) -> ApiResult<IngestionJob> {
+    async fn retrieve_ingest(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _ingest_id: u64,
+    ) -> ApiResult<IngestionJob> {
         Err(ApiError::not_implemented("ingests.retrieve"))
     }
 
-    async fn list_documents(&self) -> ApiResult<KnowledgeDocumentList> {
+    async fn list_documents(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+    ) -> ApiResult<KnowledgeDocumentList> {
         Err(ApiError::not_implemented("documents.list"))
     }
 
     async fn create_document(
         &self,
+        _context: KnowledgeAppRequestContext,
         _request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
         Err(ApiError::not_implemented("documents.create"))
     }
 
-    async fn retrieve_document(&self, _document_id: u64) -> ApiResult<KnowledgeDocument> {
+    async fn retrieve_document(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _document_id: u64,
+    ) -> ApiResult<KnowledgeDocument> {
         Err(ApiError::not_implemented("documents.retrieve"))
     }
 
     async fn update_document(
         &self,
+        _context: KnowledgeAppRequestContext,
         _document_id: u64,
         _request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
         Err(ApiError::not_implemented("documents.update"))
     }
 
-    async fn delete_document(&self, _document_id: u64) -> ApiResult<()> {
+    async fn delete_document(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _document_id: u64,
+    ) -> ApiResult<()> {
         Err(ApiError::not_implemented("documents.delete"))
     }
 
     async fn list_document_versions(
         &self,
+        _context: KnowledgeAppRequestContext,
         _document_id: u64,
     ) -> ApiResult<KnowledgeDocumentVersionList> {
         Err(ApiError::not_implemented("documents.versions.list"))
@@ -324,6 +471,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
 
     async fn create_document_version(
         &self,
+        _context: KnowledgeAppRequestContext,
         _document_id: u64,
         _request: CreateKnowledgeDocumentVersionRequest,
     ) -> ApiResult<KnowledgeDocumentVersion> {
@@ -351,6 +499,14 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _request: OkfConceptUpsertRequest,
     ) -> ApiResult<OkfConceptSummary> {
         Err(ApiError::not_implemented("okf.concepts.upsert"))
+    }
+
+    async fn delete_okf_concept(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _concept_row_id: u64,
+    ) -> ApiResult<()> {
+        Err(ApiError::not_implemented("okf.concepts.delete"))
     }
 
     async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument> {

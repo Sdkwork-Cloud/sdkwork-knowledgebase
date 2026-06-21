@@ -1,7 +1,7 @@
 import { appApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserPage, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceContextBindingList, KnowledgeUploadSession, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, UpdateKnowledgeSpaceContextBindingRequest } from '../types';
+import type { CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserPage, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceContextBindingList, KnowledgeSpaceMemberList, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, UpdateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceRequest } from '../types';
 
 
 export class KnowledgeUploadSessionsApi {
@@ -328,6 +328,10 @@ async retrieve(conceptId: number): Promise<OkfConceptSummary> {
     return this.client.get<OkfConceptSummary>(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}`));
   }
 
+async delete(conceptId: number): Promise<void> {
+    return this.client.delete<void>(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}`));
+  }
+
 async upsert(body: OkfConceptUpsertRequest): Promise<OkfConceptSummary> {
     return this.client.put<OkfConceptSummary>(appApiPath(`/knowledge/okf/concepts/upsert`), body, undefined, undefined, 'application/json');
   }
@@ -379,8 +383,11 @@ export class KnowledgeDocumentsApi {
   }
 
 
-async list(): Promise<KnowledgeDocumentList> {
-    return this.client.get<KnowledgeDocumentList>(appApiPath(`/knowledge/documents`));
+async list(spaceId: number): Promise<KnowledgeDocumentList> {
+    const query = buildQueryString([
+      { name: 'spaceId', value: spaceId, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<KnowledgeDocumentList>(appendQueryString(appApiPath(`/knowledge/documents`), query));
   }
 
 async create(body: CreateKnowledgeDocumentRequest): Promise<KnowledgeDocument> {
@@ -449,6 +456,30 @@ export class KnowledgeSpacesContextBindingsApi {
   }
 }
 
+export class KnowledgeSpacesMembersApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+  async list(spaceId: number): Promise<KnowledgeSpaceMemberList> {
+    return this.client.get<KnowledgeSpaceMemberList>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`));
+  }
+
+  async grant(spaceId: number, body: GrantKnowledgeSpaceMemberRequest): Promise<void> {
+    return this.client.post<void>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), body, undefined, undefined, 'application/json');
+  }
+
+  async revoke(spaceId: number, params: { subjectType: KnowledgeSpaceMemberSubjectType; subjectId: string }): Promise<void> {
+    const query = buildQueryString([
+      { name: 'subjectType', value: params.subjectType, style: 'form', explode: true, allowReserved: false },
+      { name: 'subjectId', value: params.subjectId, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.delete<void>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), query));
+  }
+}
+
 export interface KnowledgeSpacesBrowserListParams {
   view: KnowledgeBrowserView;
   parentId?: string | null;
@@ -479,11 +510,13 @@ export class KnowledgeSpacesApi {
   private client: HttpClient;
   public readonly browser: KnowledgeSpacesBrowserApi;
   public readonly contextBindings: KnowledgeSpacesContextBindingsApi;
+  public readonly members: KnowledgeSpacesMembersApi;
 
   constructor(client: HttpClient) {
     this.client = client;
     this.browser = new KnowledgeSpacesBrowserApi(client);
     this.contextBindings = new KnowledgeSpacesContextBindingsApi(client);
+    this.members = new KnowledgeSpacesMembersApi(client);
   }
 
 
@@ -493,6 +526,14 @@ async create(body: CreateKnowledgeSpaceRequest): Promise<KnowledgeSpace> {
 
 async retrieve(spaceId: number): Promise<KnowledgeSpace> {
     return this.client.get<KnowledgeSpace>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`));
+  }
+
+async update(spaceId: number, body: UpdateKnowledgeSpaceRequest): Promise<KnowledgeSpace> {
+    return this.client.patch<KnowledgeSpace>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
+  }
+
+async delete(spaceId: number): Promise<void> {
+    return this.client.delete<void>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`));
   }
 }
 

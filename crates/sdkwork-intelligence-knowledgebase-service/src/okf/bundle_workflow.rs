@@ -207,6 +207,7 @@ async fn refresh_standard_bundle_files(
     space_name: &str,
     space_id: u64,
 ) -> Result<(), OkfBundleWorkflowError> {
+    let space = deps.space_store.get_space(space_id).await?;
     let concepts = deps.concepts.list_concept_summaries(space_id).await?;
     let log_entries = deps.concepts.list_log_entries(space_id).await?;
     let files = OkfBundleStandardFileService::new(deps.drive)
@@ -214,6 +215,7 @@ async fn refresh_standard_bundle_files(
             space_name: space_name.to_string(),
             concepts,
             log_entries,
+            drive_space_id: space.drive_space_id.clone(),
         })
         .await?;
 

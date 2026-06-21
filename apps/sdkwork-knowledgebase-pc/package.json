@@ -18,6 +18,7 @@
     "@sdkwork/appbase-app-sdk": "workspace:*",
     "@sdkwork/auth-pc-react": "workspace:*",
     "@sdkwork/auth-runtime-pc-react": "workspace:*",
+    "@sdkwork/drive-app-sdk": "workspace:*",
     "@sdkwork/knowledgebase-app-sdk": "workspace:*",
     "@sdkwork/utils": "workspace:*",
     "@sdkwork/ui-pc-react": "workspace:*",

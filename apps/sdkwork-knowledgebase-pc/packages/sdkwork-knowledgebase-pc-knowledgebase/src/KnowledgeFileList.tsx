@@ -143,6 +143,9 @@ export function KnowledgeFileList({
     rawList = [...rawList].sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
+      const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
+      const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
       return 0;
     });
 
@@ -382,12 +385,9 @@ export function KnowledgeFileList({
       <CloudDriveModal
         isOpen={isCloudDriveOpen}
         onClose={() => setIsCloudDriveOpen(false)}
-        onConfirm={async (selectedItems) => {
-          if (selectedItems && selectedItems.length > 0) {
-            await handleMenuCreateWrapped('batch_create', currentFolderId ?? undefined, selectedItems);
-          } else {
-            await handleMenuCreateWrapped('cloudDrive', currentFolderId ?? undefined);
-          }
+        spaceId={activeKb?.id}
+        onConfirm={async () => {
+          onUpdateDocs?.();
           setIsCloudDriveOpen(false);
         }}
       />

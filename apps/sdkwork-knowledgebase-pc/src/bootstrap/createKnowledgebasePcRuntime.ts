@@ -1,10 +1,12 @@
 import {
   createHostAdapter,
   createKnowledgebaseAppSdkClient,
+  createKnowledgebaseDriveAppSdkClient,
   createKnowledgebaseSessionTokenManager,
   createRuntimeConfig,
   createSessionStore,
   configureKnowledgebaseAppSdk,
+  configureKnowledgebaseDriveAppSdk,
   bindKnowledgebaseSessionStore,
   setKnowledgebaseApiEnabled,
   type KnowledgebasePcRuntime,
@@ -21,15 +23,20 @@ export function createKnowledgebasePcRuntime(): KnowledgebasePcRuntime {
     config,
     tokenManager,
   });
+  const driveSdkClient = createKnowledgebaseDriveAppSdkClient({
+    config,
+    tokenManager,
+  });
   const iamRuntime = createKnowledgebaseIamRuntime({
     config,
-    sdkClients: [appSdkClient],
+    sdkClients: [appSdkClient, driveSdkClient],
     session,
     tokenManager,
   });
 
   bindKnowledgebaseSessionStore(session);
   configureKnowledgebaseAppSdk(appSdkClient);
+  configureKnowledgebaseDriveAppSdk(driveSdkClient);
   setKnowledgebaseApiEnabled(
     config.auth.tokenManagerMode !== 'test'
     && Boolean(config.appApiBaseUrl || config.sdkBaseUrls.appApiBaseUrl),
@@ -42,6 +49,7 @@ export function createKnowledgebasePcRuntime(): KnowledgebasePcRuntime {
     },
     sdk: {
       app: appSdkClient,
+      drive: driveSdkClient,
     },
     session,
     host: createHostAdapter(),

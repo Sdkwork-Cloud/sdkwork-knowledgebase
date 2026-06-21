@@ -12,10 +12,11 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_trace
     KnowledgeRetrievalTraceHitRecord, KnowledgeRetrievalTraceRecord, KnowledgeRetrievalTraceStore,
     KnowledgeRetrievalTraceStoreError,
 };
+use sdkwork_intelligence_knowledgebase_service::public_web_search::INCLUDE_PUBLIC_WEB_METADATA_KEY;
 use sdkwork_intelligence_knowledgebase_service::retrieval::KnowledgeRetrievalService;
 use sdkwork_knowledgebase_contract::rag::{
-    KnowledgeContextPackRequest, KnowledgeMemoryContextFragment, KnowledgeRetrievalBinding,
-    KnowledgeRetrievalMethod, KnowledgeRetrievalRequest,
+    KnowledgeContextPackRequest, KnowledgeFilter, KnowledgeMemoryContextFragment,
+    KnowledgeRetrievalBinding, KnowledgeRetrievalMethod, KnowledgeRetrievalRequest,
 };
 use std::sync::Mutex;
 
@@ -55,7 +56,7 @@ async fn retrieval_searches_multiple_bindings_and_persists_trace_hits() {
 
     let result = service
         .retrieve(KnowledgeRetrievalRequest {
-            tenant_id: 20001,
+            tenant_id: 100001,
             actor_id: Some(30001),
             query: "enterprise renewal support".to_string(),
             retrieval_profile_id: Some(31),
@@ -87,7 +88,7 @@ async fn retrieval_searches_multiple_bindings_and_persists_trace_hits() {
         backend.requests(),
         vec![
             BackendCall {
-                tenant_id: 20001,
+                tenant_id: 100001,
                 query: "enterprise renewal support".to_string(),
                 space_id: 7,
                 priority: 20,
@@ -96,7 +97,7 @@ async fn retrieval_searches_multiple_bindings_and_persists_trace_hits() {
                 method: KnowledgeRetrievalMethod::Hybrid,
             },
             BackendCall {
-                tenant_id: 20001,
+                tenant_id: 100001,
                 query: "enterprise renewal support".to_string(),
                 space_id: 5,
                 priority: 10,
@@ -108,7 +109,7 @@ async fn retrieval_searches_multiple_bindings_and_persists_trace_hits() {
     );
 
     let trace = traces.created_trace().unwrap();
-    assert_eq!(trace.tenant_id, 20001);
+    assert_eq!(trace.tenant_id, 100001);
     assert_eq!(trace.actor_id, Some(30001));
     assert_eq!(trace.retrieval_profile_id, Some(31));
     assert_eq!(trace.result_count, 2);
@@ -124,6 +125,45 @@ async fn retrieval_searches_multiple_bindings_and_persists_trace_hits() {
     assert_eq!(persisted_hits[0].result_rank, 1);
     assert_eq!(persisted_hits[1].chunk_id, 21);
     assert_eq!(persisted_hits[1].result_rank, 2);
+}
+
+#[tokio::test]
+async fn retrieval_public_web_metadata_is_no_op_when_disabled() {
+    let backend = RecordingRetrievalBackend::new(vec![hit(
+        41,
+        7,
+        301,
+        "Release Notes",
+        "Version 2.0 shipped with retrieval improvements.",
+        0.88,
+        12,
+    )]);
+    let traces = RecordingTraceStore::new(702);
+    let service = KnowledgeRetrievalService::new(&backend, &traces);
+
+    let result = service
+        .retrieve(KnowledgeRetrievalRequest {
+            tenant_id: 100001,
+            actor_id: None,
+            query: "retrieval improvements".to_string(),
+            retrieval_profile_id: None,
+            bindings: vec![binding(7, 10, None, None)],
+            methods: vec![KnowledgeRetrievalMethod::Hybrid],
+            top_k: Some(3),
+            include_citations: true,
+            include_trace: false,
+            context_budget_tokens: None,
+            metadata: vec![KnowledgeFilter {
+                key: INCLUDE_PUBLIC_WEB_METADATA_KEY.to_string(),
+                value: "true".to_string(),
+            }],
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(result.hits.len(), 1);
+    assert_eq!(result.hits[0].chunk_id, 41);
+    assert_ne!(result.hits[0].retrieval_method, KnowledgeRetrievalMethod::External);
 }
 
 #[tokio::test]
@@ -153,7 +193,7 @@ async fn context_pack_uses_retrieval_budget_and_collects_citations() {
 
     let pack = service
         .create_context_pack(KnowledgeContextPackRequest {
-            tenant_id: 20001,
+            tenant_id: 100001,
             actor_id: Some(30001),
             query: "budgeted context".to_string(),
             retrieval_profile_id: None,
@@ -212,7 +252,7 @@ async fn context_pack_includes_memory_fragments_when_memory_policy_ref_is_presen
 
     let pack = service
         .create_context_pack(KnowledgeContextPackRequest {
-            tenant_id: 20001,
+            tenant_id: 100001,
             actor_id: Some(30001),
             query: "budgeted memory context".to_string(),
             retrieval_profile_id: Some(31),
@@ -227,7 +267,7 @@ async fn context_pack_includes_memory_fragments_when_memory_policy_ref_is_presen
     assert_eq!(
         memory.requests(),
         vec![MemoryCall {
-            tenant_id: 20001,
+            tenant_id: 100001,
             actor_id: Some(30001),
             query: "budgeted memory context".to_string(),
             memory_policy_ref: "memory.session.summary".to_string(),
@@ -250,7 +290,7 @@ async fn retrieval_rejects_blank_query_and_missing_bindings() {
 
     let blank_query_error = service
         .retrieve(KnowledgeRetrievalRequest {
-            tenant_id: 20001,
+            tenant_id: 100001,
             actor_id: None,
             query: "  ".to_string(),
             retrieval_profile_id: None,
@@ -268,7 +308,7 @@ async fn retrieval_rejects_blank_query_and_missing_bindings() {
 
     let missing_binding_error = service
         .retrieve(KnowledgeRetrievalRequest {
-            tenant_id: 20001,
+            tenant_id: 100001,
             actor_id: None,
             query: "valid".to_string(),
             retrieval_profile_id: None,
@@ -293,7 +333,7 @@ async fn retrieval_can_reconstruct_persisted_trace_and_hits() {
     let traces = RecordingTraceStore::with_stored_trace(
         701,
         KnowledgeRetrievalTraceRecord {
-            tenant_id: 20001,
+            tenant_id: 100001,
             retrieval_trace_id: 701,
             retrieval_profile_id: Some(31),
             query_text_redacted: Some("enterprise renewal support".to_string()),
@@ -318,7 +358,7 @@ async fn retrieval_can_reconstruct_persisted_trace_and_hits() {
     );
     let service = KnowledgeRetrievalService::new(&backend, &traces);
 
-    let result = service.retrieve_persisted(20001, 701).await.unwrap();
+    let result = service.retrieve_persisted(100001, 701).await.unwrap();
 
     assert_eq!(result.retrieval_id, 701);
     assert_eq!(result.trace.as_ref().unwrap().retrieval_trace_id, 701);

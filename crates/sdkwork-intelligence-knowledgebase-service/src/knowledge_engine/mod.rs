@@ -127,6 +127,18 @@ impl DefaultKnowledgeEngineRegistry {
         OkfBundleEngine::upsert_concept(self.okf_native.as_ref(), request).await
     }
 
+    pub async fn delete_okf_concept(
+        &self,
+        space_id: u64,
+        concept_row_id: u64,
+        actor: &str,
+    ) -> Result<(), KnowledgeEngineError> {
+        use crate::ports::knowledge_engine::OkfBundleEngine;
+
+        OkfBundleEngine::delete_concept(self.okf_native.as_ref(), space_id, concept_row_id, actor)
+            .await
+    }
+
     pub async fn publish_okf_concept(
         &self,
         request: sdkwork_knowledgebase_contract::okf::PublishKnowledgeOkfConceptRequest,

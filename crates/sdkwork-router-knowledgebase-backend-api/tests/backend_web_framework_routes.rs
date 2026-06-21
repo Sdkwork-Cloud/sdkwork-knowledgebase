@@ -11,9 +11,9 @@ use sdkwork_web_core::RouteAuth;
 use tower::util::ServiceExt;
 
 const DEV_AUTH_TOKEN: &str =
-    "Bearer tenant_id=20001;user_id=30001;session_id=s-1;app_id=knowledgebase;auth_level=password";
+    "Bearer tenant_id=100001;user_id=30001;session_id=s-1;app_id=knowledgebase;auth_level=password";
 const DEV_ACCESS_TOKEN: &str =
-    "tenant_id=20001;user_id=30001;session_id=s-1;app_id=knowledgebase;environment=dev;deployment_mode=saas";
+    "tenant_id=100001;user_id=30001;session_id=s-1;app_id=knowledgebase;environment=dev;deployment_mode=saas";
 
 #[test]
 fn backend_route_manifest_declares_dual_token_auth_for_all_operations() {

@@ -8,7 +8,7 @@ use sdkwork_knowledgebase_contract::{
 #[test]
 fn retrieval_request_supports_multi_space_hybrid_rag() {
     let request = KnowledgeRetrievalRequest {
-        tenant_id: 20001,
+        tenant_id: 100001,
         actor_id: Some(1001),
         query: "How does SDKWork Knowledgebase expose RAG?".to_string(),
         retrieval_profile_id: Some(31),
@@ -56,7 +56,7 @@ fn retrieval_request_supports_multi_space_hybrid_rag() {
 
     let json = serde_json::to_value(&request).unwrap();
 
-    assert_eq!(json["tenantId"], "20001");
+    assert_eq!(json["tenantId"], "100001");
     assert_eq!(json["retrievalProfileId"], "31");
     assert_eq!(json["bindings"].as_array().unwrap().len(), 2);
     assert_eq!(json["methods"][2], "hybrid");
@@ -111,7 +111,7 @@ fn retrieval_result_preserves_citation_and_trace_identity() {
 #[test]
 fn context_pack_is_a_bounded_prompt_input_not_a_model_answer() {
     let request = KnowledgeContextPackRequest {
-        tenant_id: 20001,
+        tenant_id: 100001,
         actor_id: Some(1001),
         query: "agent memory boundaries".to_string(),
         retrieval_profile_id: Some(31),
@@ -182,7 +182,7 @@ fn context_pack_is_a_bounded_prompt_input_not_a_model_answer() {
 fn knowledge_agent_profile_selects_model_provider_and_multiple_knowledge_bindings() {
     let profile = KnowledgeAgentProfile {
         profile_id: 41,
-        tenant_id: 20001,
+        tenant_id: 100001,
         name: "Support Knowledge Agent".to_string(),
         description: Some("Answers from approved knowledge spaces.".to_string()),
         system_instruction: "Answer only from cited knowledge.".to_string(),
@@ -201,7 +201,7 @@ fn knowledge_agent_profile_selects_model_provider_and_multiple_knowledge_binding
             KnowledgeAgentBinding {
                 binding_id: 61,
                 profile_id: 41,
-                tenant_id: 20001,
+                tenant_id: 100001,
                 space_id: 7,
                 collection_id: None,
                 source_filter: None,
@@ -214,7 +214,7 @@ fn knowledge_agent_profile_selects_model_provider_and_multiple_knowledge_binding
             KnowledgeAgentBinding {
                 binding_id: 62,
                 profile_id: 41,
-                tenant_id: 20001,
+                tenant_id: 100001,
                 space_id: 11,
                 collection_id: Some(13),
                 source_filter: None,

@@ -86,7 +86,7 @@ async fn agent_retrieval_preview_route_calls_injected_service() {
         .oneshot(request(
             "POST",
             "/app/v3/api/knowledge/agent_profiles/501/retrieval_preview",
-            r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[],"includeCitations":true,"includeTrace":true}"#,
+            r#"{"tenantId":"100001","actorId":"30001","query":"enterprise renewal support","bindings":[],"includeCitations":true,"includeTrace":true}"#,
         ))
         .await
         .unwrap();
@@ -106,7 +106,7 @@ async fn agent_chat_route_calls_injected_service() {
         .oneshot(request(
             "POST",
             "/app/v3/api/knowledge/agent_profiles/501/chat",
-            r#"{"tenantId":"20001","message":"What is enterprise renewal support?","mode":"okf_bundle"}"#,
+            r#"{"tenantId":"100001","message":"What is enterprise renewal support?","mode":"okf_bundle"}"#,
         ))
         .await
         .unwrap();
@@ -129,7 +129,7 @@ async fn combined_router_serves_retrieval_and_agent_routes_together() {
         .oneshot(request(
             "POST",
             "/app/v3/api/knowledge/retrievals",
-            r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
+            r#"{"tenantId":"100001","actorId":"30001","query":"enterprise renewal support","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#,
         ))
         .await
         .unwrap();
@@ -143,7 +143,7 @@ async fn combined_router_serves_retrieval_and_agent_routes_together() {
         .oneshot(request(
             "POST",
             "/app/v3/api/knowledge/agent_profiles/501/retrieval_preview",
-            r#"{"tenantId":"20001","actorId":"30001","query":"enterprise renewal support","bindings":[],"includeCitations":true,"includeTrace":true}"#,
+            r#"{"tenantId":"100001","actorId":"30001","query":"enterprise renewal support","bindings":[],"includeCitations":true,"includeTrace":true}"#,
         ))
         .await
         .unwrap();
@@ -351,7 +351,7 @@ fn request(method: &str, uri: &str, body: impl Into<String>) -> Request<Body> {
         .uri(uri)
         .header("content-type", "application/json")
         .extension(KnowledgeAppRequestContext {
-            tenant_id: 20001,
+            tenant_id: 100001,
             actor_id: Some(30001),
             organization_id: None,
             session_id: None,
@@ -367,20 +367,20 @@ async fn response_json(response: axum::response::Response) -> Value {
 
 fn profile_body(name: &str) -> String {
     format!(
-        r#"{{"tenantId":"20001","name":"{name}","description":"Support KB","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.openai","modelId":"gpt-4.1","retrievalProfileId":"31","status":"active"}}"#
+        r#"{{"tenantId":"100001","name":"{name}","description":"Support KB","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.openai","modelId":"gpt-4.1","retrievalProfileId":"31","status":"active"}}"#
     )
 }
 
 fn binding_body(profile_id: u64, space_id: u64, enabled: bool) -> String {
     format!(
-        r#"{{"tenantId":"20001","profileId":"{profile_id}","spaceId":"{space_id}","priority":20,"topK":3,"minScore":0.75,"enabled":{enabled}}}"#
+        r#"{{"tenantId":"100001","profileId":"{profile_id}","spaceId":"{space_id}","priority":20,"topK":3,"minScore":0.75,"enabled":{enabled}}}"#
     )
 }
 
 fn profile() -> KnowledgeAgentProfile {
     KnowledgeAgentProfile {
         profile_id: 501,
-        tenant_id: 20001,
+        tenant_id: 100001,
         name: "Support Agent".to_string(),
         description: Some("Support KB".to_string()),
         system_instruction: "Answer with citations.".to_string(),
@@ -408,7 +408,7 @@ fn binding(
     KnowledgeAgentBinding {
         binding_id,
         profile_id,
-        tenant_id: 20001,
+        tenant_id: 100001,
         space_id,
         collection_id: None,
         source_filter: None,

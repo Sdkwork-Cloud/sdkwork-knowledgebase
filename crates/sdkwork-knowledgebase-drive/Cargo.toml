@@ -12,6 +12,7 @@ sdkwork-drive-storage-contract.workspace = true
 sdkwork-database-config.workspace = true
 sdkwork-database-sqlx.workspace = true
 sdkwork-intelligence-knowledgebase-service.workspace = true
+sdkwork-intelligence-knowledgebase-object-key-service.workspace = true
 sdkwork-utils-rust.workspace = true
 uuid.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }

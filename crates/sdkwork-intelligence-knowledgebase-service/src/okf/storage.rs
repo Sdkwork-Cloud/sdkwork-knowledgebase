@@ -1,5 +1,6 @@
 use crate::ports::knowledge_drive_storage::{
     HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeStorageError,
+    space_uuid_from_drive_space_id,
 };
 
 const MANAGED_OBJECT_ROLES: [&str; 6] = [
@@ -14,8 +15,9 @@ const MANAGED_OBJECT_ROLES: [&str; 6] = [
 pub async fn read_managed_markdown(
     drive: &dyn KnowledgeDriveStorage,
     logical_path: &str,
+    drive_space_id: Option<&str>,
 ) -> Result<String, KnowledgeStorageError> {
-    let bytes = read_managed_object_bytes(drive, logical_path).await?;
+    let bytes = read_managed_object_bytes(drive, logical_path, drive_space_id).await?;
     String::from_utf8(bytes)
         .map_err(|error| KnowledgeStorageError::InvalidRequest(error.to_string()))
 }
@@ -23,15 +25,16 @@ pub async fn read_managed_markdown(
 pub async fn read_managed_object_bytes(
     drive: &dyn KnowledgeDriveStorage,
     logical_path: &str,
+    drive_space_id: Option<&str>,
 ) -> Result<Vec<u8>, KnowledgeStorageError> {
+    let space_uuid = drive_space_id.and_then(space_uuid_from_drive_space_id);
     for role in MANAGED_OBJECT_ROLES {
-        if let Ok(object_ref) = drive
-            .head_object(HeadKnowledgeObjectRequest::managed_artifact(
-                logical_path,
-                role,
-            ))
-            .await
-        {
+        let head_request = HeadKnowledgeObjectRequest::managed_artifact(logical_path, role);
+        let head_request = match &space_uuid {
+            Some(space_uuid) => head_request.with_space_uuid(space_uuid.clone()),
+            None => head_request,
+        };
+        if let Ok(object_ref) = drive.head_object(head_request).await {
             return drive.get_object_bytes(&object_ref).await;
         }
     }

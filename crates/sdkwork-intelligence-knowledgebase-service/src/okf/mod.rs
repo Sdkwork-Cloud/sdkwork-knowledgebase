@@ -67,6 +67,7 @@ pub struct PersistStandardFilesRequest {
     pub space_name: String,
     pub concepts: Vec<OkfConceptSummary>,
     pub log_entries: Vec<OkfLogEntry>,
+    pub drive_space_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -91,32 +92,42 @@ impl<'a> OkfBundleStandardFileService<'a> {
         request: PersistStandardFilesRequest,
     ) -> Result<PersistedStandardFiles, KnowledgeStorageError> {
         let paths = OkfBundlePaths::default();
+        let drive_space_id = request.drive_space_id.as_deref();
         let agents_md = self
             .drive
-            .put_object(PutKnowledgeObjectRequest::text(
-                paths.agents_md,
-                "bundle_profile",
-                render_agents_md(&request.space_name),
-                None,
-            ))
+            .put_object(
+                PutKnowledgeObjectRequest::text(
+                    paths.agents_md,
+                    "bundle_profile",
+                    render_agents_md(&request.space_name),
+                    None,
+                )
+                .with_drive_space_id(drive_space_id),
+            )
             .await?;
         let profile_yaml = self
             .drive
-            .put_object(PutKnowledgeObjectRequest::text(
-                paths.profile_yaml,
-                "bundle_profile",
-                render_okf_profile_yaml(),
-                None,
-            ))
+            .put_object(
+                PutKnowledgeObjectRequest::text(
+                    paths.profile_yaml,
+                    "bundle_profile",
+                    render_okf_profile_yaml(),
+                    None,
+                )
+                .with_drive_space_id(drive_space_id),
+            )
             .await?;
         let index_md = self
             .drive
-            .put_object(PutKnowledgeObjectRequest::text(
-                paths.index_md,
-                "bundle_index",
-                render_index_md(&request.space_name, &request.concepts),
-                None,
-            ))
+            .put_object(
+                PutKnowledgeObjectRequest::text(
+                    paths.index_md,
+                    "bundle_index",
+                    render_index_md(&request.space_name, &request.concepts),
+                    None,
+                )
+                .with_drive_space_id(drive_space_id),
+            )
             .await?;
         let index_documents = render_index_documents(&request.concepts);
         for (bundle_relative_path, markdown) in index_documents {
@@ -124,22 +135,28 @@ impl<'a> OkfBundleStandardFileService<'a> {
                 continue;
             }
             self.drive
-                .put_object(PutKnowledgeObjectRequest::text(
-                    format!("okf/{bundle_relative_path}"),
-                    "bundle_index",
-                    markdown,
-                    None,
-                ))
+                .put_object(
+                    PutKnowledgeObjectRequest::text(
+                        format!("okf/{bundle_relative_path}"),
+                        "bundle_index",
+                        markdown,
+                        None,
+                    )
+                    .with_drive_space_id(drive_space_id),
+                )
                 .await?;
         }
         let log_md = self
             .drive
-            .put_object(PutKnowledgeObjectRequest::text(
-                paths.log_md,
-                "bundle_log",
-                render_log_md(&request.log_entries),
-                None,
-            ))
+            .put_object(
+                PutKnowledgeObjectRequest::text(
+                    paths.log_md,
+                    "bundle_log",
+                    render_log_md(&request.log_entries),
+                    None,
+                )
+                .with_drive_space_id(drive_space_id),
+            )
             .await?;
 
         Ok(PersistedStandardFiles {

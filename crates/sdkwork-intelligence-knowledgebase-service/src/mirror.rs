@@ -18,7 +18,6 @@ const SNAPSHOT_PACKAGE_KIND: &str = "snapshot";
 const DELTA_PACKAGE_KIND: &str = "delta";
 const SNAPSHOT_OBJECT_ROLE: &str = "local_mirror_snapshot";
 const DELTA_OBJECT_ROLE: &str = "local_mirror_delta";
-const JSON_CONTENT_TYPE: &str = "application/json; charset=utf-8";
 
 pub struct KnowledgeLocalMirrorManifestService<'a> {
     drive: &'a dyn KnowledgeDriveStorage,
@@ -43,6 +42,7 @@ impl<'a> KnowledgeLocalMirrorManifestService<'a> {
             safe_path_segment("base_snapshot_version", base_snapshot_version)?;
         }
 
+        let space_uuid = request.space_id.clone();
         let manifest = MirrorManifest {
             schema_version: LOCAL_MIRROR_SCHEMA_VERSION.to_string(),
             space_id: request.space_id,
@@ -62,6 +62,7 @@ impl<'a> KnowledgeLocalMirrorManifestService<'a> {
             .persist_json(
                 format!("mirror/snapshots/{snapshot_version}/mirror_manifest.json"),
                 SNAPSHOT_OBJECT_ROLE,
+                &space_uuid,
                 &manifest,
             )
             .await?;
@@ -90,6 +91,7 @@ impl<'a> KnowledgeLocalMirrorManifestService<'a> {
             ));
         }
 
+        let space_uuid = request.space_id.clone();
         let manifest = DeltaManifest {
             schema_version: LOCAL_MIRROR_SCHEMA_VERSION.to_string(),
             space_id: request.space_id,
@@ -108,6 +110,7 @@ impl<'a> KnowledgeLocalMirrorManifestService<'a> {
                     "mirror/deltas/{from_snapshot_version}_to_{to_snapshot_version}/delta_manifest.json"
                 ),
                 DELTA_OBJECT_ROLE,
+                &space_uuid,
                 &manifest,
             )
             .await?;
@@ -122,6 +125,7 @@ impl<'a> KnowledgeLocalMirrorManifestService<'a> {
         &self,
         logical_path: String,
         object_role: &str,
+        space_uuid: &str,
         value: &T,
     ) -> Result<KnowledgeObjectRef, KnowledgeLocalMirrorManifestServiceError>
     where
@@ -132,13 +136,13 @@ impl<'a> KnowledgeLocalMirrorManifestService<'a> {
         })?;
         let checksum_sha256_hex = sha256_hash(&body);
         self.drive
-            .put_object(PutKnowledgeObjectRequest {
+            .put_object(PutKnowledgeObjectRequest::managed_json(
                 logical_path,
-                object_role: object_role.to_string(),
-                content_type: JSON_CONTENT_TYPE.to_string(),
+                object_role,
                 body,
-                checksum_sha256_hex: Some(checksum_sha256_hex),
-            })
+                checksum_sha256_hex,
+                space_uuid,
+            ))
             .await
             .map_err(KnowledgeLocalMirrorManifestServiceError::Storage)
     }

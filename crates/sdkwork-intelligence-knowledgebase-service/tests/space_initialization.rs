@@ -20,6 +20,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_bundle_file
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
+    UpdateKnowledgeSpaceRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::space::KnowledgeSpaceService;
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
@@ -381,6 +382,25 @@ impl KnowledgeSpaceStore for MemorySpaceStore {
             .find(|space| space.id == space_id)
             .ok_or_else(|| KnowledgeSpaceStoreError::Internal("missing space".to_string()))?;
         space.okf_bundle_initialized = true;
+        Ok(space.clone())
+    }
+
+    async fn update_space(
+        &self,
+        space_id: u64,
+        record: UpdateKnowledgeSpaceRecord,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
+        let mut spaces = self.spaces.lock().unwrap();
+        let space = spaces
+            .iter_mut()
+            .find(|space| space.id == space_id)
+            .ok_or_else(|| KnowledgeSpaceStoreError::Internal("missing space".to_string()))?;
+        if let Some(name) = record.name {
+            space.name = name;
+        }
+        if let Some(description) = record.description {
+            space.description = Some(description);
+        }
         Ok(space.clone())
     }
 

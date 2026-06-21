@@ -14,9 +14,9 @@ use std::sync::{Arc, Mutex};
 use tower::util::ServiceExt;
 
 const DEV_AUTH_TOKEN: &str =
-    "Bearer tenant_id=20001;user_id=30001;session_id=s-1;app_id=knowledgebase;auth_level=password";
+    "Bearer tenant_id=100001;user_id=30001;session_id=s-1;app_id=knowledgebase;auth_level=password";
 const DEV_ACCESS_TOKEN: &str =
-    "tenant_id=20001;user_id=30001;session_id=s-1;app_id=knowledgebase;environment=dev;deployment_mode=saas";
+    "tenant_id=100001;user_id=30001;session_id=s-1;app_id=knowledgebase;environment=dev;deployment_mode=saas";
 
 #[test]
 fn app_route_manifest_declares_dual_token_auth_for_all_operations() {
@@ -79,7 +79,7 @@ async fn app_router_web_framework_accepts_dev_inline_dual_tokens_before_handler(
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(service.tenant_ids(), vec![20001]);
+    assert_eq!(service.tenant_ids(), vec![100001]);
 }
 
 struct EmptyBrowserApi;

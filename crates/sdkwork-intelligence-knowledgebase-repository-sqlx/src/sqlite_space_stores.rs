@@ -5,6 +5,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_bundle_file
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
+    UpdateKnowledgeSpaceRecord,
 };
 use sdkwork_knowledgebase_contract::okf_bundle_file::{KnowledgeOkfBundleFile, OkfBundleFileKind};
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
@@ -176,6 +177,47 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         )
+        .bind(now)
+        .bind(tenant_id)
+        .bind(organization_id)
+        .bind(space_id_i64)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|error| space_fetch_error(space_id, error))?;
+
+        space_from_row(&row)
+    }
+
+    async fn update_space(
+        &self,
+        space_id: u64,
+        record: UpdateKnowledgeSpaceRecord,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
+        let current = self.get_space(space_id).await?;
+        let name = record.name.unwrap_or(current.name);
+        if name.trim().is_empty() {
+            return Err(KnowledgeSpaceStoreError::Conflict(
+                "name must not be blank".to_string(),
+            ));
+        }
+        let description = record.description.or(current.description);
+
+        let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = space_to_i64("organization_id", self.organization_id)?;
+        let space_id_i64 = space_to_i64("space_id", space_id)?;
+        let now = space_now()?;
+
+        let row = sqlx::query(
+            r#"
+            UPDATE kb_space
+            SET name = $1, description = $2, updated_at = $3, version = version + 1
+            WHERE tenant_id = $4 AND organization_id = $5 AND id = $6 AND status = $7
+            RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
+            "#,
+        )
+        .bind(name)
+        .bind(description)
         .bind(now)
         .bind(tenant_id)
         .bind(organization_id)

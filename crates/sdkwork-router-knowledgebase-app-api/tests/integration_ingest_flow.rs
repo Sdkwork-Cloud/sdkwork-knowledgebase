@@ -1,7 +1,7 @@
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use sdkwork_router_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
@@ -69,8 +69,17 @@ async fn create_space(runtime: &KnowledgebaseRuntime) -> u64 {
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::CREATED);
-    let body = response_body_json(response).await;
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read create space response");
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "create space failed: {}",
+        String::from_utf8_lossy(&bytes)
+    );
+    let body: Value = serde_json::from_slice(&bytes).expect("parse create space response");
     body["id"].as_u64().expect("space id")
 }
 

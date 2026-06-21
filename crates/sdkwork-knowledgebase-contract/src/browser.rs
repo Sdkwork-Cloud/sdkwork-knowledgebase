@@ -54,8 +54,8 @@ pub struct KnowledgeBrowserNode {
     pub drive_node_id: Option<String>,
     pub document_id: Option<u64>,
     pub document_version_id: Option<u64>,
-    pub okf_concept_id: Option<u64>,
-    pub okf_revision_id: Option<u64>,
+    pub concept_id: Option<u64>,
+    pub concept_revision_id: Option<u64>,
     pub mime_type: Option<String>,
     pub size_bytes: Option<u64>,
     pub ingest_state: Option<String>,
@@ -65,6 +65,9 @@ pub struct KnowledgeBrowserNode {
     pub children_count: Option<u64>,
     pub updated_at: String,
     pub permissions: KnowledgeBrowserNodePermissions,
+    pub drive_storage_provider_id: Option<String>,
+    pub drive_bucket: Option<String>,
+    pub drive_object_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

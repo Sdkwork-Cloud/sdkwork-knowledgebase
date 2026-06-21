@@ -270,11 +270,11 @@ fn request_body(operation_id: &str) -> &'static str {
         "okf.bundle.import.create" => r#"{"spaceId":7,"importType":"okf_strict"}"#,
         "okf.lintRuns.create" | "okf.evalRuns.create" => r#"{"spaceId":7}"#,
         "indexes.create" => {
-            r#"{"tenantId":"20001","spaceId":"7","indexKind":"hybrid","embeddingProviderId":"provider.embedding.openai","embeddingModel":"text-embedding-3-large","dimension":3072,"metric":"cosine"}"#
+            r#"{"tenantId":"100001","spaceId":"7","indexKind":"hybrid","embeddingProviderId":"provider.embedding.openai","embeddingModel":"text-embedding-3-large","dimension":3072,"metric":"cosine"}"#
         }
         "indexes.rebuild" => r#"{"spaceId":7}"#,
         "retrievalProfiles.create" | "retrievalProfiles.update" => {
-            r#"{"tenantId":"20001","name":"Default Hybrid","strategy":"hybrid","topK":8,"minScore":0.4,"rerankEnabled":true,"contextBudgetTokens":2048,"status":"active"}"#
+            r#"{"tenantId":"100001","name":"Default Hybrid","strategy":"hybrid","topK":8,"minScore":0.4,"rerankEnabled":true,"contextBudgetTokens":2048,"status":"active"}"#
         }
         _ => "",
     }

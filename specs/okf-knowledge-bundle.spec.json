@@ -103,6 +103,23 @@
     ],
     "brokenLinksAreFatal": false
   },
+  "observability": {
+    "prometheusMetrics": [
+      "kb_okf_concept_publish_total",
+      "kb_okf_concept_upsert_total",
+      "kb_okf_bundle_lint_issues_total",
+      "kb_okf_conformance_failures_total",
+      "kb_okf_bundle_import_total",
+      "kb_okf_bundle_export_total"
+    ],
+    "auditEvents": [
+      "okf.concept.published",
+      "okf.concept.upserted",
+      "okf.bundle.imported",
+      "okf.bundle.exported",
+      "okf.bundle.lint.completed"
+    ]
+  },
   "forbiddenLegacy": {
     "drivePaths": [
       "wiki/",

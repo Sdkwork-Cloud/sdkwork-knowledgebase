@@ -35,6 +35,7 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
             size_bytes: None,
             children_count: Some(3),
             updated_at: "2026-06-04T12:00:00Z".to_string(),
+            object_locator: None,
         },
         KnowledgeDriveNodeSummary {
             drive_node_id: "node-pdf".to_string(),
@@ -46,6 +47,7 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
             size_bytes: Some(42),
             children_count: None,
             updated_at: "2026-06-04T12:01:00Z".to_string(),
+            object_locator: None,
         },
     ])
     .with_node(KnowledgeDriveNodeSummary {
@@ -58,6 +60,7 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
         size_bytes: None,
         children_count: Some(2),
         updated_at: "2026-06-04T12:00:00Z".to_string(),
+        object_locator: None,
     });
     let projections =
         RecordingProjectionStore::with_documents(vec![KnowledgeBrowserDocumentProjection {
@@ -144,6 +147,7 @@ async fn browser_rejects_file_as_files_parent_id() {
         size_bytes: Some(42),
         children_count: None,
         updated_at: "2026-06-04T12:01:00Z".to_string(),
+        object_locator: None,
     });
     let projections = RecordingProjectionStore::default();
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
@@ -207,6 +211,7 @@ async fn browser_okf_root_lists_children_under_okf_drive_folder() {
         size_bytes: Some(128),
         children_count: None,
         updated_at: "2026-06-04T12:02:00Z".to_string(),
+        object_locator: None,
     }])
     .with_resolved_path("okf", Some("node-okf-root"))
     .expect_parent_id(Some("node-okf-root"));
@@ -241,8 +246,8 @@ async fn browser_okf_root_lists_children_under_okf_drive_folder() {
         KnowledgeBrowserNodeType::OkfConcept
     );
     assert_eq!(page.items[0].name, "index.md");
-    assert_eq!(page.items[0].okf_concept_id, Some(21));
-    assert_eq!(page.items[0].okf_revision_id, Some(34));
+    assert_eq!(page.items[0].concept_id, Some(21));
+    assert_eq!(page.items[0].concept_revision_id, Some(34));
     assert_eq!(page.items[0].okf_state.as_deref(), Some("published"));
     assert_eq!(drive_tree.resolved_paths(), vec!["okf".to_string()]);
     assert_eq!(drive_tree.calls(), 1);
@@ -263,6 +268,7 @@ async fn browser_outputs_root_lists_children_under_standard_output_drive_folder(
         size_bytes: None,
         children_count: Some(12),
         updated_at: "2026-06-04T12:03:00Z".to_string(),
+        object_locator: None,
     }])
     .with_resolved_path("output", Some("node-output-root"))
     .expect_parent_id(Some("node-output-root"));
@@ -308,6 +314,7 @@ async fn browser_rejects_okf_parent_id_outside_okf_drive_tree() {
         size_bytes: Some(128),
         children_count: None,
         updated_at: "2026-06-04T12:04:00Z".to_string(),
+        object_locator: None,
     }])
     .with_node(KnowledgeDriveNodeSummary {
         drive_node_id: "node-sources-root".to_string(),
@@ -319,6 +326,7 @@ async fn browser_rejects_okf_parent_id_outside_okf_drive_tree() {
         size_bytes: None,
         children_count: Some(1),
         updated_at: "2026-06-04T12:04:00Z".to_string(),
+        object_locator: None,
     });
     let projections = RecordingProjectionStore::default();
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
@@ -356,6 +364,7 @@ async fn browser_rejects_outputs_parent_id_outside_output_drive_tree_even_when_e
         size_bytes: None,
         children_count: Some(0),
         updated_at: "2026-06-04T12:04:00Z".to_string(),
+        object_locator: None,
     });
     let projections = RecordingProjectionStore::default();
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
@@ -545,6 +554,7 @@ impl KnowledgeDriveNodeTree for RecordingDriveTree {
                         size_bytes: None,
                         children_count: Some(self.nodes.len() as u64),
                         updated_at: "2026-06-04T12:00:00Z".to_string(),
+                        object_locator: None,
                     })
             }))
     }

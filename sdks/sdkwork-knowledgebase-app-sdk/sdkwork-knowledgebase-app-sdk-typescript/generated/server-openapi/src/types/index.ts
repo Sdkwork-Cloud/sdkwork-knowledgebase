@@ -1,5 +1,6 @@
 export * from './common';
 export type { CreateKnowledgeSpaceRequest } from './create-knowledge-space-request';
+export type { UpdateKnowledgeSpaceRequest } from './update-knowledge-space-request';
 export type { KnowledgeSpace } from './knowledge-space';
 export type { KnowledgeSpaceStatus } from './knowledge-space-status';
 export type { KnowledgeIngestRequest } from './knowledge-ingest-request';
@@ -86,6 +87,11 @@ export type { KnowledgeSpaceContextBinding } from './knowledge-space-context-bin
 export type { CreateKnowledgeSpaceContextBindingRequest } from './create-knowledge-space-context-binding-request';
 export type { UpdateKnowledgeSpaceContextBindingRequest } from './update-knowledge-space-context-binding-request';
 export type { KnowledgeSpaceContextBindingList } from './knowledge-space-context-binding-list';
+export type { KnowledgeSpaceMemberSubjectType } from './knowledge-space-member-subject-type';
+export type { KnowledgeSpaceMemberRole } from './knowledge-space-member-role';
+export type { KnowledgeSpaceMember } from './knowledge-space-member';
+export type { KnowledgeSpaceMemberList } from './knowledge-space-member-list';
+export type { GrantKnowledgeSpaceMemberRequest } from './grant-knowledge-space-member-request';
 export type { KnowledgeUploadSessionStatus } from './knowledge-upload-session-status';
 export type { CreateKnowledgeUploadSessionRequest } from './create-knowledge-upload-session-request';
 export type { CompleteKnowledgeUploadSessionRequest } from './complete-knowledge-upload-session-request';

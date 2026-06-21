@@ -15,6 +15,10 @@ use crate::ports::{
         KnowledgeRetrievalTraceStoreError,
     },
 };
+use crate::public_web_search::{
+    metadata_public_web_top_k, metadata_requests_public_web, search_public_web,
+    stable_web_hit_ids, PublicWebSearchError, PublicWebSearchHit,
+};
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeCitation, KnowledgeContextFragment, KnowledgeContextPack, KnowledgeContextPackRequest,
     KnowledgeMemoryContextFragment, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
@@ -108,7 +112,24 @@ impl<'a> KnowledgeRetrievalService<'a> {
         let limit = normalize_top_k(request.top_k);
         hits.truncate(limit as usize);
 
-        let fragments = build_fragments(&hits, request.include_citations);
+        let mut fragments = build_fragments(&hits, request.include_citations);
+        if metadata_requests_public_web(&request.metadata) {
+            let web_top_k = metadata_public_web_top_k(&request.metadata);
+            match search_public_web(&normalized_query, web_top_k).await {
+                Ok(web_hits) => {
+                    append_public_web_fragments(
+                        &mut fragments,
+                        web_hits,
+                        request.include_citations,
+                    );
+                }
+                Err(PublicWebSearchError::Disabled) => {}
+                Err(error) => {
+                    tracing::warn!(error = %error, "public web search skipped");
+                }
+            }
+        }
+
         let latency_ms = u64::try_from(started_at.elapsed().as_millis()).unwrap_or(u64::MAX);
         let trace_id = self
             .persist_trace(&request, &normalized_query, &fragments, Some(latency_ms))
@@ -417,6 +438,39 @@ fn build_fragments(
             }),
         })
         .collect()
+}
+
+fn append_public_web_fragments(
+    fragments: &mut Vec<KnowledgeContextFragment>,
+    web_hits: Vec<PublicWebSearchHit>,
+    include_citations: bool,
+) {
+    for hit in web_hits {
+        let (document_id, chunk_id) = stable_web_hit_ids(&hit.url);
+        let rank = fragments.len() as u32 + 1;
+        fragments.push(KnowledgeContextFragment {
+            chunk_id,
+            document_id,
+            document_version_id: None,
+            space_id: 0,
+            collection_id: None,
+            title: hit.title.clone(),
+            content: hit.snippet.clone(),
+            score: None,
+            rank,
+            token_count: Some(hit.snippet.split_whitespace().count().max(1) as u32),
+            retrieval_method: KnowledgeRetrievalMethod::External,
+            citation: include_citations.then(|| KnowledgeCitation {
+                document_id,
+                document_version_id: None,
+                chunk_id: Some(chunk_id),
+                title: hit.title,
+                source_uri: Some(hit.url),
+                locator: Some("public_web".to_string()),
+                score: None,
+            }),
+        });
+    }
 }
 
 fn estimate_fragment_tokens(fragment: &KnowledgeContextFragment) -> u32 {

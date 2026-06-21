@@ -46,6 +46,13 @@ pub struct KnowledgeDriveNodePage {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnowledgeDriveNodeObjectLocator {
+    pub storage_provider_id: String,
+    pub bucket: String,
+    pub object_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KnowledgeDriveNodeSummary {
     pub drive_node_id: String,
     pub parent_drive_node_id: Option<String>,
@@ -56,6 +63,7 @@ pub struct KnowledgeDriveNodeSummary {
     pub size_bytes: Option<u64>,
     pub children_count: Option<u64>,
     pub updated_at: String,
+    pub object_locator: Option<KnowledgeDriveNodeObjectLocator>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

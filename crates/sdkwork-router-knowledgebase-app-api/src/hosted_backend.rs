@@ -386,21 +386,30 @@ impl KnowledgeBackendApi for HostedBackendApi {
                     request.profile.as_deref().unwrap_or("default")
                 ),
                 || async move {
+                    let space = runtime
+                        .space_store()
+                        .get_space(space_id)
+                        .await
+                        .map_err(|error| format!("{error:?}"))?;
                     let lint_result = run_okf_bundle_lint(&runtime, space_id)
                         .await
                         .map_err(|error| format!("{error:?}"))?;
                     let report_path = format!("output/lint-reports/{space_id}.json");
                     runtime
                         .drive_storage()
-                        .put_object(PutKnowledgeObjectRequest {
-                            logical_path: report_path,
-                            object_role: "output_export".to_string(),
-                            content_type: "application/json; charset=utf-8".to_string(),
-                            body: serde_json::to_vec_pretty(&lint_result).map_err(|error| {
-                                format!("failed to serialize lint report: {error}")
-                            })?,
-                            checksum_sha256_hex: None,
-                        })
+                        .put_object(
+                            PutKnowledgeObjectRequest {
+                                logical_path: report_path,
+                                object_role: "output_export".to_string(),
+                                content_type: "application/json; charset=utf-8".to_string(),
+                                body: serde_json::to_vec_pretty(&lint_result).map_err(|error| {
+                                    format!("failed to serialize lint report: {error}")
+                                })?,
+                                checksum_sha256_hex: None,
+                                space_uuid: None,
+                            }
+                            .with_drive_space_id(space.drive_space_id.as_deref()),
+                        )
                         .await
                         .map_err(|error| format!("{error:?}"))?;
                     if lint_result.conformance != "pass" {
@@ -446,6 +455,11 @@ impl KnowledgeBackendApi for HostedBackendApi {
                     request.profile.as_deref().unwrap_or("default")
                 ),
                 move || async move {
+                    let space = runtime
+                        .space_store()
+                        .get_space(space_id)
+                        .await
+                        .map_err(|error| format!("{error:?}"))?;
                     let lint_result = crate::hosted_support::run_okf_eval_workflow_for_space(
                         &runtime, space_id, &actor,
                     )
@@ -462,7 +476,9 @@ impl KnowledgeBackendApi for HostedBackendApi {
                                 body: serde_json::to_vec_pretty(&lint_result)
                                     .map_err(|error| format!("failed to serialize eval report: {error}"))?,
                                 checksum_sha256_hex: None,
-                            },
+                                space_uuid: None,
+                            }
+                            .with_drive_space_id(space.drive_space_id.as_deref()),
                         )
                         .await
                         .map_err(|error| format!("{error:?}"))?;

@@ -1,4 +1,7 @@
 use async_trait::async_trait;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_node_tree::{
+    GetKnowledgeDriveNodeRequest, KnowledgeDriveNodeTree,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::{
     KnowledgeDriveStorage, PutKnowledgeObjectRequest,
 };
@@ -6,7 +9,7 @@ use sdkwork_intelligence_knowledgebase_service::{
     browser::{KnowledgeBrowserAccessContext, KnowledgeBrowserService},
     imports::KnowledgeDriveImportService,
     ingest::KnowledgeApiPayloadIngestService,
-    okf::{OkfBundleFileRegistryService, OkfBundleInitializerService},
+    okf::OkfConceptServiceError,
     ports::{
         knowledge_document_store::{
             CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
@@ -21,24 +24,29 @@ use sdkwork_intelligence_knowledgebase_service::{
         knowledge_source_store::KnowledgeSourceStore,
         knowledge_space_store::KnowledgeSpaceStore,
     },
-    space::KnowledgeSpaceService,
 };
-use sdkwork_knowledgebase_contract::OkfBundleFileKind;
+use sdkwork_utils_rust::is_blank;
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeBrowserPage, KnowledgeDocument,
     KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList,
     KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest,
     KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeSpace,
-    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
+    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleFileKind, OkfBundleImportRequest,
     OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest,
     OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
     OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult,
-    PublishKnowledgeOkfConceptRequest,
+    PublishKnowledgeOkfConceptRequest, GrantKnowledgeSpaceMemberRequest, KnowledgeSpaceMemberList,
+    KnowledgeSpaceMemberSubjectType, UpdateKnowledgeSpaceRequest,
 };
-use sdkwork_utils_rust::is_blank;
 
 use crate::{
+    hosted_access::{
+        create_space_with_context, delete_space_with_context, grant_space_member_with_context,
+        list_space_members_with_context, require_document_access, require_ingest_access,
+        require_okf_concept_space_access, require_space_access, revoke_space_member_with_context,
+        update_space_with_context,
+    },
     hosted_support::{
         build_okf_context_pack_from_engine, concept_to_summary, create_okf_bundle_export,
         create_okf_bundle_import, create_okf_lint_run, format_okf_engine_answer,
@@ -66,24 +74,77 @@ impl HostedSpaceService {
 impl KnowledgeSpaceAppService for HostedSpaceService {
     async fn create_space(
         &self,
-        request: CreateKnowledgeSpaceRequest,
+        context: KnowledgeAppRequestContext,
+        mut request: CreateKnowledgeSpaceRequest,
     ) -> ApiResult<KnowledgeSpace> {
-        let file_registry = OkfBundleFileRegistryService::new(self.runtime.okf_bundle_file_store());
-        let okf_initializer = OkfBundleInitializerService::new(self.runtime.drive_storage())
-            .with_registry(&file_registry);
-        let service = KnowledgeSpaceService::new(self.runtime.space_store(), &okf_initializer)
-            .with_drive_context(self.runtime.tenant_id_str(), self.runtime.operator_id())
-            .with_drive_space_provisioner(self.runtime.drive_space_provisioner())
-            .with_access_control(self.runtime.access_control());
-        service.create_space(request).await.map_err(Into::into)
+        if request.owner_subject_id.is_none() {
+            if let Some(actor_id) = context.actor_id {
+                request.owner_subject_id = Some(actor_id.to_string());
+            }
+        }
+        if request.owner_subject_type.is_none() {
+            request.owner_subject_type = Some("user".to_string());
+        }
+        create_space_with_context(&self.runtime, &context, request).await
     }
 
-    async fn retrieve_space(&self, space_id: u64) -> ApiResult<KnowledgeSpace> {
-        self.runtime
-            .space_store()
-            .get_space(space_id)
-            .await
-            .map_err(Into::into)
+    async fn retrieve_space(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeSpace> {
+        require_space_access(&self.runtime, &context, space_id).await
+    }
+
+    async fn update_space(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: UpdateKnowledgeSpaceRequest,
+    ) -> ApiResult<KnowledgeSpace> {
+        update_space_with_context(&self.runtime, &context, space_id, request).await
+    }
+
+    async fn delete_space(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<()> {
+        delete_space_with_context(&self.runtime, &context, space_id).await
+    }
+
+    async fn list_space_members(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeSpaceMemberList> {
+        list_space_members_with_context(&self.runtime, &context, space_id).await
+    }
+
+    async fn grant_space_member(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: GrantKnowledgeSpaceMemberRequest,
+    ) -> ApiResult<()> {
+        grant_space_member_with_context(&self.runtime, &context, space_id, request).await
+    }
+
+    async fn revoke_space_member(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        subject_type: KnowledgeSpaceMemberSubjectType,
+        subject_id: String,
+    ) -> ApiResult<()> {
+        revoke_space_member_with_context(
+            &self.runtime,
+            &context,
+            space_id,
+            subject_type,
+            &subject_id,
+        )
+        .await
     }
 }
 
@@ -100,7 +161,11 @@ impl HostedIngestService {
 
 #[async_trait]
 impl KnowledgeIngestAppService for HostedIngestService {
-    async fn create_ingest(&self, request: KnowledgeIngestRequest) -> ApiResult<IngestionJob> {
+    async fn create_ingest(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeIngestRequest,
+    ) -> ApiResult<IngestionJob> {
         use sdkwork_intelligence_knowledgebase_service::ingest::{
             KnowledgeApiMarkdownIndexService, KnowledgeIngestionService,
         };
@@ -110,12 +175,13 @@ impl KnowledgeIngestAppService for HostedIngestService {
         let title = request.title.clone();
         let payload_markdown = request.payload_markdown.clone();
 
+        let space = require_space_access(&self.runtime, &context, space_id).await?;
         let service = KnowledgeApiPayloadIngestService::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
         );
         let result = service
-            .ingest_markdown_payload(request)
+            .ingest_markdown_payload(request, space.drive_space_id.as_deref())
             .await
             .map_err(ApiError::from)?;
         let mut job = result.job;
@@ -179,12 +245,12 @@ impl KnowledgeIngestAppService for HostedIngestService {
         Ok(job)
     }
 
-    async fn retrieve_ingest(&self, ingest_id: u64) -> ApiResult<IngestionJob> {
-        self.runtime
-            .ingestion_job_store()
-            .get_job(ingest_id)
-            .await
-            .map_err(Into::into)
+    async fn retrieve_ingest(
+        &self,
+        context: KnowledgeAppRequestContext,
+        ingest_id: u64,
+    ) -> ApiResult<IngestionJob> {
+        require_ingest_access(&self.runtime, &context, ingest_id).await
     }
 }
 
@@ -203,8 +269,11 @@ impl HostedDriveImportService {
 impl KnowledgeDriveImportAppService for HostedDriveImportService {
     async fn import_drive_object(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeDriveImportRequest,
     ) -> ApiResult<KnowledgeDriveImportResult> {
+        require_space_access(&self.runtime, &context, request.space_id).await?;
+        let request = resolve_drive_import_request(self.runtime.drive_tree(), request).await?;
         let service = KnowledgeDriveImportService::new(
             self.runtime.drive_storage(),
             self.runtime.source_store(),
@@ -263,11 +332,22 @@ impl HostedDocumentService {
 
 #[async_trait]
 impl KnowledgeDocumentAppService for HostedDocumentService {
-    async fn list_documents(&self) -> ApiResult<KnowledgeDocumentList> {
+    async fn list_documents(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeDocumentList> {
+        if space_id == 0 {
+            return Err(ApiError::invalid_request(
+                "invalid_knowledge_document_list_request",
+                "space_id is required",
+            ));
+        }
+        require_space_access(&self.runtime, &context, space_id).await?;
         let items = self
             .runtime
             .document_store()
-            .list_active_documents(200)
+            .list_documents_for_space(space_id, 200)
             .await
             .map_err(ApiError::from)?;
         Ok(KnowledgeDocumentList { items })
@@ -275,6 +355,7 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
 
     async fn create_document(
         &self,
+        context: KnowledgeAppRequestContext,
         request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
         if is_blank(Some(request.title.as_str())) {
@@ -289,6 +370,7 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
                 "space_id is required",
             ));
         }
+        require_space_access(&self.runtime, &context, request.space_id).await?;
 
         self.runtime
             .document_store()
@@ -306,23 +388,31 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
             .map_err(Into::into)
     }
 
-    async fn retrieve_document(&self, document_id: u64) -> ApiResult<KnowledgeDocument> {
-        self.runtime
-            .document_store()
-            .get_document_by_id(document_id)
-            .await
-            .map_err(Into::into)
+    async fn retrieve_document(
+        &self,
+        context: KnowledgeAppRequestContext,
+        document_id: u64,
+    ) -> ApiResult<KnowledgeDocument> {
+        require_document_access(&self.runtime, &context, document_id).await
     }
 
     async fn update_document(
         &self,
+        context: KnowledgeAppRequestContext,
         document_id: u64,
         request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
+        let document = require_document_access(&self.runtime, &context, document_id).await?;
         if is_blank(Some(request.title.as_str())) {
             return Err(ApiError::invalid_request(
                 "invalid_knowledge_document_request",
                 "title is required",
+            ));
+        }
+        if request.space_id != 0 && request.space_id != document.space_id {
+            return Err(ApiError::invalid_request(
+                "invalid_knowledge_document_request",
+                "space_id does not match the document space",
             ));
         }
         self.runtime
@@ -337,7 +427,12 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
             .map_err(Into::into)
     }
 
-    async fn delete_document(&self, document_id: u64) -> ApiResult<()> {
+    async fn delete_document(
+        &self,
+        context: KnowledgeAppRequestContext,
+        document_id: u64,
+    ) -> ApiResult<()> {
+        require_document_access(&self.runtime, &context, document_id).await?;
         self.runtime
             .document_store()
             .soft_delete_document(document_id)
@@ -347,8 +442,10 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
 
     async fn list_document_versions(
         &self,
+        context: KnowledgeAppRequestContext,
         document_id: u64,
     ) -> ApiResult<KnowledgeDocumentVersionList> {
+        require_document_access(&self.runtime, &context, document_id).await?;
         let items = self
             .runtime
             .version_store()
@@ -360,9 +457,11 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
 
     async fn create_document_version(
         &self,
+        context: KnowledgeAppRequestContext,
         document_id: u64,
         request: CreateKnowledgeDocumentVersionRequest,
     ) -> ApiResult<KnowledgeDocumentVersion> {
+        require_document_access(&self.runtime, &context, document_id).await?;
         if request.document_id != 0 && request.document_id != document_id {
             return Err(ApiError::invalid_request(
                 "invalid_knowledge_document_version_request",
@@ -561,33 +660,77 @@ impl KnowledgeOkfAppService for HostedOkfService {
         Ok(concept_to_summary(concept))
     }
 
+    async fn delete_okf_concept(
+        &self,
+        context: KnowledgeAppRequestContext,
+        concept_row_id: u64,
+    ) -> ApiResult<()> {
+        let space = require_okf_concept_space_access(&self.runtime, &context, concept_row_id).await?;
+        let actor = context
+            .actor_id
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| self.runtime.operator_id().to_string());
+        self.runtime
+            .resolve_okf_bundle_engine_for_space(space.id)
+            .await?;
+        self.runtime
+            .knowledge_engines()
+            .delete_okf_concept(space.id, concept_row_id, &actor)
+            .await
+            .map_err(ApiError::from)?;
+        Ok(())
+    }
+
     async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument> {
+        let space = self.resolve_okf_space().await?;
+        self.runtime
+            .resolve_okf_bundle_engine_for_space(space.id)
+            .await?;
         let paths = okf_paths();
-        let markdown =
-            read_managed_okf_text(self.runtime.drive_storage(), paths.index_md, "bundle_index")
-                .await?;
+        let markdown = read_managed_okf_text(
+            self.runtime.drive_storage(),
+            paths.index_md,
+            "bundle_index",
+            space.drive_space_id.as_deref(),
+        )
+        .await?;
         Ok(OkfIndexDocument { markdown })
     }
 
     async fn retrieve_okf_log(&self) -> ApiResult<OkfLogDocument> {
+        let space = self.resolve_okf_space().await?;
+        self.runtime
+            .resolve_okf_bundle_engine_for_space(space.id)
+            .await?;
         let paths = okf_paths();
-        let markdown =
-            read_managed_okf_text(self.runtime.drive_storage(), paths.log_md, "bundle_log").await?;
+        let markdown = read_managed_okf_text(
+            self.runtime.drive_storage(),
+            paths.log_md,
+            "bundle_log",
+            space.drive_space_id.as_deref(),
+        )
+        .await?;
         Ok(OkfLogDocument { markdown })
     }
 
     async fn retrieve_okf_schema(&self) -> ApiResult<OkfProfileDocument> {
+        let space = self.resolve_okf_space().await?;
+        self.runtime
+            .resolve_okf_bundle_engine_for_space(space.id)
+            .await?;
         let paths = okf_paths();
         let agents_markdown = read_managed_okf_text(
             self.runtime.drive_storage(),
             paths.agents_md,
             "bundle_profile",
+            space.drive_space_id.as_deref(),
         )
         .await?;
         let profile_yaml = read_managed_okf_text(
             self.runtime.drive_storage(),
             paths.profile_yaml,
             "bundle_profile",
+            space.drive_space_id.as_deref(),
         )
         .await?;
         Ok(OkfProfileDocument {
@@ -695,16 +838,21 @@ impl KnowledgeOkfAppService for HostedOkfService {
             ApiError::internal("okf_context_pack_serialization_failed", error.to_string())
         })?;
         let logical_path = format!("context_packs/cp-{}.json", context_pack.context_pack_id);
+        let space = self.runtime.space_store().get_space(request.space_id).await?;
         let object_ref = self
             .runtime
             .drive_storage()
-            .put_object(PutKnowledgeObjectRequest {
-                logical_path: logical_path.clone(),
-                object_role: "context_pack".to_string(),
-                content_type: "application/json; charset=utf-8".to_string(),
-                body,
-                checksum_sha256_hex: None,
-            })
+            .put_object(
+                PutKnowledgeObjectRequest {
+                    logical_path: logical_path.clone(),
+                    object_role: "context_pack".to_string(),
+                    content_type: "application/json; charset=utf-8".to_string(),
+                    body,
+                    checksum_sha256_hex: None,
+                    space_uuid: None,
+                }
+                .with_drive_space_id(space.drive_space_id.as_deref()),
+            )
             .await?;
 
         self.runtime
@@ -752,7 +900,72 @@ fn map_document_version_error(
     ApiError::internal("knowledge_document_version_store_failed", error.to_string())
 }
 
-fn map_okf_concept_store_error(
+async fn resolve_drive_import_request(
+    drive_tree: &dyn KnowledgeDriveNodeTree,
+    mut request: KnowledgeDriveImportRequest,
+) -> ApiResult<KnowledgeDriveImportRequest> {
+    let needs_locator = is_blank(Some(request.drive_object_key.as_str()))
+        || is_blank(Some(request.drive_bucket.as_str()))
+        || is_blank(Some(request.drive_storage_provider_id.as_str()));
+    if !needs_locator {
+        return Ok(request);
+    }
+
+    let Some(drive_node_id) = request
+        .drive_node_id
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+    else {
+        return Err(ApiError::invalid_request(
+            "invalid_drive_import_request",
+            "drive_storage_provider_id, drive_bucket, and drive_object_key are required when drive_node_id is absent".to_string(),
+        ));
+    };
+    let drive_space_id = request.drive_space_id.clone().ok_or_else(|| {
+        ApiError::invalid_request(
+            "invalid_drive_import_request",
+            "drive_space_id is required when resolving drive object locator from drive_node_id"
+                .to_string(),
+        )
+    })?;
+
+    let node = drive_tree
+        .get_node(GetKnowledgeDriveNodeRequest {
+            drive_space_id,
+            drive_node_id,
+        })
+        .await
+        .map_err(|error| {
+            ApiError::internal("knowledge_drive_node_tree_failed", error.to_string())
+        })?
+        .ok_or_else(|| {
+            ApiError::not_found(
+                "drive_node_not_found",
+                "drive node was not found for import resolution".to_string(),
+            )
+        })?;
+    let locator = node.object_locator.ok_or_else(|| {
+        ApiError::invalid_request(
+            "drive_object_locator_missing",
+            "active drive object locator is not available for the requested node".to_string(),
+        )
+    })?;
+
+    if is_blank(Some(request.drive_storage_provider_id.as_str())) {
+        request.drive_storage_provider_id = locator.storage_provider_id;
+    }
+    if is_blank(Some(request.drive_bucket.as_str())) {
+        request.drive_bucket = locator.bucket;
+    }
+    if is_blank(Some(request.drive_object_key.as_str())) {
+        request.drive_object_key = locator.object_key;
+    }
+    Ok(request)
+}
+
+pub(crate) fn map_okf_concept_store_error(
     error: sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::KnowledgeOkfConceptStoreError,
 ) -> ApiError {
     let detail = error.to_string();

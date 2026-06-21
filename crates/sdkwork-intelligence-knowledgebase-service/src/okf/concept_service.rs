@@ -41,6 +41,7 @@ use sdkwork_knowledgebase_contract::{
     okf_bundle_file::OkfBundleFileKind,
     OkfCandidateType,
 };
+use sdkwork_knowledgebase_observability::{record_okf_concept_publish, record_okf_concept_upsert};
 use sdkwork_utils_rust::{is_blank, sha256_hash};
 use thiserror::Error;
 use time::format_description::well_known::Rfc3339;
@@ -237,7 +238,11 @@ impl<'a> OkfConceptService<'a> {
 
         let governance_revision_path =
             governance_revision_path(&request.concept.concept_id, request.revision.revision_no);
-        let revision_markdown = read_managed_markdown(self.drive, &governance_revision_path)
+        let revision_markdown = read_managed_markdown(
+            self.drive,
+            &governance_revision_path,
+            drive_space_id.as_deref(),
+        )
             .await
             .map_err(|error| {
                 OkfConceptServiceError::Internal(format!(
@@ -261,6 +266,7 @@ impl<'a> OkfConceptService<'a> {
                 &published_logical_path,
                 "concept_revision",
                 &revision_markdown,
+                drive_space_id.as_deref(),
             )
             .await?;
         self.object_refs
@@ -301,6 +307,12 @@ impl<'a> OkfConceptService<'a> {
         )
         .await?;
 
+        record_okf_concept_publish(
+            request.space_id,
+            &request.concept.concept_id,
+            &request.actor,
+        );
+
         self.concept_store
             .append_log_entry(AppendKnowledgeOkfLogEntryRecord {
                 space_id: request.space_id,
@@ -332,6 +344,58 @@ impl<'a> OkfConceptService<'a> {
         .await?;
 
         Ok(publication)
+    }
+
+    pub async fn delete_concept(
+        &self,
+        space_id: u64,
+        concept_row_id: u64,
+        actor: &str,
+        drive_space_id: Option<&str>,
+    ) -> Result<(), OkfConceptServiceError> {
+        if space_id == 0 {
+            return Err(OkfConceptServiceError::InvalidRequest(
+                "space_id is required".to_string(),
+            ));
+        }
+        if is_blank(Some(actor)) {
+            return Err(OkfConceptServiceError::InvalidRequest(
+                "actor is required".to_string(),
+            ));
+        }
+
+        let concept = self
+            .concept_store
+            .mark_concept_deleted(space_id, concept_row_id)
+            .await?;
+
+        if let Some(link_store) = self.link_store {
+            link_store
+                .replace_outbound_links(ReplaceKnowledgeOkfConceptLinksRecord {
+                    space_id,
+                    from_concept_id: concept.concept_id.clone(),
+                    links: vec![],
+                })
+                .await?;
+        }
+
+        self.concept_store
+            .append_log_entry(AppendKnowledgeOkfLogEntryRecord {
+                space_id,
+                event_type: "delete".to_string(),
+                event_time: now_rfc3339()?,
+                title: format!("Deleted {}", concept.title),
+                actor: actor.to_string(),
+                affected_concepts: vec![concept.title.clone()],
+                audit_event_id: None,
+                warnings: vec![],
+                privacy_level: "internal".to_string(),
+            })
+            .await?;
+        self.rebuild_standard_files(space_id, drive_space_id)
+            .await?;
+
+        Ok(())
     }
 
     async fn stage_concept_revision(
@@ -385,6 +449,7 @@ impl<'a> OkfConceptService<'a> {
                     &published_logical_path,
                     "concept_revision",
                     &published_markdown,
+                    drive_space_id.as_deref(),
                 )
                 .await?,
             )
@@ -396,6 +461,7 @@ impl<'a> OkfConceptService<'a> {
                 &governance_revision_path,
                 "concept_revision",
                 &published_markdown,
+                drive_space_id.as_deref(),
             )
             .await?;
         if let Some(published_ref) = &published_ref {
@@ -463,6 +529,11 @@ impl<'a> OkfConceptService<'a> {
             .await?;
         }
 
+        record_okf_concept_upsert(request.space_id, &concept_id, &request.actor);
+        if project_to_bundle {
+            record_okf_concept_publish(request.space_id, &concept_id, &request.actor);
+        }
+
         Ok(StagedOkfConceptRevision {
             publication: KnowledgeOkfConceptPublication {
                 concept,
@@ -508,14 +579,15 @@ impl<'a> OkfConceptService<'a> {
         logical_path: &str,
         object_role: &str,
         markdown: &str,
+        drive_space_id: Option<&str>,
     ) -> Result<KnowledgeObjectRef, OkfConceptServiceError> {
         Ok(self
             .drive
-            .put_object(PutKnowledgeObjectRequest::text(
+            .put_object(PutKnowledgeObjectRequest::managed_text(
                 logical_path.to_string(),
                 object_role.to_string(),
                 markdown.to_string(),
-                None,
+                drive_space_id,
             ))
             .await?)
     }
@@ -540,7 +612,12 @@ impl<'a> OkfConceptService<'a> {
                 format!("okf/{bundle_relative_path}")
             };
             let index_ref = self
-                .put_markdown(&logical_path, "bundle_index", &markdown)
+                .put_markdown(
+                    &logical_path,
+                    "bundle_index",
+                    &markdown,
+                    drive_space_id,
+                )
                 .await?;
             if logical_path == paths.index_md {
                 upsert_file_entry(
@@ -554,7 +631,12 @@ impl<'a> OkfConceptService<'a> {
             index_nodes.push(file_node(&index_ref));
         }
         let log_ref = self
-            .put_markdown(paths.log_md, "bundle_log", &render_log_md(&logs))
+            .put_markdown(
+                paths.log_md,
+                "bundle_log",
+                &render_log_md(&logs),
+                drive_space_id,
+            )
             .await?;
         upsert_file_entry(
             file_entries,

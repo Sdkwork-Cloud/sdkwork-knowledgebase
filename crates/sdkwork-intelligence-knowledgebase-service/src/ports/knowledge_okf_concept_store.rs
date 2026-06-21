@@ -47,6 +47,12 @@ pub trait KnowledgeOkfConceptStore: Send + Sync {
         space_id: u64,
         logical_paths: Vec<String>,
     ) -> Result<Vec<KnowledgeOkfConceptProjection>, KnowledgeOkfConceptStoreError>;
+
+    async fn mark_concept_deleted(
+        &self,
+        space_id: u64,
+        concept_row_id: u64,
+    ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

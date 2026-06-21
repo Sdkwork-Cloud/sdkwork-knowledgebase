@@ -13,7 +13,7 @@ use sqlx::AnyPool;
 #[tokio::test]
 async fn context_binding_store_round_trips_after_migration_install() {
     let pool = sqlite_pool().await;
-    let tenant_id = 20001_u64;
+    let tenant_id = 100001_u64;
     let organization_id = 7001_u64;
 
     let spaces = SqliteKnowledgeSpaceStore::new(pool.clone(), tenant_id, organization_id);

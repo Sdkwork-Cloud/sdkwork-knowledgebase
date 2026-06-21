@@ -100,7 +100,11 @@ impl KnowledgeOpenApi for HostedOpenApi {
         request: KnowledgeIngestRequest,
     ) -> OpenApiResult<IngestionJob> {
         self.ensure_tenant(&context)?;
-        Self::map_error(self.ingest.create_ingest(request).await)
+        Self::map_error(
+            self.ingest
+                .create_ingest(Self::app_context(&context), request)
+                .await,
+        )
     }
 
     async fn retrieve_ingest(
@@ -109,15 +113,24 @@ impl KnowledgeOpenApi for HostedOpenApi {
         ingest_id: u64,
     ) -> OpenApiResult<IngestionJob> {
         self.ensure_tenant(&context)?;
-        Self::map_error(self.ingest.retrieve_ingest(ingest_id).await)
+        Self::map_error(
+            self.ingest
+                .retrieve_ingest(Self::app_context(&context), ingest_id)
+                .await,
+        )
     }
 
     async fn list_documents(
         &self,
         context: KnowledgeOpenApiRequestContext,
+        space_id: u64,
     ) -> OpenApiResult<KnowledgeDocumentList> {
         self.ensure_tenant(&context)?;
-        Self::map_error(self.document.list_documents().await)
+        Self::map_error(
+            self.document
+                .list_documents(Self::app_context(&context), space_id)
+                .await,
+        )
     }
 
     async fn retrieve_document(
@@ -126,7 +139,11 @@ impl KnowledgeOpenApi for HostedOpenApi {
         document_id: u64,
     ) -> OpenApiResult<KnowledgeDocument> {
         self.ensure_tenant(&context)?;
-        Self::map_error(self.document.retrieve_document(document_id).await)
+        Self::map_error(
+            self.document
+                .retrieve_document(Self::app_context(&context), document_id)
+                .await,
+        )
     }
 
     async fn list_browser(

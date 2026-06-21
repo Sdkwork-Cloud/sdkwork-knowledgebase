@@ -108,6 +108,16 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
     ) -> Result<Vec<KnowledgeOkfConceptProjection>, KnowledgeOkfConceptStoreError> {
         Ok(Vec::new())
     }
+
+    async fn mark_concept_deleted(
+        &self,
+        _space_id: u64,
+        _concept_row_id: u64,
+    ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {
+        Err(KnowledgeOkfConceptStoreError::Internal(
+            "not implemented".to_string(),
+        ))
+    }
 }
 
 struct MockDriveStorage {

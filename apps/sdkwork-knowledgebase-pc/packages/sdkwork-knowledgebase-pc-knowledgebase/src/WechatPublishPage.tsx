@@ -10,6 +10,7 @@ import {
   Sparkles, Notebook, Video, ArrowLeft, ArrowUp, ArrowDown, Cloud,
   Check, Globe, Key, Upload, Folder, Tags, Wand2
 } from 'lucide-react';
+import { getKnowledgebaseTenantId, readRegisteredSpaces } from 'sdkwork-knowledgebase-pc-core';
 import { DocumentMeta } from './services/document';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './components/ui/dropdown-menu';
@@ -116,6 +117,14 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   const { t } = useTranslation('editor');
   const navigate = useNavigate();
   const documents = location.state?.documents || defaultDocuments;
+  const cloudDriveSpaceId = React.useMemo(() => {
+    const tenantId = getKnowledgebaseTenantId();
+    if (!tenantId) {
+      return null;
+    }
+    const spaces = readRegisteredSpaces(tenantId);
+    return spaces[0] ? String(spaces[0].spaceId) : null;
+  }, []);
 
   const [articles, setArticles] = useState<WechatArticle[]>(
     documents.length > 0 ? documents.map((d, index) => ({
@@ -1389,9 +1398,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
         onConfirm={handleImportNotes}
       />
 
-      <CloudDriveModal 
+      <CloudDriveModal
         isOpen={isCloudDriveModalOpen}
         onClose={() => setIsCloudDriveModalOpen(false)}
+        spaceId={cloudDriveSpaceId}
         onConfirm={handleImportCloudDrive}
       />
 
@@ -1551,12 +1561,6 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
         isOpen={isNotesModalOpen}
         onClose={() => setIsNotesModalOpen(false)}
         onConfirm={handleImportNotes}
-      />
-
-      <CloudDriveModal 
-        isOpen={isCloudDriveModalOpen}
-        onClose={() => setIsCloudDriveModalOpen(false)}
-        onConfirm={handleImportCloudDrive}
       />
 
       {/* Official Account Manager and Selector Modal */}

@@ -7,6 +7,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::IngestionJobStore;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
 use sdkwork_knowledgebase_contract::ingest::{IngestionJob, IngestionJobState};
 use sdkwork_knowledgebase_contract::upload::{
     CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
@@ -72,15 +73,19 @@ impl HostedUploadSessionService {
             .map_err(ApiError::from)?;
 
         let payload_path = format!("inbox/api/{job_id}/payload.md");
+        let space = self.runtime.space_store().get_space(space_id).await?;
         let payload_object_ref = self
             .runtime
             .drive_storage()
-            .put_object(PutKnowledgeObjectRequest::text(
-                payload_path,
-                "api_payload",
-                payload_markdown,
-                None,
-            ))
+            .put_object(
+                PutKnowledgeObjectRequest::text(
+                    payload_path,
+                    "api_payload",
+                    payload_markdown,
+                    None,
+                )
+                .with_drive_space_id(space.drive_space_id.as_deref()),
+            )
             .await
             .map_err(ApiError::from)?;
 
@@ -178,12 +183,17 @@ impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
             ));
         }
 
+        let space = self.runtime.space_store().get_space(request.space_id).await?;
         let upload_service = KnowledgeUploadSessionService::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
         );
         let payload_markdown = upload_service
-            .resolve_payload_markdown(&session, &request)
+            .resolve_payload_markdown(
+                &session,
+                &request,
+                space.drive_space_id.as_deref(),
+            )
             .await
             .map_err(ApiError::from)?;
 

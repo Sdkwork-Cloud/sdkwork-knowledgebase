@@ -23,6 +23,12 @@ pub trait KnowledgeSpaceStore: Send + Sync {
         space_id: u64,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError>;
 
+    async fn update_space(
+        &self,
+        space_id: u64,
+        record: UpdateKnowledgeSpaceRecord,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError>;
+
     async fn mark_space_deleted(&self, space_id: u64) -> Result<(), KnowledgeSpaceStoreError>;
 }
 
@@ -32,6 +38,12 @@ pub struct CreateKnowledgeSpaceRecord {
     pub description: Option<String>,
     pub okf_bundle_initialized: bool,
     pub knowledge_mode: KnowledgeAgentKnowledgeMode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UpdateKnowledgeSpaceRecord {
+    pub name: Option<String>,
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

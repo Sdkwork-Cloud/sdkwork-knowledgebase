@@ -3,6 +3,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 import type { HostAdapter } from '../host/hostAdapter';
 import type { KnowledgebaseRuntimeConfig } from '../config/runtimeConfig';
 import type { KnowledgebaseAppSdkClient } from '../sdk/knowledgebaseAppSdkClient';
+import type { KnowledgebaseDriveAppSdkClient } from '../sdk/driveAppSdkClient';
 import type { SessionStore } from '../session/sessionStore';
 
 export interface KnowledgebaseCoreRuntime {
@@ -12,6 +13,7 @@ export interface KnowledgebaseCoreRuntime {
   };
   sdk: {
     app: KnowledgebaseAppSdkClient;
+    drive: KnowledgebaseDriveAppSdkClient;
   };
   session: SessionStore;
   host: HostAdapter;

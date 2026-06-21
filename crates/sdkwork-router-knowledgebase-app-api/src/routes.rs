@@ -2,7 +2,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, patch, post, put},
+    routing::{delete, get, patch, post, put},
     Extension, Json, Router,
 };
 use sdkwork_knowledgebase_contract::{
@@ -16,7 +16,8 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeDriveImportRequest, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
     ListKnowledgeBrowserRequest, ListOkfConceptsQuery, OkfBundleExportRequest,
     OkfBundleImportRequest, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest,
-    OkfQualityRunRequest, OkfQueryRequest,
+    OkfQualityRunRequest, OkfQueryRequest, GrantKnowledgeSpaceMemberRequest,
+    KnowledgeSpaceMemberSubjectType, UpdateKnowledgeSpaceRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -150,7 +151,7 @@ pub fn build_router_with_shared_app_api_and_readiness(
     Router::new()
         .route(paths::HEALTHZ, get(health))
         .route(paths::SPACES, post(create_space))
-        .route(paths::SPACE, get(retrieve_space))
+        .route(paths::SPACE, get(retrieve_space).patch(update_space).delete(delete_space))
         .route(paths::DRIVE_IMPORTS, post(create_drive_import))
         .route(paths::INGESTS, post(create_ingest))
         .route(paths::INGEST, get(retrieve_ingest))
@@ -167,7 +168,7 @@ pub fn build_router_with_shared_app_api_and_readiness(
         )
         .route(paths::OKF_CONCEPTS, get(list_okf_concepts))
         .route(paths::OKF_CONCEPT_UPSERT, put(upsert_okf_concept))
-        .route(paths::OKF_CONCEPT, get(retrieve_okf_concept))
+        .route(paths::OKF_CONCEPT, get(retrieve_okf_concept).delete(delete_okf_concept))
         .route(
             paths::OKF_CONCEPT_REVISIONS,
             get(list_okf_concept_revisions),
@@ -211,6 +212,12 @@ pub fn build_router_with_shared_app_api_and_readiness(
             get(list_space_context_bindings).post(create_space_context_binding),
         )
         .route(
+            paths::SPACE_MEMBERS,
+            get(list_space_members)
+                .post(grant_space_member)
+                .delete(revoke_space_member),
+        )
+        .route(
             paths::CONTEXT_BINDING,
             get(retrieve_context_binding)
                 .patch(update_context_binding)
@@ -237,13 +244,19 @@ async fn health(State(state): State<AppState>) -> Result<Json<serde_json::Value>
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListDocumentsQuery {
+    space_id: u64,
+}
+
 async fn create_space(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<CreateKnowledgeSpaceRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_space(request).await)
+    let context = require_app_context(context)?;
+    created_json(state.api.create_space(context, request).await)
 }
 
 async fn retrieve_space(
@@ -251,8 +264,83 @@ async fn retrieve_space(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(space_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.retrieve_space(space_id).await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.retrieve_space(context, space_id).await)
+}
+
+async fn update_space(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(space_id): Path<u64>,
+    Json(request): Json<UpdateKnowledgeSpaceRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(state.api.update_space(context, space_id, request).await)
+}
+
+async fn delete_space(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(space_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    state
+        .api
+        .delete_space(context, space_id)
+        .await
+        .map_err(ApiProblem::from)?;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RevokeSpaceMemberQuery {
+    subject_type: KnowledgeSpaceMemberSubjectType,
+    subject_id: String,
+}
+
+async fn list_space_members(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(space_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .list_space_members(context, space_id)
+            .await,
+    )
+}
+
+async fn grant_space_member(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(space_id): Path<u64>,
+    Json(request): Json<GrantKnowledgeSpaceMemberRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    state
+        .api
+        .grant_space_member(context, space_id, request)
+        .await
+        .map_err(ApiProblem::from)?;
+    Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+async fn revoke_space_member(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(space_id): Path<u64>,
+    Query(query): Query<RevokeSpaceMemberQuery>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    state
+        .api
+        .revoke_space_member(context, space_id, query.subject_type, query.subject_id)
+        .await
+        .map_err(ApiProblem::from)?;
+    Ok(StatusCode::NO_CONTENT.into_response())
 }
 
 async fn create_drive_import(
@@ -260,8 +348,8 @@ async fn create_drive_import(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<KnowledgeDriveImportRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_drive_import(request).await)
+    let context = require_app_context(context)?;
+    created_json(state.api.create_drive_import(context, request).await)
 }
 
 async fn create_ingest(
@@ -269,8 +357,8 @@ async fn create_ingest(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<KnowledgeIngestRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_ingest(request).await)
+    let context = require_app_context(context)?;
+    created_json(state.api.create_ingest(context, request).await)
 }
 
 async fn retrieve_ingest(
@@ -278,16 +366,17 @@ async fn retrieve_ingest(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(ingest_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.retrieve_ingest(ingest_id).await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.retrieve_ingest(context, ingest_id).await)
 }
 
 async fn list_documents(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
+    Query(query): Query<ListDocumentsQuery>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.list_documents().await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.list_documents(context, query.space_id).await)
 }
 
 async fn create_document(
@@ -295,8 +384,8 @@ async fn create_document(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<CreateKnowledgeDocumentRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_document(request).await)
+    let context = require_app_context(context)?;
+    created_json(state.api.create_document(context, request).await)
 }
 
 async fn retrieve_document(
@@ -304,8 +393,8 @@ async fn retrieve_document(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(document_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.retrieve_document(document_id).await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.retrieve_document(context, document_id).await)
 }
 
 async fn update_document(
@@ -314,8 +403,13 @@ async fn update_document(
     Path(document_id): Path<u64>,
     Json(request): Json<CreateKnowledgeDocumentRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.update_document(document_id, request).await)
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .update_document(context, document_id, request)
+            .await,
+    )
 }
 
 async fn delete_document(
@@ -323,10 +417,10 @@ async fn delete_document(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(document_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
+    let context = require_app_context(context)?;
     state
         .api
-        .delete_document(document_id)
+        .delete_document(context, document_id)
         .await
         .map_err(ApiProblem::from)?;
     Ok(StatusCode::NO_CONTENT.into_response())
@@ -337,8 +431,13 @@ async fn list_document_versions(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(document_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.list_document_versions(document_id).await)
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .list_document_versions(context, document_id)
+            .await,
+    )
 }
 
 async fn create_document_version(
@@ -347,7 +446,7 @@ async fn create_document_version(
     Path(document_id): Path<u64>,
     Json(request): Json<CreateKnowledgeDocumentVersionRequest>,
 ) -> Result<Response, ApiProblem> {
-    let _context = require_app_context(context)?;
+    let context = require_app_context(context)?;
     if request.document_id != document_id {
         return Err(ApiProblem::new(
             StatusCode::BAD_REQUEST,
@@ -358,7 +457,7 @@ async fn create_document_version(
     created_json(
         state
             .api
-            .create_document_version(document_id, request)
+            .create_document_version(context, document_id, request)
             .await,
     )
 }
@@ -388,6 +487,20 @@ async fn retrieve_okf_concept(
 ) -> Result<Response, ApiProblem> {
     require_app_context(context)?;
     ok_json(state.api.retrieve_okf_concept(concept_row_id).await)
+}
+
+async fn delete_okf_concept(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(concept_row_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    state
+        .api
+        .delete_okf_concept(context, concept_row_id)
+        .await
+        .map_err(ApiProblem::from)?;
+    Ok(StatusCode::NO_CONTENT.into_response())
 }
 
 async fn list_okf_concept_revisions(

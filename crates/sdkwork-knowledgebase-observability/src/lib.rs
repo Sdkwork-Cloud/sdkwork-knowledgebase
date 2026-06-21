@@ -1,13 +1,21 @@
 //! HTTP metrics primitives for SDKWork Knowledgebase services.
 
+mod okf_metrics;
+
 use axum::{
     extract::Request,
     http::{header, HeaderValue, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use okf_metrics::render_okf_prometheus_metrics;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
+
+pub use okf_metrics::{
+    record_okf_bundle_exported, record_okf_bundle_imported, record_okf_bundle_lint_completed,
+    record_okf_concept_publish, record_okf_concept_upsert,
+};
 
 static REQUESTS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static REQUEST_ERRORS_TOTAL: AtomicU64 = AtomicU64::new(0);
@@ -37,10 +45,12 @@ pub async fn metrics_handler() -> impl IntoResponse {
          knowledge_api_request_errors_total {}\n\
          # HELP knowledge_api_request_duration_ms_total Cumulative request duration in milliseconds.\n\
          # TYPE knowledge_api_request_duration_ms_total counter\n\
-         knowledge_api_request_duration_ms_total {}\n",
+         knowledge_api_request_duration_ms_total {}\n\
+         {}",
         REQUESTS_TOTAL.load(Ordering::Relaxed),
         REQUEST_ERRORS_TOTAL.load(Ordering::Relaxed),
         REQUEST_DURATION_MS_TOTAL.load(Ordering::Relaxed),
+        render_okf_prometheus_metrics(),
     );
 
     (
@@ -84,5 +94,11 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let text = String::from_utf8(body.to_vec()).unwrap();
+        assert!(text.contains("knowledge_api_requests_total"));
+        assert!(text.contains("kb_okf_concept_publish_total"));
     }
 }

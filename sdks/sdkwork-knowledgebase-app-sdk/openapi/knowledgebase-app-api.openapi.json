@@ -148,6 +148,151 @@
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
+      },
+      "patch": {
+        "operationId": "spaces.update",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "spaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateKnowledgeSpaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeSpace"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
+        "description": "Update a knowledge space",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
+      },
+      "delete": {
+        "operationId": "spaces.delete",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "spaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
+        "description": "Delete a knowledge space",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
     "/app/v3/api/knowledge/drive_imports": {
@@ -372,6 +517,17 @@
         "operationId": "documents.list",
         "tags": [
           "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "spaceId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -1012,6 +1168,71 @@
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "description": "Retrieve an OKF concept",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
+      },
+      "delete": {
+        "operationId": "okf.concepts.delete",
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Delete an OKF concept",
+        "parameters": [
+          {
+            "name": "conceptId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ],
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
+        "description": "Delete an OKF concept",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
@@ -2794,6 +3015,236 @@
         "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
       }
     },
+    "/app/v3/api/knowledge/spaces/{spaceId}/members": {
+      "get": {
+        "operationId": "spaces.members.list",
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "List knowledge space members",
+        "parameters": [
+          {
+            "name": "spaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          }
+        ],
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeSpaceMemberList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
+      },
+      "post": {
+        "operationId": "spaces.members.grant",
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Grant knowledge space member access",
+        "parameters": [
+          {
+            "name": "spaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          }
+        ],
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantKnowledgeSpaceMemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
+      },
+      "delete": {
+        "operationId": "spaces.members.revoke",
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Revoke knowledge space member access",
+        "parameters": [
+          {
+            "name": "spaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          },
+          {
+            "name": "subjectType",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/KnowledgeSpaceMemberSubjectType"
+            }
+          },
+          {
+            "name": "subjectId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api"
+      }
+    },
     "/app/v3/api/knowledge/context_bindings/{bindingId}": {
       "get": {
         "operationId": "contextBindings.retrieve",
@@ -3508,6 +3959,24 @@
           },
           "knowledgeMode": {
             "$ref": "#/components/schemas/KnowledgeAgentKnowledgeMode"
+          }
+        }
+      },
+      "UpdateKnowledgeSpaceRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -4915,6 +5384,27 @@
           },
           "updatedAt": {
             "type": "string"
+          },
+          "driveStorageProviderId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "driveBucket": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 256
+          },
+          "driveObjectKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
           },
           "permissions": {
             "$ref": "#/components/schemas/KnowledgeBrowserNodePermissions"
@@ -6609,6 +7099,85 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "KnowledgeSpaceMemberSubjectType": {
+        "type": "string",
+        "enum": [
+          "user",
+          "group",
+          "domain",
+          "app"
+        ]
+      },
+      "KnowledgeSpaceMemberRole": {
+        "type": "string",
+        "enum": [
+          "reader",
+          "writer",
+          "owner"
+        ]
+      },
+      "KnowledgeSpaceMember": {
+        "type": "object",
+        "required": [
+          "subjectType",
+          "subjectId",
+          "role",
+          "inherited"
+        ],
+        "properties": {
+          "subjectType": {
+            "$ref": "#/components/schemas/KnowledgeSpaceMemberSubjectType"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/KnowledgeSpaceMemberRole"
+          },
+          "inherited": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KnowledgeSpaceMemberList": {
+        "type": "object",
+        "required": [
+          "members"
+        ],
+        "properties": {
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeSpaceMember"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "GrantKnowledgeSpaceMemberRequest": {
+        "type": "object",
+        "required": [
+          "subjectType",
+          "subjectId",
+          "role"
+        ],
+        "properties": {
+          "subjectType": {
+            "$ref": "#/components/schemas/KnowledgeSpaceMemberSubjectType"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/KnowledgeSpaceMemberRole"
           }
         }
       },

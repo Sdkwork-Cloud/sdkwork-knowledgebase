@@ -17,6 +17,7 @@ use uuid::Uuid;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const ACTIVE_STATUS: i64 = 1;
+const DELETED_STATUS: i64 = 0;
 const MAX_OKF_LIST_ROWS: i64 = 200;
 const INITIAL_VERSION: i64 = 0;
 const MAX_PROJECTION_BATCH_SIZE: usize = 200;
@@ -630,6 +631,69 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
             .map_err(sqlx_error)?;
 
         rows.into_iter().map(projection_from_row).collect()
+    }
+
+    async fn mark_concept_deleted(
+        &self,
+        space_id: u64,
+        concept_row_id: u64,
+    ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let space_id = to_i64("space_id", space_id)?;
+        let concept_row_id = to_i64("concept_row_id", concept_row_id)?;
+        let now = now_rfc3339()?;
+        let row = sqlx::query(
+            r#"
+            UPDATE kb_okf_concept
+            SET status = $1, updated_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND space_id = $4 AND id = $5 AND status = $6
+            RETURNING
+                id,
+                space_id,
+                concept_id,
+                title,
+                concept_type,
+                logical_path,
+                description,
+                source_count,
+                tags,
+                current_revision_id,
+                publish_state,
+                updated_at
+            "#,
+        )
+        .bind(DELETED_STATUS)
+        .bind(&now)
+        .bind(tenant_id)
+        .bind(space_id)
+        .bind(concept_row_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(sqlx_error)?
+        .ok_or_else(|| {
+            KnowledgeOkfConceptStoreError::Internal(format!(
+                "missing okf concept: {concept_row_id}"
+            ))
+        })?;
+
+        sqlx::query(
+            r#"
+            UPDATE kb_okf_concept_revision
+            SET status = $1, updated_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND concept_row_id = $4 AND status = $5
+            "#,
+        )
+        .bind(DELETED_STATUS)
+        .bind(now)
+        .bind(tenant_id)
+        .bind(concept_row_id)
+        .bind(ACTIVE_STATUS)
+        .execute(&self.pool)
+        .await
+        .map_err(sqlx_error)?;
+
+        concept_from_row(&row)
     }
 }
 

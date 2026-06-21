@@ -42,7 +42,12 @@ export function PublishModal({ documents, onClose, onWechatFlow }: PublishModalP
     setPublishStatus({ [selectedPlatform]: 'pending' });
 
     try {
-      await DocumentService.publishWebsite(selectedPlatform, documents[0]?.id || '');
+      const res = await DocumentService.publishWebsite(selectedPlatform, documents[0]?.id || '');
+      if (!res.success) {
+        setPublishStatus({ [selectedPlatform]: 'error' });
+        setIsPublishing(false);
+        return;
+      }
       setPublishStatus({ [selectedPlatform]: 'success' });
       
       setTimeout(() => {

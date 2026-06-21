@@ -289,8 +289,8 @@ fn drive_node_to_browser_node(
         drive_node_id: Some(node.drive_node_id),
         document_id: projection.map(|projection| projection.document_id),
         document_version_id: projection.and_then(|projection| projection.current_version_id),
-        okf_concept_id: okf_projection.map(|projection| projection.concept_row_id),
-        okf_revision_id: okf_projection.and_then(|projection| projection.current_revision_id),
+        concept_id: okf_projection.map(|projection| projection.concept_row_id),
+        concept_revision_id: okf_projection.and_then(|projection| projection.current_revision_id),
         mime_type: node.content_type,
         size_bytes: node.size_bytes,
         ingest_state: projection.map(|projection| projection.ingest_state.clone()),
@@ -305,6 +305,18 @@ fn drive_node_to_browser_node(
             DriveNodeKind::Folder => KnowledgeBrowserNodePermissions::file_manager(),
             DriveNodeKind::File => KnowledgeBrowserNodePermissions::read_only(),
         },
+        drive_storage_provider_id: node
+            .object_locator
+            .as_ref()
+            .map(|locator| locator.storage_provider_id.clone()),
+        drive_bucket: node
+            .object_locator
+            .as_ref()
+            .map(|locator| locator.bucket.clone()),
+        drive_object_key: node
+            .object_locator
+            .as_ref()
+            .map(|locator| locator.object_key.clone()),
     }
 }
 

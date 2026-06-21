@@ -17,7 +17,8 @@ use sdkwork_knowledgebase_contract::{
     OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary,
     OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest,
     OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest,
-    OkfQueryRequest, OkfQueryResult,
+    OkfQueryRequest, OkfQueryResult, GrantKnowledgeSpaceMemberRequest, KnowledgeSpaceMemberList,
+    KnowledgeSpaceMemberSubjectType, UpdateKnowledgeSpaceRequest,
 };
 use std::sync::Arc;
 
@@ -332,71 +333,151 @@ impl FullAppApi {
 impl KnowledgeAppApi for FullAppApi {
     async fn create_space(
         &self,
+        context: KnowledgeAppRequestContext,
         request: CreateKnowledgeSpaceRequest,
     ) -> ApiResult<KnowledgeSpace> {
-        self.space.create_space(request).await
+        self.space.create_space(context, request).await
     }
 
-    async fn retrieve_space(&self, space_id: u64) -> ApiResult<KnowledgeSpace> {
-        self.space.retrieve_space(space_id).await
+    async fn retrieve_space(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeSpace> {
+        self.space.retrieve_space(context, space_id).await
+    }
+
+    async fn update_space(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: UpdateKnowledgeSpaceRequest,
+    ) -> ApiResult<KnowledgeSpace> {
+        self.space.update_space(context, space_id, request).await
+    }
+
+    async fn delete_space(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<()> {
+        self.space.delete_space(context, space_id).await
+    }
+
+    async fn list_space_members(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeSpaceMemberList> {
+        self.space.list_space_members(context, space_id).await
+    }
+
+    async fn grant_space_member(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: GrantKnowledgeSpaceMemberRequest,
+    ) -> ApiResult<()> {
+        self.space.grant_space_member(context, space_id, request).await
+    }
+
+    async fn revoke_space_member(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        subject_type: KnowledgeSpaceMemberSubjectType,
+        subject_id: String,
+    ) -> ApiResult<()> {
+        self.space
+            .revoke_space_member(context, space_id, subject_type, subject_id)
+            .await
     }
 
     async fn create_drive_import(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeDriveImportRequest,
     ) -> ApiResult<KnowledgeDriveImportResult> {
-        self.drive_import.import_drive_object(request).await
+        self.drive_import.import_drive_object(context, request).await
     }
 
-    async fn create_ingest(&self, request: KnowledgeIngestRequest) -> ApiResult<IngestionJob> {
-        self.ingest.create_ingest(request).await
+    async fn create_ingest(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeIngestRequest,
+    ) -> ApiResult<IngestionJob> {
+        self.ingest.create_ingest(context, request).await
     }
 
-    async fn retrieve_ingest(&self, ingest_id: u64) -> ApiResult<IngestionJob> {
-        self.ingest.retrieve_ingest(ingest_id).await
+    async fn retrieve_ingest(
+        &self,
+        context: KnowledgeAppRequestContext,
+        ingest_id: u64,
+    ) -> ApiResult<IngestionJob> {
+        self.ingest.retrieve_ingest(context, ingest_id).await
     }
 
-    async fn list_documents(&self) -> ApiResult<KnowledgeDocumentList> {
-        self.document.list_documents().await
+    async fn list_documents(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeDocumentList> {
+        self.document.list_documents(context, space_id).await
     }
 
     async fn create_document(
         &self,
+        context: KnowledgeAppRequestContext,
         request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
-        self.document.create_document(request).await
+        self.document.create_document(context, request).await
     }
 
-    async fn retrieve_document(&self, document_id: u64) -> ApiResult<KnowledgeDocument> {
-        self.document.retrieve_document(document_id).await
+    async fn retrieve_document(
+        &self,
+        context: KnowledgeAppRequestContext,
+        document_id: u64,
+    ) -> ApiResult<KnowledgeDocument> {
+        self.document.retrieve_document(context, document_id).await
     }
 
     async fn update_document(
         &self,
+        context: KnowledgeAppRequestContext,
         document_id: u64,
         request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
-        self.document.update_document(document_id, request).await
+        self.document
+            .update_document(context, document_id, request)
+            .await
     }
 
-    async fn delete_document(&self, document_id: u64) -> ApiResult<()> {
-        self.document.delete_document(document_id).await
+    async fn delete_document(
+        &self,
+        context: KnowledgeAppRequestContext,
+        document_id: u64,
+    ) -> ApiResult<()> {
+        self.document.delete_document(context, document_id).await
     }
 
     async fn list_document_versions(
         &self,
+        context: KnowledgeAppRequestContext,
         document_id: u64,
     ) -> ApiResult<KnowledgeDocumentVersionList> {
-        self.document.list_document_versions(document_id).await
+        self.document
+            .list_document_versions(context, document_id)
+            .await
     }
 
     async fn create_document_version(
         &self,
+        context: KnowledgeAppRequestContext,
         document_id: u64,
         request: CreateKnowledgeDocumentVersionRequest,
     ) -> ApiResult<KnowledgeDocumentVersion> {
         self.document
-            .create_document_version(document_id, request)
+            .create_document_version(context, document_id, request)
             .await
     }
 
@@ -420,6 +501,14 @@ impl KnowledgeAppApi for FullAppApi {
         request: OkfConceptUpsertRequest,
     ) -> ApiResult<OkfConceptSummary> {
         self.okf.upsert_okf_concept(request).await
+    }
+
+    async fn delete_okf_concept(
+        &self,
+        context: KnowledgeAppRequestContext,
+        concept_row_id: u64,
+    ) -> ApiResult<()> {
+        self.okf.delete_okf_concept(context, concept_row_id).await
     }
 
     async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument> {

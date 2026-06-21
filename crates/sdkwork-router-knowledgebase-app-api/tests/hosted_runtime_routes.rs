@@ -19,12 +19,13 @@ fn lock_external_adapter_env() -> std::sync::MutexGuard<'static, ()> {
 async fn hosted_app_router_lists_documents() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let space_id = create_space(&app, "Document List Space").await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/app/v3/api/knowledge/documents")
+                .uri(format!("/app/v3/api/knowledge/documents?spaceId={space_id}"))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -4000,12 +4001,14 @@ async fn upsert_okf_concept(
 async fn hosted_open_router_lists_documents() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_open_auth(runtime.build_open_api_router(), 1, Some(42));
+    let app_router = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let space_id = create_space(&app_router, "Open Document List Space").await;
 
     let response = app
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri("/knowledge/v3/api/documents")
+                .uri(format!("/knowledge/v3/api/documents?spaceId={space_id}"))
                 .body(Body::empty())
                 .unwrap(),
         )

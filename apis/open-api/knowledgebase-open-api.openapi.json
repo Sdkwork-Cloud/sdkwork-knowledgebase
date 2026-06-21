@@ -1654,6 +1654,27 @@
           "updatedAt": {
             "type": "string"
           },
+          "driveStorageProviderId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "driveBucket": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 256
+          },
+          "driveObjectKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          },
           "permissions": {
             "$ref": "#/components/schemas/KnowledgeBrowserNodePermissions"
           }

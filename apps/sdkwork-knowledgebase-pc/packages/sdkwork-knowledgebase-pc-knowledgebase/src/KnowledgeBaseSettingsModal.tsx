@@ -1,8 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { useTranslation } from 'react-i18next';
 import { X, Shield, Settings, Sliders, Upload, UserPlus, Globe, Check, AlertCircle } from 'lucide-react';
 import { KnowledgeBase } from './services/document';
+import {
+  loadKnowledgeSpaceMembers,
+  syncKnowledgeSpaceMembers,
+  type KnowledgeSpaceMemberUi,
+} from './services/knowledgeSpaceMembersService';
 
 interface KnowledgeBaseSettingsModalProps {
   kb: KnowledgeBase;
@@ -12,12 +17,7 @@ interface KnowledgeBaseSettingsModalProps {
 
 const predefinedIcons = ['📘', '📗', '📕', '📙', '📓', '📁', '🌟', '🚀', '💡', '🔥', '⚙️', '📊', '🌍', '📖'];
 
-interface MemberMock {
-  name: string;
-  email: string;
-  role: 'admin' | 'editor' | 'viewer';
-  avatar: string;
-}
+interface MemberMock extends KnowledgeSpaceMemberUi {}
 
 export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBaseSettingsModalProps) {
   const { t } = useTranslation(['kb', 'common']);
@@ -33,13 +33,35 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
   // Permissions Settings States
   const [publicPermission, setPublicPermission] = useState<'none' | 'read' | 'write' | 'admin'>(kb.publicPermission || 'none');
   const [guestLinkEnabled, setGuestLinkEnabled] = useState(kb.guestLinkEnabled !== undefined ? kb.guestLinkEnabled : false);
-  const [members, setMembers] = useState<MemberMock[]>([
-    { name: 'Alice (您)', email: 'alice@company.com', role: 'admin', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop' },
-    { name: 'Bob Smith', email: 'bob@company.com', role: 'editor', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop' },
-    { name: 'Eve Johnson', email: 'eve@company.com', role: 'viewer', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop' }
-  ]);
+  const [members, setMembers] = useState<MemberMock[]>([]);
+  const initialMembersRef = useRef<MemberMock[]>([]);
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<'admin' | 'editor' | 'viewer'>('viewer');
+
+  useEffect(() => {
+    const spaceId = Number(kb.id);
+    if (!Number.isFinite(spaceId) || spaceId <= 0) {
+      return;
+    }
+    let cancelled = false;
+    loadKnowledgeSpaceMembers(spaceId)
+      .then((loaded) => {
+        if (cancelled) {
+          return;
+        }
+        initialMembersRef.current = loaded;
+        setMembers(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          initialMembersRef.current = [];
+          setMembers([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kb.id]);
 
   // Model Settings States
   const [provider, setProvider] = useState(kb.provider || 'Google');
@@ -81,7 +103,11 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
     setMembers(members.filter((_, i) => i !== idx));
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
+    const spaceId = Number(kb.id);
+    if (Number.isFinite(spaceId) && spaceId > 0) {
+      await syncKnowledgeSpaceMembers(spaceId, members, initialMembersRef.current);
+    }
     onSave({
       title,
       icon,

@@ -106,6 +106,74 @@ const requiredOkfStorageSymbols = [
 
 const requiredOkfMigrationTables = ["kb_okf_concept", "kb_okf_concept_link", "kb_okf_candidate"];
 
+const requiredObjectKeyAlignmentFiles = [
+  {
+    file: "crates/sdkwork-knowledgebase-drive/src/adapter.rs",
+    symbols: ["KnowledgeObjectKeyPlanner", "space_uuid"],
+  },
+  {
+    file: "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_drive_storage.rs",
+    symbols: ["space_uuid_from_drive_space_id", "with_drive_space_id"],
+  },
+  {
+    file: "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/okf_native.rs",
+    symbols: ["read_managed_markdown"],
+  },
+];
+
+const requiredOkfObservabilitySymbols = [
+  "kb_okf_concept_publish_total",
+  "kb_okf_concept_upsert_total",
+  "kb_okf_bundle_lint_issues_total",
+  "kb_okf_conformance_failures_total",
+  "kb_okf_bundle_import_total",
+  "record_okf_concept_publish",
+  "record_okf_bundle_lint_completed",
+  "record_okf_bundle_imported",
+  "record_okf_bundle_exported",
+];
+
+async function assertRequiredObjectKeyAlignment() {
+  for (const entry of requiredObjectKeyAlignmentFiles) {
+    const content = await readFile(path.join(root, entry.file), "utf8");
+    for (const symbol of entry.symbols) {
+      if (!content.includes(symbol)) {
+        violations.push(`missing per-space object key symbol ${symbol} in ${entry.file}`);
+      }
+    }
+  }
+}
+
+async function assertRequiredOkfObservabilitySymbols() {
+  const files = [
+    path.join(root, "crates/sdkwork-knowledgebase-observability/src/okf_metrics.rs"),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/concept_service.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/bundle_linter.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/importer.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/exporter.rs",
+    ),
+  ];
+  const combined = (
+    await Promise.all(files.map((file) => readFile(file, "utf8")))
+  ).join("\n");
+  for (const symbol of requiredOkfObservabilitySymbols) {
+    if (!combined.includes(symbol)) {
+      violations.push(`missing okf observability symbol: ${symbol}`);
+    }
+  }
+}
+
 async function assertRequiredOkfModules() {
   const okfDir = path.join(
     root,
@@ -212,7 +280,9 @@ async function assertRequiredOkfMigrations() {
 const violations = [];
 await assertRequiredOkfModules();
 await assertRequiredOkfStorageSymbols();
+await assertRequiredObjectKeyAlignment();
 await assertRequiredOkfMigrations();
+await assertRequiredOkfObservabilitySymbols();
 
 for (const file of await walk(root)) {
   const content = await readFile(file, "utf8");

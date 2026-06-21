@@ -1,5 +1,7 @@
 import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 import * as KnowledgebaseDocumentApiBridge from './knowledgebaseDocumentApiBridge';
+import * as KnowledgeGitImportService from './knowledgeGitImportService';
+import * as KnowledgeFileUploadService from './knowledgeFileUploadService';
 
 export interface DocumentMeta {
   id: string;
@@ -74,12 +76,7 @@ async function withApiFallback<T>(
   if (!isKnowledgebaseApiAvailable()) {
     return mockCall();
   }
-  try {
-    return await apiCall();
-  } catch (error) {
-    console.warn('[DocumentService] API call failed, falling back to mock data.', error);
-    return mockCall();
-  }
+  return apiCall();
 }
 
 let mockKbs: { team: KnowledgeBase[], personal: KnowledgeBase[], public: KnowledgeBase[] } = {
@@ -263,6 +260,13 @@ export class DocumentService {
     );
   }
 
+  static async hydrateKnowledgeBase(kb: KnowledgeBase): Promise<KnowledgeBase> {
+    return withApiFallback(
+      () => KnowledgebaseDocumentApiBridge.hydrateKnowledgeBase(kb),
+      async () => kb,
+    );
+  }
+
   static async updateKnowledgeBase(id: string, updates: Partial<KnowledgeBase>): Promise<KnowledgeBase> {
     return withApiFallback(
       () => KnowledgebaseDocumentApiBridge.updateKnowledgeBase(id, updates),
@@ -413,6 +417,15 @@ export class DocumentService {
   }
 
   static async uploadFiles(files: File[], kbId: string, parentId?: string, overrideType?: DocumentMeta['type']): Promise<DocumentMeta[]> {
+    if (isKnowledgebaseApiAvailable()) {
+      return KnowledgeFileUploadService.uploadKnowledgebaseFiles(
+        files,
+        kbId,
+        overrideType,
+        parentId,
+      );
+    }
+
     const folderMap = new Map<string, string>();
     const results: DocumentMeta[] = [];
     const topLevelItems: DocumentMeta[] = [];
@@ -497,45 +510,79 @@ export class DocumentService {
   }
 
   static async getMarketKnowledgeBases(): Promise<MarketKnowledgeBase[]> {
-    await delay(200);
-    return mockMarketKbs.map(mkb => {
-      const isSubscribed = mockKbs.public.some(kb => kb.id === mkb.id);
-      return { ...mkb, isSubscribed };
-    });
+    return withApiFallback(
+      async () => [],
+      async () => {
+        await delay(200);
+        return mockMarketKbs.map(mkb => {
+          const isSubscribed = mockKbs.public.some(kb => kb.id === mkb.id);
+          return { ...mkb, isSubscribed };
+        });
+      },
+    );
   }
 
   static async subscribeMarketKb(id: string): Promise<boolean> {
-    await delay(150);
-    const item = mockMarketKbs.find(mkb => mkb.id === id);
-    if (!item) return false;
-    
-    const alreadySubscribed = mockKbs.public.some(kb => kb.id === id);
-    if (!alreadySubscribed) {
-      mockKbs.public.push({
-        id: item.id,
-        title: item.title,
-        icon: item.icon,
-        type: 'public',
-        provider: item.provider,
-        modelName: item.modelName,
-        temperature: 0.7,
-        maxTokens: 2048,
-        systemPrompt: item.description,
-        publicPermission: 'read',
-        guestLinkEnabled: true
-      });
-    }
-    return true;
+    return withApiFallback(
+      async () => false,
+      async () => {
+        await delay(150);
+        const item = mockMarketKbs.find(mkb => mkb.id === id);
+        if (!item) return false;
+
+        const alreadySubscribed = mockKbs.public.some(kb => kb.id === id);
+        if (!alreadySubscribed) {
+          mockKbs.public.push({
+            id: item.id,
+            title: item.title,
+            icon: item.icon,
+            type: 'public',
+            provider: item.provider,
+            modelName: item.modelName,
+            temperature: 0.7,
+            maxTokens: 2048,
+            systemPrompt: item.description,
+            publicPermission: 'read',
+            guestLinkEnabled: true
+          });
+        }
+        return true;
+      },
+    );
   }
 
   static async unsubscribeMarketKb(id: string): Promise<boolean> {
-    await delay(150);
-    mockKbs.public = mockKbs.public.filter(kb => kb.id !== id);
-    return true;
+    return withApiFallback(
+      async () => false,
+      async () => {
+        await delay(150);
+        mockKbs.public = mockKbs.public.filter(kb => kb.id !== id);
+        return true;
+      },
+    );
   }
 
-  static async importGitRepository(kbId: string, repoUrl: string, branch: string = 'main'): Promise<boolean> {
-    await delay(1200); // simulate fetching from git
+  static async importGitRepository(
+    kbId: string,
+    repoUrl: string,
+    branch: string = 'main',
+    options?: {
+      accessToken?: string;
+      onProgress?: (progress: KnowledgeGitImportService.GitImportProgress) => void;
+    },
+  ): Promise<boolean> {
+    if (isKnowledgebaseApiAvailable()) {
+      const result = await KnowledgeGitImportService.importGitRepository(
+        kbId,
+        repoUrl,
+        branch,
+        options?.accessToken,
+        options?.onProgress,
+      );
+      return result.importedCount > 0;
+    }
+
+    await delay(1200); // offline demo only
     const repoName = repoUrl.split('/').pop()?.replace('.git', '') || 'repository';
     
     // Create a folder representing the Git repo
@@ -587,13 +634,21 @@ export class DocumentService {
   }
 
   static async syncGitRepository(kbId: string, commitMessage: string): Promise<{ success: boolean; hash: string }> {
-    await delay(1500); // simulate pushing to git
+    if (isKnowledgebaseApiAvailable()) {
+      throw new Error('Git repository sync is not available through the Knowledgebase API yet.');
+    }
+
+    await delay(1500); // offline demo only
     const randomHash = Math.random().toString(16).substring(2, 10);
     return { success: true, hash: randomHash };
   }
 
   static async publishWebsite(platform: string, targetId: string): Promise<{ success: boolean; url?: string }> {
-    await delay(1200); // simulate publishing
+    if (isKnowledgebaseApiAvailable()) {
+      throw new Error('Website publishing is not available through the Knowledgebase API yet.');
+    }
+
+    await delay(1200); // offline demo only
     const platformDomains: Record<string, string> = {
       'vercel': 'vercel.app',
       'netlify': 'netlify.app',

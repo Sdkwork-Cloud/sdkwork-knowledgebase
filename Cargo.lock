@@ -1770,6 +1770,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-appbase-iam-bootstrap"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "sdkwork-iam-context-service",
+ "sdkwork-iam-module-registry",
+ "sqlx",
+]
+
+[[package]]
 name = "sdkwork-database-config"
 version = "0.1.0"
 dependencies = [
@@ -1894,9 +1904,9 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "sdkwork-drive-storage-contract",
+ "sdkwork-utils-rust",
  "serde",
  "serde_json",
- "sha2",
  "tokio",
 ]
 
@@ -1915,9 +1925,9 @@ dependencies = [
  "sdkwork-drive-observability",
  "sdkwork-drive-storage-contract",
  "sdkwork-id-core",
+ "sdkwork-utils-rust",
  "serde",
  "serde_json",
- "sha2",
  "sqlx",
  "tokio",
  "tracing",
@@ -1929,6 +1939,18 @@ name = "sdkwork-iam-context-service"
 version = "0.1.0"
 dependencies = [
  "sdkwork-utils-rust",
+]
+
+[[package]]
+name = "sdkwork-iam-module-registry"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "sdkwork-iam-context-service",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
 ]
 
 [[package]]
@@ -1945,6 +1967,7 @@ dependencies = [
  "password-hash",
  "rand_core 0.6.4",
  "reqwest",
+ "sdkwork-appbase-iam-bootstrap",
  "sdkwork-database-sqlx",
  "sdkwork-iam-context-service",
  "sdkwork-utils-rust",
@@ -2001,6 +2024,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "clawrouter-open-sdk",
+ "reqwest",
  "sdkwork-agent-kernel",
  "sdkwork-agent-plugin-core",
  "sdkwork-agent-plugin-rig",
@@ -2008,6 +2032,7 @@ dependencies = [
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-engine-dify",
  "sdkwork-knowledgebase-engine-ragflow",
+ "sdkwork-knowledgebase-observability",
  "sdkwork-utils-rust",
  "serde",
  "serde_json",
@@ -2017,6 +2042,7 @@ dependencies = [
  "time",
  "tokio",
  "tracing",
+ "urlencoding",
  "uuid",
 ]
 
@@ -2090,6 +2116,7 @@ dependencies = [
  "sdkwork-drive-config",
  "sdkwork-drive-storage-contract",
  "sdkwork-drive-workspace-service",
+ "sdkwork-intelligence-knowledgebase-object-key-service",
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-utils-rust",
  "sqlx",
@@ -2260,6 +2287,7 @@ dependencies = [
  "http",
  "tokio",
  "tower",
+ "tracing",
 ]
 
 [[package]]

@@ -104,9 +104,10 @@ async fn retrieve_ingest(
 async fn list_documents(
     State(state): State<OpenState>,
     context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    Query(query): Query<ListDocumentsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = crate::auth::require_context(context)?;
-    ok_json(state.api.list_documents(context).await)
+    ok_json(state.api.list_documents(context, query.space_id).await)
 }
 
 async fn retrieve_document(
@@ -159,6 +160,12 @@ where
     result
         .map(|value| (StatusCode::CREATED, Json(value)).into_response())
         .map_err(ApiProblem::from)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListDocumentsQuery {
+    space_id: u64,
 }
 
 #[derive(Debug, Deserialize)]

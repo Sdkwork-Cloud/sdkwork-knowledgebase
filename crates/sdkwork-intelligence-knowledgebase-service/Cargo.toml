@@ -12,6 +12,7 @@ sdkwork-agent-plugin-rig.workspace = true
 sdkwork-agent-plugin-core.workspace = true
 sdkwork-knowledgebase-agent-provider.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
+sdkwork-knowledgebase-observability.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
@@ -22,6 +23,8 @@ time.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing = "0.1"
 uuid.workspace = true
+reqwest.workspace = true
+urlencoding = "2"
 
 [dev-dependencies]
 tokio.workspace = true

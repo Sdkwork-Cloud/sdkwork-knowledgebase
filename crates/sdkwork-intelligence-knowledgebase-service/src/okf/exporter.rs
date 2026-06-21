@@ -9,6 +9,7 @@ use crate::ports::knowledge_okf_concept_store::{
 };
 use sdkwork_knowledgebase_contract::okf::OkfBundlePaths;
 use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
+use sdkwork_knowledgebase_observability::record_okf_bundle_exported;
 use thiserror::Error;
 
 const YAML_CONTENT_TYPE: &str = "application/yaml; charset=utf-8";
@@ -57,6 +58,7 @@ impl<'a> OkfBundleExporterService<'a> {
     pub async fn export_bundle(
         &self,
         request: ExportOkfBundleRequest,
+        drive_space_id: Option<&str>,
     ) -> Result<ExportedOkfBundle, OkfBundleExporterError> {
         let export_type = normalize_export_type(&request.export_type)?;
         let export_root = format!("output/exports/{export_type}/{}", request.space_id);
@@ -68,7 +70,15 @@ impl<'a> OkfBundleExporterService<'a> {
             .await?;
 
         exported_files.push(
-            export_standard_file(self.drive, &export_root, paths.log_md, "log.md", false).await?,
+            export_standard_file(
+                self.drive,
+                &export_root,
+                paths.log_md,
+                "log.md",
+                false,
+                drive_space_id,
+            )
+            .await?,
         );
         exported_files.push(
             export_standard_file(
@@ -77,6 +87,7 @@ impl<'a> OkfBundleExporterService<'a> {
                 paths.agents_md,
                 "schema/AGENTS.md",
                 false,
+                drive_space_id,
             )
             .await?,
         );
@@ -87,6 +98,7 @@ impl<'a> OkfBundleExporterService<'a> {
                 paths.profile_yaml,
                 "schema/okf_profile.yaml",
                 false,
+                drive_space_id,
             )
             .await?,
         );
@@ -94,27 +106,34 @@ impl<'a> OkfBundleExporterService<'a> {
         for (bundle_relative_path, markdown) in render_index_documents(&concepts) {
             let export_path = format!("{export_root}/{bundle_relative_path}");
             self.drive
-                .put_object(PutKnowledgeObjectRequest::text(
-                    export_path.clone(),
-                    EXPORT_OBJECT_ROLE,
-                    markdown,
-                    None,
-                ))
+                .put_object(
+                    PutKnowledgeObjectRequest::text(
+                        export_path.clone(),
+                        EXPORT_OBJECT_ROLE,
+                        markdown,
+                        None,
+                    )
+                    .with_drive_space_id(drive_space_id),
+                )
                 .await?;
             exported_files.push(export_path);
         }
 
         for concept in concepts {
-            let content = read_managed_markdown(self.drive, &concept.logical_path).await?;
+            let content =
+                read_managed_markdown(self.drive, &concept.logical_path, drive_space_id).await?;
             let export_path = format!("{export_root}/{}", concept.bundle_relative_path);
             let body = strip_sdkwork_frontmatter(&content);
             self.drive
-                .put_object(PutKnowledgeObjectRequest::text(
-                    export_path.clone(),
-                    EXPORT_OBJECT_ROLE,
-                    body,
-                    None,
-                ))
+                .put_object(
+                    PutKnowledgeObjectRequest::text(
+                        export_path.clone(),
+                        EXPORT_OBJECT_ROLE,
+                        body,
+                        None,
+                    )
+                    .with_drive_space_id(drive_space_id),
+                )
                 .await?;
             exported_files.push(export_path);
         }
@@ -127,19 +146,24 @@ impl<'a> OkfBundleExporterService<'a> {
                 let raw_relative_path = logical_path
                     .strip_prefix("sources/raw/")
                     .unwrap_or(logical_path);
-                let body = read_managed_object_bytes(self.drive, logical_path).await?;
+                let body =
+                    read_managed_object_bytes(self.drive, logical_path, drive_space_id).await?;
                 let export_path = format!("{export_root}/raw/{raw_relative_path}");
                 self.drive
-                    .put_object(PutKnowledgeObjectRequest {
-                        logical_path: export_path.clone(),
-                        object_role: EXPORT_OBJECT_ROLE.to_string(),
-                        content_type: object_ref
-                            .content_type
-                            .clone()
-                            .unwrap_or_else(|| "application/octet-stream".to_string()),
-                        body,
-                        checksum_sha256_hex: object_ref.checksum_sha256_hex.clone(),
-                    })
+                    .put_object(
+                        PutKnowledgeObjectRequest {
+                            logical_path: export_path.clone(),
+                            object_role: EXPORT_OBJECT_ROLE.to_string(),
+                            content_type: object_ref
+                                .content_type
+                                .clone()
+                                .unwrap_or_else(|| "application/octet-stream".to_string()),
+                            body,
+                            checksum_sha256_hex: object_ref.checksum_sha256_hex.clone(),
+                            space_uuid: None,
+                        }
+                        .with_drive_space_id(drive_space_id),
+                    )
                     .await?;
                 exported_files.push(export_path);
             }
@@ -153,19 +177,26 @@ impl<'a> OkfBundleExporterService<'a> {
         let manifest_body = render_export_manifest_yaml(export_type, &manifest_files);
         let manifest_ref = self
             .drive
-            .put_object(PutKnowledgeObjectRequest {
-                logical_path: manifest_path.clone(),
-                object_role: EXPORT_OBJECT_ROLE.to_string(),
-                content_type: YAML_CONTENT_TYPE.to_string(),
-                body: manifest_body.into_bytes(),
-                checksum_sha256_hex: None,
-            })
+            .put_object(
+                PutKnowledgeObjectRequest {
+                    logical_path: manifest_path.clone(),
+                    object_role: EXPORT_OBJECT_ROLE.to_string(),
+                    content_type: YAML_CONTENT_TYPE.to_string(),
+                    body: manifest_body.into_bytes(),
+                    checksum_sha256_hex: None,
+                    space_uuid: None,
+                }
+                .with_drive_space_id(drive_space_id),
+            )
             .await?;
+
+        let file_count = exported_files.len() as u32;
+        record_okf_bundle_exported(request.space_id, export_type, file_count);
 
         Ok(ExportedOkfBundle {
             export_root,
             manifest_path,
-            file_count: exported_files.len() as u32,
+            file_count,
             manifest_ref,
         })
     }
@@ -213,8 +244,9 @@ async fn export_standard_file(
     source_logical_path: &str,
     bundle_relative_path: &str,
     strip_sdkwork: bool,
+    drive_space_id: Option<&str>,
 ) -> Result<String, OkfBundleExporterError> {
-    let content = read_managed_markdown(drive, source_logical_path).await?;
+    let content = read_managed_markdown(drive, source_logical_path, drive_space_id).await?;
     let body = if strip_sdkwork {
         strip_sdkwork_frontmatter(&content)
     } else {
@@ -222,12 +254,15 @@ async fn export_standard_file(
     };
     let export_path = format!("{export_root}/{bundle_relative_path}");
     drive
-        .put_object(PutKnowledgeObjectRequest::text(
-            export_path.clone(),
-            EXPORT_OBJECT_ROLE,
-            body,
-            None,
-        ))
+        .put_object(
+            PutKnowledgeObjectRequest::text(
+                export_path.clone(),
+                EXPORT_OBJECT_ROLE,
+                body,
+                None,
+            )
+            .with_drive_space_id(drive_space_id),
+        )
         .await?;
     Ok(export_path)
 }

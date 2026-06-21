@@ -21,5 +21,8 @@ export interface KnowledgeBrowserNode {
   okfState?: string | null;
   childrenCount?: number | null;
   updatedAt: string;
+  driveStorageProviderId?: string | null;
+  driveBucket?: string | null;
+  driveObjectKey?: string | null;
   permissions: KnowledgeBrowserNodePermissions;
 }

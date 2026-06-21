@@ -17,14 +17,14 @@ use sdkwork_utils_rust::is_blank;
 use std::sync::Arc;
 
 use crate::okf::{
-    load_import_bundle_from_drive, rebuild_bundle_index_for_space, to_contract_lint_result,
-    ExportOkfBundleRequest, ImportOkfBundleRequest, OkfBundleExporterService,
+    load_import_bundle_from_drive, read_managed_markdown, rebuild_bundle_index_for_space,
+    to_contract_lint_result, ExportOkfBundleRequest, ImportOkfBundleRequest, OkfBundleExporterService,
     OkfBundleImporterError, OkfBundleImporterService, OkfBundleLinterService, OkfConceptService,
     OkfConceptServiceError,
 };
 use crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStore;
 use crate::ports::knowledge_drive_storage::{
-    HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeStorageError,
+    KnowledgeDriveStorage, KnowledgeStorageError,
 };
 use crate::ports::knowledge_drive_workspace::KnowledgeDriveWorkspace;
 use crate::ports::knowledge_okf_bundle_file_store::{
@@ -38,7 +38,10 @@ use crate::ports::knowledge_okf_concept_store::{
 use crate::ports::knowledge_source_store::KnowledgeSourceStore;
 use crate::ports::knowledge_space_store::KnowledgeSpaceStore;
 
-use super::okf_search::rank_okf_concepts;
+use super::okf_search::{
+    body_match_score, combine_metadata_and_body_score, expand_ranked_with_link_edges,
+    normalize_query, rank_okf_concepts_with_tokens, snippet_for_concept,
+};
 use super::KnowledgeEngine;
 use crate::ports::knowledge_engine::OkfBundleEngine;
 
@@ -137,6 +140,7 @@ impl OkfNativeKnowledgeEngine {
             self.deps.drive.as_ref(),
             request.space_id,
             request.import_id.as_deref(),
+            drive_space_id.as_deref(),
         )
         .await
         .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
@@ -210,19 +214,70 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
             .await
             .map_err(map_okf_store_error)?;
 
-        let ranked = rank_okf_concepts(pages, &request.query, request.top_k);
-        let hits = ranked
-            .into_iter()
-            .map(|(score, concept)| KnowledgeEngineSearchHit {
+        let summaries_by_id = pages
+            .iter()
+            .map(|page| (page.concept_id.clone(), page.clone()))
+            .collect::<std::collections::HashMap<_, _>>();
+        let tokens = normalize_query(&request.query);
+        let candidate_limit = request.top_k.saturating_mul(4).max(8) as usize;
+        let mut ranked = rank_okf_concepts_with_tokens(pages, &tokens);
+
+        if let Ok(edges) = self
+            .deps
+            .link_store
+            .list_active_link_edges(request.space_id)
+            .await
+        {
+            ranked = expand_ranked_with_link_edges(
+                ranked,
+                &edges,
+                &summaries_by_id,
+                &tokens,
+                candidate_limit,
+            );
+        }
+
+        let drive_space_id = self.drive_space_id(request.space_id).await.ok().flatten();
+        let mut hits = Vec::new();
+        for (metadata_score, concept) in ranked.into_iter().take(candidate_limit) {
+            let body = read_managed_markdown(
+                self.deps.drive.as_ref(),
+                &concept.logical_path,
+                drive_space_id.as_deref(),
+            )
+            .await
+            .ok();
+            let body_score = body
+                .as_deref()
+                .map(|content| body_match_score(content, &tokens))
+                .unwrap_or(0.0);
+            let score = combine_metadata_and_body_score(metadata_score, body_score);
+            if score <= 0.0 && !tokens.is_empty() {
+                continue;
+            }
+            hits.push(KnowledgeEngineSearchHit {
                 document: KnowledgeEngineDocumentRef {
                     document_id: concept.concept_id.clone(),
                     title: concept.title.clone(),
                     source_uri: Some(concept.logical_path.clone()),
                 },
-                snippet: concept.description.clone(),
+                snippet: snippet_for_concept(
+                    &concept.description,
+                    body.as_deref(),
+                    &request.query,
+                ),
                 score: Some(score),
-            })
-            .collect();
+            });
+        }
+
+        hits.sort_by(|left, right| {
+            right
+                .score
+                .partial_cmp(&left.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| left.document.document_id.cmp(&right.document.document_id))
+        });
+        hits.truncate(request.top_k.max(1) as usize);
 
         Ok(KnowledgeEngineSearchResult {
             implementation_id: KnowledgeEngineId::OKF_NATIVE.to_string(),
@@ -253,22 +308,18 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
                 ))
             })?;
 
-        let object_ref = self
-            .deps
-            .drive
-            .head_object(HeadKnowledgeObjectRequest::managed_artifact(
-                &concept.logical_path,
-                "okf_concept",
-            ))
+        let drive_space_id = self
+            .drive_space_id(request.space_id)
             .await
-            .map_err(map_drive_error)?;
-
-        let content = self
-            .deps
-            .drive
-            .get_object_text(&object_ref)
-            .await
-            .map_err(map_drive_error)?;
+            .ok()
+            .flatten();
+        let content = read_managed_markdown(
+            self.deps.drive.as_ref(),
+            &concept.logical_path,
+            drive_space_id.as_deref(),
+        )
+        .await
+        .map_err(map_drive_error)?;
 
         Ok(KnowledgeEngineDocument {
             document_id: concept.concept_id,
@@ -329,6 +380,19 @@ impl OkfBundleEngine for OkfNativeKnowledgeEngine {
         Ok(publication.concept)
     }
 
+    async fn delete_concept(
+        &self,
+        space_id: u64,
+        concept_row_id: u64,
+        actor: &str,
+    ) -> Result<(), KnowledgeEngineError> {
+        let drive_space_id = self.drive_space_id(space_id).await?;
+        self.concept_service()
+            .delete_concept(space_id, concept_row_id, actor, drive_space_id.as_deref())
+            .await
+            .map_err(map_concept_service_error)
+    }
+
     async fn publish_concept(
         &self,
         request: PublishKnowledgeOkfConceptRequest,
@@ -347,11 +411,12 @@ impl OkfBundleEngine for OkfNativeKnowledgeEngine {
         &self,
         space_id: u64,
     ) -> Result<OkfBundleLintResult, KnowledgeEngineError> {
+        let drive_space_id = self.drive_space_id(space_id).await?;
         let report =
             OkfBundleLinterService::new(self.deps.drive.as_ref(), self.deps.concepts.as_ref())
                 .with_link_store(self.deps.link_store.as_ref())
                 .with_source_store(self.deps.source_store.as_ref())
-                .lint_space(space_id)
+                .lint_space(space_id, drive_space_id.as_deref())
                 .await
                 .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
         Ok(to_contract_lint_result(&report))
@@ -390,13 +455,17 @@ impl OkfBundleEngine for OkfNativeKnowledgeEngine {
             Vec::new()
         };
 
+        let drive_space_id = self.drive_space_id(request.space_id).await?;
         let exported =
             OkfBundleExporterService::new(self.deps.drive.as_ref(), self.deps.concepts.as_ref())
                 .with_source_object_refs(source_object_refs)
-                .export_bundle(ExportOkfBundleRequest {
-                    space_id: request.space_id,
-                    export_type: request.export_type,
-                })
+                .export_bundle(
+                    ExportOkfBundleRequest {
+                        space_id: request.space_id,
+                        export_type: request.export_type,
+                    },
+                    drive_space_id.as_deref(),
+                )
                 .await
                 .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
 
@@ -526,6 +595,16 @@ impl KnowledgeOkfConceptLinkStore for UnsupportedLinkStore {
         _published_concept_ids: &[String],
     ) -> Result<
         Vec<String>,
+        crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkStoreError,
+    > {
+        Ok(Vec::new())
+    }
+
+    async fn list_active_link_edges(
+        &self,
+        _space_id: u64,
+    ) -> Result<
+        Vec<crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkEdge>,
         crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkStoreError,
     > {
         Ok(Vec::new())
@@ -672,6 +751,21 @@ impl KnowledgeSpaceStore for UnsupportedSpaceStore {
     async fn mark_okf_bundle_initialized(
         &self,
         _space_id: u64,
+    ) -> Result<
+        sdkwork_knowledgebase_contract::space::KnowledgeSpace,
+        crate::ports::knowledge_space_store::KnowledgeSpaceStoreError,
+    > {
+        Err(
+            crate::ports::knowledge_space_store::KnowledgeSpaceStoreError::Internal(
+                "okf native engine missing space store wiring".to_string(),
+            ),
+        )
+    }
+
+    async fn update_space(
+        &self,
+        _space_id: u64,
+        _record: crate::ports::knowledge_space_store::UpdateKnowledgeSpaceRecord,
     ) -> Result<
         sdkwork_knowledgebase_contract::space::KnowledgeSpace,
         crate::ports::knowledge_space_store::KnowledgeSpaceStoreError,

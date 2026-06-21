@@ -1,12 +1,14 @@
 export * from './auth/authGate';
 export * from './types';
 export * from './api/knowledgebaseApiRegistry';
+export * from './api/knowledgebaseDriveApiRegistry';
 export * from './api/knowledgebaseSpaceRegistry';
 export * from './api/knowledgebaseDocumentContentCache';
 export * from './api/knowledgebaseRecentDocuments';
 export * from './account/accountViewModel';
 export { createRuntimeConfig, detectRuntimeTargetFromEnv } from './config/runtimeConfig';
 export * from './sdk/knowledgebaseAppSdkClient';
+export * from './sdk/driveAppSdkClient';
 export * from './session/sessionStore';
 export * from './session/sessionTokenManager';
 export type {

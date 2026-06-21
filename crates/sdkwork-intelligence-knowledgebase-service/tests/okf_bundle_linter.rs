@@ -8,7 +8,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::
     PutKnowledgeObjectRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
-    KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
+    KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
     ReplaceKnowledgeOkfConceptLinksRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
@@ -85,7 +85,7 @@ async fn bundle_linter_reports_broken_links_and_orphans() {
 
     let report = OkfBundleLinterService::new(&drive, &concepts)
         .with_link_store(&links)
-        .lint_space(1)
+        .lint_space(1, None)
         .await
         .unwrap();
     let contract = to_contract_lint_result(&report);
@@ -232,6 +232,13 @@ impl KnowledgeOkfConceptLinkStore for MemoryLinkStore {
             .cloned()
             .collect())
     }
+
+    async fn list_active_link_edges(
+        &self,
+        _space_id: u64,
+    ) -> Result<Vec<KnowledgeOkfConceptLinkEdge>, KnowledgeOkfConceptLinkStoreError> {
+        Ok(vec![])
+    }
 }
 
 #[derive(Default)]
@@ -340,5 +347,22 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
         _logical_paths: Vec<String>,
     ) -> Result<Vec<KnowledgeOkfConceptProjection>, KnowledgeOkfConceptStoreError> {
         Ok(vec![])
+    }
+
+    async fn mark_concept_deleted(
+        &self,
+        space_id: u64,
+        concept_row_id: u64,
+    ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {
+        let mut concepts = self.concepts.lock().unwrap();
+        let index = concepts
+            .iter()
+            .position(|concept| concept.id == concept_row_id && concept.space_id == space_id)
+            .ok_or_else(|| {
+                KnowledgeOkfConceptStoreError::Internal(format!(
+                    "missing okf concept: {concept_row_id}"
+                ))
+            })?;
+        Ok(concepts.remove(index))
     }
 }
