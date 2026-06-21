@@ -17,6 +17,8 @@ All service-managed files are persisted through sdkwork-drive. Do not write bund
 ## Workflows
 
 - ingest: read one or more raw sources, upsert affected concepts, rebuild okf/index.md, and append okf/log.md.
+- compile: validate a source or bundle revision, append okf/log.md, rebuild hierarchical index files, and refresh schema files.
+- eval: lint the bundle, append okf/log.md, rebuild hierarchical index files, and refresh schema files.
 - query: read okf/index.md first, retrieve relevant concepts and citations, and file valuable answers back into the bundle when approved.
 - lint: check OKF conformance, broken links, orphan concepts, missing citations, stale claims, and knowledge gaps.
 "#
@@ -58,6 +60,18 @@ workflows:
       - orphan_concepts
       - missing_citations
       - stale_claims
+  compile:
+    steps:
+      - validate_source
+      - append_log
+      - rebuild_index
+      - refresh_standard_files
+  eval:
+    steps:
+      - lint_bundle
+      - append_log
+      - rebuild_index
+      - refresh_standard_files
 typeExamples:
   - "BigQuery Table"
   - "API Endpoint"

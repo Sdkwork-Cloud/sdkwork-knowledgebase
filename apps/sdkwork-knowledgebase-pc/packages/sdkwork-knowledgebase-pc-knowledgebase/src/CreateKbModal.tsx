@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, Plus, Upload, Github, FolderGit2, BookPlus, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -212,7 +213,7 @@ export function CreateKbModal({
           </button>
           <button 
             onClick={handleCreate}
-            disabled={!newKbTitle.trim() || (creationMode === 'git' && !gitUrl.trim()) || isImporting}
+            disabled={isBlank(newKbTitle) || (creationMode === 'git' && isBlank(gitUrl)) || isImporting}
             className="px-6 py-2.5 text-[14px] font-semibold bg-[var(--color-kb-accent)] text-white rounded-xl hover:bg-[var(--color-kb-accent-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_12px_rgba(37,99,235,0.2)] dark:shadow-[0_4px_12px_rgba(59,130,246,0.2)] flex items-center hover:shadow-[0_6px_16px_rgba(37,99,235,0.3)] tracking-wide"
           >
             {isImporting ? (

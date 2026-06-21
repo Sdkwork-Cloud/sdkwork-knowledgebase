@@ -8,8 +8,8 @@ use sdkwork_knowledgebase_contract::{
     },
     OkfBundlePaths,
 };
+use sdkwork_utils_rust::{is_blank, sha256_hash};
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 const LOCAL_MIRROR_SCHEMA_VERSION: &str = "1.0.0";
@@ -130,7 +130,7 @@ impl<'a> KnowledgeLocalMirrorManifestService<'a> {
         let body = serde_json::to_vec_pretty(value).map_err(|error| {
             KnowledgeLocalMirrorManifestServiceError::Internal(error.to_string())
         })?;
-        let checksum_sha256_hex = checksum_sha256_hex(&body);
+        let checksum_sha256_hex = sha256_hash(&body);
         self.drive
             .put_object(PutKnowledgeObjectRequest {
                 logical_path,
@@ -208,7 +208,7 @@ fn validate_required(
     field: &str,
     value: &str,
 ) -> Result<(), KnowledgeLocalMirrorManifestServiceError> {
-    if value.trim().is_empty() {
+    if is_blank(Some(value)) {
         return Err(KnowledgeLocalMirrorManifestServiceError::InvalidRequest(
             format!("{field} is required"),
         ));
@@ -235,13 +235,4 @@ fn safe_path_segment(
         ));
     }
     Ok(value.to_string())
-}
-
-fn checksum_sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        output.push_str(&format!("{byte:02x}"));
-    }
-    output
 }

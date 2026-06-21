@@ -41,7 +41,9 @@
     "sdkworkExtensionKey": "sdkwork",
     "stripSdkworkExtensionOnExport": ["okf_strict"],
     "conventionalHeadings": ["Schema", "Examples", "Citations"],
-    "identifierPattern": "^[a-z0-9][a-z0-9_-]*$"
+    "identifierPattern": "^[a-z0-9][a-z0-9_-]*$",
+    "catalogImportIdentifierPattern": "^[A-Za-z0-9_][A-Za-z0-9_.\\-]*$",
+    "importCanonicalization": "lowercase segments; dots in segment names become underscores before publish"
   },
   "agent": {
     "providerId": "provider.knowledge.okf",
@@ -81,6 +83,14 @@
         "includesGovernance": false,
         "stripSdkworkFrontmatter": true
       }
+    }
+  },
+  "workflows": {
+    "compile": {
+      "steps": ["validate_source", "append_log", "rebuild_index", "refresh_standard_files"]
+    },
+    "eval": {
+      "steps": ["lint_bundle", "append_log", "rebuild_index", "refresh_standard_files"]
     }
   },
   "lint": {

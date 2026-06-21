@@ -1,4 +1,5 @@
 import { toast } from '../ui/toast-manager';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import {
   detectOperatingSystem,
   encodeBytesBase64,

@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { toast } from '../ui/toast-manager';
 import { getDocumentExportCapabilities } from './documentExportCapabilities';
 import {
@@ -177,7 +178,7 @@ export function useDocumentExport({
         );
         try {
           const markdown = resolveExportMarkdown(content);
-          if (!markdown.trim()) {
+          if (isBlank(markdown)) {
             dismissExportProgress();
             toast.error('Markdown 内容为空，无法导出');
             return;

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, Clock, FileText, ArrowUp, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { AIService } from '../services/ai';
 import { useTranslation } from 'react-i18next';
@@ -159,7 +160,7 @@ export function WechatAiImageModal({ isOpen, onClose, onConfirm }: WechatAiImage
               onKeyDown={async (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (!prompt.trim()) return;
+                  if (isBlank(prompt)) return;
                   const newMsg: Message = { role: 'user', type: 'text', content: prompt.trim() };
                   setMessages(prev => [...prev, newMsg]);
                   setPrompt('');
@@ -191,7 +192,7 @@ export function WechatAiImageModal({ isOpen, onClose, onConfirm }: WechatAiImage
               
               <button 
                 onClick={async () => {
-                  if (!prompt.trim()) return;
+                  if (isBlank(prompt)) return;
                   const newMsg: Message = { role: 'user', type: 'text', content: prompt.trim() };
                   setMessages(prev => [...prev, newMsg]);
                   setPrompt('');

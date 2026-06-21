@@ -12,7 +12,7 @@ use crate::ports::{
     },
     knowledge_drive_storage::KnowledgeObjectRef,
 };
-use sha2::{Digest, Sha256};
+use sdkwork_utils_rust::{is_blank, sha256_hash};
 use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,7 +137,7 @@ impl<'a> KnowledgeApiMarkdownIndexService<'a> {
                 "space_id, document_id, and document_version_id are required".to_string(),
             ));
         }
-        if payload_markdown.trim().is_empty() {
+        if is_blank(Some(payload_markdown)) {
             return Err(KnowledgeApiMarkdownIndexServiceError::InvalidRequest(
                 "payload content must not be empty".to_string(),
             ));
@@ -169,7 +169,7 @@ pub fn split_markdown_chunks(
         .filter(|segment| !segment.is_empty())
         .enumerate()
         .map(|(index, content)| {
-            let content_hash = format!("sha256:{}", hash_hex(content.as_bytes()));
+            let content_hash = format!("sha256:{}", sha256_hash(content.as_bytes()));
             CreateKnowledgeChunkRecord {
                 space_id,
                 collection_id: 0,
@@ -187,11 +187,6 @@ pub fn split_markdown_chunks(
 
 fn estimate_token_count(content: &str) -> u32 {
     ((content.len() as u32) / 4).max(1)
-}
-
-fn hash_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 #[derive(Debug, Error)]

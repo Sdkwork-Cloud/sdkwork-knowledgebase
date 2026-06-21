@@ -10,6 +10,7 @@ use crate::ports::{
 use sdkwork_knowledgebase_contract::ingest::{
     CreateIngestionJobRequest, IngestionJob, IngestionJobState, KnowledgeIngestRequest,
 };
+use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 
 pub struct KnowledgeIngestionService<'a> {
@@ -157,12 +158,12 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
                 "space_id is required".to_string(),
             ));
         }
-        if request.title.trim().is_empty() {
+        if is_blank(Some(request.title.as_str())) {
             return Err(KnowledgeApiPayloadIngestServiceError::InvalidRequest(
                 "title is required".to_string(),
             ));
         }
-        if request.payload_markdown.trim().is_empty() {
+        if is_blank(Some(request.payload_markdown.as_str())) {
             return Err(KnowledgeApiPayloadIngestServiceError::InvalidRequest(
                 "payload_markdown is required".to_string(),
             ));

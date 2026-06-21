@@ -12,6 +12,7 @@ serde_json.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 sdkwork-knowledgebase-drive.workspace = true
 sdkwork-iam-web-adapter.workspace = true
+sdkwork-utils-rust.workspace = true
 sdkwork-web-axum.workspace = true
 sdkwork-web-core.workspace = true
 sdkwork-router-knowledgebase-backend-api = { path = "../sdkwork-router-knowledgebase-backend-api" }
@@ -23,6 +24,13 @@ sdkwork-knowledgebase-agent-provider.workspace = true
 sdkwork-knowledgebase-engine-dify.workspace = true
 sdkwork-knowledgebase-engine-ragflow.workspace = true
 sdkwork-knowledgebase-engine-onyx.workspace = true
+sdkwork-knowledgebase-engine-anythingllm.workspace = true
+sdkwork-knowledgebase-engine-open-webui.workspace = true
+sdkwork-knowledgebase-engine-flowise.workspace = true
+sdkwork-knowledgebase-engine-qdrant.workspace = true
+sdkwork-knowledgebase-engine-weaviate.workspace = true
+sdkwork-knowledgebase-engine-haystack.workspace = true
+sdkwork-knowledgebase-engine-chroma.workspace = true
 clawrouter-open-sdk.workspace = true
 sdkwork-agent-kernel.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "any"] }

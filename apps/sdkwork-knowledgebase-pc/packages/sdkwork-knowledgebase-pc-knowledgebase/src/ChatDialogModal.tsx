@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { createPortal } from 'react-dom';
 import { 
   X, Search, MessageSquare, CheckSquare, Square, 
@@ -81,7 +82,7 @@ export function ChatDialogModal({ isOpen, onClose, onConfirm }: ChatDialogModalP
   const [activeDialogueId, setActiveDialogueId] = useState<string>('cd-1');
 
   const filteredDialogues = useMemo(() => {
-    if (!searchQuery.trim()) return MOCK_DIALOGUES;
+    if (isBlank(searchQuery)) return MOCK_DIALOGUES;
     const query = searchQuery.toLowerCase();
     return MOCK_DIALOGUES.filter(d => 
       d.title.toLowerCase().includes(query) || d.source.toLowerCase().includes(query)

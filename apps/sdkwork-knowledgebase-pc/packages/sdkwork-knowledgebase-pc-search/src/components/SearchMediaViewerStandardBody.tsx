@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { SearchMediaCategory, SearchMediaItem } from '../types';
 import { SearchMediaViewerContentRouter } from './media-viewers/SearchMediaViewerContentRouter';

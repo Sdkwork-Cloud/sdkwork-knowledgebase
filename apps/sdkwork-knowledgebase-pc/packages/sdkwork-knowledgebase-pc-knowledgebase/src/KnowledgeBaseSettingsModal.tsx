@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { useTranslation } from 'react-i18next';
 import { X, Shield, Settings, Sliders, Upload, UserPlus, Globe, Check, AlertCircle } from 'lucide-react';
 import { KnowledgeBase } from './services/document';
@@ -63,7 +64,7 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMemberEmail.trim()) return;
+    if (isBlank(newMemberEmail)) return;
     const name = newMemberEmail.split('@')[0];
     const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
     const newMember: MemberMock = {

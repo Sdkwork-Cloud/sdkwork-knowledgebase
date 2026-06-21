@@ -6,7 +6,7 @@
   "category": "workflow_builder",
   "implementationId": "engine.knowledge.external.flowise",
   "agentProviderId": "provider.knowledge.external.flowise",
-  "integrationTier": "catalog",
+  "integrationTier": "adapter",
   "upstream": {
     "repositoryUrl": "https://github.com/FlowiseAI/Flowise",
     "defaultBranch": "main",

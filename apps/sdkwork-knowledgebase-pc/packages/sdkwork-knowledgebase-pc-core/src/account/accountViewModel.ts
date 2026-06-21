@@ -1,4 +1,5 @@
 import type { SessionSnapshot } from '../session/sessionStore';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 
 export interface KnowledgebaseAccountViewModel {
   id: string;

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, LayoutGrid, LayoutList, Plus, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { WechatAppletConfig } from '../services/wechat';

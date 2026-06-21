@@ -1,4 +1,5 @@
 import React from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { Search, Sparkles, Plus, Trash2, Edit3, MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SearchSession } from '../types';
@@ -37,7 +38,7 @@ export function SearchSessionSidebar({
 }: SearchSessionSidebarProps) {
   const { t } = useTranslation('search');
   const filteredSessions = sessions.filter((s) => {
-    if (!sessionFilter.trim()) return true;
+    if (isBlank(sessionFilter)) return true;
     const q = sessionFilter.toLowerCase();
     return s.title.toLowerCase().includes(q) || getSessionPreview(s, t('notStartedYet')).toLowerCase().includes(q);
   });

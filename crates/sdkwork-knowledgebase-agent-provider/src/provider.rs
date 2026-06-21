@@ -3,6 +3,7 @@ use sdkwork_agent_kernel::{
     KnowledgeProvider, KnowledgeSearchRequest, KnowledgeSearchResult, ProviderHealth,
     ProviderManifest,
 };
+use sdkwork_utils_rust::is_blank;
 
 use crate::client::KnowledgebaseRetrievalClient;
 use crate::mapper::{hit_to_search_result, map_method, parse_namespace_space_id, parse_tenant_id};
@@ -78,7 +79,7 @@ where
         &self,
         request: &KnowledgeSearchRequest,
     ) -> KernelResult<sdkwork_knowledgebase_contract::KnowledgeRetrievalRequest> {
-        if request.query.trim().is_empty() {
+        if is_blank(Some(request.query.as_str())) {
             return Err(KernelError::validation(
                 "knowledge search query must not be blank",
             ));

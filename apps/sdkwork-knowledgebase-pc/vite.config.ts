@@ -1,7 +1,10 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import {defineConfig, loadEnv} from 'vite';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const repoRoot = path.resolve(__dirname, '../..');
 const appbaseRoot = path.resolve(repoRoot, '../sdkwork-appbase');
@@ -17,7 +20,10 @@ export default defineConfig(({mode}) => {
     || DEFAULT_PLATFORM_API_GATEWAY_TARGET;
 
   return {
-    plugins: [react(), tailwindcss()],
+    define: {
+      'process.env.SDKWORK_ACCESS_TOKEN': JSON.stringify(env.SDKWORK_ACCESS_TOKEN ?? ''),
+    },
+            plugins: [react(), tailwindcss()],
     optimizeDeps: {
       include: [
         'react',

@@ -1,3 +1,4 @@
+import { isBlank, trim } from '@sdkwork/utils';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DocumentService } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/document';
@@ -32,7 +33,7 @@ async function rehydrateMissingRelatedMedia(
           if (
             msg.role !== 'assistant' ||
             msg.isSearching ||
-            !msg.content?.trim() ||
+            isBlank(msg.content) ||
             hasRelatedMedia(msg.relatedMedia)
           ) {
             return msg;
@@ -131,7 +132,7 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
         (msg) =>
           msg.role === 'assistant' &&
           !msg.isSearching &&
-          Boolean(msg.content?.trim()) &&
+          !isBlank(msg.content) &&
           !hasRelatedMedia(msg.relatedMedia)
       )
     );
@@ -248,9 +249,9 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
   };
 
   const handleSaveRename = (id: string) => {
-    if (!editingTitle.trim()) return;
+    if (isBlank(editingTitle)) return;
     const updated = sessions.map((s) =>
-      s.id === id ? { ...s, title: editingTitle.trim() } : s
+      s.id === id ? { ...s, title: trim(editingTitle) } : s
     );
     saveSessionsToStorage(updated);
     setEditingSessionId(null);
@@ -263,9 +264,9 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
 
   const handleSendQuery = async (queryText?: string, sessionOverride?: SearchSession) => {
     const rawVal = queryText !== undefined ? queryText : inputValue;
-    if (!rawVal.trim() || isTyping) return;
+    if (isBlank(rawVal) || isTyping) return;
 
-    const query = rawVal.trim();
+    const query = trim(rawVal);
     setInputValue('');
 
     const currentSession =

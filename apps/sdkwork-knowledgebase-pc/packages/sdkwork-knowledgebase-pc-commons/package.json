@@ -1,5 +1,12 @@
 {
   "name": "@sdkwork/sdkwork-knowledgebase-pc-commons",
   "version": "1.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./stringUtils": "./src/stringUtils.ts"
+  },
+  "dependencies": {
+    "@sdkwork/utils": "workspace:*"
+  }
 }

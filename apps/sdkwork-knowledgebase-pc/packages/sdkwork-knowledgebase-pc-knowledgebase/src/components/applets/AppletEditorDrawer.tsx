@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, Smartphone, Edit3, Globe, Server, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { WechatAppletConfig } from '../../services/wechat';
@@ -91,13 +92,13 @@ export function AppletEditorDrawer({ editingId, appletData, groups, onClose, onS
   }, [appletData, editingId, groups]);
 
   const handleSave = () => {
-    if (!appName.trim() || !appId.trim()) {
+    if (isBlank(appName) || isBlank(appId)) {
       toast.error(t('errors.fillRequired'));
       return;
     }
 
     const isValidUrlOrDomain = (d: string) => {
-      if (!d.trim()) return true;
+      if (isBlank(d)) return true;
       try {
         if (d.trim().includes('://')) {
           new URL(d.trim());
@@ -393,7 +394,7 @@ export function AppletEditorDrawer({ editingId, appletData, groups, onClose, onS
                       {state.map((domain, index) => {
                         const isValidPattern = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d+)?(?:[\/?#]\S*)?$/;
                         const isUrl = domain.includes('://') && (() => { try { new URL(domain); return true; } catch { return false; }})();
-                        const isValid = !domain.trim() || isUrl || isValidPattern.test(domain.trim());
+                        const isValid = isBlank(domain) || isUrl || isValidPattern.test(domain.trim());
                         return (
                         <div key={index} className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
@@ -442,7 +443,7 @@ export function AppletEditorDrawer({ editingId, appletData, groups, onClose, onS
                      {appBusinessDomain.map((domain, index) => {
                         const isValidPattern = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d+)?(?:[\/?#]\S*)?$/;
                         const isUrl = domain.includes('://') && (() => { try { new URL(domain); return true; } catch { return false; }})();
-                        const isValid = !domain.trim() || isUrl || isValidPattern.test(domain.trim());
+                        const isValid = isBlank(domain) || isUrl || isValidPattern.test(domain.trim());
                        return (
                         <div key={index} className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">

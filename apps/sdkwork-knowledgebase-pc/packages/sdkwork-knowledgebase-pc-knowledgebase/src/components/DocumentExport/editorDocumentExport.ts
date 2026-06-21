@@ -1,4 +1,5 @@
 import { createEditorExportContentProvider, type EditorExportBinding } from './exportContentUtils';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import type { DocumentExportContentProvider, DocumentExportSourceKind } from './types';
 
 export interface TiptapEditorExportBinding {

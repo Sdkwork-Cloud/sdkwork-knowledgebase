@@ -1,4 +1,5 @@
 mod bundle_linter;
+mod bundle_workflow;
 mod concept_service;
 mod document;
 mod exporter;
@@ -20,6 +21,10 @@ use crate::ports::knowledge_drive_storage::{
 use sdkwork_knowledgebase_contract::okf::{OkfBundlePaths, OkfConceptSummary, OkfLogEntry};
 
 pub use bundle_linter::{to_contract_lint_result, OkfBundleLinterError, OkfBundleLinterService};
+pub use bundle_workflow::{
+    run_okf_compile_workflow, run_okf_eval_workflow, OkfBundleWorkflowDeps,
+    OkfBundleWorkflowEngine, OkfBundleWorkflowError,
+};
 pub use concept_service::{
     OkfConceptService, OkfConceptServiceError, PublishExistingOkfConceptRevisionRequest,
 };
@@ -40,7 +45,7 @@ pub use importer::{
     OkfBundleImporterService,
 };
 pub use index_rebuild::{rebuild_bundle_index_for_space, OkfIndexRebuildError};
-pub use index_renderer::render_index_md;
+pub use index_renderer::{render_index_documents, render_index_md};
 pub use initializer::{OkfBundleInitializerService, OkfBundleInitializerServiceError};
 pub use link_indexer::index_concept_links;
 pub use linter::{
@@ -52,7 +57,8 @@ pub use log_renderer::render_log_md;
 pub use schema_renderer::{render_agents_md, render_okf_profile_yaml};
 pub use storage::{read_managed_markdown, read_managed_object_bytes};
 pub use validator::{
-    validate_bundle_relative_path, validate_concept_bundle_relative_path,
+    canonicalize_imported_concept_id, validate_bundle_relative_path,
+    validate_catalog_concept_bundle_relative_path, validate_concept_bundle_relative_path,
     validate_concept_document, validate_concept_id, OkfConformanceError,
 };
 
@@ -112,6 +118,20 @@ impl<'a> OkfBundleStandardFileService<'a> {
                 None,
             ))
             .await?;
+        let index_documents = render_index_documents(&request.concepts);
+        for (bundle_relative_path, markdown) in index_documents {
+            if bundle_relative_path == "index.md" {
+                continue;
+            }
+            self.drive
+                .put_object(PutKnowledgeObjectRequest::text(
+                    format!("okf/{bundle_relative_path}"),
+                    "bundle_index",
+                    markdown,
+                    None,
+                ))
+                .await?;
+        }
         let log_md = self
             .drive
             .put_object(PutKnowledgeObjectRequest::text(

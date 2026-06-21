@@ -1,3 +1,4 @@
+use sdkwork_utils_rust::is_blank;
 use std::sync::Arc;
 
 use clawrouter_open_sdk::{
@@ -48,7 +49,7 @@ pub fn resolve_claw_router_client_from_env() -> Result<SdkworkAiClient, String> 
     let client = SdkworkAiClient::new_with_base_url(base_url).map_err(map_sdk_error)?;
 
     if let Ok(api_key) = std::env::var("SDKWORK_CLAW_ROUTER_API_KEY") {
-        if !api_key.trim().is_empty() {
+        if !is_blank(Some(api_key.as_str())) {
             client.set_api_key(api_key);
         }
     }
@@ -135,7 +136,7 @@ fn resolve_upstream_model_id(
     rig_default_model_id: &str,
     upstream_default_model_id: &str,
 ) -> String {
-    match model_id.filter(|value| !value.trim().is_empty()) {
+    match model_id.filter(|value| !is_blank(Some(value))) {
         Some(model_id) if model_id == rig_default_model_id => upstream_default_model_id.to_string(),
         Some(model_id) => model_id.to_string(),
         None => upstream_default_model_id.to_string(),

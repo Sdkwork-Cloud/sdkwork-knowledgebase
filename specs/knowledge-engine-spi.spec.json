@@ -133,6 +133,7 @@
       "publish_concept",
       "list_concepts",
       "lint_bundle",
+      "lint_bundle_report",
       "import_bundle",
       "export_bundle",
       "rebuild_index"

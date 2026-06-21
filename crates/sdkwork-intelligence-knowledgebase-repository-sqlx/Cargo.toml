@@ -18,6 +18,7 @@ sdkwork-knowledgebase-contract.workspace = true
 sdkwork-knowledgebase-agent-provider.workspace = true
 sdkwork-intelligence-knowledgebase-service.workspace = true
 sdkwork-id-core = { path = "../../../sdkwork-id/crates/sdkwork-id-core" }
+sdkwork-utils-rust.workspace = true
 uuid.workspace = true
 thiserror.workspace = true
 

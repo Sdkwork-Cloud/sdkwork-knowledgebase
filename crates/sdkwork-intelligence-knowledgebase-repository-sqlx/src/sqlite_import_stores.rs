@@ -21,6 +21,7 @@ use sdkwork_knowledgebase_contract::document::{
 };
 use sdkwork_knowledgebase_contract::ingest::{IngestionJob, IngestionJobState};
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
+use sdkwork_utils_rust::is_blank;
 use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -533,7 +534,7 @@ impl SqliteKnowledgeDocumentStore {
         mime_type: Option<String>,
         language: Option<String>,
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
-        if title.trim().is_empty() {
+        if is_blank(Some(title.as_str())) {
             return Err(KnowledgeDocumentStoreError::InvalidRecord(
                 "title is required".to_string(),
             ));

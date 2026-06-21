@@ -395,6 +395,58 @@ impl From<KnowledgeStorageError> for ApiError {
     }
 }
 
+impl From<sdkwork_intelligence_knowledgebase_service::okf::OkfBundleWorkflowError> for ApiError {
+    fn from(
+        error: sdkwork_intelligence_knowledgebase_service::okf::OkfBundleWorkflowError,
+    ) -> Self {
+        use sdkwork_intelligence_knowledgebase_service::okf::OkfBundleWorkflowError;
+        match error {
+            OkfBundleWorkflowError::InvalidRequest(detail) => {
+                Self::invalid_request("okf_bundle_workflow_invalid_request", detail)
+            }
+            OkfBundleWorkflowError::SpaceStore(store_error) => store_error.into(),
+            OkfBundleWorkflowError::ConceptStore(store_error) => {
+                Self::internal("okf_bundle_workflow_failed", store_error.to_string())
+            }
+            OkfBundleWorkflowError::SourceStore(store_error) => store_error.into(),
+            OkfBundleWorkflowError::IndexRebuild(rebuild_error) => {
+                Self::internal("okf_bundle_workflow_failed", rebuild_error.to_string())
+            }
+            OkfBundleWorkflowError::Linter(linter_error) => {
+                Self::internal("okf_bundle_workflow_failed", linter_error.to_string())
+            }
+            OkfBundleWorkflowError::Storage(storage_error) => storage_error.into(),
+            OkfBundleWorkflowError::BundleFileStore(store_error) => {
+                Self::internal("okf_bundle_workflow_failed", store_error.to_string())
+            }
+            OkfBundleWorkflowError::BundleFileRegistry(registry_error) => {
+                Self::internal("okf_bundle_workflow_failed", registry_error.to_string())
+            }
+            OkfBundleWorkflowError::Engine(engine_error) => engine_error.into(),
+        }
+    }
+}
+
+impl From<sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError> for ApiError {
+    fn from(error: sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError) -> Self {
+        use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError;
+        match error {
+            KnowledgeEngineError::Validation(detail) => {
+                Self::invalid_request("knowledge_engine_validation_failed", detail)
+            }
+            KnowledgeEngineError::NotFound(detail) => {
+                Self::not_found("knowledge_engine_not_found", detail)
+            }
+            KnowledgeEngineError::Unsupported(detail) => {
+                Self::invalid_request("knowledge_engine_unsupported", detail)
+            }
+            KnowledgeEngineError::Internal(detail) => {
+                Self::internal("knowledge_engine_failed", detail)
+            }
+        }
+    }
+}
+
 impl From<OkfConceptServiceError> for ApiError {
     fn from(error: OkfConceptServiceError) -> Self {
         match error {

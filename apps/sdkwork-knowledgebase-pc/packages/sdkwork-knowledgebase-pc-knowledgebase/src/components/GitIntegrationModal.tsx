@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, GitBranch, Share, CheckCircle, Database, HelpCircle, Loader2, ArrowRight, ShieldCheck, Check } from 'lucide-react';
 import { KnowledgeBase, DocumentService } from '../services/document';
 import { useTranslation } from 'react-i18next';
@@ -54,7 +55,7 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
 
   const handleAction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!repoUrl.trim() || !isUrlValid) return;
+    if (isBlank(repoUrl) || !isUrlValid) return;
 
     setLoading(true);
     setStep(0);
@@ -249,7 +250,7 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
               </button>
               <button 
                 type="submit" 
-                disabled={!repoUrl.trim() || !isUrlValid} 
+                disabled={isBlank(repoUrl) || !isUrlValid} 
                 className="px-4 py-2 text-[12px] font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl disabled:opacity-50 disabled:pointer-events-none transition-all shadow-md shadow-emerald-500/10 flex items-center gap-1"
               >
                 {mode === 'import' ? t('git.startPullImport', { defaultValue: '开始拉取并导入' }) : t('git.startPushSync', { defaultValue: '建立推送并同步' })} 

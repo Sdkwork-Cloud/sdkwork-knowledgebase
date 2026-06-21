@@ -1,4 +1,5 @@
 import { DocumentService } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/document';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { buildRelatedMedia } from './buildRelatedMedia';
 import type { SearchSource } from '../types';
 

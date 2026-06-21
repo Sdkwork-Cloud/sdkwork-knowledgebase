@@ -71,6 +71,9 @@ importers:
       '@sdkwork/ui-pc-react':
         specifier: workspace:*
         version: link:../../../sdkwork-ui/sdkwork-ui-pc-react
+      '@sdkwork/utils-typescript':
+        specifier: workspace:*
+        version: link:../../../sdkwork-utils/packages/sdkwork-utils-typescript
       '@tailwindcss/vite':
         specifier: ^4.1.14
         version: 4.2.2(vite@6.4.3(@types/node@22.19.21)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4))
@@ -588,6 +591,15 @@ importers:
         specifier: ^3.5.32
         version: 3.5.38(typescript@6.0.2)
 
+  ../../../sdkwork-utils/packages/sdkwork-utils-typescript:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.19.21
+      typescript:
+        specifier: ^5.7.2
+        version: 5.8.3
+
   ../../sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi:
     dependencies:
       '@sdkwork/sdk-common':
@@ -618,6 +630,9 @@ importers:
 
   packages/sdkwork-knowledgebase-pc-search:
     dependencies:
+      '@sdkwork/utils-typescript':
+        specifier: workspace:*
+        version: link:../../../../../sdkwork-utils/packages/sdkwork-utils-typescript
       dompurify:
         specifier: ^3.4.11
         version: 3.4.11

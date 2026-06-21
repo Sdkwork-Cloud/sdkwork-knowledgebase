@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { Search, X, FileUp, Plus, FolderUp, MessageSquare, Lightbulb, Link, FileEdit, ChevronRight, FileText, Mic, FolderPlus, Trash2, Folder, Hash, Image as ImageIcon, Video, Music, ChevronDown, MoreHorizontal, Edit2, Cloud, Notebook, CheckSquare, BookOpen } from 'lucide-react';
 import { FolderNode, DocumentMeta, KnowledgeBase, DocumentService } from './services/document';
 import { useTranslation } from 'react-i18next';
@@ -145,7 +146,7 @@ export function KnowledgeFileList({
       return 0;
     });
 
-    if (!searchQuery.trim()) return rawList;
+    if (isBlank(searchQuery)) return rawList;
     
     const matchQuery = searchQuery.toLowerCase().trim();
     const filter = (items: any[]): any[] => {

@@ -32,6 +32,7 @@ use sdkwork_knowledgebase_contract::{
     ingest::{KnowledgeDriveImportRequest, KnowledgeDriveImportResult},
     source::KnowledgeSourceType,
 };
+use sdkwork_utils_rust::is_blank;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
@@ -72,22 +73,22 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 "space_id is required".to_string(),
             ));
         }
-        if request.title.trim().is_empty() {
+        if is_blank(Some(request.title.as_str())) {
             return Err(KnowledgeDriveImportServiceError::InvalidRequest(
                 "title is required".to_string(),
             ));
         }
-        if request.drive_bucket.trim().is_empty() {
+        if is_blank(Some(request.drive_bucket.as_str())) {
             return Err(KnowledgeDriveImportServiceError::InvalidRequest(
                 "drive_bucket is required".to_string(),
             ));
         }
-        if request.drive_storage_provider_id.trim().is_empty() {
+        if is_blank(Some(request.drive_storage_provider_id.as_str())) {
             return Err(KnowledgeDriveImportServiceError::InvalidRequest(
                 "drive_storage_provider_id is required".to_string(),
             ));
         }
-        if request.drive_object_key.trim().is_empty() {
+        if is_blank(Some(request.drive_object_key.as_str())) {
             return Err(KnowledgeDriveImportServiceError::InvalidRequest(
                 "drive_object_key is required".to_string(),
             ));

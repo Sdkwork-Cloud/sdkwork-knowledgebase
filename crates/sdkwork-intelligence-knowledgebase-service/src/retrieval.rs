@@ -20,7 +20,7 @@ use sdkwork_knowledgebase_contract::rag::{
     KnowledgeMemoryContextFragment, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
     KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeRetrievalTrace,
 };
-use sha2::{Digest, Sha256};
+use sdkwork_utils_rust::{is_blank, sha256_hash};
 use std::{cmp::Ordering, time::Instant};
 use thiserror::Error;
 
@@ -275,7 +275,7 @@ impl<'a> KnowledgeRetrievalService<'a> {
                 tenant_id: request.tenant_id,
                 actor_id: request.actor_id,
                 retrieval_profile_id: request.retrieval_profile_id,
-                query_hash_sha256_hex: sha256_hex(normalized_query),
+                query_hash_sha256_hex: sha256_hash(normalized_query.as_bytes()),
                 query_text_redacted: Some(redact_query(normalized_query)),
                 request_payload_json: serde_json::to_string(request).ok(),
                 latency_ms,
@@ -343,7 +343,7 @@ fn validate_request(
             "tenant_id is required".to_string(),
         ));
     }
-    if request.query.trim().is_empty() {
+    if is_blank(Some(request.query.as_str())) {
         return Err(KnowledgeRetrievalServiceError::InvalidRequest(
             "query is required".to_string(),
         ));
@@ -429,12 +429,6 @@ fn estimate_memory_fragment_tokens(fragment: &KnowledgeMemoryContextFragment) ->
     fragment
         .token_count
         .unwrap_or_else(|| fragment.content.split_whitespace().count().max(1) as u32)
-}
-
-fn sha256_hex(value: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(value.as_bytes());
-    format!("{:x}", hasher.finalize())
 }
 
 fn redact_query(value: &str) -> String {

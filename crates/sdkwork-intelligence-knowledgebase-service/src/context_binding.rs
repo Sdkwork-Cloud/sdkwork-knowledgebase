@@ -10,6 +10,7 @@ use sdkwork_knowledgebase_contract::context_binding::{
     KnowledgeSpaceContextBinding, KnowledgeSpaceContextBindingList, ListContextBoundSpacesRequest,
     ListKnowledgeSpaceContextBindingsRequest, UpdateKnowledgeSpaceContextBindingRequest,
 };
+use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 
 pub struct KnowledgeContextBindingService<'a> {
@@ -40,7 +41,7 @@ impl<'a> KnowledgeContextBindingService<'a> {
         drive_space_id: &str,
         request: CreateKnowledgeSpaceContextBindingRequest,
     ) -> Result<KnowledgeSpaceContextBinding, KnowledgeContextBindingServiceError> {
-        if request.context_id.trim().is_empty() {
+        if is_blank(Some(request.context_id.as_str())) {
             return Err(KnowledgeContextBindingServiceError::InvalidRequest(
                 "context_id is required".to_string(),
             ));
@@ -158,7 +159,7 @@ impl<'a> KnowledgeContextBindingService<'a> {
         context_type: KnowledgeContextType,
         context_id: &str,
     ) -> Result<Vec<u64>, KnowledgeContextBindingServiceError> {
-        if context_id.trim().is_empty() {
+        if is_blank(Some(context_id)) {
             return Err(KnowledgeContextBindingServiceError::InvalidRequest(
                 "context_id is required".to_string(),
             ));

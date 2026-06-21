@@ -77,6 +77,20 @@ fn connector_metadata_json_parses_dataset_id() {
 }
 
 #[test]
+fn connector_metadata_json_parses_workspace_slug() {
+    use sdkwork_knowledgebase_contract::source::workspace_slug_from_connector_metadata_json;
+
+    assert_eq!(
+        workspace_slug_from_connector_metadata_json(Some(r#"{"workspaceSlug":"my-workspace"}"#)),
+        Some("my-workspace".to_string())
+    );
+    assert_eq!(
+        workspace_slug_from_connector_metadata_json(Some(r#"{"workspace_slug":"snake-ws"}"#)),
+        Some("snake-ws".to_string())
+    );
+}
+
+#[test]
 fn compound_document_ref_parses_parent_and_child_ids() {
     use sdkwork_knowledgebase_contract::knowledge_engine::parse_compound_document_ref;
 

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { Send, Sparkles, X, User, Bot, Loader2, Paperclip, File, Check, Terminal, Activity, Code, Cpu, Play, CheckCircle2, Wand2, Mic, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AiModelSelector } from '@packages/sdkwork-knowledgebase-pc-commons/src';
@@ -209,7 +210,7 @@ export function AiAssistantPanel({
   };
 
   const handleSend = async () => {
-    if (!inputValue.trim() || isTyping) return;
+    if (isBlank(inputValue) || isTyping) return;
 
     const userMessage = inputValue.trim();
     const currentRefs = [...selectedReferences];

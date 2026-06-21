@@ -6,7 +6,7 @@ use sdkwork_intelligence_knowledgebase_service::{
     browser::{KnowledgeBrowserAccessContext, KnowledgeBrowserService},
     imports::KnowledgeDriveImportService,
     ingest::KnowledgeApiPayloadIngestService,
-    okf::{OkfBundleFileRegistryService, OkfBundleInitializerService, OkfConceptService},
+    okf::{OkfBundleFileRegistryService, OkfBundleInitializerService},
     ports::{
         knowledge_document_store::{
             CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
@@ -18,33 +18,32 @@ use sdkwork_intelligence_knowledgebase_service::{
         knowledge_okf_bundle_file_store::{
             CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
         },
-        knowledge_okf_concept_store::KnowledgeOkfConceptStore,
         knowledge_source_store::KnowledgeSourceStore,
         knowledge_space_store::KnowledgeSpaceStore,
     },
-    retrieval::KnowledgeRetrievalService,
     space::KnowledgeSpaceService,
 };
 use sdkwork_knowledgebase_contract::OkfBundleFileKind;
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
-    CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeBrowserPage, KnowledgeContextPackRequest,
-    KnowledgeDocument, KnowledgeDocumentList, KnowledgeDocumentVersion,
-    KnowledgeDocumentVersionList, KnowledgeDriveImportRequest, KnowledgeDriveImportResult,
-    KnowledgeIngestRequest, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList,
-    KnowledgeRetrievalRequest, KnowledgeSpace, ListKnowledgeBrowserRequest, OkfBundleExportRequest,
-    OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList,
-    OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument,
-    OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest,
-    OkfQueryResult, PublishKnowledgeOkfConceptRequest,
+    CreateKnowledgeSpaceRequest, IngestionJob, KnowledgeBrowserPage, KnowledgeDocument,
+    KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList,
+    KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest,
+    KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeSpace,
+    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
+    OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest,
+    OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
+    OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult,
+    PublishKnowledgeOkfConceptRequest,
 };
+use sdkwork_utils_rust::is_blank;
 
 use crate::{
     hosted_support::{
-        concept_to_summary, create_okf_bundle_export, create_okf_bundle_import,
-        create_okf_lint_run, default_retrieval_methods, format_retrieval_answer,
+        build_okf_context_pack_from_engine, concept_to_summary, create_okf_bundle_export,
+        create_okf_bundle_import, create_okf_lint_run, format_okf_engine_answer,
         okf_answer_concept_id, okf_bundle_not_initialized_detail, okf_paths, read_managed_okf_text,
-        retrieve_okf_bundle_export, space_binding,
+        retrieve_okf_bundle_export, stable_u64_hash,
     },
     runtime::KnowledgebaseRuntime,
     ApiError, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
@@ -278,7 +277,7 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
         &self,
         request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
-        if request.title.trim().is_empty() {
+        if is_blank(Some(request.title.as_str())) {
             return Err(ApiError::invalid_request(
                 "invalid_knowledge_document_request",
                 "title is required",
@@ -320,7 +319,7 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
         document_id: u64,
         request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
-        if request.title.trim().is_empty() {
+        if is_blank(Some(request.title.as_str())) {
             return Err(ApiError::invalid_request(
                 "invalid_knowledge_document_request",
                 "title is required",
@@ -455,17 +454,6 @@ impl HostedOkfService {
         Self { runtime }
     }
 
-    fn okf_concept_service(&self) -> OkfConceptService<'_> {
-        crate::hosted_support::okf_concept_service(&self.runtime)
-    }
-
-    fn retrieval_service(&self) -> KnowledgeRetrievalService<'_> {
-        KnowledgeRetrievalService::new(
-            self.runtime.retrieval_store(),
-            self.runtime.retrieval_store(),
-        )
-    }
-
     async fn resolve_okf_space(&self) -> ApiResult<KnowledgeSpace> {
         self.runtime
             .space_store()
@@ -490,12 +478,15 @@ impl KnowledgeOkfAppService for HostedOkfService {
                 "space_id is required",
             ));
         }
+        self.runtime
+            .resolve_okf_bundle_engine_for_space(space_id)
+            .await?;
         let items = self
             .runtime
-            .okf_concept_store()
-            .list_concept_summaries(space_id)
+            .knowledge_engines()
+            .list_okf_concepts(space_id)
             .await
-            .map_err(map_okf_concept_store_error)?;
+            .map_err(ApiError::from)?;
         Ok(OkfConceptSummaryList { items })
     }
 
@@ -526,13 +517,13 @@ impl KnowledgeOkfAppService for HostedOkfService {
         &self,
         request: OkfConceptUpsertRequest,
     ) -> ApiResult<OkfConceptSummary> {
-        if request.concept_id.trim().is_empty() {
+        if is_blank(Some(request.concept_id.as_str())) {
             return Err(ApiError::invalid_request(
                 "invalid_okf_concept_upsert_request",
                 "concept_id is required",
             ));
         }
-        if request.markdown.trim().is_empty() {
+        if is_blank(Some(request.markdown.as_str())) {
             return Err(ApiError::invalid_request(
                 "invalid_okf_concept_upsert_request",
                 "markdown is required",
@@ -547,26 +538,27 @@ impl KnowledgeOkfAppService for HostedOkfService {
             ));
         }
 
-        let actor = if request.actor.trim().is_empty() {
+        let actor = if is_blank(Some(request.actor.as_str())) {
             self.runtime.operator_id().to_string()
         } else {
             request.actor
         };
-        let publication = self
-            .okf_concept_service()
-            .upsert_concept_from_markdown(
-                OkfConceptUpsertRequest {
-                    space_id: space.id,
-                    concept_id: request.concept_id,
-                    markdown: request.markdown,
-                    actor,
-                    publish: request.publish,
-                },
-                space.drive_space_id.as_deref(),
-            )
+        self.runtime
+            .resolve_okf_bundle_engine_for_space(space.id)
+            .await?;
+        let concept = self
+            .runtime
+            .knowledge_engines()
+            .upsert_okf_concept(OkfConceptUpsertRequest {
+                space_id: space.id,
+                concept_id: request.concept_id,
+                markdown: request.markdown,
+                actor,
+                publish: request.publish,
+            })
             .await
             .map_err(ApiError::from)?;
-        Ok(concept_to_summary(publication.concept))
+        Ok(concept_to_summary(concept))
     }
 
     async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument> {
@@ -611,34 +603,26 @@ impl KnowledgeOkfAppService for HostedOkfService {
                 "space_id is required",
             ));
         }
-        if request.query.trim().is_empty() {
+        if is_blank(Some(request.query.as_str())) {
             return Err(ApiError::invalid_request(
                 "invalid_okf_query_request",
                 "query is required",
             ));
         }
 
-        let retrieval = self
-            .retrieval_service()
-            .retrieve(KnowledgeRetrievalRequest {
-                tenant_id: self.runtime.tenant_id(),
-                actor_id: None,
-                query: request.query,
-                retrieval_profile_id: None,
-                bindings: vec![space_binding(request.space_id)],
-                methods: default_retrieval_methods(),
-                top_k: Some(8),
-                include_citations: true,
-                include_trace: true,
-                context_budget_tokens: None,
-                metadata: vec![],
-            })
+        let search = self
+            .runtime
+            .search_knowledge_engine_for_space(request.space_id, &request.query, 8)
             .await
-            .map_err(ApiError::from)?;
+            .map_err(|error| ApiError::internal("okf_engine_search_failed", error))?;
 
         Ok(OkfQueryResult {
-            answer_markdown: format_retrieval_answer(&retrieval.hits),
-            trace_id: Some(retrieval.retrieval_id.to_string()),
+            answer_markdown: format_okf_engine_answer(&search.hits),
+            trace_id: Some(format!(
+                "{}:{}",
+                search.implementation_id,
+                stable_u64_hash(&request.query)
+            )),
         })
     }
 
@@ -647,13 +631,13 @@ impl KnowledgeOkfAppService for HostedOkfService {
         query_id: u64,
         request: OkfFileAnswerRequest,
     ) -> ApiResult<OkfQueryResult> {
-        if request.title.trim().is_empty() {
+        if is_blank(Some(request.title.as_str())) {
             return Err(ApiError::invalid_request(
                 "invalid_okf_file_answer_request",
                 "title is required",
             ));
         }
-        if request.answer_markdown.trim().is_empty() {
+        if is_blank(Some(request.answer_markdown.as_str())) {
             return Err(ApiError::invalid_request(
                 "invalid_okf_file_answer_request",
                 "answer_markdown is required",
@@ -663,24 +647,25 @@ impl KnowledgeOkfAppService for HostedOkfService {
         let space = self.resolve_okf_space().await?;
         let concept_id = okf_answer_concept_id(query_id);
         let description = request.title.clone();
+        self.runtime
+            .resolve_okf_bundle_engine_for_space(space.id)
+            .await?;
         let publication = self
-            .okf_concept_service()
-            .publish_concept(
-                PublishKnowledgeOkfConceptRequest {
-                    space_id: space.id,
-                    concept_id,
-                    title: request.title,
-                    concept_type: "Answer".to_string(),
-                    description,
-                    markdown: request.answer_markdown.clone(),
-                    source_count: 1,
-                    tags: vec!["okf-query".to_string()],
-                    actor: self.runtime.operator_id().to_string(),
-                    resource: None,
-                    timestamp: None,
-                },
-                space.drive_space_id.as_deref(),
-            )
+            .runtime
+            .knowledge_engines()
+            .publish_okf_concept(PublishKnowledgeOkfConceptRequest {
+                space_id: space.id,
+                concept_id,
+                title: request.title,
+                concept_type: "Answer".to_string(),
+                description,
+                markdown: request.answer_markdown.clone(),
+                source_count: 1,
+                tags: vec!["okf-query".to_string()],
+                actor: self.runtime.operator_id().to_string(),
+                resource: None,
+                timestamp: None,
+            })
             .await
             .map_err(ApiError::from)?;
 
@@ -702,20 +687,9 @@ impl KnowledgeOkfAppService for HostedOkfService {
         }
 
         let query = request.query.unwrap_or_default();
-        let context_pack = self
-            .retrieval_service()
-            .create_context_pack(KnowledgeContextPackRequest {
-                tenant_id: self.runtime.tenant_id(),
-                actor_id: None,
-                query: query.clone(),
-                retrieval_profile_id: None,
-                bindings: vec![space_binding(request.space_id)],
-                context_budget_tokens: 4096,
-                include_citations: true,
-                memory_policy_ref: None,
-            })
-            .await
-            .map_err(ApiError::from)?;
+        let context_pack =
+            build_okf_context_pack_from_engine(&self.runtime, request.space_id, query, 4096)
+                .await?;
 
         let body = serde_json::to_vec_pretty(&context_pack).map_err(|error| {
             ApiError::internal("okf_context_pack_serialization_failed", error.to_string())

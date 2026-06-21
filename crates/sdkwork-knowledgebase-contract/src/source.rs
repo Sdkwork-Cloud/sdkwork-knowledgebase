@@ -58,16 +58,28 @@ impl KnowledgeSourceType {
 pub struct ExternalConnectorMetadata {
     #[serde(rename = "datasetId", alias = "dataset_id")]
     pub dataset_id: Option<String>,
+    #[serde(rename = "workspaceSlug", alias = "workspace_slug")]
+    pub workspace_slug: Option<String>,
 }
 
 /// Resolves a dataset/knowledge-base id from connector metadata JSON when present.
 pub fn dataset_id_from_connector_metadata_json(metadata_json: Option<&str>) -> Option<String> {
+    connector_metadata_json(metadata_json)
+        .and_then(|metadata| metadata.dataset_id)
+        .filter(|value| !value.is_empty())
+}
+
+/// Resolves an AnythingLLM workspace slug from connector metadata JSON when present.
+pub fn workspace_slug_from_connector_metadata_json(metadata_json: Option<&str>) -> Option<String> {
+    connector_metadata_json(metadata_json)
+        .and_then(|metadata| metadata.workspace_slug)
+        .filter(|value| !value.is_empty())
+}
+
+fn connector_metadata_json(metadata_json: Option<&str>) -> Option<ExternalConnectorMetadata> {
     let raw = metadata_json?.trim();
     if raw.is_empty() {
         return None;
     }
-    serde_json::from_str::<ExternalConnectorMetadata>(raw)
-        .ok()
-        .and_then(|metadata| metadata.dataset_id)
-        .filter(|value| !value.is_empty())
+    serde_json::from_str::<ExternalConnectorMetadata>(raw).ok()
 }

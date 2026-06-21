@@ -3,7 +3,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::
     HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError,
     PutKnowledgeObjectRequest,
 };
-use sha2::{Digest, Sha256};
+use sdkwork_utils_rust::{is_blank, sha256_hash};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -63,7 +63,7 @@ impl KnowledgeDriveStorage for FakeKnowledgeDriveStorage {
         &self,
         request: PutKnowledgeObjectRequest,
     ) -> Result<KnowledgeObjectRef, KnowledgeStorageError> {
-        if request.logical_path.trim().is_empty() {
+        if is_blank(Some(request.logical_path.as_str())) {
             return Err(KnowledgeStorageError::invalid_request(
                 "logical_path is required",
             ));
@@ -72,7 +72,7 @@ impl KnowledgeDriveStorage for FakeKnowledgeDriveStorage {
         let checksum = request
             .checksum_sha256_hex
             .clone()
-            .unwrap_or_else(|| checksum_sha256_hex(&request.body));
+            .unwrap_or_else(|| sha256_hash(&request.body));
         let object_key = request.logical_path.clone();
         let object_ref = KnowledgeObjectRef {
             storage_provider_id: "provider-kb".to_string(),
@@ -142,13 +142,4 @@ impl KnowledgeDriveStorage for FakeKnowledgeDriveStorage {
 
         Ok(object.body.clone())
     }
-}
-
-fn checksum_sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        output.push_str(&format!("{byte:02x}"));
-    }
-    output
 }

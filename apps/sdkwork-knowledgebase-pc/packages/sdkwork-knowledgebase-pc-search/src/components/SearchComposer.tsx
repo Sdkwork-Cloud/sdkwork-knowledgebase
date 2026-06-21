@@ -1,4 +1,5 @@
 import React from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { Send, Sparkles, Globe, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AiModelSelector } from '@packages/sdkwork-knowledgebase-pc-commons/src';
@@ -54,7 +55,7 @@ export function SearchComposer({
     placeholder ?? t('composerPlaceholderDefault');
   const isChat = variant === 'chat';
   const maxHeight = isChat ? COMPOSER_MAX_HEIGHT.chat : COMPOSER_MAX_HEIGHT.hero;
-  const canSend = !isTyping && inputValue.trim().length > 0;
+  const canSend = !isTyping && !isBlank(inputValue);
 
   useComposerAutosize(textareaRef, inputValue, maxHeight);
 

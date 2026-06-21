@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { Sparkles, PenTool, Type, FileType2, Languages, Bold, Italic, Strikethrough, CornerDownLeft, Loader2, Minimize2, Maximize2, CheckCheck, Lightbulb, HelpCircle } from 'lucide-react';
 import { Editor } from '@tiptap/core';
@@ -19,7 +20,7 @@ export function EditorBubbleMenu({
   const [prompt, setPrompt] = useState("");
 
   const submitCustomPrompt = () => {
-    if (!prompt.trim()) return;
+    if (isBlank(prompt)) return;
     handleAiAction('custom', prompt.trim());
     setPrompt('');
   };
@@ -60,7 +61,7 @@ export function EditorBubbleMenu({
         ) : (
            <button 
              onClick={submitCustomPrompt}
-             disabled={!prompt.trim()}
+             disabled={isBlank(prompt)}
              className="text-[var(--color-kb-text-muted)] hover:text-[var(--color-kb-accent)] transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-0 focus:opacity-100"
            >
              <CornerDownLeft size={14} />

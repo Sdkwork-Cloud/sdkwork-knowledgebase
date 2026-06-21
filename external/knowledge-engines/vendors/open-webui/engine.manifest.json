@@ -6,7 +6,7 @@
   "category": "knowledge_platform",
   "implementationId": "engine.knowledge.external.open-webui",
   "agentProviderId": "provider.knowledge.external.open-webui",
-  "integrationTier": "catalog",
+  "integrationTier": "adapter",
   "upstream": {
     "repositoryUrl": "https://github.com/open-webui/open-webui",
     "defaultBranch": "main",

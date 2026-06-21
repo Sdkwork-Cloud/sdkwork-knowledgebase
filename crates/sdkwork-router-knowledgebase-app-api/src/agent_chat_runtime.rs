@@ -4,14 +4,11 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
 };
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
     format_scoped_document_id, parse_namespace_space_id, parse_scoped_document_id,
-    rank_okf_concepts,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::{
-    knowledge_drive_storage::{HeadKnowledgeObjectRequest, KnowledgeDriveStorage},
-    knowledge_engine::KnowledgeEngine,
-    knowledge_okf_concept_store::KnowledgeOkfConceptStore,
-    knowledge_space_store::KnowledgeSpaceStore,
+    knowledge_engine::KnowledgeEngine, knowledge_space_store::KnowledgeSpaceStore,
 };
+use sdkwork_knowledgebase_agent_provider::async_bridge::block_on_async;
 use sdkwork_knowledgebase_agent_provider::{
     retrieval_methods_for_strategy, KnowledgeRetrievalPlan, KnowledgeRetrievalPlanResolver,
     KnowledgeSpaceModeResolver, KnowledgebaseRetrievalClient, OkfKnowledgeClient,
@@ -23,7 +20,6 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
 use sdkwork_knowledgebase_contract::okf::OkfConceptSummary;
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalRequest;
-use sdkwork_knowledgebase_drive::KnowledgebaseDriveStorageAdapter;
 use std::sync::Arc;
 
 use crate::runtime::KnowledgebaseRuntime;
@@ -213,19 +209,33 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
 
 #[derive(Clone)]
 pub struct RuntimeOkfKnowledgeClient {
+    runtime: KnowledgebaseRuntime,
     okf_concepts: Arc<SqliteKnowledgeOkfConceptStore>,
-    drive: Arc<KnowledgebaseDriveStorageAdapter>,
 }
 
 impl RuntimeOkfKnowledgeClient {
     pub fn new(
+        runtime: KnowledgebaseRuntime,
         okf_concepts: Arc<SqliteKnowledgeOkfConceptStore>,
-        drive: Arc<KnowledgebaseDriveStorageAdapter>,
     ) -> Self {
         Self {
+            runtime,
             okf_concepts,
-            drive,
         }
+    }
+
+    fn resolve_engine_for_space(
+        &self,
+        space_id: u64,
+    ) -> Result<std::sync::Arc<dyn KnowledgeEngine>, String> {
+        let runtime = self.runtime.clone();
+        block_on_async(async move {
+            runtime
+                .knowledge_engine_space_resolver()
+                .resolve_for_space(space_id, None)
+                .await
+                .map_err(|error| error.to_string())
+        })
     }
 }
 
@@ -236,37 +246,64 @@ impl OkfKnowledgeClient for RuntimeOkfKnowledgeClient {
         query: &str,
         top_k: usize,
     ) -> Result<Vec<OkfConceptSummary>, String> {
-        let pages = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(self.okf_concepts.list_concept_summaries(space_id))
+        let engine = self.resolve_engine_for_space(space_id)?;
+        let tenant_id = self.runtime.tenant_id();
+        let query = query.to_string();
+        block_on_async(async move {
+            let search = engine
+                .search(KnowledgeEngineSearchRequest {
+                    tenant_id,
+                    space_id,
+                    query,
+                    top_k: top_k.max(1) as u32,
+                })
+                .await
+                .map_err(|error| error.to_string())?;
+
+            Ok(search
+                .hits
+                .into_iter()
+                .map(|hit| {
+                    let concept_id = hit.document.document_id.clone();
+                    OkfConceptSummary {
+                        title: hit.document.title,
+                        concept_id: concept_id.clone(),
+                        concept_type: String::new(),
+                        logical_path: hit
+                            .document
+                            .source_uri
+                            .clone()
+                            .unwrap_or_else(|| format!("okf/{concept_id}.md")),
+                        bundle_relative_path: format!("{concept_id}.md"),
+                        description: hit.snippet,
+                        source_count: 0,
+                        updated_at: String::new(),
+                        tags: Vec::new(),
+                    }
+                })
+                .collect())
         })
-        .map_err(|error| error.to_string())?;
-
-        let ranked = rank_okf_concepts(pages, query, top_k.max(1) as u32);
-
-        Ok(ranked.into_iter().map(|(_, page)| page).collect())
     }
 
     fn read_okf_concept_content(
         &self,
-        _space_id: u64,
+        space_id: u64,
         logical_path: &str,
     ) -> Result<String, String> {
-        let drive = self.drive.clone();
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async move {
-                let object_ref = drive
-                    .head_object(HeadKnowledgeObjectRequest::managed_artifact(
-                        logical_path,
-                        "okf_concept",
-                    ))
-                    .await
-                    .map_err(|error| error.to_string())?;
-                drive
-                    .get_object_text(&object_ref)
-                    .await
-                    .map_err(|error| error.to_string())
-            })
+        let engine = self.resolve_engine_for_space(space_id)?;
+        let tenant_id = self.runtime.tenant_id();
+        let logical_path = logical_path.to_string();
+        block_on_async(async move {
+            let document = engine
+                .read_document(KnowledgeEngineReadRequest {
+                    tenant_id,
+                    space_id,
+                    document_id: logical_path,
+                })
+                .await
+                .map_err(|error| error.to_string())?;
+
+            Ok(document.content)
         })
     }
 }

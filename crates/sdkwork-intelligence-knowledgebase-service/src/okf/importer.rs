@@ -1,11 +1,15 @@
 use crate::okf::concept_service::{OkfConceptService, OkfConceptServiceError};
 use crate::okf::document::{parse_okf_markdown, OkfConceptDocument};
 use crate::okf::storage::{read_managed_markdown, read_managed_object_bytes};
-use crate::okf::validator::{validate_concept_bundle_relative_path, validate_concept_document};
+use crate::okf::validator::{
+    canonicalize_imported_concept_id, validate_catalog_concept_bundle_relative_path,
+    validate_concept_document,
+};
 use crate::ports::knowledge_drive_storage::{KnowledgeDriveStorage, PutKnowledgeObjectRequest};
 use sdkwork_knowledgebase_contract::okf::{
     KnowledgeOkfConceptPublication, OkfBundlePaths, PublishKnowledgeOkfConceptRequest,
 };
+use sdkwork_utils_rust::is_blank;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -45,7 +49,7 @@ impl<'a> OkfBundleImporterService<'a> {
         request: ImportOkfBundleRequest,
         drive_space_id: Option<&str>,
     ) -> Result<ImportOkfBundleResult, OkfBundleImporterError> {
-        if request.actor.trim().is_empty() {
+        if is_blank(Some(request.actor.as_str())) {
             return Err(OkfBundleImporterError::InvalidRequest(
                 "actor must not be blank".to_string(),
             ));
@@ -66,14 +70,21 @@ impl<'a> OkfBundleImporterService<'a> {
                 skipped_files.push(bundle_relative_path);
                 continue;
             }
-            if let Err(error) = validate_concept_bundle_relative_path(&bundle_relative_path) {
+            if let Err(error) = validate_catalog_concept_bundle_relative_path(&bundle_relative_path)
+            {
                 conformance_errors.push(format!("{bundle_relative_path}: {error}"));
                 continue;
             }
-            let concept_id = bundle_relative_path
+            let raw_concept_id = bundle_relative_path
                 .strip_suffix(".md")
-                .unwrap_or(bundle_relative_path.as_str())
-                .to_string();
+                .unwrap_or(bundle_relative_path.as_str());
+            let concept_id = match canonicalize_imported_concept_id(raw_concept_id) {
+                Ok(value) => value,
+                Err(error) => {
+                    conformance_errors.push(format!("{bundle_relative_path}: {error}"));
+                    continue;
+                }
+            };
             let document = match parse_okf_markdown(&file.markdown) {
                 Ok(Some(document)) => document,
                 Ok(None) => {
@@ -95,7 +106,7 @@ impl<'a> OkfBundleImporterService<'a> {
             let title = document
                 .title
                 .clone()
-                .filter(|value| !value.trim().is_empty())
+                .filter(|value| !is_blank(Some(value.as_str())))
                 .unwrap_or_else(|| title_from_concept_id(&concept_id));
             let publish_request = publish_request_from_document(
                 request.space_id,

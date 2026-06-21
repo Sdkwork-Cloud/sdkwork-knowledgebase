@@ -1,4 +1,4 @@
-use crate::okf::{render_index_md, render_log_md};
+use crate::okf::{render_index_documents, render_log_md};
 use crate::ports::knowledge_drive_storage::{KnowledgeDriveStorage, PutKnowledgeObjectRequest};
 use crate::ports::knowledge_okf_concept_store::{
     KnowledgeOkfConceptStore, KnowledgeOkfConceptStoreError,
@@ -23,21 +23,28 @@ pub async fn rebuild_bundle_index_for_space(
     space_store: &dyn KnowledgeSpaceStore,
     space_id: u64,
 ) -> Result<(), OkfIndexRebuildError> {
-    let space = space_store.get_space(space_id).await?;
+    space_store.get_space(space_id).await?;
     let concepts = concept_store.list_concept_summaries(space_id).await?;
     let logs = concept_store.list_log_entries(space_id).await?;
-    let markdown = render_index_md(&space.name, &concepts);
+    let index_documents = render_index_documents(&concepts);
     let log_markdown = render_log_md(&logs);
     let paths = OkfBundlePaths::default();
 
-    drive
-        .put_object(PutKnowledgeObjectRequest::text(
-            paths.index_md,
-            "bundle_index",
-            markdown,
-            None,
-        ))
-        .await?;
+    for (bundle_relative_path, markdown) in index_documents {
+        let logical_path = if bundle_relative_path == "index.md" {
+            paths.index_md.to_string()
+        } else {
+            format!("okf/{bundle_relative_path}")
+        };
+        drive
+            .put_object(PutKnowledgeObjectRequest::text(
+                logical_path,
+                "bundle_index",
+                markdown,
+                None,
+            ))
+            .await?;
+    }
     drive
         .put_object(PutKnowledgeObjectRequest::text(
             paths.log_md,

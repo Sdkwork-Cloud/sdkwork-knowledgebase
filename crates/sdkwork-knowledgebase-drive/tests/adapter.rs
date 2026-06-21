@@ -1073,7 +1073,7 @@ impl DriveObjectStore for BlankVersionDriveObjectStore {
             content_type: Some("text/markdown; charset=utf-8".to_string()),
             etag: None,
             version_id: Some(String::new()),
-            checksum_sha256_hex: Some(test_checksum_sha256_hex(body)),
+            checksum_sha256_hex: Some(sdkwork_utils_rust::sha256_hash(body)),
             metadata: Default::default(),
         })
     }
@@ -1241,17 +1241,6 @@ impl DriveObjectStore for BlankVersionDriveObjectStore {
     ) -> Result<PresignedDownloadResponse, DriveObjectStoreError> {
         Err(not_supported_message())
     }
-}
-
-fn test_checksum_sha256_hex(bytes: &[u8]) -> String {
-    use sha2::{Digest, Sha256};
-
-    let digest = Sha256::digest(bytes);
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        output.push_str(&format!("{byte:02x}"));
-    }
-    output
 }
 
 async fn sqlite_drive_pool() -> sqlx::AnyPool {

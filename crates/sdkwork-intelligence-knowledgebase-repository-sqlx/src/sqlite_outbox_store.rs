@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::{
     AppendOutboxEventRecord, KnowledgeOutboxStore, KnowledgeOutboxStoreError, PendingOutboxEvent,
 };
+use sdkwork_utils_rust::is_blank;
 use sqlx::{AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -44,17 +45,17 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         &self,
         record: AppendOutboxEventRecord,
     ) -> Result<(), KnowledgeOutboxStoreError> {
-        if record.aggregate_type.trim().is_empty() {
+        if is_blank(Some(record.aggregate_type.as_str())) {
             return Err(KnowledgeOutboxStoreError::InvalidRequest(
                 "aggregate_type is required".to_string(),
             ));
         }
-        if record.event_type.trim().is_empty() {
+        if is_blank(Some(record.event_type.as_str())) {
             return Err(KnowledgeOutboxStoreError::InvalidRequest(
                 "event_type is required".to_string(),
             ));
         }
-        if record.payload_json.trim().is_empty() {
+        if is_blank(Some(record.payload_json.as_str())) {
             return Err(KnowledgeOutboxStoreError::InvalidRequest(
                 "payload_json is required".to_string(),
             ));

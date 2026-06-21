@@ -1,5 +1,5 @@
 use crate::okf::{
-    index_concept_links, parse_okf_markdown, render_index_md, render_log_md,
+    index_concept_links, parse_okf_markdown, render_index_documents, render_log_md,
     render_okf_concept_markdown, storage::read_managed_markdown, validate_concept_document,
     validate_concept_id, OkfConceptDocument, OkfConformanceError,
 };
@@ -41,7 +41,7 @@ use sdkwork_knowledgebase_contract::{
     okf_bundle_file::OkfBundleFileKind,
     OkfCandidateType,
 };
-use sha2::{Digest, Sha256};
+use sdkwork_utils_rust::{is_blank, sha256_hash};
 use thiserror::Error;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
@@ -151,12 +151,12 @@ impl<'a> OkfConceptService<'a> {
                 "space_id is required".to_string(),
             ));
         }
-        if request.actor.trim().is_empty() {
+        if is_blank(Some(request.actor.as_str())) {
             return Err(OkfConceptServiceError::InvalidRequest(
                 "actor is required".to_string(),
             ));
         }
-        if request.markdown.trim().is_empty() {
+        if is_blank(Some(request.markdown.as_str())) {
             return Err(OkfConceptServiceError::InvalidRequest(
                 "markdown is required".to_string(),
             ));
@@ -176,7 +176,7 @@ impl<'a> OkfConceptService<'a> {
         let title = document
             .title
             .clone()
-            .filter(|value| !value.trim().is_empty())
+            .filter(|value| !is_blank(Some(value.as_str())))
             .unwrap_or_else(|| title_from_concept_id(&concept_id));
         let publish_request = PublishKnowledgeOkfConceptRequest {
             space_id: request.space_id,
@@ -219,7 +219,7 @@ impl<'a> OkfConceptService<'a> {
                 "space_id is required".to_string(),
             ));
         }
-        if request.actor.trim().is_empty() {
+        if is_blank(Some(request.actor.as_str())) {
             return Err(OkfConceptServiceError::InvalidRequest(
                 "actor is required".to_string(),
             ));
@@ -423,7 +423,7 @@ impl<'a> OkfConceptService<'a> {
                 concept_row_id: concept.id,
                 revision_no,
                 markdown_object_ref_id: markdown_object_ref.id,
-                content_hash: checksum_sha256_hex(published_markdown.as_bytes()),
+                content_hash: sha256_hash(published_markdown.as_bytes()),
                 review_state: OkfRevisionReviewState::Approved,
             })
             .await?;
@@ -531,23 +531,31 @@ impl<'a> OkfConceptService<'a> {
         let paths = OkfBundlePaths::default();
         let summaries = self.concept_store.list_concept_summaries(space_id).await?;
         let logs = self.concept_store.list_log_entries(space_id).await?;
-        let index_ref = self
-            .put_markdown(
-                paths.index_md,
-                "bundle_index",
-                &render_index_md("Knowledge Space", &summaries),
-            )
-            .await?;
+        let index_documents = render_index_documents(&summaries);
+        let mut index_nodes = Vec::new();
+        for (bundle_relative_path, markdown) in index_documents {
+            let logical_path = if bundle_relative_path == "index.md" {
+                paths.index_md.to_string()
+            } else {
+                format!("okf/{bundle_relative_path}")
+            };
+            let index_ref = self
+                .put_markdown(&logical_path, "bundle_index", &markdown)
+                .await?;
+            if logical_path == paths.index_md {
+                upsert_file_entry(
+                    file_entries,
+                    space_id,
+                    &index_ref,
+                    OkfBundleFileKind::BundleIndex,
+                )
+                .await?;
+            }
+            index_nodes.push(file_node(&index_ref));
+        }
         let log_ref = self
             .put_markdown(paths.log_md, "bundle_log", &render_log_md(&logs))
             .await?;
-        upsert_file_entry(
-            file_entries,
-            space_id,
-            &index_ref,
-            OkfBundleFileKind::BundleIndex,
-        )
-        .await?;
         upsert_file_entry(
             file_entries,
             space_id,
@@ -555,11 +563,9 @@ impl<'a> OkfConceptService<'a> {
             OkfBundleFileKind::BundleLog,
         )
         .await?;
-        self.ensure_drive_nodes(
-            drive_space_id.as_deref(),
-            [file_node(&index_ref), file_node(&log_ref)].into(),
-        )
-        .await?;
+        index_nodes.push(file_node(&log_ref));
+        self.ensure_drive_nodes(drive_space_id.as_deref(), index_nodes)
+            .await?;
         Ok(())
     }
 
@@ -765,12 +771,12 @@ fn validate_publish_request(
             "space_id is required".to_string(),
         ));
     }
-    if request.title.trim().is_empty() {
+    if is_blank(Some(request.title.as_str())) {
         return Err(OkfConceptServiceError::InvalidRequest(
             "title is required".to_string(),
         ));
     }
-    if request.markdown.trim().is_empty() {
+    if is_blank(Some(request.markdown.as_str())) {
         return Err(OkfConceptServiceError::InvalidRequest(
             "markdown is required".to_string(),
         ));
@@ -792,15 +798,6 @@ fn now_rfc3339() -> Result<String, OkfConceptServiceError> {
     OffsetDateTime::now_utc()
         .format(&Rfc3339)
         .map_err(|error| OkfConceptServiceError::Internal(error.to_string()))
-}
-
-fn checksum_sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        output.push_str(&format!("{byte:02x}"));
-    }
-    output
 }
 
 #[derive(Debug, Clone)]

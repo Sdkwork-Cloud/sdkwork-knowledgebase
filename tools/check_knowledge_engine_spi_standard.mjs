@@ -39,6 +39,27 @@ const requiredPaths = [
   "crates/sdkwork-knowledgebase-engine-onyx/src/lib.rs",
   "crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs",
+  "crates/sdkwork-knowledgebase-engine-anythingllm/src/lib.rs",
+  "crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_stub_engine.rs",
+  "crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs",
+  "crates/sdkwork-knowledgebase-engine-open-webui/src/lib.rs",
+  "crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_stub_engine.rs",
+  "crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs",
+  "crates/sdkwork-knowledgebase-engine-flowise/src/lib.rs",
+  "crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_stub_engine.rs",
+  "crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs",
+  "crates/sdkwork-knowledgebase-engine-chroma/src/lib.rs",
+  "crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_stub_engine.rs",
+  "crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs",
+  "crates/sdkwork-knowledgebase-engine-qdrant/src/lib.rs",
+  "crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_stub_engine.rs",
+  "crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs",
+  "crates/sdkwork-knowledgebase-engine-weaviate/src/lib.rs",
+  "crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_stub_engine.rs",
+  "crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs",
+  "crates/sdkwork-knowledgebase-engine-haystack/src/lib.rs",
+  "crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_stub_engine.rs",
+  "crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_catalog.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_native.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/space_resolver.rs",
@@ -109,6 +130,66 @@ assert(
   )).includes("OnyxKnowledgeEngine"),
   "runtime must wire Onyx adapter crate alongside Dify and RAGFlow",
 );
+assert(
+  (await readFile(
+    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    "utf8",
+  )).includes("AnythingLlmKnowledgeEngine"),
+  "runtime must wire AnythingLLM adapter crate alongside other external adapters",
+);
+assert(
+  (await readFile(
+    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    "utf8",
+  )).includes("OpenWebuiKnowledgeEngine"),
+  "runtime must wire Open WebUI adapter crate alongside other external adapters",
+);
+assert(
+  (await readFile(
+    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    "utf8",
+  )).includes("FlowiseKnowledgeEngine"),
+  "runtime must wire Flowise adapter crate alongside other external adapters",
+);
+assert(
+  (await readFile(
+    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    "utf8",
+  )).includes("ChromaKnowledgeEngine"),
+  "runtime must wire Chroma adapter crate alongside other external adapters",
+);
+assert(
+  (await readFile(
+    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    "utf8",
+  )).includes("QdrantKnowledgeEngine"),
+  "runtime must wire Qdrant adapter crate alongside other external adapters",
+);
+assert(
+  (await readFile(
+    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    "utf8",
+  )).includes("WeaviateKnowledgeEngine"),
+  "runtime must wire Weaviate adapter crate alongside other external adapters",
+);
+assert(
+  (await readFile(
+    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    "utf8",
+  )).includes("HaystackKnowledgeEngine"),
+  "runtime must wire Haystack adapter crate alongside other external adapters",
+);
+
+assert(
+  (await readFile(
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/external_connector.rs",
+    ),
+    "utf8",
+  )).includes("resolve_connector_workspace_slug_for_space"),
+  "external adapter connector resolution must support workspace slug metadata",
+);
 
 const hostedBackendSource = await readFile(
   path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/hosted_backend.rs"),
@@ -175,8 +256,8 @@ const sourceContractSource = await readFile(
   "utf8",
 );
 assert(
-  sourceContractSource.includes("dataset_id_from_connector_metadata_json"),
-  "KnowledgeSource contract must expose shared connector metadata parsing",
+  sourceContractSource.includes("workspace_slug_from_connector_metadata_json"),
+  "KnowledgeSource contract must expose workspace slug connector metadata parsing",
 );
 
 assert(
@@ -326,12 +407,72 @@ assert(
   "hosted runtime must include configured RAGFlow adapter agent chat success E2E",
 );
 assert(
-  hostedRoutesSource.includes("hosted_external_agent_chat_succeeds_with_configured_onyx_adapter"),
-  "hosted runtime must include configured Onyx adapter agent chat success E2E",
+  hostedRoutesSource.includes("hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter"),
+  "hosted runtime must include configured AnythingLLM adapter agent chat success E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter"),
+  "hosted runtime must include configured Open WebUI adapter agent chat success E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_agent_chat_succeeds_with_configured_flowise_adapter"),
+  "hosted runtime must include configured Flowise adapter agent chat success E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_agent_chat_succeeds_with_configured_chroma_adapter"),
+  "hosted runtime must include configured Chroma adapter agent chat success E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter"),
+  "hosted runtime must include configured Qdrant adapter agent chat success E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter"),
+  "hosted runtime must include configured Weaviate adapter agent chat success E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_agent_chat_succeeds_with_configured_haystack_adapter"),
+  "hosted runtime must include configured Haystack adapter agent chat success E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_read_resolves_configured_open_webui_citation_document"),
+  "hosted runtime must include configured Open WebUI external read citation E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_read_resolves_configured_flowise_citation_document"),
+  "hosted runtime must include configured Flowise external read citation E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_read_resolves_configured_ragflow_citation_document"),
+  "hosted runtime must include configured RAGFlow external read citation E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_read_resolves_configured_qdrant_citation_document"),
+  "hosted runtime must include configured Qdrant external read citation E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_read_resolves_configured_chroma_citation_document"),
+  "hosted runtime must include configured Chroma external read citation E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_read_resolves_configured_weaviate_citation_document"),
+  "hosted runtime must include configured Weaviate external read citation E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_read_resolves_configured_haystack_citation_document"),
+  "hosted runtime must include configured Haystack external read citation E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_external_read_resolves_configured_dify_citation_document"),
+  "hosted runtime must include configured external read citation document E2E",
 );
 assert(
   hostedRoutesSource.includes("hosted_external_agent_chat_rejects_unconfigured_external_adapter"),
   "hosted runtime must include unconfigured external adapter rejection E2E",
+);
+assert(
+  hostedRoutesSource.includes("hosted_okf_agent_chat_succeeds_with_published_concept_citations"),
+  "hosted runtime must include OKF native agent chat success E2E",
 );
 
 assert(
@@ -350,10 +491,50 @@ assert(
 
 assert(
   (await readFile(
+    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/runtime.rs"),
+    "utf8",
+  )).includes("read_knowledge_engine_document_for_space"),
+  "hosted runtime must expose knowledge engine read bridge for external citation E2E",
+);
+
+assert(
+  (await readFile(
     path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/hosted_support.rs"),
     "utf8",
   )).includes("rebuild_okf_index"),
   "hosted OKF index rebuild must route through knowledge engine SPI",
+);
+
+const hostedSupportSource = await readFile(
+  path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/hosted_support.rs"),
+  "utf8",
+);
+assert(
+  hostedSupportSource.includes("resolve_okf_bundle_engine_for_space"),
+  "hosted OKF operations must resolve native bundle engine per space",
+);
+assert(
+  hostedSupportSource.includes("lint_okf_bundle_report"),
+  "hosted OKF lint must route through knowledge engine SPI",
+);
+assert(
+  hostedSupportSource.includes("import_okf_bundle_for_actor")
+    || hostedSupportSource.includes("import_okf_bundle_files"),
+  "hosted OKF import must route through knowledge engine registry",
+);
+assert(
+  hostedSupportSource.includes("OkfBundleWorkflowEngine"),
+  "OKF compile/eval workflows must accept knowledge engine SPI ops",
+);
+
+assert(
+  runtimeSource.includes("ensure_bindings_support_rag_retrieval"),
+  "hosted runtime must reject RAG retrievals for non-RAG knowledge modes",
+);
+
+assert(
+  portsSource.includes("lint_bundle_report"),
+  "OkfBundleEngine must expose lint_bundle_report for hosted lint workflows",
 );
 
 if (violations.length > 0) {

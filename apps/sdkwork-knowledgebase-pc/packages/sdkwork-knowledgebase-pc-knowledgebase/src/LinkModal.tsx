@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { createPortal } from 'react-dom';
 import { X, Link as LinkIcon, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -60,7 +61,7 @@ export function LinkModal({ isOpen, onClose, linkUrl, setLinkUrl, onConfirm }: L
            <button 
              onClick={onConfirm} 
              className="px-6 py-2.5 text-[13px] font-extrabold bg-[var(--color-kb-accent)] text-white rounded-xl shadow-md hover:bg-[var(--color-kb-accent-hover)] hover:shadow-lg transition-all disabled:opacity-40 disabled:grayscale disabled:shadow-none flex items-center gap-2 active:scale-95" 
-             disabled={!linkUrl.trim()}
+             disabled={isBlank(linkUrl)}
            >
              提取为文档
            </button>

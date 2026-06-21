@@ -10,7 +10,7 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
     KnowledgeEngineSearchResult,
 };
-use sdkwork_knowledgebase_contract::okf::OkfConceptSummary;
+use sdkwork_knowledgebase_contract::okf::{OkfBundleLintResult, OkfConceptSummary};
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentKnowledgeMode, KnowledgeContextPack, KnowledgeContextPackRequest,
     KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
@@ -165,9 +165,23 @@ pub trait OkfBundleEngine: KnowledgeEngine {
         ))
     }
 
-    async fn lint_bundle(&self, _space_id: u64) -> Result<(), KnowledgeEngineError> {
+    async fn lint_bundle(&self, space_id: u64) -> Result<(), KnowledgeEngineError> {
+        let report = self.lint_bundle_report(space_id).await?;
+        if report.conformance != "pass" {
+            return Err(KnowledgeEngineError::Validation(format!(
+                "okf bundle lint failed with {} issue(s)",
+                report.issues.len()
+            )));
+        }
+        Ok(())
+    }
+
+    async fn lint_bundle_report(
+        &self,
+        _space_id: u64,
+    ) -> Result<OkfBundleLintResult, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
-            "okf lint_bundle requires hosted OkfBundleLinterService wiring".to_string(),
+            "okf lint_bundle_report requires hosted OkfBundleLinterService wiring".to_string(),
         ))
     }
 

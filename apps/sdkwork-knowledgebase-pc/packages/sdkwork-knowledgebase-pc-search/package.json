@@ -4,6 +4,7 @@
   "private": true,
   "main": "src/index.ts",
   "dependencies": {
+    "@sdkwork/utils": "workspace:*",
     "dompurify": "^3.4.11",
     "lucide-react": "^0.546.0",
     "marked": "^18.0.5",

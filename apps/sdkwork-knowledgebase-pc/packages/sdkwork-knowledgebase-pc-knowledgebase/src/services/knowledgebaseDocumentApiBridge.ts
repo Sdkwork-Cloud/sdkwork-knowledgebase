@@ -1,4 +1,5 @@
 import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import {
   getKnowledgebaseAppSdkClient,
   getKnowledgebaseTenantId,

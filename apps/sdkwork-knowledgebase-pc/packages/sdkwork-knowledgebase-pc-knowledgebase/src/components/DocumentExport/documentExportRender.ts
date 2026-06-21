@@ -1,4 +1,5 @@
 import { getDocumentExportCapabilities } from './documentExportCapabilities';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { tryNativeDocumentPdfExport } from './documentExportNative';
 import { prepareExportHtml, prepareExportImages, stripHtmlText } from './exportContentUtils';
 import { showExportProgress } from './exportProgress';

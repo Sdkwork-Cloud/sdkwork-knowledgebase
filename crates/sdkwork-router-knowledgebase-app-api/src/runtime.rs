@@ -18,7 +18,10 @@ use sdkwork_intelligence_knowledgebase_service::{
         build_default_registry, DefaultKnowledgeEngineRegistry, KnowledgeEngineRuntimeDeps,
         KnowledgeEngineSpaceResolver,
     },
-    ports::knowledge_retrieval_backend::KnowledgeRetrievalBackend,
+    ports::{
+        knowledge_retrieval_backend::KnowledgeRetrievalBackend,
+        knowledge_space_store::KnowledgeSpaceStore,
+    },
     retrieval::KnowledgeRetrievalService,
 };
 use sdkwork_knowledgebase_contract::agent_chat::{
@@ -451,6 +454,107 @@ impl KnowledgebaseRuntime {
             .map_err(|error| error.to_string())
     }
 
+    pub async fn read_knowledge_engine_document_for_space(
+        &self,
+        space_id: u64,
+        document_id: &str,
+    ) -> Result<sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineDocument, String>
+    {
+        use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineReadRequest;
+
+        self.knowledge_engine_space_resolver()
+            .resolve_for_space(space_id, None)
+            .await
+            .map_err(|error| error.to_string())?
+            .read_document(KnowledgeEngineReadRequest {
+                tenant_id: self.tenant_id,
+                space_id,
+                document_id: document_id.to_string(),
+            })
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    pub(crate) fn okf_bundle_engine_for_space(
+        &self,
+        space_id: u64,
+        implementation_id: &str,
+    ) -> Result<
+        &sdkwork_intelligence_knowledgebase_service::knowledge_engine::OkfNativeKnowledgeEngine,
+        crate::ApiError,
+    > {
+        use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineId;
+
+        if implementation_id != KnowledgeEngineId::OKF_NATIVE {
+            return Err(crate::ApiError::invalid_request(
+                "okf_bundle_engine_required",
+                format!(
+                    "space {space_id} resolves to {implementation_id}, expected {}",
+                    KnowledgeEngineId::OKF_NATIVE
+                ),
+            ));
+        }
+        Ok(self.knowledge_engines().okf_native())
+    }
+
+    pub async fn resolve_okf_bundle_engine_for_space(
+        &self,
+        space_id: u64,
+    ) -> Result<
+        &sdkwork_intelligence_knowledgebase_service::knowledge_engine::OkfNativeKnowledgeEngine,
+        crate::ApiError,
+    > {
+        let implementation_id = self
+            .resolve_knowledge_engine_implementation_id_for_space(space_id)
+            .await
+            .map_err(|detail| crate::ApiError::internal("okf_engine_resolve_failed", detail))?;
+        self.okf_bundle_engine_for_space(space_id, &implementation_id)
+    }
+
+    pub async fn ensure_bindings_support_rag_retrieval(
+        &self,
+        bindings: &[sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalBinding],
+    ) -> Result<(), crate::ApiError> {
+        use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
+
+        for binding in bindings {
+            let space = self.space_store().get_space(binding.space_id).await?;
+            if space.knowledge_mode != KnowledgeAgentKnowledgeMode::Rag {
+                return Err(crate::ApiError::invalid_request(
+                    "rag_retrieval_mode_required",
+                    format!(
+                        "space {} uses {:?} knowledge mode; use okf query/context-pack or external engine APIs instead of RAG retrievals",
+                        binding.space_id, space.knowledge_mode
+                    ),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn search_knowledge_engine_for_space(
+        &self,
+        space_id: u64,
+        query: &str,
+        top_k: u32,
+    ) -> Result<sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineSearchResult, String>
+    {
+        use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineSearchRequest;
+
+        self.knowledge_engine_space_resolver()
+            .resolve_for_space(space_id, None)
+            .await
+            .map_err(|error| error.to_string())?
+            .search(KnowledgeEngineSearchRequest {
+                tenant_id: self.tenant_id,
+                space_id,
+                query: query.to_string(),
+                top_k,
+            })
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub(crate) fn object_ref_store(&self) -> &SqliteKnowledgeDriveObjectRefStore {
         &self.object_ref_store
     }
@@ -605,6 +709,9 @@ impl KnowledgeRetrievalAppService for HostedRetrievalService {
         &self,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
+        self.runtime
+            .ensure_bindings_support_rag_retrieval(&request.bindings)
+            .await?;
         self.service().retrieve(request).await.map_err(Into::into)
     }
 
@@ -630,6 +737,9 @@ impl KnowledgeRetrievalAppService for HostedRetrievalService {
         &self,
         request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack> {
+        self.runtime
+            .ensure_bindings_support_rag_retrieval(&request.bindings)
+            .await?;
         self.service()
             .create_context_pack(request)
             .await
@@ -749,8 +859,8 @@ impl KnowledgeAgentAppService for HostedAgentService {
     ) -> ApiResult<KnowledgeAgentChatResponse> {
         let retrieval_client = RuntimeKnowledgebaseRetrievalClient::new(self.runtime.clone());
         let okf_client = RuntimeOkfKnowledgeClient::new(
+            self.runtime.clone(),
             self.runtime.okf_concept_store.clone(),
-            self.runtime.drive_storage.clone(),
         );
         let claw_router_client = resolve_claw_router_client_from_env()
             .ok()

@@ -6,7 +6,7 @@
   "category": "knowledge_platform",
   "implementationId": "engine.knowledge.external.anythingllm",
   "agentProviderId": "provider.knowledge.external.anythingllm",
-  "integrationTier": "catalog",
+  "integrationTier": "adapter",
   "upstream": {
     "repositoryUrl": "https://github.com/Mintplex-Labs/anything-llm",
     "defaultBranch": "master",

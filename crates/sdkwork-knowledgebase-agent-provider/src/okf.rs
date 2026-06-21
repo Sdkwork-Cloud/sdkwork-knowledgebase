@@ -1,3 +1,4 @@
+use crate::okf_ranking::{normalize_query, rank_okf_concept};
 use sdkwork_agent_kernel::{
     KernelError, KernelResult, KnowledgeDocument, KnowledgeDocumentFilter, KnowledgeDocumentKind,
     KnowledgeProvider, KnowledgeRetrievalMethod, KnowledgeSearchRequest, KnowledgeSearchResult,
@@ -8,6 +9,7 @@ use sdkwork_knowledgebase_contract::{
     okf::{okf_document_id, OkfBundlePaths},
     OkfConceptSummary, OKF_KNOWLEDGE_PROVIDER_ID,
 };
+use sdkwork_utils_rust::is_blank;
 
 pub trait OkfKnowledgeClient {
     fn search_okf_concepts(
@@ -50,7 +52,7 @@ where
     }
 
     fn search(&self, request: KnowledgeSearchRequest) -> KernelResult<Vec<KnowledgeSearchResult>> {
-        if request.query.trim().is_empty() {
+        if is_blank(Some(request.query.as_str())) {
             return Err(KernelError::validation(
                 "okf-bundle knowledge search query must not be blank",
             ));
@@ -166,7 +168,7 @@ fn parse_okf_document_id(document_id: &str) -> KernelResult<(u64, String)> {
     let space_id = space_id
         .parse::<u64>()
         .map_err(|_| KernelError::validation("okf-bundle document id space id must be numeric"))?;
-    if concept_id.trim().is_empty() {
+    if is_blank(Some(concept_id)) {
         return Err(KernelError::validation(
             "okf-bundle document id concept id must not be blank",
         ));
@@ -225,20 +227,34 @@ pub fn citations_from_okf_concepts(
     space_id: u64,
     concepts: &[OkfConceptSummary],
 ) -> Vec<sdkwork_knowledgebase_contract::KnowledgeAgentChatCitation> {
+    citations_from_okf_concepts_with_query(space_id, "", concepts)
+}
+
+pub fn citations_from_okf_concepts_with_query(
+    space_id: u64,
+    query: &str,
+    concepts: &[OkfConceptSummary],
+) -> Vec<sdkwork_knowledgebase_contract::KnowledgeAgentChatCitation> {
+    let tokens = normalize_query(query);
     concepts
         .iter()
-        .map(
-            |concept| sdkwork_knowledgebase_contract::KnowledgeAgentChatCitation {
+        .map(|concept| {
+            let score = if is_blank(Some(query)) {
+                score_okf_concept(concept)
+            } else {
+                rank_okf_concept(concept, &tokens)
+            };
+            sdkwork_knowledgebase_contract::KnowledgeAgentChatCitation {
                 document_id: None,
                 concept_id: Some(concept.concept_id.clone()),
                 title: concept.title.clone(),
                 source_uri: Some(concept.logical_path.clone()),
-                logical_path: Some(concept.logical_path.clone()),
-                locator: Some(format!("space:{space_id}")),
-                score: Some(score_okf_concept(concept)),
+                logical_path: Some(format!("{space_id}/{}", concept.concept_id)),
+                locator: Some(okf_document_id(space_id, &concept.concept_id)),
+                score: Some(score),
                 snippet: Some(concept.description.clone()),
-            },
-        )
+            }
+        })
         .collect()
 }
 
@@ -270,7 +286,7 @@ pub fn citations_from_engine_hits(
                 title: hit.document.title.clone(),
                 source_uri: hit.document.source_uri.clone(),
                 logical_path: Some(scoped_ref),
-                locator: Some(format!("space:{space_id}")),
+                locator: Some(okf_document_id(space_id, document_key)),
                 score: hit.score,
                 snippet: Some(hit.snippet.clone()),
             }

@@ -163,20 +163,23 @@ impl KnowledgeBackendApi for HostedBackendApi {
             ));
         }
         let space_id = request.space_id;
+        let source_id = request.source_id;
         let runtime = self.runtime.clone();
+        let actor = self.runtime.operator_id().to_string();
         self.create_and_run_background_job(
             space_id,
             "okf_compile",
             format!(
                 "okf-compile:{}:{}",
                 request.space_id,
-                request.source_id.unwrap_or(0)
+                source_id.unwrap_or(0)
             ),
-            || async move {
-                rebuild_okf_index_document(&runtime, space_id)
-                    .await
-                    .map(|_| ())
-                    .map_err(|error| format!("{error:?}"))
+            move || async move {
+                crate::hosted_support::run_okf_compile_workflow_for_space(
+                    &runtime, space_id, source_id, &actor,
+                )
+                .await
+                .map_err(|error| format!("{error:?}"))
             },
         )
         .await
@@ -432,6 +435,7 @@ impl KnowledgeBackendApi for HostedBackendApi {
         }
         let space_id = request.space_id;
         let runtime = self.runtime.clone();
+        let actor = self.runtime.operator_id().to_string();
         let job = self
             .create_and_run_background_job(
                 space_id,
@@ -441,11 +445,34 @@ impl KnowledgeBackendApi for HostedBackendApi {
                     request.space_id,
                     request.profile.as_deref().unwrap_or("default")
                 ),
-                || async move {
-                    persist_okf_profile(&runtime, space_id)
+                move || async move {
+                    let lint_result = crate::hosted_support::run_okf_eval_workflow_for_space(
+                        &runtime, space_id, &actor,
+                    )
+                    .await
+                    .map_err(|error| format!("{error:?}"))?;
+                    let report_path = format!("output/eval-reports/{space_id}.json");
+                    runtime
+                        .drive_storage()
+                        .put_object(
+                            sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::PutKnowledgeObjectRequest {
+                                logical_path: report_path,
+                                object_role: "output_export".to_string(),
+                                content_type: "application/json; charset=utf-8".to_string(),
+                                body: serde_json::to_vec_pretty(&lint_result)
+                                    .map_err(|error| format!("failed to serialize eval report: {error}"))?,
+                                checksum_sha256_hex: None,
+                            },
+                        )
                         .await
-                        .map(|_| ())
-                        .map_err(|error| format!("{error:?}"))
+                        .map_err(|error| format!("{error:?}"))?;
+                    if lint_result.conformance != "pass" {
+                        return Err(format!(
+                            "okf bundle eval failed with {} issue(s)",
+                            lint_result.issues.len()
+                        ));
+                    }
+                    Ok(())
                 },
             )
             .await?;

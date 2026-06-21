@@ -12,6 +12,7 @@ use sdkwork_knowledgebase_contract::upload::{
     CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
     KnowledgeUploadSession, KnowledgeUploadSessionStatus,
 };
+use sdkwork_utils_rust::is_blank;
 
 use crate::{runtime::KnowledgebaseRuntime, ApiError, ApiResult, KnowledgeUploadSessionAppService};
 
@@ -162,7 +163,7 @@ impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
                 "space_id is required",
             ));
         }
-        if request.title.trim().is_empty() {
+        if is_blank(Some(request.title.as_str())) {
             return Err(ApiError::invalid_request(
                 "invalid_upload_session_request",
                 "title is required",

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import type { SessionSnapshot, SessionStore } from '../session/sessionStore';
 
 export interface KnowledgebaseAuthLocationLike {

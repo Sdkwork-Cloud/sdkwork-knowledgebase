@@ -8,6 +8,7 @@ use sdkwork_knowledgebase_contract::okf::{
     KnowledgeOkfConcept, KnowledgeOkfConceptRevision, OkfConceptPublishState, OkfConceptSummary,
     OkfLogEntry, OkfLogEventType, OkfRevisionReviewState,
 };
+use sdkwork_utils_rust::is_blank;
 use sqlx::{any::AnyRow, AnyPool, QueryBuilder, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -819,7 +820,7 @@ fn tags_to_json(tags: &[String]) -> Result<String, KnowledgeOkfConceptStoreError
 
 fn tags_from_json(value: Option<String>) -> Result<Vec<String>, KnowledgeOkfConceptStoreError> {
     match value {
-        Some(value) if !value.trim().is_empty() => serde_json::from_str(&value)
+        Some(value) if !is_blank(Some(value.as_str())) => serde_json::from_str(&value)
             .map_err(|error| KnowledgeOkfConceptStoreError::Internal(error.to_string())),
         _ => Ok(vec![]),
     }
@@ -844,7 +845,7 @@ fn log_metadata_from_json(
     value: Option<String>,
 ) -> Result<LogMetadata, KnowledgeOkfConceptStoreError> {
     match value {
-        Some(value) if !value.trim().is_empty() => serde_json::from_str(&value)
+        Some(value) if !is_blank(Some(value.as_str())) => serde_json::from_str(&value)
             .map_err(|error| KnowledgeOkfConceptStoreError::Internal(error.to_string())),
         _ => Ok(LogMetadata {
             actor: "system".to_string(),

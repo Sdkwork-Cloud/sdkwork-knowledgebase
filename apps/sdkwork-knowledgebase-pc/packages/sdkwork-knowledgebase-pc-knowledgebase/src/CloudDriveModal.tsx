@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -350,7 +351,7 @@ export function CloudDriveModal({ isOpen, onClose, onConfirm }: CloudDriveModalP
 
   // Filtered by Search Query
   const displayedFiles = useMemo(() => {
-    if (!searchQuery.trim()) return allCurrentTabFiles;
+    if (isBlank(searchQuery)) return allCurrentTabFiles;
     const query = searchQuery.toLowerCase().trim();
     return allCurrentTabFiles.filter(file => file.name.toLowerCase().includes(query));
   }, [allCurrentTabFiles, searchQuery]);

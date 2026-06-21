@@ -32,7 +32,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_workspace
     EnsureKnowledgeDriveNodeKind, EnsureKnowledgeDriveNodeRequest,
     EnsureKnowledgeDriveNodesRequest, KnowledgeDriveWorkspace, KnowledgeDriveWorkspaceError,
 };
-use sha2::{Digest, Sha256};
+use sdkwork_utils_rust::{is_blank, sha256_hash};
 use sqlx::AnyPool;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -270,7 +270,7 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
         }
         let locator = self.locator_for(&request.logical_path)?;
         let size_bytes = request.body.len() as u64;
-        let computed_checksum_sha256_hex = checksum_sha256_hex(&request.body);
+        let computed_checksum_sha256_hex = sha256_hash(&request.body);
         let checksum_sha256_hex = verified_request_checksum(
             request.checksum_sha256_hex.as_deref(),
             &computed_checksum_sha256_hex,
@@ -755,15 +755,6 @@ fn decode_cursor(cursor: Option<&str>) -> Result<i64, KnowledgeDriveNodeTreeErro
     Ok(offset)
 }
 
-fn checksum_sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut output = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        output.push_str(&format!("{byte:02x}"));
-    }
-    output
-}
-
 fn verified_request_checksum(
     request_checksum: Option<&str>,
     computed_checksum: &str,
@@ -802,7 +793,7 @@ fn content_version_id_from_head(
 ) -> Option<String> {
     normalized_provider_version_id(provider_version_id).or_else(|| {
         checksum_sha256_hex
-            .filter(|checksum| !checksum.trim().is_empty())
+            .filter(|checksum| !is_blank(Some(checksum)))
             .map(synthetic_content_version_id)
     })
 }

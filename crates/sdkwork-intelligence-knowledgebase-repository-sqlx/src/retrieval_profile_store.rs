@@ -1,6 +1,7 @@
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
 };
+use sdkwork_utils_rust::is_blank;
 use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use thiserror::Error;
@@ -47,7 +48,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
         request: KnowledgeRetrievalProfileRequest,
     ) -> Result<KnowledgeRetrievalProfile, KnowledgeRetrievalProfileStoreError> {
         ensure_tenant_scope(self.tenant_id, request.tenant_id)?;
-        if request.name.trim().is_empty() {
+        if is_blank(Some(request.name.as_str())) {
             return Err(KnowledgeRetrievalProfileStoreError::Internal(
                 "name is required".to_string(),
             ));

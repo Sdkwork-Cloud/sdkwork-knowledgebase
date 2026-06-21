@@ -8,6 +8,7 @@ use sdkwork_memory_spi::{
     AssembleMemoryContextCommand, MemoryContextAssemblerPort, MemoryContextPackDraft,
     MemoryRetrieverPort, RetrieveMemoryCandidatesCommand,
 };
+use sdkwork_utils_rust::{is_blank, trim};
 use std::sync::Arc;
 
 pub struct KnowledgebaseMemoryContextProviderAdapter {
@@ -36,8 +37,8 @@ impl KnowledgeMemoryContextProvider for KnowledgebaseMemoryContextProviderAdapte
     ) -> Result<KnowledgeMemoryContextResult, KnowledgeMemoryContextProviderError> {
         validate_request(&request)?;
 
-        let query = request.query.trim().to_string();
-        let policy_ref = request.memory_policy_ref.trim().to_string();
+        let query = trim(request.query.as_str());
+        let policy_ref = trim(request.memory_policy_ref.as_str());
         let candidates = self
             .retriever
             .retrieve(RetrieveMemoryCandidatesCommand { query })
@@ -74,12 +75,12 @@ fn validate_request(
             "tenant_id is required".to_string(),
         ));
     }
-    if request.query.trim().is_empty() {
+    if is_blank(Some(request.query.as_str())) {
         return Err(KnowledgeMemoryContextProviderError::InvalidRequest(
             "query is required".to_string(),
         ));
     }
-    if request.memory_policy_ref.trim().is_empty() {
+    if is_blank(Some(request.memory_policy_ref.as_str())) {
         return Err(KnowledgeMemoryContextProviderError::InvalidRequest(
             "memory_policy_ref is required".to_string(),
         ));

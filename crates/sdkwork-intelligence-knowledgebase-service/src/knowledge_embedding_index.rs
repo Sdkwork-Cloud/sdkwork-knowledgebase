@@ -1,5 +1,6 @@
 use sdkwork_knowledgebase_agent_provider::ClawRouterEmbeddingClient;
 use sdkwork_knowledgebase_contract::rag::KnowledgeIndexRequest;
+use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 
 use crate::ports::knowledge_embedding_store::{
@@ -33,7 +34,7 @@ impl<'a> KnowledgeEmbeddingIndexService<'a> {
         }
 
         let content = match request.content {
-            Some(content) if !content.trim().is_empty() => content,
+            Some(content) if !is_blank(Some(content.as_str())) => content,
             _ => self
                 .embeddings
                 .load_chunk_content(request.chunk_id)

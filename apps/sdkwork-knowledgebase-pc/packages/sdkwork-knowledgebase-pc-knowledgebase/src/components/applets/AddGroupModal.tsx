@@ -1,4 +1,5 @@
 import React from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -48,7 +49,7 @@ export function AddGroupModal({
           </button>
           <button 
             onClick={handleGroupAdd}
-            disabled={!newGroupNameInput.trim()}
+            disabled={isBlank(newGroupNameInput)}
             className="px-4 py-1.5 text-[12px] font-bold text-white bg-[#07c160] hover:bg-[#06ad56] disabled:opacity-50 rounded-md transition-all shadow-sm"
           >
             {t('confirm')}

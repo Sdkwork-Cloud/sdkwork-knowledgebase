@@ -3,6 +3,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_index_store::{
     KnowledgeIndexStore, KnowledgeIndexStoreError as PortKnowledgeIndexStoreError,
 };
 use sdkwork_knowledgebase_contract::rag::{KnowledgeIndex, KnowledgeIndexRequest};
+use sdkwork_utils_rust::is_blank;
 use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use thiserror::Error;
@@ -50,7 +51,7 @@ impl SqliteKnowledgeIndexStore {
         request: KnowledgeIndexRequest,
     ) -> Result<KnowledgeIndex, KnowledgeIndexStoreError> {
         ensure_tenant_scope(self.tenant_id, request.tenant_id)?;
-        if request.index_kind.trim().is_empty() {
+        if is_blank(Some(request.index_kind.as_str())) {
             return Err(KnowledgeIndexStoreError::Internal(
                 "index_kind is required".to_string(),
             ));

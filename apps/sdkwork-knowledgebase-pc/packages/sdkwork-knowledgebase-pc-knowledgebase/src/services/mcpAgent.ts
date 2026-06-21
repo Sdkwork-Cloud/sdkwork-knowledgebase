@@ -1,4 +1,5 @@
 import { WechatArticle } from './wechat';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 
 export interface McpToolCall {
   name: string;

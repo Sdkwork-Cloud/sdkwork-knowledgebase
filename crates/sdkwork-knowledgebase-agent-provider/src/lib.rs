@@ -10,6 +10,7 @@ pub mod external_space_engine_provider;
 pub mod knowledge_access;
 mod mapper;
 pub mod okf;
+mod okf_ranking;
 pub mod provider;
 pub mod retrieval_plan;
 
@@ -40,8 +41,9 @@ pub use knowledge_access::{
     KnowledgeSpaceModeResolver, SpaceKnowledgeEngineClient,
 };
 pub use okf::{
-    citations_from_engine_hits, citations_from_okf_concepts, citations_from_rag_hits,
-    OkfKnowledgeClient, OkfKnowledgeProvider,
+    citations_from_engine_hits, citations_from_okf_concepts,
+    citations_from_okf_concepts_with_query, citations_from_rag_hits, OkfKnowledgeClient,
+    OkfKnowledgeProvider,
 };
 pub use provider::{SdkworkKnowledgebaseProvider, SDKWORK_KNOWLEDGEBASE_PROVIDER_ID};
 pub use retrieval_plan::{

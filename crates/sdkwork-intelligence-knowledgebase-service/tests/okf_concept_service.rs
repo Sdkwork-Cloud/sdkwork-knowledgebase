@@ -108,12 +108,15 @@ async fn okf_concept_service_publishes_concept_and_rebuilds_standard_files() {
         .paths()
         .contains(&"okf/entities/entity-name.md".to_string()));
     assert!(workspace.paths().contains(&"okf/index.md".to_string()));
+    assert!(workspace
+        .paths()
+        .contains(&"okf/entities/index.md".to_string()));
     assert!(workspace.paths().contains(&"okf/log.md".to_string()));
 
     let index_ref = file_entries.object_key_for("okf/index.md").unwrap();
     let index_content = drive.body_at(&index_ref).unwrap();
     assert!(index_content.contains("okf_version: \"0.1\""));
-    assert!(index_content.contains("* [Entity Name](entities/entity-name.md)"));
+    assert!(index_content.contains("* [Entities](/entities/index.md)"));
 
     let log_ref = file_entries.object_key_for("okf/log.md").unwrap();
     let log_content = drive.body_at(&log_ref).unwrap();
@@ -374,6 +377,20 @@ async fn export_bundle_round_trips_through_drive_import_inbox() {
         })
         .await
         .expect("export okf bundle");
+
+    let manifest = drive
+        .body_at(&exported.manifest_path)
+        .expect("export manifest must exist");
+    assert!(
+        manifest.contains("entities/index.md"),
+        "okf_strict export must include hierarchical index files: {manifest}"
+    );
+    assert!(
+        drive
+            .body_at(&format!("{}/entities/index.md", exported.export_root))
+            .is_some(),
+        "exported bundle must contain nested directory index"
+    );
 
     stage_export_bundle_for_drive_import(&drive, &exported.export_root, 99, "roundtrip")
         .await

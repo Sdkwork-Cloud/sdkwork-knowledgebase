@@ -14,6 +14,7 @@ use crate::ports::{
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{CreateKnowledgeSpaceRequest, KnowledgeSpace};
+use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 
 pub struct KnowledgeSpaceService<'a> {
@@ -67,7 +68,7 @@ impl<'a> KnowledgeSpaceService<'a> {
         &self,
         request: CreateKnowledgeSpaceRequest,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
-        if request.name.trim().is_empty() {
+        if is_blank(Some(request.name.as_str())) {
             return Err(KnowledgeSpaceServiceError::InvalidRequest(
                 "name is required".to_string(),
             ));
@@ -394,12 +395,12 @@ impl<'a> KnowledgeSpaceService<'a> {
                     .to_string(),
             ));
         };
-        if context.tenant_id.trim().is_empty() {
+        if is_blank(Some(context.tenant_id.as_str())) {
             return Err(KnowledgeSpaceServiceError::InvalidRequest(
                 "drive tenant_id is required".to_string(),
             ));
         }
-        if context.operator_id.trim().is_empty() {
+        if is_blank(Some(context.operator_id.as_str())) {
             return Err(KnowledgeSpaceServiceError::InvalidRequest(
                 "drive operator_id is required".to_string(),
             ));

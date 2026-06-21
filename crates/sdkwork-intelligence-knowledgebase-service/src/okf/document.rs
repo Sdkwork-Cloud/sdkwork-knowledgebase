@@ -1,5 +1,7 @@
 //! OKF v0.1 concept document parse/render (aligned with knowledge-catalog `layouts/okf.ts`).
 
+use sdkwork_utils_rust::is_blank;
+use serde::Deserialize;
 use thiserror::Error;
 
 pub const OKF_VERSION: &str = "0.1";
@@ -43,15 +45,16 @@ pub fn parse_okf_markdown(content: &str) -> Result<Option<OkfConceptDocument>, O
         + 1;
     let frontmatter = lines[1..end_index].join("\n");
     let body = lines[(end_index + 1)..].join("\n");
-    let fields = parse_simple_yaml(&frontmatter)?;
+    let fields = parse_frontmatter_yaml(&frontmatter)?;
     let concept_type = match fields
-        .get("type")
-        .cloned()
-        .filter(|value| !value.trim().is_empty())
+        .concept_type
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
     {
-        Some(concept_type) => concept_type,
+        Some(concept_type) => concept_type.to_string(),
         None => {
-            if fields.contains_key("okf_version") {
+            if fields.okf_version.is_some() {
                 return Ok(None);
             }
             return Err(OkfDocumentError::Invalid(
@@ -61,13 +64,59 @@ pub fn parse_okf_markdown(content: &str) -> Result<Option<OkfConceptDocument>, O
     };
     Ok(Some(OkfConceptDocument {
         concept_type,
-        title: fields.get("title").cloned(),
-        description: fields.get("description").cloned(),
-        resource: fields.get("resource").cloned(),
-        tags: parse_tags(fields.get("tags")),
-        timestamp: fields.get("timestamp").cloned(),
+        title: fields.title,
+        description: yaml_scalar_string(fields.description.as_ref()),
+        resource: fields.resource,
+        tags: parse_yaml_tags(fields.tags.as_ref()),
+        timestamp: fields.timestamp,
         body,
     }))
+}
+
+#[derive(Debug, Deserialize)]
+struct OkfFrontmatterFields {
+    #[serde(rename = "type")]
+    concept_type: Option<String>,
+    okf_version: Option<String>,
+    title: Option<String>,
+    description: Option<serde_yaml::Value>,
+    resource: Option<String>,
+    tags: Option<serde_yaml::Value>,
+    timestamp: Option<String>,
+}
+
+fn parse_frontmatter_yaml(input: &str) -> Result<OkfFrontmatterFields, OkfDocumentError> {
+    serde_yaml::from_str(input).map_err(|error| {
+        OkfDocumentError::Invalid(format!("invalid okf frontmatter yaml: {error}"))
+    })
+}
+
+fn yaml_scalar_string(value: Option<&serde_yaml::Value>) -> Option<String> {
+    let value = value?;
+    match value {
+        serde_yaml::Value::Null => None,
+        serde_yaml::Value::String(text) => Some(text.clone()),
+        serde_yaml::Value::Number(number) => Some(number.to_string()),
+        serde_yaml::Value::Bool(flag) => Some(flag.to_string()),
+        _ => serde_yaml::to_string(value)
+            .ok()
+            .map(|text| text.trim().to_string())
+            .filter(|text| !text.is_empty()),
+    }
+}
+
+fn parse_yaml_tags(value: Option<&serde_yaml::Value>) -> Vec<String> {
+    let Some(value) = value else {
+        return vec![];
+    };
+    match value {
+        serde_yaml::Value::Sequence(items) => items
+            .iter()
+            .filter_map(|item| yaml_scalar_string(Some(item)))
+            .collect(),
+        serde_yaml::Value::String(text) if !is_blank(Some(text.as_str())) => vec![text.clone()],
+        _ => vec![],
+    }
 }
 
 pub fn render_okf_concept_markdown(document: &OkfConceptDocument) -> String {
@@ -220,52 +269,6 @@ fn markdown_links(body: &str) -> Vec<(String, String)> {
     links
 }
 
-fn parse_simple_yaml(
-    input: &str,
-) -> Result<std::collections::BTreeMap<String, String>, OkfDocumentError> {
-    let mut map = std::collections::BTreeMap::new();
-    for line in input.lines() {
-        let line = line.trim_end();
-        if line.trim().is_empty() || line.trim_start().starts_with('#') {
-            continue;
-        }
-        let Some((key, value)) = line.split_once(':') else {
-            continue;
-        };
-        map.insert(key.trim().to_string(), unquote_yaml_value(value.trim()));
-    }
-    Ok(map)
-}
-
-fn parse_tags(raw: Option<&String>) -> Vec<String> {
-    let Some(raw) = raw else {
-        return vec![];
-    };
-    let raw = raw.trim();
-    if raw.starts_with('[') && raw.ends_with(']') {
-        return raw[1..raw.len() - 1]
-            .split(',')
-            .map(|part| unquote_yaml_value(part.trim()))
-            .filter(|part| !part.is_empty())
-            .collect();
-    }
-    if !raw.is_empty() {
-        vec![unquote_yaml_value(raw)]
-    } else {
-        vec![]
-    }
-}
-
-fn unquote_yaml_value(value: &str) -> String {
-    if (value.starts_with('"') && value.ends_with('"'))
-        || (value.starts_with('\'') && value.ends_with('\''))
-    {
-        value[1..value.len() - 1].to_string()
-    } else {
-        value.to_string()
-    }
-}
-
 fn yaml_scalar(value: &str) -> String {
     if value
         .chars()
@@ -383,5 +386,22 @@ sdkwork:
         assert!(!stripped.contains("sdkwork:"));
         assert!(stripped.contains("type: Entity"));
         assert!(stripped.contains("# Body"));
+    }
+
+    #[test]
+    fn parse_stackoverflow_users_frontmatter() {
+        let markdown = include_str!(
+            "../../../../external/knowledge-catalog/okf/bundles/stackoverflow/tables/users.md"
+        );
+        let parsed = parse_okf_markdown(markdown).unwrap().unwrap();
+        assert_eq!(parsed.concept_type, "BigQuery Table");
+        assert_eq!(parsed.title.as_deref(), Some("Users"));
+        assert!(parsed
+            .description
+            .as_deref()
+            .is_some_and(|description| description.contains("Stack Overflow")));
+        assert!(parsed.tags.iter().any(|tag| tag == "Stack Overflow"));
+        assert!(parsed.tags.iter().any(|tag| tag == "users"));
+        assert!(parsed.body.contains("# Schema"));
     }
 }

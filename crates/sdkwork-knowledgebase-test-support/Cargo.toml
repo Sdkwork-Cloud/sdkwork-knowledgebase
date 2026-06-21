@@ -8,5 +8,5 @@ license.workspace = true
 async-trait.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 sdkwork-intelligence-knowledgebase-service.workspace = true
-sha2.workspace = true
+sdkwork-utils-rust.workspace = true
 tokio.workspace = true

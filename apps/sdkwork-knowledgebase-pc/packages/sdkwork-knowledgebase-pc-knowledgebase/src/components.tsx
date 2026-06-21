@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { useNavigate } from 'react-router-dom';
 import {
   clearKbNavIntent,
@@ -329,7 +330,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
   }, [docs, loadingDocs]);
 
   const handleCreateKb = async (gitUrl?: string, gitBranch?: string) => {
-    if (!newKbTitle.trim()) return;
+    if (isBlank(newKbTitle)) return;
     const newKbParams: Partial<KnowledgeBase> = {
       title: newKbTitle,
       icon: newKbIcon,

@@ -9,7 +9,7 @@ use sdkwork_knowledgebase_contract::rag::{
 use std::sync::Arc;
 
 use crate::{
-    citations_from_engine_hits, citations_from_okf_concepts, citations_from_rag_hits,
+    citations_from_engine_hits, citations_from_okf_concepts_with_query, citations_from_rag_hits,
     kernel_methods_for_retrieval, merge_retrieval_plan, KnowledgeRetrievalPlan, OkfKnowledgeClient,
 };
 
@@ -120,7 +120,11 @@ where
                 )?;
 
                 Ok(KnowledgeAccessResult {
-                    citations: citations_from_okf_concepts(primary_space_id, &concepts),
+                    citations: citations_from_okf_concepts_with_query(
+                        primary_space_id,
+                        request.message,
+                        &concepts,
+                    ),
                     retrieval_id: None,
                     namespace,
                     kernel_methods: vec![KernelKnowledgeRetrievalMethod::Keyword],
@@ -441,6 +445,78 @@ mod tests {
         assert_eq!(result.citations[0].title, "External Doc");
         assert_eq!(result.citations[0].concept_id.as_deref(), Some("doc-1"));
         assert_eq!(result.citations[0].logical_path.as_deref(), Some("9/doc-1"));
+    }
+
+    #[tokio::test]
+    async fn okf_access_resolves_provider_and_scoped_citations() {
+        #[derive(Clone)]
+        struct PopulatedOkf;
+
+        impl OkfKnowledgeClient for PopulatedOkf {
+            fn search_okf_concepts(
+                &self,
+                space_id: u64,
+                _query: &str,
+                _top_k: usize,
+            ) -> Result<Vec<sdkwork_knowledgebase_contract::OkfConceptSummary>, String>
+            {
+                assert_eq!(space_id, 7);
+                Ok(vec![sdkwork_knowledgebase_contract::OkfConceptSummary {
+                    title: "Demo Concept".to_string(),
+                    concept_id: "concepts/demo".to_string(),
+                    concept_type: "Knowledge Concept".to_string(),
+                    logical_path: "okf/concepts/demo.md".to_string(),
+                    bundle_relative_path: "concepts/demo.md".to_string(),
+                    description: "demo snippet".to_string(),
+                    source_count: 1,
+                    updated_at: "2026-06-01T00:00:00Z".to_string(),
+                    tags: vec![],
+                }])
+            }
+
+            fn read_okf_concept_content(
+                &self,
+                _space_id: u64,
+                _logical_path: &str,
+            ) -> Result<String, String> {
+                Ok(String::new())
+            }
+        }
+
+        let gateway = KnowledgeAccessGateway::new(PopulatedOkf, FakeRetrieval);
+        let bindings = vec![KnowledgeRetrievalBinding {
+            space_id: 7,
+            collection_id: None,
+            source_filter: None,
+            document_filter: None,
+            priority: 0,
+            top_k: Some(4),
+            min_score: None,
+        }];
+
+        let result = gateway
+            .fetch(KnowledgeAccessRequest {
+                tenant_id: 1,
+                message: "demo",
+                mode: KnowledgeAgentKnowledgeMode::OkfBundle,
+                bindings: &bindings,
+                top_k: 4,
+                retrieval_profile_id: None,
+                retrieval_methods: vec![],
+                retrieval_plan: None,
+            })
+            .await
+            .expect("okf fetch");
+
+        assert_eq!(result.citations.len(), 1);
+        assert_eq!(
+            result.citations[0].logical_path.as_deref(),
+            Some("7/concepts/demo")
+        );
+        assert_eq!(
+            result.citations[0].locator.as_deref(),
+            Some("okf:7:concepts/demo")
+        );
     }
 
     #[test]

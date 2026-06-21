@@ -1,3 +1,4 @@
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import {
   decodeBinaryResourcePayload,
   type HostAdapter,

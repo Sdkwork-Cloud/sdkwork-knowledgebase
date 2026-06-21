@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, Settings2, Edit3, Key, Globe, Server, Plus, Trash2, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { OfficialAccount } from '../../services/wechat';
@@ -76,7 +77,7 @@ export function OAEditorDrawer({ oaEditingId, officialAccountData, groups, onClo
   }, [oaEditingId, officialAccountData, groups]);
 
   const handleSave = () => {
-    if (!oaName.trim()) {
+    if (isBlank(oaName)) {
       toast.error(t('errors.fillRequired'));
       return;
     }
@@ -371,7 +372,7 @@ export function OAEditorDrawer({ oaEditingId, officialAccountData, groups, onClo
                     </label>
                     <div className="space-y-2">
                       {oaJsSecureDomains.map((domain, index) => {
-                        const isValid = !domain.trim() || /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d+)?$/.test(domain.trim());
+                        const isValid = isBlank(domain) || /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d+)?$/.test(domain.trim());
                         return (
                         <div key={index} className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
@@ -408,7 +409,7 @@ export function OAEditorDrawer({ oaEditingId, officialAccountData, groups, onClo
                     </label>
                     <div className="space-y-2">
                       {oaWebAuthDomains.map((domain, index) => {
-                        const isValid = !domain.trim() || /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d+)?$/.test(domain.trim());
+                        const isValid = isBlank(domain) || /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d+)?$/.test(domain.trim());
                         return (
                         <div key={index} className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
@@ -445,7 +446,7 @@ export function OAEditorDrawer({ oaEditingId, officialAccountData, groups, onClo
                     </label>
                     <div className="space-y-2">
                       {oaBusinessDomains.map((domain, index) => {
-                        const isValid = !domain.trim() || /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d+)?$/.test(domain.trim());
+                        const isValid = isBlank(domain) || /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?::\d+)?$/.test(domain.trim());
                         return (
                         <div key={index} className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">

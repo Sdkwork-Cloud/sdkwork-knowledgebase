@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { createPortal } from 'react-dom';
 import { X, Plus, Trash2, Send, History, Check, UserPlus, Loader2 } from 'lucide-react';
 import { toast } from './components/ui/toast-manager';
@@ -181,7 +182,7 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
                       ? 'bg-[#07c160] hover:bg-[#06ad56] text-white shadow-sm' 
                       : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
                   }`}
-                  disabled={!newIdInput.trim()}
+                  disabled={isBlank(newIdInput)}
                 >
                   添加
                 </button>

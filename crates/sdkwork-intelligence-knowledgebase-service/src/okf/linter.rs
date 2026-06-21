@@ -2,6 +2,7 @@ use crate::okf::document::{extract_concept_links, parse_okf_markdown};
 use crate::okf::validator::{validate_bundle_relative_path, validate_concept_document};
 use crate::ports::knowledge_source_store::KnowledgeSourceLineageSnapshot;
 use sdkwork_knowledgebase_contract::okf::OkfConceptSummary;
+use sdkwork_utils_rust::is_blank;
 use std::collections::BTreeSet;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
@@ -137,7 +138,7 @@ pub fn lint_bundle_summaries(
                 concept_id: Some(concept.concept_id.clone()),
             });
         }
-        if concept.description.trim().is_empty() {
+        if is_blank(Some(concept.description.as_str())) {
             issues.push(OkfLintIssue {
                 check: "missing_citations",
                 severity: OkfLintSeverity::Warning,

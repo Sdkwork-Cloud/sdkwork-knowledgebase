@@ -1,4 +1,5 @@
 import type { SessionSnapshot, SessionStore } from './sessionStore';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 
 export interface KnowledgebaseSessionAuthTokens {
   accessToken?: string;

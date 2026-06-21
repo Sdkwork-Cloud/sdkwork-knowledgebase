@@ -4,6 +4,7 @@ use sdkwork_agent_kernel::{
     KnowledgeSearchResult, ProviderHealth, ProviderManifest, RedactionClassification, TrustLevel,
 };
 use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineSearchHit;
+use sdkwork_utils_rust::is_blank;
 use std::sync::Arc;
 
 use crate::async_bridge::block_on_async;
@@ -48,7 +49,7 @@ impl KnowledgeProvider for SpaceEngineKnowledgeProvider {
     }
 
     fn search(&self, request: KnowledgeSearchRequest) -> KernelResult<Vec<KnowledgeSearchResult>> {
-        if request.query.trim().is_empty() {
+        if is_blank(Some(request.query.as_str())) {
             return Err(KernelError::validation(
                 "external knowledge search query must not be blank",
             ));

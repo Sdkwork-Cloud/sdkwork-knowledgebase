@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, Camera, Mail, Phone, Briefcase, Info, Clock, Check, Edit2, AlertCircle, Sparkles, Smile, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLocalStorage } from '@packages/sdkwork-knowledgebase-pc-commons/src';
@@ -96,7 +97,7 @@ export function UserProfileModal({ account, isOpen, onClose }: UserProfileModalP
   if (!isOpen) return null;
 
   const handleSave = () => {
-    if (!editName.trim()) {
+    if (isBlank(editName)) {
       toast.error(t('nameRequired', { defaultValue: '用户昵称/姓名不能为空' }));
       return;
     }

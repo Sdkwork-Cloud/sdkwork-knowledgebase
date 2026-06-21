@@ -1,4 +1,5 @@
 import { getDocumentExportCapabilities } from './documentExportCapabilities';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { prepareExportHtml } from './exportContentUtils';
 import { getTauriInvoke, invokeTauriCommand } from './exportRuntime';
 import type { DocumentExportContent, DocumentPdfExportEngine } from './types';
@@ -48,7 +49,7 @@ export async function tryNativeDocumentPdfExport(
     return null;
   }
 
-  if (!content.html.trim() && !content.markdown?.trim()) {
+  if (isBlank(content.html) && !content.markdown?.trim()) {
     return null;
   }
 

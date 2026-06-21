@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, Type } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -68,7 +69,7 @@ export function RenameModal({ initialTitle, onClose, onConfirm }: RenameModalPro
             </button>
             <button 
               type="submit" 
-              disabled={!title.trim() || title === initialTitle} 
+              disabled={isBlank(title) || title === initialTitle} 
               className="px-4.5 py-2 text-[12px] font-semibold bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded-xl disabled:opacity-40 disabled:pointer-events-none transition-all shadow-md active:scale-95"
             >
               {t('confirm')}

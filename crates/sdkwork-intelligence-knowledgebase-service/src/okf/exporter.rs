@@ -1,4 +1,5 @@
 use crate::okf::document::strip_sdkwork_frontmatter;
+use crate::okf::render_index_documents;
 use crate::okf::storage::{read_managed_markdown, read_managed_object_bytes};
 use crate::ports::knowledge_drive_storage::{
     KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError, PutKnowledgeObjectRequest,
@@ -61,11 +62,11 @@ impl<'a> OkfBundleExporterService<'a> {
         let export_root = format!("output/exports/{export_type}/{}", request.space_id);
         let paths = OkfBundlePaths::default();
         let mut exported_files = Vec::new();
+        let concepts = self
+            .concept_store
+            .list_concept_summaries(request.space_id)
+            .await?;
 
-        exported_files.push(
-            export_standard_file(self.drive, &export_root, paths.index_md, "index.md", false)
-                .await?,
-        );
         exported_files.push(
             export_standard_file(self.drive, &export_root, paths.log_md, "log.md", false).await?,
         );
@@ -90,10 +91,19 @@ impl<'a> OkfBundleExporterService<'a> {
             .await?,
         );
 
-        let concepts = self
-            .concept_store
-            .list_concept_summaries(request.space_id)
-            .await?;
+        for (bundle_relative_path, markdown) in render_index_documents(&concepts) {
+            let export_path = format!("{export_root}/{bundle_relative_path}");
+            self.drive
+                .put_object(PutKnowledgeObjectRequest::text(
+                    export_path.clone(),
+                    EXPORT_OBJECT_ROLE,
+                    markdown,
+                    None,
+                ))
+                .await?;
+            exported_files.push(export_path);
+        }
+
         for concept in concepts {
             let content = read_managed_markdown(self.drive, &concept.logical_path).await?;
             let export_path = format!("{export_root}/{}", concept.bundle_relative_path);

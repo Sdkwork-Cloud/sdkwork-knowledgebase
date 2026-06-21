@@ -1,33 +1,31 @@
 use sdkwork_intelligence_knowledgebase_service::{
     ingest::KnowledgeIngestionService,
     okf::{
-        load_import_bundle_from_drive, to_contract_lint_result, ExportOkfBundleRequest,
-        ImportOkfBundleRequest, OkfBundleExporterService, OkfBundleFileRegistryService,
-        OkfBundleImporterService, OkfBundleLinterService, OkfBundleStandardFileService,
-        OkfConceptService, PersistStandardFilesRequest, PublishExistingOkfConceptRevisionRequest,
+        run_okf_compile_workflow, run_okf_eval_workflow, OkfBundleFileRegistryService,
+        OkfBundleStandardFileService, OkfBundleWorkflowDeps, OkfConceptService,
+        PersistStandardFilesRequest, PublishExistingOkfConceptRevisionRequest,
     },
     ports::{
         knowledge_drive_storage::{
             HeadKnowledgeObjectRequest, KnowledgeDriveStorage, PutKnowledgeObjectRequest,
         },
         knowledge_ingestion_job_store::{CreateIngestionJobRecord, IngestionJobStore},
-        knowledge_okf_bundle_file_store::{
-            CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
-        },
         knowledge_okf_concept_store::KnowledgeOkfConceptStore,
         knowledge_space_store::KnowledgeSpaceStore,
     },
 };
 use sdkwork_knowledgebase_contract::ingest::IngestionJobState;
+use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineSearchHit;
 use sdkwork_knowledgebase_contract::okf::{
     KnowledgeOkfConcept, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult,
     OkfBundleLintResult, OkfBundlePaths, OkfConceptSummary, OkfIndexDocument, OkfQualityRun,
     OkfQualityRunRequest,
 };
 use sdkwork_knowledgebase_contract::rag::{
-    KnowledgeContextFragment, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
+    KnowledgeCitation, KnowledgeContextFragment, KnowledgeContextPack, KnowledgeRetrievalMethod,
 };
-use sdkwork_knowledgebase_contract::{IngestionJob, KnowledgeOkfBundleFile, OkfBundleFileKind};
+use sdkwork_knowledgebase_contract::{IngestionJob, KnowledgeOkfBundleFile};
+use sdkwork_utils_rust::is_blank;
 
 use crate::ApiError;
 
@@ -45,31 +43,108 @@ pub(crate) fn concept_to_summary(concept: KnowledgeOkfConcept) -> OkfConceptSumm
     }
 }
 
-pub(crate) fn space_binding(space_id: u64) -> KnowledgeRetrievalBinding {
-    KnowledgeRetrievalBinding {
-        space_id,
-        collection_id: None,
-        source_filter: None,
-        document_filter: None,
-        priority: 10,
-        top_k: None,
-        min_score: None,
-    }
-}
-
-pub(crate) fn default_retrieval_methods() -> Vec<KnowledgeRetrievalMethod> {
-    vec![KnowledgeRetrievalMethod::Hybrid]
-}
-
-pub(crate) fn format_retrieval_answer(hits: &[KnowledgeContextFragment]) -> String {
+pub(crate) fn format_okf_engine_answer(hits: &[KnowledgeEngineSearchHit]) -> String {
     if hits.is_empty() {
-        return "_No matching knowledge fragments were found._".to_string();
+        return "_No matching OKF concepts were found._".to_string();
     }
 
     hits.iter()
-        .map(|hit| format!("### {}\n\n{}", hit.title, hit.content))
+        .map(|hit| format!("### {}\n\n{}", hit.document.title, hit.snippet.trim()))
         .collect::<Vec<_>>()
         .join("\n\n")
+}
+
+pub(crate) fn stable_u64_hash(value: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
+}
+
+pub(crate) fn okf_citation_from_hit(
+    space_id: u64,
+    hit: &KnowledgeEngineSearchHit,
+) -> KnowledgeCitation {
+    let concept_id = hit.document.document_id.clone();
+    let document_id = stable_u64_hash(&concept_id);
+    KnowledgeCitation {
+        document_id,
+        document_version_id: None,
+        chunk_id: Some(document_id),
+        title: hit.document.title.clone(),
+        source_uri: hit.document.source_uri.clone(),
+        locator: Some(format!("okf:{space_id}:{concept_id}")),
+        score: hit.score,
+    }
+}
+
+pub(crate) async fn build_okf_context_pack_from_engine(
+    runtime: &crate::runtime::KnowledgebaseRuntime,
+    space_id: u64,
+    query: String,
+    context_budget_tokens: u32,
+) -> Result<KnowledgeContextPack, ApiError> {
+    if context_budget_tokens == 0 {
+        return Err(ApiError::invalid_request(
+            "invalid_okf_context_pack_request",
+            "context_budget_tokens must be greater than zero",
+        ));
+    }
+
+    let search = runtime
+        .search_knowledge_engine_for_space(space_id, &query, 32)
+        .await
+        .map_err(|error| ApiError::internal("okf_engine_search_failed", error))?;
+
+    let mut fragments = Vec::new();
+    let mut estimated_tokens = 0_u32;
+    let mut truncated = false;
+
+    for (rank, hit) in search.hits.into_iter().enumerate() {
+        let rank = rank as u32 + 1;
+        let document = runtime
+            .read_knowledge_engine_document_for_space(space_id, &hit.document.document_id)
+            .await
+            .map_err(|error| ApiError::internal("okf_engine_read_failed", error))?;
+        let token_count = document.content.split_whitespace().count().max(1) as u32;
+        if estimated_tokens.saturating_add(token_count) > context_budget_tokens {
+            truncated = true;
+            break;
+        }
+        estimated_tokens = estimated_tokens.saturating_add(token_count);
+        let document_id = stable_u64_hash(&hit.document.document_id);
+        fragments.push(KnowledgeContextFragment {
+            chunk_id: stable_u64_hash(&format!("{}:{rank}", hit.document.document_id)),
+            document_id,
+            document_version_id: None,
+            space_id,
+            collection_id: None,
+            title: hit.document.title.clone(),
+            content: document.content,
+            score: hit.score,
+            rank,
+            token_count: Some(token_count),
+            retrieval_method: KnowledgeRetrievalMethod::Keyword,
+            citation: Some(okf_citation_from_hit(space_id, &hit)),
+        });
+    }
+
+    let citations = fragments
+        .iter()
+        .filter_map(|fragment| fragment.citation.clone())
+        .collect();
+    let context_pack_id = stable_u64_hash(&format!("{space_id}:{query}"));
+
+    Ok(KnowledgeContextPack {
+        context_pack_id,
+        retrieval_id: None,
+        query,
+        fragments,
+        memory_fragments: vec![],
+        estimated_tokens,
+        citations,
+        truncated,
+    })
 }
 
 pub(crate) fn okf_answer_concept_id(query_id: u64) -> String {
@@ -126,8 +201,12 @@ pub(crate) async fn publish_okf_concept_revision(
         .await
         .map_err(map_okf_concept_store)?;
     let space = runtime.space_store().get_space(concept.space_id).await?;
-    let publication = okf_concept_service(runtime)
-        .publish_existing_revision(
+    runtime
+        .resolve_okf_bundle_engine_for_space(concept.space_id)
+        .await?;
+    let publication = runtime
+        .knowledge_engines()
+        .publish_okf_existing_revision(
             PublishExistingOkfConceptRevisionRequest {
                 space_id: concept.space_id,
                 concept: concept.clone(),
@@ -148,10 +227,14 @@ pub(crate) async fn import_okf_bundle(
     publish: bool,
     files: Vec<sdkwork_intelligence_knowledgebase_service::okf::ImportOkfBundleFile>,
 ) -> Result<sdkwork_knowledgebase_contract::okf::OkfBundleImportResult, ApiError> {
+    runtime
+        .resolve_okf_bundle_engine_for_space(space_id)
+        .await?;
     let space = runtime.space_store().get_space(space_id).await?;
-    let result = OkfBundleImporterService::new(okf_concept_service(runtime))
-        .import_bundle(
-            ImportOkfBundleRequest {
+    runtime
+        .knowledge_engines()
+        .import_okf_bundle_files(
+            sdkwork_intelligence_knowledgebase_service::okf::ImportOkfBundleRequest {
                 space_id,
                 actor: actor.to_string(),
                 publish,
@@ -160,11 +243,7 @@ pub(crate) async fn import_okf_bundle(
             space.drive_space_id.as_deref(),
         )
         .await
-        .map_err(ApiError::from)?;
-    Ok(sdkwork_knowledgebase_contract::okf::OkfBundleImportResult {
-        imported_concept_count: result.imported_concept_count,
-        skipped_files: result.skipped_files,
-    })
+        .map_err(ApiError::from)
 }
 
 pub(crate) fn okf_paths() -> OkfBundlePaths {
@@ -175,17 +254,64 @@ pub(crate) fn okf_bundle_not_initialized_detail() -> String {
     "no okf-bundle-initialized knowledge space is available for this tenant".to_string()
 }
 
+fn okf_bundle_workflow_deps(
+    runtime: &crate::runtime::KnowledgebaseRuntime,
+) -> OkfBundleWorkflowDeps<'_> {
+    OkfBundleWorkflowDeps {
+        concepts: runtime.okf_concept_store(),
+        drive: runtime.drive_storage(),
+        space_store: runtime.space_store(),
+        source_store: runtime.source_store(),
+        link_store: Some(runtime.okf_concept_link_store()),
+        bundle_file_store: Some(runtime.okf_bundle_file_store()),
+        engine: Some(runtime.knowledge_engines()),
+    }
+}
+
+pub(crate) async fn run_okf_compile_workflow_for_space(
+    runtime: &crate::runtime::KnowledgebaseRuntime,
+    space_id: u64,
+    source_id: Option<u64>,
+    actor: &str,
+) -> Result<(), ApiError> {
+    runtime
+        .resolve_okf_bundle_engine_for_space(space_id)
+        .await?;
+    run_okf_compile_workflow(
+        okf_bundle_workflow_deps(runtime),
+        space_id,
+        source_id,
+        actor,
+    )
+    .await
+    .map_err(ApiError::from)
+}
+
+pub(crate) async fn run_okf_eval_workflow_for_space(
+    runtime: &crate::runtime::KnowledgebaseRuntime,
+    space_id: u64,
+    actor: &str,
+) -> Result<OkfBundleLintResult, ApiError> {
+    runtime
+        .resolve_okf_bundle_engine_for_space(space_id)
+        .await?;
+    run_okf_eval_workflow(okf_bundle_workflow_deps(runtime), space_id, actor)
+        .await
+        .map_err(ApiError::from)
+}
+
 pub(crate) async fn run_okf_bundle_lint(
     runtime: &crate::runtime::KnowledgebaseRuntime,
     space_id: u64,
 ) -> Result<OkfBundleLintResult, ApiError> {
-    let report = OkfBundleLinterService::new(runtime.drive_storage(), runtime.okf_concept_store())
-        .with_link_store(runtime.okf_concept_link_store())
-        .with_source_store(runtime.source_store())
-        .lint_space(space_id)
+    runtime
+        .resolve_okf_bundle_engine_for_space(space_id)
+        .await?;
+    runtime
+        .knowledge_engines()
+        .lint_okf_bundle_report(space_id)
         .await
-        .map_err(|error| ApiError::internal("okf_bundle_lint_failed", error.to_string()))?;
-    Ok(to_contract_lint_result(&report))
+        .map_err(|error| ApiError::internal("okf_bundle_lint_failed", error.to_string()))
 }
 
 pub(crate) async fn rebuild_okf_index_document(
@@ -254,40 +380,22 @@ pub(crate) async fn create_okf_bundle_export(
     runtime: &crate::runtime::KnowledgebaseRuntime,
     request: OkfBundleExportRequest,
 ) -> Result<KnowledgeOkfBundleFile, ApiError> {
-    if request.space_id == 0 || request.export_type.trim().is_empty() {
+    if request.space_id == 0 || is_blank(Some(request.export_type.as_str())) {
         return Err(ApiError::invalid_request(
             "invalid_okf_export_request",
             "space_id and export_type are required",
         ));
     }
-    let source_object_refs = if request.export_type.trim() == "okf_with_sources" {
-        runtime
-            .object_ref_store()
-            .list_object_refs_by_logical_path_prefix(request.space_id, "sources/raw/")
-            .await
-            .map_err(|error| ApiError::internal("okf_export_failed", error.to_string()))?
-    } else {
-        Vec::new()
-    };
-    let exported =
-        OkfBundleExporterService::new(runtime.drive_storage(), runtime.okf_concept_store())
-            .with_source_object_refs(source_object_refs)
-            .export_bundle(ExportOkfBundleRequest {
-                space_id: request.space_id,
-                export_type: request.export_type,
-            })
-            .await
-            .map_err(|error| ApiError::internal("okf_export_failed", error.to_string()))?;
+    runtime
+        .resolve_okf_bundle_engine_for_space(request.space_id)
+        .await?;
     let file_entry = runtime
-        .okf_bundle_file_store()
-        .create_file_entry(CreateKnowledgeOkfBundleFileRecord {
+        .knowledge_engines()
+        .export_okf_bundle(OkfBundleExportRequest {
             space_id: request.space_id,
-            logical_path: exported.manifest_path,
-            file_kind: OkfBundleFileKind::OutputExport,
-            artifact_role: exported.manifest_ref.object_role.clone(),
-            drive_bucket: exported.manifest_ref.bucket.clone(),
-            drive_object_key: exported.manifest_ref.object_key.clone(),
-            checksum_sha256_hex: exported.manifest_ref.checksum_sha256_hex.clone(),
+            export_type: request.export_type.clone(),
+            stage_for_import: false,
+            import_id: None,
         })
         .await
         .map_err(|error| ApiError::internal("okf_export_failed", error.to_string()))?;
@@ -295,6 +403,19 @@ pub(crate) async fn create_okf_bundle_export(
     let mut staged_import_root = None;
     let mut response_import_id = None;
     if request.stage_for_import {
+        let export_root = file_entry
+            .logical_path
+            .strip_suffix("/export_manifest.yaml")
+            .ok_or_else(|| {
+                ApiError::internal(
+                    "okf_export_stage_failed",
+                    format!(
+                        "export manifest path does not end with /export_manifest.yaml: {}",
+                        file_entry.logical_path
+                    ),
+                )
+            })?
+            .to_string();
         let import_id = request
             .import_id
             .as_deref()
@@ -305,7 +426,7 @@ pub(crate) async fn create_okf_bundle_export(
         let staged =
             sdkwork_intelligence_knowledgebase_service::okf::stage_export_bundle_for_drive_import(
                 runtime.drive_storage(),
-                &exported.export_root,
+                &export_root,
                 request.space_id,
                 &import_id,
             )
@@ -345,7 +466,7 @@ pub(crate) async fn create_okf_bundle_import(
     request: OkfBundleImportRequest,
     actor: &str,
 ) -> Result<OkfBundleImportResult, ApiError> {
-    if request.space_id == 0 || request.import_type.trim().is_empty() {
+    if request.space_id == 0 || is_blank(Some(request.import_type.as_str())) {
         return Err(ApiError::invalid_request(
             "invalid_okf_import_request",
             "space_id and import_type are required",
@@ -358,16 +479,14 @@ pub(crate) async fn create_okf_bundle_import(
             format!("unsupported import_type: {import_type}"),
         ));
     }
-    let publish = import_type == "okf_strict";
-    let space_id = request.space_id;
-    let files = load_import_bundle_from_drive(
-        runtime.drive_storage(),
-        space_id,
-        request.import_id.as_deref(),
-    )
-    .await
-    .map_err(|error| ApiError::internal("okf_import_failed", error.to_string()))?;
-    import_okf_bundle(runtime, space_id, actor, publish, files).await
+    runtime
+        .resolve_okf_bundle_engine_for_space(request.space_id)
+        .await?;
+    runtime
+        .knowledge_engines()
+        .import_okf_bundle_for_actor(request, actor)
+        .await
+        .map_err(ApiError::from)
 }
 
 pub(crate) async fn create_okf_lint_run(

@@ -16,6 +16,7 @@ packages:
   - "../../../sdkwork-appbase/sdks/sdkwork-appbase-backend-sdk/sdkwork-appbase-backend-sdk-typescript/generated/server-openapi"
   - "../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript"
   - "../../../sdkwork-core/sdkwork-core-pc-react"
+  - "../../../sdkwork-utils/packages/sdkwork-utils-typescript"
 
 catalog:
   "@types/react": "^19.0.0"

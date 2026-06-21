@@ -13,6 +13,7 @@ use crate::ports::knowledge_okf_concept_store::{
 };
 use crate::ports::knowledge_source_store::{KnowledgeSourceStore, KnowledgeSourceStoreError};
 use sdkwork_knowledgebase_contract::okf::{OkfBundleLintResult, OkfBundlePaths};
+use std::collections::BTreeSet;
 use thiserror::Error;
 
 pub struct OkfBundleLinterService<'a> {
@@ -98,12 +99,9 @@ impl<'a> OkfBundleLinterService<'a> {
 
         let orphan_concept_ids = if let Some(link_store) = self.link_store {
             let mut orphans = link_store.list_orphan_concept_ids(space_id, &known).await?;
-            let index_roots =
-                match read_managed_markdown(self.drive, OkfBundlePaths::default().index_md).await {
-                    Ok(index_markdown) => extract_index_linked_concept_ids(&index_markdown, &known),
-                    Err(_) => Default::default(),
-                };
-            orphans.retain(|concept_id| !index_roots.contains(concept_id));
+            let index_linked_concepts =
+                self.read_all_index_linked_concepts(&concepts, &known).await;
+            orphans.retain(|concept_id| !index_linked_concepts.contains(concept_id));
             orphans
         } else {
             Vec::new()
@@ -111,6 +109,42 @@ impl<'a> OkfBundleLinterService<'a> {
         issues.extend(lint_bundle_summaries(&concepts, &orphan_concept_ids).issues);
         Ok(OkfBundleLintReport { issues })
     }
+
+    async fn read_all_index_linked_concepts(
+        &self,
+        concepts: &[sdkwork_knowledgebase_contract::okf::OkfConceptSummary],
+        known: &[String],
+    ) -> BTreeSet<String> {
+        let mut linked = BTreeSet::new();
+        for logical_path in hierarchical_index_paths(concepts) {
+            if let Ok(index_markdown) = read_managed_markdown(self.drive, &logical_path).await {
+                linked.extend(extract_index_linked_concept_ids(&index_markdown, known));
+            }
+        }
+        linked
+    }
+}
+
+fn hierarchical_index_paths(
+    concepts: &[sdkwork_knowledgebase_contract::okf::OkfConceptSummary],
+) -> BTreeSet<String> {
+    let mut paths = BTreeSet::new();
+    paths.insert(OkfBundlePaths::default().index_md.to_string());
+    for concept in concepts {
+        let mut directory = concept
+            .bundle_relative_path
+            .trim()
+            .trim_end_matches(".md")
+            .rsplit_once('/')
+            .map(|(parent, _)| parent.to_string());
+        while let Some(current) = directory {
+            paths.insert(format!("okf/{current}/index.md"));
+            directory = current
+                .rsplit_once('/')
+                .map(|(parent, _)| parent.to_string());
+        }
+    }
+    paths
 }
 
 pub fn to_contract_lint_result(report: &OkfBundleLintReport) -> OkfBundleLintResult {
@@ -144,4 +178,28 @@ pub enum OkfBundleLinterError {
     LinkStore(#[from] KnowledgeOkfConceptLinkStoreError),
     #[error(transparent)]
     SourceStore(#[from] KnowledgeSourceStoreError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hierarchical_index_paths_include_parent_directories() {
+        let concepts = vec![sdkwork_knowledgebase_contract::okf::OkfConceptSummary {
+            title: "Users".to_string(),
+            concept_id: "tables/users".to_string(),
+            concept_type: "Entity".to_string(),
+            logical_path: "okf/tables/users.md".to_string(),
+            bundle_relative_path: "tables/users.md".to_string(),
+            description: "Users table".to_string(),
+            source_count: 1,
+            updated_at: "2026-06-20T00:00:00Z".to_string(),
+            tags: vec![],
+        }];
+
+        let paths = hierarchical_index_paths(&concepts);
+        assert!(paths.contains("okf/index.md"));
+        assert!(paths.contains("okf/tables/index.md"));
+    }
 }

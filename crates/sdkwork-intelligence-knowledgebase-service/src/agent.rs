@@ -10,6 +10,7 @@ use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentProfileRequest, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
     KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
 };
+use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 
 pub struct KnowledgeAgentService<'a> {
@@ -185,22 +186,22 @@ fn validate_profile_request(
             "tenant_id is required".to_string(),
         ));
     }
-    if request.name.trim().is_empty() {
+    if is_blank(Some(request.name.as_str())) {
         return Err(KnowledgeAgentServiceError::InvalidRequest(
             "name is required".to_string(),
         ));
     }
-    if request.system_instruction.trim().is_empty() {
+    if is_blank(Some(request.system_instruction.as_str())) {
         return Err(KnowledgeAgentServiceError::InvalidRequest(
             "system_instruction is required".to_string(),
         ));
     }
-    if request.model_provider_id.trim().is_empty() {
+    if is_blank(Some(request.model_provider_id.as_str())) {
         return Err(KnowledgeAgentServiceError::InvalidRequest(
             "model_provider_id is required".to_string(),
         ));
     }
-    if request.model_id.trim().is_empty() {
+    if is_blank(Some(request.model_id.as_str())) {
         return Err(KnowledgeAgentServiceError::InvalidRequest(
             "model_id is required".to_string(),
         ));

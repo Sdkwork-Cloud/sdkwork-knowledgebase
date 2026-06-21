@@ -303,7 +303,7 @@ async fn default_registry_registers_native_engines() {
     });
 
     let descriptors = engines.list_registered();
-    assert_eq!(descriptors.len(), 11);
+    assert_eq!(descriptors.len(), 4);
 
     let okf = engines
         .resolve_for_mode(KnowledgeAgentKnowledgeMode::OkfBundle)

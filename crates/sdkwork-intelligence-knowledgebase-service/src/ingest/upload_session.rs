@@ -11,6 +11,7 @@ use sdkwork_knowledgebase_contract::upload::{
     CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
     KnowledgeUploadSession, KnowledgeUploadSessionStatus,
 };
+use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 
@@ -33,7 +34,7 @@ impl<'a> KnowledgeUploadSessionService<'a> {
                 "space_id is required".to_string(),
             ));
         }
-        if request.title.trim().is_empty() {
+        if is_blank(Some(request.title.as_str())) {
             return Err(KnowledgeUploadSessionServiceError::InvalidRequest(
                 "title is required".to_string(),
             ));
@@ -71,7 +72,7 @@ impl<'a> KnowledgeUploadSessionService<'a> {
         request: &CompleteKnowledgeUploadSessionRequest,
     ) -> Result<String, KnowledgeUploadSessionServiceError> {
         if let Some(payload_markdown) = &request.payload_markdown {
-            if payload_markdown.trim().is_empty() {
+            if is_blank(Some(payload_markdown)) {
                 return Err(KnowledgeUploadSessionServiceError::InvalidRequest(
                     "payload_markdown must not be empty when provided".to_string(),
                 ));

@@ -1,3 +1,4 @@
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 export class AIService {
   static async handleAIAction(action: string, text: string, context: string, customPrompt?: string): Promise<string> {
     try {

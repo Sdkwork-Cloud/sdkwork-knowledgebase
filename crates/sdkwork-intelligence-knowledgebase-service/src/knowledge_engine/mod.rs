@@ -15,7 +15,9 @@ pub use kernel_bridge::{
 pub use space_resolver::KnowledgeEngineSpaceResolver;
 
 pub use external_catalog::{load_external_engines_from_catalog, CatalogExternalKnowledgeEngine};
-pub use external_connector::resolve_connector_dataset_id_for_space;
+pub use external_connector::{
+    resolve_connector_dataset_id_for_space, resolve_connector_workspace_slug_for_space,
+};
 pub use okf_native::{OkfNativeKnowledgeEngine, OkfNativeKnowledgeEngineDeps};
 pub use okf_search::{normalize_query, rank_okf_concept, rank_okf_concepts};
 pub use rag_native::{RagIndexRebuildDeps, RagNativeKnowledgeEngine};
@@ -70,6 +72,95 @@ impl DefaultKnowledgeEngineRegistry {
 
     pub async fn rebuild_okf_index(&self, space_id: u64) -> Result<(), KnowledgeEngineError> {
         OkfBundleEngine::rebuild_index(self.okf_native.as_ref(), space_id).await
+    }
+
+    pub async fn lint_okf_bundle_report(
+        &self,
+        space_id: u64,
+    ) -> Result<sdkwork_knowledgebase_contract::okf::OkfBundleLintResult, KnowledgeEngineError>
+    {
+        use crate::ports::knowledge_engine::OkfBundleEngine;
+
+        OkfBundleEngine::lint_bundle_report(self.okf_native.as_ref(), space_id).await
+    }
+
+    pub async fn import_okf_bundle_for_actor(
+        &self,
+        request: sdkwork_knowledgebase_contract::okf::OkfBundleImportRequest,
+        actor: &str,
+    ) -> Result<sdkwork_knowledgebase_contract::okf::OkfBundleImportResult, KnowledgeEngineError>
+    {
+        self.okf_native
+            .import_bundle_for_actor(request, actor)
+            .await
+    }
+
+    pub async fn export_okf_bundle(
+        &self,
+        request: sdkwork_knowledgebase_contract::okf::OkfBundleExportRequest,
+    ) -> Result<
+        sdkwork_knowledgebase_contract::okf_bundle_file::KnowledgeOkfBundleFile,
+        KnowledgeEngineError,
+    > {
+        use crate::ports::knowledge_engine::OkfBundleEngine;
+
+        OkfBundleEngine::export_bundle(self.okf_native.as_ref(), request).await
+    }
+
+    pub async fn list_okf_concepts(
+        &self,
+        space_id: u64,
+    ) -> Result<Vec<sdkwork_knowledgebase_contract::okf::OkfConceptSummary>, KnowledgeEngineError>
+    {
+        use crate::ports::knowledge_engine::OkfBundleEngine;
+
+        OkfBundleEngine::list_concepts(self.okf_native.as_ref(), space_id).await
+    }
+
+    pub async fn upsert_okf_concept(
+        &self,
+        request: sdkwork_knowledgebase_contract::okf::OkfConceptUpsertRequest,
+    ) -> Result<sdkwork_knowledgebase_contract::okf::KnowledgeOkfConcept, KnowledgeEngineError>
+    {
+        use crate::ports::knowledge_engine::OkfBundleEngine;
+
+        OkfBundleEngine::upsert_concept(self.okf_native.as_ref(), request).await
+    }
+
+    pub async fn publish_okf_concept(
+        &self,
+        request: sdkwork_knowledgebase_contract::okf::PublishKnowledgeOkfConceptRequest,
+    ) -> Result<
+        sdkwork_knowledgebase_contract::okf::KnowledgeOkfConceptPublication,
+        KnowledgeEngineError,
+    > {
+        use crate::ports::knowledge_engine::OkfBundleEngine;
+
+        OkfBundleEngine::publish_concept(self.okf_native.as_ref(), request).await
+    }
+
+    pub async fn publish_okf_existing_revision(
+        &self,
+        request: crate::okf::PublishExistingOkfConceptRevisionRequest,
+        drive_space_id: Option<&str>,
+    ) -> Result<
+        sdkwork_knowledgebase_contract::okf::KnowledgeOkfConceptPublication,
+        KnowledgeEngineError,
+    > {
+        self.okf_native
+            .publish_existing_revision(request, drive_space_id)
+            .await
+    }
+
+    pub async fn import_okf_bundle_files(
+        &self,
+        request: crate::okf::ImportOkfBundleRequest,
+        drive_space_id: Option<&str>,
+    ) -> Result<sdkwork_knowledgebase_contract::okf::OkfBundleImportResult, KnowledgeEngineError>
+    {
+        self.okf_native
+            .import_bundle_files(request, drive_space_id)
+            .await
     }
 
     pub async fn rebuild_rag_index(&self, space_id: u64) -> Result<usize, KnowledgeEngineError> {
@@ -230,5 +321,20 @@ pub fn build_default_registry(deps: KnowledgeEngineRuntimeDeps) -> DefaultKnowle
         okf_native,
         rag_native,
         tenant_id: deps.tenant_id,
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::okf::OkfBundleWorkflowEngine for DefaultKnowledgeEngineRegistry {
+    async fn rebuild_index(&self, space_id: u64) -> Result<(), KnowledgeEngineError> {
+        self.rebuild_okf_index(space_id).await
+    }
+
+    async fn lint_bundle_report(
+        &self,
+        space_id: u64,
+    ) -> Result<sdkwork_knowledgebase_contract::okf::OkfBundleLintResult, KnowledgeEngineError>
+    {
+        self.lint_okf_bundle_report(space_id).await
     }
 }

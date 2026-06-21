@@ -7,12 +7,13 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
 };
 use sdkwork_knowledgebase_contract::okf::{
-    KnowledgeOkfConcept, OkfBundleExportRequest, OkfBundleImportRequest, OkfConceptSummary,
-    OkfConceptUpsertRequest, PublishKnowledgeOkfConceptRequest,
+    KnowledgeOkfConcept, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleLintResult,
+    OkfConceptSummary, OkfConceptUpsertRequest, PublishKnowledgeOkfConceptRequest,
 };
 use sdkwork_knowledgebase_contract::okf_bundle_file::KnowledgeOkfBundleFile;
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::OkfBundleFileKind;
+use sdkwork_utils_rust::is_blank;
 use std::sync::Arc;
 
 use crate::okf::{
@@ -111,6 +112,76 @@ impl OkfNativeKnowledgeEngine {
             .await
             .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
         Ok(space.drive_space_id)
+    }
+
+    pub async fn import_bundle_for_actor(
+        &self,
+        request: OkfBundleImportRequest,
+        actor: &str,
+    ) -> Result<sdkwork_knowledgebase_contract::okf::OkfBundleImportResult, KnowledgeEngineError>
+    {
+        if request.space_id == 0 || is_blank(Some(request.import_type.as_str())) {
+            return Err(KnowledgeEngineError::Validation(
+                "space_id and import_type are required".to_string(),
+            ));
+        }
+        let import_type = request.import_type.trim();
+        if import_type != "okf_strict" && import_type != "okf_bundle" {
+            return Err(KnowledgeEngineError::Validation(format!(
+                "unsupported import_type: {import_type}"
+            )));
+        }
+        let publish = import_type == "okf_strict";
+        let drive_space_id = self.drive_space_id(request.space_id).await?;
+        let files = load_import_bundle_from_drive(
+            self.deps.drive.as_ref(),
+            request.space_id,
+            request.import_id.as_deref(),
+        )
+        .await
+        .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+
+        self.import_bundle_files(
+            ImportOkfBundleRequest {
+                space_id: request.space_id,
+                actor: actor.to_string(),
+                publish,
+                files,
+            },
+            drive_space_id.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn import_bundle_files(
+        &self,
+        request: ImportOkfBundleRequest,
+        drive_space_id: Option<&str>,
+    ) -> Result<sdkwork_knowledgebase_contract::okf::OkfBundleImportResult, KnowledgeEngineError>
+    {
+        let result = OkfBundleImporterService::new(self.concept_service())
+            .import_bundle(request, drive_space_id)
+            .await
+            .map_err(map_importer_error)?;
+
+        Ok(sdkwork_knowledgebase_contract::okf::OkfBundleImportResult {
+            imported_concept_count: result.imported_concept_count,
+            skipped_files: result.skipped_files,
+        })
+    }
+
+    pub async fn publish_existing_revision(
+        &self,
+        request: crate::okf::PublishExistingOkfConceptRevisionRequest,
+        drive_space_id: Option<&str>,
+    ) -> Result<
+        sdkwork_knowledgebase_contract::okf::KnowledgeOkfConceptPublication,
+        KnowledgeEngineError,
+    > {
+        self.concept_service()
+            .publish_existing_revision(request, drive_space_id)
+            .await
+            .map_err(map_concept_service_error)
     }
 }
 
@@ -272,7 +343,10 @@ impl OkfBundleEngine for OkfNativeKnowledgeEngine {
             .map_err(map_concept_service_error)
     }
 
-    async fn lint_bundle(&self, space_id: u64) -> Result<(), KnowledgeEngineError> {
+    async fn lint_bundle_report(
+        &self,
+        space_id: u64,
+    ) -> Result<OkfBundleLintResult, KnowledgeEngineError> {
         let report =
             OkfBundleLinterService::new(self.deps.drive.as_ref(), self.deps.concepts.as_ref())
                 .with_link_store(self.deps.link_store.as_ref())
@@ -280,15 +354,7 @@ impl OkfBundleEngine for OkfNativeKnowledgeEngine {
                 .lint_space(space_id)
                 .await
                 .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        let lint_result = to_contract_lint_result(&report);
-        if lint_result.conformance != "pass" {
-            return Err(KnowledgeEngineError::Validation(format!(
-                "okf bundle lint failed with {} issue(s)",
-                lint_result.issues.len()
-            )));
-        }
-        Ok(())
+        Ok(to_contract_lint_result(&report))
     }
 
     async fn import_bundle(
@@ -296,51 +362,14 @@ impl OkfBundleEngine for OkfNativeKnowledgeEngine {
         request: OkfBundleImportRequest,
     ) -> Result<sdkwork_knowledgebase_contract::okf::OkfBundleImportResult, KnowledgeEngineError>
     {
-        if request.space_id == 0 || request.import_type.trim().is_empty() {
-            return Err(KnowledgeEngineError::Validation(
-                "space_id and import_type are required".to_string(),
-            ));
-        }
-        let import_type = request.import_type.trim();
-        if import_type != "okf_strict" && import_type != "okf_bundle" {
-            return Err(KnowledgeEngineError::Validation(format!(
-                "unsupported import_type: {import_type}"
-            )));
-        }
-        let publish = import_type == "okf_strict";
-        let drive_space_id = self.drive_space_id(request.space_id).await?;
-        let files = load_import_bundle_from_drive(
-            self.deps.drive.as_ref(),
-            request.space_id,
-            request.import_id.as_deref(),
-        )
-        .await
-        .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        let result = OkfBundleImporterService::new(self.concept_service())
-            .import_bundle(
-                ImportOkfBundleRequest {
-                    space_id: request.space_id,
-                    actor: SPI_ACTOR.to_string(),
-                    publish,
-                    files,
-                },
-                drive_space_id.as_deref(),
-            )
-            .await
-            .map_err(map_importer_error)?;
-
-        Ok(sdkwork_knowledgebase_contract::okf::OkfBundleImportResult {
-            imported_concept_count: result.imported_concept_count,
-            skipped_files: result.skipped_files,
-        })
+        self.import_bundle_for_actor(request, SPI_ACTOR).await
     }
 
     async fn export_bundle(
         &self,
         request: OkfBundleExportRequest,
     ) -> Result<KnowledgeOkfBundleFile, KnowledgeEngineError> {
-        if request.space_id == 0 || request.export_type.trim().is_empty() {
+        if request.space_id == 0 || is_blank(Some(request.export_type.as_str())) {
             return Err(KnowledgeEngineError::Validation(
                 "space_id and export_type are required".to_string(),
             ));

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { createPortal } from 'react-dom';
 import { 
   X, Search, Library, Folder, FileText, Hash, Image as ImageIcon, 
@@ -84,7 +85,7 @@ export function PersonalKbModal({ isOpen, onClose, onConfirm }: PersonalKbModalP
 
   // Filtered by Search Query
   const displayedFiles = useMemo(() => {
-    if (!searchQuery.trim()) return flatFiles;
+    if (isBlank(searchQuery)) return flatFiles;
     const query = searchQuery.toLowerCase().trim();
     return flatFiles.filter(f => f.title.toLowerCase().includes(query));
   }, [flatFiles, searchQuery]);

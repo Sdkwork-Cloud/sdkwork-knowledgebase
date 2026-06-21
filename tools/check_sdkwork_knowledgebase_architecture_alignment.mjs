@@ -110,6 +110,7 @@ assert(
   cargoToml.includes('sdkwork-intelligence-knowledgebase-repository-sqlx'),
   'Cargo.toml must include repository-sqlx crate',
 );
+assert(cargoToml.includes('sdkwork-utils-rust'), 'Cargo.toml must declare sdkwork-utils-rust');
 assert(!cargoToml.includes('sdkwork-discovery'), 'sdkwork-discovery is not required until RPC services exist');
 
 const workflow = readJson('sdkwork.workflow.json');
@@ -118,6 +119,7 @@ for (const dependencyId of [
   'sdkwork-appbase',
   'sdkwork-database',
   'sdkwork-web-framework',
+  'sdkwork-utils',
   'sdkwork-sdk-generator',
   'sdkwork-app-topology',
   'sdkwork-drive',
@@ -190,6 +192,24 @@ assert(
   'repository-sqlx sqlx dependency must enable migrate feature',
 );
 
+const serviceToml = readText('crates/sdkwork-intelligence-knowledgebase-service/Cargo.toml');
+assert(
+  serviceToml.includes('sdkwork-utils-rust'),
+  'service crate must depend on sdkwork-utils-rust for shared utility helpers',
+);
+
+const repositorySqlxUtilsToml = readText('crates/sdkwork-intelligence-knowledgebase-repository-sqlx/Cargo.toml');
+assert(
+  repositorySqlxUtilsToml.includes('sdkwork-utils-rust'),
+  'repository-sqlx crate must depend on sdkwork-utils-rust',
+);
+
+const agentProviderToml = readText('crates/sdkwork-knowledgebase-agent-provider/Cargo.toml');
+assert(
+  agentProviderToml.includes('sdkwork-utils-rust'),
+  'agent-provider crate must depend on sdkwork-utils-rust',
+);
+
 const repositoryBootstrap = readText(
   'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs',
 );
@@ -207,6 +227,7 @@ const sdkDependencyIds = new Set((componentSpec.contracts?.sdkDependencies ?? []
 for (const workspace of [
   'sdkwork-web-framework',
   'sdkwork-database',
+  'sdkwork-utils',
   'sdkwork-appbase',
   'sdkwork-id',
   'sdkwork-sdk-generator',

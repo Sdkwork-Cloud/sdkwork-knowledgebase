@@ -1,3 +1,4 @@
+use sdkwork_utils_rust::is_blank;
 use std::sync::Arc;
 
 use clawrouter_open_sdk::{OpenAiEmbeddingsRequest, SdkworkAiClient, SdkworkError};
@@ -31,7 +32,7 @@ impl ClawRouterEmbeddingClient {
         }
 
         let model = model_id
-            .filter(|value| !value.trim().is_empty())
+            .filter(|value| !is_blank(Some(value)))
             .unwrap_or(self.default_model_id.as_str())
             .to_string();
         let request = OpenAiEmbeddingsRequest {

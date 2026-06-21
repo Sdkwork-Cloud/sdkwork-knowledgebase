@@ -1,9 +1,10 @@
 import type { DocumentExportContent, DocumentExportContentProvider, DocumentExportSourceKind } from './types';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 
 export const DEFAULT_EXPORT_TITLE = '无标题';
 
 export function stripHtmlText(html: string): string {
-  if (!html.trim()) {
+  if (isBlank(html)) {
     return '';
   }
   const doc = new DOMParser().parseFromString(html, 'text/html');

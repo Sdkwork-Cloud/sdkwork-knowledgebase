@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { Send, Mic, Plus } from 'lucide-react';
 import { DocumentMeta } from './services/document';
 
@@ -85,7 +86,7 @@ export function AiAssistantInput({
             </button>
 
             <button 
-              disabled={!isTyping && !inputValue.trim()}
+              disabled={!isTyping && isBlank(inputValue)}
               onClick={isTyping ? handleAbort : handleSend}
               className={`w-[26px] h-[26px] flex items-center justify-center rounded-[6px] transition-all flex-shrink-0 disabled:opacity-40 disabled:scale-100 active:scale-95 cursor-pointer border-0 ${
                 isTyping 

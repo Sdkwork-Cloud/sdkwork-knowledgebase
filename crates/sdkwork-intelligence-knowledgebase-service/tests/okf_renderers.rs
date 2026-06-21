@@ -17,6 +17,8 @@ fn agents_md_names_okf_layers_and_drive_storage() {
     assert!(content.contains("okf/index.md"));
     assert!(content.contains("schema"));
     assert!(content.contains("ingest"));
+    assert!(content.contains("compile"));
+    assert!(content.contains("eval"));
     assert!(content.contains("query"));
     assert!(content.contains("lint"));
     assert!(content.contains("sdkwork-drive"));
@@ -28,8 +30,11 @@ fn okf_profile_yaml_declares_workflows_and_standard_paths() {
 
     assert!(content.contains("workflows:"));
     assert!(content.contains("ingest"));
+    assert!(content.contains("compile"));
+    assert!(content.contains("eval"));
     assert!(content.contains("query"));
     assert!(content.contains("lint"));
+    assert!(content.contains("refresh_standard_files"));
     assert!(content.contains("okfVersion: \"0.1\""));
     assert!(content.contains("bundleRoot: \"okf\""));
     assert!(content.contains("index: \"index.md\""));
@@ -53,9 +58,8 @@ fn index_md_renders_categories_and_okf_links() {
     let content = render_index_md("Research Space", &pages);
 
     assert!(content.contains("okf_version: \"0.1\""));
-    assert!(content.contains("## Entities"));
-    assert!(content.contains("* [Entity Name](entities/entity-name.md)"));
-    assert!(content.contains("One-line entity summary."));
+    assert!(content.contains("## Sections"));
+    assert!(content.contains("* [Entities](/entities/index.md)"));
 }
 
 #[test]
@@ -86,7 +90,17 @@ async fn standard_files_are_persisted_through_drive_port() {
     let refs = service
         .persist_standard_files(PersistStandardFilesRequest {
             space_name: "Research Space".to_string(),
-            concepts: vec![],
+            concepts: vec![OkfConceptSummary {
+                title: "Entity Name".to_string(),
+                concept_id: "entities/entity-name".to_string(),
+                concept_type: "Entity".to_string(),
+                logical_path: "okf/entities/entity-name.md".to_string(),
+                bundle_relative_path: "entities/entity-name.md".to_string(),
+                description: "One-line entity summary.".to_string(),
+                source_count: 4,
+                updated_at: "2026-06-01T00:00:00Z".to_string(),
+                tags: vec!["entity".to_string()],
+            }],
             log_entries: vec![],
         })
         .await
@@ -105,6 +119,7 @@ async fn standard_files_are_persisted_through_drive_port() {
             "okf/schema/AGENTS.md",
             "okf/schema/okf_profile.yaml",
             "okf/index.md",
+            "okf/entities/index.md",
             "okf/log.md"
         ]
     );

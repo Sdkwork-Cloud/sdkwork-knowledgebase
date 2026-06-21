@@ -6,7 +6,7 @@
   "category": "retrieval_framework",
   "implementationId": "engine.knowledge.external.haystack",
   "agentProviderId": "provider.knowledge.external.haystack",
-  "integrationTier": "catalog",
+  "integrationTier": "adapter",
   "upstream": {
     "repositoryUrl": "https://github.com/deepset-ai/haystack",
     "defaultBranch": "main",

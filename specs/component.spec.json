@@ -119,6 +119,11 @@
         "required": true
       },
       {
+        "workspace": "sdkwork-utils",
+        "role": "cross-language-generic-utility-helpers",
+        "required": true
+      },
+      {
         "workspace": "sdkwork-appbase",
         "role": "appbase-identity-and-session-capability",
         "required": true

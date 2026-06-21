@@ -18,6 +18,7 @@ use sdkwork_knowledgebase_contract::agent_chat::{
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalRequest;
 use sdkwork_knowledgebase_contract::resolve_agent_implementation_id;
+use sdkwork_utils_rust::is_blank;
 use std::sync::Arc;
 use thiserror::Error;
 use uuid::Uuid;
@@ -79,7 +80,7 @@ where
                 "tenant_id is required".to_string(),
             ));
         }
-        if request.message.trim().is_empty() {
+        if is_blank(Some(request.message.as_str())) {
             return Err(KnowledgeAgentChatServiceError::InvalidRequest(
                 "message is required".to_string(),
             ));
@@ -174,7 +175,7 @@ where
         let model_provider_id = request
             .model_provider_id
             .clone()
-            .filter(|value| !value.trim().is_empty())
+            .filter(|value| !is_blank(Some(value.as_str())))
             .unwrap_or_else(|| profile.model_provider_id.clone());
         let agent_implementation_id = resolve_agent_implementation_id(
             request.agent_implementation_id.as_deref(),
@@ -187,7 +188,7 @@ where
         let model_id = request
             .model_id
             .clone()
-            .filter(|value| !value.trim().is_empty())
+            .filter(|value| !is_blank(Some(value.as_str())))
             .unwrap_or_else(|| profile.model_id.clone());
 
         let chat_id = format!("chat.{}", Uuid::new_v4());
@@ -232,7 +233,7 @@ where
             chat_request = chat_request.for_session(session_id.clone());
         }
 
-        if !profile.system_instruction.trim().is_empty() {
+        if !is_blank(Some(profile.system_instruction.as_str())) {
             chat_request = chat_request.with_metadata(
                 "sdkwork.knowledge.system_instruction",
                 profile.system_instruction.clone(),
@@ -372,7 +373,15 @@ mod tests {
         assert_eq!(response.citations.len(), 1);
         assert_eq!(
             response.citations[0].logical_path.as_deref(),
-            Some("okf/concepts/rag-boundary.md")
+            Some("7/concepts/rag-boundary")
+        );
+        assert_eq!(
+            response.citations[0].concept_id.as_deref(),
+            Some("concepts/rag-boundary")
+        );
+        assert_eq!(
+            response.citations[0].locator.as_deref(),
+            Some("okf:7:concepts/rag-boundary")
         );
         assert!(response.answer.contains("RAG Boundary"));
     }

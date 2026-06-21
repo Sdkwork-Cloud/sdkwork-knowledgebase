@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { Copy, PlusCircle, RotateCcw } from 'lucide-react';
 import type {
   SearchMediaTab,
@@ -62,7 +63,7 @@ export function SearchMessageItem({
 
   /** Citations & follow-ups only after streaming finishes — avoids flicker and partial parsing */
   const isResponseComplete =
-    !message.isSearching && !isStreaming && message.content.trim().length > 0;
+    !message.isSearching && !isStreaming && !isBlank(message.content);
 
   const handleCitationClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = (e.target as HTMLElement).closest('[data-citation]') as HTMLElement | null;

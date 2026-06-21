@@ -1,3 +1,4 @@
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 export type SdkworkEnvironment = 'development' | 'test' | 'staging' | 'production';
 export type SdkworkConfigProfile = 'dev' | 'test' | 'staging' | 'prod';
 export type SdkworkBuildMode = 'development' | 'test' | 'staging' | 'production';

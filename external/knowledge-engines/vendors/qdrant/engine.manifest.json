@@ -6,7 +6,7 @@
   "category": "vector_store",
   "implementationId": "engine.knowledge.external.qdrant",
   "agentProviderId": "provider.knowledge.external.qdrant",
-  "integrationTier": "catalog",
+  "integrationTier": "adapter",
   "upstream": {
     "repositoryUrl": "https://github.com/qdrant/qdrant",
     "defaultBranch": "master",

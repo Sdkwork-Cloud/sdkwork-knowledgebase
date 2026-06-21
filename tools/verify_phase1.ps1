@@ -217,6 +217,7 @@ foreach ($package in $packages) {
 }
 
 Invoke-Checked cargo test --workspace
+Invoke-Checked node tools/check_okf_knowledge_bundle_standard.mjs
 Invoke-Checked powershell -ExecutionPolicy Bypass -File tools/verify_openapi_operation_ids.ps1
 
 $okfKnowledgeBundle = Get-Content -Raw docs/okf-knowledge-bundle.md
