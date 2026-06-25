@@ -103,10 +103,34 @@
       "sdkwork-knowledgebase-app-api",
       "sdkwork-knowledgebase-backend-api",
       "sdkwork-knowledgebase-open-api",
-      "crates/sdkwork-router-knowledgebase-app-api/src/runtime.rs"
+      "sdkwork-knowledgebase-worker",
+      "crates/sdkwork-router-knowledgebase-app-api/src/runtime.rs",
+      "crates/sdkwork-router-knowledgebase-backend-api/src/routes.rs",
+      "crates/sdkwork-router-knowledgebase-open-api/src/routes.rs"
+    ],
+    "routeManifests": [
+      "sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json",
+      "sdks/_route-manifests/backend-api/sdkwork-router-knowledgebase-backend-api.route-manifest.json",
+      "sdks/_route-manifests/open-api/sdkwork-router-knowledgebase-open-api.route-manifest.json"
     ],
     "routeManifest": "sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json",
-    "sdkClients": [],
+    "sdkClients": [
+      {
+        "family": "sdkwork-knowledgebase-app-sdk",
+        "client": "SdkworkAppClient",
+        "surface": "app-api"
+      },
+      {
+        "family": "sdkwork-knowledgebase-backend-sdk",
+        "client": "SdkworkBackendClient",
+        "surface": "backend-api"
+      },
+      {
+        "family": "sdkwork-knowledgebase-sdk",
+        "client": "SdkworkKnowledgebaseClient",
+        "surface": "open-api"
+      }
+    ],
     "sdkDependencies": [
       {
         "workspace": "sdkwork-web-framework",
@@ -166,7 +190,11 @@
       "SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID",
       "SDKWORK_KNOWLEDGEBASE_APP_LISTEN",
       "SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN",
-      "SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN"
+      "SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN",
+      "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_URL",
+      "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_SECRET",
+      "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_TIMEOUT_SECS",
+      "SDKWORK_KNOWLEDGEBASE_OUTBOX_MAX_RETRIES"
     ]
   },
   "verification": {

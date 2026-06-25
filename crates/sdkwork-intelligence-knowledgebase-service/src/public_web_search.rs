@@ -86,7 +86,11 @@ pub async fn search_public_web(
 
 fn metadata_flag(metadata: &[KnowledgeFilter], key: &str) -> bool {
     metadata.iter().any(|entry| {
-        entry.key == key && matches!(entry.value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on")
+        entry.key == key
+            && matches!(
+                entry.value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
     })
 }
 
@@ -136,7 +140,10 @@ async fn search_via_searxng(
         ));
     }
 
-    let endpoint = format!("{base_url}/search?format=json&q={}", urlencoding::encode(query));
+    let endpoint = format!(
+        "{base_url}/search?format=json&q={}",
+        urlencoding::encode(query)
+    );
     let response = reqwest::Client::new()
         .get(endpoint)
         .header(reqwest::header::USER_AGENT, "sdkwork-knowledgebase/0.1")
@@ -162,7 +169,7 @@ async fn search_via_searxng(
         };
         let title = result
             .title
-            .filter(|value| !value.trim().is_empty())
+            .filter(|value| !is_blank(Some(value.as_str())))
             .unwrap_or_else(|| url.clone());
         let snippet = result
             .content
@@ -189,12 +196,16 @@ fn collect_duckduckgo_hits(payload: DuckDuckGoResponse, top_k: usize) -> Vec<Pub
     let mut hits = Vec::new();
 
     if let (Some(abstract_text), Some(url)) = (
-        payload.abstract_text.filter(|value| !value.trim().is_empty()),
-        payload.abstract_url.filter(|value| is_safe_public_url(value)),
+        payload
+            .abstract_text
+            .filter(|value| !is_blank(Some(value.as_str()))),
+        payload
+            .abstract_url
+            .filter(|value| is_safe_public_url(value)),
     ) {
         let title = payload
             .heading
-            .filter(|value| !value.trim().is_empty())
+            .filter(|value| !is_blank(Some(value.as_str())))
             .or(payload.abstract_source)
             .unwrap_or_else(|| "Web summary".to_string());
         hits.push(PublicWebSearchHit {
@@ -212,12 +223,7 @@ fn collect_duckduckgo_hits(payload: DuckDuckGoResponse, top_k: usize) -> Vec<Pub
             continue;
         };
         let text = topic.text.unwrap_or_default();
-        let snippet = text
-            .split(" - ")
-            .nth(1)
-            .unwrap_or("")
-            .trim()
-            .to_string();
+        let snippet = text.split(" - ").nth(1).unwrap_or("").trim().to_string();
         if snippet.is_empty() {
             continue;
         }
@@ -313,7 +319,10 @@ mod tests {
             value: "true".to_string(),
         }];
         assert!(metadata_requests_public_web(&metadata));
-        assert_eq!(metadata_public_web_top_k(&metadata), DEFAULT_PUBLIC_WEB_TOP_K);
+        assert_eq!(
+            metadata_public_web_top_k(&metadata),
+            DEFAULT_PUBLIC_WEB_TOP_K
+        );
     }
 
     #[test]

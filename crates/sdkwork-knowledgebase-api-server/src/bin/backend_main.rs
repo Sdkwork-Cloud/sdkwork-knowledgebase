@@ -5,8 +5,7 @@ use sdkwork_router_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 async fn main() {
     bootstrap::validate_process_config();
 
-    let database_url = std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_URL")
-        .unwrap_or_else(|_| "sqlite://data/knowledgebase.db?mode=rwc".to_string());
+    let database_url = bootstrap::resolve_database_url();
     let tenant_id = std::env::var("SDKWORK_KNOWLEDGEBASE_TENANT_ID")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())

@@ -1,15 +1,23 @@
 # Jobs
 
-Purpose: schedules, queue bindings, batch descriptors, and maintenance runbooks.
+Purpose: scheduled maintenance, queue consumers, and operational job descriptors for SDKWork Knowledgebase.
 
 Owner: SDKWork Knowledgebase maintainers.
 
-Allowed content: job definitions, schedule metadata, queue contracts, batch descriptors, and operational runbooks.
+## Active jobs
 
-Forbidden content: Rust worker implementation code, generated SDK output, runtime state, secrets, and local execution logs.
+| Job | Binary / entry | Topology process id | Description |
+|-----|----------------|---------------------|-------------|
+| Outbox + ingestion maintenance | `sdkwork-knowledgebase-worker` | `application.background-worker` | Claims pending outbox events and processes queued ingestion jobs |
 
-Related specs: `../sdkwork-specs/SDKWORK_WORKSPACE_SPEC.md`, `../sdkwork-specs/RUST_CODE_SPEC.md`.
+## Orchestration
 
-Verification: `powershell -ExecutionPolicy Bypass -File tools/verify_sdkwork_structure.ps1`.
+Production cloud topology (`cloud.split-services.production`) requires the background worker as a dedicated Deployment. See `deployments/kubernetes/worker-deployment.yaml`.
 
-Status: inactive placeholder. Rust worker implementations, if added later, belong under `crates/sdkwork-intelligence-<capability>-worker/`.
+Environment variables:
+
+- `SDKWORK_KNOWLEDGEBASE_WORKER_POLL_INTERVAL_MS` (default `5000`)
+- `SDKWORK_KNOWLEDGEBASE_WORKER_OUTBOX_BATCH_SIZE` (default `50`)
+- `SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_JOB_BATCH_SIZE` (default `25`)
+
+Status: active.

@@ -1,14 +1,21 @@
+use crate::ingest::idempotency::api_payload_idempotency_fingerprint_with_source;
+use crate::ingest::web_link_fetch::{fetch_web_link_markdown, WebLinkFetchError};
 use crate::ports::{
     knowledge_drive_storage::{
         HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeObjectRef,
         KnowledgeStorageError, PutKnowledgeObjectRequest,
     },
     knowledge_ingestion_job_store::{
-        CreateIngestionJobRecord, IngestionJobStore, IngestionJobStoreError,
+        CompleteRunningIngestionRecord, CompletedIngestionResult, CreateIngestionJobRecord,
+        IngestionJobStore, IngestionJobStoreError,
     },
+    knowledge_outbox_store::AppendOutboxEventRecord,
 };
 use sdkwork_knowledgebase_contract::ingest::{
     CreateIngestionJobRequest, IngestionJob, IngestionJobState, KnowledgeIngestRequest,
+};
+use sdkwork_knowledgebase_observability::{
+    deployment_tenant_id, record_ingest_job_failed, record_ingest_job_succeeded,
 };
 use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
@@ -75,6 +82,34 @@ impl<'a> KnowledgeIngestionService<'a> {
         .await
     }
 
+    pub async fn finalize_success_with_outbox(
+        &self,
+        job_id: u64,
+    ) -> Result<IngestionJob, KnowledgeIngestionServiceError> {
+        let current = self
+            .store
+            .get_job(job_id)
+            .await
+            .map_err(KnowledgeIngestionServiceError::Store)?;
+        let updated = self
+            .store
+            .mark_running_job_succeeded_with_outbox(job_id, ingest_success_outbox_record(&current))
+            .await
+            .map_err(KnowledgeIngestionServiceError::Store)?;
+        record_ingest_job_succeeded(deployment_tenant_id(), updated.id, updated.space_id);
+        Ok(updated)
+    }
+
+    pub async fn complete_with_chunks_and_outbox(
+        &self,
+        record: CompleteRunningIngestionRecord,
+    ) -> Result<CompletedIngestionResult, KnowledgeIngestionServiceError> {
+        self.store
+            .complete_running_ingestion_with_chunks_and_outbox(record)
+            .await
+            .map_err(KnowledgeIngestionServiceError::Store)
+    }
+
     async fn transition(
         &self,
         job_id: u64,
@@ -89,10 +124,24 @@ impl<'a> KnowledgeIngestionService<'a> {
             });
         }
 
-        self.store
-            .update_job_state(job_id, next_state, error_message)
+        let updated = self
+            .store
+            .update_job_state(job_id, current.state, next_state, error_message)
             .await
-            .map_err(KnowledgeIngestionServiceError::Store)
+            .map_err(KnowledgeIngestionServiceError::Store)?;
+
+        let tenant_id = deployment_tenant_id();
+        match next_state {
+            IngestionJobState::Succeeded => {
+                record_ingest_job_succeeded(tenant_id, updated.id, updated.space_id);
+            }
+            IngestionJobState::Failed => {
+                record_ingest_job_failed(tenant_id, updated.id, updated.space_id);
+            }
+            _ => {}
+        }
+
+        Ok(updated)
     }
 }
 
@@ -101,6 +150,7 @@ fn is_valid_transition(from: IngestionJobState, to: IngestionJobState) -> bool {
         (from, to),
         (IngestionJobState::Queued, IngestionJobState::Running)
             | (IngestionJobState::Queued, IngestionJobState::Failed)
+            | (IngestionJobState::Failed, IngestionJobState::Running)
             | (IngestionJobState::Running, IngestionJobState::Succeeded)
             | (IngestionJobState::Running, IngestionJobState::Failed)
     )
@@ -164,22 +214,23 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
                 "title is required".to_string(),
             ));
         }
-        if is_blank(Some(request.payload_markdown.as_str())) {
-            return Err(KnowledgeApiPayloadIngestServiceError::InvalidRequest(
-                "payload_markdown is required".to_string(),
-            ));
-        }
+        let payload_markdown = resolve_ingest_payload_markdown(&request).await?;
         let idempotency_key = normalize_idempotency_key(&request.idempotency_key)
             .map_err(KnowledgeApiPayloadIngestServiceError::InvalidRequest)?;
 
-        let payload_markdown = request.payload_markdown;
+        let idempotency_fingerprint = api_payload_idempotency_fingerprint_with_source(
+            request.space_id,
+            request.title.as_str(),
+            payload_markdown.as_str(),
+            request.source_url.as_deref(),
+        );
         let job_result = self
             .jobs
             .create_or_get_job(CreateIngestionJobRecord {
                 space_id: request.space_id,
                 source_type: "api".to_string(),
                 idempotency_key,
-                idempotency_fingerprint_sha256_hex: None,
+                idempotency_fingerprint_sha256_hex: Some(idempotency_fingerprint),
             })
             .await
             .map_err(KnowledgeApiPayloadIngestServiceError::Store)?;
@@ -199,9 +250,15 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
                 .await
             {
                 Ok(existing_payload) => {
+                    let resolved_payload_markdown = self
+                        .drive
+                        .get_object_text(&existing_payload)
+                        .await
+                        .unwrap_or_else(|_| payload_markdown.clone());
                     return Ok(ApiPayloadIngestResult {
                         payload_object_ref: existing_payload,
                         job,
+                        resolved_payload_markdown,
                     });
                 }
                 Err(KnowledgeStorageError::NotFound(_)) => {}
@@ -215,7 +272,7 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
                 PutKnowledgeObjectRequest::text(
                     payload_path,
                     "api_payload",
-                    payload_markdown,
+                    payload_markdown.clone(),
                     None,
                 )
                 .with_drive_space_id(drive_space_id),
@@ -225,6 +282,7 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
         Ok(ApiPayloadIngestResult {
             payload_object_ref,
             job,
+            resolved_payload_markdown: payload_markdown,
         })
     }
 }
@@ -233,6 +291,7 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
 pub struct ApiPayloadIngestResult {
     pub payload_object_ref: KnowledgeObjectRef,
     pub job: IngestionJob,
+    pub resolved_payload_markdown: String,
 }
 
 #[derive(Debug, Error)]
@@ -240,7 +299,46 @@ pub enum KnowledgeApiPayloadIngestServiceError {
     #[error("invalid api payload ingest request: {0}")]
     InvalidRequest(String),
     #[error(transparent)]
+    WebLink(#[from] WebLinkFetchError),
+    #[error(transparent)]
     Storage(#[from] KnowledgeStorageError),
     #[error(transparent)]
     Store(#[from] IngestionJobStoreError),
+}
+
+async fn resolve_ingest_payload_markdown(
+    request: &KnowledgeIngestRequest,
+) -> Result<String, KnowledgeApiPayloadIngestServiceError> {
+    if let Some(source_url) = request
+        .source_url
+        .as_deref()
+        .filter(|value| !is_blank(Some(*value)))
+    {
+        return fetch_web_link_markdown(source_url, request.title.as_str())
+            .await
+            .map_err(Into::into);
+    }
+
+    if is_blank(Some(request.payload_markdown.as_str())) {
+        return Err(KnowledgeApiPayloadIngestServiceError::InvalidRequest(
+            "payload_markdown or source_url is required".to_string(),
+        ));
+    }
+
+    Ok(request.payload_markdown.clone())
+}
+
+pub fn ingest_success_outbox_record(job: &IngestionJob) -> AppendOutboxEventRecord {
+    AppendOutboxEventRecord {
+        aggregate_type: "ingestion_job".to_string(),
+        aggregate_id: job.id,
+        event_type: "knowledge.ingest.succeeded".to_string(),
+        payload_json: serde_json::json!({
+            "spaceId": job.space_id,
+            "sourceType": job.source_type,
+            "idempotencyKey": job.idempotency_key,
+            "state": "succeeded",
+        })
+        .to_string(),
+    }
 }

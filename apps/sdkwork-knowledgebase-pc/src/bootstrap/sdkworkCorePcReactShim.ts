@@ -1,3 +1,7 @@
+import {
+  KnowledgebaseErrorCodes,
+  throwKnowledgebaseError,
+} from 'sdkwork-knowledgebase-pc-core';
 import { createRuntimeConfig } from 'sdkwork-knowledgebase-pc-core/config/runtimeConfig';
 import { DEFAULT_SESSION_STORAGE_KEY } from 'sdkwork-knowledgebase-pc-core/session/sessionStore';
 
@@ -92,7 +96,5 @@ export function resolveAppClientAccessToken(): string {
 }
 
 export function getAppClientWithSession(): never {
-  throw new Error(
-    'Knowledgebase PC does not expose a generic app client. Use the injected appbase IAM runtime or Knowledgebase SDK service boundary.',
-  );
+  throwKnowledgebaseError(KnowledgebaseErrorCodes.UNSUPPORTED_OPERATION);
 }

@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sdkwork-knowledgebase-worker
+  labels:
+    app: sdkwork-knowledgebase
+    component: background-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sdkwork-knowledgebase
+      component: background-worker
+  template:
+    metadata:
+      labels:
+        app: sdkwork-knowledgebase
+        component: background-worker
+    spec:
+      securityContext:
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: registry.sdkwork.com/apps/sdkwork-knowledgebase/worker:0.1.0
+          ports:
+            - name: health
+              containerPort: 18085
+              protocol: TCP
+          env:
+            - name: SDKWORK_KNOWLEDGEBASE_ENVIRONMENT
+              value: production
+            - name: SDKWORK_KNOWLEDGEBASE_WORKER_HEALTH_ADDR
+              value: "0.0.0.0:18085"
+            - name: SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          envFrom:
+            - secretRef:
+                name: sdkwork-knowledgebase-runtime
+            - configMapRef:
+                name: sdkwork-knowledgebase-topology
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: 18085
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 18085
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sdkwork-knowledgebase-worker
+  labels:
+    app: sdkwork-knowledgebase
+    component: background-worker
+spec:
+  selector:
+    app: sdkwork-knowledgebase
+    component: background-worker
+  ports:
+    - name: health
+      port: 18085
+      targetPort: health

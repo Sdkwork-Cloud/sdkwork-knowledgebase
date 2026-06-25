@@ -1,12 +1,13 @@
 //! PostgreSQL pgvector ANN retrieval backend.
 
+use crate::binding_scope_filters::push_binding_scope_filters_postgres;
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_backend::{
     KnowledgeChunkSearchHit, KnowledgeChunkSearchRequest, KnowledgeRetrievalBackend,
     KnowledgeRetrievalBackendError,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalMethod;
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, QueryBuilder, Row};
 
 const ACTIVE_STATUS: i64 = 1;
 
@@ -47,10 +48,15 @@ impl KnowledgeRetrievalBackend for PgVectorKnowledgeRetrievalBackend {
         let vector_literal = format_pgvector_literal(query_embedding);
         let tenant_id = backend_to_i64("tenant_id", self.tenant_id)?;
         let space_id = backend_to_i64("space_id", request.binding.space_id)?;
+        let collection_id = request
+            .binding
+            .collection_id
+            .map(|value| backend_to_i64("collection_id", value))
+            .transpose()?;
         let top_k = i64::from(request.top_k.clamp(1, 64));
         let min_score = request.binding.min_score.unwrap_or(0.0);
 
-        let rows = sqlx::query(
+        let mut query = QueryBuilder::new(
             r#"
             SELECT
                 c.id AS chunk_id,
@@ -63,32 +69,56 @@ impl KnowledgeRetrievalBackend for PgVectorKnowledgeRetrievalBackend {
                 c.token_count,
                 c.locator,
                 'kb://documents/' || c.document_id::text AS source_uri,
-                (1 - (e.embedding_vector <=> $1::vector)) AS score
+                (1 - (e.embedding_vector <=> CAST(
+            "#,
+        );
+        query.push_bind(vector_literal.clone());
+        query.push(
+            r#"
+                 AS vector))) AS score
             FROM kb_chunk c
             JOIN kb_document d
               ON d.tenant_id = c.tenant_id
              AND d.id = c.document_id
-             AND d.status = $2
+             AND d.status =
+            "#,
+        );
+        query.push_bind(ACTIVE_STATUS);
+        query.push(
+            r#"
             INNER JOIN kb_embedding e
               ON e.tenant_id = c.tenant_id
              AND e.chunk_id = c.id
-             AND e.status = $2
-             AND e.embedding_vector IS NOT NULL
-            WHERE c.tenant_id = $3
-              AND c.space_id = $4
-              AND c.status = $2
-            ORDER BY e.embedding_vector <=> $1::vector
-            LIMIT $5
+             AND e.status =
             "#,
-        )
-        .bind(vector_literal)
-        .bind(ACTIVE_STATUS)
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(top_k)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(backend_sqlx_error)?;
+        );
+        query.push_bind(ACTIVE_STATUS);
+        query.push(
+            r#"
+             AND e.embedding_vector IS NOT NULL
+            WHERE c.tenant_id =
+            "#,
+        );
+        query.push_bind(tenant_id);
+        query.push(" AND c.space_id = ");
+        query.push_bind(space_id);
+        query.push(" AND c.status = ");
+        query.push_bind(ACTIVE_STATUS);
+        if let Some(collection_id) = collection_id {
+            query.push(" AND c.collection_id = ");
+            query.push_bind(collection_id);
+        }
+        push_binding_scope_filters_postgres(&mut query, tenant_id, space_id, &request.binding)?;
+        query.push(" ORDER BY e.embedding_vector <=> CAST(");
+        query.push_bind(vector_literal);
+        query.push(" AS vector) LIMIT ");
+        query.push_bind(top_k);
+
+        let rows = query
+            .build()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(backend_sqlx_error)?;
 
         rows.into_iter()
             .filter_map(|row| chunk_hit_from_row(row, request.method, min_score).transpose())
@@ -137,7 +167,7 @@ fn chunk_hit_from_row(
     }))
 }
 
-fn format_pgvector_literal(vector: &[f32]) -> String {
+pub fn format_pgvector_literal(vector: &[f32]) -> String {
     let mut output = String::from("[");
     for (index, value) in vector.iter().enumerate() {
         if index > 0 {

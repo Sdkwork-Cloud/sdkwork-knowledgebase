@@ -1,4 +1,6 @@
 import type { KnowledgebaseDriveAppSdkClient } from '../sdk/driveAppSdkClient';
+import { KnowledgebaseErrorCodes } from '../errors/knowledgebaseErrorCodes';
+import { throwKnowledgebaseError } from '../errors/knowledgebaseAppError';
 import { isKnowledgebaseApiAvailable } from './knowledgebaseApiRegistry';
 
 let driveSdkClient: KnowledgebaseDriveAppSdkClient | null = null;
@@ -9,7 +11,7 @@ export function configureKnowledgebaseDriveAppSdk(client: KnowledgebaseDriveAppS
 
 export function getKnowledgebaseDriveAppSdkClient(): KnowledgebaseDriveAppSdkClient {
   if (!driveSdkClient) {
-    throw new Error('Knowledgebase Drive app SDK is not configured.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_DRIVE);
   }
   return driveSdkClient;
 }

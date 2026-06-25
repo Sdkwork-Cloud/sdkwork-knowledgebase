@@ -12,7 +12,10 @@ mod web_bootstrap;
 pub use error::{ApiError, ApiProblem, ApiResult};
 pub use http_route_manifest::open_route_manifest;
 pub use ports::{KnowledgeOpenApi, KnowledgeOpenApiRequestContext};
-pub use routes::{build_router_with_open_api, build_router_with_shared_open_api};
+pub use routes::{
+    build_router_with_open_api, build_router_with_shared_open_api,
+    build_router_with_shared_open_api_and_readiness,
+};
 pub use sdkwork_knowledgebase_contract::ProblemDetails;
 pub use web_bootstrap::{
     knowledgebase_open_api_prefixes, knowledgebase_open_api_public_path_prefixes,

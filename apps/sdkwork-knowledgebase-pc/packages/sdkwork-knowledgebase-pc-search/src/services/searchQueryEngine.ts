@@ -1,5 +1,5 @@
-import { DocumentService } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/document';
-import { synthesizeKnowledgeSearchAnswer } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/knowledgeAgentChatService';
+import { DocumentService } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/document';
+import { synthesizeKnowledgeSearchAnswer } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/knowledgeAgentChatService';
 import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { getKnowledgebaseAppSdkClient, getKnowledgebaseTenantId, isKnowledgebaseApiAvailable, readRegisteredSpaces } from 'sdkwork-knowledgebase-pc-core';
 import { buildRelatedMedia } from './buildRelatedMedia';

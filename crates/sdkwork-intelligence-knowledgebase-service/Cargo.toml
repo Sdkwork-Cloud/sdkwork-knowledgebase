@@ -18,15 +18,19 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 sdkwork-utils-rust.workspace = true
 sha2.workspace = true
+aes-gcm = "0.10"
+base64 = "0.22"
+hmac = "0.12"
 thiserror.workspace = true
 time.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros"] }
 tracing = "0.1"
 uuid.workspace = true
-reqwest.workspace = true
+reqwest = { workspace = true, features = ["multipart"] }
 urlencoding = "2"
 
 [dev-dependencies]
 tokio.workspace = true
+wiremock.workspace = true
 sdkwork-knowledgebase-engine-dify.workspace = true
 sdkwork-knowledgebase-engine-ragflow.workspace = true

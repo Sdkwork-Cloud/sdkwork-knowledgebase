@@ -448,6 +448,101 @@ fn okf_migrations_define_link_and_candidate_tables() {
     }
 }
 
+#[test]
+fn outbox_delivery_migrations_add_retry_metadata_columns() {
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
+        POSTGRES_OUTBOX_DELIVERY_MIGRATION, SQLITE_OUTBOX_DELIVERY_MIGRATION,
+    };
+
+    for migration in [
+        SQLITE_OUTBOX_DELIVERY_MIGRATION,
+        POSTGRES_OUTBOX_DELIVERY_MIGRATION,
+    ] {
+        for snippet in ["last_error", "retry_count", "kb_outbox_event"] {
+            assert!(
+                migration.contains(snippet),
+                "outbox delivery migration must include snippet: {snippet}"
+            );
+        }
+    }
+}
+
+#[test]
+fn chunk_fts_migrations_define_keyword_search_primitives() {
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
+        POSTGRES_CHUNK_FTS_MIGRATION, SQLITE_CHUNK_FTS_MIGRATION,
+    };
+
+    assert!(SQLITE_CHUNK_FTS_MIGRATION.contains("kb_chunk_fts"));
+    assert!(SQLITE_CHUNK_FTS_MIGRATION.contains("fts5"));
+    assert!(POSTGRES_CHUNK_FTS_MIGRATION.contains("search_vector"));
+    assert!(POSTGRES_CHUNK_FTS_MIGRATION.contains("idx_kb_chunk_search_vector"));
+}
+
+#[test]
+fn performance_index_migrations_target_outbox_event_table() {
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
+        POSTGRES_PERFORMANCE_INDEXES_MIGRATION, SQLITE_PERFORMANCE_INDEXES_MIGRATION,
+    };
+
+    for migration in [
+        SQLITE_PERFORMANCE_INDEXES_MIGRATION,
+        POSTGRES_PERFORMANCE_INDEXES_MIGRATION,
+    ] {
+        assert!(migration.contains("idx_kb_ingestion_job_tenant_state_status"));
+        assert!(migration.contains("idx_kb_outbox_stale_claim"));
+        assert!(migration.contains("kb_outbox_event"));
+        assert!(!migration.contains(" ON kb_outbox "));
+    }
+}
+
+#[test]
+fn market_site_migrations_define_commerce_tables() {
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
+        POSTGRES_MARKET_SITE_MIGRATION, SQLITE_MARKET_SITE_MIGRATION,
+    };
+
+    for migration in [SQLITE_MARKET_SITE_MIGRATION, POSTGRES_MARKET_SITE_MIGRATION] {
+        let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
+        for table in [
+            "kb_market_listing",
+            "kb_market_subscription",
+            "kb_site_deployment",
+        ] {
+            assert!(tables.contains(table), "missing commerce table: {table}");
+        }
+    }
+}
+
+#[test]
+fn audit_event_migrations_define_kb_audit_event_table() {
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
+        POSTGRES_AUDIT_EVENT_MIGRATION, SQLITE_AUDIT_EVENT_MIGRATION,
+    };
+
+    for migration in [SQLITE_AUDIT_EVENT_MIGRATION, POSTGRES_AUDIT_EVENT_MIGRATION] {
+        let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
+        assert!(tables.contains("kb_audit_event"));
+        assert!(migration.contains("idx_kb_audit_event_tenant_created"));
+        assert!(migration.contains("idx_kb_audit_event_event_type"));
+    }
+}
+
+#[test]
+fn outbox_claim_migrations_add_claimed_at_column() {
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
+        POSTGRES_OUTBOX_CLAIM_MIGRATION, SQLITE_OUTBOX_CLAIM_MIGRATION,
+    };
+
+    for migration in [
+        SQLITE_OUTBOX_CLAIM_MIGRATION,
+        POSTGRES_OUTBOX_CLAIM_MIGRATION,
+    ] {
+        assert!(migration.contains("claimed_at"));
+        assert!(migration.contains("kb_outbox_event"));
+    }
+}
+
 fn defined_database_objects(migration: &'static str, prefix: &str) -> BTreeSet<&'static str> {
     migration
         .lines()

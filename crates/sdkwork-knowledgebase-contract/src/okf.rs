@@ -110,6 +110,7 @@ pub struct OkfQueryResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OkfFileAnswerRequest {
+    pub space_id: u64,
     pub title: String,
     pub answer_markdown: String,
 }

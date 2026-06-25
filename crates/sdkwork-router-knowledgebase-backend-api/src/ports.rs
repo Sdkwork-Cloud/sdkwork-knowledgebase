@@ -16,6 +16,8 @@ use crate::error::{BackendApiError, BackendApiResult};
 pub struct KnowledgeBackendRequestContext {
     pub tenant_id: u64,
     pub operator_id: Option<u64>,
+    pub organization_id: Option<u64>,
+    pub permission_scope: Vec<String>,
 }
 
 #[async_trait]

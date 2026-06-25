@@ -10,6 +10,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
 use sdkwork_knowledgebase_contract::okf_bundle_file::{KnowledgeOkfBundleFile, OkfBundleFileKind};
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{KnowledgeSpace, KnowledgeSpaceStatus};
+use sdkwork_utils_rust::is_blank;
 use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -196,7 +197,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         let current = self.get_space(space_id).await?;
         let name = record.name.unwrap_or(current.name);
-        if name.trim().is_empty() {
+        if is_blank(Some(name.as_str())) {
             return Err(KnowledgeSpaceStoreError::Conflict(
                 "name must not be blank".to_string(),
             ));

@@ -255,7 +255,7 @@ pub fn lint_stale_claims_against_source_lineage(
 fn newest_space_source_activity(sources: &[KnowledgeSourceLineageSnapshot]) -> Option<String> {
     sources
         .iter()
-        .filter_map(|source| Some(format_source_activity(source)))
+        .map(format_source_activity)
         .max_by(|left, right| {
             parse_rfc3339_timestamp(left)
                 .zip(parse_rfc3339_timestamp(right))

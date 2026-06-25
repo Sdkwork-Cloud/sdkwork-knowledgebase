@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the Knowledgebase public open-api surface at `/knowledge/v3/api`, generate the owner-only `sdkwork-knowledgebase-sdk` family metadata, and register the surface in `sdkwork-api-gateway`.
+**Goal:** Add the Knowledgebase public open-api surface at `/knowledge/v3/api`, generate the owner-only `sdkwork-knowledgebase-sdk` family metadata, and register the surface in `sdkwork-api-cloud-gateway`.
 
 **Architecture:** Implement a dedicated Rust route crate for the public API, materialize a normalized open-api route manifest and owner-only OpenAPI authority, then extend the SDK standardization script and gateway dependency-surface registry. The route crate delegates to existing service traits and keeps app/backend-only behavior out of the public surface.
 
-**Tech Stack:** Rust Cargo workspace, Axum route crates, SDKWork route manifests, OpenAPI 3.x JSON, Node SDK metadata tooling, PowerShell verification, `sdkwork-api-gateway` Rust config/runtime tests.
+**Tech Stack:** Rust Cargo workspace, Axum route crates, SDKWork route manifests, OpenAPI 3.x JSON, Node SDK metadata tooling, PowerShell verification, `sdkwork-api-cloud-gateway` Rust config/runtime tests.
 
 ---
 
@@ -112,30 +112,30 @@
 
 ### Task 7: Add Gateway Failing Tests
 
-**Repository:** `E:/sdkwork-space/sdkwork-api-gateway`
+**Repository:** `E:/sdkwork-space/sdkwork-api-cloud-gateway`
 
 **Files:**
-- Modify: `crates/sdkwork-api-gateway-config/tests/config_tests.rs`
-- Modify: `crates/sdkwork-api-gateway-runtime/tests/runtime_tests.rs`
+- Modify: `crates/sdkwork-api-cloud-gateway-config/tests/config_tests.rs`
+- Modify: `crates/sdkwork-api-cloud-gateway-runtime/tests/runtime_tests.rs`
 
 - [ ] Add a failing config test that expects `SDKWORK_KNOWLEDGEBASE_OPEN_API_BASE_URL`, service id `sdkwork-knowledgebase-open-api`, api authority `sdkwork-knowledgebase.open`, SDK family `sdkwork-knowledgebase-sdk`, and prefix `/knowledge/v3/api`.
 - [ ] Add a failing runtime routing test that proves `/knowledge/v3/api/retrievals` resolves to `sdkwork-knowledgebase-open-api`.
-- [ ] Run `cargo test -p sdkwork-api-gateway-config`.
-- [ ] Run `cargo test -p sdkwork-api-gateway-runtime`.
+- [ ] Run `cargo test -p sdkwork-api-cloud-gateway-config`.
+- [ ] Run `cargo test -p sdkwork-api-cloud-gateway-runtime`.
 - [ ] Confirm failures are caused by missing Knowledgebase open-api gateway wiring.
 
 ### Task 8: Implement Gateway Wiring
 
-**Repository:** `E:/sdkwork-space/sdkwork-api-gateway`
+**Repository:** `E:/sdkwork-space/sdkwork-api-cloud-gateway`
 
 **Files:**
-- Modify: `crates/sdkwork-api-gateway-config/src/lib.rs`
+- Modify: `crates/sdkwork-api-cloud-gateway-config/src/lib.rs`
 - Modify: `sdkwork.app.config.json`
 - Modify: `specs/component.spec.json`
 - Modify: `README.md`
-- Modify: `config/sdkwork-api-gateway.development.toml.example`
-- Modify: `config/sdkwork-api-gateway.test.toml.example`
-- Modify: `config/sdkwork-api-gateway.production.toml.example`
+- Modify: `config/sdkwork-api-cloud-gateway.development.toml.example`
+- Modify: `config/sdkwork-api-cloud-gateway.test.toml.example`
+- Modify: `config/sdkwork-api-cloud-gateway.production.toml.example`
 
 - [ ] Add `KNOWLEDGEBASE_OPEN_API_SERVICE_ID`.
 - [ ] Add app manifest environment variable metadata.
@@ -165,11 +165,11 @@
 
 ### Task 10: Full Gateway Verification
 
-**Repository:** `E:/sdkwork-space/sdkwork-api-gateway`
+**Repository:** `E:/sdkwork-space/sdkwork-api-cloud-gateway`
 
 **Commands:**
-- `cargo test -p sdkwork-api-gateway-config`
-- `cargo test -p sdkwork-api-gateway-runtime`
+- `cargo test -p sdkwork-api-cloud-gateway-config`
+- `cargo test -p sdkwork-api-cloud-gateway-runtime`
 - `cargo fmt --all -- --check`
 - `cargo test --workspace`
 

@@ -1,10 +1,27 @@
 import i18n from '../../../../src/i18n';
+import { escapeHtmlText } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
 
 const t = (key: string, options?: any) => i18n.t(key, { ns: 'widget', ...options });
 
+function safeExternalUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return '#';
+  }
+  try {
+    const parsed = new URL(trimmed, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return escapeHtmlText(parsed.href);
+    }
+  } catch {
+    return '#';
+  }
+  return '#';
+}
+
 export const WechatWidgetTemplates = {
   link: (title: string, url: string) => `
-    <p><a href="${url}" target="_blank" style="color: var(--color-kb-accent); text-decoration: none; border-bottom: 2px solid var(--color-kb-accent); font-weight: bold; font-size: 14.5px;">🔗 ${title}</a></p>
+    <p><a href="${safeExternalUrl(url)}" target="_blank" rel="noopener noreferrer" style="color: var(--color-kb-accent); text-decoration: none; border-bottom: 2px solid var(--color-kb-accent); font-weight: bold; font-size: 14.5px;">🔗 ${escapeHtmlText(title)}</a></p>
   `,
   coupons: (quota: string, merchant: string, condition: string) => `
     <div style="border: 1px solid #ff4d4f; border-radius: 12px; background: #fff1f0; padding: 16px; display: flex; align-items: center; margin: 20px 0; justify-content: space-between; position: relative; overflow: hidden;">

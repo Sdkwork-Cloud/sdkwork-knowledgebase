@@ -31,7 +31,11 @@ pub fn record_okf_concept_publish(space_id: u64, concept_id: &str, actor: &str) 
     );
 }
 
-pub fn record_okf_bundle_lint_completed(space_id: u64, issue_count: u64, conformance_failures: u64) {
+pub fn record_okf_bundle_lint_completed(
+    space_id: u64,
+    issue_count: u64,
+    conformance_failures: u64,
+) {
     if issue_count > 0 {
         OKF_BUNDLE_LINT_ISSUES_TOTAL.fetch_add(issue_count, Ordering::Relaxed);
     }

@@ -114,7 +114,7 @@ impl FlowiseKnowledgeEngine {
             self.config
                 .as_ref()
                 .and_then(|config| config.default_store_id.clone()),
-            &format!("{FLOWISE_STORE_ID_ENV}"),
+            FLOWISE_STORE_ID_ENV,
         )
         .await
     }

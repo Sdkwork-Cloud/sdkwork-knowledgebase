@@ -26,7 +26,7 @@
     "ownerMode": "tenant",
     "grantMode": "current",
     "platform": "WEB",
-    "appId": null,
+    "appId": "sdkwork-knowledgebase-pc",
     "tenantId": "100001",
     "organizationId": "0",
     "accessTokenPermissionScope": [
@@ -48,7 +48,11 @@
       "DIRECT_DOWNLOAD"
     ],
     "defaultPlatform": "WEB",
-    "defaultArchitecture": "x64"
+    "defaultArchitecture": "x64",
+    "supportedDeploymentProfiles": [
+      "standalone",
+      "cloud"
+    ]
   },
   "media": {
     "icons": {
@@ -187,8 +191,11 @@
           "packageFormat": "ZIP",
           "platform": "DESKTOP_WINDOWS",
           "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/STABLE/0.1.0/windows/x64/app.zip",
-          "enabled": true,
-          "metadata": {},
+          "enabled": false,
+          "metadata": {
+            "releaseStatus": "prelaunch-disabled",
+            "reason": "Desktop packaging workflow not wired for Phase 0.1; enable when desktop CI targets ship."
+          },
           "architecture": "x64"
         },
         {
@@ -198,8 +205,11 @@
           "packageFormat": "DMG",
           "platform": "DESKTOP_MACOS",
           "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/STABLE/0.1.0/macos/universal/app.dmg",
-          "enabled": true,
-          "metadata": {},
+          "enabled": false,
+          "metadata": {
+            "releaseStatus": "prelaunch-disabled",
+            "reason": "Desktop packaging workflow not wired for Phase 0.1; enable when desktop CI targets ship."
+          },
           "architecture": "universal"
         },
         {
@@ -209,8 +219,10 @@
           "packageFormat": "APPIMAGE",
           "platform": "DESKTOP_LINUX",
           "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/STABLE/0.1.0/linux/generic/x64/app.AppImage",
-          "enabled": true,
+          "enabled": false,
           "metadata": {
+            "releaseStatus": "prelaunch-disabled",
+            "reason": "Desktop packaging workflow not wired for Phase 0.1; enable when desktop CI targets ship.",
             "linux": {
               "distro": "generic"
             }
@@ -245,10 +257,7 @@
           "Download package matrix normalized"
         ],
         "packageIds": [
-          "web-production",
-          "desktop-windows",
-          "desktop-macos",
-          "desktop-linux"
+          "web-production"
         ],
         "publishedAt": "2026-05-07T00:00:00Z",
         "current": true,

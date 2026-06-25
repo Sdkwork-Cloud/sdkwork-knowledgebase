@@ -34,6 +34,16 @@ pub trait KnowledgeEmbeddingStore: Send + Sync {
         request: ChunkEmbeddingUpsertRequest,
     ) -> Result<(), KnowledgeEmbeddingStoreError>;
 
+    async fn upsert_chunk_embeddings_batch(
+        &self,
+        requests: &[ChunkEmbeddingUpsertRequest],
+    ) -> Result<(), KnowledgeEmbeddingStoreError> {
+        for request in requests {
+            self.upsert_chunk_embedding(request.clone()).await?;
+        }
+        Ok(())
+    }
+
     async fn load_chunk_content(
         &self,
         chunk_id: u64,
@@ -43,4 +53,11 @@ pub trait KnowledgeEmbeddingStore: Send + Sync {
         &self,
         space_id: u64,
     ) -> Result<Vec<u64>, KnowledgeEmbeddingStoreError>;
+
+    async fn list_active_chunk_id_content_page(
+        &self,
+        space_id: u64,
+        after_chunk_id: u64,
+        limit: u32,
+    ) -> Result<Vec<(u64, String)>, KnowledgeEmbeddingStoreError>;
 }

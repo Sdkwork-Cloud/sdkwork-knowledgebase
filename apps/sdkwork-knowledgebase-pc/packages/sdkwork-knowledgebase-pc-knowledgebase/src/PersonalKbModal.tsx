@@ -12,7 +12,7 @@ import { DocumentService, KnowledgeBase, DocumentMeta } from './services/documen
 interface PersonalKbModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (selectedItems: Array<{ title: string; type: string; content?: string; url?: string }>) => void;
+  onConfirm: (selectedItems: Array<{ id: string; kbId: string; title: string; type: string; content?: string; url?: string }>) => void;
 }
 
 export function PersonalKbModal({ isOpen, onClose, onConfirm }: PersonalKbModalProps) {
@@ -111,10 +111,11 @@ export function PersonalKbModal({ isOpen, onClose, onConfirm }: PersonalKbModalP
 
   const handleImportSubmit = () => {
     const selectedObjs = flatFiles.filter(f => selectedIds.has(f.id));
-    if (selectedObjs.length === 0) return;
+    if (selectedObjs.length === 0 || !activeKbId) return;
 
-    // Map properties for batch_create payload
     const mapped = selectedObjs.map(doc => ({
+      id: doc.id,
+      kbId: activeKbId,
       title: doc.title,
       type: doc.type,
       content: doc.content || '',

@@ -1,7 +1,10 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { Search, X, FileUp, Plus, FolderUp, MessageSquare, Lightbulb, Link, FileEdit, ChevronRight, FileText, Mic, FolderPlus, Trash2, Folder, Hash, Image as ImageIcon, Video, Music, ChevronDown, MoreHorizontal, Edit2, Cloud, Notebook, CheckSquare, BookOpen } from 'lucide-react';
 import { FolderNode, DocumentMeta, KnowledgeBase, DocumentService } from './services/document';
+import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
+import { toast } from './components/ui/toast-manager';
 import { useTranslation } from 'react-i18next';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuPortal } from './components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from './components/ui/context-menu';
@@ -19,6 +22,9 @@ import { MoveCopyModal } from './MoveCopyModal';
 import { TagsModal } from './TagsModal';
 import { PermissionsModal } from './PermissionsModal';
 import { VersionHistoryModal } from './VersionHistoryModal';
+
+const FILE_ROW_HEIGHT = 68;
+const VIRTUALIZE_THRESHOLD = 50;
 
 export interface KnowledgeFileListProps {
   activeKb: KnowledgeBase | null;
@@ -69,26 +75,23 @@ export function KnowledgeFileList({
   const [highlightDocId, setHighlightDocId] = useState<string | null>(null);
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ docId: string; parentId?: string | null }>).detail;
-      if (!detail?.docId) return;
-      if (detail.parentId) {
-        setCurrentFolderId(detail.parentId);
-      } else {
-        setCurrentFolderId(null);
-      }
-      setHighlightDocId(detail.docId);
-      window.setTimeout(() => {
-        document.getElementById(`kb-file-item-${detail.docId}`)?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest'
-        });
-      }, 100);
-      window.setTimeout(() => setHighlightDocId(null), 2400);
+    if (!activeKb?.id || !currentFolderId || !onUpdateDocs) {
+      return;
+    }
+    let cancelled = false;
+    DocumentService.ensureFolderChildrenLoaded(activeKb.id, currentFolderId)
+      .then(() => {
+        if (!cancelled) {
+          onUpdateDocs();
+        }
+      })
+      .catch(() => {
+        // Folder lazy-load is best-effort; the current view remains usable.
+      });
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener('kb-locate-file', handler);
-    return () => window.removeEventListener('kb-locate-file', handler);
-  }, []);
+  }, [activeKb?.id, currentFolderId, onUpdateDocs]);
 
   useEffect(() => {
     const handleAction = (e: CustomEvent) => {
@@ -172,6 +175,82 @@ export function KnowledgeFileList({
     return filter(rawList);
   }, [docs, currentFolder, searchQuery]);
 
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  const shouldVirtualize = currentDocs.length > VIRTUALIZE_THRESHOLD;
+  const virtualizer = useVirtualizer({
+    count: currentDocs.length,
+    getScrollElement: () => listScrollRef.current,
+    estimateSize: () => FILE_ROW_HEIGHT,
+    overscan: 8,
+  });
+
+  const renderFileItem = useCallback((item: FolderNode | DocumentMeta) => (
+    <KnowledgeFileItem
+      item={item}
+      activeDoc={activeDoc}
+      selectedDocIds={selectedDocIds}
+      isMultiSelectMode={isMultiSelectMode}
+      onToggleDocSelection={onToggleDocSelection}
+      setCurrentFolderId={setCurrentFolderId}
+      onSelectDoc={onSelectDoc}
+      onMenuCreate={handleMenuCreateWrapped}
+      fileInputRef={fileInputRef}
+      audioInputRef={audioInputRef}
+      musicInputRef={musicInputRef}
+      folderInputRef={folderInputRef}
+      setIsCloudDriveOpen={setIsCloudDriveOpen}
+      setIsLinkModalOpen={setIsLinkModalOpen}
+      setLinkUrl={setLinkUrl}
+      renameItem={renameItem}
+      setRenameItem={setRenameItem}
+      onUpdateDocs={onUpdateDocs}
+      onMoveItem={(moveItem) => setMoveCopyConfig({ action: 'move', item: moveItem })}
+      onCopyItem={(copyItem) => setMoveCopyConfig({ action: 'copy', item: copyItem })}
+      isLocateHighlight={highlightDocId === item.id}
+      t={t}
+    />
+  ), [
+    activeDoc,
+    selectedDocIds,
+    isMultiSelectMode,
+    onToggleDocSelection,
+    onSelectDoc,
+    handleMenuCreateWrapped,
+    renameItem,
+    onUpdateDocs,
+    highlightDocId,
+    t,
+  ]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ docId: string; parentId?: string | null }>).detail;
+      if (!detail?.docId) return;
+      if (detail.parentId) {
+        setCurrentFolderId(detail.parentId);
+      } else {
+        setCurrentFolderId(null);
+      }
+      setHighlightDocId(detail.docId);
+      window.setTimeout(() => {
+        if (currentDocs.length > VIRTUALIZE_THRESHOLD) {
+          const index = currentDocs.findIndex((item) => item.id === detail.docId);
+          if (index >= 0) {
+            virtualizer.scrollToIndex(index, { align: 'auto', behavior: 'smooth' });
+            return;
+          }
+        }
+        document.getElementById(`kb-file-item-${detail.docId}`)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        });
+      }, 100);
+      window.setTimeout(() => setHighlightDocId(null), 2400);
+    };
+    window.addEventListener('kb-locate-file', handler);
+    return () => window.removeEventListener('kb-locate-file', handler);
+  }, [currentDocs, virtualizer]);
+
   const treeContainerRef = useRef<HTMLDivElement>(null);
   const [treeSize, setTreeSize] = useState({ width: 260, height: 600 });
 
@@ -187,6 +266,12 @@ export function KnowledgeFileList({
     observer.observe(treeContainerRef.current);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (shouldVirtualize) {
+      virtualizer.measure();
+    }
+  }, [shouldVirtualize, treeSize.width, treeSize.height, currentDocs.length, virtualizer]);
 
   const handleMove = async ({ dragIds, parentId, index }: any) => {
     for (const dragId of dragIds) {
@@ -324,7 +409,10 @@ export function KnowledgeFileList({
 
                 <button
                   type="button"
-                  onClick={() => { setLinkUrl(''); setIsLinkModalOpen(true); }}
+                  onClick={() => {
+                    setLinkUrl('');
+                    setIsLinkModalOpen(true);
+                  }}
                   className="p-3 bg-zinc-50/50 hover:bg-zinc-100/60 active:bg-zinc-150 dark:bg-zinc-900/30 dark:hover:bg-zinc-900/80 dark:active:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200/80 dark:border-zinc-800/80 rounded-lg flex flex-col items-center justify-center gap-1.5 transition-colors duration-150 cursor-pointer"
                 >
                   <Link size={14} className="text-amber-500/85 dark:text-amber-400/85" />
@@ -333,34 +421,48 @@ export function KnowledgeFileList({
               </div>
             </div>
           ) : (
-            <div className="flex-1 hover-scrollbar overflow-y-auto h-full w-full px-0">
-              {currentDocs.map(item => (
-                <KnowledgeFileItem
-                  key={item.id}
-                  item={item}
-                  activeDoc={activeDoc}
-                  selectedDocIds={selectedDocIds}
-                  isMultiSelectMode={isMultiSelectMode}
-                  onToggleDocSelection={onToggleDocSelection}
-                  setCurrentFolderId={setCurrentFolderId}
-                  onSelectDoc={onSelectDoc}
-                  onMenuCreate={handleMenuCreateWrapped}
-                  fileInputRef={fileInputRef}
-                  audioInputRef={audioInputRef}
-                  musicInputRef={musicInputRef}
-                  folderInputRef={folderInputRef}
-                  setIsCloudDriveOpen={setIsCloudDriveOpen}
-                  setIsLinkModalOpen={setIsLinkModalOpen}
-                  setLinkUrl={setLinkUrl}
-                  renameItem={renameItem}
-                  setRenameItem={setRenameItem}
-                  onUpdateDocs={onUpdateDocs}
-                  onMoveItem={(item) => setMoveCopyConfig({ action: 'move', item })}
-                  onCopyItem={(item) => setMoveCopyConfig({ action: 'copy', item })}
-                  isLocateHighlight={highlightDocId === item.id}
-                  t={t}
-                />
-              ))}
+            <div
+              ref={listScrollRef}
+              className="flex-1 hover-scrollbar overflow-y-auto h-full w-full px-0"
+            >
+              {shouldVirtualize ? (
+                <div
+                  style={{
+                    height: virtualizer.getTotalSize(),
+                    position: 'relative',
+                    width: '100%',
+                  }}
+                >
+                  {virtualizer.getVirtualItems().map((virtualRow) => {
+                    const item = currentDocs[virtualRow.index];
+                    return (
+                      <div
+                        key={item.id}
+                        className="kb-file-list-row"
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        {renderFileItem(item)}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                currentDocs.map((item) => (
+                  <div
+                    key={item.id}
+                    className="kb-file-list-row"
+                    style={{ contentVisibility: 'auto', containIntrinsicSize: `0 ${FILE_ROW_HEIGHT}px` }}
+                  >
+                    {renderFileItem(item)}
+                  </div>
+                ))
+              )}
               <div className="h-6 w-full shrink-0"></div>
             </div>
           )}
@@ -386,9 +488,13 @@ export function KnowledgeFileList({
         isOpen={isCloudDriveOpen}
         onClose={() => setIsCloudDriveOpen(false)}
         spaceId={activeKb?.id}
-        onConfirm={async () => {
-          onUpdateDocs?.();
+        targetParentFolderId={currentFolderId}
+        onConfirm={async (selectedItems) => {
           setIsCloudDriveOpen(false);
+          if (selectedItems.length > 0) {
+            onUpdateDocs?.();
+            toast.success(t('importSuccess', { defaultValue: '从网盘中导入成功！' }));
+          }
         }}
       />
       
@@ -410,7 +516,31 @@ export function KnowledgeFileList({
         onClose={() => setIsPersonalKbOpen(false)}
         onConfirm={async (selectedItems) => {
           if (selectedItems && selectedItems.length > 0) {
-            await handleMenuCreateWrapped('batch_create', currentFolderId ?? undefined, selectedItems);
+            if (isKnowledgebaseApiAvailable()) {
+              if (!activeKb?.id) {
+                toast.error('请先选择目标知识库后再导入。');
+                setIsPersonalKbOpen(false);
+                return;
+              }
+              try {
+                for (const item of selectedItems) {
+                  if (!item.id) {
+                    throwKnowledgebaseError(KnowledgebaseErrorCodes.IMPORT_DOCUMENT_ID_MISSING);
+                  }
+                  await DocumentService.copyDocument(
+                    item.id,
+                    activeKb.id,
+                    currentFolderId ?? null,
+                  );
+                }
+                onUpdateDocs?.();
+                toast.success(t('importSuccess', { defaultValue: '导入成功' }));
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : '导入失败，请重试');
+              }
+            } else {
+              await handleMenuCreateWrapped('batch_create', currentFolderId ?? undefined, selectedItems);
+            }
           } else {
             await handleMenuCreateWrapped('personalKb', currentFolderId ?? undefined);
           }
@@ -451,44 +581,77 @@ export function KnowledgeFileList({
           activeKb={activeKb}
           onClose={() => setMoveCopyConfig(null)}
           onSubmit={async (targetKbId, targetFolderId) => {
-            
-            // Flatten docs purely to find children easily
-            const flatDocs: any[] = [];
-            const traverseDocs = (items: any[]) => {
-              items.forEach(item => {
+            const sourceKbId =
+              ('kbId' in moveCopyConfig.item ? moveCopyConfig.item.kbId : null)
+              ?? activeKb?.id
+              ?? null;
+
+            const flatDocs: (FolderNode | DocumentMeta)[] = [];
+            const traverseDocs = (items: (FolderNode | DocumentMeta)[]) => {
+              items.forEach((item) => {
                 flatDocs.push(item);
-                if (item.type === 'folder' && item.children) traverseDocs(item.children);
+                if (item.type === 'folder' && 'children' in item) {
+                  traverseDocs(item.children);
+                }
               });
             };
             traverseDocs(docs);
 
-            if (moveCopyConfig.action === 'move') {
-              const moveItem = async (originalItem: any, newParentId: string | null) => {
-                await DocumentService.updateDocument(originalItem.id, { kbId: targetKbId, parentId: newParentId });
-                const children = flatDocs.filter(d => d.parentId === originalItem.id);
-                for (const child of children) {
-                  await moveItem(child, originalItem.id);
+            try {
+              if (moveCopyConfig.action === 'move') {
+                if (isKnowledgebaseApiAvailable()) {
+                  const updates = sourceKbId && targetKbId !== sourceKbId
+                    ? { kbId: targetKbId, parentId: targetFolderId }
+                    : { parentId: targetFolderId };
+                  await DocumentService.updateDocument(moveCopyConfig.item.id, updates);
+                } else {
+                  const moveItem = async (originalItem: FolderNode | DocumentMeta, newParentId: string | null) => {
+                    const updates = sourceKbId && targetKbId !== sourceKbId
+                      ? { kbId: targetKbId, parentId: newParentId }
+                      : { parentId: newParentId };
+                    await DocumentService.updateDocument(originalItem.id, updates);
+                    const children = flatDocs.filter((doc) => doc.parentId === originalItem.id);
+                    for (const child of children) {
+                      await moveItem(child, originalItem.id);
+                    }
+                  };
+                  await moveItem(moveCopyConfig.item as FolderNode | DocumentMeta, targetFolderId);
                 }
-              };
-              await moveItem(moveCopyConfig.item, targetFolderId);
-            } else {
-              // Deep copy logic for the mock
-              const copyItem = async (originalItem: any, newParentId: string | null) => {
-                const newDoc = await DocumentService.createDocument({
-                  ...originalItem,
-                  title: originalItem.id === moveCopyConfig.item.id ? originalItem.title + t('copySuffix') : originalItem.title,
-                  kbId: targetKbId,
-                  parentId: newParentId,
-                });
-                const children = flatDocs.filter(d => d.parentId === originalItem.id);
-                for (const child of children) {
-                  await copyItem(child, newDoc.id);
-                }
-              };
-              await copyItem(moveCopyConfig.item, targetFolderId);
+              } else {
+                const copyItem = async (originalItem: FolderNode | DocumentMeta, newParentId: string | null) => {
+                  if (isKnowledgebaseApiAvailable()) {
+                    await DocumentService.copyDocument(
+                      originalItem.id,
+                      targetKbId,
+                      newParentId,
+                      {
+                        titleSuffix: originalItem.id === moveCopyConfig.item.id ? t('copySuffix') : undefined,
+                      },
+                    );
+                    return;
+                  }
+
+                  const newDoc = await DocumentService.createDocument({
+                    ...originalItem,
+                    title: originalItem.id === moveCopyConfig.item.id
+                      ? `${originalItem.title}${t('copySuffix')}`
+                      : originalItem.title,
+                    kbId: targetKbId,
+                    parentId: newParentId,
+                  });
+                  const children = flatDocs.filter((doc) => doc.parentId === originalItem.id);
+                  for (const child of children) {
+                    await copyItem(child, newDoc.id);
+                  }
+                };
+                await copyItem(moveCopyConfig.item as FolderNode | DocumentMeta, targetFolderId);
+              }
+              setMoveCopyConfig(null);
+              onUpdateDocs?.();
+            } catch (error) {
+              console.error(error);
+              toast.error(error instanceof Error ? error.message : String(error));
             }
-            setMoveCopyConfig(null);
-            onUpdateDocs?.();
           }}
         />
       )}
@@ -517,7 +680,7 @@ export function KnowledgeFileList({
 
       <PermissionsModal
         isOpen={actionModal?.action === 'permissions'}
-        item={actionModal ? actionModal.item : null}
+        item={actionModal ? { ...actionModal.item, kbId: activeKb?.id } : null}
         onClose={() => setActionModal(null)}
       />
 

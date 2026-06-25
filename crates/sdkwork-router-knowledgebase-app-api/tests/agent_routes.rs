@@ -163,18 +163,24 @@ struct RecordingAgentService {
 impl KnowledgeAgentAppService for RecordingAgentService {
     async fn create_profile(
         &self,
+        _context: KnowledgeAppRequestContext,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
         self.profile_requests.lock().unwrap().push(request);
         Ok(profile())
     }
 
-    async fn retrieve_profile(&self, _profile_id: u64) -> ApiResult<KnowledgeAgentProfile> {
+    async fn retrieve_profile(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _profile_id: u64,
+    ) -> ApiResult<KnowledgeAgentProfile> {
         Ok(profile())
     }
 
     async fn update_profile(
         &self,
+        _context: KnowledgeAppRequestContext,
         _profile_id: u64,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
@@ -182,11 +188,19 @@ impl KnowledgeAgentAppService for RecordingAgentService {
         Ok(profile())
     }
 
-    async fn delete_profile(&self, _profile_id: u64) -> ApiResult<()> {
+    async fn delete_profile(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _profile_id: u64,
+    ) -> ApiResult<()> {
         Ok(())
     }
 
-    async fn list_bindings(&self, _profile_id: u64) -> ApiResult<KnowledgeAgentBindingList> {
+    async fn list_bindings(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _profile_id: u64,
+    ) -> ApiResult<KnowledgeAgentBindingList> {
         Ok(KnowledgeAgentBindingList {
             items: vec![binding(601, 501, 7, true)],
         })
@@ -194,6 +208,7 @@ impl KnowledgeAgentAppService for RecordingAgentService {
 
     async fn create_binding(
         &self,
+        _context: KnowledgeAppRequestContext,
         _profile_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
@@ -203,6 +218,7 @@ impl KnowledgeAgentAppService for RecordingAgentService {
 
     async fn update_binding(
         &self,
+        _context: KnowledgeAppRequestContext,
         _profile_id: u64,
         binding_id: u64,
         request: KnowledgeAgentBindingRequest,
@@ -211,12 +227,18 @@ impl KnowledgeAgentAppService for RecordingAgentService {
         Ok(binding(binding_id, 501, 7, true))
     }
 
-    async fn delete_binding(&self, _profile_id: u64, _binding_id: u64) -> ApiResult<()> {
+    async fn delete_binding(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _profile_id: u64,
+        _binding_id: u64,
+    ) -> ApiResult<()> {
         Ok(())
     }
 
     async fn preview_retrieval(
         &self,
+        _context: KnowledgeAppRequestContext,
         _profile_id: u64,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
@@ -248,6 +270,7 @@ impl KnowledgeAgentAppService for RecordingAgentService {
 
     async fn create_agent_chat(
         &self,
+        _context: KnowledgeAppRequestContext,
         _profile_id: u64,
         request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
@@ -284,6 +307,7 @@ struct RecordingRetrievalService;
 impl KnowledgeRetrievalAppService for RecordingRetrievalService {
     async fn retrieve(
         &self,
+        _context: KnowledgeAppRequestContext,
         _request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
         Ok(KnowledgeRetrievalResult {
@@ -330,6 +354,7 @@ impl KnowledgeRetrievalAppService for RecordingRetrievalService {
 
     async fn create_context_pack(
         &self,
+        _context: KnowledgeAppRequestContext,
         request: sdkwork_knowledgebase_contract::rag::KnowledgeContextPackRequest,
     ) -> ApiResult<sdkwork_knowledgebase_contract::rag::KnowledgeContextPack> {
         Ok(sdkwork_knowledgebase_contract::rag::KnowledgeContextPack {

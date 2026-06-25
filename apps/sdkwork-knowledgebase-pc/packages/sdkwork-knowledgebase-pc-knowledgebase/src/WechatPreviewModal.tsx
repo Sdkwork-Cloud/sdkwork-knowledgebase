@@ -1,6 +1,7 @@
 import React from 'react';
 import { WechatArticle } from './services/wechat';
 import { Share, MoreHorizontal, ChevronLeft, X } from 'lucide-react';
+import { sanitizePreviewHtml } from './utils/htmlSanitizer';
 
 export interface WechatPreviewModalProps {
   isOpen: boolean;
@@ -74,7 +75,7 @@ export function WechatPreviewModal({ isOpen, onClose, selectedArticle }: WechatP
                   lineHeight: '1.6',
                   letterSpacing: '0.034em'
                 }}
-                dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
+                dangerouslySetInnerHTML={{ __html: sanitizePreviewHtml(selectedArticle.content) }}
               />
             ) : (
               <div className="text-gray-400 mt-20 text-center text-[15px]">文章暂无正文内容</div>

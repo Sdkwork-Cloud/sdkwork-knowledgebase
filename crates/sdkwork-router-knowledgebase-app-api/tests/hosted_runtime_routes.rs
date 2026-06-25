@@ -25,7 +25,9 @@ async fn hosted_app_router_lists_documents() {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri(format!("/app/v3/api/knowledge/documents?spaceId={space_id}"))
+                .uri(format!(
+                    "/app/v3/api/knowledge/documents?spaceId={space_id}"
+                ))
                 .body(Body::empty())
                 .unwrap(),
         )

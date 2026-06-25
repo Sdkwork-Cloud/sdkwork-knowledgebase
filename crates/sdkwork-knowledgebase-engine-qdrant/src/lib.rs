@@ -115,7 +115,7 @@ impl QdrantKnowledgeEngine {
             self.config
                 .as_ref()
                 .and_then(|config| config.default_collection_name.clone()),
-            &format!("{QDRANT_COLLECTION_NAME_ENV}"),
+            QDRANT_COLLECTION_NAME_ENV,
         )
         .await
     }

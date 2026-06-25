@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { DocumentMeta, KnowledgeBase, DocumentService } from '../../services/document';
 import { MoveCopyModal } from '../../MoveCopyModal';
-
 export interface ImageViewerProps {
   activeDoc: DocumentMeta;
   activeKb?: KnowledgeBase | null;

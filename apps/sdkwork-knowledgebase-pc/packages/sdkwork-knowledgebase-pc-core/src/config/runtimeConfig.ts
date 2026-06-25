@@ -1,4 +1,5 @@
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { resolveKnowledgebaseFeatureFlags, type KnowledgebaseFeatureFlags } from './knowledgebaseFeatureFlags';
 export type SdkworkEnvironment = 'development' | 'test' | 'staging' | 'production';
 export type SdkworkConfigProfile = 'dev' | 'test' | 'staging' | 'prod';
 export type SdkworkBuildMode = 'development' | 'test' | 'staging' | 'production';
@@ -52,6 +53,7 @@ export interface KnowledgebaseRuntimeConfig {
   platformApiGatewayBaseUrl: string;
   sdkBaseUrls: SdkworkSdkBaseUrlConfig;
   auth: SdkworkAuthRuntimeConfig;
+  featureFlags: KnowledgebaseFeatureFlags;
 }
 
 export interface RuntimeEnv {
@@ -291,6 +293,26 @@ function applyDevSameOriginApiBaseUrl(
     : baseUrl;
 }
 
+export function isDevSameOriginApiEnabled(
+  config: Pick<KnowledgebaseRuntimeConfig, 'deploymentProfile' | 'runtimeTarget' | 'environment'>,
+  env: RuntimeEnv = import.meta.env,
+): boolean {
+  return shouldUseDevSameOriginApi(
+    env,
+    config.deploymentProfile,
+    config.runtimeTarget,
+    config.environment,
+  );
+}
+
+export function isKnowledgebaseAppApiConfigured(
+  config: KnowledgebaseRuntimeConfig,
+  env: RuntimeEnv = import.meta.env,
+): boolean {
+  return Boolean(config.appApiBaseUrl || config.sdkBaseUrls.appApiBaseUrl)
+    || isDevSameOriginApiEnabled(config, env);
+}
+
 export function detectRuntimeTargetFromEnv(env: RuntimeEnv = import.meta.env): SdkworkRuntimeTarget {
   const explicit = normalized(env.VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET);
   if (explicit && VALID_RUNTIME_TARGETS.includes(explicit as SdkworkRuntimeTarget)) {
@@ -386,7 +408,7 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
       backendApiBaseUrl: resolvedBackendApiBaseUrl,
       openApiBaseUrl: resolvedOpenApiBaseUrl,
       dependencySdkBaseUrls: {
-        'sdkwork-appbase-app-sdk': {
+        'sdkwork-iam-app-sdk': {
           appApiBaseUrl: appbaseAppApiBaseUrl,
         },
         'sdkwork-knowledgebase-app-sdk': {
@@ -411,5 +433,9 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
       authTokenHeader: 'Authorization',
       refreshEnabled: environment !== 'test',
     },
+    featureFlags: resolveKnowledgebaseFeatureFlags(
+      environment,
+      env as Record<string, string | undefined>,
+    ),
   };
 }

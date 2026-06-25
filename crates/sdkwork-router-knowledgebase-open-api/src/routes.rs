@@ -9,6 +9,7 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeBrowserView, KnowledgeContextPackRequest, KnowledgeIngestRequest,
     KnowledgeRetrievalRequest, ListKnowledgeBrowserRequest,
 };
+use sdkwork_router_knowledgebase_backend_api::{health, DbReadinessCheck};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -27,8 +28,34 @@ where
 }
 
 pub fn build_router_with_shared_open_api(api: Arc<dyn KnowledgeOpenApi>) -> Router {
+    build_router_with_shared_open_api_and_readiness(api, None)
+}
+
+pub fn build_router_with_shared_open_api_and_readiness(
+    api: Arc<dyn KnowledgeOpenApi>,
+    readiness: Option<DbReadinessCheck>,
+) -> Router {
+    let readiness_for_routes = readiness.clone();
     Router::new()
-        .route(paths::HEALTHZ, get(health))
+        .route(paths::LIVEZ, get(health::livez))
+        .route(
+            paths::READYZ,
+            get({
+                let readiness = readiness_for_routes.clone();
+                move || async move {
+                    map_backend_health_problem(health::readyz_with_state(readiness).await)
+                }
+            }),
+        )
+        .route(
+            paths::HEALTHZ,
+            get({
+                let readiness = readiness_for_routes.clone();
+                move || async move {
+                    map_backend_health_problem(health::healthz_with_state(readiness).await)
+                }
+            }),
+        )
         .route(paths::RETRIEVALS, post(create_retrieval))
         .route(paths::RETRIEVAL, get(retrieve_retrieval))
         .route(paths::CONTEXT_PACKS, post(create_context_pack))
@@ -40,8 +67,19 @@ pub fn build_router_with_shared_open_api(api: Arc<dyn KnowledgeOpenApi>) -> Rout
         .with_state(OpenState { api })
 }
 
-async fn health() -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "status": "ok" }))
+fn map_backend_health_problem(
+    result: Result<
+        Json<serde_json::Value>,
+        sdkwork_router_knowledgebase_backend_api::BackendApiProblem,
+    >,
+) -> Result<Json<serde_json::Value>, ApiProblem> {
+    result.map_err(|_| {
+        ApiProblem::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "dependencies_unavailable",
+            "One or more dependencies are unavailable.",
+        )
+    })
 }
 
 async fn create_retrieval(

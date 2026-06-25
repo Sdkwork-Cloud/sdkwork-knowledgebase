@@ -1,13 +1,17 @@
+use super::governance_drive::{
+    ensure_drive_permission_anchor, DRIVE_WORKSPACE_INIT_DRIVE_SPACE_REQUIRED,
+};
+use super::standard_bundle_catalog_sync::{
+    sync_initialized_standard_bundle_catalog, StandardBundleCatalogSyncDeps,
+    StandardBundleCatalogSyncError,
+};
 use super::{
     OkfBundleFileRegistryService, OkfBundleStandardFileService, PersistStandardFilesRequest,
     PersistedStandardFiles,
 };
 use crate::ports::{
     knowledge_drive_storage::{KnowledgeDriveStorage, KnowledgeStorageError},
-    knowledge_drive_workspace::{
-        EnsureKnowledgeDriveNodeKind, EnsureKnowledgeDriveNodeRequest,
-        EnsureKnowledgeDriveNodesRequest, KnowledgeDriveWorkspace, KnowledgeDriveWorkspaceError,
-    },
+    knowledge_drive_workspace::{KnowledgeDriveWorkspace, KnowledgeDriveWorkspaceError},
 };
 use thiserror::Error;
 
@@ -43,6 +47,22 @@ impl<'a> OkfBundleInitializerService<'a> {
         self.drive_workspace.is_some()
     }
 
+    /// Ensures a root-level drive folder exists so drive ACL can anchor space permissions.
+    pub async fn ensure_drive_permission_anchor(
+        &self,
+        drive_space_id: Option<&str>,
+    ) -> Result<(), OkfBundleInitializerServiceError> {
+        if !self.requires_drive_space_binding() {
+            return Ok(());
+        }
+        let drive_space_id = self.bound_drive_space_id(drive_space_id)?;
+        let Some(drive_workspace) = self.drive_workspace else {
+            return Ok(());
+        };
+        ensure_drive_permission_anchor(drive_workspace, drive_space_id.as_deref()).await?;
+        Ok(())
+    }
+
     pub async fn initialize_standard_files(
         &self,
         space_id: u64,
@@ -61,24 +81,17 @@ impl<'a> OkfBundleInitializerService<'a> {
             .await
             .map_err(OkfBundleInitializerServiceError::Storage)?;
 
-        if let Some(registry) = self.registry {
-            registry.register_standard_files(space_id, &files).await?;
-        }
-
-        if let Some(drive_workspace) = self.drive_workspace {
-            let drive_space_id = bound_drive_space_id.ok_or_else(|| {
-                OkfBundleInitializerServiceError::InvalidRequest(
-                    "drive_space_id is required when drive workspace initialization is enabled"
-                        .to_string(),
-                )
-            })?;
-            drive_workspace
-                .ensure_nodes(EnsureKnowledgeDriveNodesRequest {
-                    drive_space_id,
-                    nodes: standard_drive_nodes(&files),
-                })
-                .await?;
-        }
+        sync_initialized_standard_bundle_catalog(
+            StandardBundleCatalogSyncDeps {
+                bundle_file_store: self.registry.map(|registry| registry.bundle_file_store()),
+                drive_workspace: self.drive_workspace,
+            },
+            space_id,
+            &files,
+            bound_drive_space_id.as_deref(),
+        )
+        .await
+        .map_err(OkfBundleInitializerServiceError::CatalogSync)?;
 
         Ok(files)
     }
@@ -87,83 +100,13 @@ impl<'a> OkfBundleInitializerService<'a> {
         &self,
         drive_space_id: Option<&str>,
     ) -> Result<Option<String>, OkfBundleInitializerServiceError> {
-        let bound = drive_space_id
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToOwned::to_owned);
+        let bound = super::governance_drive::trim_bound_drive_space_id(drive_space_id);
         if self.drive_workspace.is_some() && bound.is_none() {
             return Err(OkfBundleInitializerServiceError::InvalidRequest(
-                "drive_space_id is required when drive workspace initialization is enabled"
-                    .to_string(),
+                DRIVE_WORKSPACE_INIT_DRIVE_SPACE_REQUIRED.to_string(),
             ));
         }
         Ok(bound)
-    }
-
-}
-
-fn standard_drive_nodes(files: &PersistedStandardFiles) -> Vec<EnsureKnowledgeDriveNodeRequest> {
-    const FOLDERS: &[&str] = &[
-        "manifest",
-        "inbox",
-        "inbox/uploads",
-        "inbox/drive-imports",
-        "inbox/api",
-        "sources",
-        "sources/raw",
-        "sources/urls",
-        "sources/repos",
-        "sources/message_archives",
-        "sources/media",
-        "parsed",
-        "okf",
-        "okf/schema",
-        ".sdkwork",
-        ".sdkwork/governance",
-        ".sdkwork/governance/revisions",
-        "graph",
-        "candidates",
-        "indexes",
-        "datasets",
-        "inventory",
-        "context_packs",
-        "eval",
-        "output",
-        "output/answers",
-        "output/reports",
-        "output/decks",
-        "output/charts",
-        "output/plans",
-        "output/study_guides",
-        "output/exports",
-        "mirror",
-        "logs",
-    ];
-
-    let mut nodes = Vec::with_capacity(FOLDERS.len() + 4);
-    nodes.extend(
-        FOLDERS
-            .iter()
-            .map(|logical_path| EnsureKnowledgeDriveNodeRequest {
-                logical_path: (*logical_path).to_string(),
-                kind: EnsureKnowledgeDriveNodeKind::Folder,
-                object_ref: None,
-            }),
-    );
-    nodes.push(file_node(&files.agents_md));
-    nodes.push(file_node(&files.profile_yaml));
-    nodes.push(file_node(&files.index_md));
-    nodes.push(file_node(&files.log_md));
-    nodes
-}
-
-fn file_node(
-    object_ref: &crate::ports::knowledge_drive_storage::KnowledgeObjectRef,
-) -> EnsureKnowledgeDriveNodeRequest {
-    EnsureKnowledgeDriveNodeRequest {
-        logical_path: object_ref.logical_path.clone(),
-        kind: EnsureKnowledgeDriveNodeKind::File,
-        object_ref: Some(object_ref.clone()),
     }
 }
 
@@ -177,4 +120,6 @@ pub enum OkfBundleInitializerServiceError {
     Registry(#[from] super::OkfBundleFileRegistryServiceError),
     #[error(transparent)]
     DriveWorkspace(#[from] KnowledgeDriveWorkspaceError),
+    #[error(transparent)]
+    CatalogSync(#[from] StandardBundleCatalogSyncError),
 }

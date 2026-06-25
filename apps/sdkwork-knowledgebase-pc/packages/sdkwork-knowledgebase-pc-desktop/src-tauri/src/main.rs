@@ -5,6 +5,7 @@ mod document_export_html;
 mod document_export_webview;
 mod export_save;
 mod resource_bridge;
+mod session_secure_store;
 mod tray_bridge;
 
 use std::sync::atomic::Ordering;
@@ -17,6 +18,10 @@ use document_export_bridge::export_document_pdf;
 use export_save::{locate_export_file, open_export_file, reveal_export_file, save_export_file};
 use resource_bridge::{
     fetch_binary_resource, open_external_url, read_local_resource, save_binary_resource,
+};
+use session_secure_store::{
+    clear_secure_session_values, init_secure_session_state, read_secure_session_snapshot,
+    remove_secure_session_value, write_secure_session_value,
 };
 use serde::Deserialize;
 use tauri::{AppHandle, Manager, WindowEvent};
@@ -58,6 +63,7 @@ fn main() {
     tauri::Builder::default()
         .manage(DesktopPreferenceState::new(true))
         .setup(|app| {
+            init_secure_session_state(&app.handle())?;
             let tray_state = install_system_tray(app.handle())?;
             app.manage(tray_state);
 
@@ -92,7 +98,11 @@ fn main() {
             sync_desktop_preferences,
             get_desktop_host_status,
             get_autostart_enabled,
-            sync_tray_locale
+            sync_tray_locale,
+            write_secure_session_value,
+            remove_secure_session_value,
+            clear_secure_session_values,
+            read_secure_session_snapshot
         ])
         .run(tauri::generate_context!())
         .expect("failed to run SDKWork Knowledgebase desktop host");

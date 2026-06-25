@@ -6,7 +6,6 @@ import {
 import { DocumentMeta, KnowledgeBase, DocumentService } from '../../services/document';
 import { MoveCopyModal } from '../../MoveCopyModal';
 import { useTranslation } from 'react-i18next';
-
 export interface VideoPlayerProps {
   activeDoc: DocumentMeta;
   activeKb?: KnowledgeBase | null;
@@ -106,6 +105,20 @@ export function VideoPlayer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
   const [convertTarget, setConvertTarget] = useState<'mp4' | 'webm' | 'gif'>('gif');
   const [gifFramer, setGifFramer] = useState<number>(15);
 
+  const processIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const processTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (processIntervalRef.current) {
+        clearInterval(processIntervalRef.current);
+      }
+      if (processTimeoutRef.current) {
+        clearTimeout(processTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Watch container dimensions using ResizeObserver
   useEffect(() => {
     if (!containerRef.current) return;
@@ -155,13 +168,21 @@ export function VideoPlayer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
     const currentLogs = videoLogs[toolId || 'compress'] || [];
     let logIndex = 0;
 
+    if (processIntervalRef.current) {
+      clearInterval(processIntervalRef.current);
+    }
+    if (processTimeoutRef.current) {
+      clearTimeout(processTimeoutRef.current);
+    }
+
     const interval = setInterval(() => {
       if (logIndex < currentLogs.length) {
         setProcessProgress(prev => Math.round(Math.min(((logIndex + 1) / currentLogs.length) * 100, 100)));
         logIndex++;
       } else {
         clearInterval(interval);
-        setTimeout(() => {
+        processIntervalRef.current = null;
+        processTimeoutRef.current = setTimeout(() => {
           setIsProcessing(false);
           setProcessSuccess(true);
           setResultMeta({
@@ -170,9 +191,11 @@ export function VideoPlayer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
             fps: toolId === 'interpolate' ? 60 : 30,
             savedPercent: toolId === 'compress' ? 71 : undefined
           });
+          processTimeoutRef.current = null;
         }, 100);
       }
     }, 400);
+    processIntervalRef.current = interval;
   };
 
   // Recalculate dimensions to fit perfectly inside the parent container while keeping ratio bounds

@@ -60,12 +60,15 @@ async fn app_router_exposes_browser_route_with_query_parameters() {
 
 #[tokio::test]
 async fn app_router_rejects_invalid_browser_view() {
-    let app = build_router_with_browser(RecordingBrowserApi::default());
+    let app = sdkwork_knowledgebase_observability::wrap_router_with_metrics(
+        build_router_with_browser(RecordingBrowserApi::default()),
+    );
 
     let response = app
         .oneshot(
             Request::builder()
                 .uri("/app/v3/api/knowledge/spaces/7/browser?view=invalid")
+                .header("x-request-id", "corr-browser-001")
                 .extension(app_request_context())
                 .body(Body::empty())
                 .unwrap(),
@@ -78,12 +81,20 @@ async fn app_router_rejects_invalid_browser_view() {
         response.headers().get(header::CONTENT_TYPE).unwrap(),
         "application/problem+json"
     );
+    assert_eq!(
+        response
+            .headers()
+            .get("x-request-id")
+            .and_then(|value| value.to_str().ok()),
+        Some("corr-browser-001")
+    );
     let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
     let problem: ProblemDetails = serde_json::from_slice(&body).unwrap();
     assert_eq!(problem.r#type, "about:blank");
     assert_eq!(problem.title, "Bad Request");
     assert_eq!(problem.status, 400);
     assert_eq!(problem.code.as_deref(), Some("invalid_browser_view"));
+    assert_eq!(problem.trace_id.as_deref(), Some("corr-browser-001"));
     assert_eq!(
         problem.detail.as_deref(),
         Some("unsupported browser view: invalid")

@@ -1,0 +1,55 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sdkwork-knowledgebase-app-api
+  labels:
+    app: sdkwork-knowledgebase
+    component: app-api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sdkwork-knowledgebase
+      component: app-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sdkwork-knowledgebase-backend-api
+  labels:
+    app: sdkwork-knowledgebase
+    component: backend-api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sdkwork-knowledgebase
+      component: backend-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sdkwork-knowledgebase-open-api
+  labels:
+    app: sdkwork-knowledgebase
+    component: open-api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sdkwork-knowledgebase
+      component: open-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sdkwork-knowledgebase-worker
+  labels:
+    app: sdkwork-knowledgebase
+    component: background-worker
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sdkwork-knowledgebase
+      component: background-worker

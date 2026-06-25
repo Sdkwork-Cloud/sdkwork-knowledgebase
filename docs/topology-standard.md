@@ -52,5 +52,5 @@ Profile values live in `configs/topology/*.env` only. Do not hardcode ports in r
 
 Cloud gateway config bundles:
 
-- `configs/sdkwork-api-gateway.knowledgebase.development.toml`
-- `configs/sdkwork-api-gateway.knowledgebase.production.toml`
+- `configs/sdkwork-api-cloud-gateway.knowledgebase.development.toml`
+- `configs/sdkwork-api-cloud-gateway.knowledgebase.production.toml`

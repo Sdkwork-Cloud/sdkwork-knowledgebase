@@ -1,6 +1,6 @@
 use crate::ports::knowledge_drive_storage::{
-    HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeStorageError,
-    space_uuid_from_drive_space_id,
+    space_uuid_from_drive_space_id, HeadKnowledgeObjectRequest, KnowledgeDriveStorage,
+    KnowledgeStorageError,
 };
 
 const MANAGED_OBJECT_ROLES: [&str; 6] = [

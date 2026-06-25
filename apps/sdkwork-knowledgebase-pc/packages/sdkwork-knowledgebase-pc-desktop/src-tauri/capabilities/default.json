@@ -5,10 +5,11 @@
   "windows": [
     "main"
   ],
-  "permissions": [
+    "permissions": [
     "core:default",
     "allow-window-control",
     "allow-resource-bridge",
-    "allow-desktop-preferences"
+    "allow-desktop-preferences",
+    "allow-secure-session"
   ]
 }

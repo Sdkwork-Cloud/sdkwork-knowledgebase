@@ -5,6 +5,7 @@ import { ImageViewer } from './components/players/ImageViewer';
 import { VideoPlayer } from './components/players/VideoPlayer';
 import { FileDownloader } from './components/players/FileDownloader';
 import { MusicPlayer } from './components/players/MusicPlayer';
+import { useHydratedViewerDocument } from './hooks/useHydratedViewerDocument';
 
 export interface MediaViewerProps {
   activeDoc: DocumentMeta;
@@ -30,6 +31,7 @@ export function MediaViewer({
   onUpdateDocs
 }: MediaViewerProps) {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const viewDoc = useHydratedViewerDocument(activeDoc);
 
   // Clear toast after timeout
   useEffect(() => {
@@ -38,6 +40,10 @@ export function MediaViewer({
       return () => clearTimeout(timer);
     }
   }, [toastMsg]);
+
+  if (!viewDoc) {
+    return null;
+  }
 
   return (
     <div id="media-transcription-workspace" className="w-full flex-1 p-0 flex flex-col bg-[var(--color-kb-editor)] min-h-0 select-none">
@@ -54,24 +60,24 @@ export function MediaViewer({
       <div className="flex-1 w-full bg-[var(--color-kb-editor)] overflow-hidden flex flex-col min-h-0">
         
         {/* Render Image Source */}
-        {activeDoc.type === 'image' && (
-          <ImageViewer activeDoc={activeDoc} activeKb={activeKb} onUpdateDocs={onUpdateDocs} onToastMessage={setToastMsg} />
+        {viewDoc.type === 'image' && (
+          <ImageViewer activeDoc={viewDoc} activeKb={activeKb} onUpdateDocs={onUpdateDocs} onToastMessage={setToastMsg} />
         )}
 
         {/* Render Video Player */}
-        {activeDoc.type === 'video' && (
-          <VideoPlayer activeDoc={activeDoc} activeKb={activeKb} onUpdateDocs={onUpdateDocs} onToastMessage={setToastMsg} />
+        {viewDoc.type === 'video' && (
+          <VideoPlayer activeDoc={viewDoc} activeKb={activeKb} onUpdateDocs={onUpdateDocs} onToastMessage={setToastMsg} />
         )}
 
         {/* Render Standard Generic File */}
-        {activeDoc.type === 'file' && (
-          <FileDownloader activeDoc={activeDoc} />
+        {viewDoc.type === 'file' && (
+          <FileDownloader activeDoc={viewDoc} />
         )}
 
         {/* Generic Audio/Music Player Console */}
-        {(activeDoc.type === 'audio' || activeDoc.type === 'music') && (
+        {(viewDoc.type === 'audio' || viewDoc.type === 'music') && (
           <MusicPlayer 
-            activeDoc={activeDoc} 
+            activeDoc={viewDoc} 
             onToastMessage={setToastMsg}
             isTranscribing={isTranscribing}
             onTranscribeStart={onTranscribeStart}

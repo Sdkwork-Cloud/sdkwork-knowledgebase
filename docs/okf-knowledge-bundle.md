@@ -66,7 +66,7 @@ Prometheus counters are exposed on API server `/metrics`:
 - `kb_okf_bundle_import_total`
 - `kb_okf_bundle_export_total`
 
-Structured audit log lines use `audit_event` fields: `okf.concept.published`, `okf.concept.upserted`, `okf.bundle.imported`, `okf.bundle.exported`, `okf.bundle.lint.completed`.
+Structured audit log lines use `audit_event` fields: `okf.concept.published`, `okf.concept.upserted`, `okf.bundle.imported`, `okf.bundle.exported`, `okf.bundle.lint.completed`, `knowledge.document.visibility_changed`, `knowledge.space.member_granted`, and `knowledge.space.member_revoked`.
 
 ## References
 

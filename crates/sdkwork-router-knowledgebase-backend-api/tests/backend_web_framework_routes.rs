@@ -1,19 +1,18 @@
 use async_trait::async_trait;
 use axum::body::Body;
-use axum::http::{Request, StatusCode};
+use axum::extract::Request;
+use axum::http::{Request as HttpRequest, StatusCode};
+use axum::middleware::{self, Next};
+use axum::Router;
 use sdkwork_iam_web_adapter::IamDatabaseWebRequestContextResolver;
 use sdkwork_knowledgebase_contract::KnowledgeSourceList;
 use sdkwork_router_knowledgebase_backend_api::{
     backend_route_manifest, build_router_with_backend_api, manifest,
     wrap_router_with_web_framework, BackendApiResult, KnowledgeBackendApi,
+    KnowledgeBackendRequestContext,
 };
 use sdkwork_web_core::RouteAuth;
 use tower::util::ServiceExt;
-
-const DEV_AUTH_TOKEN: &str =
-    "Bearer tenant_id=100001;user_id=30001;session_id=s-1;app_id=knowledgebase;auth_level=password";
-const DEV_ACCESS_TOKEN: &str =
-    "tenant_id=100001;user_id=30001;session_id=s-1;app_id=knowledgebase;environment=dev;deployment_mode=saas";
 
 #[test]
 fn backend_route_manifest_declares_dual_token_auth_for_all_operations() {
@@ -37,12 +36,12 @@ fn backend_route_manifest_declares_dual_token_auth_for_all_operations() {
 async fn backend_router_web_framework_rejects_unauthenticated_requests() {
     let app = wrap_router_with_web_framework(
         IamDatabaseWebRequestContextResolver::new(None),
-        build_router_with_backend_api(EmptyBackendApi),
+        build_router_with_backend_api(EmptyBackendApi, 1),
     );
 
     let response = app
         .oneshot(
-            Request::builder()
+            HttpRequest::builder()
                 .method("GET")
                 .uri("/backend/v3/api/knowledge/sources")
                 .body(Body::empty())
@@ -55,19 +54,18 @@ async fn backend_router_web_framework_rejects_unauthenticated_requests() {
 }
 
 #[tokio::test]
-async fn backend_router_web_framework_accepts_dev_inline_dual_tokens_before_handler() {
-    let app = wrap_router_with_web_framework(
-        IamDatabaseWebRequestContextResolver::new(None),
-        build_router_with_backend_api(OkBackendApi),
+async fn dev_backend_auth_injects_backend_context_before_handler() {
+    let app = with_dev_backend_auth(
+        build_router_with_backend_api(OkBackendApi, 100_001),
+        100_001,
+        Some(99),
     );
 
     let response = app
         .oneshot(
-            Request::builder()
+            HttpRequest::builder()
                 .method("GET")
                 .uri("/backend/v3/api/knowledge/sources")
-                .header("Authorization", DEV_AUTH_TOKEN)
-                .header("Access-Token", DEV_ACCESS_TOKEN)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -75,6 +73,130 @@ async fn backend_router_web_framework_accepts_dev_inline_dual_tokens_before_hand
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn dev_backend_auth_rejects_tenant_id_mismatch() {
+    let app = with_dev_backend_auth(
+        build_router_with_backend_api(OkBackendApi, 100_001),
+        200_002,
+        Some(99),
+    );
+
+    let response = app
+        .oneshot(
+            HttpRequest::builder()
+                .method("GET")
+                .uri("/backend/v3/api/knowledge/sources")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn dev_backend_auth_rejects_missing_knowledge_admin_permission() {
+    let app = build_router_with_backend_api(OkBackendApi, 100_001).layer(middleware::from_fn(
+        |mut request: Request, next: Next| async move {
+            if request
+                .extensions()
+                .get::<KnowledgeBackendRequestContext>()
+                .is_none()
+            {
+                request
+                    .extensions_mut()
+                    .insert(KnowledgeBackendRequestContext {
+                        tenant_id: 100_001,
+                        operator_id: Some(99),
+                        organization_id: None,
+                        permission_scope: vec!["knowledge.spaces.read".to_string()],
+                    });
+            }
+            next.run(request).await
+        },
+    ));
+
+    let response = app
+        .oneshot(
+            HttpRequest::builder()
+                .method("GET")
+                .uri("/backend/v3/api/knowledge/sources")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn backend_router_rejects_personal_login_scope_sessions() {
+    std::env::set_var("SDKWORK_ENV", "dev");
+    let app = wrap_router_with_web_framework(
+        IamDatabaseWebRequestContextResolver::new(None),
+        build_router_with_backend_api(OkBackendApi, 100_001),
+    );
+
+    let tenant_id = "100001";
+    let auth = format!(
+        "Bearer {}",
+        sdkwork_web_core::auth_token_jwt_with_permissions(
+            tenant_id,
+            "99",
+            "session-1",
+            "sdkwork-knowledgebase",
+            "knowledge.admin",
+        )
+    );
+    let access =
+        sdkwork_web_core::access_token_jwt(tenant_id, "99", "session-1", "sdkwork-knowledgebase");
+
+    let response = app
+        .oneshot(
+            HttpRequest::builder()
+                .method("GET")
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("Authorization", auth)
+                .header("Access-Token", access)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+fn with_dev_backend_auth(router: Router, tenant_id: u64, operator_id: Option<u64>) -> Router {
+    router.layer(middleware::from_fn(
+        move |mut request: Request, next: Next| {
+            let operator_id = operator_id;
+            async move {
+                if request
+                    .extensions()
+                    .get::<KnowledgeBackendRequestContext>()
+                    .is_none()
+                {
+                    request
+                        .extensions_mut()
+                        .insert(KnowledgeBackendRequestContext {
+                            tenant_id,
+                            operator_id,
+                            organization_id: None,
+                            permission_scope: vec![
+                                sdkwork_router_knowledgebase_backend_api::permission::KNOWLEDGE_ADMIN_PERMISSION
+                                    .to_string(),
+                            ],
+                        });
+                }
+                next.run(request).await
+            }
+        },
+    ))
 }
 
 struct EmptyBackendApi;

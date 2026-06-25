@@ -13,8 +13,11 @@ name = "sdkwork-knowledgebase-worker"
 path = "src/bin/worker_main.rs"
 
 [dependencies]
+axum.workspace = true
 sdkwork-intelligence-knowledgebase-service = { workspace = true }
+sdkwork-knowledgebase-api-server = { path = "../sdkwork-knowledgebase-api-server" }
+sdkwork-knowledgebase-observability = { path = "../sdkwork-knowledgebase-observability", features = ["otel"] }
 sdkwork-router-knowledgebase-app-api = { path = "../sdkwork-router-knowledgebase-app-api" }
+serde_json.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "time"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }

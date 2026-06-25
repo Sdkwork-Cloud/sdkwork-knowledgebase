@@ -11,5 +11,8 @@
     "openApiBaseUrl": "http://127.0.0.1:18081",
     "platformApiGatewayBaseUrl": "http://127.0.0.1:3900"
   },
-  "notes": "Safe checked-in browser runtime example. Copy to runtime-env.js for local overrides when not using topology dev orchestration."
+  "featureFlags": {
+    "enableDemoMode": true
+  },
+  "notes": "Safe checked-in browser runtime example for local development. Production/staging examples disable demo mode."
 }

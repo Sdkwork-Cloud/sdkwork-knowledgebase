@@ -15,6 +15,7 @@ use sdkwork_drive_workspace_service::application::workspace_service::{
 };
 use sdkwork_drive_workspace_service::domain::space::DriveSpaceType;
 use sdkwork_drive_workspace_service::DriveServiceError;
+use sdkwork_intelligence_knowledgebase_object_key_service::object_key::KnowledgeObjectKeyPlanner;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_node_tree::{
     DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodeObjectLocator,
     KnowledgeDriveNodePage, KnowledgeDriveNodeSummary, KnowledgeDriveNodeTree,
@@ -25,7 +26,6 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_space::{
     CreateKnowledgeDriveSpaceRequest, DeleteKnowledgeDriveSpaceRequest, KnowledgeDriveSpaceBinding,
     KnowledgeDriveSpaceProvisioner, KnowledgeDriveSpaceProvisionerError,
 };
-use sdkwork_intelligence_knowledgebase_object_key_service::object_key::KnowledgeObjectKeyPlanner;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::{
     HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError,
     PutKnowledgeObjectRequest,
@@ -273,17 +273,13 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
                         safe_logical_path.clone(),
                         request.object_role.clone(),
                     )
-                    .with_space_uuid(
-                        request
-                            .space_uuid
-                            .clone()
-                            .ok_or_else(|| {
-                                KnowledgeStorageError::InvalidRequest(
-                                    "space_uuid is required for knowledge object storage"
-                                        .to_string(),
-                                )
-                            })?,
-                    ),
+                    .with_space_uuid(request.space_uuid.clone().ok_or_else(
+                        || {
+                            KnowledgeStorageError::InvalidRequest(
+                                "space_uuid is required for knowledge object storage".to_string(),
+                            )
+                        },
+                    )?),
                 )
                 .await
                 .is_ok();
@@ -293,10 +289,7 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
                 ));
             }
         }
-        let locator = self.locator_for(
-            &request.logical_path,
-            request.space_uuid.as_deref(),
-        )?;
+        let locator = self.locator_for(&request.logical_path, request.space_uuid.as_deref())?;
         let size_bytes = request.body.len() as u64;
         let computed_checksum_sha256_hex = sha256_hash(&request.body);
         let checksum_sha256_hex = verified_request_checksum(

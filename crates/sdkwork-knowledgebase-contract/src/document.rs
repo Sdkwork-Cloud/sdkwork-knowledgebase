@@ -9,6 +9,7 @@ pub struct CreateKnowledgeDocumentRequest {
     pub title: String,
     pub mime_type: Option<String>,
     pub language: Option<String>,
+    pub visibility: Option<KnowledgeDocumentVisibility>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,6 +20,15 @@ pub struct CreateKnowledgeDocumentVersionRequest {
     pub checksum_sha256_hex: Option<String>,
     pub size_bytes: u64,
     pub mime_type: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeDocumentContent {
+    pub document_id: u64,
+    pub content_markdown: String,
+    pub content_source: String,
+    pub content_version: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Send, CheckCircle2, Check } from 'lucide-react';
+import { X, Send, CheckCircle2, Check, AlertCircle } from 'lucide-react';
+import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 import { DocumentMeta, DocumentService } from './services/document';
 export interface PublishModalProps {
   documents: DocumentMeta[];
@@ -25,6 +26,7 @@ export function PublishModal({ documents, onClose, onWechatFlow }: PublishModalP
   const [selectedPlatform, setSelectedPlatform] = useState<string>('wechat');
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishStatus, setPublishStatus] = useState<Record<string, 'pending' | 'success' | 'error'>>({});
+  const apiMode = isKnowledgebaseApiAvailable();
 
   const togglePlatform = (id: string) => {
     setSelectedPlatform(id);
@@ -42,7 +44,10 @@ export function PublishModal({ documents, onClose, onWechatFlow }: PublishModalP
     setPublishStatus({ [selectedPlatform]: 'pending' });
 
     try {
-      const res = await DocumentService.publishWebsite(selectedPlatform, documents[0]?.id || '');
+      const res = await DocumentService.publishWebsite(
+        selectedPlatform,
+        documents[0]?.kbId || documents[0]?.id || '',
+      );
       if (!res.success) {
         setPublishStatus({ [selectedPlatform]: 'error' });
         setIsPublishing(false);
@@ -74,7 +79,13 @@ export function PublishModal({ documents, onClose, onWechatFlow }: PublishModalP
           </button>
         </div>
         
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden relative">
+          {apiMode && (
+            <div className="absolute top-[72px] left-6 right-6 z-20 flex items-start gap-2 rounded-xl border border-emerald-200/80 bg-emerald-50 px-4 py-3 text-[12px] text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
+              <span>API 模式下微信公众号预览与发布已接入 Knowledgebase SDK；其他第三方平台请使用网站托管部署。</span>
+            </div>
+          )}
           {/* Left panel: selected docs */}
           <div className="w-[32%] border-r border-[var(--color-kb-panel-border)]/80 bg-[var(--color-kb-panel)]/30 flex flex-col">
             <div className="px-5 py-4 border-b border-[var(--color-kb-panel-border)]/50 text-[13px] font-bold text-[var(--color-kb-text-heading)] uppercase tracking-wider">

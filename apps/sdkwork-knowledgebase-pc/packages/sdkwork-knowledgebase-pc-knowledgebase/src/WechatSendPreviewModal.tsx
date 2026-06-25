@@ -15,7 +15,7 @@ export interface WechatSendPreviewModalProps {
 }
 
 export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPreviewWechatId, onConfirmSend, isSending }: WechatSendPreviewModalProps) {
-  const { t } = useTranslation(['common', 'officialAccount']);
+  const { t } = useTranslation(['common', 'officialAccount', 'editor']);
   const [recipients, setRecipients] = useState<string[]>([]);
   const [newIdInput, setNewIdInput] = useState('');
   const [history, setHistory] = useState<string[]>([]);
@@ -107,7 +107,7 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
     }
 
     if (currentRecipients.length === 0) {
-      toast.error('请至少添加一个微信号进行预览');
+      toast.error(t('wechatPreviewRecipientRequired', { ns: 'editor' }));
       return;
     }
 
@@ -132,9 +132,15 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
 
       setPreviewWechatId(currentRecipients.join(', '));
       onClose();
-      toast.success(`已发送预览邀请到 ${currentRecipients.join(', ')}`);
-    } catch (e: any) {
-      toast.error(e.message || '发送预览失败');
+      toast.success(
+        t('wechatPreviewSentSuccess', {
+          ns: 'editor',
+          recipients: currentRecipients.join(', '),
+        }),
+      );
+    } catch (e: unknown) {
+      console.error(e);
+      toast.error(t('wechatPreviewError', { ns: 'editor' }));
     }
   };
 

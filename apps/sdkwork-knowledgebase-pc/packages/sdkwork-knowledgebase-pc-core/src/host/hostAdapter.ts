@@ -1,3 +1,6 @@
+import { throwKnowledgebaseError } from '../errors/knowledgebaseAppError';
+import { KnowledgebaseErrorCodes } from '../errors/knowledgebaseErrorCodes';
+
 export interface BinaryResourcePayload {
   dataBase64: string;
   mimeType?: string | null;
@@ -50,7 +53,7 @@ function getTauriGlobal(): TauriGlobal | undefined {
 function assertSafeExternalUrl(url: string): void {
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw new Error('Only HTTP(S) URLs can be opened externally.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.URL_INVALID_SCHEME);
   }
 }
 
@@ -115,7 +118,7 @@ export function createHostAdapter(): HostAdapter {
     async fetchBinaryResource(url) {
       const tauri = getTauriGlobal();
       if (!tauri?.core?.invoke) {
-        throw new Error('Native resource fetch is only available in the desktop host.');
+        throwKnowledgebaseError(KnowledgebaseErrorCodes.DESKTOP_ONLY);
       }
       return tauri.core.invoke<BinaryResourcePayload>('fetch_binary_resource', {
         request: { url },
@@ -124,7 +127,7 @@ export function createHostAdapter(): HostAdapter {
     async readLocalResource(path) {
       const tauri = getTauriGlobal();
       if (!tauri?.core?.invoke) {
-        throw new Error('Native local file access is only available in the desktop host.');
+        throwKnowledgebaseError(KnowledgebaseErrorCodes.DESKTOP_ONLY);
       }
       return tauri.core.invoke<BinaryResourcePayload>('read_local_resource', {
         request: { path },
@@ -152,7 +155,7 @@ export function createHostAdapter(): HostAdapter {
     async saveExportFile({ suggestedName, bytes, mode }) {
       const tauri = getTauriGlobal();
       if (!tauri?.core?.invoke) {
-        throw new Error('Native export save is only available in the desktop host.');
+        throwKnowledgebaseError(KnowledgebaseErrorCodes.DESKTOP_ONLY);
       }
       const response = await tauri.core.invoke<NativeSaveExportFileResult>('save_export_file', {
         request: {

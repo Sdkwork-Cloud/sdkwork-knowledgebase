@@ -1,5 +1,9 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImportService;
+use sdkwork_intelligence_knowledgebase_service::ports::drive_import_metadata_store::{
+    DriveImportMetadataStore, DriveImportMetadataStoreError, PrepareDriveImportMetadataRecord,
+    PreparedDriveImportMetadata,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_store::{
     CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
     KnowledgeDocumentStoreError,
@@ -17,8 +21,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::
     PutKnowledgeObjectRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::{
-    CreateIngestionJobRecord, CreateOrGetIngestionJobResult, IngestionJobStore,
-    IngestionJobStoreError,
+    CreateIngestionJobRecord, CreateOrGetIngestionJobResult, DriveImportJobLinkage,
+    IngestionJobStore, IngestionJobStoreError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
@@ -47,14 +51,9 @@ async fn drive_import_heads_drive_object_then_creates_source_document_version_an
     let object_refs = MemoryDriveObjectRefStore::default();
     let versions = MemoryDocumentVersionStore::default();
     let jobs = MemoryIngestionJobStore::default();
-    let service = KnowledgeDriveImportService::new(
-        &drive,
-        &sources,
-        &documents,
-        &object_refs,
-        &versions,
-        &jobs,
-    );
+    let metadata =
+        MemoryDriveImportMetadataStore::new(&sources, &documents, &object_refs, &versions, &jobs);
+    let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let result = service
         .import_drive_object(KnowledgeDriveImportRequest {
@@ -141,14 +140,9 @@ async fn drive_import_replay_reuses_metadata_for_same_idempotency_key() {
     let object_refs = MemoryDriveObjectRefStore::default();
     let versions = MemoryDocumentVersionStore::default();
     let jobs = MemoryIngestionJobStore::default();
-    let service = KnowledgeDriveImportService::new(
-        &drive,
-        &sources,
-        &documents,
-        &object_refs,
-        &versions,
-        &jobs,
-    );
+    let metadata =
+        MemoryDriveImportMetadataStore::new(&sources, &documents, &object_refs, &versions, &jobs);
+    let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let request = KnowledgeDriveImportRequest {
         space_id: 7,
@@ -188,14 +182,9 @@ async fn drive_import_trims_idempotency_key_before_lookup() {
     let object_refs = MemoryDriveObjectRefStore::default();
     let versions = MemoryDocumentVersionStore::default();
     let jobs = MemoryIngestionJobStore::default();
-    let service = KnowledgeDriveImportService::new(
-        &drive,
-        &sources,
-        &documents,
-        &object_refs,
-        &versions,
-        &jobs,
-    );
+    let metadata =
+        MemoryDriveImportMetadataStore::new(&sources, &documents, &object_refs, &versions, &jobs);
+    let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let request = KnowledgeDriveImportRequest {
         space_id: 7,
@@ -242,14 +231,9 @@ async fn drive_import_rejects_same_idempotency_key_for_different_drive_object_be
     let object_refs = MemoryDriveObjectRefStore::default();
     let versions = MemoryDocumentVersionStore::default();
     let jobs = MemoryIngestionJobStore::default();
-    let service = KnowledgeDriveImportService::new(
-        &drive,
-        &sources,
-        &documents,
-        &object_refs,
-        &versions,
-        &jobs,
-    );
+    let metadata =
+        MemoryDriveImportMetadataStore::new(&sources, &documents, &object_refs, &versions, &jobs);
+    let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let first = service
         .import_drive_object(KnowledgeDriveImportRequest {
@@ -309,14 +293,9 @@ async fn drive_import_rejects_unsafe_idempotency_key_before_side_effects() {
     let object_refs = MemoryDriveObjectRefStore::default();
     let versions = MemoryDocumentVersionStore::default();
     let jobs = MemoryIngestionJobStore::default();
-    let service = KnowledgeDriveImportService::new(
-        &drive,
-        &sources,
-        &documents,
-        &object_refs,
-        &versions,
-        &jobs,
-    );
+    let metadata =
+        MemoryDriveImportMetadataStore::new(&sources, &documents, &object_refs, &versions, &jobs);
+    let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let error = service
         .import_drive_object(KnowledgeDriveImportRequest {
@@ -355,14 +334,9 @@ async fn drive_import_rejects_provider_id_mismatch_before_import_writes() {
     let object_refs = MemoryDriveObjectRefStore::default();
     let versions = MemoryDocumentVersionStore::default();
     let jobs = MemoryIngestionJobStore::default();
-    let service = KnowledgeDriveImportService::new(
-        &drive,
-        &sources,
-        &documents,
-        &object_refs,
-        &versions,
-        &jobs,
-    );
+    let metadata =
+        MemoryDriveImportMetadataStore::new(&sources, &documents, &object_refs, &versions, &jobs);
+    let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let error = service
         .import_drive_object(KnowledgeDriveImportRequest {
@@ -393,7 +367,7 @@ async fn drive_import_rejects_provider_id_mismatch_before_import_writes() {
     assert_eq!(documents.create_count(), 0);
     assert_eq!(versions.create_count(), 0);
     assert_eq!(object_refs.create_count(), 0);
-    assert_eq!(jobs.create_count(), 1);
+    assert_eq!(jobs.create_count(), 0);
 }
 
 #[tokio::test]
@@ -408,14 +382,9 @@ async fn drive_import_preserves_drive_node_binding_for_browser_projection() {
     let object_refs = MemoryDriveObjectRefStore::default();
     let versions = MemoryDocumentVersionStore::default();
     let jobs = MemoryIngestionJobStore::default();
-    let service = KnowledgeDriveImportService::new(
-        &drive,
-        &sources,
-        &documents,
-        &object_refs,
-        &versions,
-        &jobs,
-    );
+    let metadata =
+        MemoryDriveImportMetadataStore::new(&sources, &documents, &object_refs, &versions, &jobs);
+    let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let result = service
         .import_drive_object(KnowledgeDriveImportRequest {
@@ -529,6 +498,117 @@ impl KnowledgeDriveStorage for RecordingDrive {
         _object_ref: &KnowledgeObjectRef,
     ) -> Result<String, KnowledgeStorageError> {
         Err(KnowledgeStorageError::internal("not needed"))
+    }
+}
+
+struct MemoryDriveImportMetadataStore<'a> {
+    sources: &'a MemorySourceStore,
+    documents: &'a MemoryDocumentStore,
+    object_refs: &'a MemoryDriveObjectRefStore,
+    versions: &'a MemoryDocumentVersionStore,
+    jobs: &'a MemoryIngestionJobStore,
+}
+
+impl<'a> MemoryDriveImportMetadataStore<'a> {
+    fn new(
+        sources: &'a MemorySourceStore,
+        documents: &'a MemoryDocumentStore,
+        object_refs: &'a MemoryDriveObjectRefStore,
+        versions: &'a MemoryDocumentVersionStore,
+        jobs: &'a MemoryIngestionJobStore,
+    ) -> Self {
+        Self {
+            sources,
+            documents,
+            object_refs,
+            versions,
+            jobs,
+        }
+    }
+}
+
+#[async_trait]
+impl DriveImportMetadataStore for MemoryDriveImportMetadataStore<'_> {
+    async fn validate_drive_import_idempotency(
+        &self,
+        record: CreateIngestionJobRecord,
+    ) -> Result<(), DriveImportMetadataStoreError> {
+        self.jobs
+            .validate_idempotency(&record)
+            .map_err(ingestion_job_metadata_error)
+    }
+
+    async fn create_or_prepare_drive_import_metadata(
+        &self,
+        record: PrepareDriveImportMetadataRecord,
+    ) -> Result<PreparedDriveImportMetadata, DriveImportMetadataStoreError> {
+        let job = self
+            .jobs
+            .create_or_get_job(record.job)
+            .await
+            .map_err(ingestion_job_metadata_error)?;
+
+        let original_object_ref = self
+            .object_refs
+            .create_or_get_object_ref(record.object_ref)
+            .await
+            .map_err(|error| DriveImportMetadataStoreError::Internal(error.to_string()))?;
+
+        let source = self
+            .sources
+            .create_or_get_source(record.source)
+            .await
+            .map_err(|error| DriveImportMetadataStoreError::Internal(error.to_string()))?;
+
+        let mut document_record = record.document;
+        document_record.source_id = Some(source.id);
+        let mut document = self
+            .documents
+            .create_or_get_document(document_record)
+            .await
+            .map_err(|error| DriveImportMetadataStoreError::Internal(error.to_string()))?;
+
+        let version = self
+            .versions
+            .create_or_get_document_version(CreateKnowledgeDocumentVersionRecord {
+                document_id: document.id,
+                version_no: record.version.version_no,
+                original_object_ref_id: original_object_ref.id,
+                checksum_sha256_hex: record.version.checksum_sha256_hex,
+                size_bytes: record.version.size_bytes,
+                mime_type: record.version.mime_type,
+            })
+            .await
+            .map_err(|error| DriveImportMetadataStoreError::Internal(error.to_string()))?;
+        document.current_version_id = Some(version.id);
+
+        self.jobs
+            .attach_drive_import_linkage(
+                job.job.id,
+                DriveImportJobLinkage {
+                    source_id: source.id,
+                    document_id: document.id,
+                    document_version_id: version.id,
+                    original_object_ref: original_object_ref.clone(),
+                },
+            )
+            .await
+            .map_err(ingestion_job_metadata_error)?;
+
+        Ok(PreparedDriveImportMetadata {
+            job: job.job,
+            source,
+            document,
+            version,
+            original_object_ref,
+        })
+    }
+}
+
+fn ingestion_job_metadata_error(error: IngestionJobStoreError) -> DriveImportMetadataStoreError {
+    match error {
+        IngestionJobStoreError::Conflict(detail) => DriveImportMetadataStoreError::Conflict(detail),
+        other => DriveImportMetadataStoreError::Internal(other.to_string()),
     }
 }
 
@@ -797,6 +877,23 @@ impl KnowledgeDriveObjectRefStore for MemoryDriveObjectRefStore {
             .cloned()
             .collect())
     }
+
+    async fn get_object_ref_by_id(
+        &self,
+        object_ref_id: u64,
+    ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
+        self.created_refs
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|object_ref| object_ref.id == object_ref_id)
+            .cloned()
+            .ok_or_else(|| {
+                KnowledgeDriveObjectRefStoreError::Internal(format!(
+                    "drive object ref not found: {object_ref_id}"
+                ))
+            })
+    }
 }
 
 impl MemoryDriveObjectRefStore {
@@ -894,11 +991,49 @@ struct MemoryIngestionJobStore {
     by_id: Mutex<HashMap<u64, IngestionJob>>,
     by_key: Mutex<HashMap<(u64, String), u64>>,
     fingerprint_by_id: Mutex<HashMap<u64, Option<String>>>,
+    linkages: Mutex<HashMap<u64, DriveImportJobLinkage>>,
 }
 
 impl MemoryIngestionJobStore {
     fn create_count(&self) -> usize {
         self.by_id.lock().unwrap().len()
+    }
+
+    fn validate_idempotency(
+        &self,
+        record: &CreateIngestionJobRecord,
+    ) -> Result<(), IngestionJobStoreError> {
+        let key = (record.space_id, record.idempotency_key.clone());
+        let Some(existing_id) = self.by_key.lock().unwrap().get(&key).copied() else {
+            return Ok(());
+        };
+        let job = self
+            .by_id
+            .lock()
+            .unwrap()
+            .get(&existing_id)
+            .cloned()
+            .ok_or_else(|| IngestionJobStoreError::Internal("missing job".to_string()))?;
+        if job.source_type != record.source_type {
+            return Err(IngestionJobStoreError::Conflict(
+                "idempotency_key is already used for a different job_type".to_string(),
+            ));
+        }
+        if let Some(expected_fingerprint) = &record.idempotency_fingerprint_sha256_hex {
+            let existing_fingerprint = self
+                .fingerprint_by_id
+                .lock()
+                .unwrap()
+                .get(&existing_id)
+                .cloned()
+                .flatten();
+            if existing_fingerprint.as_deref() != Some(expected_fingerprint.as_str()) {
+                return Err(IngestionJobStoreError::Conflict(
+                    "idempotency_key is already used for a different request".to_string(),
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -973,6 +1108,7 @@ impl IngestionJobStore for MemoryIngestionJobStore {
     async fn update_job_state(
         &self,
         job_id: u64,
+        expected_state: IngestionJobState,
         state: IngestionJobState,
         error_message: Option<String>,
     ) -> Result<IngestionJob, IngestionJobStoreError> {
@@ -980,9 +1116,34 @@ impl IngestionJobStore for MemoryIngestionJobStore {
         let job = jobs
             .get_mut(&job_id)
             .ok_or(IngestionJobStoreError::NotFound(job_id))?;
+        if job.state != expected_state {
+            return Err(IngestionJobStoreError::NotFound(job_id));
+        }
         job.state = state;
         job.error_message = error_message;
         Ok(job.clone())
+    }
+
+    async fn attach_drive_import_linkage(
+        &self,
+        job_id: u64,
+        linkage: DriveImportJobLinkage,
+    ) -> Result<(), IngestionJobStoreError> {
+        if !self.by_id.lock().unwrap().contains_key(&job_id) {
+            return Err(IngestionJobStoreError::NotFound(job_id));
+        }
+        self.linkages.lock().unwrap().insert(job_id, linkage);
+        Ok(())
+    }
+
+    async fn get_drive_import_linkage(
+        &self,
+        job_id: u64,
+    ) -> Result<Option<DriveImportJobLinkage>, IngestionJobStoreError> {
+        if !self.by_id.lock().unwrap().contains_key(&job_id) {
+            return Err(IngestionJobStoreError::NotFound(job_id));
+        }
+        Ok(self.linkages.lock().unwrap().get(&job_id).cloned())
     }
 
     async fn list_jobs_by_state(
@@ -997,5 +1158,44 @@ impl IngestionJobStore for MemoryIngestionJobStore {
             .take(limit as usize)
             .cloned()
             .collect())
+    }
+
+    async fn mark_running_job_succeeded_with_outbox(
+        &self,
+        job_id: u64,
+        _outbox: sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::AppendOutboxEventRecord,
+    ) -> Result<IngestionJob, IngestionJobStoreError> {
+        let mut jobs = self.by_id.lock().unwrap();
+        let job = jobs
+            .get_mut(&job_id)
+            .ok_or(IngestionJobStoreError::NotFound(job_id))?;
+        if job.state != IngestionJobState::Running {
+            return Err(IngestionJobStoreError::Conflict(format!(
+                "invalid ingestion job transition: {:?} -> {:?}",
+                job.state,
+                IngestionJobState::Succeeded
+            )));
+        }
+        job.state = IngestionJobState::Succeeded;
+        job.error_message = None;
+        Ok(job.clone())
+    }
+
+    async fn complete_running_ingestion_with_chunks_and_outbox(
+        &self,
+        record: sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::CompleteRunningIngestionRecord,
+    ) -> Result<
+        sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::CompletedIngestionResult,
+        IngestionJobStoreError,
+    >{
+        let job = self
+            .mark_running_job_succeeded_with_outbox(record.job_id, record.outbox)
+            .await?;
+        Ok(
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::CompletedIngestionResult {
+                job,
+                chunk_count: record.chunks.len(),
+            },
+        )
     }
 }

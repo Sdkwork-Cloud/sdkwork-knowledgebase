@@ -115,7 +115,7 @@ impl ChromaKnowledgeEngine {
             self.config
                 .as_ref()
                 .and_then(|config| config.default_collection_id.clone()),
-            &format!("{CHROMA_COLLECTION_ID_ENV}"),
+            CHROMA_COLLECTION_ID_ENV,
         )
         .await
     }

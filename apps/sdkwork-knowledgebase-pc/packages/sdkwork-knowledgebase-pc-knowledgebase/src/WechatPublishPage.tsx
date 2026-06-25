@@ -41,7 +41,7 @@ import { WechatService, OfficialAccount, WechatArticle } from './services/wechat
 import { AIService } from './services/ai';
 
 import { toast } from './components/ui/toast-manager';
-import { useLocalStorage } from '@packages/sdkwork-knowledgebase-pc-commons/src';
+import { useLocalStorage } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 
 export interface WechatPublishPageProps {
   documents?: DocumentMeta[];
@@ -237,6 +237,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
     try {
       const currentAccountId = selectedOfficialAccounts[0]?.id || '';
       await WechatService.sendPreview(currentAccountId, recipients, articles);
+      toast.success(t('wechatPreviewSuccess'));
+    } catch (e) {
+      console.error(e);
+      toast.error(t('wechatPreviewError'));
     } finally {
       setIsSendingPreview(false);
     }
@@ -739,6 +743,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
     setIsPublishing(true);
     try {
       await WechatService.publishArticles(selectedOfficialAccountIds, articles, options);
+      toast.success(t('wechatPublishSuccess'));
       if (onClose) {
         setTimeout(() => {
           onClose();
@@ -750,6 +755,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
       }
     } catch (e) {
       console.error(e);
+      toast.error(t('publishErrorMsg'));
       throw e;
     } finally {
       setIsPublishing(false);
@@ -812,10 +818,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
         addedContent += "\n";
         await new Promise(r => setTimeout(r, 80));
       }
-      toast.success('文章流式续写成功！');
+      toast.success(t('wechatStreamContinueSuccess'));
     } catch (e) {
       console.error(e);
-      toast.error('续写失败');
+      toast.error(t('wechatStreamContinueError'));
     } finally {
       setIsRewritingStreaming(false);
     }
@@ -880,10 +886,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
         draftedContent += "\n";
         await new Promise(r => setTimeout(r, 60));
       }
-      toast.success('新文章流式起草完成！');
+      toast.success(t('wechatStreamDraftSuccess'));
     } catch (e) {
       console.error(e);
-      toast.error('新文章起草失败');
+      toast.error(t('wechatStreamDraftError'));
     } finally {
       setIsRewritingStreaming(false);
     }

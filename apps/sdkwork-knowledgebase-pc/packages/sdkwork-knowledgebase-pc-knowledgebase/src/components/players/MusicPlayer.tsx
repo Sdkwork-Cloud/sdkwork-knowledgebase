@@ -5,7 +5,26 @@ import {
   SkipForward, SkipBack, Heart, ListMusic, Radio, 
   Headphones, Smartphone, FileText, AlignLeft
 } from 'lucide-react';
+import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 import { DocumentMeta } from '../../services/document';
+import { AIService } from '../../services/ai';
+
+function resolveTrackAudioUrl(url: string | undefined): string {
+  if (url) {
+    return url;
+  }
+  return isKnowledgebaseApiAvailable()
+    ? ''
+    : 'https://cdn.pixabay.com/download/audio/2022/10/25/audio_220e8b15d9.mp3?filename=piano-moment-9835.mp3';
+}
+
+const NEUTRAL_TRACK_COVER = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#262626"/><text x="200" y="220" text-anchor="middle" fill="#a3a3a3" font-family="sans-serif" font-size="64">♪</text></svg>',
+)}`;
+
+function resolveTrackCoverUrl(mockCoverUrl: string): string {
+  return isKnowledgebaseApiAvailable() ? NEUTRAL_TRACK_COVER : mockCoverUrl;
+}
 
 export interface MusicTrack {
   id: string;
@@ -96,8 +115,6 @@ export const DEMO_PLAYLIST: MusicTrack[] = [
   }
 ];
 
-import { AIService } from '../../services/ai';
-
 export interface MusicPlayerProps {
   activeDoc: DocumentMeta;
   onToastMessage?: (msg: string) => void;
@@ -107,6 +124,7 @@ export interface MusicPlayerProps {
 }
 
 export function MusicPlayer({ activeDoc, onToastMessage, isTranscribing, onTranscribeStart, onTranscribeComplete }: MusicPlayerProps) {
+  const demoPlaylist = isKnowledgebaseApiAvailable() ? [] : DEMO_PLAYLIST;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -133,13 +151,21 @@ export function MusicPlayer({ activeDoc, onToastMessage, isTranscribing, onTrans
   // Execute transcription
   useEffect(() => {
     if (isTranscribing && onTranscribeComplete) {
+      if (isKnowledgebaseApiAvailable() && !activeDoc.url) {
+        triggerToast('音频文件缺少下载地址，无法转写。');
+        onTranscribeComplete('');
+        return;
+      }
       triggerToast('AI 正在语音转文字，请稍候...');
-      AIService.speechToText(activeDoc.url || '').then(text => {
+      AIService.speechToText(activeDoc.url || '', {
+        spaceId: activeDoc.kbId,
+        documentId: activeDoc.id,
+      }).then(text => {
         onTranscribeComplete(text);
         triggerToast('语音转写已经成功完成！');
       }).catch(err => {
         console.error(err);
-        triggerToast('语音转写失败。');
+        triggerToast(err instanceof Error ? err.message : '语音转写失败。');
         onTranscribeComplete('');
       });
     }
@@ -200,9 +226,11 @@ const AUDIO_TRANSCRIPT = [
           genre: '语音识别',
           durationStr: activeDoc.size || '32:15',
           durationSecs: 1935,
-          url: activeDoc.url || 'https://cdn.pixabay.com/download/audio/2022/10/25/audio_220e8b15d9.mp3?filename=piano-moment-9835.mp3',
-          coverUrl: 'https://images.unsplash.com/photo-1589903308904-1010c2294adc?w=400&q=80',
-          lyrics: AUDIO_TRANSCRIPT
+          url: resolveTrackAudioUrl(activeDoc.url),
+          coverUrl: resolveTrackCoverUrl('https://images.unsplash.com/photo-1589903308904-1010c2294adc?w=400&q=80'),
+          lyrics: isKnowledgebaseApiAvailable()
+            ? [{ time: 0, text: `🎵 正在播放《${activeDoc.title}》`, translation: '' }]
+            : AUDIO_TRANSCRIPT
         };
       }
 
@@ -215,8 +243,8 @@ const AUDIO_TRANSCRIPT = [
           genre: 'Synthwave / Cyberpunk',
           durationStr: '04:22',
           durationSecs: 262,
-          url: activeDoc.url || 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_cbf448ccaa.mp3?filename=cyberpunk-2099-10656.mp3',
-          coverUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&q=80',
+          url: resolveTrackAudioUrl(activeDoc.url),
+          coverUrl: resolveTrackCoverUrl('https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&q=80'),
           lyrics: [
             { time: 0, text: '⚡ [System Initialization] - Loading "Retro Cyberpunk Beats" by Neon Rider', translation: '⚡ [霓虹系统准备完毕] - 正在载入推荐曲目 《Retro Cyberpunk Beats》' },
             { time: 10, text: 'Cruising through neon-drenched rainy streets...', translation: '驾驶爱车全速穿越霓虹闪烁的雨夜街道...' },
@@ -238,8 +266,8 @@ const AUDIO_TRANSCRIPT = [
           genre: 'Lofi Chillout / Jazzhop',
           durationStr: '03:12',
           durationSecs: 192,
-          url: activeDoc.url || 'https://cdn.pixabay.com/download/audio/2021/11/23/audio_a150c950ef.mp3?filename=lofi-study-11219.mp3',
-          coverUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80',
+          url: resolveTrackAudioUrl(activeDoc.url),
+          coverUrl: resolveTrackCoverUrl('https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80'),
           lyrics: [
             { time: 0, text: '☕ Raindrops gently patter against the cozy window glass...', translation: '☕ 淅淅沥沥的雨滴轻敲温暖舒适的咖啡馆橱窗...' },
             { time: 10, text: 'Warm coffee steam rises, mixing with lazy jazzy piano chords.', translation: '温热的一杯美式咖啡蒸汽氤氲，融入懒洋洋的爵士钢琴和弦。' },
@@ -260,9 +288,11 @@ const AUDIO_TRANSCRIPT = [
         genre: '导入音频',
         durationStr: activeDoc.size || '03:45',
         durationSecs: 225,
-        url: activeDoc.url || 'https://cdn.pixabay.com/download/audio/2022/10/25/audio_220e8b15d9.mp3?filename=piano-moment-9835.mp3',
-        coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop&q=60',
-        lyrics: [
+        url: resolveTrackAudioUrl(activeDoc.url),
+        coverUrl: resolveTrackCoverUrl('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop&q=60'),
+        lyrics: isKnowledgebaseApiAvailable()
+          ? [{ time: 0, text: `🎵 正在播放《${activeDoc.title}》`, translation: '' }]
+          : [
           { time: 0, text: `🎵 开始播放《${activeDoc.title}》`, translation: `🎵 Playing "${activeDoc.title}"` },
           { time: 8, text: 'Deep thinking meets gorgeous acoustic vibrations...', translation: '深度思考与美妙的声学振动相遇...' },
           { time: 18, text: 'This music is played directly from your personal knowledge-base assets.', translation: '此音乐直接从您的个人知识库资产中加载播放。' },
@@ -271,7 +301,7 @@ const AUDIO_TRANSCRIPT = [
       };
     }
 
-    const found = DEMO_PLAYLIST.find(t => t.id === activeDemoTrackId);
+    const found = demoPlaylist.find(t => t.id === activeDemoTrackId);
     return found || {
       id: 'doc',
       title: activeDoc.title,
@@ -280,11 +310,11 @@ const AUDIO_TRANSCRIPT = [
       genre: '导入音频',
       durationStr: activeDoc.size || '03:45',
       durationSecs: 225,
-      url: activeDoc.url || 'https://cdn.pixabay.com/download/audio/2022/10/25/audio_220e8b15d9.mp3?filename=piano-moment-9835.mp3',
-      coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop&q=60',
+      url: resolveTrackAudioUrl(activeDoc.url),
+      coverUrl: resolveTrackCoverUrl('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&auto=format&fit=crop&q=60'),
       lyrics: []
     };
-  }, [activeDemoTrackId, activeDoc]);
+  }, [activeDemoTrackId, activeDoc, demoPlaylist]);
 
   const audioUrlToPlay = useMemo(() => {
     return activeTrack.url;
@@ -301,20 +331,20 @@ const AUDIO_TRANSCRIPT = [
   };
 
   const handleNextTrack = () => {
-    const list = ['doc', ...DEMO_PLAYLIST.map(t => t.id)];
+    const list = ['doc', ...demoPlaylist.map(t => t.id)];
     const currentIndex = list.indexOf(activeDemoTrackId);
     const nextIndex = (currentIndex + 1) % list.length;
     setActiveDemoTrackId(list[nextIndex]);
-    const info = nextIndex === 0 ? activeDoc.title : DEMO_PLAYLIST[nextIndex - 1].title;
+    const info = nextIndex === 0 ? activeDoc.title : demoPlaylist[nextIndex - 1].title;
     triggerToast(`🎵 切换至下一曲: ${info}`);
   };
 
   const handlePrevTrack = () => {
-    const list = ['doc', ...DEMO_PLAYLIST.map(t => t.id)];
+    const list = ['doc', ...demoPlaylist.map(t => t.id)];
     const currentIndex = list.indexOf(activeDemoTrackId);
     const prevIndex = (currentIndex - 1 + list.length) % list.length;
     setActiveDemoTrackId(list[prevIndex]);
-    const info = prevIndex === 0 ? activeDoc.title : DEMO_PLAYLIST[prevIndex - 1].title;
+    const info = prevIndex === 0 ? activeDoc.title : demoPlaylist[prevIndex - 1].title;
     triggerToast(`🎵 切换至上一曲: ${info}`);
   };
 
@@ -818,7 +848,7 @@ const AUDIO_TRANSCRIPT = [
               ) : (
                 <>
                   <p className="text-[9px] text-zinc-500 font-mono tracking-wider uppercase mb-1">
-                    Knowledge Audio Assets ({1 + DEMO_PLAYLIST.length} Tracks)
+                    Knowledge Audio Assets ({1 + demoPlaylist.length} Tracks)
                   </p>
                   
                   <div className="space-y-1.5">
@@ -837,7 +867,7 @@ const AUDIO_TRANSCRIPT = [
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div className="relative shrink-0">
                           <img 
-                            src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=100&auto=format&fit=crop&q=60" 
+                            src={resolveTrackCoverUrl('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=100&auto=format&fit=crop&q=60')} 
                             alt="cover sticker" 
                             className="w-8 h-8 rounded-lg object-cover" 
                           />
@@ -865,7 +895,7 @@ const AUDIO_TRANSCRIPT = [
                     </div>
 
                     {/* Playlist Demo Entries */}
-                    {DEMO_PLAYLIST.map((track) => (
+                    {demoPlaylist.map((track) => (
                       <div 
                         key={track.id}
                         onClick={() => {

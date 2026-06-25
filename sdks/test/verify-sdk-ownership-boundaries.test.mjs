@@ -38,7 +38,7 @@ const families = [
     generatedPackage:
       "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/package.json",
     dependencies: [
-      ["sdkwork-appbase-app-sdk", "sdkwork-appbase-app-api"],
+      ["sdkwork-iam-app-sdk", "sdkwork-iam-app-api"],
       ["sdkwork-drive-app-sdk", "sdkwork-drive.app"],
       ["sdkwork-memory-app-sdk", "sdkwork-memory.app"],
     ],
@@ -64,7 +64,7 @@ const families = [
     generatedPackage:
       "sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi/package.json",
     dependencies: [
-      ["sdkwork-appbase-backend-sdk", "sdkwork-appbase-backend-api"],
+      ["sdkwork-iam-backend-sdk", "sdkwork-iam-backend-api"],
       ["sdkwork-drive-backend-sdk", "sdkwork-drive.backend"],
       ["sdkwork-memory-backend-sdk", "sdkwork-memory.backend"],
     ],

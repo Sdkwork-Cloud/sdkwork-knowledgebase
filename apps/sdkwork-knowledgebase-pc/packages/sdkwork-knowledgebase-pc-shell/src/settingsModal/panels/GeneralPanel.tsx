@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { toast } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src';
+import { toast } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase';
 
 import {
   SETTINGS_STORAGE_KEYS,

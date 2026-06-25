@@ -15,6 +15,9 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
+use crate::sqlite_okf_concept_transaction::{
+    next_okf_revision_no_in_transaction, upsert_okf_concept_in_transaction,
+};
 
 const ACTIVE_STATUS: i64 = 1;
 const DELETED_STATUS: i64 = 0;
@@ -50,26 +53,12 @@ impl SqliteKnowledgeOkfConceptStore {
         &self,
         concept_row_id: u64,
     ) -> Result<u64, KnowledgeOkfConceptStoreError> {
-        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
-        let concept_row_id = to_i64("concept_row_id", concept_row_id)?;
-        let next: i64 = sqlx::query_scalar(
-            r#"
-            UPDATE kb_okf_concept
-            SET revision_counter = revision_counter + 1,
-                updated_at = $1,
-                version = version + 1
-            WHERE tenant_id = $2 AND id = $3 AND status = $4
-            RETURNING revision_counter
-            "#,
-        )
-        .bind(now_rfc3339()?)
-        .bind(tenant_id)
-        .bind(concept_row_id)
-        .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
-        from_i64("revision_no", next)
+        let mut transaction = self.pool.begin().await.map_err(sqlx_error)?;
+        let revision_no =
+            next_okf_revision_no_in_transaction(&mut transaction, self.tenant_id, concept_row_id)
+                .await?;
+        transaction.commit().await.map_err(sqlx_error)?;
+        Ok(revision_no)
     }
 
     pub async fn list_all_concept_summaries(
@@ -261,84 +250,16 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         &self,
         record: UpsertKnowledgeOkfConceptRecord,
     ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {
-        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
-        let space_id = to_i64("space_id", record.space_id)?;
-        let source_count = i64::from(record.source_count);
-        let now = now_rfc3339()?;
-        let concept_type = record.concept_type.as_str();
-        let publish_state = record.publish_state.as_str();
-        let tags = tags_to_json(&record.tags)?;
-        let id = next_i64_id(&self.id_generator).map_err(id_error)?;
-
-        let row = sqlx::query(
-            r#"
-            INSERT INTO kb_okf_concept (
-                id,
-                uuid,
-                tenant_id,
-                space_id,
-                concept_id,
-                title,
-                concept_type,
-                logical_path,
-                description,
-                source_count,
-                tags,
-                current_revision_id,
-                publish_state,
-                status,
-                created_at,
-                updated_at,
-                version
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, $12, $13, $14, $15, $16)
-            ON CONFLICT(tenant_id, space_id, concept_id)
-            DO UPDATE SET
-                title = excluded.title,
-                concept_type = excluded.concept_type,
-                logical_path = excluded.logical_path,
-                description = excluded.description,
-                source_count = excluded.source_count,
-                tags = excluded.tags,
-                publish_state = excluded.publish_state,
-                updated_at = excluded.updated_at,
-                version = kb_okf_concept.version + 1
-            RETURNING
-                id,
-                space_id,
-                concept_id,
-                title,
-                concept_type,
-                logical_path,
-                description,
-                source_count,
-                tags,
-                current_revision_id,
-                publish_state,
-                updated_at
-            "#,
+        let mut transaction = self.pool.begin().await.map_err(sqlx_error)?;
+        let concept = upsert_okf_concept_in_transaction(
+            &mut transaction,
+            self.tenant_id,
+            &self.id_generator,
+            record,
         )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(record.concept_id)
-        .bind(record.title)
-        .bind(concept_type)
-        .bind(record.logical_path)
-        .bind(record.description)
-        .bind(source_count)
-        .bind(tags)
-        .bind(publish_state)
-        .bind(ACTIVE_STATUS)
-        .bind(now.clone())
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
-
-        concept_from_row(&row)
+        .await?;
+        transaction.commit().await.map_err(sqlx_error)?;
+        Ok(concept)
     }
 
     async fn create_revision(
@@ -875,11 +796,6 @@ struct LogMetadata {
     affected_concepts: Vec<String>,
     audit_event_id: Option<String>,
     warnings: Vec<String>,
-}
-
-fn tags_to_json(tags: &[String]) -> Result<String, KnowledgeOkfConceptStoreError> {
-    serde_json::to_string(tags)
-        .map_err(|error| KnowledgeOkfConceptStoreError::Internal(error.to_string()))
 }
 
 fn tags_from_json(value: Option<String>) -> Result<Vec<String>, KnowledgeOkfConceptStoreError> {

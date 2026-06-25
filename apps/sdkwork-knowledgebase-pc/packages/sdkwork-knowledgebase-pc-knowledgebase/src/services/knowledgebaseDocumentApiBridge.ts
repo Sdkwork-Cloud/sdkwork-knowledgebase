@@ -1,7 +1,9 @@
 import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import * as KnowledgeSpaceSettingsService from './knowledgeSpaceSettingsService';
 import {
   applyDriveBrowserNodeUpdates,
+  createKnowledgeDriveFolder,
   deleteDriveBrowserNode,
 } from './knowledgeDriveBrowserService';
 import {
@@ -15,19 +17,42 @@ import {
   readOkfConceptTags,
   updateOkfConceptTags,
 } from './knowledgeOkfDocumentMetadataService';
+import { copyOkfConcept, moveOkfConcept } from './knowledgeOkfConceptTransferService';
+import { waitForIngestJob } from './knowledgeIngestService';
 import {
-  getKnowledgebaseAppSdkClient,
+  transferDocumentAcrossKnowledgeBases,
+  copyDriveFolderWithinKnowledgeBase,
+  copyDriveFileWithinKnowledgeBase,
+} from './knowledgeDocumentTransferService';
+import {
+  ensureKnowledgeBrowserFolderLoaded,
+  findKnowledgeBrowserNodeByDocumentId,
+  listAllKnowledgeBrowserNodes,
+  listLoadedKnowledgeBrowserNodes,
+  invalidateKnowledgeBrowserNodeCacheForKbIds,
+  invalidateKnowledgeBrowserNodeCacheForSpaceIds,
+  resolveBrowserDocumentId,
+} from './knowledgeBrowserListService';
+import { resolveKnowledgeBrowserParentDriveNodeId } from './knowledgeBrowserParentResolver';
+import { hydrateDocumentMediaUrl } from './knowledgeDriveMediaService';
+import {
+  fetchKnowledgeDocumentContent,
   getKnowledgebaseTenantId,
   isKnowledgebaseDriveApiAvailable,
+  KnowledgebaseErrorCodes,
+  parseKnowledgeSpaceId,
   readLocalDocumentContent,
   readRecentDocuments,
   readRegisteredSpaces,
   removeLocalDocumentContent,
   removeRecentDocument,
   removeRegisteredSpace,
+  requireKnowledgebaseAppSdkHttpClient,
+  requireKnowledgebaseTenantId,
+  throwKnowledgebaseError,
+  touchRecentDocument,
   type KnowledgebaseSpaceKbType,
   type RegisteredKnowledgebaseSpace,
-  touchRecentDocument,
   updateRegisteredSpace,
   upsertRegisteredSpace,
   writeLocalDocumentContent,
@@ -36,27 +61,15 @@ import {
 import type { DocumentMeta, FolderNode, KnowledgeBase } from './document';
 
 function requireTenantId(): string {
-  const tenantId = getKnowledgebaseTenantId();
-  if (!tenantId) {
-    throw new Error('Knowledgebase tenant context is required for API-backed document operations.');
-  }
-  return tenantId;
+  return requireKnowledgebaseTenantId();
 }
 
 function requireSdkClient() {
-  const sdk = getKnowledgebaseAppSdkClient();
-  if (!sdk) {
-    throw new Error('Knowledgebase app SDK is not configured.');
-  }
-  return sdk.client;
+  return requireKnowledgebaseAppSdkHttpClient();
 }
 
 function spaceIdFromKbId(kbId: string): number {
-  const spaceId = Number(kbId);
-  if (!Number.isFinite(spaceId) || spaceId <= 0) {
-    throw new Error(`Invalid knowledge space id: ${kbId}`);
-  }
-  return spaceId;
+  return parseKnowledgeSpaceId(kbId);
 }
 
 function formatBytes(bytes: number | null | undefined): string | undefined {
@@ -70,16 +83,6 @@ function formatBytes(bytes: number | null | undefined): string | undefined {
     return `${(bytes / 1024).toFixed(1)} KB`;
   }
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function resolveBrowserDocumentId(node: KnowledgeBrowserNode, kbId: string): string {
-  if (node.conceptId) {
-    return `okf:${kbId}:${node.conceptId}`;
-  }
-  if (node.documentId) {
-    return String(node.documentId);
-  }
-  return node.id;
 }
 
 function parseOkfDocumentId(id: string): { spaceId: number; conceptRowId: number } | null {
@@ -184,25 +187,6 @@ function buildKnowledgeBase(
     siteName: space.siteName,
     siteLogo: space.siteLogo,
   };
-}
-
-async function listBrowserNodes(spaceId: number, parentId?: string | null) {
-  const client = requireSdkClient();
-  const items: KnowledgeBrowserNode[] = [];
-  let cursor: string | null | undefined;
-
-  do {
-    const page = await client.knowledge.spaces.browser.list(spaceId, {
-      view: 'files',
-      parentId: parentId ?? null,
-      cursor,
-      pageSize: 100,
-    });
-    items.push(...page.items);
-    cursor = page.nextCursor;
-  } while (cursor);
-
-  return items;
 }
 
 function groupDocumentsByParent(
@@ -400,7 +384,8 @@ export async function deleteKnowledgeBase(id: string): Promise<boolean> {
 
 export async function getDocuments(kbId: string): Promise<(FolderNode | DocumentMeta)[]> {
   const spaceId = spaceIdFromKbId(kbId);
-  const nodes = await listBrowserNodes(spaceId);
+  await ensureKnowledgeBrowserFolderLoaded(spaceId, null);
+  const nodes = await listLoadedKnowledgeBrowserNodes(spaceId);
   const grouped = groupDocumentsByParent(nodes, kbId);
 
   let favoriteNodeIds: Set<string> | undefined;
@@ -425,6 +410,14 @@ export async function getDocuments(kbId: string): Promise<(FolderNode | Document
     }
   }, favoriteNodeIds);
   return grouped;
+}
+
+export async function ensureFolderChildrenLoaded(
+  kbId: string,
+  folderId: string | null,
+): Promise<void> {
+  const spaceId = spaceIdFromKbId(kbId);
+  await ensureKnowledgeBrowserFolderLoaded(spaceId, folderId);
 }
 
 async function readIndexedDocumentContent(
@@ -476,24 +469,72 @@ async function resolveBrowserNodeByDocumentId(
     return null;
   }
 
-  for (const entry of readRegisteredSpaces(tenantId)) {
+  const okfRef = parseOkfDocumentId(documentId);
+  if (okfRef) {
+    return resolveBrowserNodeInSpace(okfRef.spaceId, documentId);
+  }
+
+  const numericDocumentId = Number(documentId);
+  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
     try {
-      const nodes = await listBrowserNodes(entry.spaceId);
-      const node = nodes.find((candidate) => resolveBrowserDocumentId(candidate, String(entry.spaceId)) === documentId)
-        ?? nodes.find((candidate) => candidate.id === documentId);
-      if (node) {
-        return { spaceId: entry.spaceId, node };
+      const document = await requireSdkClient().knowledge.documents.retrieve(numericDocumentId);
+      const resolved = await resolveBrowserNodeInSpace(document.spaceId, documentId);
+      if (resolved) {
+        return resolved;
       }
     } catch {
-      // Skip spaces that fail to list.
+      // Fall through to registry scan.
+    }
+  }
+
+  for (const entry of readRegisteredSpaces(tenantId)) {
+    const resolved = await resolveBrowserNodeInSpace(entry.spaceId, documentId);
+    if (resolved) {
+      return resolved;
     }
   }
 
   return null;
 }
 
+async function resolveBrowserNodeInSpace(
+  spaceId: number,
+  documentId: string,
+): Promise<{ spaceId: number; node: KnowledgeBrowserNode } | null> {
+  try {
+    const kbId = String(spaceId);
+    const nodes = await listAllKnowledgeBrowserNodes(spaceId);
+    const node = findKnowledgeBrowserNodeByDocumentId(nodes, documentId, kbId);
+    if (node) {
+      return { spaceId, node };
+    }
+  } catch {
+    // Skip spaces that fail to list.
+  }
+  return null;
+}
+
 export async function getDocumentContent(id: string): Promise<string> {
   const tenantId = requireTenantId();
+  const numericDocumentId = Number(id);
+
+  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+    const authoritative = await fetchKnowledgeDocumentContent(numericDocumentId);
+    if (authoritative?.contentMarkdown !== undefined) {
+      const contentVersion = authoritative.contentVersion?.trim()
+        || authoritative.contentSource?.trim()
+        || `document-${authoritative.documentId}`;
+      const cached = readLocalDocumentContent(tenantId, id, contentVersion);
+      if (cached !== undefined) {
+        return cached;
+      }
+      if (authoritative.contentMarkdown.trim()) {
+        writeLocalDocumentContent(tenantId, id, authoritative.contentMarkdown, contentVersion);
+        return authoritative.contentMarkdown;
+      }
+    }
+  }
+
   const cached = readLocalDocumentContent(tenantId, id);
   if (cached !== undefined) {
     const recent = readRecentDocuments(tenantId).find((entry) => entry.id === id);
@@ -507,7 +548,7 @@ export async function getDocumentContent(id: string): Promise<string> {
   if (okfRef) {
     try {
       const content = await readOkfConceptMarkdown(okfRef.spaceId, okfRef.conceptRowId);
-      writeLocalDocumentContent(tenantId, id, content);
+      writeLocalDocumentContent(tenantId, id, content, `okf-${okfRef.conceptRowId}`);
       return content;
     } catch (error) {
       console.warn('[KnowledgebaseDocumentApiBridge] okf concept read failed.', error);
@@ -515,7 +556,6 @@ export async function getDocumentContent(id: string): Promise<string> {
   }
 
   const client = requireSdkClient();
-  const numericDocumentId = Number(id);
   if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
     try {
       const document = await client.knowledge.documents.retrieve(numericDocumentId);
@@ -532,7 +572,7 @@ export async function getDocumentContent(id: string): Promise<string> {
         document.title,
       );
       if (indexed) {
-        writeLocalDocumentContent(tenantId, id, indexed);
+        writeLocalDocumentContent(tenantId, id, indexed, `indexed-${document.id}`);
         return indexed;
       }
       return `# ${document.title}\n\nThis document is indexed in Knowledgebase but no retrieval chunks were found yet.`;
@@ -572,26 +612,40 @@ export async function saveDocumentContent(id: string, content: string): Promise<
       actor: 'pc-knowledgebase',
       publish: true,
     });
+    invalidateKnowledgeBrowserNodeCacheForSpaceIds(okfRef.spaceId);
     return true;
   }
 
   const numericDocumentId = await resolveNumericDocumentId(id);
   if (!numericDocumentId) {
-    throw new Error('Document content can only be persisted for indexed Knowledgebase documents.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_NOT_INDEXED);
   }
 
   try {
     const client = requireSdkClient();
     const document = await client.knowledge.documents.retrieve(numericDocumentId);
-    await client.knowledge.ingests.create({
+    const job = await client.knowledge.ingests.create({
       spaceId: document.spaceId,
       title: document.title,
       payloadMarkdown: content,
-      idempotencyKey: `pc-save-${numericDocumentId}-${Date.now()}`.slice(0, 128),
+      idempotencyKey: `pc-save-${numericDocumentId}`.slice(0, 128),
     });
+    const finalJob = job.state === 'succeeded' ? job : await waitForIngestJob(job.id);
+    if (finalJob.state !== 'succeeded') {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED, {
+        cause: finalJob.errorMessage ?? undefined,
+      });
+    }
+    writeLocalDocumentContent(
+      tenantId,
+      id,
+      content,
+      `ingest-${finalJob.id}`,
+    );
+    invalidateKnowledgeBrowserNodeCacheForSpaceIds(document.spaceId);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to persist document content to Knowledgebase: ${detail}`);
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED, { cause: detail });
   }
 
   return true;
@@ -611,11 +665,187 @@ async function resolveNumericDocumentId(id: string): Promise<number | null> {
   return null;
 }
 
+export interface DocumentVersionSummary {
+  id: number;
+  documentId: number;
+  versionNo: number;
+  sizeBytes: number;
+  mimeType?: string | null;
+  parseState: string;
+  indexState: string;
+}
+
+export type KnowledgeDocumentVisibility =
+  | 'private'
+  | 'space'
+  | 'organization'
+  | 'public';
+
+export interface DocumentAccessSummary {
+  documentId: number;
+  spaceId: number;
+  title: string;
+  visibility: KnowledgeDocumentVisibility;
+}
+
+export async function getDocumentAccess(documentId: string): Promise<DocumentAccessSummary> {
+  const numericDocumentId = await resolveNumericDocumentId(documentId);
+  if (!numericDocumentId) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_ID_REQUIRED);
+  }
+
+  const client = requireSdkClient();
+  const document = await client.knowledge.documents.retrieve(numericDocumentId);
+  return {
+    documentId: document.id,
+    spaceId: document.spaceId,
+    title: document.title,
+    visibility: document.visibility,
+  };
+}
+
+export async function updateDocumentVisibility(
+  documentId: string,
+  visibility: KnowledgeDocumentVisibility,
+): Promise<DocumentAccessSummary> {
+  const numericDocumentId = await resolveNumericDocumentId(documentId);
+  if (!numericDocumentId) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_ID_REQUIRED);
+  }
+
+  const client = requireSdkClient();
+  const existing = await client.knowledge.documents.retrieve(numericDocumentId);
+  const updated = await client.knowledge.documents.update(numericDocumentId, {
+    spaceId: existing.spaceId,
+    title: existing.title,
+    mimeType: existing.mimeType,
+    language: existing.language,
+    visibility,
+  });
+
+  return {
+    documentId: updated.id,
+    spaceId: updated.spaceId,
+    title: updated.title,
+    visibility: updated.visibility,
+  };
+}
+
+export async function listDocumentVersions(documentId: string): Promise<DocumentVersionSummary[]> {
+  const numericDocumentId = await resolveNumericDocumentId(documentId);
+  if (!numericDocumentId) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_ID_REQUIRED);
+  }
+
+  const client = requireSdkClient();
+  const response = await client.knowledge.documents.versions.list(numericDocumentId);
+  return (response.items ?? []).map((version) => ({
+    id: version.id,
+    documentId: version.documentId,
+    versionNo: version.versionNo,
+    sizeBytes: version.sizeBytes,
+    mimeType: version.mimeType,
+    parseState: version.parseState,
+    indexState: version.indexState,
+  }));
+}
+
+async function waitForDriveFolderBrowserNode(
+  spaceId: number,
+  kbId: string,
+  driveNodeId: string,
+): Promise<KnowledgeBrowserNode> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      invalidateKnowledgeBrowserNodeCacheForKbIds(kbId);
+    }
+
+    try {
+      const nodes = await listAllKnowledgeBrowserNodes(spaceId);
+      const found = nodes.find(
+        (candidate) =>
+          candidate.driveNodeId === driveNodeId || candidate.id === driveNodeId,
+      );
+      if (found) {
+        return found;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  throw lastError ?? new Error(
+    `Folder was created in Drive (${driveNodeId}) but is not yet visible in the knowledge browser tree. Refresh the file list.`,
+  );
+}
+
+export async function placeDocumentInParentFolder(
+  documentId: string,
+  kbId: string,
+  parentId: string | null,
+): Promise<void> {
+  if (!parentId?.trim()) {
+    return;
+  }
+
+  invalidateKnowledgeBrowserNodeCacheForKbIds(kbId);
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      invalidateKnowledgeBrowserNodeCacheForKbIds(kbId);
+    }
+
+    try {
+      await updateDocument(documentId, { parentId });
+      return;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('browser nodes')) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Could not place document ${documentId} under parent ${parentId}.`);
+}
+
 export async function updateDocument(id: string, updates: Partial<DocumentMeta>): Promise<boolean> {
   if (updates.kbId !== undefined) {
-    throw new Error(
-      'Cross knowledge base document move is not supported by the Knowledgebase API yet.',
-    );
+    const sourceKbId = await resolveDocumentKbId(id);
+    if (sourceKbId && updates.kbId !== sourceKbId) {
+      if (parseOkfDocumentId(id)) {
+        const okfRef = parseOkfDocumentId(id)!;
+        await moveOkfConcept(
+          okfRef.spaceId,
+          okfRef.conceptRowId,
+          updates.kbId,
+          readOkfConceptMarkdown,
+        );
+        return true;
+      }
+      const browserMatch = await resolveBrowserNodeByDocumentId(id);
+      await transferDocumentAcrossKnowledgeBases(
+        id,
+        sourceKbId,
+        updates.kbId,
+        updates.parentId ?? null,
+        'move',
+        {
+          sourceNode: browserMatch?.node ?? null,
+          ingestTextDocument: ingestTextDocumentAcrossKnowledgeBases,
+          deleteSourceDocument: deleteDocument,
+        },
+      );
+      return true;
+    }
   }
 
   const browserMatch = await resolveBrowserNodeByDocumentId(id);
@@ -634,22 +864,22 @@ export async function updateDocument(id: string, updates: Partial<DocumentMeta>)
     } else if (browserMatch) {
       const driveNodeId = resolveDriveNodeId(browserMatch.node);
       if (!driveNodeId || !isKnowledgebaseDriveApiAvailable()) {
-        throw new Error('Drive SDK is required to update document tags.');
+        throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_DRIVE);
       }
       await writeDriveDocumentTags(driveNodeId, updates.tags);
       metadataUpdated = true;
     } else {
-      throw new Error('Document tags can only be updated for Drive browser nodes or OKF concepts.');
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.UNSUPPORTED_OPERATION);
     }
   }
 
   if (updates.order !== undefined) {
     if (!browserMatch) {
-      throw new Error('Document order can only be updated for Knowledgebase browser nodes.');
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.UNSUPPORTED_OPERATION);
     }
     const driveNodeId = resolveDriveNodeId(browserMatch.node);
     if (!driveNodeId || !isKnowledgebaseDriveApiAvailable()) {
-      throw new Error('Drive SDK is required to update document order.');
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_DRIVE);
     }
     await writeDriveDocumentOrder(driveNodeId, updates.order);
     metadataUpdated = true;
@@ -662,12 +892,12 @@ export async function updateDocument(id: string, updates: Partial<DocumentMeta>)
 
   if (hasDriveMetadataUpdate) {
     if (!browserMatch) {
-      throw new Error('Document tree metadata can only be updated for Knowledgebase browser nodes.');
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.UNSUPPORTED_OPERATION);
     }
     if (!isKnowledgebaseDriveApiAvailable()) {
-      throw new Error('Drive SDK is required to update document tree metadata.');
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_DRIVE);
     }
-    await applyDriveBrowserNodeUpdates(browserMatch.node, {
+    await applyDriveBrowserNodeUpdates(String(browserMatch.spaceId), browserMatch.node, {
       title: updates.title,
       parentId: updates.parentId,
       isPinned: updates.isPinned,
@@ -702,7 +932,17 @@ export async function updateDocument(id: string, updates: Partial<DocumentMeta>)
     await saveDocumentContent(id, updates.content);
   }
 
-  return metadataUpdated || hasDriveMetadataUpdate || numericDocumentId !== null || updates.content !== undefined;
+  const didUpdate =
+    metadataUpdated || hasDriveMetadataUpdate || numericDocumentId !== null || updates.content !== undefined;
+  if (didUpdate) {
+    invalidateKnowledgeBrowserNodeCacheForSpaceIds(
+      browserMatch?.spaceId,
+      okfRef?.spaceId,
+    );
+    invalidateKnowledgeBrowserNodeCacheForKbIds(updates.kbId);
+  }
+
+  return didUpdate;
 }
 
 export async function searchAll(query: string): Promise<{
@@ -750,11 +990,12 @@ export async function searchAll(query: string): Promise<{
       }
       seenDocumentIds.add(hit.documentId);
 
+      const kbId = hit.spaceId;
       docs.push({
         id: hit.documentId,
-        title: hit.title,
+        title: hit.title?.trim() || 'Untitled',
         type: 'markdown',
-        kbId: hit.spaceId,
+        kbId,
         updatedAt: new Date().toISOString(),
         author: 'Knowledgebase',
         content: hit.content,
@@ -829,7 +1070,7 @@ async function collectRecentDocumentsFromSpaces(limit: number): Promise<Document
 
   for (const entry of registry) {
     try {
-      const nodes = await listBrowserNodes(entry.spaceId);
+      const nodes = await listAllKnowledgeBrowserNodes(entry.spaceId);
       for (const node of nodes) {
         if (node.nodeType === 'folder' || node.nodeType === 'virtual_folder') {
           continue;
@@ -935,13 +1176,41 @@ export async function createDocument(doc: Partial<DocumentMeta>): Promise<Docume
   const tenantId = requireTenantId();
   const client = requireSdkClient();
   if (!doc.kbId) {
-    throw new Error('kbId is required to create a document through the API.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.KB_ID_REQUIRED);
   }
 
   if (doc.type === 'folder') {
-    throw new Error(
-      'Folder creation is managed by the Knowledgebase drive browser tree; refresh the file list after drive import.',
+    if (!isKnowledgebaseDriveApiAvailable()) {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_DRIVE);
+    }
+
+    const parentDriveNodeId = await resolveKnowledgeBrowserParentDriveNodeId(
+      doc.kbId,
+      doc.parentId ?? null,
     );
+    const { driveNodeId, nodeName } = await createKnowledgeDriveFolder({
+      kbId: doc.kbId,
+      nodeName: doc.title?.trim() || 'New Folder',
+      parentDriveNodeId,
+    });
+    invalidateKnowledgeBrowserNodeCacheForKbIds(doc.kbId);
+
+    const spaceId = spaceIdFromKbId(doc.kbId);
+    const browserNode = await waitForDriveFolderBrowserNode(spaceId, doc.kbId, driveNodeId);
+    const mapped = mapBrowserNodeToDocument(browserNode, doc.kbId);
+    if (mapped.type !== 'folder') {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED, { cause: nodeName });
+    }
+
+    return {
+      id: mapped.id,
+      title: mapped.title,
+      type: 'folder',
+      kbId: doc.kbId,
+      parentId: mapped.parentId ?? doc.parentId ?? null,
+      updatedAt: mapped.updatedAt ?? new Date().toISOString(),
+      author: mapped.author ?? 'Knowledgebase',
+    };
   }
 
   const created = await client.knowledge.documents.create({
@@ -964,16 +1233,197 @@ export async function createDocument(doc: Partial<DocumentMeta>): Promise<Docume
 
   if (content) {
     writeLocalDocumentContent(tenantId, createdDoc.id, content);
-    await client.knowledge.ingests.create({
+    const job = await client.knowledge.ingests.create({
       spaceId: created.spaceId,
       title: created.title,
       payloadMarkdown: content,
       idempotencyKey: `pc-create-${created.id}`,
     });
+    const finalJob = job.state === 'succeeded' ? job : await waitForIngestJob(job.id);
+    if (finalJob.state !== 'succeeded') {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED, {
+        cause: finalJob.errorMessage ?? undefined,
+      });
+    }
   }
 
   trackRecentDocument(createdDoc);
+  if (doc.parentId) {
+    await placeDocumentInParentFolder(createdDoc.id, doc.kbId, doc.parentId);
+  }
+  invalidateKnowledgeBrowserNodeCacheForKbIds(doc.kbId);
   return createdDoc;
+}
+
+async function resolveDocumentKbId(id: string): Promise<string | null> {
+  const okfRef = parseOkfDocumentId(id);
+  if (okfRef) {
+    return String(okfRef.spaceId);
+  }
+
+  const browserMatch = await resolveBrowserNodeByDocumentId(id);
+  if (browserMatch) {
+    return String(browserMatch.spaceId);
+  }
+
+  const numericDocumentId = Number(id);
+  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+    try {
+      const document = await requireSdkClient().knowledge.documents.retrieve(numericDocumentId);
+      return String(document.spaceId);
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+async function ingestTextDocumentAcrossKnowledgeBases(
+  sourceId: string,
+  targetKbId: string,
+  targetParentId: string | null,
+  titleSuffix?: string,
+): Promise<DocumentMeta> {
+  const browserMatch = await resolveBrowserNodeByDocumentId(sourceId);
+  if (browserMatch?.node.nodeType === 'folder' || browserMatch?.node.nodeType === 'virtual_folder') {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.UNSUPPORTED_OPERATION);
+  }
+
+  const content = await getDocumentContent(sourceId);
+  const suffix = titleSuffix ?? '';
+  let sourceTitle = browserMatch?.node.name ?? 'Untitled';
+  let sourceType: DocumentMeta['type'] = browserMatch ? mapNodeType(browserMatch.node) : 'markdown';
+
+  const numericDocumentId = Number(sourceId);
+  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+    try {
+      const document = await requireSdkClient().knowledge.documents.retrieve(numericDocumentId);
+      sourceTitle = document.title;
+    } catch {
+      // Keep browser-derived title when available.
+    }
+  }
+
+  const created = await createDocument({
+    kbId: targetKbId,
+    title: `${sourceTitle}${suffix}`,
+    type: sourceType,
+    content,
+    parentId: targetParentId,
+  });
+
+  return created;
+}
+
+export async function hydrateDocumentForViewer(doc: DocumentMeta): Promise<DocumentMeta> {
+  const browserMatch = await resolveBrowserNodeByDocumentId(doc.id);
+  return hydrateDocumentMediaUrl(doc, browserMatch?.node ?? null);
+}
+
+export async function copyDocument(
+  sourceId: string,
+  targetKbId: string,
+  targetParentId: string | null,
+  options?: { titleSuffix?: string },
+): Promise<DocumentMeta> {
+  const okfRef = parseOkfDocumentId(sourceId);
+  if (okfRef) {
+    const created = await copyOkfConcept(
+      okfRef.spaceId,
+      okfRef.conceptRowId,
+      targetKbId,
+      readOkfConceptMarkdown,
+      { titleSuffix: options?.titleSuffix },
+    );
+    if (targetParentId) {
+      await placeDocumentInParentFolder(created.id, targetKbId, targetParentId);
+    }
+    return created;
+  }
+
+  const sourceKbId = await resolveDocumentKbId(sourceId);
+  if (!sourceKbId) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_RESOLVE_FAILED);
+  }
+
+  const browserMatch = await resolveBrowserNodeByDocumentId(sourceId);
+  if (browserMatch?.node.nodeType === 'folder' || browserMatch?.node.nodeType === 'virtual_folder') {
+    if (targetKbId !== sourceKbId) {
+      return transferDocumentAcrossKnowledgeBases(
+        sourceId,
+        sourceKbId,
+        targetKbId,
+        targetParentId,
+        'copy',
+        {
+          titleSuffix: options?.titleSuffix ?? ' (Copy)',
+          sourceNode: browserMatch.node,
+        },
+      );
+    }
+    return copyDriveFolderWithinKnowledgeBase(
+      sourceId,
+      browserMatch.node,
+      targetKbId,
+      targetParentId,
+      options?.titleSuffix,
+    );
+  }
+
+  if (targetKbId !== sourceKbId) {
+    return transferDocumentAcrossKnowledgeBases(
+      sourceId,
+      sourceKbId,
+      targetKbId,
+      targetParentId,
+      'copy',
+      {
+        titleSuffix: options?.titleSuffix ?? ' (Copy)',
+        sourceNode: browserMatch?.node ?? null,
+        ingestTextDocument: ingestTextDocumentAcrossKnowledgeBases,
+      },
+    );
+  }
+
+  if (
+    browserMatch
+    && resolveDriveNodeId(browserMatch.node)
+    && isKnowledgebaseDriveApiAvailable()
+  ) {
+    return copyDriveFileWithinKnowledgeBase(
+      sourceId,
+      browserMatch.node,
+      targetKbId,
+      targetParentId,
+      options?.titleSuffix,
+    );
+  }
+
+  const content = await getDocumentContent(sourceId);
+  const titleSuffix = options?.titleSuffix ?? ' (Copy)';
+  let sourceTitle = browserMatch?.node.name ?? 'Untitled';
+  let sourceType: DocumentMeta['type'] = browserMatch ? mapNodeType(browserMatch.node) : 'markdown';
+
+  const numericDocumentId = Number(sourceId);
+  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+    try {
+      const document = await requireSdkClient().knowledge.documents.retrieve(numericDocumentId);
+      sourceTitle = document.title;
+    } catch {
+      // Keep browser-derived title when available.
+    }
+  }
+
+  const created = await createDocument({
+    kbId: targetKbId,
+    title: `${sourceTitle}${titleSuffix}`,
+    type: sourceType,
+    content,
+    parentId: targetParentId,
+  });
+
+  return created;
 }
 
 export async function deleteDocument(id: string): Promise<boolean> {
@@ -985,6 +1435,7 @@ export async function deleteDocument(id: string): Promise<boolean> {
     const okfRef = parseOkfDocumentId(id)!;
     const client = requireSdkClient();
     await client.knowledge.okf.concepts.delete(okfRef.conceptRowId);
+    invalidateKnowledgeBrowserNodeCacheForSpaceIds(okfRef.spaceId);
     return true;
   }
 
@@ -1013,8 +1464,9 @@ export async function deleteDocument(id: string): Promise<boolean> {
   }
 
   if (!deleted) {
-    throw new Error('Only indexed Knowledgebase documents or Drive browser nodes can be deleted through the API.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.UNSUPPORTED_OPERATION);
   }
 
+  invalidateKnowledgeBrowserNodeCacheForSpaceIds(browserMatch?.spaceId);
   return true;
 }

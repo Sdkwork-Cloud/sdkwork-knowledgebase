@@ -16,6 +16,380 @@
   },
   "routes": [
     {
+      "method": "GET",
+      "path": "/backend/v3/api/knowledge/sources",
+      "operationId": "sources.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/sources",
+      "operationId": "sources.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/compile_jobs",
+      "operationId": "okf.compileJobs.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "GET",
+      "path": "/backend/v3/api/knowledge/okf/candidates",
+      "operationId": "okf.candidates.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/candidates/{candidateId}/approve",
+      "operationId": "okf.candidates.approve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/candidates/{candidateId}/reject",
+      "operationId": "okf.candidates.reject",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/concepts/{conceptId}/publish",
+      "operationId": "okf.concepts.publish",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/profile",
+      "operationId": "okf.profile.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "PATCH",
+      "path": "/backend/v3/api/knowledge/okf/profile/{profileId}",
+      "operationId": "okf.profile.update",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/index/rebuild",
+      "operationId": "okf.bundle.index.rebuild",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/log_entries",
+      "operationId": "okf.log.entries.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/exports",
+      "operationId": "okf.bundle.export.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "GET",
+      "path": "/backend/v3/api/knowledge/okf/exports/{exportId}",
+      "operationId": "okf.bundle.export.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/imports",
+      "operationId": "okf.bundle.import.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "GET",
+      "path": "/backend/v3/api/knowledge/okf/bundle/files",
+      "operationId": "okf.bundle.files.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/lint_runs",
+      "operationId": "okf.lintRuns.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
+      "method": "POST",
+      "path": "/backend/v3/api/knowledge/okf/eval_runs",
+      "operationId": "okf.evalRuns.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-backend-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "backend-api"
+    },
+    {
       "method": "POST",
       "path": "/backend/v3/api/knowledge/indexes",
       "operationId": "indexes.create",
@@ -63,28 +437,6 @@
       "method": "POST",
       "path": "/backend/v3/api/knowledge/indexes/{indexId}/rebuild",
       "operationId": "indexes.rebuild",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "GET",
-      "path": "/backend/v3/api/knowledge/provider_health",
-      "operationId": "providerHealth.retrieve",
       "tags": [
         "knowledge"
       ],
@@ -215,338 +567,8 @@
     },
     {
       "method": "GET",
-      "path": "/backend/v3/api/knowledge/sources",
-      "operationId": "sources.list",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/sources",
-      "operationId": "sources.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "GET",
-      "path": "/backend/v3/api/knowledge/okf/candidates",
-      "operationId": "okf.candidates.list",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/okf/candidates/{candidateId}/approve",
-      "operationId": "okf.candidates.approve",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/okf/candidates/{candidateId}/reject",
-      "operationId": "okf.candidates.reject",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/okf/compile_jobs",
-      "operationId": "okf.compileJobs.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/okf/eval_runs",
-      "operationId": "okf.evalRuns.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/okf/exports",
-      "operationId": "okf.bundle.export.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "GET",
-      "path": "/backend/v3/api/knowledge/okf/exports/{exportId}",
-      "operationId": "okf.bundle.export.retrieve",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "GET",
-      "path": "/backend/v3/api/knowledge/okf/bundle/files",
-      "operationId": "okf.bundle.files.list",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/okf/index/rebuild",
-      "operationId": "okf.bundle.index.rebuild",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/okf/lint_runs",
-      "operationId": "okf.lintRuns.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/okf/log_entries",
-      "operationId": "okf.log.entries.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/okf/concepts/{conceptId}/publish",
-      "operationId": "okf.concepts.publish",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "POST",
-      "path": "/backend/v3/api/knowledge/okf/profile",
-      "operationId": "okf.profile.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-backend-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "backend-api"
-    },
-    {
-      "method": "PATCH",
-      "path": "/backend/v3/api/knowledge/okf/profile/{profileId}",
-      "operationId": "okf.profile.update",
+      "path": "/backend/v3/api/knowledge/provider_health",
+      "operationId": "providerHealth.retrieve",
       "tags": [
         "knowledge"
       ],

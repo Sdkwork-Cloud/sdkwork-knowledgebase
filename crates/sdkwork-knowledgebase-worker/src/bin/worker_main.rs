@@ -1,18 +1,13 @@
-use sdkwork_knowledgebase_worker::run_polling_loop;
+use sdkwork_knowledgebase_api_server::init_tracing;
+use sdkwork_knowledgebase_worker::{health, run_polling_loop};
 use sdkwork_router_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 
 #[tokio::main]
 async fn main() {
     bootstrap::validate_process_config();
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,sdkwork_knowledgebase_worker=debug".into()),
-        )
-        .init();
+    init_tracing("worker");
 
-    let database_url = std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_URL")
-        .unwrap_or_else(|_| "sqlite://data/knowledgebase.db?mode=rwc".to_string());
+    let database_url = bootstrap::resolve_database_url();
     let tenant_id = std::env::var("SDKWORK_KNOWLEDGEBASE_TENANT_ID")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
@@ -30,6 +25,8 @@ async fn main() {
             .ok()
             .and_then(|value| value.parse::<u32>().ok())
             .unwrap_or(25);
+    let health_addr = std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_HEALTH_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0:18085".to_string());
 
     let runtime = KnowledgebaseRuntime::connect(&database_url, tenant_id)
         .await
@@ -45,7 +42,16 @@ async fn main() {
         interval_ms,
         outbox_limit,
         ingestion_job_limit,
+        %health_addr,
         "starting knowledgebase worker loop"
     );
+
+    let readiness =
+        sdkwork_router_knowledgebase_app_api::ReadinessCheck::new(runtime.pool().clone());
+    let health_addr_for_task = health_addr.clone();
+    tokio::spawn(async move {
+        health::serve_worker_health(&health_addr_for_task, readiness).await;
+    });
+
     run_polling_loop(runtime, interval_ms, outbox_limit, ingestion_job_limit).await;
 }

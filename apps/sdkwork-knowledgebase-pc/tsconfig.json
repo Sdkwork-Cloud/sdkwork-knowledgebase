@@ -19,8 +19,20 @@
       "@/*": [
         "./*"
       ],
-      "@packages/*": [
-        "./packages/*"
+      "@sdkwork/sdkwork-knowledgebase-pc-commons": [
+        "./packages/sdkwork-knowledgebase-pc-commons/src/index.ts"
+      ],
+      "@sdkwork/sdkwork-knowledgebase-pc-commons/*": [
+        "./packages/sdkwork-knowledgebase-pc-commons/src/*"
+      ],
+      "@sdkwork/sdkwork-knowledgebase-pc-knowledgebase": [
+        "./packages/sdkwork-knowledgebase-pc-knowledgebase/src/index.ts"
+      ],
+      "@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/*": [
+        "./packages/sdkwork-knowledgebase-pc-knowledgebase/src/*"
+      ],
+      "@sdkwork/sdkwork-knowledgebase-pc-shell": [
+        "./packages/sdkwork-knowledgebase-pc-shell/src/index.ts"
       ],
       "sdkwork-knowledgebase-pc-core": [
         "./packages/sdkwork-knowledgebase-pc-core/src"
@@ -55,23 +67,23 @@
       "@sdkwork/auth-pc-react": [
         "./src/bootstrap/sdkworkAuthPcReactShim.d.ts"
       ],
-      "@sdkwork/appbase-app-sdk": [
-        "../../../sdkwork-appbase/sdks/sdkwork-appbase-app-sdk/sdkwork-appbase-app-sdk-typescript/generated/server-openapi/src/index.ts"
+      "@sdkwork/iam-app-sdk": [
+        "../../../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/index.ts"
       ],
       "@sdkwork/auth-runtime-pc-react": [
-        "../../../sdkwork-appbase/packages/pc-react/iam/sdkwork-auth-runtime-pc-react/src/index.ts"
+        "../../../sdkwork-iam/apps/sdkwork-iam-pc/packages/sdkwork-auth-runtime-pc-react/src/index.ts"
       ],
       "@sdkwork/knowledgebase-app-sdk": [
         "../../sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/src/index.ts"
       ],
-      "@sdkwork/appbase-backend-sdk": [
-        "../../../sdkwork-appbase/sdks/sdkwork-appbase-backend-sdk/sdkwork-appbase-backend-sdk-typescript/generated/server-openapi/src/index.ts"
+      "@sdkwork/iam-backend-sdk": [
+        "../../../sdkwork-iam/sdks/sdkwork-iam-backend-sdk/sdkwork-iam-backend-sdk-typescript/generated/server-openapi/src/index.ts"
       ],
       "@sdkwork/core-pc-react": [
         "./src/bootstrap/sdkworkCorePcReactShim.ts"
       ],
       "@sdkwork/iam-contracts": [
-        "../../../sdkwork-appbase/packages/common/iam/sdkwork-iam-contracts/src/index.ts"
+        "../../../sdkwork-iam/apps/sdkwork-iam-common/packages/sdkwork-iam-contracts/src/index.ts"
       ],
       "@sdkwork/sdk-common": [
         "../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript/src/index.ts"
@@ -79,8 +91,17 @@
       "@sdkwork/ui-pc-react": [
         "../../../sdkwork-ui/sdkwork-ui-pc-react/src/index.ts"
       ],
+      "@sdkwork/knowledgebase-pc-search": [
+        "./packages/sdkwork-knowledgebase-pc-search/src/index.ts"
+      ],
       "@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils": [
         "./packages/sdkwork-knowledgebase-pc-commons/src/stringUtils.ts"
+      ],
+      "@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps": [
+        "./packages/sdkwork-knowledgebase-pc-commons/src/reactKeyedProps.ts"
+      ],
+      "@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer": [
+        "./packages/sdkwork-knowledgebase-pc-commons/src/htmlSanitizer.ts"
       ]
     },
     "allowImportingTsExtensions": true,

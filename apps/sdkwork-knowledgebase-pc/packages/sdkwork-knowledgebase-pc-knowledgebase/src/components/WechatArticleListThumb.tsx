@@ -2,8 +2,9 @@ import React from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { WechatArticle } from '../services/wechat';
 import { useTranslation } from 'react-i18next';
+import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
 
-export interface WechatArticleListThumbProps {
+export interface WechatArticleListThumbProps extends ReactKeyedComponentProps {
   article: WechatArticle;
   idx: number;
   isSelected: boolean;

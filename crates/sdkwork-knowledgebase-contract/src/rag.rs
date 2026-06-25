@@ -520,11 +520,25 @@ impl KnowledgeRetrievalRequest {
         self.tenant_id = tenant_id;
         self
     }
+
+    pub fn with_actor_id(mut self, actor_id: Option<u64>) -> Self {
+        if self.actor_id.is_none() {
+            self.actor_id = actor_id;
+        }
+        self
+    }
 }
 
 impl KnowledgeContextPackRequest {
     pub fn with_tenant_id(mut self, tenant_id: u64) -> Self {
         self.tenant_id = tenant_id;
+        self
+    }
+
+    pub fn with_actor_id(mut self, actor_id: Option<u64>) -> Self {
+        if self.actor_id.is_none() {
+            self.actor_id = actor_id;
+        }
         self
     }
 }

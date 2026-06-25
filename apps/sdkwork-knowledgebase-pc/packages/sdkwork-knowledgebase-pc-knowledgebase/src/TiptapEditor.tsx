@@ -17,11 +17,15 @@ import { Audio } from './extensions/Audio';
 import { Video as VideoExtension } from './extensions/Video';
 import { EditorBubbleMenu } from './EditorBubbleMenu';
 import { AIService } from './services/ai';
+import { DocumentService } from './services/document';
+import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
 import { toast } from './components/ui/toast-manager';
+import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
 import { createTiptapExportContentProvider } from './components/DocumentExport';
-import type { DocumentExportContent } from './components/DocumentExport';
+import { sanitizeEditorHtml } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
+import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
 
-export interface TiptapEditorProps {
+export interface TiptapEditorProps extends ReactKeyedComponentProps {
   initialContent: string;
   mode?: 'richtext' | 'markdown';
   onChange?: (content: string) => void;
@@ -36,6 +40,8 @@ export interface TiptapEditorProps {
   onAudioGallery?: () => void;
   onVideoGallery?: () => void;
   toolbarConfig?: UniversalToolbarGroup[];
+  kbId?: string | null;
+  parentFolderId?: string | null;
 }
 
 const StyleGlobalExtension = Extension.create({
@@ -66,9 +72,11 @@ const StyleGlobalExtension = Extension.create({
 
 export function TiptapEditor({ 
   initialContent, mode = 'richtext', onChange, onEditorReady, docTitle = '', onTitleChange, hideTitle = false,
-  onOpenImageGallery, onWechatScan, onOpenAiImage, onAudioInsert, onAudioGallery, onVideoGallery, toolbarConfig
+  onOpenImageGallery, onWechatScan, onOpenAiImage, onAudioInsert, onAudioGallery, onVideoGallery, toolbarConfig,
+  kbId, parentFolderId,
 }: TiptapEditorProps) {
   const { t } = useTranslation('editor');
+  const { t: tErrors } = useTranslation('errors');
   const [title, setTitle] = useState(docTitle);
 
   useEffect(() => {
@@ -89,12 +97,61 @@ export function TiptapEditor({
   const audioInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<any>(null);
 
-  const uploadImage = async (file: File): Promise<string | null> => {
-    // Mock the upload with a local object URL to satisfy the logic loop without a server backend
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(URL.createObjectURL(file));
-      }, 500);
+  const uploadEditorMedia = async (
+    file: File,
+    mediaType: 'image' | 'audio' | 'video',
+  ): Promise<string | null> => {
+    const mediaLabel = mediaType === 'image' ? '图片' : mediaType === 'audio' ? '音频' : '视频';
+
+    if (isKnowledgebaseApiAvailable()) {
+      if (!kbId) {
+        toast.error(`请先选择知识库后再上传${mediaLabel}。`);
+        return null;
+      }
+      try {
+        const uploaded = await DocumentService.uploadFiles(
+          [file],
+          kbId,
+          parentFolderId ?? undefined,
+          mediaType,
+        );
+        const url = uploaded[0]?.url;
+        if (!url) {
+          throwKnowledgebaseError(KnowledgebaseErrorCodes.MEDIA_URL_UNRESOLVED);
+        }
+        return url;
+      } catch (error) {
+        toastKnowledgebaseError(error, tErrors);
+        return null;
+      }
+    }
+
+    if (mediaType === 'image') {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(URL.createObjectURL(file));
+        }, 500);
+      });
+    }
+
+    return URL.createObjectURL(file);
+  };
+
+  const uploadImage = async (file: File): Promise<string | null> =>
+    uploadEditorMedia(file, 'image');
+
+  const insertEditorMedia = async (
+    file: File,
+    mediaType: 'audio' | 'video',
+    curEditor: any,
+  ) => {
+    const url = await uploadEditorMedia(file, mediaType);
+    if (!url) {
+      return;
+    }
+    curEditor?.commands.insertContent({
+      type: mediaType,
+      attrs: { src: url, controls: true },
     });
   };
 
@@ -133,11 +190,12 @@ export function TiptapEditor({
 
   const editor = useEditor({
     extensions,
-    content: initialContent,
+    content: mode === 'markdown' ? initialContent : sanitizeEditorHtml(initialContent),
     editorProps: {
       attributes: {
         class: 'tiptap-editor outline-none focus:outline-none w-full min-h-[400px]',
       },
+      transformPastedHTML: (html: string) => sanitizeEditorHtml(html),
       handleDrop: (view, event, slice, moved) => {
         if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
           event.preventDefault();
@@ -160,7 +218,8 @@ export function TiptapEditor({
       }
     },
     onUpdate: ({ editor }) => {
-      const data = mode === 'markdown' ? (editor.storage as any).markdown.getMarkdown() : editor.getHTML();
+      const raw = mode === 'markdown' ? (editor.storage as any).markdown.getMarkdown() : editor.getHTML();
+      const data = mode === 'markdown' ? raw : sanitizeEditorHtml(raw);
       onChange?.(data);
       if (document.activeElement?.tagName !== 'TEXTAREA') {
          setSourceCode(data);
@@ -185,8 +244,9 @@ export function TiptapEditor({
     // If we transition out of source mode, update the editor
     if (isSourceMode && !isSplitMode) {
       if (editor) {
-        editor.commands.setContent(sourceCode);
-        onChange?.(sourceCode);
+        const sanitized = mode === 'markdown' ? sourceCode : sanitizeEditorHtml(sourceCode);
+        editor.commands.setContent(sanitized);
+        onChange?.(sanitized);
       }
     } else {
       if (editor) {
@@ -238,7 +298,8 @@ export function TiptapEditor({
     
     try {
       const result = await AIService.handleAIAction(action, text, context, customPrompt);
-      editor.commands.insertContent(result);
+      const safeResult = mode === 'markdown' ? result : sanitizeEditorHtml(result);
+      editor.commands.insertContent(safeResult);
     } catch (e: any) {
       toast.error(e.message || 'AI generation failed');
     } finally {
@@ -334,12 +395,7 @@ export function TiptapEditor({
          multiple
          onChange={(e) => {
            if (e.target.files && e.target.files.length > 0) {
-             const file = e.target.files[0];
-             const url = URL.createObjectURL(file);
-             editor?.commands.insertContent({
-               type: 'video',
-               attrs: { src: url, controls: true }
-             });
+             void insertEditorMedia(e.target.files[0], 'video', editor);
            }
            if (e.target) e.target.value = '';
          }}
@@ -352,12 +408,7 @@ export function TiptapEditor({
          multiple
          onChange={(e) => {
            if (e.target.files && e.target.files.length > 0) {
-             const file = e.target.files[0];
-             const url = URL.createObjectURL(file);
-             editor?.commands.insertContent({
-               type: 'audio',
-               attrs: { src: url, controls: true }
-             });
+             void insertEditorMedia(e.target.files[0], 'audio', editor);
            }
            if (e.target) e.target.value = '';
          }}

@@ -68,8 +68,16 @@ impl CatalogExternalKnowledgeEngine {
 }
 
 pub fn load_external_engines_from_catalog() -> Vec<Arc<dyn KnowledgeEngine>> {
-    let catalog: CatalogManifest =
-        serde_json::from_str(CATALOG_MANIFEST).expect("catalog.manifest.json must parse");
+    let catalog: CatalogManifest = match serde_json::from_str(CATALOG_MANIFEST) {
+        Ok(catalog) => catalog,
+        Err(error) => {
+            tracing::error!(
+                error = %error,
+                "failed to parse knowledge engine catalog manifest; skipping catalog engines"
+            );
+            return Vec::new();
+        }
+    };
 
     let mut engines = Vec::new();
     let mut seen = HashSet::new();
@@ -82,18 +90,26 @@ pub fn load_external_engines_from_catalog() -> Vec<Arc<dyn KnowledgeEngine>> {
         let Some(manifest_json) = vendor_manifest_json(&entry.vendor_id) else {
             continue;
         };
-        let manifest: VendorManifest =
-            serde_json::from_str(manifest_json).unwrap_or_else(|error| {
-                panic!(
-                    "vendor manifest for {} must parse: {error}",
-                    entry.vendor_id
-                )
-            });
-        assert_eq!(
-            manifest.implementation_id, entry.implementation_id,
-            "catalog entry implementationId must match vendor manifest for {}",
-            entry.vendor_id
-        );
+        let manifest: VendorManifest = match serde_json::from_str(manifest_json) {
+            Ok(manifest) => manifest,
+            Err(error) => {
+                tracing::warn!(
+                    vendor_id = %entry.vendor_id,
+                    error = %error,
+                    "skipping invalid vendor manifest in knowledge engine catalog"
+                );
+                continue;
+            }
+        };
+        if manifest.implementation_id != entry.implementation_id {
+            tracing::warn!(
+                vendor_id = %entry.vendor_id,
+                catalog_implementation_id = %entry.implementation_id,
+                manifest_implementation_id = %manifest.implementation_id,
+                "skipping vendor with mismatched implementationId in knowledge engine catalog"
+            );
+            continue;
+        }
         if manifest.integration_tier == "adapter" {
             continue;
         }

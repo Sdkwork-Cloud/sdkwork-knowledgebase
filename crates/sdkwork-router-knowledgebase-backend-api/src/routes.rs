@@ -4,23 +4,53 @@ use axum::{
 };
 use std::sync::Arc;
 
-use crate::{handlers, paths, ports::KnowledgeBackendApi};
+use crate::{handlers, health, paths, ports::KnowledgeBackendApi, DbReadinessCheck};
 
 #[derive(Clone)]
-pub(crate) struct BackendState {
+pub struct BackendState {
     pub(crate) api: Arc<dyn KnowledgeBackendApi>,
+    pub(crate) runtime_tenant_id: u64,
 }
 
-pub fn build_router_with_backend_api<A>(api: A) -> Router
+pub fn build_router_with_backend_api<A>(api: A, runtime_tenant_id: u64) -> Router
 where
     A: KnowledgeBackendApi,
 {
-    build_router_with_shared_backend_api(Arc::new(api))
+    build_router_with_shared_backend_api(Arc::new(api), runtime_tenant_id)
 }
 
-pub fn build_router_with_shared_backend_api(api: Arc<dyn KnowledgeBackendApi>) -> Router {
+pub fn build_router_with_shared_backend_api(
+    api: Arc<dyn KnowledgeBackendApi>,
+    runtime_tenant_id: u64,
+) -> Router {
+    build_router_with_shared_backend_api_and_readiness(api, runtime_tenant_id, None)
+}
+
+pub fn build_router_with_shared_backend_api_and_readiness(
+    api: Arc<dyn KnowledgeBackendApi>,
+    runtime_tenant_id: u64,
+    readiness: Option<DbReadinessCheck>,
+) -> Router {
+    let state = BackendState {
+        api,
+        runtime_tenant_id,
+    };
     Router::new()
-        .route(paths::HEALTHZ, get(handlers::health))
+        .route(paths::LIVEZ, get(health::livez))
+        .route(
+            paths::READYZ,
+            get({
+                let readiness = readiness.clone();
+                move || async move { health::readyz_with_state(readiness).await }
+            }),
+        )
+        .route(
+            paths::HEALTHZ,
+            get({
+                let readiness = readiness.clone();
+                move || async move { health::healthz_with_state(readiness).await }
+            }),
+        )
         .route(
             paths::SOURCES,
             get(handlers::list_sources).post(handlers::create_source),
@@ -78,5 +108,5 @@ pub fn build_router_with_shared_backend_api(api: Arc<dyn KnowledgeBackendApi>) -
             paths::PROVIDER_HEALTH,
             get(handlers::retrieve_provider_health),
         )
-        .with_state(BackendState { api })
+        .with_state(state)
 }

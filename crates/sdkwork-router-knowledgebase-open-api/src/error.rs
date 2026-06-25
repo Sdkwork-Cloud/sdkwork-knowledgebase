@@ -1,11 +1,12 @@
 use axum::{
-    http::{header, HeaderValue, StatusCode},
+    http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use sdkwork_knowledgebase_contract::ProblemDetails;
 
 pub type ApiResult<T> = Result<T, ApiError>;
+
+const INTERNAL_CLIENT_DETAIL: &str = "An internal error occurred. Please try again later.";
 
 #[derive(Debug, Clone)]
 pub struct ApiError {
@@ -21,6 +22,23 @@ impl ApiError {
             code: code.into(),
             detail: detail.into(),
         }
+    }
+
+    pub fn internal(code: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self::sanitized_internal(code, detail)
+    }
+
+    pub fn sanitized_internal(code: impl Into<String>, internal_detail: impl Into<String>) -> Self {
+        let code_value = code.into();
+        eprintln!(
+            "[knowledgebase-open-api] internal error code={code_value}: {}",
+            internal_detail.into()
+        );
+        Self::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            code_value,
+            INTERNAL_CLIENT_DETAIL,
+        )
     }
 
     pub fn not_implemented(operation_id: &'static str) -> Self {
@@ -40,6 +58,11 @@ pub struct ApiProblem {
 
 impl ApiProblem {
     pub fn new(status: StatusCode, code: impl Into<String>, detail: impl Into<String>) -> Self {
+        let client_detail = if status.is_server_error() {
+            INTERNAL_CLIENT_DETAIL.to_string()
+        } else {
+            detail.into()
+        };
         let title = status
             .canonical_reason()
             .unwrap_or("HTTP Error")
@@ -50,11 +73,16 @@ impl ApiProblem {
                 r#type: "about:blank".to_string(),
                 title,
                 status: status.as_u16(),
-                detail: Some(detail.into()),
+                detail: Some(client_detail),
                 instance: None,
                 code: Some(code.into()),
+                trace_id: None,
             }),
         }
+    }
+
+    pub fn from_internal(code: impl Into<String>, internal_detail: impl Into<String>) -> Self {
+        Self::from(ApiError::sanitized_internal(code, internal_detail))
     }
 }
 
@@ -66,11 +94,9 @@ impl From<ApiError> for ApiProblem {
 
 impl IntoResponse for ApiProblem {
     fn into_response(self) -> Response {
-        let mut response = (self.status, Json(*self.problem)).into_response();
-        response.headers_mut().insert(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static("application/problem+json"),
-        );
-        response
+        sdkwork_knowledgebase_observability::request_correlation::problem_json_response(
+            self.status,
+            *self.problem,
+        )
     }
 }

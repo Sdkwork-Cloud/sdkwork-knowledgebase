@@ -14,6 +14,21 @@ pub type KnowledgebaseDatabasePool = DatabasePool;
 
 const KNOWLEDGEBASE_POOL_MAX_CONNECTIONS: u32 = 5;
 
+fn resolve_max_connections(engine: DatabaseEngine, database_url: &str) -> u32 {
+    std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS")
+        .ok()
+        .and_then(|value| value.trim().parse::<u32>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or_else(|| max_connections_for_url(engine, database_url))
+}
+
+fn max_connections_for_url(engine: DatabaseEngine, database_url: &str) -> u32 {
+    if engine == DatabaseEngine::Sqlite && database_url.trim() == "sqlite::memory:" {
+        return 1;
+    }
+    KNOWLEDGEBASE_POOL_MAX_CONNECTIONS
+}
+
 pub fn database_config_from_url(database_url: &str) -> Result<DatabaseConfig, PoolError> {
     let normalized = database_url.trim();
     let engine = DatabaseEngine::from_url(normalized).ok_or_else(|| {
@@ -24,16 +39,9 @@ pub fn database_config_from_url(database_url: &str) -> Result<DatabaseConfig, Po
     Ok(DatabaseConfig {
         engine,
         url: normalized.to_string(),
-        max_connections: max_connections_for_url(engine, normalized),
+        max_connections: resolve_max_connections(engine, normalized),
         ..DatabaseConfig::default()
     })
-}
-
-fn max_connections_for_url(engine: DatabaseEngine, database_url: &str) -> u32 {
-    if engine == DatabaseEngine::Sqlite && database_url.trim() == "sqlite::memory:" {
-        return 1;
-    }
-    KNOWLEDGEBASE_POOL_MAX_CONNECTIONS
 }
 
 pub async fn connect_knowledgebase_pool_from_env() -> Result<KnowledgebaseDatabasePool, PoolError> {

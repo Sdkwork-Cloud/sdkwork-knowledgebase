@@ -36,7 +36,7 @@ interface HostExportAdapter {
 
 async function loadHostAdapter(): Promise<HostExportAdapter | null> {
   try {
-    const core = await import('@packages/sdkwork-knowledgebase-pc-core/src');
+    const core = await import('sdkwork-knowledgebase-pc-core');
     if (typeof core.createHostAdapter === 'function') {
       return core.createHostAdapter() as HostExportAdapter;
     }

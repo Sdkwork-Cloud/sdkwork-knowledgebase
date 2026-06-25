@@ -1,6 +1,18 @@
+import type { DriveNode } from '@sdkwork/drive-app-sdk';
 import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
 import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
-import { getKnowledgebaseAppSdkClient } from 'sdkwork-knowledgebase-pc-core';
+import {
+  getKnowledgebaseDriveAppSdkClient,
+  isKnowledgebaseDriveApiAvailable,
+  KnowledgebaseErrorCodes,
+  parseKnowledgeSpaceId,
+  requireDriveApiClient,
+  requireKnowledgebaseAppSdkHttpClient,
+  throwKnowledgebaseError,
+} from 'sdkwork-knowledgebase-pc-core';
+
+import { invalidateKnowledgeBrowserNodeCacheForKbIds } from './knowledgeBrowserListService';
+import { placeDocumentInParentFolder } from './knowledgebaseDocumentApiBridge';
 
 export interface CloudDriveBrowserItem {
   id: string;
@@ -30,19 +42,11 @@ export interface CloudDriveImportFailure {
 }
 
 function requireSdkClient() {
-  const sdk = getKnowledgebaseAppSdkClient();
-  if (!sdk) {
-    throw new Error('Knowledgebase app SDK is not configured.');
-  }
-  return sdk.client;
+  return requireKnowledgebaseAppSdkHttpClient();
 }
 
 function spaceIdFromKbId(kbId: string): number {
-  const spaceId = Number(kbId);
-  if (!Number.isFinite(spaceId) || spaceId <= 0) {
-    throw new Error(`Invalid knowledge space id: ${kbId}`);
-  }
-  return spaceId;
+  return parseKnowledgeSpaceId(kbId);
 }
 
 function formatBytes(bytes: number | null | undefined): string | undefined {
@@ -56,6 +60,62 @@ function formatBytes(bytes: number | null | undefined): string | undefined {
     return `${(bytes / 1024).toFixed(1)} KB`;
   }
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function requireDriveClient() {
+  return requireDriveApiClient();
+}
+
+async function resolveDriveSpaceId(kbId: string): Promise<string> {
+  const client = requireSdkClient();
+  const space = await client.knowledge.spaces.retrieve(spaceIdFromKbId(kbId));
+  const driveSpaceId = space.driveSpaceId?.trim();
+  if (!driveSpaceId) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.DRIVE_SPACE_MISSING);
+  }
+  return driveSpaceId;
+}
+
+function mapDriveNode(node: DriveNode): CloudDriveBrowserItem {
+  const isFolder = node.nodeType === 'folder';
+  const contentLength = node.contentLength ? Number(node.contentLength) : undefined;
+  return {
+    id: node.id,
+    name: node.nodeName,
+    type: isFolder ? 'folder' : 'file',
+    size: formatBytes(Number.isFinite(contentLength) ? contentLength : undefined),
+    updatedAt: new Date().toISOString(),
+    mimeType: node.contentType ?? null,
+    driveSpaceId: node.spaceId,
+    driveNodeId: node.id,
+    driveStorageProviderId: null,
+    driveBucket: null,
+    driveObjectKey: null,
+    documentId: null,
+  };
+}
+
+async function listDriveCollectionItems(
+  kbId: string,
+  listPage: (
+    driveSpaceId: string,
+    pageToken?: string,
+  ) => Promise<{ items: DriveNode[]; nextPageToken?: string }>,
+): Promise<CloudDriveBrowserItem[]> {
+  const driveSpaceId = await resolveDriveSpaceId(kbId);
+  const drive = requireDriveClient();
+  const items: CloudDriveBrowserItem[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const page = await listPage(driveSpaceId, pageToken);
+    for (const node of page.items ?? []) {
+      items.push(mapDriveNode(node));
+    }
+    pageToken = page.nextPageToken;
+  } while (pageToken);
+
+  return items;
 }
 
 function mapBrowserNode(node: KnowledgeBrowserNode): CloudDriveBrowserItem {
@@ -78,11 +138,27 @@ function mapBrowserNode(node: KnowledgeBrowserNode): CloudDriveBrowserItem {
 
 function mapMimeToLegacyType(name: string, mimeType?: string | null): string {
   const lowerName = name.toLowerCase();
-  if (lowerName.endsWith('.md') || lowerName.endsWith('.markdown') || mimeType?.includes('markdown')) {
+  const mime = mimeType ?? '';
+  if (mime.startsWith('image/')) {
+    return 'image';
+  }
+  if (mime.startsWith('video/')) {
+    return 'video';
+  }
+  if (mime.startsWith('audio/')) {
+    return 'audio';
+  }
+  if (mime.includes('pdf') || lowerName.endsWith('.pdf')) {
+    return 'pdf';
+  }
+  if (lowerName.endsWith('.md') || lowerName.endsWith('.markdown') || mime.includes('markdown')) {
     return 'markdown';
   }
-  if (mimeType?.includes('html') || lowerName.endsWith('.html') || lowerName.endsWith('.htm')) {
+  if (mime.includes('html') || lowerName.endsWith('.html') || lowerName.endsWith('.htm')) {
     return 'richtext';
+  }
+  if (/\.(ts|tsx|js|jsx|html|htm|css|json|xml|py|java|go|rs)$/i.test(lowerName)) {
+    return 'code';
   }
   return 'file';
 }
@@ -112,6 +188,36 @@ export async function listCloudDriveBrowserItems(
   return items;
 }
 
+export async function listStarredCloudDriveItems(kbId: string): Promise<CloudDriveBrowserItem[]> {
+  const drive = requireDriveClient();
+  return listDriveCollectionItems(kbId, (driveSpaceId, pageToken) =>
+    drive.drive.favorites.list({
+      spaceId: driveSpaceId,
+      pageSize: '100',
+      pageToken,
+    }));
+}
+
+export async function listRecentCloudDriveItems(kbId: string): Promise<CloudDriveBrowserItem[]> {
+  const drive = requireDriveClient();
+  return listDriveCollectionItems(kbId, (driveSpaceId, pageToken) =>
+    drive.drive.recent.list({
+      spaceId: driveSpaceId,
+      pageSize: '100',
+      pageToken,
+    }));
+}
+
+export async function listSharedCloudDriveItems(kbId: string): Promise<CloudDriveBrowserItem[]> {
+  const drive = requireDriveClient();
+  return listDriveCollectionItems(kbId, (driveSpaceId, pageToken) =>
+    drive.drive.sharedWithMe.list({
+      spaceId: driveSpaceId,
+      pageSize: '100',
+      pageToken,
+    }));
+}
+
 function buildIdempotencyKey(spaceId: number, item: CloudDriveBrowserItem): string {
   const nodeId = item.driveNodeId ?? item.id;
   return `pc-drive-import-${spaceId}-${nodeId}`.slice(0, 128);
@@ -124,7 +230,7 @@ async function importDriveFile(
   const client = requireSdkClient();
   const driveNodeId = item.driveNodeId ?? item.id;
   if (isBlank(driveNodeId)) {
-    throw new Error(`Drive node id is missing for "${item.name}".`);
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.DRIVE_NODE_ID_MISSING);
   }
 
   const result = await client.knowledge.driveImports.create({
@@ -150,6 +256,7 @@ async function importDriveFile(
 export async function importCloudDriveItems(
   spaceId: string,
   items: CloudDriveBrowserItem[],
+  targetParentFolderId?: string | null,
 ): Promise<CloudDriveImportResultItem[]> {
   const numericSpaceId = spaceIdFromKbId(spaceId);
   const imported: CloudDriveImportResultItem[] = [];
@@ -161,7 +268,15 @@ export async function importCloudDriveItems(
     }
 
     try {
-      imported.push(await importDriveFile(numericSpaceId, item));
+      const result = await importDriveFile(numericSpaceId, item);
+      if (targetParentFolderId?.trim() && result.documentId) {
+        await placeDocumentInParentFolder(
+          String(result.documentId),
+          spaceId,
+          targetParentFolderId,
+        );
+      }
+      imported.push(result);
     } catch (error) {
       failures.push({
         title: item.name,
@@ -171,13 +286,15 @@ export async function importCloudDriveItems(
   }
 
   if (imported.length === 0 && failures.length > 0) {
-    throw new Error(
-      `Drive import failed: ${failures.map((entry) => `${entry.title} (${entry.message})`).join('; ')}`,
-    );
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED, { cause: failures });
   }
 
   if (failures.length > 0) {
     console.warn('[KnowledgeDriveImportService] partial import failures', failures);
+  }
+
+  if (imported.length > 0) {
+    invalidateKnowledgeBrowserNodeCacheForKbIds(spaceId);
   }
 
   return imported;

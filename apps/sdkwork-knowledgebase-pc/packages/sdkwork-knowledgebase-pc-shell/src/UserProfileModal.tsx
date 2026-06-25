@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, Camera, Mail, Phone, Briefcase, Info, Clock, Check, Edit2, AlertCircle, Sparkles, Smile, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useLocalStorage } from '@packages/sdkwork-knowledgebase-pc-commons/src';
-import { toast } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src';
+import { useLocalStorage } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
+import { toast } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase';
 
 export interface UserProfile {
   name: string;

@@ -1,6 +1,6 @@
 use sdkwork_agent_kernel::{KnowledgeDocument, KnowledgeDocumentFilter, KnowledgeDocumentKind};
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    SqliteKnowledgeOkfConceptStore, SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSpaceStore,
+    SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSpaceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
     format_scoped_document_id, parse_namespace_space_id, parse_scoped_document_id,
@@ -22,7 +22,9 @@ use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalRequest;
 use std::sync::Arc;
 
-use crate::runtime::KnowledgebaseRuntime;
+use crate::ports::KnowledgeRetrievalAppService;
+use crate::runtime::{HostedRetrievalService, KnowledgebaseRuntime};
+use crate::KnowledgeAppRequestContext;
 
 #[derive(Clone)]
 pub struct RuntimeRetrievalPlanResolver {
@@ -104,14 +106,12 @@ impl RuntimeKnowledgebaseRetrievalClient {
         space_id: u64,
     ) -> Result<std::sync::Arc<dyn KnowledgeEngine>, String> {
         let runtime = self.runtime.clone();
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async move {
-                runtime
-                    .knowledge_engine_space_resolver()
-                    .resolve_for_space(space_id, None)
-                    .await
-                    .map_err(|error| error.to_string())
-            })
+        block_on_async(async move {
+            runtime
+                .knowledge_engine_space_resolver()
+                .resolve_for_space(space_id, None)
+                .await
+                .map_err(|error| error.to_string())
         })
     }
 }
@@ -121,23 +121,27 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
         &self,
         request: KnowledgeRetrievalRequest,
     ) -> Result<sdkwork_knowledgebase_contract::KnowledgeRetrievalResult, String> {
-        let service = self.runtime.retrieval_service();
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(service.retrieve(request))
-        })
-        .map_err(|error| error.to_string())
+        let retrieval = HostedRetrievalService::new(self.runtime.clone());
+        let context = KnowledgeAppRequestContext {
+            tenant_id: request.tenant_id,
+            actor_id: request.actor_id,
+            organization_id: None,
+            session_id: None,
+        };
+        block_on_async(async move { retrieval.retrieve(context, request).await })
+            .map_err(|error| error.to_string())
     }
 
     fn read_document(&self, document_id: &str) -> Result<KnowledgeDocument, String> {
         let (space_id, scoped_id) = if let Some(parsed) = parse_scoped_document_id(document_id) {
             parsed
         } else if let Ok(document_row_id) = document_id.parse::<u64>() {
-            let document = tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(
-                    self.runtime
-                        .document_store()
-                        .get_document_by_id(document_row_id),
-                )
+            let runtime = self.runtime.clone();
+            let document = block_on_async(async move {
+                runtime
+                    .document_store()
+                    .get_document_by_id(document_row_id)
+                    .await
             })
             .map_err(|error| error.to_string())?;
             (document.space_id, document.id.to_string())
@@ -149,21 +153,22 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
         };
 
         let engine = self.resolve_engine_for_space(space_id)?;
+        let engine_kind = engine.clone();
         let tenant_id = self.runtime.tenant_id();
-        let document = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(engine.read_document(
-                KnowledgeEngineReadRequest {
+        let document = block_on_async(async move {
+            engine
+                .read_document(KnowledgeEngineReadRequest {
                     tenant_id,
                     space_id,
                     document_id: scoped_id,
-                },
-            ))
+                })
+                .await
         })
         .map_err(|error| error.to_string())?;
 
         Ok(KnowledgeDocument::new(
             format_scoped_document_id(space_id, &document.document_id),
-            map_engine_document_kind(engine.as_ref()),
+            map_engine_document_kind(engine_kind.as_ref()),
             document.title,
             document.content,
         )
@@ -177,15 +182,16 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
     ) -> Result<Vec<KnowledgeDocument>, String> {
         let space_id = parse_namespace_space_id(filter.namespace.as_deref())?;
         let engine = self.resolve_engine_for_space(space_id)?;
+        let engine_kind = engine.clone();
         let tenant_id = self.runtime.tenant_id();
-        let listed = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(engine.list_documents(
-                KnowledgeEngineListRequest {
+        let listed = block_on_async(async move {
+            engine
+                .list_documents(KnowledgeEngineListRequest {
                     tenant_id,
                     space_id,
                     limit: 64,
-                },
-            ))
+                })
+                .await
         })
         .map_err(|error| error.to_string())?;
 
@@ -195,7 +201,7 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
             .map(|item| {
                 KnowledgeDocument::new(
                     format_scoped_document_id(space_id, &item.document_id),
-                    map_engine_document_kind(engine.as_ref()),
+                    map_engine_document_kind(engine_kind.as_ref()),
                     item.title,
                     "",
                 )
@@ -210,18 +216,11 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
 #[derive(Clone)]
 pub struct RuntimeOkfKnowledgeClient {
     runtime: KnowledgebaseRuntime,
-    okf_concepts: Arc<SqliteKnowledgeOkfConceptStore>,
 }
 
 impl RuntimeOkfKnowledgeClient {
-    pub fn new(
-        runtime: KnowledgebaseRuntime,
-        okf_concepts: Arc<SqliteKnowledgeOkfConceptStore>,
-    ) -> Self {
-        Self {
-            runtime,
-            okf_concepts,
-        }
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
+        Self { runtime }
     }
 
     fn resolve_engine_for_space(

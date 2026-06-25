@@ -26,6 +26,29 @@ pub trait KnowledgeChunkStore: Send + Sync {
         &self,
         document_version_id: u64,
     ) -> Result<Vec<u64>, KnowledgeChunkStoreError>;
+
+    async fn list_chunk_texts_for_document_version(
+        &self,
+        document_version_id: u64,
+    ) -> Result<Vec<String>, KnowledgeChunkStoreError>;
+
+    async fn list_chunk_id_content_for_document_version(
+        &self,
+        document_version_id: u64,
+    ) -> Result<Vec<(u64, String)>, KnowledgeChunkStoreError> {
+        let chunk_ids = self
+            .list_chunk_ids_for_document_version(document_version_id)
+            .await?;
+        let chunk_texts = self
+            .list_chunk_texts_for_document_version(document_version_id)
+            .await?;
+        if chunk_ids.len() != chunk_texts.len() {
+            return Err(KnowledgeChunkStoreError::Internal(
+                "chunk ids and texts length mismatch".to_string(),
+            ));
+        }
+        Ok(chunk_ids.into_iter().zip(chunk_texts).collect())
+    }
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

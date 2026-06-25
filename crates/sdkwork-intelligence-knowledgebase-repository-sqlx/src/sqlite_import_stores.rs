@@ -8,9 +8,11 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_versio
     KnowledgeDocumentVersionStoreError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::{
-    CreateIngestionJobRecord, CreateOrGetIngestionJobResult, IngestionJobStore,
+    CompleteRunningIngestionRecord, CompletedIngestionResult, CreateIngestionJobRecord,
+    CreateOrGetIngestionJobResult, DriveImportJobLinkage, IngestionJobStore,
     IngestionJobStoreError,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::AppendOutboxEventRecord;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceLineageSnapshot, KnowledgeSourceStore,
     KnowledgeSourceStoreError,
@@ -27,10 +29,13 @@ use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::chunk_transaction::replace_version_chunks_in_transaction;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
+use crate::keyword_search::KeywordSearchBackend;
 
 const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
+const OUTBOX_STATUS_PENDING: i64 = 0;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeSourceStore {
@@ -533,6 +538,7 @@ impl SqliteKnowledgeDocumentStore {
         title: String,
         mime_type: Option<String>,
         language: Option<String>,
+        visibility: Option<sdkwork_knowledgebase_contract::document::KnowledgeDocumentVisibility>,
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
         if is_blank(Some(title.as_str())) {
             return Err(KnowledgeDocumentStoreError::InvalidRecord(
@@ -542,11 +548,17 @@ impl SqliteKnowledgeDocumentStore {
         let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
         let document_id = document_to_i64("document_id", document_id)?;
         let now = document_now()?;
+        let visibility_code = visibility.map(document_visibility_code);
         let row = sqlx::query(
             r#"
             UPDATE kb_document
-            SET title = $1, mime_type = $2, language = $3, updated_at = $4, version = version + 1
-            WHERE tenant_id = $5 AND id = $6 AND status = $7
+            SET title = $1,
+                mime_type = $2,
+                language = $3,
+                visibility = COALESCE($4, visibility),
+                updated_at = $5,
+                version = version + 1
+            WHERE tenant_id = $6 AND id = $7 AND status = $8
             RETURNING id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
                       current_version_id, visibility, content_state, index_state
             "#,
@@ -554,6 +566,7 @@ impl SqliteKnowledgeDocumentStore {
         .bind(title)
         .bind(mime_type)
         .bind(language)
+        .bind(visibility_code)
         .bind(now)
         .bind(tenant_id)
         .bind(document_id)
@@ -1012,7 +1025,7 @@ impl SqliteKnowledgeDocumentVersionStore {
         let document_id = version_to_i64("document_id", document_id)?;
         let rows = sqlx::query(
             r#"
-            SELECT id, document_id, version_no, original_object_ref_id, checksum_sha256_hex, size_bytes, mime_type
+            SELECT id, document_id, version_no, original_object_ref_id, checksum_sha256_hex, size_bytes, mime_type, parse_state, index_state
             FROM kb_document_version
             WHERE tenant_id = $1 AND document_id = $2 AND status = $3
             ORDER BY version_no ASC
@@ -1035,11 +1048,17 @@ pub struct SqliteIngestionJobStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    keyword_backend: KeywordSearchBackend,
 }
 
 impl SqliteIngestionJobStore {
     pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
-        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+        Self::with_keyword_backend(
+            pool,
+            tenant_id,
+            KeywordSearchBackend::SqliteFts5,
+            default_knowledge_id_generator(),
+        )
     }
 
     pub fn with_id_generator(
@@ -1047,11 +1066,237 @@ impl SqliteIngestionJobStore {
         tenant_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
+        Self::with_keyword_backend(
+            pool,
+            tenant_id,
+            KeywordSearchBackend::SqliteFts5,
+            id_generator,
+        )
+    }
+
+    pub fn with_keyword_backend(
+        pool: AnyPool,
+        tenant_id: u64,
+        keyword_backend: KeywordSearchBackend,
+        id_generator: Arc<dyn KnowledgeIdGenerator>,
+    ) -> Self {
         Self {
             pool,
             tenant_id,
             id_generator,
+            keyword_backend,
         }
+    }
+
+    pub async fn mark_running_job_succeeded_with_outbox(
+        &self,
+        job_id: u64,
+        outbox: AppendOutboxEventRecord,
+    ) -> Result<IngestionJob, IngestionJobStoreError> {
+        if is_blank(Some(outbox.aggregate_type.as_str())) {
+            return Err(IngestionJobStoreError::Conflict(
+                "aggregate_type is required".to_string(),
+            ));
+        }
+        if is_blank(Some(outbox.event_type.as_str())) {
+            return Err(IngestionJobStoreError::Conflict(
+                "event_type is required".to_string(),
+            ));
+        }
+        if is_blank(Some(outbox.payload_json.as_str())) {
+            return Err(IngestionJobStoreError::Conflict(
+                "payload_json is required".to_string(),
+            ));
+        }
+
+        let mut transaction = self.pool.begin().await.map_err(job_sqlx_error)?;
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let job_id_i64 = job_to_i64("job_id", job_id)?;
+
+        let current_row = sqlx::query(
+            r#"
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            FROM kb_ingestion_job
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(job_id_i64)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(|error| job_fetch_error(job_id_i64, error))?
+        .ok_or(IngestionJobStoreError::NotFound(job_id))?;
+
+        let current_job = job_from_row(&current_row)?;
+        if current_job.state != IngestionJobState::Running {
+            return Err(IngestionJobStoreError::Conflict(format!(
+                "invalid ingestion job transition: {:?} -> {:?}",
+                current_job.state,
+                IngestionJobState::Succeeded
+            )));
+        }
+
+        let now = job_now()?;
+        let updated_row = sqlx::query(
+            r#"
+            UPDATE kb_ingestion_job
+            SET state = $1, error_detail = NULL, updated_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND id = $4 AND status = $5 AND state = $6
+            RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            "#,
+        )
+        .bind(ingestion_state_code(IngestionJobState::Succeeded))
+        .bind(&now)
+        .bind(tenant_id)
+        .bind(job_id_i64)
+        .bind(ACTIVE_STATUS)
+        .bind(ingestion_state_code(IngestionJobState::Running))
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(|error| job_fetch_error(job_id_i64, error))?;
+
+        let outbox_id = next_i64_id(&self.id_generator)
+            .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+        let aggregate_id = job_to_i64("aggregate_id", outbox.aggregate_id)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO kb_outbox_event (
+                id, uuid, tenant_id, aggregate_type, aggregate_id, event_type,
+                payload, status, created_at, version
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            "#,
+        )
+        .bind(outbox_id)
+        .bind(Uuid::new_v4().to_string())
+        .bind(tenant_id)
+        .bind(outbox.aggregate_type)
+        .bind(aggregate_id)
+        .bind(outbox.event_type)
+        .bind(outbox.payload_json)
+        .bind(OUTBOX_STATUS_PENDING)
+        .bind(&now)
+        .bind(INITIAL_VERSION)
+        .execute(&mut *transaction)
+        .await
+        .map_err(job_sqlx_error)?;
+
+        transaction.commit().await.map_err(job_sqlx_error)?;
+        job_from_row(&updated_row)
+    }
+
+    pub async fn complete_running_ingestion_with_chunks_and_outbox(
+        &self,
+        record: CompleteRunningIngestionRecord,
+    ) -> Result<CompletedIngestionResult, IngestionJobStoreError> {
+        if is_blank(Some(record.outbox.aggregate_type.as_str())) {
+            return Err(IngestionJobStoreError::Conflict(
+                "aggregate_type is required".to_string(),
+            ));
+        }
+        if is_blank(Some(record.outbox.event_type.as_str())) {
+            return Err(IngestionJobStoreError::Conflict(
+                "event_type is required".to_string(),
+            ));
+        }
+        if is_blank(Some(record.outbox.payload_json.as_str())) {
+            return Err(IngestionJobStoreError::Conflict(
+                "payload_json is required".to_string(),
+            ));
+        }
+
+        let mut transaction = self.pool.begin().await.map_err(job_sqlx_error)?;
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let job_id_i64 = job_to_i64("job_id", record.job_id)?;
+
+        let current_row = sqlx::query(
+            r#"
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            FROM kb_ingestion_job
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(job_id_i64)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(|error| job_fetch_error(job_id_i64, error))?
+        .ok_or(IngestionJobStoreError::NotFound(record.job_id))?;
+
+        let current_job = job_from_row(&current_row)?;
+        if current_job.state != IngestionJobState::Running {
+            return Err(IngestionJobStoreError::Conflict(format!(
+                "invalid ingestion job transition: {:?} -> {:?}",
+                current_job.state,
+                IngestionJobState::Succeeded
+            )));
+        }
+
+        let chunk_count = replace_version_chunks_in_transaction(
+            &mut transaction,
+            self.tenant_id,
+            &self.id_generator,
+            self.keyword_backend,
+            record.document_version_id,
+            &record.chunks,
+        )
+        .await
+        .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+
+        let now = job_now()?;
+        let updated_row = sqlx::query(
+            r#"
+            UPDATE kb_ingestion_job
+            SET state = $1, error_detail = NULL, updated_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND id = $4 AND status = $5 AND state = $6
+            RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            "#,
+        )
+        .bind(ingestion_state_code(IngestionJobState::Succeeded))
+        .bind(&now)
+        .bind(tenant_id)
+        .bind(job_id_i64)
+        .bind(ACTIVE_STATUS)
+        .bind(ingestion_state_code(IngestionJobState::Running))
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(|error| job_fetch_error(job_id_i64, error))?;
+
+        let outbox_id = next_i64_id(&self.id_generator)
+            .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+        let aggregate_id = job_to_i64("aggregate_id", record.outbox.aggregate_id)?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO kb_outbox_event (
+                id, uuid, tenant_id, aggregate_type, aggregate_id, event_type,
+                payload, status, created_at, version
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            "#,
+        )
+        .bind(outbox_id)
+        .bind(Uuid::new_v4().to_string())
+        .bind(tenant_id)
+        .bind(record.outbox.aggregate_type)
+        .bind(aggregate_id)
+        .bind(record.outbox.event_type)
+        .bind(record.outbox.payload_json)
+        .bind(OUTBOX_STATUS_PENDING)
+        .bind(&now)
+        .bind(INITIAL_VERSION)
+        .execute(&mut *transaction)
+        .await
+        .map_err(job_sqlx_error)?;
+
+        transaction.commit().await.map_err(job_sqlx_error)?;
+        Ok(CompletedIngestionResult {
+            job: job_from_row(&updated_row)?,
+            chunk_count,
+        })
     }
 }
 
@@ -1096,6 +1341,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
     async fn update_job_state(
         &self,
         job_id: u64,
+        expected_state: IngestionJobState,
         state: IngestionJobState,
         error_message: Option<String>,
     ) -> Result<IngestionJob, IngestionJobStoreError> {
@@ -1106,7 +1352,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
             r#"
             UPDATE kb_ingestion_job
             SET state = $1, error_detail = $2, updated_at = $3, version = version + 1
-            WHERE tenant_id = $4 AND id = $5 AND status = $6
+            WHERE tenant_id = $4 AND id = $5 AND status = $6 AND state = $7
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
             "#,
         )
@@ -1116,11 +1362,87 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         .bind(tenant_id)
         .bind(job_id)
         .bind(ACTIVE_STATUS)
+        .bind(ingestion_state_code(expected_state))
         .fetch_one(&self.pool)
         .await
         .map_err(|error| job_fetch_error(job_id, error))?;
 
         job_from_row(&row)
+    }
+
+    async fn attach_drive_import_linkage(
+        &self,
+        job_id: u64,
+        linkage: DriveImportJobLinkage,
+    ) -> Result<(), IngestionJobStoreError> {
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let job_id = job_to_i64("job_id", job_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT metadata
+            FROM kb_ingestion_job
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(job_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(job_sqlx_error)?;
+        let Some(row) = row else {
+            return Err(IngestionJobStoreError::NotFound(job_id as u64));
+        };
+        let existing: Option<String> = row.try_get("metadata").map_err(job_sqlx_error)?;
+        let metadata = merge_drive_import_linkage_metadata(existing.as_deref(), &linkage)?;
+        let now = job_now()?;
+        let updated = sqlx::query(
+            r#"
+            UPDATE kb_ingestion_job
+            SET metadata = $1, updated_at = $2, version = version + 1
+            WHERE tenant_id = $3 AND id = $4 AND status = $5
+            "#,
+        )
+        .bind(metadata)
+        .bind(now)
+        .bind(tenant_id)
+        .bind(job_id)
+        .bind(ACTIVE_STATUS)
+        .execute(&self.pool)
+        .await
+        .map_err(job_sqlx_error)?;
+
+        if updated.rows_affected() == 0 {
+            return Err(IngestionJobStoreError::NotFound(job_id as u64));
+        }
+        Ok(())
+    }
+
+    async fn get_drive_import_linkage(
+        &self,
+        job_id: u64,
+    ) -> Result<Option<DriveImportJobLinkage>, IngestionJobStoreError> {
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let job_id = job_to_i64("job_id", job_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT metadata
+            FROM kb_ingestion_job
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(job_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(job_sqlx_error)?;
+
+        let Some(row) = row else {
+            return Err(IngestionJobStoreError::NotFound(job_id as u64));
+        };
+        let metadata: Option<String> = row.try_get("metadata").map_err(job_sqlx_error)?;
+        parse_drive_import_linkage(metadata.as_deref())
     }
 
     async fn list_jobs_by_state(
@@ -1148,6 +1470,22 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
 
         rows.into_iter().map(|row| job_from_row(&row)).collect()
+    }
+
+    async fn mark_running_job_succeeded_with_outbox(
+        &self,
+        job_id: u64,
+        outbox: AppendOutboxEventRecord,
+    ) -> Result<IngestionJob, IngestionJobStoreError> {
+        SqliteIngestionJobStore::mark_running_job_succeeded_with_outbox(self, job_id, outbox).await
+    }
+
+    async fn complete_running_ingestion_with_chunks_and_outbox(
+        &self,
+        record: CompleteRunningIngestionRecord,
+    ) -> Result<CompletedIngestionResult, IngestionJobStoreError> {
+        SqliteIngestionJobStore::complete_running_ingestion_with_chunks_and_outbox(self, record)
+            .await
     }
 }
 
@@ -1293,6 +1631,65 @@ fn job_metadata_fingerprint(row: &AnyRow) -> Result<Option<String>, IngestionJob
         .get("idempotency_fingerprint_sha256_hex")
         .and_then(serde_json::Value::as_str)
         .map(str::to_string))
+}
+
+fn merge_drive_import_linkage_metadata(
+    existing: Option<&str>,
+    linkage: &DriveImportJobLinkage,
+) -> Result<String, IngestionJobStoreError> {
+    let mut metadata = existing
+        .map(serde_json::from_str::<serde_json::Value>)
+        .transpose()
+        .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?
+        .unwrap_or_else(|| serde_json::json!({}));
+    let object = serde_json::to_value(&linkage.original_object_ref)
+        .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+    metadata["drive_import"] = serde_json::json!({
+        "source_id": linkage.source_id,
+        "document_id": linkage.document_id,
+        "document_version_id": linkage.document_version_id,
+        "original_object_ref": object,
+    });
+    serde_json::to_string(&metadata)
+        .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))
+}
+
+fn parse_drive_import_linkage(
+    metadata: Option<&str>,
+) -> Result<Option<DriveImportJobLinkage>, IngestionJobStoreError> {
+    let Some(metadata) = metadata else {
+        return Ok(None);
+    };
+    let metadata: serde_json::Value = serde_json::from_str(metadata)
+        .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+    let Some(linkage) = metadata.get("drive_import") else {
+        return Ok(None);
+    };
+    let read_u64 = |field: &str| -> Result<u64, IngestionJobStoreError> {
+        linkage
+            .get(field)
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| {
+                IngestionJobStoreError::Internal(format!("drive_import metadata missing {field}"))
+            })
+    };
+    let original_object_ref = linkage
+        .get("original_object_ref")
+        .ok_or_else(|| {
+            IngestionJobStoreError::Internal(
+                "drive_import metadata missing original_object_ref".to_string(),
+            )
+        })
+        .and_then(|value| {
+            serde_json::from_value(value.clone())
+                .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))
+        })?;
+    Ok(Some(DriveImportJobLinkage {
+        source_id: read_u64("source_id")?,
+        document_id: read_u64("document_id")?,
+        document_version_id: read_u64("document_version_id")?,
+        original_object_ref,
+    }))
 }
 
 fn source_from_row(row: &AnyRow) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {

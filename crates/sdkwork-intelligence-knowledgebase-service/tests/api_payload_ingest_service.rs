@@ -5,8 +5,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::
     PutKnowledgeObjectRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::{
-    CreateIngestionJobRecord, CreateOrGetIngestionJobResult, IngestionJobStore,
-    IngestionJobStoreError,
+    CreateIngestionJobRecord, CreateOrGetIngestionJobResult, DriveImportJobLinkage,
+    IngestionJobStore, IngestionJobStoreError,
 };
 use sdkwork_knowledgebase_contract::ingest::{
     IngestionJob, IngestionJobState, KnowledgeIngestRequest,
@@ -25,13 +25,17 @@ async fn api_markdown_ingest_writes_payload_through_drive_and_creates_idempotent
         title: "API payload note".to_string(),
         payload_markdown: "# API Note\n\nImportant source text.".to_string(),
         idempotency_key: "api-note-1".to_string(),
+        source_url: None,
     };
 
     let first = service
         .ingest_markdown_payload(request.clone(), None)
         .await
         .unwrap();
-    let second = service.ingest_markdown_payload(request, None).await.unwrap();
+    let second = service
+        .ingest_markdown_payload(request, None)
+        .await
+        .unwrap();
 
     assert_eq!(first.job.id, second.job.id);
     assert_eq!(first.job.source_type, "api");
@@ -61,6 +65,7 @@ async fn api_markdown_ingest_does_not_overwrite_existing_payload_for_same_idempo
         title: "API payload note".to_string(),
         payload_markdown: "# Original\n\nFirst payload.".to_string(),
         idempotency_key: "api-note-1".to_string(),
+        source_url: None,
     };
     let replay_request = KnowledgeIngestRequest {
         payload_markdown: "# Replacement\n\nThis must not overwrite.".to_string(),
@@ -95,6 +100,7 @@ async fn api_markdown_ingest_trims_idempotency_key_before_lookup() {
         title: "API payload note".to_string(),
         payload_markdown: "# Original\n\nFirst payload.".to_string(),
         idempotency_key: "api-note-1".to_string(),
+        source_url: None,
     };
     let replay_request = KnowledgeIngestRequest {
         idempotency_key: " api-note-1 ".to_string(),
@@ -102,7 +108,10 @@ async fn api_markdown_ingest_trims_idempotency_key_before_lookup() {
         ..request.clone()
     };
 
-    let first = service.ingest_markdown_payload(request, None).await.unwrap();
+    let first = service
+        .ingest_markdown_payload(request, None)
+        .await
+        .unwrap();
     let replay = service
         .ingest_markdown_payload(replay_request, None)
         .await
@@ -128,19 +137,24 @@ async fn api_markdown_ingest_rejects_empty_payload_and_unsafe_idempotency_key() 
         title: "Empty".to_string(),
         payload_markdown: "   ".to_string(),
         idempotency_key: "empty-1".to_string(),
+        source_url: None,
     };
     let unsafe_key = KnowledgeIngestRequest {
         space_id: 7,
         title: "Unsafe".to_string(),
         payload_markdown: "# Unsafe".to_string(),
         idempotency_key: "../escape".to_string(),
+        source_url: None,
     };
 
     assert!(service
         .ingest_markdown_payload(empty_payload, None)
         .await
         .is_err());
-    assert!(service.ingest_markdown_payload(unsafe_key, None).await.is_err());
+    assert!(service
+        .ingest_markdown_payload(unsafe_key, None)
+        .await
+        .is_err());
 }
 
 #[derive(Default)]
@@ -226,6 +240,7 @@ struct MemoryIngestionJobStore {
     next_id: Mutex<u64>,
     by_id: Mutex<HashMap<u64, IngestionJob>>,
     by_key: Mutex<HashMap<(u64, String), u64>>,
+    linkages: Mutex<HashMap<u64, DriveImportJobLinkage>>,
 }
 
 #[async_trait]
@@ -276,6 +291,7 @@ impl IngestionJobStore for MemoryIngestionJobStore {
     async fn update_job_state(
         &self,
         job_id: u64,
+        expected_state: IngestionJobState,
         state: IngestionJobState,
         error_message: Option<String>,
     ) -> Result<IngestionJob, IngestionJobStoreError> {
@@ -283,9 +299,34 @@ impl IngestionJobStore for MemoryIngestionJobStore {
         let job = jobs
             .get_mut(&job_id)
             .ok_or(IngestionJobStoreError::NotFound(job_id))?;
+        if job.state != expected_state {
+            return Err(IngestionJobStoreError::NotFound(job_id));
+        }
         job.state = state;
         job.error_message = error_message;
         Ok(job.clone())
+    }
+
+    async fn attach_drive_import_linkage(
+        &self,
+        job_id: u64,
+        linkage: DriveImportJobLinkage,
+    ) -> Result<(), IngestionJobStoreError> {
+        if !self.by_id.lock().unwrap().contains_key(&job_id) {
+            return Err(IngestionJobStoreError::NotFound(job_id));
+        }
+        self.linkages.lock().unwrap().insert(job_id, linkage);
+        Ok(())
+    }
+
+    async fn get_drive_import_linkage(
+        &self,
+        job_id: u64,
+    ) -> Result<Option<DriveImportJobLinkage>, IngestionJobStoreError> {
+        if !self.by_id.lock().unwrap().contains_key(&job_id) {
+            return Err(IngestionJobStoreError::NotFound(job_id));
+        }
+        Ok(self.linkages.lock().unwrap().get(&job_id).cloned())
     }
 
     async fn list_jobs_by_state(
@@ -300,5 +341,44 @@ impl IngestionJobStore for MemoryIngestionJobStore {
             .take(limit as usize)
             .cloned()
             .collect())
+    }
+
+    async fn mark_running_job_succeeded_with_outbox(
+        &self,
+        job_id: u64,
+        _outbox: sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::AppendOutboxEventRecord,
+    ) -> Result<IngestionJob, IngestionJobStoreError> {
+        let mut jobs = self.by_id.lock().unwrap();
+        let job = jobs
+            .get_mut(&job_id)
+            .ok_or(IngestionJobStoreError::NotFound(job_id))?;
+        if job.state != IngestionJobState::Running {
+            return Err(IngestionJobStoreError::Conflict(format!(
+                "invalid ingestion job transition: {:?} -> {:?}",
+                job.state,
+                IngestionJobState::Succeeded
+            )));
+        }
+        job.state = IngestionJobState::Succeeded;
+        job.error_message = None;
+        Ok(job.clone())
+    }
+
+    async fn complete_running_ingestion_with_chunks_and_outbox(
+        &self,
+        record: sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::CompleteRunningIngestionRecord,
+    ) -> Result<
+        sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::CompletedIngestionResult,
+        IngestionJobStoreError,
+    >{
+        let job = self
+            .mark_running_job_succeeded_with_outbox(record.job_id, record.outbox)
+            .await?;
+        Ok(
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::CompletedIngestionResult {
+                job,
+                chunk_count: record.chunks.len(),
+            },
+        )
     }
 }

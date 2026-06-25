@@ -1,5 +1,6 @@
-import { WechatArticle } from './wechat';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { escapeHtmlText } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
+import { WechatArticle } from './wechat';
 
 export interface McpToolCall {
   name: string;
@@ -90,6 +91,9 @@ export class McpAgentService {
         blockContent = customQuoteMatch[1].trim();
       }
 
+      const safeBlockContent = escapeHtmlText(blockContent);
+      const safeHeadingText = escapeHtmlText(headingText);
+
       let htmlBlock = '';
       let resultDesc = '';
 
@@ -99,7 +103,7 @@ export class McpAgentService {
           <div style="margin: 20px 0; padding: 20px; border-radius: 16px; background-color: var(--color-kb-panel-hover); border: 1px solid var(--color-kb-panel-border); border-left: 5px solid var(--color-kb-accent); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02); font-family: sans-serif;" class="kb-mcp-block">
             <span style="font-size: 26px; color: var(--color-kb-accent); font-family: Georgia, serif; line-height: 1; display: block; margin-bottom: -10px;">“</span>
             <p style="font-size: 14.5px; line-height: 1.7; color: var(--color-kb-text-heading); font-weight: 500; font-style: italic; margin: 0; padding: 0 8px;">
-              ${blockContent}
+              ${safeBlockContent}
             </p>
             <span style="font-size: 26px; color: var(--color-kb-accent); font-family: Georgia, serif; line-height: 1; display: block; text-align: right; margin-top: -10px; margin-bottom: -10px;">”</span>
           </div>
@@ -115,7 +119,7 @@ export class McpAgentService {
               <span style="width: 8px; height: 8px; background-color: var(--color-kb-accent); border-radius: 50%;"></span>
             </div>
             <p style="font-size: 12.5px; color: var(--color-kb-text); line-height: 1.6; margin: 0 0 12px 0;">
-              ${blockContent}
+              ${safeBlockContent}
             </p>
             <div style="font-size: 11px; color: var(--color-kb-text-muted); letter-spacing: 0.5px;">本图文基于 AI Agent 服务及微信最佳排版实践渲染</div>
           </div>
@@ -141,10 +145,10 @@ export class McpAgentService {
         htmlBlock = `
           <div style="margin: 20px 0; background-color: var(--color-kb-panel-hover); border: 1.5px solid var(--color-kb-panel-border); border-left: 5px solid var(--color-kb-accent); border-radius: 12px; padding: 16px; font-family: sans-serif;" class="kb-mcp-block">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-              <span style="color: #ffffff; font-size: 12px; font-weight: bold; background-color: var(--color-kb-accent); padding: 3px 10px; border-radius: 6px;">${headingText}</span>
+              <span style="color: #ffffff; font-size: 12px; font-weight: bold; background-color: var(--color-kb-accent); padding: 3px 10px; border-radius: 6px;">${safeHeadingText}</span>
             </div>
             <p style="font-size: 13.5px; color: var(--color-kb-text); line-height: 1.6; margin: 0;">
-              ${blockContent}
+              ${safeBlockContent}
             </p>
           </div>
         `;

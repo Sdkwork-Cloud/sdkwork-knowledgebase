@@ -5,8 +5,7 @@ use sdkwork_router_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 async fn main() {
     bootstrap::validate_process_config();
 
-    let database_url = std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_URL")
-        .unwrap_or_else(|_| "sqlite://data/knowledgebase.db?mode=rwc".to_string());
+    let database_url = bootstrap::resolve_database_url();
     let tenant_id = std::env::var("SDKWORK_KNOWLEDGEBASE_TENANT_ID")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
@@ -17,6 +16,10 @@ async fn main() {
     let listen_addr = std::env::var("SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND")
         .unwrap_or_else(|_| "127.0.0.1:18081".to_string());
 
+    let operator_id = std::env::var("SDKWORK_KNOWLEDGEBASE_OPERATOR_ID")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok());
+
     let runtime = KnowledgebaseRuntime::connect(&database_url, tenant_id)
         .await
         .expect("initialize knowledgebase runtime");
@@ -25,6 +28,10 @@ async fn main() {
         .await
         .expect("knowledgebase database readiness check failed");
 
-    let router = bootstrap::build_served_app_router(&runtime, tenant_id, actor_id).await;
+    let router = if bootstrap::is_unified_process_layout() {
+        bootstrap::build_served_unified_router(&runtime, tenant_id, actor_id, operator_id).await
+    } else {
+        bootstrap::build_served_app_router(&runtime, tenant_id, actor_id).await
+    };
     serve_router(&listen_addr, "sdkwork-knowledgebase-app-api", router).await;
 }

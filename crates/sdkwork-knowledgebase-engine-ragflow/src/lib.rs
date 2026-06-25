@@ -114,7 +114,7 @@ impl RagflowKnowledgeEngine {
             self.config
                 .as_ref()
                 .and_then(|config| config.default_dataset_id.clone()),
-            &format!("{RAGFLOW_DATASET_ID_ENV}"),
+            RAGFLOW_DATASET_ID_ENV,
         )
         .await
     }

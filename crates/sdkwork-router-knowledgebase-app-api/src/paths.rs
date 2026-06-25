@@ -1,12 +1,17 @@
 pub const PREFIX: &str = "/app/v3/api";
+pub const LIVEZ: &str = "/livez";
+pub const READYZ: &str = "/readyz";
 pub const HEALTHZ: &str = "/healthz";
 pub const SPACES: &str = "/app/v3/api/knowledge/spaces";
 pub const SPACE: &str = "/app/v3/api/knowledge/spaces/{space_id}";
 pub const DRIVE_IMPORTS: &str = "/app/v3/api/knowledge/drive_imports";
+pub const GIT_IMPORTS: &str = "/app/v3/api/knowledge/git_imports";
+pub const GIT_SYNCS: &str = "/app/v3/api/knowledge/git_syncs";
 pub const INGESTS: &str = "/app/v3/api/knowledge/ingests";
 pub const INGEST: &str = "/app/v3/api/knowledge/ingests/{ingest_id}";
 pub const DOCUMENTS: &str = "/app/v3/api/knowledge/documents";
 pub const DOCUMENT: &str = "/app/v3/api/knowledge/documents/{document_id}";
+pub const DOCUMENT_CONTENT: &str = "/app/v3/api/knowledge/documents/{document_id}/content";
 pub const DOCUMENT_VERSIONS: &str = "/app/v3/api/knowledge/documents/{document_id}/versions";
 pub const OKF_CONCEPT_UPSERT: &str = "/app/v3/api/knowledge/okf/concepts/upsert";
 pub const OKF_CONCEPTS: &str = "/app/v3/api/knowledge/okf/concepts";
@@ -41,3 +46,14 @@ pub const CONTEXT_BINDING: &str = "/app/v3/api/knowledge/context_bindings/{bindi
 pub const UPLOAD_SESSIONS: &str = "/app/v3/api/knowledge/upload_sessions";
 pub const UPLOAD_SESSION_COMPLETE: &str =
     "/app/v3/api/knowledge/upload_sessions/{session_id}/complete";
+pub const WECHAT_OFFICIAL_ACCOUNTS: &str = "/app/v3/api/knowledge/wechat/official_accounts";
+pub const WECHAT_APPLETS: &str = "/app/v3/api/knowledge/wechat/applets";
+pub const WECHAT_ARTICLES_PUBLISH: &str = "/app/v3/api/knowledge/wechat/articles/publish";
+pub const WECHAT_ARTICLES_PREVIEW: &str = "/app/v3/api/knowledge/wechat/articles/preview";
+pub const MARKET_LISTINGS: &str = "/app/v3/api/knowledge/market/listings";
+pub const MARKET_SUBSCRIPTIONS: &str = "/app/v3/api/knowledge/market/subscriptions";
+pub const MARKET_SUBSCRIPTION: &str = "/app/v3/api/knowledge/market/subscriptions/{listing_id}";
+pub const SITE_DEPLOYMENTS: &str = "/app/v3/api/knowledge/site_deployments";
+pub const SITE_DEPLOYMENT_PREVIEW: &str =
+    "/app/v3/api/knowledge/site_deployments/{deployment_id}/preview";
+pub const MEDIA_TASKS: &str = "/app/v3/api/knowledge/media_tasks";

@@ -16,13 +16,16 @@ use crate::ports::{
     },
 };
 use crate::public_web_search::{
-    metadata_public_web_top_k, metadata_requests_public_web, search_public_web,
-    stable_web_hit_ids, PublicWebSearchError, PublicWebSearchHit,
+    metadata_public_web_top_k, metadata_requests_public_web, search_public_web, stable_web_hit_ids,
+    PublicWebSearchError, PublicWebSearchHit,
 };
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeCitation, KnowledgeContextFragment, KnowledgeContextPack, KnowledgeContextPackRequest,
     KnowledgeMemoryContextFragment, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
     KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeRetrievalTrace,
+};
+use sdkwork_knowledgebase_observability::{
+    record_context_pack_completed, record_retrieval_completed,
 };
 use sdkwork_utils_rust::{is_blank, sha256_hash};
 use std::{cmp::Ordering, time::Instant};
@@ -135,6 +138,8 @@ impl<'a> KnowledgeRetrievalService<'a> {
             .persist_trace(&request, &normalized_query, &fragments, Some(latency_ms))
             .await?;
 
+        record_retrieval_completed(request.tenant_id, fragments.len() as u32, latency_ms);
+
         Ok(KnowledgeRetrievalResult {
             retrieval_id: trace_id,
             trace: request.include_trace.then(|| KnowledgeRetrievalTrace {
@@ -233,6 +238,8 @@ impl<'a> KnowledgeRetrievalService<'a> {
             .iter()
             .filter_map(|fragment| fragment.citation.clone())
             .collect();
+
+        record_context_pack_completed(request.tenant_id, estimated_tokens, truncated);
 
         Ok(KnowledgeContextPack {
             context_pack_id: retrieval.retrieval_id,

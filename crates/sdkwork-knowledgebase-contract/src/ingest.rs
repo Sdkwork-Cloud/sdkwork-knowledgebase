@@ -16,7 +16,10 @@ pub struct CreateIngestionJobRequest {
 pub struct KnowledgeIngestRequest {
     pub space_id: u64,
     pub title: String,
+    #[serde(default)]
     pub payload_markdown: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_url: Option<String>,
     pub idempotency_key: String,
 }
 

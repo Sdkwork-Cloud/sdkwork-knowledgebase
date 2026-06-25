@@ -8,8 +8,10 @@ import { TiptapEditor } from './TiptapEditor';
 import { CodeEditorPanel } from './CodeEditorPanel';
 import { MediaViewer } from './MediaViewer';
 import { PdfViewer } from './PdfViewer';
+import { useHydratedViewerDocument } from './hooks/useHydratedViewerDocument';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { AssetLibraryModal } from './components/AssetLibraryModal';
+import { sanitizeEditorHtml } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
 
 export interface EditorPanelProps {
   activeKb: KnowledgeBase | null;
@@ -85,11 +87,12 @@ export function EditorPanel({
   const [assetLibraryTab, setAssetLibraryTab] = useState<'image' | 'audio' | 'video'>('image');
   const [activeEditor, setActiveEditor] = useState<any>(null);
   const [transcribingDocs, setTranscribingDocs] = useState<Record<string, boolean>>({});
+  const pdfViewDoc = useHydratedViewerDocument(activeDoc?.type === 'pdf' ? activeDoc : null);
 
   const insertHtmlToEditor = (html: string) => {
     if (activeEditor && !activeEditor.isDestroyed && typeof activeEditor.chain === 'function') {
       try {
-        activeEditor.chain().focus().insertContent(html).run();
+        activeEditor.chain().focus().insertContent(sanitizeEditorHtml(html)).run();
       } catch (e) {
         console.error('Failed to insert HTML to editor:', e);
       }
@@ -270,6 +273,8 @@ export function EditorPanel({
                       docTitle={activeDoc.title}
                       onTitleChange={(newTitle) => onTitleChange?.(activeDoc.id, newTitle)}
                       onEditorReady={setActiveEditor}
+                      kbId={activeKb?.id}
+                      parentFolderId={activeDoc.parentId}
                       onOpenImageGallery={() => {
                         setAssetLibraryTab('image');
                         setAssetLibraryOpen(true);
@@ -311,6 +316,8 @@ export function EditorPanel({
                         docTitle={activeDoc.title}
                         onTitleChange={(newTitle) => onTitleChange?.(activeDoc.id, newTitle)}
                         onEditorReady={setActiveEditor}
+                        kbId={activeKb?.id}
+                        parentFolderId={activeDoc.parentId}
                         onOpenImageGallery={() => {
                           setAssetLibraryTab('image');
                           setAssetLibraryOpen(true);
@@ -339,8 +346,8 @@ export function EditorPanel({
               />
             )}
 
-            {activeDoc?.type === 'pdf' && (
-              <PdfViewer activeDoc={activeDoc} />
+            {activeDoc?.type === 'pdf' && pdfViewDoc && (
+              <PdfViewer activeDoc={pdfViewDoc} />
             )}
 
             {activeDoc && ['image', 'video', 'audio', 'music', 'file'].includes(activeDoc.type) && (
@@ -410,13 +417,14 @@ export function EditorPanel({
         onClose={() => setAssetLibraryOpen(false)}
         initialTab={assetLibraryTab}
         title={t('selectMaterialToInsert', { ns: 'editor' })}
+        kbId={activeKb?.id}
         onSelect={(item) => {
           if (item.type === 'image') {
             insertHtmlToEditor(`<p><img src="${item.url}" alt="${item.title}" style="border-radius: 12px; max-width: 100%; margin: 16px 0; border: 1px solid var(--color-kb-panel-border);" /></p>`);
           } else if (item.type === 'video') {
-            insertHtmlToEditor(`<video src="${item.url || 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4'}" controls></video>`);
+            insertHtmlToEditor(`<video src="${item.url}" controls></video>`);
           } else if (item.type === 'audio') {
-            insertHtmlToEditor(`<audio src="${item.url || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'}" controls></audio>`);
+            insertHtmlToEditor(`<audio src="${item.url}" controls></audio>`);
           }
           setAssetLibraryOpen(false);
         }}

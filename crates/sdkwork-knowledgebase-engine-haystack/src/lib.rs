@@ -117,7 +117,7 @@ impl HaystackKnowledgeEngine {
             self.config
                 .as_ref()
                 .and_then(|config| config.default_pipeline.clone()),
-            &format!("{HAYSTACK_PIPELINE_ENV}"),
+            HAYSTACK_PIPELINE_ENV,
         )
         .await
     }
@@ -140,7 +140,7 @@ impl HaystackKnowledgeEngine {
             self.config
                 .as_ref()
                 .and_then(|config| config.default_workspace.clone()),
-            &format!("{HAYSTACK_WORKSPACE_ENV}"),
+            HAYSTACK_WORKSPACE_ENV,
         )
         .await
         {

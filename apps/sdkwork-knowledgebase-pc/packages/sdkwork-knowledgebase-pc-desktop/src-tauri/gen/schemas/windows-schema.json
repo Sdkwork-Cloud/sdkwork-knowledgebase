@@ -177,6 +177,12 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the clear_secure_session_values command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clear-secure-session-values",
+          "markdownDescription": "Enables the clear_secure_session_values command without any pre-configured scope."
+        },
+        {
           "description": "Enables desktop preference sync commands without any pre-configured scope.",
           "type": "string",
           "const": "allow-desktop-preferences",
@@ -219,6 +225,18 @@
           "markdownDescription": "Enables the read_local_resource command without any pre-configured scope."
         },
         {
+          "description": "Enables the read_secure_session_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-secure-session-snapshot",
+          "markdownDescription": "Enables the read_secure_session_snapshot command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the remove_secure_session_value command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-remove-secure-session-value",
+          "markdownDescription": "Enables the remove_secure_session_value command without any pre-configured scope."
+        },
+        {
           "description": "Enables desktop resource bridge commands for PDF, file IO, and external links.",
           "type": "string",
           "const": "allow-resource-bridge",
@@ -243,10 +261,28 @@
           "markdownDescription": "Enables the save_export_file command without any pre-configured scope."
         },
         {
+          "description": "Enables desktop secure session token storage commands without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-secure-session",
+          "markdownDescription": "Enables desktop secure session token storage commands without any pre-configured scope."
+        },
+        {
           "description": "Enables the window_control command without any pre-configured scope.",
           "type": "string",
           "const": "allow-window-control",
           "markdownDescription": "Enables the window_control command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the write_secure_session_value command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-write-secure-session-value",
+          "markdownDescription": "Enables the write_secure_session_value command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clear_secure_session_values command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clear-secure-session-values",
+          "markdownDescription": "Denies the clear_secure_session_values command without any pre-configured scope."
         },
         {
           "description": "Denies desktop preference sync commands without any pre-configured scope.",
@@ -291,6 +327,18 @@
           "markdownDescription": "Denies the read_local_resource command without any pre-configured scope."
         },
         {
+          "description": "Denies the read_secure_session_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-secure-session-snapshot",
+          "markdownDescription": "Denies the read_secure_session_snapshot command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the remove_secure_session_value command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-remove-secure-session-value",
+          "markdownDescription": "Denies the remove_secure_session_value command without any pre-configured scope."
+        },
+        {
           "description": "Denies desktop resource bridge commands.",
           "type": "string",
           "const": "deny-resource-bridge",
@@ -315,10 +363,22 @@
           "markdownDescription": "Denies the save_export_file command without any pre-configured scope."
         },
         {
+          "description": "Denies desktop secure session token storage commands without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-secure-session",
+          "markdownDescription": "Denies desktop secure session token storage commands without any pre-configured scope."
+        },
+        {
           "description": "Denies the window_control command without any pre-configured scope.",
           "type": "string",
           "const": "deny-window-control",
           "markdownDescription": "Denies the window_control command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the write_secure_session_value command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-write-secure-session-value",
+          "markdownDescription": "Denies the write_secure_session_value command without any pre-configured scope."
         },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",

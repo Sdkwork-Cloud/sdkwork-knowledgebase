@@ -2,12 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { useTranslation } from 'react-i18next';
 import { X, Shield, Settings, Sliders, Upload, UserPlus, Globe, Check, AlertCircle } from 'lucide-react';
-import { KnowledgeBase } from './services/document';
-import {
-  loadKnowledgeSpaceMembers,
-  syncKnowledgeSpaceMembers,
-  type KnowledgeSpaceMemberUi,
-} from './services/knowledgeSpaceMembersService';
+import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
+import { KnowledgeBase, DocumentService } from './services/document';
+import type { KnowledgeSpaceMemberUi } from './services/knowledgeSpaceMembersService';
 
 interface KnowledgeBaseSettingsModalProps {
   kb: KnowledgeBase;
@@ -40,11 +37,13 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
 
   useEffect(() => {
     const spaceId = Number(kb.id);
-    if (!Number.isFinite(spaceId) || spaceId <= 0) {
+    if (!isKnowledgebaseApiAvailable() || !Number.isFinite(spaceId) || spaceId <= 0) {
+      initialMembersRef.current = [];
+      setMembers([]);
       return;
     }
     let cancelled = false;
-    loadKnowledgeSpaceMembers(spaceId)
+    DocumentService.loadKnowledgeSpaceMembers(spaceId)
       .then((loaded) => {
         if (cancelled) {
           return;
@@ -93,7 +92,9 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
       name: capitalizedName,
       email: newMemberEmail,
       role: newMemberRole,
-      avatar: `https://images.unsplash.com/photo-${Math.floor(Math.random() * 100000) + 1500000}?w=100&h=100&fit=crop`
+      avatar: isKnowledgebaseApiAvailable()
+        ? ''
+        : `https://images.unsplash.com/photo-${Math.floor(Math.random() * 100000) + 1500000}?w=100&h=100&fit=crop`,
     };
     setMembers([...members, newMember]);
     setNewMemberEmail('');
@@ -105,8 +106,8 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
 
   const handleSaveAll = async () => {
     const spaceId = Number(kb.id);
-    if (Number.isFinite(spaceId) && spaceId > 0) {
-      await syncKnowledgeSpaceMembers(spaceId, members, initialMembersRef.current);
+    if (isKnowledgebaseApiAvailable() && Number.isFinite(spaceId) && spaceId > 0) {
+      await DocumentService.syncKnowledgeSpaceMembers(spaceId, members, initialMembersRef.current);
     }
     onSave({
       title,
@@ -388,7 +389,13 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
                     {members.map((member, idx) => (
                       <div key={member.email} className="flex items-center justify-between px-5 py-3 hover:bg-[#fafafa] dark:hover:bg-zinc-900/50 transition-colors">
                         <div className="flex items-center gap-3 min-w-0">
-                          <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full object-cover shrink-0 border border-zinc-200/80 shadow-sm" />
+                          {member.avatar ? (
+                            <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full object-cover shrink-0 border border-zinc-200/80 shadow-sm" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full shrink-0 border border-zinc-200/80 shadow-sm bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[12px] font-bold text-zinc-600 dark:text-zinc-300">
+                              {member.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
                           <div className="min-w-0">
                             <div className="text-[13.5px] font-extrabold text-zinc-900 dark:text-[var(--color-kb-text)] truncate tracking-tight">{member.name}</div>
                             <div className="text-[11px] text-zinc-500 font-medium truncate tracking-wide">{member.email}</div>

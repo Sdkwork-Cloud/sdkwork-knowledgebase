@@ -10,8 +10,8 @@ import {
   Search,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useLocalStorage } from '@packages/sdkwork-knowledgebase-pc-commons/src';
-import { toast } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src';
+import { useLocalStorage } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
+import { toast } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase';
 import type { KnowledgebaseAccountViewModel, KnowledgebaseRuntimeConfig } from 'sdkwork-knowledgebase-pc-core';
 
 import {
@@ -342,8 +342,9 @@ export function SettingsModal({
         return;
       }
 
-      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(selector)).filter(
-        (element) => element.offsetParent !== null,
+      const focusable = Array.from(dialog.querySelectorAll(selector)).filter(
+        (node): node is HTMLElement =>
+          node instanceof HTMLElement && node.offsetParent !== null,
       );
       if (focusable.length === 0) {
         return;
@@ -500,13 +501,14 @@ export function SettingsModal({
             {navBySection.personal.length > 0 ? (
               <SidebarSection title={t('settingsGroupPersonal')}>
                 {navBySection.personal.map((item) => (
-                  <TabButton
-                    key={item.id}
-                    active={activeTab === item.id}
-                    onClick={() => handleSelectTab(item.id)}
-                    icon={navIconMap[item.id]}
-                    label={t(item.labelKey)}
-                  />
+                  <div key={item.id}>
+                    <TabButton
+                      active={activeTab === item.id}
+                      onClick={() => handleSelectTab(item.id)}
+                      icon={navIconMap[item.id]}
+                      label={t(item.labelKey)}
+                    />
+                  </div>
                 ))}
               </SidebarSection>
             ) : null}
@@ -514,13 +516,14 @@ export function SettingsModal({
             {navBySection.preferences.length > 0 ? (
               <SidebarSection title={t('settingsGroupPreferences')}>
                 {navBySection.preferences.map((item) => (
-                  <TabButton
-                    key={item.id}
-                    active={activeTab === item.id}
-                    onClick={() => handleSelectTab(item.id)}
-                    icon={navIconMap[item.id]}
-                    label={t(item.labelKey)}
-                  />
+                  <div key={item.id}>
+                    <TabButton
+                      active={activeTab === item.id}
+                      onClick={() => handleSelectTab(item.id)}
+                      icon={navIconMap[item.id]}
+                      label={t(item.labelKey)}
+                    />
+                  </div>
                 ))}
               </SidebarSection>
             ) : null}
@@ -528,13 +531,14 @@ export function SettingsModal({
             {navBySection.support.length > 0 ? (
               <SidebarSection title={t('settingsGroupSupport')}>
                 {navBySection.support.map((item) => (
-                  <TabButton
-                    key={item.id}
-                    active={activeTab === item.id}
-                    onClick={() => handleSelectTab(item.id)}
-                    icon={navIconMap[item.id]}
-                    label={t(item.labelKey)}
-                  />
+                  <div key={item.id}>
+                    <TabButton
+                      active={activeTab === item.id}
+                      onClick={() => handleSelectTab(item.id)}
+                      icon={navIconMap[item.id]}
+                      label={t(item.labelKey)}
+                    />
+                  </div>
                 ))}
               </SidebarSection>
             ) : null}

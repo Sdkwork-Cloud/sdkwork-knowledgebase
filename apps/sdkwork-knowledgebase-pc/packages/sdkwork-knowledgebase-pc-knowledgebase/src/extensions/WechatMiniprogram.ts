@@ -1,5 +1,28 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 
+import { escapeHtmlText } from '../utils/htmlSanitizer';
+
+function safeMediaUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  try {
+    const url = new URL(trimmed, window.location.origin);
+    if (
+      url.protocol === 'http:' ||
+      url.protocol === 'https:' ||
+      url.protocol === 'blob:' ||
+      (url.protocol === 'data:' && trimmed.toLowerCase().startsWith('data:image/'))
+    ) {
+      return url.href;
+    }
+  } catch {
+    return '';
+  }
+  return '';
+}
+
 export const WechatMiniprogram = Node.create({
   name: 'wechatMiniprogram',
   group: 'inline',
@@ -32,9 +55,9 @@ export const WechatMiniprogram = Node.create({
   addNodeView() {
     return ({ node }) => {
       const type = node.attrs['data-miniprogram-type'];
-      const title = node.attrs['data-miniprogram-title'];
-      const imageUrl = node.attrs['data-miniprogram-imageurl'];
-      const nickname = node.attrs['data-miniprogram-nickname'];
+      const title = escapeHtmlText(String(node.attrs['data-miniprogram-title'] ?? ''));
+      const imageUrl = safeMediaUrl(String(node.attrs['data-miniprogram-imageurl'] ?? ''));
+      const nickname = escapeHtmlText(String(node.attrs['data-miniprogram-nickname'] ?? '小程序'));
 
       const dom = document.createElement('span');
       dom.className = 'wechat-miniprogram-wrapper';
@@ -48,7 +71,7 @@ export const WechatMiniprogram = Node.create({
               <span style="width: 14px; height: 14px; border-radius: 50%; background: #eee; display: inline-block; margin-right: 6px;"></span>
               <span style="font-size: 13px; color: var(--color-kb-text-muted, #888);">${nickname || '小程序'}</span>
             </div>
-            <div style="font-size: 15px; color: var(--color-kb-text-heading, #333); margin-bottom: 10px; font-weight: 400; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; max-height: 42px;">${title || ''}</div>
+            <div style="font-size: 15px; color: var(--color-kb-text-heading, #333); margin-bottom: 10px; font-weight: 400; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; max-height: 42px;">${title}</div>
             ${imageUrl ? `<div style="width: 100%; aspect-ratio: 5 / 4; background-image: url('${imageUrl}'); background-size: cover; background-position: center; border-radius: 4px;"></div>` : '<div style="width: 100%; aspect-ratio: 5 / 4; background: #f7f7f7; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 12px;">无图片</div>'}
             <div style="font-size: 11px; color: var(--color-kb-text-muted, #999); margin-top: 10px; border-top: 1px solid var(--color-kb-panel-border, #eee); padding-top: 10px; display: flex; align-items: center;">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>

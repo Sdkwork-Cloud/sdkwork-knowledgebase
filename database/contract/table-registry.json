@@ -157,6 +157,24 @@
       "owner": "knowledgebase-platform",
       "compliance_level": "L2",
       "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_market_listing",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_market_subscription",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_site_deployment",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
     }
   ]
 }

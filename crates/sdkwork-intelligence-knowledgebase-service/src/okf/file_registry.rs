@@ -16,6 +16,10 @@ impl<'a> OkfBundleFileRegistryService<'a> {
         Self { store }
     }
 
+    pub fn bundle_file_store(&self) -> &dyn KnowledgeOkfBundleFileStore {
+        self.store
+    }
+
     pub async fn register_standard_files(
         &self,
         space_id: u64,
@@ -23,11 +27,15 @@ impl<'a> OkfBundleFileRegistryService<'a> {
     ) -> Result<Vec<KnowledgeOkfBundleFile>, OkfBundleFileRegistryServiceError> {
         let mut entries = Vec::with_capacity(4);
         entries.push(
-            self.register_file(space_id, &files.agents_md, OkfBundleFileKind::BundleAgents)
-                .await?,
+            self.upsert_object_ref_file(
+                space_id,
+                &files.agents_md,
+                OkfBundleFileKind::BundleAgents,
+            )
+            .await?,
         );
         entries.push(
-            self.register_file(
+            self.upsert_object_ref_file(
                 space_id,
                 &files.profile_yaml,
                 OkfBundleFileKind::BundleProfile,
@@ -35,17 +43,17 @@ impl<'a> OkfBundleFileRegistryService<'a> {
             .await?,
         );
         entries.push(
-            self.register_file(space_id, &files.index_md, OkfBundleFileKind::BundleIndex)
+            self.upsert_object_ref_file(space_id, &files.index_md, OkfBundleFileKind::BundleIndex)
                 .await?,
         );
         entries.push(
-            self.register_file(space_id, &files.log_md, OkfBundleFileKind::BundleLog)
+            self.upsert_object_ref_file(space_id, &files.log_md, OkfBundleFileKind::BundleLog)
                 .await?,
         );
         Ok(entries)
     }
 
-    async fn register_file(
+    pub async fn upsert_object_ref_file(
         &self,
         space_id: u64,
         object_ref: &KnowledgeObjectRef,

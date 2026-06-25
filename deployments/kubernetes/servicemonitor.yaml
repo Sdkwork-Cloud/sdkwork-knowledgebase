@@ -1,0 +1,71 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sdkwork-knowledgebase-app-api
+  labels:
+    app: sdkwork-knowledgebase
+    component: app-api
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: sdkwork-knowledgebase
+      component: app-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sdkwork-knowledgebase-backend-api
+  labels:
+    app: sdkwork-knowledgebase
+    component: backend-api
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: sdkwork-knowledgebase
+      component: backend-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sdkwork-knowledgebase-open-api
+  labels:
+    app: sdkwork-knowledgebase
+    component: open-api
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: sdkwork-knowledgebase
+      component: open-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sdkwork-knowledgebase-worker
+  labels:
+    app: sdkwork-knowledgebase
+    component: background-worker
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: sdkwork-knowledgebase
+      component: background-worker
+  endpoints:
+    - port: health
+      path: /metrics
+      interval: 30s

@@ -1,4 +1,4 @@
-import { dispatchOpenInAppBrowser } from '@packages/sdkwork-knowledgebase-pc-commons/src';
+import { dispatchOpenInAppBrowser } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 
 export function openExternalUrl(
   url: string,

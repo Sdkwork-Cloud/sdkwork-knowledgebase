@@ -1,7 +1,17 @@
-use sdkwork_web_core::{HttpMethod, HttpRoute, HttpRouteManifest};
+use sdkwork_web_core::{HttpMethod, HttpRoute, HttpRouteManifest, RateLimitTier};
+
+const fn abuse_sensitive_open_route(
+    method: HttpMethod,
+    path: &'static str,
+    tag: &'static str,
+    operation_id: &'static str,
+) -> HttpRoute {
+    HttpRoute::api_key(method, path, tag, operation_id)
+        .with_rate_limit_tier(RateLimitTier::AuthCritical)
+}
 
 const HTTP_ROUTES: &[HttpRoute] = &[
-    HttpRoute::api_key(
+    abuse_sensitive_open_route(
         HttpMethod::Post,
         "/knowledge/v3/api/retrievals",
         "knowledge",
@@ -13,13 +23,13 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "retrievals.retrieve",
     ),
-    HttpRoute::api_key(
+    abuse_sensitive_open_route(
         HttpMethod::Post,
         "/knowledge/v3/api/context_packs",
         "knowledge",
         "contextPacks.create",
     ),
-    HttpRoute::api_key(
+    abuse_sensitive_open_route(
         HttpMethod::Post,
         "/knowledge/v3/api/ingests",
         "knowledge",

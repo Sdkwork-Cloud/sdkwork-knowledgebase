@@ -1,3 +1,4 @@
+use crate::ingest::payload_limits::{validate_markdown_payload, PayloadLimitError};
 use crate::ports::{
     knowledge_drive_storage::{
         HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeStorageError,
@@ -73,11 +74,23 @@ impl<'a> KnowledgeUploadSessionService<'a> {
         drive_space_id: Option<&str>,
     ) -> Result<String, KnowledgeUploadSessionServiceError> {
         if let Some(payload_markdown) = &request.payload_markdown {
-            if is_blank(Some(payload_markdown)) {
+            if is_blank(Some(payload_markdown.as_str())) {
                 return Err(KnowledgeUploadSessionServiceError::InvalidRequest(
                     "payload_markdown must not be empty when provided".to_string(),
                 ));
             }
+            validate_markdown_payload(payload_markdown).map_err(|error| match error {
+                PayloadLimitError::PayloadEmpty => {
+                    KnowledgeUploadSessionServiceError::InvalidRequest(
+                        "payload_markdown must not be empty when provided".to_string(),
+                    )
+                }
+                PayloadLimitError::PayloadTooLarge { max_bytes } => {
+                    KnowledgeUploadSessionServiceError::InvalidRequest(format!(
+                        "payload_markdown exceeds maximum allowed size of {max_bytes} bytes"
+                    ))
+                }
+            })?;
             self.drive
                 .put_object(
                     PutKnowledgeObjectRequest::text(
@@ -115,6 +128,21 @@ impl<'a> KnowledgeUploadSessionService<'a> {
             .get_object_text(&object_ref)
             .await
             .map_err(KnowledgeUploadSessionServiceError::Storage)
+            .and_then(|payload| {
+                validate_markdown_payload(&payload).map_err(|error| match error {
+                    PayloadLimitError::PayloadEmpty => {
+                        KnowledgeUploadSessionServiceError::InvalidRequest(
+                            "upload payload must not be empty".to_string(),
+                        )
+                    }
+                    PayloadLimitError::PayloadTooLarge { max_bytes } => {
+                        KnowledgeUploadSessionServiceError::InvalidRequest(format!(
+                            "upload payload exceeds maximum allowed size of {max_bytes} bytes"
+                        ))
+                    }
+                })?;
+                Ok(payload)
+            })
     }
 }
 

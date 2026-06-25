@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
-import { X, Plus, Upload, Github, FolderGit2, BookPlus, Loader2 } from 'lucide-react';
+import { X, Plus, Upload, GitBranch, FolderGit2, BookPlus, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export interface CreateKbModalProps {
@@ -91,7 +91,7 @@ export function CreateKbModal({
             <div className="flex flex-col space-y-4">
               <div className="flex flex-col space-y-2">
                 <label className="text-[13px] font-semibold text-[var(--color-kb-text-heading)] flex items-center">
-                  <Github size={16} className="mr-2" />
+                  <GitBranch size={16} className="mr-2" />
                   {t('gitRepoUrl')}
                 </label>
                 <input 

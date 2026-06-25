@@ -132,11 +132,19 @@ test('knowledgebase dev orchestrator uses orchestration spec and gateway config'
   assert.match(devScript, /listOrchestrationProcesses/);
   assert.match(devScript, /buildProcessesFromOrchestration/);
   assert.match(devScript, /resolveCloudGatewayConfigPath/);
+  assert.match(devScript, /resolveIamDevEnv/);
+  assert.match(devScript, /IAM_APPLICATION_BOOTSTRAP_ENV/);
   assert.match(devScript, /--config/);
   assert.match(devScript, /--deployment-profile/);
   assert.match(devScript, /--database/);
   assert.doesNotMatch(devScript, /--hosting/);
   assert.doesNotMatch(devScript, /self-hosted|cloud-hosted/);
+});
+
+test('knowledgebase topology adapter exports IAM application bootstrap env aliases', async () => {
+  const topologyAdapter = await read('scripts/lib/knowledgebase-topology.mjs');
+  assert.match(topologyAdapter, /export const IAM_APPLICATION_BOOTSTRAP_ENV/u);
+  assert.match(topologyAdapter, /SDKWORK_KNOWLEDGEBASE_APP_ROOT/u);
 });
 
 test('default PostgreSQL development path is not blocked by SQLite-only runtime wiring', async () => {
@@ -246,6 +254,40 @@ test('OpenAPI and generated SDK inputs do not expose current tenant selectors', 
   }
 
   assert.deepEqual(generatedViolations, []);
+});
+
+test('production cloud topology orchestrates background worker and health probes', async () => {
+  const spec = await readJson('specs/topology.spec.json');
+  const productionProfile = spec.orchestration.profiles['cloud.split-services.production'];
+  assert.ok(productionProfile, 'cloud.split-services.production orchestration profile must exist');
+
+  const processIds = productionProfile.processes.map((process) => process.id);
+  assert.ok(processIds.includes('application.background-worker'));
+  assert.ok(processIds.includes('application.public-ingress'));
+  assert.ok(processIds.includes('application.backend-http'));
+  assert.ok(processIds.includes('application.open-http'));
+
+  const bootstrapSource = await read('crates/sdkwork-router-knowledgebase-app-api/src/bootstrap.rs');
+  assert.match(bootstrapSource, /is_development_environment/);
+  assert.match(bootstrapSource, /validate_snowflake_node_id_for_production/);
+  assert.match(bootstrapSource, /DEV_AUTH_BYPASS requires SDKWORK_KNOWLEDGEBASE_ENVIRONMENT=development/);
+
+  const workerSource = await read('crates/sdkwork-knowledgebase-worker/src/lib.rs');
+  assert.match(workerSource, /shutdown_signal/);
+
+  for (const manifestPath of [
+    'deployments/kubernetes/app-api-deployment.yaml',
+    'deployments/kubernetes/backend-api-deployment.yaml',
+    'deployments/kubernetes/open-api-deployment.yaml',
+  ]) {
+    const manifest = await read(manifestPath);
+    assert.match(manifest, /path: \/livez/);
+    assert.match(manifest, /path: \/readyz/);
+  }
+
+  const workerManifest = await read('deployments/kubernetes/worker-deployment.yaml');
+  assert.match(workerManifest, /terminationGracePeriodSeconds/);
+  assert.match(workerManifest, /SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID/);
 });
 
 test('route binaries read topology bind env keys', async () => {

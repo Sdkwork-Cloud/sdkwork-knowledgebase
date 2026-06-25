@@ -1,0 +1,29 @@
+# SDKWork Knowledgebase PC desktop host profile (production example)
+#
+# Copy to a local override file outside version control when packaging desktop builds.
+
+[app]
+key = "sdkwork-knowledgebase-pc"
+runtime_target = "desktop"
+deployment_profile = "cloud"
+
+[window]
+title = "SDKWork Knowledgebase"
+width = 1440
+height = 900
+
+[runtime]
+environment = "production"
+config_profile = "prod"
+
+[auth]
+token_storage = "os-secure-storage"
+
+[sdk]
+app_api_base_url = "https://knowledgebase.sdkwork.com/app/v3/api"
+backend_api_base_url = "https://knowledgebase-admin.sdkwork.com/backend/v3/api"
+open_api_base_url = "https://knowledge.sdkwork.com/knowledge/v3/api"
+platform_api_gateway_base_url = "https://api.sdkwork.com"
+
+[feature_flags]
+enable_demo_mode = false

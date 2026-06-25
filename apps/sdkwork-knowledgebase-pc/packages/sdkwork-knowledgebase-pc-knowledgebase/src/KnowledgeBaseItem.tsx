@@ -5,8 +5,9 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from './compon
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent } from './components/ui/context-menu';
 import { KbDropdownItems, KbContextItems } from './KbMenuContent';
 import { TFunction } from 'i18next';
+import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
 
-export interface KnowledgeBaseItemProps {
+export interface KnowledgeBaseItemProps extends ReactKeyedComponentProps {
   kb: KnowledgeBase;
   activeKb: KnowledgeBase | null;
   onSelectKb: (kb: KnowledgeBase) => void;

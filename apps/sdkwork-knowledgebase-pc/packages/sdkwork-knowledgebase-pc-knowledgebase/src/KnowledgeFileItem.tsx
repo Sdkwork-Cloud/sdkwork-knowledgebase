@@ -1,3 +1,4 @@
+import { createRuntimeConfig } from 'sdkwork-knowledgebase-pc-core';
 import React from 'react';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { MoreHorizontal, CheckSquare, Folder, Hash, Image as ImageIcon, Video, Music, FileText, Pin } from 'lucide-react';
@@ -5,8 +6,9 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from './compon
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent } from './components/ui/context-menu';
 import { NodeDropdownItems, NodeContextItems } from './NodeMenuContent';
 import { DocumentMeta, DocumentService } from './services/document';
+import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
 
-export interface KnowledgeFileItemProps {
+export interface KnowledgeFileItemProps extends ReactKeyedComponentProps {
   item: any;
   activeDoc: DocumentMeta | null;
   selectedDocIds: Set<string>;
@@ -31,7 +33,7 @@ export interface KnowledgeFileItemProps {
   t: (key: string, options?: any) => string;
 }
 
-export function KnowledgeFileItem({ 
+export const KnowledgeFileItem = React.memo(function KnowledgeFileItem({
   item, 
   activeDoc,
   selectedDocIds,
@@ -55,6 +57,11 @@ export function KnowledgeFileItem({
   isLocateHighlight = false,
   t
 }: KnowledgeFileItemProps) {
+  const featureFlags = createRuntimeConfig().featureFlags;
+  const menuFeatureProps = {
+    showDocumentPermissions: featureFlags.documentPermissionsModal,
+    showDocumentVersionHistory: featureFlags.documentVersionHistory,
+  };
   const isFolder = item.type === 'folder';
   const isActive = activeDoc?.id === item.id;
   const isSelected = selectedDocIds.has(item.id);
@@ -94,6 +101,11 @@ export function KnowledgeFileItem({
       e.stopPropagation();
       setRenameItem(null);
     }
+  };
+
+  const openWebLinkImport = () => {
+    setIsLinkModalOpen(true);
+    setLinkUrl('');
   };
   
   const renderThumbnail = (type: string) => {
@@ -344,6 +356,7 @@ export function KnowledgeFileItem({
  
                   <DropdownMenuContent align="end" side="bottom" className="w-48 z-[150] rounded-xl shadow-lg border-[var(--color-kb-panel-border)] bg-[var(--color-kb-editor)]">
                     <NodeDropdownItems 
+                      {...menuFeatureProps}
                       isFolder={isFolder}
                       onNewDoc={(e) => { e.stopPropagation(); onMenuCreate('richtext', item.id); }}
                       onNewFolder={(e) => { e.stopPropagation(); onMenuCreate('folder', item.id); }}
@@ -362,8 +375,7 @@ export function KnowledgeFileItem({
                         if (e && e.preventDefault) e.preventDefault();
                         setTimeout(() => {
                           setCurrentFolderId(item.id);
-                          setIsLinkModalOpen(true); 
-                          setLinkUrl('');
+                          openWebLinkImport();
                         }, 150);
                       }}
                       onRename={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); setRenameItem(item); }}
@@ -406,6 +418,7 @@ export function KnowledgeFileItem({
  
         <ContextMenuContent className="w-48 z-[200] rounded-xl shadow-lg border-[var(--color-kb-panel-border)] bg-[var(--color-kb-editor)]">
              <NodeContextItems 
+               {...menuFeatureProps}
                isFolder={isFolder}
                onNewDoc={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); onMenuCreate('richtext', item.id); }}
                onNewFolder={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); onMenuCreate('folder', item.id); }}
@@ -424,8 +437,7 @@ export function KnowledgeFileItem({
                  if (e && e.preventDefault) e.preventDefault();
                  setTimeout(() => {
                    setCurrentFolderId(item.id);
-                   setIsLinkModalOpen(true); 
-                   setLinkUrl('');
+                   openWebLinkImport();
                  }, 150);
                }}
                onRename={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); setRenameItem(item); }}
@@ -444,5 +456,5 @@ export function KnowledgeFileItem({
       </ContextMenu>
     </div>
   );
-}
+});
 

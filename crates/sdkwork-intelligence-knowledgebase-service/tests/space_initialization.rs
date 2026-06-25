@@ -11,8 +11,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::
     PutKnowledgeObjectRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_workspace::{
-    EnsureKnowledgeDriveNodeKind, EnsureKnowledgeDriveNodeRequest,
-    EnsureKnowledgeDriveNodesRequest, KnowledgeDriveWorkspace, KnowledgeDriveWorkspaceError,
+    EnsureKnowledgeDriveNodeKind, EnsureKnowledgeDriveNodesRequest, KnowledgeDriveWorkspace,
+    KnowledgeDriveWorkspaceError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_bundle_file_store::{
     CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
@@ -255,6 +255,47 @@ async fn creating_bound_space_initializes_browser_visible_okf_drive_nodes() {
     ] {
         assert!(paths.contains(&expected.to_string()), "missing {expected}");
     }
+}
+
+#[tokio::test]
+async fn creating_external_space_ensures_drive_permission_anchor_without_okf_bundle() {
+    let store = MemorySpaceStore::default();
+    let drive = RecordingDrive::default();
+    let drive_workspace = RecordingDriveWorkspace::default();
+    let file_entries = MemoryOkfBundleFileEntryStore::default();
+    let registry = OkfBundleFileRegistryService::new(&file_entries);
+    let okf_bundle_initializer = OkfBundleInitializerService::new(&drive)
+        .with_registry(&registry)
+        .with_drive_workspace(&drive_workspace);
+    let drive_spaces = RecordingDriveSpaceProvisioner::new("drv-kb-001");
+    let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
+        .with_drive_context("tenant-9001", "user-123")
+        .with_drive_space_provisioner(&drive_spaces);
+
+    let created = service
+        .create_space(CreateKnowledgeSpaceRequest {
+            name: "External Space".to_string(),
+            description: None,
+            owner_subject_type: Some("user".to_string()),
+            owner_subject_id: Some("test-owner".to_string()),
+            knowledge_mode: KnowledgeAgentKnowledgeMode::External,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(
+        created.knowledge_mode,
+        KnowledgeAgentKnowledgeMode::External
+    );
+    assert!(!created.okf_bundle_initialized);
+    assert_eq!(created.drive_space_id.as_deref(), Some("drv-kb-001"));
+    assert!(drive.paths().is_empty());
+    assert_eq!(drive_workspace.request_count(), 1);
+    let request = drive_workspace.request().unwrap();
+    assert_eq!(request.drive_space_id, "drv-kb-001");
+    assert_eq!(request.nodes.len(), 1);
+    assert_eq!(request.nodes[0].logical_path, "workspace");
+    assert_eq!(request.nodes[0].kind, EnsureKnowledgeDriveNodeKind::Folder);
 }
 
 #[tokio::test]
@@ -553,29 +594,6 @@ impl KnowledgeDriveWorkspace for RecordingDriveWorkspace {
         self.requests.lock().unwrap().push(request);
         Ok(())
     }
-}
-
-fn folder_node(logical_path: &str) -> EnsureKnowledgeDriveNodeRequest {
-    EnsureKnowledgeDriveNodeRequest {
-        logical_path: logical_path.to_string(),
-        kind: EnsureKnowledgeDriveNodeKind::Folder,
-        object_ref: None,
-    }
-}
-
-fn assert_standard_file_node(
-    node: &EnsureKnowledgeDriveNodeRequest,
-    logical_path: &str,
-    object_key: &str,
-) {
-    assert_eq!(node.logical_path, logical_path);
-    assert_eq!(node.kind, EnsureKnowledgeDriveNodeKind::File);
-    let object_ref = node.object_ref.as_ref().unwrap();
-    assert_eq!(object_ref.bucket, "test");
-    assert_eq!(object_ref.object_key, object_key);
-    assert_eq!(object_ref.logical_path, logical_path);
-    assert_eq!(object_ref.content_type, "text/markdown; charset=utf-8");
-    assert!(object_ref.size_bytes > 0);
 }
 
 #[derive(Default)]

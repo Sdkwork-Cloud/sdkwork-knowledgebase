@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, Clock, FileText, ArrowUp, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 import { AIService } from '../services/ai';
 import { useTranslation } from 'react-i18next';
 
@@ -8,6 +9,7 @@ export interface WechatAiImageModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (imageUrl: string) => void;
+  kbId?: string | null;
 }
 
 interface Message {
@@ -22,35 +24,55 @@ interface Message {
   };
 }
 
-export function WechatAiImageModal({ isOpen, onClose, onConfirm }: WechatAiImageModalProps) {
-  const { t } = useTranslation(['editor', 'common', 'officialAccount']);
-  const [prompt, setPrompt] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'user',
-      type: 'text',
-      content: t('ai_pig_prompt', { defaultValue: '一只欢快的小猪' })
+const OFFLINE_DEMO_MESSAGES: Message[] = [
+  {
+    role: 'user',
+    type: 'text',
+    content: '一只欢快的小猪',
+  },
+  {
+    role: 'ai',
+    type: 'image_result',
+    content: '已为你生成图片，1024x1024',
+    imageDetails: {
+      url: 'https://images.unsplash.com/photo-1600861194942-f883de0dfe96?q=80&w=1024&auto=format&fit=crop',
+      resolution: '1024x1024',
+      suggestions: ['换黄昏暖光背景', '加几只蝴蝶飞舞', '改仰拍大特写'],
+      similars: [
+        'https://images.unsplash.com/photo-1600861194942-f883de0dfe96?q=80&w=200&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1627917812975-ebce01eac74a?q=80&w=200&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1627917812975-ebce01eac74a?q=80&w=200&auto=format&fit=crop',
+      ],
     },
+  },
+];
+
+function appendImageGenerationError(messages: Message[], error: unknown): Message[] {
+  const detail = error instanceof Error ? error.message : 'AI 配图生成失败。';
+  return [
+    ...messages,
     {
       role: 'ai',
-      type: 'image_result',
-      content: t('ai_generated_res', { defaultValue: '已为你生成图片，1024x1024' }),
-      imageDetails: {
-        url: 'https://images.unsplash.com/photo-1600861194942-f883de0dfe96?q=80&w=1024&auto=format&fit=crop',
-        resolution: '1024x1024',
-        suggestions: [
-          t('ai_sug_1', { defaultValue: '换黄昏暖光背景' }), 
-          t('ai_sug_2', { defaultValue: '加几只蝴蝶飞舞' }), 
-          t('ai_sug_3', { defaultValue: '改仰拍大特写' })
-        ],
-        similars: [
-          'https://images.unsplash.com/photo-1600861194942-f883de0dfe96?q=80&w=200&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1627917812975-ebce01eac74a?q=80&w=200&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1627917812975-ebce01eac74a?q=80&w=200&auto=format&fit=crop'
+      type: 'text',
+      content: detail,
+    },
+  ];
+}
+
+export function WechatAiImageModal({ isOpen, onClose, onConfirm, kbId }: WechatAiImageModalProps) {
+  const { t } = useTranslation(['editor', 'common', 'officialAccount']);
+  const [prompt, setPrompt] = useState('');
+  const [messages, setMessages] = useState<Message[]>(() =>
+    isKnowledgebaseApiAvailable()
+      ? [
+          {
+            role: 'ai',
+            type: 'text',
+            content: '描述你想要的配图，我会通过 Knowledgebase 媒体任务生成可用图片链接。',
+          },
         ]
-      }
-    }
-  ]);
+      : OFFLINE_DEMO_MESSAGES,
+  );
   const [aspectMode, setAspectMode] = useState('1:1');
   const [styleMode, setStyleMode] = useState('风格');
   
@@ -166,15 +188,21 @@ export function WechatAiImageModal({ isOpen, onClose, onConfirm }: WechatAiImage
                   setPrompt('');
                   
                   try {
-                    const result = await AIService.generateImage(newMsg.content, aspectMode, styleMode);
+                    const result = await AIService.generateImage(
+                      newMsg.content,
+                      aspectMode,
+                      styleMode,
+                      kbId ? { spaceId: kbId } : undefined,
+                    );
                     setMessages(prev => [...prev, {
                       role: 'ai',
                       type: 'image_result',
                       content: t('ai_generated_desc_format', { aspect: aspectMode, style: styleMode, defaultValue: `已为您生成图片 (${aspectMode} - ${styleMode})，双击或点击“使用此图片”插入。` }),
                       imageDetails: result
                     }]);
-                  } catch(e) {
-                    console.error(e);
+                  } catch (error) {
+                    console.error(error);
+                    setMessages((prev) => appendImageGenerationError(prev, error));
                   }
                 }
               }}
@@ -198,15 +226,21 @@ export function WechatAiImageModal({ isOpen, onClose, onConfirm }: WechatAiImage
                   setPrompt('');
                   
                   try {
-                    const result = await AIService.generateImage(newMsg.content, aspectMode, styleMode);
+                    const result = await AIService.generateImage(
+                      newMsg.content,
+                      aspectMode,
+                      styleMode,
+                      kbId ? { spaceId: kbId } : undefined,
+                    );
                     setMessages(prev => [...prev, {
                       role: 'ai',
                       type: 'image_result',
                       content: t('ai_generated_desc_suggestions', { aspect: aspectMode, style: styleMode, defaultValue: `已为您生成图片 (${aspectMode} - ${styleMode})，包含相关的调整建议。` }),
                       imageDetails: result
                     }]);
-                  } catch(e) {
-                    console.error(e);
+                  } catch (error) {
+                    console.error(error);
+                    setMessages((prev) => appendImageGenerationError(prev, error));
                   }
                 }}
                 className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${

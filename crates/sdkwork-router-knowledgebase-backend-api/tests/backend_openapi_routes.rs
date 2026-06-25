@@ -12,7 +12,7 @@ async fn backend_router_mounts_every_backend_openapi_operation_path() {
         "../../../sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
     ))
     .unwrap();
-    let app = build_router_with_backend_api(DefaultBackendApi);
+    let app = build_router_with_backend_api(DefaultBackendApi, 1);
 
     let paths = spec["paths"].as_object().unwrap();
     for (template_path, methods) in paths {

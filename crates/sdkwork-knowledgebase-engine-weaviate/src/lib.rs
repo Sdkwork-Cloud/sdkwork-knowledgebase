@@ -115,7 +115,7 @@ impl WeaviateKnowledgeEngine {
             self.config
                 .as_ref()
                 .and_then(|config| config.default_class_name.clone()),
-            &format!("{WEAVIATE_CLASS_NAME_ENV}"),
+            WEAVIATE_CLASS_NAME_ENV,
         )
         .await
     }

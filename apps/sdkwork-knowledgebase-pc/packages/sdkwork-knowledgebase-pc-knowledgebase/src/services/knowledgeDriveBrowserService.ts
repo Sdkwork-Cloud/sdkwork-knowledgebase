@@ -1,32 +1,54 @@
 import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
 import {
-  getKnowledgebaseDriveAppSdkClient,
-  isKnowledgebaseDriveApiAvailable,
+  KnowledgebaseErrorCodes,
+  parseKnowledgeSpaceId,
+  requireDriveApiClient,
+  requireDriveNodeId,
+  requireDriveSpaceIdFromKbSpace,
+  requireKnowledgebaseAppSdkHttpClient,
 } from 'sdkwork-knowledgebase-pc-core';
 
 import type { DocumentMeta } from './document';
-
-function requireDriveClient() {
-  if (!isKnowledgebaseDriveApiAvailable()) {
-    throw new Error('Drive SDK is required for browser node operations but is not configured.');
-  }
-  return getKnowledgebaseDriveAppSdkClient().client;
-}
+import { resolveKnowledgeBrowserParentDriveNodeId } from './knowledgeBrowserParentResolver';
 
 function resolveDriveNodeId(node: KnowledgeBrowserNode): string | null {
   return node.driveNodeId?.trim() || node.id?.trim() || null;
 }
 
+function spaceIdFromKbId(kbId: string): number {
+  return parseKnowledgeSpaceId(kbId);
+}
+
+export async function resolveKnowledgeDriveSpaceId(kbId: string): Promise<string> {
+  const client = requireKnowledgebaseAppSdkHttpClient();
+  const space = await client.knowledge.spaces.retrieve(spaceIdFromKbId(kbId));
+  return requireDriveSpaceIdFromKbSpace(space.driveSpaceId);
+}
+
+export async function createKnowledgeDriveFolder(input: {
+  kbId: string;
+  nodeName: string;
+  parentDriveNodeId?: string | null;
+}): Promise<{ driveNodeId: string; nodeName: string }> {
+  const driveSpaceId = await resolveKnowledgeDriveSpaceId(input.kbId);
+  const folder = await requireDriveApiClient().drive.nodes.folders.create({
+    spaceId: driveSpaceId,
+    parentNodeId: input.parentDriveNodeId?.trim() || undefined,
+    nodeName: input.nodeName.trim(),
+  });
+  return {
+    driveNodeId: folder.id,
+    nodeName: folder.nodeName?.trim() || input.nodeName.trim(),
+  };
+}
+
 export async function applyDriveBrowserNodeUpdates(
+  kbId: string,
   node: KnowledgeBrowserNode,
   updates: Pick<DocumentMeta, 'title' | 'parentId' | 'isPinned'>,
 ): Promise<void> {
-  const driveNodeId = resolveDriveNodeId(node);
-  if (!driveNodeId) {
-    throw new Error('Drive node id is missing for this browser item.');
-  }
-
-  const drive = requireDriveClient();
+  const driveNodeId = requireDriveNodeId(resolveDriveNodeId(node));
+  const drive = requireDriveApiClient();
 
   if (updates.title !== undefined && updates.title.trim() !== node.name) {
     await drive.drive.nodes.update(driveNodeId, {
@@ -38,8 +60,12 @@ export async function applyDriveBrowserNodeUpdates(
     const targetParent = updates.parentId?.trim() || undefined;
     const currentParent = node.parentId?.trim() || undefined;
     if (targetParent !== currentParent) {
+      const targetDriveParent = await resolveKnowledgeBrowserParentDriveNodeId(
+        kbId,
+        targetParent ?? null,
+      );
       await drive.drive.nodes.move(driveNodeId, {
-        targetParentNodeId: targetParent,
+        targetParentNodeId: targetDriveParent,
       });
     }
   }
@@ -54,11 +80,8 @@ export async function applyDriveBrowserNodeUpdates(
 }
 
 export async function deleteDriveBrowserNode(node: KnowledgeBrowserNode): Promise<void> {
-  const driveNodeId = resolveDriveNodeId(node);
-  if (!driveNodeId) {
-    throw new Error('Drive node id is missing for this browser item.');
-  }
-  await requireDriveClient().drive.nodes.delete(driveNodeId);
+  const driveNodeId = requireDriveNodeId(resolveDriveNodeId(node));
+  await requireDriveApiClient().drive.nodes.delete(driveNodeId);
 }
 
 export async function ensureDriveFolderPath(
@@ -88,7 +111,7 @@ export async function ensureDriveFolderPath(
       continue;
     }
 
-    const folder = await requireDriveClient().drive.nodes.folders.create({
+    const folder = await requireDriveApiClient().drive.nodes.folders.create({
       spaceId: driveSpaceId,
       parentNodeId: currentParent,
       nodeName: folderName,

@@ -1,5 +1,7 @@
+import { sanitizeEditorHtml } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
 import { getDocumentExportCapabilities } from './documentExportCapabilities';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
 import { tryNativeDocumentPdfExport } from './documentExportNative';
 import { prepareExportHtml, prepareExportImages, stripHtmlText } from './exportContentUtils';
 import { showExportProgress } from './exportProgress';
@@ -60,7 +62,7 @@ export function buildExportContainer({
 
   const content = document.createElement('div');
   content.className = 'prose max-w-none text-[14.5px] leading-relaxed text-zinc-700 space-y-4';
-  content.innerHTML = htmlContent;
+  content.innerHTML = sanitizeEditorHtml(htmlContent);
   container.appendChild(content);
 
   return container;
@@ -121,7 +123,7 @@ function stitchCanvasSlices(slices: HTMLCanvasElement[]): HTMLCanvasElement {
 
   const context = stitched.getContext('2d');
   if (!context) {
-    throw new Error('Failed to create stitched export canvas.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.EXPORT_RENDER_FAILED);
   }
 
   context.fillStyle = '#ffffff';
@@ -213,7 +215,7 @@ export async function canvasToPdfBytes(canvas: HTMLCanvasElement): Promise<Uint8
 
     const ctx = pageCanvas.getContext('2d');
     if (!ctx) {
-      throw new Error('Failed to create PDF page canvas.');
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.EXPORT_RENDER_FAILED);
     }
 
     ctx.fillStyle = '#ffffff';
@@ -300,7 +302,7 @@ export async function exportDocumentAsWord(
   showExportProgress(mode === 'saveAs' ? '请选择 Word 保存位置...' : '正在保存 Word...');
   const preparedHtml = await prepareExportHtml(content.html);
   if (!stripHtmlText(preparedHtml)) {
-    throw new Error('Word 内容为空，无法导出');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.EXPORT_CONTENT_EMPTY);
   }
   const header =
     "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML to Word</title></head><body>";
@@ -323,7 +325,7 @@ export async function exportDocumentAsMarkdown(
   showExportProgress(mode === 'saveAs' ? '请选择 Markdown 保存位置...' : '正在保存 Markdown...');
   const markdown = content.markdown.trim();
   if (!markdown) {
-    throw new Error('Markdown 内容为空，无法导出');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.EXPORT_CONTENT_EMPTY);
   }
   const bytes = new TextEncoder().encode(`\ufeff${markdown}`);
   const save = await persistExportFile({

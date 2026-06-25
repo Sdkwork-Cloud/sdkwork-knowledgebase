@@ -1,24 +1,26 @@
 use axum::http::StatusCode;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_access_control::{
+    KnowledgeAccessRole, KnowledgeSpaceMember as ServiceSpaceMember, KnowledgeSubjectType,
+};
 use sdkwork_intelligence_knowledgebase_service::{
     okf::{OkfBundleFileRegistryService, OkfBundleInitializerService},
     ports::knowledge_ingestion_job_store::IngestionJobStore,
     space::KnowledgeSpaceService,
+};
+use sdkwork_knowledgebase_contract::rag::{
+    KnowledgeAgentBinding, KnowledgeAgentProfile, KnowledgeRetrievalBinding,
 };
 use sdkwork_knowledgebase_contract::{
     ingest::IngestionJob, GrantKnowledgeSpaceMemberRequest, KnowledgeDocument, KnowledgeSpace,
     KnowledgeSpaceMember, KnowledgeSpaceMemberList, KnowledgeSpaceMemberRole,
     KnowledgeSpaceMemberSubjectType, UpdateKnowledgeSpaceRequest,
 };
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_access_control::{
-    KnowledgeAccessRole, KnowledgeSpaceMember as ServiceSpaceMember, KnowledgeSubjectType,
-};
+use sdkwork_utils_rust::is_blank;
+use std::collections::HashSet;
 
 use crate::{
-    error::ApiError,
-    hosted::map_okf_concept_store_error,
-    ports::KnowledgeAppRequestContext,
-    runtime::KnowledgebaseRuntime,
-    ApiResult,
+    error::ApiError, hosted::map_okf_concept_store_error, ports::KnowledgeAppRequestContext,
+    runtime::KnowledgebaseRuntime, ApiResult,
 };
 
 pub(crate) fn ensure_runtime_tenant(
@@ -30,6 +32,32 @@ pub(crate) fn ensure_runtime_tenant(
             StatusCode::FORBIDDEN,
             "tenant_id_mismatch",
             "authenticated tenant does not match configured runtime tenant",
+        ));
+    }
+    ensure_runtime_organization(runtime, context)?;
+    Ok(())
+}
+
+pub(crate) fn ensure_runtime_organization(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+) -> ApiResult<()> {
+    let runtime_org = runtime.organization_id();
+    if runtime_org == 0 {
+        return Ok(());
+    }
+    let Some(context_org) = context.organization_id else {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "missing_organization_id",
+            "organization context is required for this operation",
+        ));
+    };
+    if context_org != runtime_org {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "organization_id_mismatch",
+            "authenticated organization does not match configured runtime organization",
         ));
     }
     Ok(())
@@ -46,6 +74,20 @@ pub(crate) fn require_actor_id(context: &KnowledgeAppRequestContext) -> ApiResul
                 "authenticated actor_id is required for this operation",
             )
         })
+}
+
+pub(crate) async fn require_bindings_space_access(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    bindings: &[KnowledgeRetrievalBinding],
+) -> ApiResult<()> {
+    let mut seen = HashSet::new();
+    for binding in bindings {
+        if seen.insert(binding.space_id) {
+            require_space_access(runtime, context, binding.space_id).await?;
+        }
+    }
+    Ok(())
 }
 
 pub(crate) async fn require_space_access(
@@ -147,12 +189,7 @@ pub(crate) async fn update_space_with_context(
         .with_drive_context(runtime.tenant_id_str(), runtime.operator_id())
         .with_drive_space_provisioner(runtime.drive_space_provisioner())
         .with_access_control(runtime.access_control())
-        .update_space(
-            space_id,
-            &context.tenant_id.to_string(),
-            &actor_id,
-            request,
-        )
+        .update_space(space_id, &context.tenant_id.to_string(), &actor_id, request)
         .await
         .map_err(ApiError::from)
 }
@@ -185,9 +222,7 @@ fn map_member_role(role: KnowledgeAccessRole) -> KnowledgeSpaceMemberRole {
     }
 }
 
-fn map_member_subject_type(
-    subject_type: KnowledgeSubjectType,
-) -> KnowledgeSpaceMemberSubjectType {
+fn map_member_subject_type(subject_type: KnowledgeSubjectType) -> KnowledgeSpaceMemberSubjectType {
     match subject_type {
         KnowledgeSubjectType::User => KnowledgeSpaceMemberSubjectType::User,
         KnowledgeSubjectType::Group => KnowledgeSpaceMemberSubjectType::Group,
@@ -238,6 +273,8 @@ pub(crate) async fn list_space_members_with_context(
     runtime: &KnowledgebaseRuntime,
     context: &KnowledgeAppRequestContext,
     space_id: u64,
+    cursor: Option<String>,
+    page_size: Option<u32>,
 ) -> ApiResult<KnowledgeSpaceMemberList> {
     ensure_runtime_tenant(runtime, context)?;
     let actor_id = require_actor_id(context)?;
@@ -246,11 +283,21 @@ pub(crate) async fn list_space_members_with_context(
         .with_registry(&file_registry)
         .with_drive_workspace(runtime.drive_workspace());
     let members = space_service(runtime, &okf_initializer)
-        .list_space_members(space_id, &context.tenant_id.to_string(), &actor_id)
+        .list_space_members(
+            space_id,
+            &context.tenant_id.to_string(),
+            &actor_id,
+            cursor,
+            page_size,
+        )
         .await
         .map_err(ApiError::from)?;
     Ok(KnowledgeSpaceMemberList {
-        members: members.members.into_iter().map(map_contract_member).collect(),
+        members: members
+            .members
+            .into_iter()
+            .map(map_contract_member)
+            .collect(),
         next_cursor: members.next_cursor,
     })
 }
@@ -263,7 +310,7 @@ pub(crate) async fn grant_space_member_with_context(
 ) -> ApiResult<()> {
     ensure_runtime_tenant(runtime, context)?;
     let actor_id = require_actor_id(context)?;
-    if request.subject_id.trim().is_empty() {
+    if is_blank(Some(request.subject_id.as_str())) {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             "invalid_subject_id",
@@ -284,7 +331,15 @@ pub(crate) async fn grant_space_member_with_context(
             &actor_id,
         )
         .await
-        .map_err(ApiError::from)
+        .map_err(ApiError::from)?;
+    sdkwork_knowledgebase_observability::audit::record_space_member_granted(
+        space_id,
+        context.actor_id.unwrap_or(0),
+        member_subject_type_label(request.subject_type),
+        request.subject_id.trim(),
+        member_role_label(request.role),
+    );
+    Ok(())
 }
 
 pub(crate) async fn revoke_space_member_with_context(
@@ -296,7 +351,7 @@ pub(crate) async fn revoke_space_member_with_context(
 ) -> ApiResult<()> {
     ensure_runtime_tenant(runtime, context)?;
     let actor_id = require_actor_id(context)?;
-    if subject_id.trim().is_empty() {
+    if is_blank(Some(subject_id)) {
         return Err(ApiError::new(
             StatusCode::BAD_REQUEST,
             "invalid_subject_id",
@@ -316,5 +371,75 @@ pub(crate) async fn revoke_space_member_with_context(
             &actor_id,
         )
         .await
-        .map_err(ApiError::from)
+        .map_err(ApiError::from)?;
+    sdkwork_knowledgebase_observability::audit::record_space_member_revoked(
+        space_id,
+        context.actor_id.unwrap_or(0),
+        member_subject_type_label(subject_type),
+        subject_id.trim(),
+    );
+    Ok(())
+}
+
+pub(crate) async fn require_enabled_agent_bindings_space_access(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    bindings: &[KnowledgeAgentBinding],
+) -> ApiResult<()> {
+    let retrieval_bindings: Vec<KnowledgeRetrievalBinding> = bindings
+        .iter()
+        .filter(|binding| binding.enabled)
+        .map(|binding| KnowledgeRetrievalBinding {
+            space_id: binding.space_id,
+            collection_id: binding.collection_id,
+            source_filter: binding.source_filter.clone(),
+            document_filter: binding.document_filter.clone(),
+            priority: binding.priority,
+            top_k: binding.top_k,
+            min_score: binding.min_score,
+        })
+        .collect();
+    require_bindings_space_access(runtime, context, &retrieval_bindings).await
+}
+
+pub(crate) async fn require_agent_profile_space_access(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    profile: &KnowledgeAgentProfile,
+) -> ApiResult<()> {
+    ensure_runtime_tenant(runtime, context)?;
+    if profile.tenant_id != context.tenant_id {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "tenant_id_mismatch",
+            "agent profile tenant does not match authenticated tenant",
+        ));
+    }
+    require_enabled_agent_bindings_space_access(runtime, context, &profile.bindings).await
+}
+
+pub(crate) async fn require_agent_binding_space_access(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    space_id: u64,
+) -> ApiResult<()> {
+    require_space_access(runtime, context, space_id).await?;
+    Ok(())
+}
+
+fn member_role_label(role: KnowledgeSpaceMemberRole) -> &'static str {
+    match role {
+        KnowledgeSpaceMemberRole::Reader => "reader",
+        KnowledgeSpaceMemberRole::Writer => "writer",
+        KnowledgeSpaceMemberRole::Owner => "owner",
+    }
+}
+
+fn member_subject_type_label(subject_type: KnowledgeSpaceMemberSubjectType) -> &'static str {
+    match subject_type {
+        KnowledgeSpaceMemberSubjectType::User => "user",
+        KnowledgeSpaceMemberSubjectType::Group => "group",
+        KnowledgeSpaceMemberSubjectType::Domain => "domain",
+        KnowledgeSpaceMemberSubjectType::App => "app",
+    }
 }

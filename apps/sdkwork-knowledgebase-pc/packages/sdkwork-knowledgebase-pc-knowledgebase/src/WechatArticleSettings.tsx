@@ -1,8 +1,9 @@
 import React from 'react';
 import { Plus, Settings2, Trash2 } from 'lucide-react';
 import { WechatArticle } from './services/wechat';
+import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
 
-export interface WechatArticleSettingsProps {
+export interface WechatArticleSettingsProps extends ReactKeyedComponentProps {
   selectedArticle: WechatArticle;
   updateSelectedArticle: (updates: Partial<WechatArticle>) => void;
   coverInputRef: React.RefObject<HTMLInputElement>;

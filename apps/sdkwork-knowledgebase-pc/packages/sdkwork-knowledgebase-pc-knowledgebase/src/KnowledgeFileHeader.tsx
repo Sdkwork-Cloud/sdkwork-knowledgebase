@@ -127,9 +127,7 @@ export function KnowledgeFileHeader({
                 type="file" 
                 ref={folderInputRef} 
                 className="hidden" 
-                // @ts-expect-error webkitdirectory is non-standard
-                webkitdirectory="" 
-                directory="" 
+                {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
                 onChange={async (e: any) => {
                   if (e.target.files?.length) {
                     const result = await onMenuCreate('localFolder', currentFolderId ?? undefined, Array.from(e.target.files));

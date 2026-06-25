@@ -1,4 +1,14 @@
-use sdkwork_web_core::{HttpMethod, HttpRoute, HttpRouteManifest};
+use sdkwork_web_core::{HttpMethod, HttpRoute, HttpRouteManifest, RateLimitTier};
+
+const fn abuse_sensitive_route(
+    method: HttpMethod,
+    path: &'static str,
+    tag: &'static str,
+    operation_id: &'static str,
+) -> HttpRoute {
+    HttpRoute::dual_token(method, path, tag, operation_id)
+        .with_rate_limit_tier(RateLimitTier::AuthCritical)
+}
 
 const HTTP_ROUTES: &[HttpRoute] = &[
     HttpRoute::dual_token(
@@ -19,19 +29,67 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "spaces.update",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/spaces/{spaceId}",
         "knowledge",
         "spaces.delete",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/drive_imports",
         "knowledge",
         "driveImports.create",
     ),
+    abuse_sensitive_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/git_imports",
+        "knowledge",
+        "gitImports.create",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/git_syncs",
+        "knowledge",
+        "gitSyncs.create",
+    ),
     HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/app/v3/api/knowledge/wechat/official_accounts",
+        "knowledge",
+        "wechat.officialAccounts.list",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Put,
+        "/app/v3/api/knowledge/wechat/official_accounts",
+        "knowledge",
+        "wechat.officialAccounts.replace",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/app/v3/api/knowledge/wechat/applets",
+        "knowledge",
+        "wechat.applets.list",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Put,
+        "/app/v3/api/knowledge/wechat/applets",
+        "knowledge",
+        "wechat.applets.replace",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/wechat/articles/publish",
+        "knowledge",
+        "wechat.articles.publish",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/wechat/articles/preview",
+        "knowledge",
+        "wechat.articles.preview",
+    ),
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/ingests",
         "knowledge",
@@ -67,11 +125,17 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "documents.update",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/documents/{documentId}",
         "knowledge",
         "documents.delete",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/app/v3/api/knowledge/documents/{documentId}/content",
+        "knowledge",
+        "documents.content.retrieve",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
@@ -151,7 +215,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "okf.contextPacks.create",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/okf/exports",
         "knowledge",
@@ -163,7 +227,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "okf.bundle.export.retrieve",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/okf/imports",
         "knowledge",
@@ -181,7 +245,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "spaces.browser.list",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/retrievals",
         "knowledge",
@@ -193,7 +257,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "retrievals.retrieve",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/context_packs",
         "knowledge",
@@ -247,13 +311,13 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "agentProfiles.bindings.delete",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
         "knowledge",
         "agentProfiles.retrievalPreview.create",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
         "knowledge",
@@ -307,17 +371,53 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "contextBindings.delete",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/upload_sessions",
         "knowledge",
         "uploadSessions.create",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/upload_sessions/{sessionId}/complete",
         "knowledge",
         "uploadSessions.complete",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/app/v3/api/knowledge/market/listings",
+        "knowledge",
+        "market.listings.list",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/market/subscriptions",
+        "knowledge",
+        "market.subscriptions.create",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Delete,
+        "/app/v3/api/knowledge/market/subscriptions/{listingId}",
+        "knowledge",
+        "market.subscriptions.delete",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/site_deployments",
+        "knowledge",
+        "siteDeployments.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
+        "knowledge",
+        "siteDeployments.preview.retrieve",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/media_tasks",
+        "knowledge",
+        "mediaTasks.create",
     ),
 ];
 

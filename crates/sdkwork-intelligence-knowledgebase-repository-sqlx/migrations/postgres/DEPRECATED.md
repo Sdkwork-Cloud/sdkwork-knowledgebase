@@ -1,11 +1,17 @@
-# Deprecated
+# Legacy embedded SQL (read-only mirror)
 
-Canonical database lifecycle assets live in the application-root `database/` directory.
+These SQL files are **not** the operational migration authority.
 
-Do not add new schema files here. Migrate remaining changes into:
+| Purpose | Canonical location |
+|---------|-------------------|
+| Production PostgreSQL migrations | `database/migrations/postgres/` |
+| Contract-first schema | `database/contract/schema.yaml` |
+| SQLite bootstrap embedded in Rust | This directory (mirror only) |
 
-- `database/contract/schema.yaml`
-- `database/migrations/{engine}/`
-- `database/ddl/baseline/{engine}/`
+Rules:
 
-See `DATABASE_FRAMEWORK_SPEC.md` and `database/README.md`.
+- **Do not add new schema files here.** Add `database/migrations/{engine}/*.up.sql` and run `pnpm db:materialize:contract`.
+- `src/migrations.rs` includes these files for SQLite dev bootstrap and migration manifest tests only.
+- PostgreSQL runtime bootstrap uses `sdkwork-knowledgebase-database-host` and application-root `database/`.
+
+See `database/README.md` and `DATABASE_FRAMEWORK_SPEC.md`.

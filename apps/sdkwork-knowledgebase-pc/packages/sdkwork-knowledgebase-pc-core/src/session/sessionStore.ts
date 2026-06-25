@@ -1,3 +1,5 @@
+import { clearLocalDocumentContentForTenant } from '../api/knowledgebaseDocumentContentCache';
+
 export interface SessionSnapshot {
   authToken?: string;
   accessToken?: string;
@@ -106,6 +108,10 @@ export function createSessionStore(
       emit();
     },
     clearSession() {
+      const tenantId = snapshot.context?.tenantId;
+      if (tenantId) {
+        clearLocalDocumentContentForTenant(tenantId);
+      }
       snapshot = {};
       persist();
       emit();

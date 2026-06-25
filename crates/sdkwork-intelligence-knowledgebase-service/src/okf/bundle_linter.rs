@@ -3,7 +3,6 @@ use crate::okf::linter::{
     extract_citation_urls, extract_index_linked_concept_ids, lint_bundle_summaries,
     lint_concept_stale_claims, lint_published_concept_markdown, OkfBundleLintReport, OkfLintIssue,
 };
-use sdkwork_knowledgebase_observability::record_okf_bundle_lint_completed;
 use crate::okf::storage::read_managed_markdown;
 use crate::ports::knowledge_drive_storage::KnowledgeDriveStorage;
 use crate::ports::knowledge_okf_concept_link_store::{
@@ -14,6 +13,7 @@ use crate::ports::knowledge_okf_concept_store::{
 };
 use crate::ports::knowledge_source_store::{KnowledgeSourceStore, KnowledgeSourceStoreError};
 use sdkwork_knowledgebase_contract::okf::{OkfBundleLintResult, OkfBundlePaths};
+use sdkwork_knowledgebase_observability::record_okf_bundle_lint_completed;
 use std::collections::BTreeSet;
 use thiserror::Error;
 
@@ -101,9 +101,9 @@ impl<'a> OkfBundleLinterService<'a> {
 
         let orphan_concept_ids = if let Some(link_store) = self.link_store {
             let mut orphans = link_store.list_orphan_concept_ids(space_id, &known).await?;
-            let index_linked_concepts =
-                self.read_all_index_linked_concepts(&concepts, &known, drive_space_id)
-                    .await;
+            let index_linked_concepts = self
+                .read_all_index_linked_concepts(&concepts, &known, drive_space_id)
+                .await;
             orphans.retain(|concept_id| !index_linked_concepts.contains(concept_id));
             orphans
         } else {
@@ -115,7 +115,8 @@ impl<'a> OkfBundleLinterService<'a> {
             .issues
             .iter()
             .filter(|issue| {
-                issue.check == "okf_conformance" && issue.severity == crate::okf::linter::OkfLintSeverity::Error
+                issue.check == "okf_conformance"
+                    && issue.severity == crate::okf::linter::OkfLintSeverity::Error
             })
             .count() as u64;
         record_okf_bundle_lint_completed(

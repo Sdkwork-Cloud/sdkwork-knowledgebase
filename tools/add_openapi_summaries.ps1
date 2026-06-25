@@ -8,6 +8,7 @@ $summaries = @{
     "documents.list" = "List knowledge documents"
     "documents.create" = "Create a knowledge document"
     "documents.retrieve" = "Retrieve a knowledge document"
+    "documents.content.retrieve" = "Retrieve authoritative knowledge document content"
     "documents.update" = "Update a knowledge document"
     "documents.delete" = "Delete a knowledge document"
     "documents.versions.list" = "List document versions"

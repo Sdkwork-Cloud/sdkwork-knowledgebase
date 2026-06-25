@@ -1,9 +1,11 @@
 mod bundle_linter;
 mod bundle_workflow;
+mod catalog_log;
 mod concept_service;
 mod document;
 mod exporter;
 mod file_registry;
+mod governance_drive;
 mod importer;
 mod index_rebuild;
 mod index_renderer;
@@ -12,11 +14,14 @@ mod link_indexer;
 mod linter;
 mod log_renderer;
 mod schema_renderer;
+mod standard_bundle_catalog_sync;
+mod standard_bundle_refresh;
 mod storage;
 mod validator;
 
 use crate::ports::knowledge_drive_storage::{
-    KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError, PutKnowledgeObjectRequest,
+    HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError,
+    PutKnowledgeObjectRequest,
 };
 use sdkwork_knowledgebase_contract::okf::{OkfBundlePaths, OkfConceptSummary, OkfLogEntry};
 
@@ -37,6 +42,7 @@ pub use exporter::{
     ExportOkfBundleRequest, ExportedOkfBundle, OkfBundleExporterError, OkfBundleExporterService,
 };
 pub use file_registry::{OkfBundleFileRegistryService, OkfBundleFileRegistryServiceError};
+pub(crate) use governance_drive::DRIVE_WORKSPACE_INIT_DRIVE_SPACE_REQUIRED;
 pub use importer::{
     bundle_relative_path_from_logical_path, concept_id_from_bundle_relative_path,
     discover_bundle_files_from_directory, drive_import_root, load_import_bundle_from_drive,
@@ -55,6 +61,7 @@ pub use linter::{
 };
 pub use log_renderer::render_log_md;
 pub use schema_renderer::{render_agents_md, render_okf_profile_yaml};
+pub use standard_bundle_catalog_sync::StandardBundleCatalogSyncError;
 pub use storage::{read_managed_markdown, read_managed_object_bytes};
 pub use validator::{
     canonicalize_imported_concept_id, validate_bundle_relative_path,
@@ -91,8 +98,55 @@ impl<'a> OkfBundleStandardFileService<'a> {
         &self,
         request: PersistStandardFilesRequest,
     ) -> Result<PersistedStandardFiles, KnowledgeStorageError> {
-        let paths = OkfBundlePaths::default();
         let drive_space_id = request.drive_space_id.as_deref();
+        let paths = OkfBundlePaths::default();
+        let agents_md = self
+            .drive
+            .put_object(
+                PutKnowledgeObjectRequest::text(
+                    paths.agents_md,
+                    "bundle_profile",
+                    render_agents_md(&request.space_name),
+                    None,
+                )
+                .with_drive_space_id(drive_space_id),
+            )
+            .await?;
+        let profile_yaml = self
+            .drive
+            .put_object(
+                PutKnowledgeObjectRequest::text(
+                    paths.profile_yaml,
+                    "bundle_profile",
+                    render_okf_profile_yaml(),
+                    None,
+                )
+                .with_drive_space_id(drive_space_id),
+            )
+            .await?;
+        let dynamic = standard_bundle_refresh::persist_dynamic_standard_bundle_files(
+            self.drive,
+            &request.concepts,
+            &request.log_entries,
+            drive_space_id,
+        )
+        .await?;
+
+        Ok(PersistedStandardFiles {
+            agents_md,
+            profile_yaml,
+            index_md: dynamic.root_index_md,
+            log_md: dynamic.log_md,
+        })
+    }
+
+    /// Persists schema/profile files and resolves index/log refs after a prior index rebuild step.
+    pub async fn persist_standard_files_after_index_rebuild(
+        &self,
+        request: PersistStandardFilesRequest,
+    ) -> Result<PersistedStandardFiles, KnowledgeStorageError> {
+        let drive_space_id = request.drive_space_id.as_deref();
+        let paths = OkfBundlePaths::default();
         let agents_md = self
             .drive
             .put_object(
@@ -119,43 +173,16 @@ impl<'a> OkfBundleStandardFileService<'a> {
             .await?;
         let index_md = self
             .drive
-            .put_object(
-                PutKnowledgeObjectRequest::text(
-                    paths.index_md,
-                    "bundle_index",
-                    render_index_md(&request.space_name, &request.concepts),
-                    None,
-                )
-                .with_drive_space_id(drive_space_id),
+            .head_object(
+                HeadKnowledgeObjectRequest::managed_artifact(paths.index_md, "bundle_index")
+                    .with_drive_space_id(drive_space_id),
             )
             .await?;
-        let index_documents = render_index_documents(&request.concepts);
-        for (bundle_relative_path, markdown) in index_documents {
-            if bundle_relative_path == "index.md" {
-                continue;
-            }
-            self.drive
-                .put_object(
-                    PutKnowledgeObjectRequest::text(
-                        format!("okf/{bundle_relative_path}"),
-                        "bundle_index",
-                        markdown,
-                        None,
-                    )
-                    .with_drive_space_id(drive_space_id),
-                )
-                .await?;
-        }
         let log_md = self
             .drive
-            .put_object(
-                PutKnowledgeObjectRequest::text(
-                    paths.log_md,
-                    "bundle_log",
-                    render_log_md(&request.log_entries),
-                    None,
-                )
-                .with_drive_space_id(drive_space_id),
+            .head_object(
+                HeadKnowledgeObjectRequest::managed_artifact(paths.log_md, "bundle_log")
+                    .with_drive_space_id(drive_space_id),
             )
             .await?;
 

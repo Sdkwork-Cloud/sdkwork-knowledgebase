@@ -1,18 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { KnowledgeBaseApp, ToastContainer, TabCacheService } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src';
-import { DocumentService } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/document';
-import { findDocInTree } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src/utils/docTreeUtils';
+import { KnowledgeBaseApp, ToastContainer, TabCacheService } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase';
+import { DocumentService } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/document';
+import { findDocInTree } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/utils/docTreeUtils';
 import {
   SearchModule,
   type SearchNavigateToFilePayload,
   type SearchNavigateToKbPayload
-} from '@packages/sdkwork-knowledgebase-pc-search/src';
+} from '@sdkwork/knowledgebase-pc-search';
 import {
   InAppBrowserHost,
   dispatchOpenInAppBrowser,
   setKbNavIntent,
   useLocalStorage
-} from '@packages/sdkwork-knowledgebase-pc-commons/src';
+} from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 import {
   createKnowledgebaseAccountViewModel,
   KNOWLEDGEBASE_POST_AUTH_LANDING_FLAG,
@@ -362,7 +362,10 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[var(--color-kb-nav)] text-[var(--color-kb-text)] font-sans">
+    <div
+      className="flex h-screen w-screen overflow-hidden bg-[var(--color-kb-nav)] text-[var(--color-kb-text)] font-sans"
+      data-testid="knowledgebase-pc-app-shell"
+    >
       <GlobalNav
         account={account}
         profile={profile}

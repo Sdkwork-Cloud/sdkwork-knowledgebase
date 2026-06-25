@@ -1,6 +1,8 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     KnowledgeIdGenerator, KnowledgeIdGeneratorError, SqliteKnowledgeChunkRetrievalStore,
+    SqliteKnowledgeChunkStore,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_chunk_store::KnowledgeChunkStore;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_backend::{
     KnowledgeChunkSearchRequest, KnowledgeRetrievalBackend,
 };
@@ -11,6 +13,27 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_trace
 use sdkwork_knowledgebase_contract::rag::{KnowledgeRetrievalBinding, KnowledgeRetrievalMethod};
 use sqlx::{AnyPool, Row};
 use std::sync::{Arc, Mutex};
+
+#[tokio::test]
+async fn sqlite_chunk_store_lists_id_content_pairs_in_chunk_index_order() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    seed_documents_and_chunks(&pool).await;
+    let store = SqliteKnowledgeChunkStore::new(pool, 9001);
+
+    let pairs = store
+        .list_chunk_id_content_for_document_version(301)
+        .await
+        .unwrap();
+
+    assert_eq!(pairs.len(), 3);
+    assert_eq!(pairs[0].0, 101);
+    assert_eq!(pairs[1].0, 102);
+    assert_eq!(pairs[2].0, 105);
+    assert!(pairs[0].1.contains("renewal support playbook"));
+    assert!(pairs[1].1.contains("support workflow"));
+    assert!(pairs[2].1.contains("billing collection"));
+}
 
 #[tokio::test]
 async fn sqlite_retrieval_backend_searches_active_chunks_with_tenant_and_binding_scope() {
@@ -136,6 +159,200 @@ async fn sqlite_retrieval_vector_method_requires_active_embedding_rows() {
     );
     assert!(keyword_hits.iter().any(|hit| hit.chunk_id == 101));
     assert!(keyword_hits.iter().any(|hit| hit.chunk_id == 102));
+}
+
+#[tokio::test]
+async fn sqlite_retrieval_vector_method_respects_collection_binding_scope() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    seed_documents_and_chunks(&pool).await;
+    seed_chunk_embedding_with_vector(&pool, 101, 501, 1501, "[1.0,0.0,0.0]").await;
+    seed_chunk_embedding_with_vector(&pool, 105, 502, 1505, "[1.0,0.0,0.0]").await;
+
+    let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
+        pool.clone(),
+        9001,
+        fixed_id_generator([7001, 7002]),
+    );
+
+    let scoped_hits = store
+        .search_chunks(KnowledgeChunkSearchRequest {
+            tenant_id: 9001,
+            query: "billing".to_string(),
+            binding: KnowledgeRetrievalBinding {
+                space_id: 7,
+                collection_id: Some(2),
+                source_filter: None,
+                document_filter: None,
+                priority: 0,
+                top_k: Some(5),
+                min_score: Some(0.0),
+            },
+            method: KnowledgeRetrievalMethod::Vector,
+            query_embedding: Some(vec![1.0, 0.0, 0.0]),
+            top_k: 5,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(scoped_hits.len(), 1);
+    assert_eq!(scoped_hits[0].chunk_id, 105);
+
+    let out_of_scope_hits = store
+        .search_chunks(KnowledgeChunkSearchRequest {
+            tenant_id: 9001,
+            query: "billing".to_string(),
+            binding: KnowledgeRetrievalBinding {
+                space_id: 7,
+                collection_id: Some(3),
+                source_filter: None,
+                document_filter: None,
+                priority: 0,
+                top_k: Some(5),
+                min_score: Some(0.0),
+            },
+            method: KnowledgeRetrievalMethod::Vector,
+            query_embedding: Some(vec![1.0, 0.0, 0.0]),
+            top_k: 5,
+        })
+        .await
+        .unwrap();
+    assert!(out_of_scope_hits.is_empty());
+}
+
+#[tokio::test]
+async fn sqlite_retrieval_keyword_method_respects_document_language_filter() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    seed_documents_and_chunks(&pool).await;
+    sqlx::query("UPDATE kb_document SET language = 'en' WHERE id = 201")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE kb_document SET language = 'fr' WHERE id = 202")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
+        pool.clone(),
+        9001,
+        fixed_id_generator([7001, 7002]),
+    );
+
+    let english_hits = store
+        .search_chunks(KnowledgeChunkSearchRequest {
+            tenant_id: 9001,
+            query: "enterprise renewal support".to_string(),
+            binding: KnowledgeRetrievalBinding {
+                space_id: 7,
+                collection_id: None,
+                source_filter: None,
+                document_filter: Some(vec![sdkwork_knowledgebase_contract::rag::KnowledgeFilter {
+                    key: "language".to_string(),
+                    value: "en".to_string(),
+                }]),
+                priority: 0,
+                top_k: Some(5),
+                min_score: Some(0.0),
+            },
+            method: KnowledgeRetrievalMethod::Keyword,
+            query_embedding: None,
+            top_k: 5,
+        })
+        .await
+        .unwrap();
+
+    assert!(!english_hits.is_empty());
+    assert!(english_hits.iter().all(|hit| hit.document_id == 201));
+
+    let french_hits = store
+        .search_chunks(KnowledgeChunkSearchRequest {
+            tenant_id: 9001,
+            query: "enterprise renewal support".to_string(),
+            binding: KnowledgeRetrievalBinding {
+                space_id: 7,
+                collection_id: None,
+                source_filter: None,
+                document_filter: Some(vec![sdkwork_knowledgebase_contract::rag::KnowledgeFilter {
+                    key: "language".to_string(),
+                    value: "fr".to_string(),
+                }]),
+                priority: 0,
+                top_k: Some(5),
+                min_score: Some(0.0),
+            },
+            method: KnowledgeRetrievalMethod::Keyword,
+            query_embedding: None,
+            top_k: 5,
+        })
+        .await
+        .unwrap();
+    assert!(french_hits.is_empty());
+}
+
+#[tokio::test]
+async fn sqlite_retrieval_keyword_method_respects_source_type_filter() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    seed_documents_and_chunks(&pool).await;
+    seed_drive_source_binding(&pool, 601, 201).await;
+
+    let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
+        pool.clone(),
+        9001,
+        fixed_id_generator([7001, 7002]),
+    );
+
+    let drive_hits = store
+        .search_chunks(KnowledgeChunkSearchRequest {
+            tenant_id: 9001,
+            query: "enterprise renewal support".to_string(),
+            binding: KnowledgeRetrievalBinding {
+                space_id: 7,
+                collection_id: None,
+                source_filter: Some(vec![sdkwork_knowledgebase_contract::rag::KnowledgeFilter {
+                    key: "sourceType".to_string(),
+                    value: "drive".to_string(),
+                }]),
+                document_filter: None,
+                priority: 0,
+                top_k: Some(5),
+                min_score: Some(0.0),
+            },
+            method: KnowledgeRetrievalMethod::Keyword,
+            query_embedding: None,
+            top_k: 5,
+        })
+        .await
+        .unwrap();
+
+    assert!(!drive_hits.is_empty());
+    assert!(drive_hits.iter().all(|hit| hit.document_id == 201));
+
+    let api_hits = store
+        .search_chunks(KnowledgeChunkSearchRequest {
+            tenant_id: 9001,
+            query: "enterprise renewal support".to_string(),
+            binding: KnowledgeRetrievalBinding {
+                space_id: 7,
+                collection_id: None,
+                source_filter: Some(vec![sdkwork_knowledgebase_contract::rag::KnowledgeFilter {
+                    key: "sourceType".to_string(),
+                    value: "api".to_string(),
+                }]),
+                document_filter: None,
+                priority: 0,
+                top_k: Some(5),
+                min_score: Some(0.0),
+            },
+            method: KnowledgeRetrievalMethod::Keyword,
+            query_embedding: None,
+            top_k: 5,
+        })
+        .await
+        .unwrap();
+    assert!(api_hits.is_empty());
 }
 
 #[tokio::test]
@@ -405,9 +622,58 @@ async fn seed_documents_and_chunks(pool: &AnyPool) {
     .execute(pool)
     .await
     .unwrap();
+
+    sqlx::query(
+        r#"
+        INSERT INTO kb_chunk_fts (content_text, chunk_id, tenant_id, space_id, document_id)
+        SELECT c.content_text, c.id, c.tenant_id, c.space_id, c.document_id
+        FROM kb_chunk c
+        WHERE c.tenant_id = 9001
+        "#,
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
+async fn seed_drive_source_binding(pool: &AnyPool, source_id: i64, document_id: i64) {
+    let now = "2026-06-09T00:00:00Z";
+    sqlx::query(
+        r#"
+        INSERT INTO kb_source (
+            id, uuid, tenant_id, space_id, source_type, provider, status, created_at, updated_at, version
+        )
+        VALUES ($1, $2, 9001, 7, 'drive', 'sdkwork-drive', 1, $3, $4, 0)
+        "#,
+    )
+    .bind(source_id)
+    .bind(format!("source-{source_id}"))
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .unwrap();
+
+    sqlx::query("UPDATE kb_document SET source_id = $1 WHERE id = $2")
+        .bind(source_id)
+        .bind(document_id)
+        .execute(pool)
+        .await
+        .unwrap();
 }
 
 async fn seed_embedding_for_chunk(pool: &AnyPool, chunk_id: i64, index_id: i64) {
+    seed_chunk_embedding_with_vector(pool, chunk_id, index_id, index_id + 1000, "[0.1,0.2,0.3]")
+        .await;
+}
+
+async fn seed_chunk_embedding_with_vector(
+    pool: &AnyPool,
+    chunk_id: i64,
+    index_id: i64,
+    embedding_id: i64,
+    vector_json: &str,
+) {
     let now = "2026-06-09T00:00:00Z";
     sqlx::query(
         r#"
@@ -415,6 +681,7 @@ async fn seed_embedding_for_chunk(pool: &AnyPool, chunk_id: i64, index_id: i64) 
             id, uuid, tenant_id, space_id, collection_id, index_kind, schema_version, status, created_at, updated_at, version
         )
         VALUES ($1, $2, 9001, 7, 0, 'vector', 'v1', 1, $3, $4, 0)
+        ON CONFLICT (id) DO NOTHING
         "#,
     )
     .bind(index_id)
@@ -428,16 +695,17 @@ async fn seed_embedding_for_chunk(pool: &AnyPool, chunk_id: i64, index_id: i64) 
     sqlx::query(
         r#"
         INSERT INTO kb_embedding (
-            id, uuid, tenant_id, index_id, chunk_id, embedding_hash, vector_ref, dimension,
+            id, uuid, tenant_id, index_id, chunk_id, embedding_hash, vector_ref, vector_json, dimension,
             provider_id, model, metadata, status, created_at, updated_at, version
         )
-        VALUES ($1, $2, 9001, $3, $4, 'hash-emb', 'drive://vectors/chunk-101', 1536, 'openai', 'text-embedding-3-small', NULL, 1, $5, $6, 0)
+        VALUES ($1, $2, 9001, $3, $4, 'hash-emb', 'inline://vector_json', $5, 3, 'openai', 'text-embedding-3-small', NULL, 1, $6, $7, 0)
         "#,
     )
-    .bind(index_id + 1000)
+    .bind(embedding_id)
     .bind(format!("embedding-{chunk_id}"))
     .bind(index_id)
     .bind(chunk_id)
+    .bind(vector_json)
     .bind(now)
     .bind(now)
     .execute(pool)

@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BookOpen, Store, Settings, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { KnowledgebaseAccountViewModel } from 'sdkwork-knowledgebase-pc-core';
+import { createRuntimeConfig, type KnowledgebaseAccountViewModel } from 'sdkwork-knowledgebase-pc-core';
 import { UserProfile, DEFAULT_USER_PROFILE } from './UserProfileModal';
 
 export interface GlobalNavProps {
@@ -25,11 +25,17 @@ export function GlobalNav({
 }: GlobalNavProps) {
   const { t } = useTranslation('shell');
 
-  const navItems = [
-    { id: 'kb', icon: BookOpen, title: t('myKnowledgeBase') },
-    { id: 'search', icon: Search, title: t('search') },
-    { id: 'market', icon: Store, title: t('knowledgeBaseMarket') },
-  ];
+  const featureFlags = createRuntimeConfig().featureFlags;
+  const navItems = useMemo(() => {
+    const items = [
+      { id: 'kb', icon: BookOpen, title: t('myKnowledgeBase') },
+      { id: 'search', icon: Search, title: t('search') },
+    ];
+    if (featureFlags.knowledgeMarketCatalog) {
+      items.push({ id: 'market', icon: Store, title: t('knowledgeBaseMarket') });
+    }
+    return items;
+  }, [featureFlags.knowledgeMarketCatalog, t]);
 
   const statusMap = {
     online: 'bg-emerald-500',
@@ -70,6 +76,7 @@ export function GlobalNav({
               key={item.id}
               onClick={() => onTabChange(item.id)}
               title={item.title}
+              data-testid={`knowledgebase-pc-nav-${item.id}`}
               className={`w-11 h-11 rounded-xl flex justify-center items-center transition-all duration-350 relative group ${isActive ? 'bg-black/5 dark:bg-white/10 text-[var(--color-kb-text-heading)] shadow-inner' : 'text-[var(--color-kb-nav-text)] hover:bg-[var(--color-kb-panel-hover)] hover:text-[var(--color-kb-nav-text-hover)]'}`}
             >
               <Icon size={22} strokeWidth={isActive ? 2.5 : 1.5} />

@@ -51,7 +51,7 @@ impl HostedOpenApi {
         KnowledgeAppRequestContext {
             tenant_id: context.tenant_id,
             actor_id: context.actor_id,
-            organization_id: None,
+            organization_id: context.organization_id,
             session_id: None,
         }
     }
@@ -69,7 +69,17 @@ impl KnowledgeOpenApi for HostedOpenApi {
         request: KnowledgeRetrievalRequest,
     ) -> OpenApiResult<KnowledgeRetrievalResult> {
         self.ensure_tenant(&context)?;
-        Self::map_error(self.retrieval.retrieve(request).await)
+        let app_context = Self::app_context(&context);
+        Self::map_error(
+            self.retrieval
+                .retrieve(
+                    app_context,
+                    request
+                        .with_tenant_id(context.tenant_id)
+                        .with_actor_id(context.actor_id),
+                )
+                .await,
+        )
     }
 
     async fn retrieve_retrieval(
@@ -91,7 +101,17 @@ impl KnowledgeOpenApi for HostedOpenApi {
         request: KnowledgeContextPackRequest,
     ) -> OpenApiResult<KnowledgeContextPack> {
         self.ensure_tenant(&context)?;
-        Self::map_error(self.retrieval.create_context_pack(request).await)
+        let app_context = Self::app_context(&context);
+        Self::map_error(
+            self.retrieval
+                .create_context_pack(
+                    app_context,
+                    request
+                        .with_tenant_id(context.tenant_id)
+                        .with_actor_id(context.actor_id),
+                )
+                .await,
+        )
     }
 
     async fn create_ingest(

@@ -1,7 +1,6 @@
 use axum::{
-    http::{header, HeaderValue, StatusCode},
+    http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::KnowledgeStorageError;
 use sdkwork_intelligence_knowledgebase_service::{
@@ -9,10 +8,11 @@ use sdkwork_intelligence_knowledgebase_service::{
     agent_chat::KnowledgeAgentChatServiceError,
     browser::KnowledgeBrowserServiceError,
     context_binding::KnowledgeContextBindingServiceError,
-    imports::KnowledgeDriveImportServiceError,
+    imports::{KnowledgeDriveImportServiceError, KnowledgeGitImportServiceError},
     ingest::{
-        KnowledgeApiMarkdownIndexServiceError, KnowledgeApiPayloadIngestServiceError,
-        KnowledgeIngestionServiceError, KnowledgeUploadSessionServiceError,
+        ApiMarkdownIngestPipelineError, KnowledgeApiMarkdownIndexServiceError,
+        KnowledgeApiPayloadIngestServiceError, KnowledgeIngestionServiceError,
+        KnowledgeUploadSessionServiceError,
     },
     okf::OkfConceptServiceError,
     ports::{
@@ -28,10 +28,13 @@ use sdkwork_intelligence_knowledgebase_service::{
     },
     retrieval::KnowledgeRetrievalServiceError,
     space::KnowledgeSpaceServiceError,
+    wechat::KnowledgeWechatServiceError,
 };
 use sdkwork_knowledgebase_contract::ProblemDetails;
 
 pub type ApiResult<T> = Result<T, ApiError>;
+
+const INTERNAL_CLIENT_DETAIL: &str = "An internal error occurred. Please try again later.";
 
 #[derive(Debug, Clone)]
 pub struct ApiError {
@@ -50,7 +53,20 @@ impl ApiError {
     }
 
     pub fn internal(code: impl Into<String>, detail: impl Into<String>) -> Self {
-        Self::new(StatusCode::INTERNAL_SERVER_ERROR, code, detail)
+        Self::sanitized_internal(code, detail)
+    }
+
+    pub fn sanitized_internal(code: impl Into<String>, internal_detail: impl Into<String>) -> Self {
+        let code_value = code.into();
+        eprintln!(
+            "[knowledgebase-app-api] internal error code={code_value}: {}",
+            internal_detail.into()
+        );
+        Self::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            code_value,
+            INTERNAL_CLIENT_DETAIL,
+        )
     }
 
     pub fn invalid_request(code: impl Into<String>, detail: impl Into<String>) -> Self {
@@ -94,6 +110,11 @@ pub struct ApiProblem {
 
 impl ApiProblem {
     pub fn new(status: StatusCode, code: impl Into<String>, detail: impl Into<String>) -> Self {
+        let client_detail = if status.is_server_error() {
+            INTERNAL_CLIENT_DETAIL.to_string()
+        } else {
+            detail.into()
+        };
         let title = status
             .canonical_reason()
             .unwrap_or("HTTP Error")
@@ -104,11 +125,16 @@ impl ApiProblem {
                 r#type: "about:blank".to_string(),
                 title,
                 status: status.as_u16(),
-                detail: Some(detail.into()),
+                detail: Some(client_detail),
                 instance: None,
                 code: Some(code.into()),
+                trace_id: None,
             }),
         }
+    }
+
+    pub fn from_internal(code: impl Into<String>, internal_detail: impl Into<String>) -> Self {
+        Self::from(ApiError::sanitized_internal(code, internal_detail))
     }
 }
 
@@ -120,12 +146,10 @@ impl From<ApiError> for ApiProblem {
 
 impl IntoResponse for ApiProblem {
     fn into_response(self) -> Response {
-        let mut response = (self.status, Json(*self.problem)).into_response();
-        response.headers_mut().insert(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static("application/problem+json"),
-        );
-        response
+        sdkwork_knowledgebase_observability::request_correlation::problem_json_response(
+            self.status,
+            *self.problem,
+        )
     }
 }
 
@@ -221,10 +245,14 @@ impl From<KnowledgeAgentChatServiceError> for ApiError {
 impl From<KnowledgeSpaceServiceError> for ApiError {
     fn from(error: KnowledgeSpaceServiceError) -> Self {
         match error {
-            KnowledgeSpaceServiceError::InvalidRequest(detail)
-            | KnowledgeSpaceServiceError::AccessDenied(detail) => {
+            KnowledgeSpaceServiceError::InvalidRequest(detail) => {
                 Self::invalid_request("invalid_knowledge_space_request", detail)
             }
+            KnowledgeSpaceServiceError::AccessDenied(detail) => Self::new(
+                StatusCode::FORBIDDEN,
+                "knowledge_space_access_denied",
+                detail,
+            ),
             KnowledgeSpaceServiceError::Store(error) => Self::from(error),
             KnowledgeSpaceServiceError::OkfBundleInitializer(error) => Self::internal(
                 "knowledge_space_okf_initialization_failed",
@@ -283,6 +311,14 @@ impl From<KnowledgeApiPayloadIngestServiceError> for ApiError {
             KnowledgeApiPayloadIngestServiceError::InvalidRequest(detail) => {
                 Self::invalid_request("invalid_knowledge_ingest_request", detail)
             }
+            KnowledgeApiPayloadIngestServiceError::WebLink(error) => match error {
+                sdkwork_intelligence_knowledgebase_service::ingest::WebLinkFetchError::InvalidRequest(
+                    detail,
+                ) => Self::invalid_request("invalid_knowledge_ingest_source_url", detail),
+                sdkwork_intelligence_knowledgebase_service::ingest::WebLinkFetchError::Upstream(
+                    detail,
+                ) => Self::internal("knowledge_ingest_source_url_fetch_failed", detail),
+            },
             KnowledgeApiPayloadIngestServiceError::Store(error) => Self::from(error),
             KnowledgeApiPayloadIngestServiceError::Storage(error) => {
                 Self::internal("knowledge_ingest_drive_failed", error.to_string())
@@ -308,15 +344,103 @@ impl From<IngestionJobStoreError> for ApiError {
     }
 }
 
+impl From<KnowledgeWechatServiceError> for ApiError {
+    fn from(error: KnowledgeWechatServiceError) -> Self {
+        match error {
+            KnowledgeWechatServiceError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_wechat_request", detail)
+            }
+            KnowledgeWechatServiceError::Storage(error) => error.into(),
+            KnowledgeWechatServiceError::Api(error) => {
+                Self::internal("wechat_upstream_failed", error.to_string())
+            }
+        }
+    }
+}
+
 impl From<KnowledgeDriveImportServiceError> for ApiError {
     fn from(error: KnowledgeDriveImportServiceError) -> Self {
         match error {
             KnowledgeDriveImportServiceError::InvalidRequest(detail) => {
                 Self::invalid_request("invalid_knowledge_drive_import_request", detail)
             }
-            KnowledgeDriveImportServiceError::DocumentStore(error) => Self::from(error),
-            KnowledgeDriveImportServiceError::IngestionJobStore(error) => Self::from(error),
-            error => Self::internal("knowledge_drive_import_failed", error.to_string()),
+            KnowledgeDriveImportServiceError::Storage(error) => Self::from(error),
+            KnowledgeDriveImportServiceError::Metadata(error) => match error {
+                sdkwork_intelligence_knowledgebase_service::ports::drive_import_metadata_store::DriveImportMetadataStoreError::InvalidRequest(detail) => {
+                    Self::invalid_request("invalid_knowledge_drive_import_request", detail)
+                }
+                sdkwork_intelligence_knowledgebase_service::ports::drive_import_metadata_store::DriveImportMetadataStoreError::Conflict(detail) => {
+                    Self::conflict("knowledge_drive_import_conflict", detail)
+                }
+                sdkwork_intelligence_knowledgebase_service::ports::drive_import_metadata_store::DriveImportMetadataStoreError::Internal(detail) => {
+                    Self::internal("drive_import_metadata_store_failed", detail)
+                }
+            },
+        }
+    }
+}
+
+impl From<ApiMarkdownIngestPipelineError> for ApiError {
+    fn from(error: ApiMarkdownIngestPipelineError) -> Self {
+        match error {
+            ApiMarkdownIngestPipelineError::Payload(error) => error.into(),
+            ApiMarkdownIngestPipelineError::Ingestion(error) => error.into(),
+            ApiMarkdownIngestPipelineError::Index(error) => error.into(),
+            ApiMarkdownIngestPipelineError::Store(error) => error.into(),
+            ApiMarkdownIngestPipelineError::Storage(error) => error.into(),
+        }
+    }
+}
+
+impl From<KnowledgeGitImportServiceError> for ApiError {
+    fn from(error: KnowledgeGitImportServiceError) -> Self {
+        match error {
+            KnowledgeGitImportServiceError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_knowledge_git_import_request", detail)
+            }
+            KnowledgeGitImportServiceError::GitHub(
+                sdkwork_intelligence_knowledgebase_service::imports::GitHubApiError::InvalidRequest(
+                    detail,
+                ),
+            ) => Self::invalid_request("invalid_knowledge_git_import_request", detail),
+            KnowledgeGitImportServiceError::GitHub(error) => {
+                Self::internal("knowledge_git_import_upstream_failed", error.to_string())
+            }
+            KnowledgeGitImportServiceError::Pipeline(error) => error.into(),
+        }
+    }
+}
+
+impl From<sdkwork_intelligence_knowledgebase_service::imports::KnowledgeGitSyncServiceError>
+    for ApiError
+{
+    fn from(
+        error: sdkwork_intelligence_knowledgebase_service::imports::KnowledgeGitSyncServiceError,
+    ) -> Self {
+        use sdkwork_intelligence_knowledgebase_service::imports::KnowledgeGitSyncServiceError;
+        use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_store::KnowledgeDocumentStoreError;
+        match error {
+            KnowledgeGitSyncServiceError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_knowledge_git_sync_request", detail)
+            }
+            KnowledgeGitSyncServiceError::GitHub(
+                sdkwork_intelligence_knowledgebase_service::imports::GitHubApiError::InvalidRequest(
+                    detail,
+                ),
+            ) => Self::invalid_request("invalid_knowledge_git_sync_request", detail),
+            KnowledgeGitSyncServiceError::GitHub(error) => {
+                Self::internal("knowledge_git_sync_upstream_failed", error.to_string())
+            }
+            KnowledgeGitSyncServiceError::DocumentContent(detail) => {
+                Self::invalid_request("invalid_knowledge_git_sync_request", detail)
+            }
+            KnowledgeGitSyncServiceError::DocumentStore(
+                KnowledgeDocumentStoreError::InvalidRecord(detail),
+            ) => Self::invalid_request("invalid_knowledge_git_sync_request", detail),
+            KnowledgeGitSyncServiceError::DocumentStore(error) => Self::internal(
+                "knowledge_git_sync_document_store_failed",
+                error.to_string(),
+            ),
         }
     }
 }
@@ -422,6 +546,17 @@ impl From<sdkwork_intelligence_knowledgebase_service::okf::OkfBundleWorkflowErro
             OkfBundleWorkflowError::BundleFileRegistry(registry_error) => {
                 Self::internal("okf_bundle_workflow_failed", registry_error.to_string())
             }
+            OkfBundleWorkflowError::CatalogSync(catalog_sync_error) => {
+                use sdkwork_intelligence_knowledgebase_service::okf::StandardBundleCatalogSyncError;
+                match catalog_sync_error {
+                    StandardBundleCatalogSyncError::Registry(registry_error) => {
+                        Self::internal("okf_bundle_workflow_failed", registry_error.to_string())
+                    }
+                    StandardBundleCatalogSyncError::DriveWorkspace(workspace_error) => {
+                        Self::internal("okf_bundle_workflow_failed", workspace_error.to_string())
+                    }
+                }
+            }
             OkfBundleWorkflowError::Engine(engine_error) => engine_error.into(),
         }
     }
@@ -517,16 +652,40 @@ impl From<KnowledgeApiMarkdownIndexServiceError> for ApiError {
             KnowledgeApiMarkdownIndexServiceError::InvalidRequest(detail) => {
                 Self::invalid_request("invalid_knowledge_markdown_index_request", detail)
             }
-            KnowledgeApiMarkdownIndexServiceError::ObjectRef(error) => {
-                Self::internal("knowledge_drive_object_ref_store_failed", error.to_string())
-            }
-            KnowledgeApiMarkdownIndexServiceError::Document(error) => error.into(),
-            KnowledgeApiMarkdownIndexServiceError::Version(error) => {
-                Self::internal("knowledge_document_version_store_failed", error.to_string())
-            }
-            KnowledgeApiMarkdownIndexServiceError::Chunk(error) => {
-                Self::internal("knowledge_chunk_store_failed", error.to_string())
-            }
+            KnowledgeApiMarkdownIndexServiceError::Metadata(error) => match error {
+                sdkwork_intelligence_knowledgebase_service::ports::markdown_index_metadata_store::MarkdownIndexMetadataStoreError::InvalidRequest(detail) => {
+                    Self::invalid_request("invalid_knowledge_markdown_index_request", detail)
+                }
+                sdkwork_intelligence_knowledgebase_service::ports::markdown_index_metadata_store::MarkdownIndexMetadataStoreError::Conflict(detail) => {
+                    Self::conflict("markdown_index_metadata_conflict", detail)
+                }
+                sdkwork_intelligence_knowledgebase_service::ports::markdown_index_metadata_store::MarkdownIndexMetadataStoreError::Internal(detail) => {
+                    Self::internal("markdown_index_metadata_store_failed", detail)
+                }
+            },
+        }
+    }
+}
+
+impl std::fmt::Display for ApiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.detail)
+    }
+}
+
+impl From<sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImportPipelineServiceError>
+    for ApiError
+{
+    fn from(
+        error: sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImportPipelineServiceError,
+    ) -> Self {
+        match error {
+            sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImportPipelineServiceError::Ingestion(
+                error,
+            ) => Self::from(error),
+            sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImportPipelineServiceError::Storage(
+                error,
+            ) => Self::from(error),
         }
     }
 }

@@ -1,5 +1,9 @@
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import {
+  KnowledgebaseErrorCodes,
+  throwKnowledgebaseError,
+} from 'sdkwork-knowledgebase-pc-core';
+import {
   decodeBinaryResourcePayload,
   type HostAdapter,
 } from 'sdkwork-knowledgebase-pc-core/host/hostAdapter';
@@ -46,7 +50,7 @@ function isAppAssetPath(source: string): boolean {
 export function normalizePdfUrl(source: string): string {
   const trimmed = source.trim();
   if (!trimmed) {
-    throw new Error('No PDF URL provided.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.PDF_URL_REQUIRED);
   }
 
   if (
@@ -82,9 +86,13 @@ export function resolveInitialPdfSource(source: string | undefined): PdfDocument
 }
 
 async function fetchViaBrowser(url: string): Promise<Uint8Array> {
-  const response = await fetch(url, { credentials: 'include' });
+  const parsed = new URL(url, window.location.origin);
+  const sameOrigin = parsed.origin === window.location.origin;
+  const response = await fetch(url, { credentials: sameOrigin ? 'include' : 'omit' });
   if (!response.ok) {
-    throw new Error(`Failed to fetch PDF (${response.status})`);
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.PDF_FETCH_FAILED, {
+      cause: response.status,
+    });
   }
   const buffer = await response.arrayBuffer();
   return new Uint8Array(buffer);
@@ -106,7 +114,7 @@ export async function loadLocalPdfSource(
   host: HostAdapter
 ): Promise<PdfDocumentSource> {
   if (!host.isNativeHost) {
-    throw new Error('Local PDF files can only be opened in the desktop app.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.DESKTOP_ONLY);
   }
   return { kind: 'bytes', data: await readLocalPath(source, host) };
 }
@@ -121,7 +129,7 @@ export async function loadPdfSourceFallback(
 ): Promise<PdfDocumentSource> {
   const trimmed = source.trim();
   if (!trimmed) {
-    throw new Error('No PDF URL provided.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.PDF_URL_REQUIRED);
   }
 
   if (isLocalFilePath(trimmed)) {

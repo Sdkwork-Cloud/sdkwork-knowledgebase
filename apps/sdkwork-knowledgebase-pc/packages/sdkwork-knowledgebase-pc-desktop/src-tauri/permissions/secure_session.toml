@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-secure-session"
+description = "Enables desktop secure session token storage commands without any pre-configured scope."
+commands.allow = [
+  "write_secure_session_value",
+  "remove_secure_session_value",
+  "clear_secure_session_values",
+  "read_secure_session_snapshot",
+]
+
+[[permission]]
+identifier = "deny-secure-session"
+description = "Denies desktop secure session token storage commands without any pre-configured scope."
+commands.deny = [
+  "write_secure_session_value",
+  "remove_secure_session_value",
+  "clear_secure_session_values",
+  "read_secure_session_snapshot",
+]

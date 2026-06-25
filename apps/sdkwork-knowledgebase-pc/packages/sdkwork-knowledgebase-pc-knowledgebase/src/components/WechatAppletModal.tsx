@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, HelpCircle, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 import { AppletManagerModal } from './AppletManagerModal';
 import { WechatService, WechatAppletConfig } from '../services/wechat';
 
@@ -208,8 +209,16 @@ export function WechatAppletModal({ onClose, onConfirm }: WechatAppletModalProps
                           {t('cardImageHint')}
                         </div>
                         <div className="flex flex-col space-y-2 w-full px-4">
-                          <button onClick={() => setImageUrl('https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&w=400&q=80')} className="w-full py-1.5 bg-[#fbfbfb] hover:bg-gray-50 border border-[#e3e3e3] rounded text-sm text-[#333] transition-colors shadow-sm">{t('uploadImageBtn')}</button>
-                          <button onClick={() => setImageUrl('https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&w=400&q=80')} className="w-full py-1.5 bg-[#fbfbfb] hover:bg-gray-50 border border-[#e3e3e3] rounded text-sm text-[#333] transition-colors shadow-sm">{t('chooseFromLibraryBtn')}</button>
+                          {isKnowledgebaseApiAvailable() ? (
+                            <p className="text-[12px] text-[#999] text-center leading-relaxed">
+                              API 模式下请手动填写图片 URL，或从素材库复制链接后粘贴。
+                            </p>
+                          ) : (
+                            <>
+                              <button onClick={() => setImageUrl('https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&w=400&q=80')} className="w-full py-1.5 bg-[#fbfbfb] hover:bg-gray-50 border border-[#e3e3e3] rounded text-sm text-[#333] transition-colors shadow-sm">{t('uploadImageBtn')}</button>
+                              <button onClick={() => setImageUrl('https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&w=400&q=80')} className="w-full py-1.5 bg-[#fbfbfb] hover:bg-gray-50 border border-[#e3e3e3] rounded text-sm text-[#333] transition-colors shadow-sm">{t('chooseFromLibraryBtn')}</button>
+                            </>
+                          )}
                         </div>
                       </div>
                     )}

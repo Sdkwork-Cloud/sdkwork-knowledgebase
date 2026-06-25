@@ -109,7 +109,10 @@ async fn open_retrieval_route_calls_injected_service_with_api_key_context() {
     let body = response_json(response).await;
     assert_eq!(body["retrievalId"], "701");
     assert_eq!(body["hits"][0]["chunkId"], "11");
-    assert_eq!(service.contexts(), vec![("api-key-001".to_string(), 100001)]);
+    assert_eq!(
+        service.contexts(),
+        vec![("api-key-001".to_string(), 100001)]
+    );
     assert_eq!(service.last_retrieval_tenant_id(), Some(100001));
 }
 
@@ -208,7 +211,7 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/knowledge/v3/api/documents")
+                .uri("/knowledge/v3/api/documents?spaceId=7")
                 .extension(open_context())
                 .body(Body::empty())
                 .unwrap(),
@@ -290,6 +293,7 @@ async fn open_router_web_framework_rejects_unauthenticated_requests() {
 
 #[tokio::test]
 async fn open_router_web_framework_accepts_dev_inline_api_key_before_handler() {
+    std::env::set_var("SDKWORK_ENV", "dev");
     let service = RecordingOpenApi::default();
     let app = wrap_router_with_web_framework(
         IamDatabaseWebRequestContextResolver::new(None),
@@ -315,7 +319,10 @@ async fn open_router_web_framework_accepts_dev_inline_api_key_before_handler() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::CREATED);
-    assert_eq!(service.contexts(), vec![("api-key-001".to_string(), 100001)]);
+    assert_eq!(
+        service.contexts(),
+        vec![("api-key-001".to_string(), 100001)]
+    );
 }
 
 fn assert_route(method: &str, path: &str, operation_id: &str) {
@@ -332,6 +339,7 @@ fn open_context() -> KnowledgeOpenApiRequestContext {
         api_key_id: "api-key-001".to_string(),
         tenant_id: 100001,
         actor_id: Some(30001),
+        organization_id: Some(100),
     }
 }
 
@@ -432,6 +440,7 @@ impl KnowledgeOpenApi for RecordingOpenApi {
     async fn list_documents(
         &self,
         _context: KnowledgeOpenApiRequestContext,
+        _space_id: u64,
     ) -> ApiResult<KnowledgeDocumentList> {
         Ok(KnowledgeDocumentList {
             items: vec![document(901)],

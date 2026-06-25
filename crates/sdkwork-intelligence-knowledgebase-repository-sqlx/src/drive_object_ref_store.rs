@@ -70,6 +70,50 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
         )
         .await
     }
+
+    async fn get_object_ref_by_id(
+        &self,
+        object_ref_id: u64,
+    ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let object_ref_id = to_i64("object_ref_id", object_ref_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                space_id,
+                drive_provider_kind,
+                drive_space_id,
+                drive_node_id,
+                logical_path,
+                drive_storage_provider_id,
+                drive_bucket,
+                drive_object_key,
+                drive_object_version,
+                drive_etag,
+                content_type,
+                size_bytes,
+                checksum_sha256_hex,
+                object_role,
+                access_mode
+            FROM kb_drive_object_ref
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(object_ref_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(sqlx_error)?
+        .ok_or_else(|| {
+            KnowledgeDriveObjectRefStoreError::Internal(format!(
+                "drive object ref not found: {object_ref_id}"
+            ))
+        })?;
+
+        object_ref_from_row(&row)
+    }
 }
 
 impl SqliteKnowledgeDriveObjectRefStore {
@@ -192,7 +236,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
     ) -> Result<Vec<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", space_id)?;
-        let prefix = format!("{}%", prefix.trim_end_matches('/'));
+        let prefix = escape_sql_like_prefix(prefix.trim_end_matches('/'));
         let rows = sqlx::query(
             r#"
             SELECT
@@ -215,7 +259,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
             FROM kb_drive_object_ref
             WHERE tenant_id = $1
               AND space_id = $2
-              AND logical_path LIKE $3
+              AND logical_path LIKE $3 ESCAPE '\'
               AND status = $4
             ORDER BY logical_path ASC
             "#,
@@ -388,4 +432,29 @@ fn sqlx_error(error: sqlx::Error) -> KnowledgeDriveObjectRefStoreError {
 
 fn id_error(error: crate::KnowledgeIdGeneratorError) -> KnowledgeDriveObjectRefStoreError {
     KnowledgeDriveObjectRefStoreError::Internal(error.to_string())
+}
+
+fn escape_sql_like_prefix(prefix: &str) -> String {
+    let mut escaped = String::with_capacity(prefix.len() + 4);
+    for ch in prefix.chars() {
+        match ch {
+            '\\' | '%' | '_' => {
+                escaped.push('\\');
+                escaped.push(ch);
+            }
+            other => escaped.push(other),
+        }
+    }
+    format!("{escaped}%")
+}
+
+#[cfg(test)]
+mod like_escape_tests {
+    use super::escape_sql_like_prefix;
+
+    #[test]
+    fn escape_sql_like_prefix_escapes_wildcards() {
+        assert_eq!(escape_sql_like_prefix("okf/%test"), "okf/\\%test%");
+        assert_eq!(escape_sql_like_prefix("a_b"), "a\\_b%");
+    }
 }

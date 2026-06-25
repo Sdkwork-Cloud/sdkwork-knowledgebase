@@ -58,6 +58,7 @@ pub struct CreateKnowledgeRetrievalHitRecord {
 pub struct KnowledgeRetrievalTraceRecord {
     pub tenant_id: u64,
     pub retrieval_trace_id: u64,
+    pub actor_id: Option<u64>,
     pub retrieval_profile_id: Option<u64>,
     pub query_text_redacted: Option<String>,
     pub latency_ms: Option<u64>,

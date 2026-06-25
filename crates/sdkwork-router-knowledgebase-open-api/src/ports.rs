@@ -12,6 +12,7 @@ pub struct KnowledgeOpenApiRequestContext {
     pub api_key_id: String,
     pub tenant_id: u64,
     pub actor_id: Option<u64>,
+    pub organization_id: Option<u64>,
 }
 
 #[async_trait]

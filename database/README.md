@@ -18,22 +18,14 @@ pnpm run db:status
 pnpm run db:drift:check
 ```
 
-## Migration status
+## Migration authority
 
-Legacy SQL was consolidated into `ddl/baseline/postgres/0001_*_legacy_baseline.sql` for bootstrap review.
-Author contract-first tables in `contract/schema.yaml`, then split baseline into versioned `migrations/` pairs.
+| Location | Role |
+|----------|------|
+| `database/migrations/{engine}/` | **Canonical** versioned migrations for production (`pnpm db:migrate`) |
+| `database/contract/schema.yaml` | Contract-first schema source |
+| `crates/.../migrations/` | **Legacy mirror** for SQLite bootstrap and migration manifest tests only — do not add new files |
 
-Imported legacy sources:
-- `crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606010001__knowledgebase_core.sql`
-- `crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606140001__knowledgebase_context_binding.sql`
-- `crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606170001__knowledge_access_mode.sql`
-- `crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606180001__agent_implementation.sql`
-- `crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606190001__knowledgebase_pgvector.sql`
-- `crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606200001__knowledgebase_outbox.sql`
-- `crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606210001__okf_link_and_candidate.sql`
+New schema changes: edit `database/contract/schema.yaml`, add `database/migrations/{engine}/*.up.sql`, run `pnpm db:materialize:contract` and `pnpm db:drift:check`.
 
-Runtime services MUST create pools through `sdkwork-database-sqlx` and register `DefaultDatabaseModule` at bootstrap via `sdkwork-knowledgebase-database-host`.
-
-```bash
-pnpm run db:materialize:contract
-```
+Runtime services create pools through `sdkwork-database-sqlx` and register `DefaultDatabaseModule` at bootstrap via `sdkwork-knowledgebase-database-host`.

@@ -2,12 +2,20 @@ import type { DriveUploaderProfile } from '@sdkwork/drive-app-sdk';
 import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import {
   getKnowledgebaseAppSdkClient,
-  getKnowledgebaseDriveAppSdkClient,
   isKnowledgebaseDriveApiAvailable,
+  KnowledgebaseErrorCodes,
+  parseKnowledgeSpaceId,
+  requireDriveApiClient,
+  requireKnowledgebaseAppSdkHttpClient,
+  throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 
 import type { DocumentMeta } from './document';
 import { ensureDriveFolderPath } from './knowledgeDriveBrowserService';
+import { invalidateKnowledgeBrowserNodeCacheForKbIds } from './knowledgeBrowserListService';
+import { resolveKnowledgeBrowserParentDriveNodeId } from './knowledgeBrowserParentResolver';
+import { placeDocumentInParentFolder } from './knowledgebaseDocumentApiBridge';
+import { resolveDriveNodeDownloadUrl } from './knowledgeDriveMediaService';
 import { resolveIngestedDocument, waitForIngestJob } from './knowledgeIngestService';
 
 const MAX_TEXT_BYTES = 512 * 1024;
@@ -40,11 +48,7 @@ export interface KnowledgeFileUploadFailure {
 }
 
 function spaceIdFromKbId(kbId: string): number {
-  const spaceId = Number(kbId);
-  if (!Number.isFinite(spaceId) || spaceId <= 0) {
-    throw new Error(`Invalid knowledge space id: ${kbId}`);
-  }
-  return spaceId;
+  return parseKnowledgeSpaceId(kbId);
 }
 
 function formatBytes(bytes: number): string {
@@ -134,7 +138,7 @@ async function resolveDriveSpaceId(spaceId: number): Promise<string> {
   const space = await client.client.knowledge.spaces.retrieve(spaceId);
   const driveSpaceId = space.driveSpaceId?.trim();
   if (!driveSpaceId) {
-    throw new Error('Knowledge space does not have an associated Drive space for file upload.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.DRIVE_SPACE_MISSING);
   }
   return driveSpaceId;
 }
@@ -172,12 +176,13 @@ async function ingestTextFile(
   const title = resolveUploadTitle(file);
   const content = await file.text();
   if (isBlank(content)) {
-    throw new Error(`File "${file.name}" is empty.`);
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.FILE_EMPTY);
   }
 
   if (isKnowledgebaseDriveApiAvailable() && resolveRelativeFolderPath(file)) {
     const driveSpaceId = await resolveDriveSpaceId(spaceId);
     const resolvedParentId = await resolveUploadParentNodeId(
+      kbId,
       driveSpaceId,
       file,
       parentId,
@@ -189,8 +194,9 @@ async function ingestTextFile(
       file,
       type,
       index,
-      resolvedParentId ?? null,
+      parentId,
       folderCache,
+      resolvedParentId,
     );
   }
 
@@ -203,11 +209,17 @@ async function ingestTextFile(
 
   const finalJob = job.state === 'succeeded' ? job : await waitForIngestJob(job.id);
   if (finalJob.state !== 'succeeded') {
-    throw new Error(finalJob.errorMessage ?? `Ingest failed for "${file.name}".`);
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED, {
+      cause: finalJob.errorMessage ?? undefined,
+    });
   }
 
   const document = await resolveIngestedDocument(spaceId, title);
-  return toDocumentMeta(kbId, file, document.id, document.title, type, parentId);
+  const meta = toDocumentMeta(kbId, file, document.id, document.title, type, parentId);
+  if (parentId?.trim()) {
+    await placeDocumentInParentFolder(meta.id, kbId, parentId);
+  }
+  return meta;
 }
 
 function resolveRelativeFolderPath(file: File): string | undefined {
@@ -216,16 +228,18 @@ function resolveRelativeFolderPath(file: File): string | undefined {
 }
 
 async function resolveUploadParentNodeId(
+  kbId: string,
   driveSpaceId: string,
   file: File,
   parentId: string | null | undefined,
   folderCache: Map<string, string>,
 ): Promise<string | undefined> {
+  const driveParentId = await resolveKnowledgeBrowserParentDriveNodeId(kbId, parentId);
   const relativePath = resolveRelativeFolderPath(file);
   if (!relativePath) {
-    return parentId?.trim() || undefined;
+    return driveParentId;
   }
-  return ensureDriveFolderPath(driveSpaceId, parentId, relativePath, folderCache);
+  return ensureDriveFolderPath(driveSpaceId, driveParentId, relativePath, folderCache);
 }
 
 async function uploadBinaryThroughDrive(
@@ -236,23 +250,25 @@ async function uploadBinaryThroughDrive(
   index: number,
   parentId?: string | null,
   folderCache?: Map<string, string>,
+  resolvedDriveParentId?: string | undefined,
 ): Promise<DocumentMeta> {
   if (!isKnowledgebaseDriveApiAvailable()) {
-    throw new Error('Drive upload is required for binary files but the Drive SDK is not configured.');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_DRIVE);
   }
 
   const knowledgeClient = getKnowledgebaseAppSdkClient();
-  const driveClient = getKnowledgebaseDriveAppSdkClient();
+  const driveClient = requireDriveApiClient();
   const driveSpaceId = await resolveDriveSpaceId(spaceId);
   const title = resolveUploadTitle(file);
-  const resolvedParentId = await resolveUploadParentNodeId(
+  const resolvedParentId = resolvedDriveParentId ?? await resolveUploadParentNodeId(
+    kbId,
     driveSpaceId,
     file,
     parentId,
     folderCache ?? new Map<string, string>(),
   );
 
-  const uploadResult = await driveClient.client.uploader.upload({
+  const uploadResult = await driveClient.uploader.upload({
     file,
     appResourceType: 'knowledgebase-pc-file-upload',
     appResourceId: String(spaceId),
@@ -277,14 +293,25 @@ async function uploadBinaryThroughDrive(
     language: null,
   });
 
-  return toDocumentMeta(
+  const meta = toDocumentMeta(
     kbId,
     file,
     importResult.document.id,
     importResult.document.title,
     type,
-    resolvedParentId ?? null,
+    parentId ?? null,
   );
+
+  try {
+    const url = await resolveDriveNodeDownloadUrl(uploadResult.uploadItem.nodeId);
+    if (url) {
+      return { ...meta, url };
+    }
+  } catch {
+    // Keep metadata without a transient download URL when Drive URL resolution fails.
+  }
+
+  return meta;
 }
 
 async function uploadSingleFile(
@@ -329,9 +356,7 @@ export async function uploadKnowledgebaseFiles(
   }
 
   if (results.length === 0 && failures.length > 0) {
-    throw new Error(
-      `Upload failed for all files: ${failures.map((entry) => `${entry.fileName} (${entry.message})`).join('; ')}`,
-    );
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED, { cause: failures });
   }
 
   if (failures.length > 0) {
@@ -339,6 +364,10 @@ export async function uploadKnowledgebaseFiles(
       '[KnowledgeFileUploadService] partial upload failures',
       failures,
     );
+  }
+
+  if (results.length > 0) {
+    invalidateKnowledgeBrowserNodeCacheForKbIds(kbId);
   }
 
   return results;

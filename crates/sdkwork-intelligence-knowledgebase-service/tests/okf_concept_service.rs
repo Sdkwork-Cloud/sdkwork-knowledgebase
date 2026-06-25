@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::okf::{
     discover_bundle_files_from_directory, load_import_bundle_from_drive, stackoverflow_bundle_root,
-    stage_export_bundle_for_drive_import, ExportOkfBundleRequest, ImportOkfBundleRequest,
-    OkfBundleExporterService, OkfBundleImporterService, OkfBundleStandardFileService,
-    OkfConceptService, PersistStandardFilesRequest, PublishExistingOkfConceptRevisionRequest,
+    stage_export_bundle_for_drive_import, ExportOkfBundleRequest, ImportOkfBundleFile,
+    ImportOkfBundleRequest, OkfBundleExporterService, OkfBundleImporterError,
+    OkfBundleImporterService, OkfBundleStandardFileService, OkfConceptService,
+    PersistStandardFilesRequest, PublishExistingOkfConceptRevisionRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_ref_store::{
     CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore,
@@ -33,6 +34,12 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_sto
     KnowledgeOkfConceptProjection, KnowledgeOkfConceptStore, KnowledgeOkfConceptStoreError,
     MarkKnowledgeOkfConceptCurrentRevisionRecord, UpsertKnowledgeOkfConceptRecord,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::okf_concept_revision_metadata_store::{
+    OkfConceptRevisionMetadataStore, OkfConceptRevisionMetadataStoreError,
+    PreparedOkfConceptRevisionSlot, PublishOkfConceptRevisionMetadataRecord,
+    PublishedOkfConceptRevisionMetadata, StageOkfConceptRevisionMetadataRecord,
+    StagedOkfConceptRevisionMetadata,
+};
 use sdkwork_knowledgebase_contract::okf::{
     KnowledgeOkfConcept, KnowledgeOkfConceptRevision, OkfConceptPublishState, OkfConceptSummary,
     OkfLogEntry, OkfLogEventType, OkfRevisionReviewState, PublishKnowledgeOkfConceptRequest,
@@ -48,7 +55,12 @@ async fn okf_concept_service_publishes_concept_and_rebuilds_standard_files() {
     let concepts = MemoryOkfConceptStore::default();
     let file_entries = MemoryOkfBundleFileStore::default();
     let workspace = MemoryDriveWorkspace::default();
-    let service = OkfConceptService::new(&drive, &object_refs, &concepts)
+    let revision_metadata = MemoryOkfConceptRevisionMetadataStore {
+        object_refs: &object_refs,
+        concepts: &concepts,
+        candidates: None,
+    };
+    let service = OkfConceptService::new(&drive, &revision_metadata, &concepts)
         .with_file_entry_store(&file_entries)
         .with_drive_workspace(&workspace);
 
@@ -124,6 +136,52 @@ async fn okf_concept_service_publishes_concept_and_rebuilds_standard_files() {
 }
 
 #[tokio::test]
+async fn bundle_import_fails_fast_on_conformance_errors_without_persisting_valid_concepts() {
+    let drive = MemoryDrive::default();
+    let object_refs = MemoryObjectRefStore::default();
+    let concepts = MemoryOkfConceptStore::default();
+    let candidates = MemoryCandidateStore::default();
+    let revision_metadata = MemoryOkfConceptRevisionMetadataStore {
+        object_refs: &object_refs,
+        concepts: &concepts,
+        candidates: Some(&candidates),
+    };
+    let service = OkfConceptService::new(&drive, &revision_metadata, &concepts)
+        .with_candidate_store(&candidates);
+    let importer = OkfBundleImporterService::new(service);
+
+    let valid_markdown = "---\ntype: Entity\ntitle: Valid Entity\n---\nBody\n";
+    let result = importer
+        .import_bundle(
+            ImportOkfBundleRequest {
+                space_id: 7,
+                actor: "tester".to_string(),
+                publish: false,
+                files: vec![
+                    ImportOkfBundleFile {
+                        bundle_relative_path: "entities/valid-entity.md".to_string(),
+                        markdown: valid_markdown.to_string(),
+                    },
+                    ImportOkfBundleFile {
+                        bundle_relative_path: "entities/invalid-entity.md".to_string(),
+                        markdown: "missing frontmatter".to_string(),
+                    },
+                ],
+            },
+            None,
+        )
+        .await;
+
+    assert!(matches!(
+        result,
+        Err(OkfBundleImporterError::Conformance(_))
+    ));
+    assert_eq!(concepts.concept_count(), 0);
+    assert_eq!(concepts.revision_count(), 0);
+    assert_eq!(candidates.count(), 0);
+}
+
+#[tokio::test]
 async fn stackoverflow_bundle_imports_as_candidates_by_default() {
     let drive = MemoryDrive::default();
     let object_refs = MemoryObjectRefStore::default();
@@ -131,7 +189,12 @@ async fn stackoverflow_bundle_imports_as_candidates_by_default() {
     let candidates = MemoryCandidateStore::default();
     let file_entries = MemoryOkfBundleFileStore::default();
     let workspace = MemoryDriveWorkspace::default();
-    let service = OkfConceptService::new(&drive, &object_refs, &concepts)
+    let revision_metadata = MemoryOkfConceptRevisionMetadataStore {
+        object_refs: &object_refs,
+        concepts: &concepts,
+        candidates: Some(&candidates),
+    };
+    let service = OkfConceptService::new(&drive, &revision_metadata, &concepts)
         .with_candidate_store(&candidates)
         .with_file_entry_store(&file_entries)
         .with_drive_workspace(&workspace);
@@ -174,7 +237,12 @@ async fn stackoverflow_bundle_imports_published_concepts_when_requested() {
     let links = MemoryLinkStore::default();
     let file_entries = MemoryOkfBundleFileStore::default();
     let workspace = MemoryDriveWorkspace::default();
-    let service = OkfConceptService::new(&drive, &object_refs, &concepts)
+    let revision_metadata = MemoryOkfConceptRevisionMetadataStore {
+        object_refs: &object_refs,
+        concepts: &concepts,
+        candidates: None,
+    };
+    let service = OkfConceptService::new(&drive, &revision_metadata, &concepts)
         .with_link_store(&links)
         .with_file_entry_store(&file_entries)
         .with_drive_workspace(&workspace);
@@ -286,7 +354,12 @@ async fn stackoverflow_published_bundle_lints_without_stale_claims_when_sources_
             drive_bucket: None,
         }],
     };
-    let service = OkfConceptService::new(&drive, &object_refs, &concepts)
+    let revision_metadata = MemoryOkfConceptRevisionMetadataStore {
+        object_refs: &object_refs,
+        concepts: &concepts,
+        candidates: None,
+    };
+    let service = OkfConceptService::new(&drive, &revision_metadata, &concepts)
         .with_link_store(&links)
         .with_file_entry_store(&file_entries)
         .with_drive_workspace(&workspace);
@@ -333,9 +406,15 @@ async fn export_bundle_round_trips_through_drive_import_inbox() {
     let target_concepts = MemoryOkfConceptStore::default();
     let file_entries = MemoryOkfBundleFileStore::default();
     let workspace = MemoryDriveWorkspace::default();
-    let source_service = OkfConceptService::new(&drive, &object_refs, &source_concepts)
-        .with_file_entry_store(&file_entries)
-        .with_drive_workspace(&workspace);
+    let source_service_revision_metadata = MemoryOkfConceptRevisionMetadataStore {
+        object_refs: &object_refs,
+        concepts: &source_concepts,
+        candidates: None,
+    };
+    let source_service =
+        OkfConceptService::new(&drive, &source_service_revision_metadata, &source_concepts)
+            .with_file_entry_store(&file_entries)
+            .with_drive_workspace(&workspace);
 
     source_service
         .publish_concept(
@@ -403,9 +482,15 @@ async fn export_bundle_round_trips_through_drive_import_inbox() {
     let files = load_import_bundle_from_drive(&drive, 99, Some("roundtrip"), None)
         .await
         .expect("load staged import bundle");
-    let target_service = OkfConceptService::new(&drive, &object_refs, &target_concepts)
-        .with_file_entry_store(&file_entries)
-        .with_drive_workspace(&workspace);
+    let target_service_revision_metadata = MemoryOkfConceptRevisionMetadataStore {
+        object_refs: &object_refs,
+        concepts: &target_concepts,
+        candidates: None,
+    };
+    let target_service =
+        OkfConceptService::new(&drive, &target_service_revision_metadata, &target_concepts)
+            .with_file_entry_store(&file_entries)
+            .with_drive_workspace(&workspace);
     let importer = OkfBundleImporterService::new(target_service);
     let result = importer
         .import_bundle(
@@ -432,7 +517,12 @@ async fn publish_existing_revision_projects_governance_markdown_to_bundle() {
     let concepts = MemoryOkfConceptStore::default();
     let file_entries = MemoryOkfBundleFileStore::default();
     let workspace = MemoryDriveWorkspace::default();
-    let service = OkfConceptService::new(&drive, &object_refs, &concepts)
+    let revision_metadata = MemoryOkfConceptRevisionMetadataStore {
+        object_refs: &object_refs,
+        concepts: &concepts,
+        candidates: None,
+    };
+    let service = OkfConceptService::new(&drive, &revision_metadata, &concepts)
         .with_file_entry_store(&file_entries)
         .with_drive_workspace(&workspace);
 
@@ -489,7 +579,12 @@ async fn okf_concept_service_requires_drive_space_when_workspace_enabled() {
     let concepts = MemoryOkfConceptStore::default();
     let file_entries = MemoryOkfBundleFileStore::default();
     let workspace = MemoryDriveWorkspace::default();
-    let service = OkfConceptService::new(&drive, &object_refs, &concepts)
+    let revision_metadata = MemoryOkfConceptRevisionMetadataStore {
+        object_refs: &object_refs,
+        concepts: &concepts,
+        candidates: None,
+    };
+    let service = OkfConceptService::new(&drive, &revision_metadata, &concepts)
         .with_file_entry_store(&file_entries)
         .with_drive_workspace(&workspace);
 
@@ -689,6 +784,163 @@ impl KnowledgeDriveObjectRefStore for MemoryObjectRefStore {
             .cloned()
             .collect())
     }
+
+    async fn get_object_ref_by_id(
+        &self,
+        object_ref_id: u64,
+    ) -> Result<
+        sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef,
+        KnowledgeDriveObjectRefStoreError,
+    > {
+        self.refs
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|object_ref| object_ref.id == object_ref_id)
+            .cloned()
+            .ok_or_else(|| {
+                KnowledgeDriveObjectRefStoreError::Internal(format!(
+                    "drive object ref not found: {object_ref_id}"
+                ))
+            })
+    }
+}
+
+struct MemoryOkfConceptRevisionMetadataStore<'a> {
+    object_refs: &'a MemoryObjectRefStore,
+    concepts: &'a MemoryOkfConceptStore,
+    candidates: Option<&'a MemoryCandidateStore>,
+}
+
+#[async_trait]
+impl<'a> OkfConceptRevisionMetadataStore for MemoryOkfConceptRevisionMetadataStore<'a> {
+    async fn prepare_concept_revision_slot(
+        &self,
+        concept: UpsertKnowledgeOkfConceptRecord,
+    ) -> Result<PreparedOkfConceptRevisionSlot, OkfConceptRevisionMetadataStoreError> {
+        let concept = self
+            .concepts
+            .upsert_concept(concept)
+            .await
+            .map_err(map_revision_metadata_concept_error)?;
+        let revision_no = self
+            .concepts
+            .next_revision_no(concept.id)
+            .await
+            .map_err(map_revision_metadata_concept_error)?;
+        Ok(PreparedOkfConceptRevisionSlot {
+            concept,
+            revision_no,
+        })
+    }
+
+    async fn stage_concept_revision_metadata(
+        &self,
+        record: StageOkfConceptRevisionMetadataRecord,
+    ) -> Result<StagedOkfConceptRevisionMetadata, OkfConceptRevisionMetadataStoreError> {
+        let revision_object_ref = self
+            .object_refs
+            .create_or_get_object_ref(record.revision_object_ref)
+            .await
+            .map_err(map_revision_metadata_object_ref_error)?;
+        let published_object_ref = match record.published_object_ref {
+            Some(published_record) => Some(
+                self.object_refs
+                    .create_or_get_object_ref(published_record)
+                    .await
+                    .map_err(map_revision_metadata_object_ref_error)?,
+            ),
+            None => None,
+        };
+        let revision = self
+            .concepts
+            .create_revision(CreateKnowledgeOkfConceptRevisionRecord {
+                concept_row_id: record.concept_row_id,
+                revision_no: record.revision_no,
+                markdown_object_ref_id: revision_object_ref.id,
+                content_hash: record.content_hash,
+                review_state: record.review_state,
+            })
+            .await
+            .map_err(map_revision_metadata_concept_error)?;
+        let concept = self
+            .concepts
+            .mark_current_revision(MarkKnowledgeOkfConceptCurrentRevisionRecord {
+                concept_row_id: record.concept_row_id,
+                revision_id: revision.id,
+                publish_state: record.publish_state,
+            })
+            .await
+            .map_err(map_revision_metadata_concept_error)?;
+        if let Some(mut candidate) = record.candidate {
+            if candidate.markdown_object_ref_id == 0 {
+                candidate.markdown_object_ref_id = revision_object_ref.id;
+            }
+            if let Some(candidate_store) = self.candidates {
+                candidate_store
+                    .upsert_candidate(candidate)
+                    .await
+                    .map_err(map_revision_metadata_candidate_error)?;
+            }
+        }
+        Ok(StagedOkfConceptRevisionMetadata {
+            revision,
+            concept,
+            revision_object_ref,
+            published_object_ref,
+        })
+    }
+
+    async fn publish_existing_revision_metadata(
+        &self,
+        record: PublishOkfConceptRevisionMetadataRecord,
+    ) -> Result<PublishedOkfConceptRevisionMetadata, OkfConceptRevisionMetadataStoreError> {
+        let published_object_ref = self
+            .object_refs
+            .create_or_get_object_ref(record.published_object_ref)
+            .await
+            .map_err(map_revision_metadata_object_ref_error)?;
+        let concept = self
+            .concepts
+            .mark_current_revision(record.mark_current)
+            .await
+            .map_err(map_revision_metadata_concept_error)?;
+        if let Some(candidate_state_update) = record.candidate_state_update {
+            if let Some(candidate_store) = self.candidates {
+                candidate_store
+                    .update_candidate_state_by_concept_row_id(
+                        candidate_state_update.concept_row_id,
+                        candidate_state_update.state,
+                        candidate_state_update.reviewer_id,
+                        candidate_state_update.review_note,
+                    )
+                    .await
+                    .map_err(map_revision_metadata_candidate_error)?;
+            }
+        }
+        Ok(PublishedOkfConceptRevisionMetadata {
+            concept,
+            published_object_ref,
+        })
+    }
+}
+
+fn map_revision_metadata_object_ref_error(
+    error: KnowledgeDriveObjectRefStoreError,
+) -> OkfConceptRevisionMetadataStoreError {
+    OkfConceptRevisionMetadataStoreError::internal(error.to_string())
+}
+
+fn map_revision_metadata_candidate_error(
+    error: KnowledgeOkfCandidateStoreError,
+) -> OkfConceptRevisionMetadataStoreError {
+    OkfConceptRevisionMetadataStoreError::internal(error.to_string())
+}
+
+fn map_revision_metadata_concept_error(
+    error: KnowledgeOkfConceptStoreError,
+) -> OkfConceptRevisionMetadataStoreError {
+    OkfConceptRevisionMetadataStoreError::internal(error.to_string())
 }
 
 #[derive(Default)]

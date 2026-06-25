@@ -186,6 +186,7 @@ impl RecordingRetrievalService {
 impl KnowledgeRetrievalAppService for RecordingRetrievalService {
     async fn retrieve(
         &self,
+        _context: KnowledgeAppRequestContext,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
         self.retrieval_requests.lock().unwrap().push(request);
@@ -254,6 +255,7 @@ impl KnowledgeRetrievalAppService for RecordingRetrievalService {
 
     async fn create_context_pack(
         &self,
+        _context: KnowledgeAppRequestContext,
         request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack> {
         self.context_pack_requests.lock().unwrap().push(request);
@@ -291,6 +293,7 @@ struct FailingRetrievalService;
 impl KnowledgeRetrievalAppService for FailingRetrievalService {
     async fn retrieve(
         &self,
+        _context: KnowledgeAppRequestContext,
         _request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
         Err(ApiError::new(
@@ -314,6 +317,7 @@ impl KnowledgeRetrievalAppService for FailingRetrievalService {
 
     async fn create_context_pack(
         &self,
+        _context: KnowledgeAppRequestContext,
         _request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack> {
         Err(ApiError::new(

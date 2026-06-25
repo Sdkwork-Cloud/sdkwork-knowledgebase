@@ -43,6 +43,7 @@ where
     R: KnowledgebaseRetrievalClient + Send + Sync + Clone + 'static,
     W: OkfKnowledgeClient + Send + Sync + Clone + 'static,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         profiles: &'a dyn KnowledgeAgentProfileStore,
         retrieval: &'a dyn KnowledgeRetrievalExecutor,

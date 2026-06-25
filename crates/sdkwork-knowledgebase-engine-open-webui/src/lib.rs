@@ -114,7 +114,7 @@ impl OpenWebuiKnowledgeEngine {
             self.config
                 .as_ref()
                 .and_then(|config| config.default_knowledge_id.clone()),
-            &format!("{OPEN_WEBUI_KNOWLEDGE_ID_ENV}"),
+            OPEN_WEBUI_KNOWLEDGE_ID_ENV,
         )
         .await
     }

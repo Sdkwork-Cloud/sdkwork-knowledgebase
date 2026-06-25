@@ -198,6 +198,79 @@ fn app_openapi_exposes_standard_rag_and_knowledge_agent_operations() {
 }
 
 #[test]
+fn app_openapi_exposes_commerce_git_sync_and_media_operations() {
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json"
+    ))
+    .unwrap();
+
+    for (operation_id, method, path) in [
+        ("gitSyncs.create", "post", "/app/v3/api/knowledge/git_syncs"),
+        (
+            "market.listings.list",
+            "get",
+            "/app/v3/api/knowledge/market/listings",
+        ),
+        (
+            "market.subscriptions.create",
+            "post",
+            "/app/v3/api/knowledge/market/subscriptions",
+        ),
+        (
+            "market.subscriptions.delete",
+            "delete",
+            "/app/v3/api/knowledge/market/subscriptions/{listingId}",
+        ),
+        (
+            "siteDeployments.create",
+            "post",
+            "/app/v3/api/knowledge/site_deployments",
+        ),
+        (
+            "siteDeployments.preview.retrieve",
+            "get",
+            "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
+        ),
+        (
+            "mediaTasks.create",
+            "post",
+            "/app/v3/api/knowledge/media_tasks",
+        ),
+    ] {
+        assert_eq!(
+            spec["paths"][path][method]["operationId"], operation_id,
+            "missing commerce/git operation {operation_id}: {method} {path}"
+        );
+        assert_eq!(
+            spec["paths"][path][method]["x-sdkwork-owner"],
+            "sdkwork-knowledgebase"
+        );
+        assert_eq!(
+            spec["paths"][path][method]["x-sdkwork-api-authority"],
+            "sdkwork-knowledgebase-app-api"
+        );
+    }
+
+    for schema_name in [
+        "KnowledgeGitSyncRequest",
+        "KnowledgeGitSyncResult",
+        "KnowledgeMarketCatalogList",
+        "KnowledgeMarketSubscriptionRequest",
+        "KnowledgeMarketSubscriptionResult",
+        "KnowledgeSiteDeploymentRequest",
+        "KnowledgeSiteDeploymentResult",
+        "KnowledgeSiteDeploymentPreview",
+        "KnowledgeMediaTaskRequest",
+        "KnowledgeMediaTaskResult",
+    ] {
+        assert!(
+            spec["components"]["schemas"][schema_name].is_object(),
+            "OpenAPI must define {schema_name}"
+        );
+    }
+}
+
+#[test]
 fn app_openapi_keeps_memory_context_fragments_separate_from_knowledge_chunks() {
     let spec: Value = serde_json::from_str(include_str!(
         "../../../sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json"
@@ -308,7 +381,9 @@ fn request_body(operation_id: &str) -> &'static str {
         "okf.concepts.upsert" => {
             r##"{"spaceId":7,"conceptId":"tables/users","markdown":"---\ntype: Entity\ntitle: Users\n---\n# Users\n","actor":"author","publish":false}"##
         }
-        "okf.queries.fileAnswer" => r##"{"title":"Answer","answerMarkdown":"# Answer"}"##,
+        "okf.queries.fileAnswer" => {
+            r##"{"spaceId":7,"title":"Answer","answerMarkdown":"# Answer"}"##
+        }
         "okf.contextPacks.create" => r#"{"spaceId":7,"query":"Quarterly report"}"#,
         "okf.bundle.export.create" => r#"{"spaceId":7,"exportType":"okf_strict"}"#,
         "okf.bundle.import.create" => r#"{"spaceId":7,"importType":"okf_strict"}"#,

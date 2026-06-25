@@ -1,4 +1,6 @@
 pub const PREFIX: &str = "/backend/v3/api";
+pub const LIVEZ: &str = "/livez";
+pub const READYZ: &str = "/readyz";
 pub const HEALTHZ: &str = "/healthz";
 pub const SOURCES: &str = "/backend/v3/api/knowledge/sources";
 pub const OKF_COMPILE_JOBS: &str = "/backend/v3/api/knowledge/okf/compile_jobs";

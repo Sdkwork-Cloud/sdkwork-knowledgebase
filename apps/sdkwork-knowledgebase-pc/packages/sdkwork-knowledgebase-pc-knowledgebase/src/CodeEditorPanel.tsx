@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom';
 import { DocumentMeta } from './services/document';
 import { CodeEditor } from './CodeEditor';
 import { Columns, FileCode2, Eye, MonitorSmartphone, Smartphone, Tablet, RefreshCw, Maximize, Code } from 'lucide-react';
+import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
 
-export interface CodeEditorPanelProps {
+export interface CodeEditorPanelProps extends ReactKeyedComponentProps {
   activeDoc: DocumentMeta;
   docContent: string;
   onContentChange: (content: string) => void;

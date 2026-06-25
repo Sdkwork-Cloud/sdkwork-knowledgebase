@@ -9,6 +9,7 @@ import {
   configureKnowledgebaseDriveAppSdk,
   bindKnowledgebaseSessionStore,
   setKnowledgebaseApiEnabled,
+  isKnowledgebaseAppApiConfigured,
   type KnowledgebasePcRuntime,
   type SessionStorageLike,
 } from 'sdkwork-knowledgebase-pc-core';
@@ -39,7 +40,7 @@ export function createKnowledgebasePcRuntime(): KnowledgebasePcRuntime {
   configureKnowledgebaseDriveAppSdk(driveSdkClient);
   setKnowledgebaseApiEnabled(
     config.auth.tokenManagerMode !== 'test'
-    && Boolean(config.appApiBaseUrl || config.sdkBaseUrls.appApiBaseUrl),
+    && isKnowledgebaseAppApiConfigured(config),
   );
 
   return {
@@ -65,9 +66,45 @@ function resolveSessionStorage(
   if (tokenStorage === 'browser-local') {
     return window.localStorage;
   }
-  if (tokenStorage === 'browser-session' || tokenStorage === 'os-secure-storage') {
-    // Desktop secure storage is not wired yet; keep session in browser session storage.
+  if (tokenStorage === 'os-secure-storage') {
+    return createDesktopSecureSessionStorage();
+  }
+  if (tokenStorage === 'browser-session') {
     return window.sessionStorage;
   }
   return undefined;
+}
+
+function createDesktopSecureSessionStorage(): SessionStorageLike | undefined {
+  const tauri = (globalThis as typeof globalThis & {
+    __TAURI__?: { core?: { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> } };
+  }).__TAURI__;
+  if (!tauri?.core?.invoke) {
+    return window.sessionStorage;
+  }
+
+  const memory = new Map<string, string>();
+  void tauri.core!.invoke<Record<string, string>>('read_secure_session_snapshot')
+    .then((snapshot) => {
+      for (const [key, value] of Object.entries(snapshot ?? {})) {
+        memory.set(key, value);
+      }
+    })
+    .catch(() => undefined);
+
+  return {
+    getItem(key: string) {
+      return memory.get(key) ?? null;
+    },
+    setItem(key: string, value: string) {
+      memory.set(key, value);
+      void tauri.core!.invoke('write_secure_session_value', { request: { key, value } }).catch(() => {
+        memory.delete(key);
+      });
+    },
+    removeItem(key: string) {
+      memory.delete(key);
+      void tauri.core!.invoke('remove_secure_session_value', { request: { key } }).catch(() => undefined);
+    },
+  };
 }

@@ -4,7 +4,7 @@ import {
   ChevronRight,
   ExternalLink
 } from 'lucide-react';
-import { dispatchOpenInAppBrowser } from '@packages/sdkwork-knowledgebase-pc-commons/src';
+import { dispatchOpenInAppBrowser } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 import type {
   SearchNavigateToFilePayload,
   SearchNavigateToKbPayload,
@@ -145,6 +145,7 @@ export function MessageSourcesPanel({
         key={src.id}
         type="button"
         id={`citation-card-${messageId}-${citationNum}`}
+        data-testid={`search-source-row-${src.type}`}
         onClick={() => handleSourceClick(src)}
         className={`search-source-row search-source-row--${src.type} group`}
       >
@@ -167,6 +168,7 @@ export function MessageSourcesPanel({
       <button
         type="button"
         className="search-sources-toggle"
+        data-testid="search-sources-toggle"
         onClick={() => setExpanded((value) => !value)}
         aria-expanded={expanded}
       >

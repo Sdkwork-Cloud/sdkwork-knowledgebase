@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
-import { useAiModelSelection } from '@packages/sdkwork-knowledgebase-pc-commons/src';
+import { useAiModelSelection } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 
 interface SearchChatHeaderProps {
   title: string;

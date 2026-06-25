@@ -1,4 +1,14 @@
-use sdkwork_web_core::{HttpMethod, HttpRoute, HttpRouteManifest};
+use sdkwork_web_core::{HttpMethod, HttpRoute, HttpRouteManifest, RateLimitTier};
+
+const fn abuse_sensitive_route(
+    method: HttpMethod,
+    path: &'static str,
+    tag: &'static str,
+    operation_id: &'static str,
+) -> HttpRoute {
+    HttpRoute::dual_token(method, path, tag, operation_id)
+        .with_rate_limit_tier(RateLimitTier::AuthCritical)
+}
 
 const HTTP_ROUTES: &[HttpRoute] = &[
     HttpRoute::dual_token(
@@ -67,7 +77,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "okf.log.entries.create",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/backend/v3/api/knowledge/okf/exports",
         "knowledge",
@@ -79,7 +89,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "okf.bundle.export.retrieve",
     ),
-    HttpRoute::dual_token(
+    abuse_sensitive_route(
         HttpMethod::Post,
         "/backend/v3/api/knowledge/okf/imports",
         "knowledge",

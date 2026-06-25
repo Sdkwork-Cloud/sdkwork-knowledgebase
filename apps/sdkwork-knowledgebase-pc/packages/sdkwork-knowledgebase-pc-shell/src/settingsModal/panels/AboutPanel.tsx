@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { BookOpen, Check, Copy, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { toast } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src';
+import { toast } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase';
 import type { KnowledgebaseRuntimeConfig } from 'sdkwork-knowledgebase-pc-core';
 
 import {

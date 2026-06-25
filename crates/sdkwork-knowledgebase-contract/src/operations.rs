@@ -9,6 +9,7 @@ pub const DOCUMENTS_UPDATE: &str = "documents.update";
 pub const DOCUMENTS_DELETE: &str = "documents.delete";
 pub const DOCUMENTS_VERSIONS_CREATE: &str = "documents.versions.create";
 pub const DOCUMENTS_VERSIONS_LIST: &str = "documents.versions.list";
+pub const DOCUMENTS_CONTENT_RETRIEVE: &str = "documents.content.retrieve";
 pub const DRIVE_IMPORTS_CREATE: &str = "driveImports.create";
 pub const INGESTS_CREATE: &str = "ingests.create";
 pub const INGESTS_RETRIEVE: &str = "ingests.retrieve";
@@ -80,6 +81,7 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     DOCUMENTS_DELETE,
     DOCUMENTS_VERSIONS_CREATE,
     DOCUMENTS_VERSIONS_LIST,
+    DOCUMENTS_CONTENT_RETRIEVE,
     DRIVE_IMPORTS_CREATE,
     INGESTS_CREATE,
     INGESTS_RETRIEVE,

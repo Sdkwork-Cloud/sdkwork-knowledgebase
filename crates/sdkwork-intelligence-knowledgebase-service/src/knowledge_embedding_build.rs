@@ -5,7 +5,7 @@ use crate::knowledge_embedding_index::{
     KnowledgeEmbeddingIndexService, KnowledgeEmbeddingIndexServiceError,
 };
 use crate::ports::knowledge_embedding_store::{
-    ChunkEmbeddingIndexRequest, KnowledgeEmbeddingStore, KnowledgeEmbeddingStoreError,
+    KnowledgeEmbeddingStore, KnowledgeEmbeddingStoreError,
 };
 
 pub struct KnowledgeEmbeddingBuildService<'a> {
@@ -38,28 +38,40 @@ impl<'a> KnowledgeEmbeddingBuildService<'a> {
             ));
         }
 
-        let chunk_ids = self
-            .embeddings
-            .list_active_chunk_ids_for_space(space_id)
-            .await
-            .map_err(KnowledgeEmbeddingBuildServiceError::Store)?;
-
+        const CHUNK_PAGE_SIZE: u32 = 128;
         let indexer = KnowledgeEmbeddingIndexService::new(self.embeddings, self.embedder.clone());
         let mut indexed = 0usize;
-        for chunk_id in chunk_ids {
-            indexer
-                .index_chunk(ChunkEmbeddingIndexRequest {
+        let mut after_chunk_id = 0u64;
+
+        loop {
+            let batch = self
+                .embeddings
+                .list_active_chunk_id_content_page(space_id, after_chunk_id, CHUNK_PAGE_SIZE)
+                .await
+                .map_err(KnowledgeEmbeddingBuildServiceError::Store)?;
+            if batch.is_empty() {
+                break;
+            }
+
+            after_chunk_id = batch
+                .last()
+                .map(|(chunk_id, _)| *chunk_id)
+                .unwrap_or(after_chunk_id);
+
+            indexed += indexer
+                .index_chunks(
                     tenant_id,
                     index_id,
-                    chunk_id,
-                    content: None,
-                    embedding_provider_id: embedding_provider_id.clone(),
-                    embedding_model: embedding_model.clone(),
-                    index_embedding_model: embedding_model.clone(),
-                })
+                    &batch,
+                    embedding_provider_id.clone(),
+                    embedding_model.clone(),
+                )
                 .await
                 .map_err(KnowledgeEmbeddingBuildServiceError::Index)?;
-            indexed += 1;
+
+            if batch.len() < CHUNK_PAGE_SIZE as usize {
+                break;
+            }
         }
 
         Ok(indexed)

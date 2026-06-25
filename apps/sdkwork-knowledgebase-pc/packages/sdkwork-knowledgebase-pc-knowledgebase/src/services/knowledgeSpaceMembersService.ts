@@ -39,10 +39,28 @@ function avatarFromEmail(email: string): string {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
 }
 
+/**
+ * Frontend service facade for knowledge space member management.
+ */
+export class KnowledgeSpaceMembersService {
+  static loadMembers(spaceId: number): Promise<KnowledgeSpaceMemberUi[]> {
+    return loadKnowledgeSpaceMembers(spaceId);
+  }
+
+  static syncMembers(
+    spaceId: number,
+    desired: KnowledgeSpaceMemberUi[],
+    previous: KnowledgeSpaceMemberUi[],
+  ): Promise<void> {
+    return syncKnowledgeSpaceMembers(spaceId, desired, previous);
+  }
+}
+
 export async function loadKnowledgeSpaceMembers(
   spaceId: number,
 ): Promise<KnowledgeSpaceMemberUi[]> {
-  const list = await getKnowledgebaseAppSdkClient().client.knowledge.spaces.members.list(spaceId);
+  const spaceKey = String(spaceId);
+  const list = await getKnowledgebaseAppSdkClient().client.knowledge.spaces.members.list(spaceKey);
   return list.members
     .filter((member) => member.subjectType === 'user')
     .map((member) => ({
@@ -60,13 +78,14 @@ export async function syncKnowledgeSpaceMembers(
   previous: KnowledgeSpaceMemberUi[],
 ): Promise<void> {
   const client = getKnowledgebaseAppSdkClient().client;
+  const spaceKey = String(spaceId);
   const previousByEmail = new Map(previous.map((member) => [member.email.toLowerCase(), member]));
   const desiredByEmail = new Map(desired.map((member) => [member.email.toLowerCase(), member]));
 
   for (const [email, member] of desiredByEmail) {
     const existing = previousByEmail.get(email);
     if (!existing || existing.role !== member.role) {
-      await client.knowledge.spaces.members.grant(spaceId, {
+      await client.knowledge.spaces.members.grant(spaceKey, {
         subjectType: 'user',
         subjectId: member.email,
         role: toApiRole(member.role),
@@ -76,7 +95,7 @@ export async function syncKnowledgeSpaceMembers(
 
   for (const [email] of previousByEmail) {
     if (!desiredByEmail.has(email)) {
-      await client.knowledge.spaces.members.revoke(spaceId, {
+      await client.knowledge.spaces.members.revoke(spaceKey, {
         subjectType: 'user',
         subjectId: email,
       });

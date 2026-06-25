@@ -1,7 +1,9 @@
 import React from 'react';
 import { FileUp, FolderUp, MessageSquare, Lightbulb, Link, FileEdit, Cloud, Notebook, Mic, FolderPlus, Plus, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { createRuntimeConfig, isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuGroup, DropdownMenuLabel } from './components/ui/dropdown-menu';
+import { toast } from './components/ui/toast-manager';
 
 export interface KnowledgeFileAddMenuProps {
   isAddMenuOpen: boolean;
@@ -32,6 +34,7 @@ export function KnowledgeFileAddMenu({
   setRenameItem
 }: KnowledgeFileAddMenuProps) {
   const { t } = useTranslation(['kb', 'common']);
+  const featureFlags = createRuntimeConfig().featureFlags;
 
   const handleOpenModal = (e: any, setter: (open: boolean) => void) => {
     // Prevent default Radix behavior first to avoid race conditions with Modals
@@ -39,6 +42,23 @@ export function KnowledgeFileAddMenu({
     setIsAddMenuOpen(false);
     // Add wait time before opening modal so that DropdownMenu can cleanly unmount focus return
     setTimeout(() => {
+      setter(true);
+    }, 150);
+  };
+
+  const handleOpenOfflineImportModal = (
+    e: any,
+    setter: (open: boolean) => void,
+    featureLabel: string,
+    enabled: boolean,
+  ) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setIsAddMenuOpen(false);
+    setTimeout(() => {
+      if (!enabled) {
+        toast.error(`${featureLabel}当前不可用。`);
+        return;
+      }
       setter(true);
     }, 150);
   };
@@ -54,7 +74,7 @@ export function KnowledgeFileAddMenu({
   return (
     <DropdownMenu open={isAddMenuOpen} onOpenChange={setIsAddMenuOpen}>
       <DropdownMenuTrigger asChild>
-        <button className={`p-1.5 rounded-md transition-all ${isAddMenuOpen ? 'bg-[var(--color-kb-accent)]/10 text-[var(--color-kb-accent)]' : 'hover:bg-[var(--color-kb-panel-hover)] hover:text-[var(--color-kb-accent)]'}`} title={t('new')}>
+        <button data-testid="knowledgebase-pc-add-menu-trigger" className={`p-1.5 rounded-md transition-all ${isAddMenuOpen ? 'bg-[var(--color-kb-accent)]/10 text-[var(--color-kb-accent)]' : 'hover:bg-[var(--color-kb-panel-hover)] hover:text-[var(--color-kb-accent)]'}`} title={t('new')}>
           <Plus size={15}/>
         </button>
       </DropdownMenuTrigger>
@@ -113,25 +133,36 @@ export function KnowledgeFileAddMenu({
         {/* Import From Group */}
         <DropdownMenuGroup>
           <DropdownMenuLabel className="px-3 py-1.5 text-[11px] font-semibold text-[var(--color-kb-text-muted)] tracking-wider uppercase mb-1">Import From</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={(e) => handleOpenModal(e, setIsChatFileOpen)} className="cursor-pointer py-2 px-3 rounded-lg focus:bg-[var(--color-kb-panel-hover)] focus:text-[var(--color-kb-text-heading)]">
+          {featureFlags.chatFileImport ? (
+          <DropdownMenuItem onSelect={(e) => handleOpenOfflineImportModal(e, setIsChatFileOpen, '聊天文件导入', featureFlags.chatFileImport)} className="cursor-pointer py-2 px-3 rounded-lg focus:bg-[var(--color-kb-panel-hover)] focus:text-[var(--color-kb-text-heading)]">
             <div className="flex items-center w-full">
                <MessageSquare size={16} className="mr-3 text-[#07C160]" /> 
                <span className="font-medium text-[13px] text-[var(--color-kb-text)]">{t('fromChatFile', { defaultValue: '聊天文件' })}</span>
             </div>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={(e) => handleOpenModal(e, setIsChatDialogOpen)} className="cursor-pointer py-2 px-3 rounded-lg focus:bg-[var(--color-kb-panel-hover)] focus:text-[var(--color-kb-text-heading)]">
+          ) : null}
+          {featureFlags.chatDialogImport ? (
+          <DropdownMenuItem onSelect={(e) => handleOpenOfflineImportModal(e, setIsChatDialogOpen, '聊天对话导入', featureFlags.chatDialogImport)} className="cursor-pointer py-2 px-3 rounded-lg focus:bg-[var(--color-kb-panel-hover)] focus:text-[var(--color-kb-text-heading)]">
             <div className="flex items-center w-full">
                <MessageCircle size={16} className="mr-3 text-[#07C160]" /> 
                <span className="font-medium text-[13px] text-[var(--color-kb-text)]">{t('fromChatDialog', { defaultValue: '聊天对话' })}</span>
             </div>
           </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={(e) => handleOpenModal(e, setIsPersonalKbOpen)} className="cursor-pointer py-2 px-3 rounded-lg focus:bg-[var(--color-kb-panel-hover)] focus:text-[var(--color-kb-text-heading)]">
             <div className="flex items-center w-full">
                <Lightbulb size={16} className="mr-3 text-amber-500" /> 
                <span className="font-medium text-[13px] text-[var(--color-kb-text)]">{t('importedPersonalKb')}</span>
             </div>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={(e) => { handleOpenModal(e, setIsLinkModalOpen); setLinkUrl(''); }} className="cursor-pointer py-2 px-3 rounded-lg focus:bg-[var(--color-kb-panel-hover)] focus:text-[var(--color-kb-text-heading)]">
+          <DropdownMenuItem onSelect={(e) => {
+            if (e && e.preventDefault) e.preventDefault();
+            setIsAddMenuOpen(false);
+            setTimeout(() => {
+              setLinkUrl('');
+              setIsLinkModalOpen(true);
+            }, 150);
+          }} className="cursor-pointer py-2 px-3 rounded-lg focus:bg-[var(--color-kb-panel-hover)] focus:text-[var(--color-kb-text-heading)]">
             <div className="flex items-center w-full">
                <Link size={16} className="mr-3 text-indigo-500" /> 
                <span className="font-medium text-[13px] text-[var(--color-kb-text)]">{t('webLink')}</span>
@@ -143,12 +174,14 @@ export function KnowledgeFileAddMenu({
                <span className="font-medium text-[13px] text-[var(--color-kb-text)]">{t('cloudDrive')}</span>
             </div>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={(e) => handleOpenModal(e, setIsNotesAppOpen)} className="cursor-pointer py-2 px-3 rounded-lg focus:bg-[var(--color-kb-panel-hover)] focus:text-[var(--color-kb-text-heading)]">
+          {featureFlags.notesImport ? (
+          <DropdownMenuItem onSelect={(e) => handleOpenOfflineImportModal(e, setIsNotesAppOpen, '备忘录导入', featureFlags.notesImport)} className="cursor-pointer py-2 px-3 rounded-lg focus:bg-[var(--color-kb-panel-hover)] focus:text-[var(--color-kb-text-heading)]">
             <div className="flex items-center w-full">
                <Notebook size={16} className="mr-3 text-purple-500" /> 
                <span className="font-medium text-[13px] text-[var(--color-kb-text)]">{t('notesApp')}</span>
             </div>
           </DropdownMenuItem>
+          ) : null}
         </DropdownMenuGroup>
         
       </DropdownMenuContent>

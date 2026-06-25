@@ -6,27 +6,37 @@ use sdkwork_knowledgebase_contract::{
     },
     CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest,
     CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceRequest,
-    CreateKnowledgeUploadSessionRequest, IngestionJob, KnowledgeAgentBinding,
-    KnowledgeAgentBindingList, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
-    KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest,
-    KnowledgeBrowserPage, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument,
+    CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
+    KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
+    KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile,
+    KnowledgeAgentProfileRequest, KnowledgeBrowserPage, KnowledgeContextPack,
+    KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent,
     KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList,
-    KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeIngestRequest,
+    KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest,
+    KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult,
+    KnowledgeIngestRequest, KnowledgeMarketCatalogList, KnowledgeMarketSubscriptionRequest,
+    KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult,
     KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest,
-    KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeUploadSession, ListKnowledgeBrowserRequest,
-    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary,
-    OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest,
-    OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest,
-    OkfQueryRequest, OkfQueryResult, GrantKnowledgeSpaceMemberRequest, KnowledgeSpaceMemberList,
-    KnowledgeSpaceMemberSubjectType, UpdateKnowledgeSpaceRequest,
+    KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest,
+    KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceMemberList,
+    KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, KnowledgeWechatAppletList,
+    KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest,
+    KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
+    KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
+    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
+    OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest,
+    OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
+    OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult,
+    UpdateKnowledgeSpaceRequest,
 };
 use std::sync::Arc;
 
 use crate::{
     ApiResult, KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext,
-    KnowledgeBrowserApi, KnowledgeContextBindingAppService, KnowledgeDocumentAppService,
-    KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeOkfAppService,
-    KnowledgeRetrievalAppService, KnowledgeSpaceAppService, KnowledgeUploadSessionAppService,
+    KnowledgeBrowserApi, KnowledgeCommerceAppService, KnowledgeContextBindingAppService,
+    KnowledgeDocumentAppService, KnowledgeDriveImportAppService, KnowledgeGitImportAppService,
+    KnowledgeIngestAppService, KnowledgeOkfAppService, KnowledgeRetrievalAppService,
+    KnowledgeSpaceAppService, KnowledgeUploadSessionAppService, KnowledgeWechatAppService,
 };
 
 pub struct BrowserOnlyAppApi {
@@ -64,9 +74,10 @@ impl RetrievalOnlyAppApi {
 impl KnowledgeAppApi for RetrievalOnlyAppApi {
     async fn create_retrieval(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        self.retrieval.retrieve(request).await
+        self.retrieval.retrieve(context, request).await
     }
 
     async fn retrieve_retrieval(
@@ -81,9 +92,10 @@ impl KnowledgeAppApi for RetrievalOnlyAppApi {
 
     async fn create_context_pack(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack> {
-        self.retrieval.create_context_pack(request).await
+        self.retrieval.create_context_pack(context, request).await
     }
 }
 
@@ -101,75 +113,101 @@ impl AgentOnlyAppApi {
 impl KnowledgeAppApi for AgentOnlyAppApi {
     async fn create_agent_profile(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.create_profile(request).await
+        self.agent.create_profile(context, request).await
     }
 
-    async fn retrieve_agent_profile(&self, profile_id: u64) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.retrieve_profile(profile_id).await
+    async fn retrieve_agent_profile(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<KnowledgeAgentProfile> {
+        self.agent.retrieve_profile(context, profile_id).await
     }
 
     async fn update_agent_profile(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.update_profile(profile_id, request).await
+        self.agent
+            .update_profile(context, profile_id, request)
+            .await
     }
 
-    async fn delete_agent_profile(&self, profile_id: u64) -> ApiResult<()> {
-        self.agent.delete_profile(profile_id).await
+    async fn delete_agent_profile(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<()> {
+        self.agent.delete_profile(context, profile_id).await
     }
 
     async fn list_agent_profile_bindings(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
     ) -> ApiResult<KnowledgeAgentBindingList> {
-        self.agent.list_bindings(profile_id).await
+        self.agent.list_bindings(context, profile_id).await
     }
 
     async fn create_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
-        self.agent.create_binding(profile_id, request).await
+        self.agent
+            .create_binding(context, profile_id, request)
+            .await
     }
 
     async fn update_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         binding_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
         self.agent
-            .update_binding(profile_id, binding_id, request)
+            .update_binding(context, profile_id, binding_id, request)
             .await
     }
 
     async fn delete_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         binding_id: u64,
     ) -> ApiResult<()> {
-        self.agent.delete_binding(profile_id, binding_id).await
+        self.agent
+            .delete_binding(context, profile_id, binding_id)
+            .await
     }
 
     async fn create_agent_profile_retrieval_preview(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        self.agent.preview_retrieval(profile_id, request).await
+        self.agent
+            .preview_retrieval(context, profile_id, request)
+            .await
     }
 
     async fn create_agent_chat(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
-        self.agent.create_agent_chat(profile_id, request).await
+        self.agent
+            .create_agent_chat(context, profile_id, request)
+            .await
     }
 }
 
@@ -191,9 +229,10 @@ impl AgentAndRetrievalAppApi {
 impl KnowledgeAppApi for AgentAndRetrievalAppApi {
     async fn create_retrieval(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        self.retrieval.retrieve(request).await
+        self.retrieval.retrieve(context, request).await
     }
 
     async fn retrieve_retrieval(
@@ -208,88 +247,116 @@ impl KnowledgeAppApi for AgentAndRetrievalAppApi {
 
     async fn create_context_pack(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack> {
-        self.retrieval.create_context_pack(request).await
+        self.retrieval.create_context_pack(context, request).await
     }
 
     async fn create_agent_profile(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.create_profile(request).await
+        self.agent.create_profile(context, request).await
     }
 
-    async fn retrieve_agent_profile(&self, profile_id: u64) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.retrieve_profile(profile_id).await
+    async fn retrieve_agent_profile(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<KnowledgeAgentProfile> {
+        self.agent.retrieve_profile(context, profile_id).await
     }
 
     async fn update_agent_profile(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.update_profile(profile_id, request).await
+        self.agent
+            .update_profile(context, profile_id, request)
+            .await
     }
 
-    async fn delete_agent_profile(&self, profile_id: u64) -> ApiResult<()> {
-        self.agent.delete_profile(profile_id).await
+    async fn delete_agent_profile(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<()> {
+        self.agent.delete_profile(context, profile_id).await
     }
 
     async fn list_agent_profile_bindings(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
     ) -> ApiResult<KnowledgeAgentBindingList> {
-        self.agent.list_bindings(profile_id).await
+        self.agent.list_bindings(context, profile_id).await
     }
 
     async fn create_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
-        self.agent.create_binding(profile_id, request).await
+        self.agent
+            .create_binding(context, profile_id, request)
+            .await
     }
 
     async fn update_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         binding_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
         self.agent
-            .update_binding(profile_id, binding_id, request)
+            .update_binding(context, profile_id, binding_id, request)
             .await
     }
 
     async fn delete_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         binding_id: u64,
     ) -> ApiResult<()> {
-        self.agent.delete_binding(profile_id, binding_id).await
+        self.agent
+            .delete_binding(context, profile_id, binding_id)
+            .await
     }
 
     async fn create_agent_profile_retrieval_preview(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        self.agent.preview_retrieval(profile_id, request).await
+        self.agent
+            .preview_retrieval(context, profile_id, request)
+            .await
     }
 
     async fn create_agent_chat(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
-        self.agent.create_agent_chat(profile_id, request).await
+        self.agent
+            .create_agent_chat(context, profile_id, request)
+            .await
     }
 }
 
 pub struct FullAppApi {
     space: Arc<dyn KnowledgeSpaceAppService>,
     drive_import: Arc<dyn KnowledgeDriveImportAppService>,
+    git_import: Arc<dyn KnowledgeGitImportAppService>,
     ingest: Arc<dyn KnowledgeIngestAppService>,
     document: Arc<dyn KnowledgeDocumentAppService>,
     okf: Arc<dyn KnowledgeOkfAppService>,
@@ -298,6 +365,8 @@ pub struct FullAppApi {
     agent: Arc<dyn KnowledgeAgentAppService>,
     context_binding: Arc<dyn KnowledgeContextBindingAppService>,
     upload_session: Arc<dyn KnowledgeUploadSessionAppService>,
+    wechat: Arc<dyn KnowledgeWechatAppService>,
+    commerce: Arc<dyn KnowledgeCommerceAppService>,
 }
 
 impl FullAppApi {
@@ -305,6 +374,7 @@ impl FullAppApi {
     pub fn new(
         space: Arc<dyn KnowledgeSpaceAppService>,
         drive_import: Arc<dyn KnowledgeDriveImportAppService>,
+        git_import: Arc<dyn KnowledgeGitImportAppService>,
         ingest: Arc<dyn KnowledgeIngestAppService>,
         document: Arc<dyn KnowledgeDocumentAppService>,
         okf: Arc<dyn KnowledgeOkfAppService>,
@@ -313,10 +383,13 @@ impl FullAppApi {
         agent: Arc<dyn KnowledgeAgentAppService>,
         context_binding: Arc<dyn KnowledgeContextBindingAppService>,
         upload_session: Arc<dyn KnowledgeUploadSessionAppService>,
+        wechat: Arc<dyn KnowledgeWechatAppService>,
+        commerce: Arc<dyn KnowledgeCommerceAppService>,
     ) -> Self {
         Self {
             space,
             drive_import,
+            git_import,
             ingest,
             document,
             okf,
@@ -325,6 +398,8 @@ impl FullAppApi {
             agent,
             context_binding,
             upload_session,
+            wechat,
+            commerce,
         }
     }
 }
@@ -368,8 +443,12 @@ impl KnowledgeAppApi for FullAppApi {
         &self,
         context: KnowledgeAppRequestContext,
         space_id: u64,
+        cursor: Option<String>,
+        page_size: Option<u32>,
     ) -> ApiResult<KnowledgeSpaceMemberList> {
-        self.space.list_space_members(context, space_id).await
+        self.space
+            .list_space_members(context, space_id, cursor, page_size)
+            .await
     }
 
     async fn grant_space_member(
@@ -378,7 +457,9 @@ impl KnowledgeAppApi for FullAppApi {
         space_id: u64,
         request: GrantKnowledgeSpaceMemberRequest,
     ) -> ApiResult<()> {
-        self.space.grant_space_member(context, space_id, request).await
+        self.space
+            .grant_space_member(context, space_id, request)
+            .await
     }
 
     async fn revoke_space_member(
@@ -398,7 +479,25 @@ impl KnowledgeAppApi for FullAppApi {
         context: KnowledgeAppRequestContext,
         request: KnowledgeDriveImportRequest,
     ) -> ApiResult<KnowledgeDriveImportResult> {
-        self.drive_import.import_drive_object(context, request).await
+        self.drive_import
+            .import_drive_object(context, request)
+            .await
+    }
+
+    async fn create_git_import(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeGitImportRequest,
+    ) -> ApiResult<KnowledgeGitImportResult> {
+        self.git_import.create_git_import(context, request).await
+    }
+
+    async fn create_git_sync(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeGitSyncRequest,
+    ) -> ApiResult<KnowledgeGitSyncResult> {
+        self.git_import.create_git_sync(context, request).await
     }
 
     async fn create_ingest(
@@ -481,26 +580,48 @@ impl KnowledgeAppApi for FullAppApi {
             .await
     }
 
-    async fn list_okf_concepts(&self, space_id: u64) -> ApiResult<OkfConceptSummaryList> {
-        self.okf.list_okf_concepts(space_id).await
+    async fn retrieve_document_content(
+        &self,
+        context: KnowledgeAppRequestContext,
+        document_id: u64,
+    ) -> ApiResult<KnowledgeDocumentContent> {
+        self.document
+            .retrieve_document_content(context, document_id)
+            .await
     }
 
-    async fn retrieve_okf_concept(&self, concept_row_id: u64) -> ApiResult<OkfConceptSummary> {
-        self.okf.retrieve_okf_concept(concept_row_id).await
+    async fn list_okf_concepts(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<OkfConceptSummaryList> {
+        self.okf.list_okf_concepts(context, space_id).await
+    }
+
+    async fn retrieve_okf_concept(
+        &self,
+        context: KnowledgeAppRequestContext,
+        concept_row_id: u64,
+    ) -> ApiResult<OkfConceptSummary> {
+        self.okf.retrieve_okf_concept(context, concept_row_id).await
     }
 
     async fn list_okf_concept_revisions(
         &self,
+        context: KnowledgeAppRequestContext,
         concept_row_id: u64,
     ) -> ApiResult<KnowledgeOkfConceptRevisionList> {
-        self.okf.list_okf_concept_revisions(concept_row_id).await
+        self.okf
+            .list_okf_concept_revisions(context, concept_row_id)
+            .await
     }
 
     async fn upsert_okf_concept(
         &self,
+        context: KnowledgeAppRequestContext,
         request: OkfConceptUpsertRequest,
     ) -> ApiResult<OkfConceptSummary> {
-        self.okf.upsert_okf_concept(request).await
+        self.okf.upsert_okf_concept(context, request).await
     }
 
     async fn delete_okf_concept(
@@ -511,57 +632,87 @@ impl KnowledgeAppApi for FullAppApi {
         self.okf.delete_okf_concept(context, concept_row_id).await
     }
 
-    async fn retrieve_okf_index(&self) -> ApiResult<OkfIndexDocument> {
-        self.okf.retrieve_okf_index().await
+    async fn retrieve_okf_index(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<OkfIndexDocument> {
+        self.okf.retrieve_okf_index(context, space_id).await
     }
 
-    async fn retrieve_okf_log(&self) -> ApiResult<OkfLogDocument> {
-        self.okf.retrieve_okf_log().await
+    async fn retrieve_okf_log(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<OkfLogDocument> {
+        self.okf.retrieve_okf_log(context, space_id).await
     }
 
-    async fn retrieve_okf_schema(&self) -> ApiResult<OkfProfileDocument> {
-        self.okf.retrieve_okf_schema().await
+    async fn retrieve_okf_schema(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<OkfProfileDocument> {
+        self.okf.retrieve_okf_schema(context, space_id).await
     }
 
-    async fn create_okf_query(&self, request: OkfQueryRequest) -> ApiResult<OkfQueryResult> {
-        self.okf.create_okf_query(request).await
+    async fn create_okf_query(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: OkfQueryRequest,
+    ) -> ApiResult<OkfQueryResult> {
+        self.okf.create_okf_query(context, request).await
     }
 
     async fn file_okf_query_answer(
         &self,
+        context: KnowledgeAppRequestContext,
         query_id: u64,
         request: OkfFileAnswerRequest,
     ) -> ApiResult<OkfQueryResult> {
-        self.okf.file_okf_query_answer(query_id, request).await
+        self.okf
+            .file_okf_query_answer(context, query_id, request)
+            .await
     }
 
     async fn create_okf_context_pack(
         &self,
+        context: KnowledgeAppRequestContext,
         request: OkfContextPackRequest,
     ) -> ApiResult<KnowledgeOkfBundleFile> {
-        self.okf.create_okf_context_pack(request).await
+        self.okf.create_okf_context_pack(context, request).await
     }
 
     async fn create_okf_export(
         &self,
+        context: KnowledgeAppRequestContext,
         request: OkfBundleExportRequest,
     ) -> ApiResult<KnowledgeOkfBundleFile> {
-        self.okf.create_okf_export(request).await
+        self.okf.create_okf_export(context, request).await
     }
 
-    async fn retrieve_okf_export(&self, export_id: u64) -> ApiResult<KnowledgeOkfBundleFile> {
-        self.okf.retrieve_okf_export(export_id).await
+    async fn retrieve_okf_export(
+        &self,
+        context: KnowledgeAppRequestContext,
+        export_id: u64,
+    ) -> ApiResult<KnowledgeOkfBundleFile> {
+        self.okf.retrieve_okf_export(context, export_id).await
     }
 
     async fn create_okf_import(
         &self,
+        context: KnowledgeAppRequestContext,
         request: OkfBundleImportRequest,
     ) -> ApiResult<OkfBundleImportResult> {
-        self.okf.create_okf_import(request).await
+        self.okf.create_okf_import(context, request).await
     }
 
-    async fn create_okf_lint_run(&self, request: OkfQualityRunRequest) -> ApiResult<OkfQualityRun> {
-        self.okf.create_okf_lint_run(request).await
+    async fn create_okf_lint_run(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: OkfQualityRunRequest,
+    ) -> ApiResult<OkfQualityRun> {
+        self.okf.create_okf_lint_run(context, request).await
     }
 
     async fn list_browser(
@@ -574,9 +725,10 @@ impl KnowledgeAppApi for FullAppApi {
 
     async fn create_retrieval(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        self.retrieval.retrieve(request).await
+        self.retrieval.retrieve(context, request).await
     }
 
     async fn retrieve_retrieval(
@@ -591,82 +743,109 @@ impl KnowledgeAppApi for FullAppApi {
 
     async fn create_context_pack(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack> {
-        self.retrieval.create_context_pack(request).await
+        self.retrieval.create_context_pack(context, request).await
     }
 
     async fn create_agent_profile(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.create_profile(request).await
+        self.agent.create_profile(context, request).await
     }
 
-    async fn retrieve_agent_profile(&self, profile_id: u64) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.retrieve_profile(profile_id).await
+    async fn retrieve_agent_profile(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<KnowledgeAgentProfile> {
+        self.agent.retrieve_profile(context, profile_id).await
     }
 
     async fn update_agent_profile(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.update_profile(profile_id, request).await
+        self.agent
+            .update_profile(context, profile_id, request)
+            .await
     }
 
-    async fn delete_agent_profile(&self, profile_id: u64) -> ApiResult<()> {
-        self.agent.delete_profile(profile_id).await
+    async fn delete_agent_profile(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<()> {
+        self.agent.delete_profile(context, profile_id).await
     }
 
     async fn list_agent_profile_bindings(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
     ) -> ApiResult<KnowledgeAgentBindingList> {
-        self.agent.list_bindings(profile_id).await
+        self.agent.list_bindings(context, profile_id).await
     }
 
     async fn create_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
-        self.agent.create_binding(profile_id, request).await
+        self.agent
+            .create_binding(context, profile_id, request)
+            .await
     }
 
     async fn update_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         binding_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
         self.agent
-            .update_binding(profile_id, binding_id, request)
+            .update_binding(context, profile_id, binding_id, request)
             .await
     }
 
     async fn delete_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         binding_id: u64,
     ) -> ApiResult<()> {
-        self.agent.delete_binding(profile_id, binding_id).await
+        self.agent
+            .delete_binding(context, profile_id, binding_id)
+            .await
     }
 
     async fn create_agent_profile_retrieval_preview(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        self.agent.preview_retrieval(profile_id, request).await
+        self.agent
+            .preview_retrieval(context, profile_id, request)
+            .await
     }
 
     async fn create_agent_chat(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
-        self.agent.create_agent_chat(profile_id, request).await
+        self.agent
+            .create_agent_chat(context, profile_id, request)
+            .await
     }
 
     async fn list_space_context_bindings(
@@ -736,5 +915,106 @@ impl KnowledgeAppApi for FullAppApi {
         self.upload_session
             .complete_upload_session(session_id, request)
             .await
+    }
+
+    async fn list_wechat_official_accounts(
+        &self,
+        context: KnowledgeAppRequestContext,
+    ) -> ApiResult<KnowledgeWechatOfficialAccountList> {
+        self.wechat.list_official_accounts(context).await
+    }
+
+    async fn replace_wechat_official_accounts(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeWechatReplaceOfficialAccountsRequest,
+    ) -> ApiResult<KnowledgeWechatOfficialAccountList> {
+        self.wechat
+            .replace_official_accounts(context, request)
+            .await
+    }
+
+    async fn list_wechat_applets(
+        &self,
+        context: KnowledgeAppRequestContext,
+    ) -> ApiResult<KnowledgeWechatAppletList> {
+        self.wechat.list_applets(context).await
+    }
+
+    async fn replace_wechat_applets(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeWechatReplaceAppletsRequest,
+    ) -> ApiResult<KnowledgeWechatAppletList> {
+        self.wechat.replace_applets(context, request).await
+    }
+
+    async fn publish_wechat_articles(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeWechatArticlesPublishRequest,
+    ) -> ApiResult<KnowledgeWechatOperationResult> {
+        self.wechat.publish_articles(context, request).await
+    }
+
+    async fn preview_wechat_articles(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeWechatArticlesPreviewRequest,
+    ) -> ApiResult<KnowledgeWechatOperationResult> {
+        self.wechat.preview_articles(context, request).await
+    }
+
+    async fn list_market_listings(
+        &self,
+        context: KnowledgeAppRequestContext,
+    ) -> ApiResult<KnowledgeMarketCatalogList> {
+        self.commerce.list_market_listings(context).await
+    }
+
+    async fn create_market_subscription(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeMarketSubscriptionRequest,
+    ) -> ApiResult<KnowledgeMarketSubscriptionResult> {
+        self.commerce
+            .create_market_subscription(context, request)
+            .await
+    }
+
+    async fn delete_market_subscription(
+        &self,
+        context: KnowledgeAppRequestContext,
+        listing_id: u64,
+    ) -> ApiResult<KnowledgeMarketSubscriptionResult> {
+        self.commerce
+            .delete_market_subscription(context, listing_id)
+            .await
+    }
+
+    async fn create_site_deployment(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeSiteDeploymentRequest,
+    ) -> ApiResult<KnowledgeSiteDeploymentResult> {
+        self.commerce.create_site_deployment(context, request).await
+    }
+
+    async fn retrieve_site_deployment_preview(
+        &self,
+        context: KnowledgeAppRequestContext,
+        deployment_id: u64,
+    ) -> ApiResult<KnowledgeSiteDeploymentPreview> {
+        self.commerce
+            .retrieve_site_deployment_preview(context, deployment_id)
+            .await
+    }
+
+    async fn create_media_task(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: KnowledgeMediaTaskRequest,
+    ) -> ApiResult<KnowledgeMediaTaskResult> {
+        self.commerce.create_media_task(context, request).await
     }
 }

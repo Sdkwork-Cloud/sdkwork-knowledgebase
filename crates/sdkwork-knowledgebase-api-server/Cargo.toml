@@ -9,8 +9,7 @@ axum.workspace = true
 sdkwork-router-knowledgebase-app-api = { path = "../sdkwork-router-knowledgebase-app-api" }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-sdkwork-knowledgebase-observability = { path = "../sdkwork-knowledgebase-observability" }
+sdkwork-knowledgebase-observability = { path = "../sdkwork-knowledgebase-observability", features = ["otel"] }
 
 [[bin]]
 name = "sdkwork-knowledgebase-app-api"

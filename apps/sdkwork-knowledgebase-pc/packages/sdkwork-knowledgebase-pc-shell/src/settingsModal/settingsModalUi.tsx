@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { toast } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src';
+import { toast } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase';
 
 import { SETTINGS_APP_DISPLAY_NAME } from '../settingsModalConstants';
 

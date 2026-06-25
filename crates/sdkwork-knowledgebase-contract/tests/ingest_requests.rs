@@ -7,6 +7,7 @@ fn ingest_request_serializes_markdown_payload_without_storage_locator_leaks() {
         title: "API payload note".to_string(),
         payload_markdown: "# API Note\n\nImportant source text.".to_string(),
         idempotency_key: "api-note-1".to_string(),
+        source_url: None,
     };
 
     let json = serde_json::to_value(request).unwrap();
@@ -18,6 +19,22 @@ fn ingest_request_serializes_markdown_payload_without_storage_locator_leaks() {
     );
     assert!(json.get("driveObjectKey").is_none());
     assert!(json.get("presignedUrl").is_none());
+}
+
+#[test]
+fn ingest_request_serializes_source_url_for_server_side_fetch() {
+    let request = KnowledgeIngestRequest {
+        space_id: 7,
+        title: "Web article".to_string(),
+        payload_markdown: String::new(),
+        source_url: Some("https://example.com/article".to_string()),
+        idempotency_key: "web-link-1".to_string(),
+    };
+
+    let json = serde_json::to_value(request).unwrap();
+
+    assert_eq!(json["sourceUrl"], "https://example.com/article");
+    assert_eq!(json["payloadMarkdown"], "");
 }
 
 #[test]

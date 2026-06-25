@@ -64,7 +64,8 @@ foreach ($directory in $forbiddenSdkFamilyDirectories) {
 
 $requiredOpenApiSpecs = @(
     "sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json",
-    "sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
+    "sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json",
+    "sdks/sdkwork-knowledgebase-sdk/openapi/knowledgebase-open-api.openapi.json"
 )
 
 foreach ($specPath in $requiredOpenApiSpecs) {
@@ -75,7 +76,8 @@ foreach ($specPath in $requiredOpenApiSpecs) {
 
 $requiredGeneratedSdkRoots = @(
     "sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
-    "sdks/sdkwork-knowledgebase-backend-sdk/sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi"
+    "sdks/sdkwork-knowledgebase-backend-sdk/sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi",
+    "sdks/sdkwork-knowledgebase-sdk/sdkwork-knowledgebase-sdk-typescript/generated/server-openapi"
 )
 
 $requiredGeneratedSdkFiles = @(
@@ -125,8 +127,14 @@ foreach ($sdkRoot in $requiredGeneratedSdkRoots) {
 }
 
 Invoke-Checked node tools/patch-route-manifest-extensions.mjs
+Invoke-Checked node tools/patch-knowledgebase-app-api-extensions.mjs
+Invoke-Checked node tools/sync-route-manifest-json.mjs
 Invoke-Checked node tools/sync-context-binding-openapi.mjs
 Invoke-Checked node tools/sync-upload-session-openapi.mjs
+Invoke-Checked node tools/sync-openapi-operation-metadata.mjs
+Invoke-Checked node tools/apply-knowledgebase-openapi-auth-mode.mjs
+Invoke-Checked node tools/apply-knowledgebase-openapi-permissions.mjs
+Invoke-Checked node tools/materialize-apis-authority.mjs
 Invoke-Checked node tools/materialize-apis-authority.mjs --check
 Invoke-Checked node sdks/standardize-knowledgebase-sdk-family.mjs --check
 Invoke-Checked node sdks/test/verify-sdk-ownership-boundaries.test.mjs
@@ -147,6 +155,10 @@ foreach ($sdkRoot in $requiredGeneratedSdkRoots) {
     foreach ($artifactName in @("node_modules", "dist", "package-lock.json")) {
         $artifactPath = Join-Path $sdkRoot $artifactName
         if (Test-Path $artifactPath) {
+            if ($artifactName -eq "node_modules") {
+                Remove-Item -Recurse -Force $artifactPath
+                continue
+            }
             $generatedSdkBuildArtifacts += $artifactPath
         }
     }
@@ -207,6 +219,8 @@ $packages = @(
     "sdkwork-knowledgebase-memory",
     "sdkwork-router-knowledgebase-app-api",
     "sdkwork-router-knowledgebase-backend-api",
+    "sdkwork-router-knowledgebase-open-api",
+    "sdkwork-knowledgebase-worker",
     "sdkwork-intelligence-knowledgebase-service",
     "sdkwork-intelligence-knowledgebase-repository-sqlx",
     "sdkwork-knowledgebase-test-support"

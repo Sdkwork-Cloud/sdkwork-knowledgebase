@@ -1,16 +1,18 @@
-use crate::ports::{
-    knowledge_chunk_store::{CreateKnowledgeChunkRecord, KnowledgeChunkStore},
-    knowledge_document_store::{
-        CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
-    },
-    knowledge_document_version_store::{
-        CreateKnowledgeDocumentVersionRecord, KnowledgeDocumentVersionStore,
-    },
-    knowledge_drive_object_ref_store::{
-        CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore,
-        MANAGED_DRIVE_ACCESS_MODE, SDKWORK_DRIVE_PROVIDER_KIND,
-    },
-    knowledge_drive_storage::KnowledgeObjectRef,
+use crate::ingest::payload_limits::{
+    split_oversized_paragraph, validate_markdown_payload, PayloadLimitError, MAX_MARKDOWN_CHUNKS,
+    MAX_MARKDOWN_CHUNK_CHARS,
+};
+use crate::ports::knowledge_chunk_store::CreateKnowledgeChunkRecord;
+use crate::ports::knowledge_document_store::{
+    CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope,
+};
+use crate::ports::knowledge_document_version_store::CreateKnowledgeDocumentVersionRecord;
+use crate::ports::knowledge_drive_object_ref_store::managed_drive_object_ref_record;
+use crate::ports::knowledge_drive_storage::KnowledgeObjectRef;
+use crate::ports::knowledge_ingestion_job_store::DriveImportJobLinkage;
+use crate::ports::markdown_index_metadata_store::{
+    MarkdownIndexMetadataStore, MarkdownIndexMetadataStoreError, MarkdownIndexSourceBinding,
+    PrepareMarkdownIndexMetadataRecord,
 };
 use sdkwork_utils_rust::{is_blank, sha256_hash};
 use thiserror::Error;
@@ -21,138 +23,128 @@ pub struct MarkdownIndexResult {
     pub chunk_count: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedMarkdownIndex {
+    pub document_version_id: u64,
+    pub chunk_records: Vec<CreateKnowledgeChunkRecord>,
+    pub ingest_linkage: Option<DriveImportJobLinkage>,
+}
+
 pub struct KnowledgeApiMarkdownIndexService<'a> {
-    documents: &'a dyn KnowledgeDocumentStore,
-    versions: &'a dyn KnowledgeDocumentVersionStore,
-    object_refs: &'a dyn KnowledgeDriveObjectRefStore,
-    chunks: &'a dyn KnowledgeChunkStore,
+    metadata: &'a dyn MarkdownIndexMetadataStore,
 }
 
 impl<'a> KnowledgeApiMarkdownIndexService<'a> {
-    pub fn new(
-        documents: &'a dyn KnowledgeDocumentStore,
-        versions: &'a dyn KnowledgeDocumentVersionStore,
-        object_refs: &'a dyn KnowledgeDriveObjectRefStore,
-        chunks: &'a dyn KnowledgeChunkStore,
-    ) -> Self {
-        Self {
-            documents,
-            versions,
-            object_refs,
-            chunks,
-        }
+    pub fn new(metadata: &'a dyn MarkdownIndexMetadataStore) -> Self {
+        Self { metadata }
     }
 
-    pub async fn index_payload_markdown(
+    pub async fn prepare_payload_markdown_index(
         &self,
         space_id: u64,
-        source_id: u64,
+        source: MarkdownIndexSourceBinding,
         title: &str,
         payload_markdown: &str,
         payload_object_ref: &KnowledgeObjectRef,
-    ) -> Result<MarkdownIndexResult, KnowledgeApiMarkdownIndexServiceError> {
+        drive_space_id: Option<&str>,
+    ) -> Result<PreparedMarkdownIndex, KnowledgeApiMarkdownIndexServiceError> {
         if space_id == 0 {
             return Err(KnowledgeApiMarkdownIndexServiceError::InvalidRequest(
                 "space_id is required".to_string(),
             ));
         }
-        if source_id == 0 {
+        if is_blank(Some(title)) {
             return Err(KnowledgeApiMarkdownIndexServiceError::InvalidRequest(
-                "source_id is required".to_string(),
+                "title is required".to_string(),
             ));
         }
 
-        let object_ref = self
-            .object_refs
-            .create_or_get_object_ref(CreateKnowledgeDriveObjectRefRecord {
-                space_id,
-                drive_space_id: None,
-                drive_node_id: None,
-                logical_path: Some(payload_object_ref.logical_path.clone()),
-                drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
-                drive_storage_provider_id: payload_object_ref.storage_provider_id.clone(),
-                drive_bucket: payload_object_ref.bucket.clone(),
-                drive_object_key: payload_object_ref.object_key.clone(),
-                drive_object_version: payload_object_ref.version_id.clone(),
-                drive_etag: payload_object_ref.etag.clone(),
-                content_type: Some(payload_object_ref.content_type.clone()),
-                size_bytes: payload_object_ref.size_bytes,
-                checksum_sha256_hex: payload_object_ref.checksum_sha256_hex.clone(),
-                object_role: payload_object_ref.object_role.clone(),
-                access_mode: MANAGED_DRIVE_ACCESS_MODE.to_string(),
+        let prepared_metadata = self
+            .metadata
+            .create_or_prepare_markdown_index_metadata(PrepareMarkdownIndexMetadataRecord {
+                source,
+                object_ref: managed_drive_object_ref_record(
+                    space_id,
+                    payload_object_ref,
+                    drive_space_id,
+                    None,
+                ),
+                document: CreateKnowledgeDocumentRecord {
+                    space_id,
+                    collection_id: 0,
+                    source_id: None,
+                    identity_scope: KnowledgeDocumentIdentityScope::SourceOnly,
+                    original_file_drive_node_id: None,
+                    title: title.to_string(),
+                    mime_type: Some("text/markdown".to_string()),
+                    language: None,
+                },
+                version: CreateKnowledgeDocumentVersionRecord {
+                    document_id: 0,
+                    version_no: 1,
+                    original_object_ref_id: 0,
+                    checksum_sha256_hex: payload_object_ref.checksum_sha256_hex.clone(),
+                    size_bytes: payload_object_ref.size_bytes,
+                    mime_type: Some("text/markdown".to_string()),
+                },
             })
-            .await
-            .map_err(KnowledgeApiMarkdownIndexServiceError::ObjectRef)?;
+            .await?;
 
-        let document = self
-            .documents
-            .create_or_get_document(CreateKnowledgeDocumentRecord {
-                space_id,
-                collection_id: 0,
-                source_id: Some(source_id),
-                identity_scope: KnowledgeDocumentIdentityScope::SourceOnly,
-                original_file_drive_node_id: None,
-                title: title.to_string(),
-                mime_type: Some("text/markdown".to_string()),
-                language: None,
-            })
-            .await
-            .map_err(KnowledgeApiMarkdownIndexServiceError::Document)?;
-
-        let version = self
-            .versions
-            .create_or_get_document_version(CreateKnowledgeDocumentVersionRecord {
-                document_id: document.id,
-                version_no: 1,
-                original_object_ref_id: object_ref.id,
-                checksum_sha256_hex: payload_object_ref.checksum_sha256_hex.clone(),
-                size_bytes: payload_object_ref.size_bytes,
-                mime_type: Some("text/markdown".to_string()),
-            })
-            .await
-            .map_err(KnowledgeApiMarkdownIndexServiceError::Version)?;
-
-        let chunk_records =
-            split_markdown_chunks(space_id, document.id, version.id, payload_markdown);
-        let indexed = self
-            .chunks
-            .replace_version_chunks(version.id, chunk_records)
-            .await
-            .map_err(KnowledgeApiMarkdownIndexServiceError::Chunk)?;
-        Ok(MarkdownIndexResult {
-            document_version_id: version.id,
-            chunk_count: indexed,
+        let chunk_records = split_markdown_chunks(
+            space_id,
+            prepared_metadata.document.id,
+            prepared_metadata.version.id,
+            payload_markdown,
+        );
+        Ok(PreparedMarkdownIndex {
+            document_version_id: prepared_metadata.version.id,
+            chunk_records,
+            ingest_linkage: Some(DriveImportJobLinkage {
+                source_id: prepared_metadata.source_id,
+                document_id: prepared_metadata.document.id,
+                document_version_id: prepared_metadata.version.id,
+                original_object_ref: prepared_metadata.object_ref,
+            }),
         })
     }
 
-    pub async fn index_existing_document_version(
+    pub async fn prepare_existing_document_version_index(
         &self,
         space_id: u64,
         document_id: u64,
         document_version_id: u64,
         payload_markdown: &str,
-    ) -> Result<MarkdownIndexResult, KnowledgeApiMarkdownIndexServiceError> {
+    ) -> Result<PreparedMarkdownIndex, KnowledgeApiMarkdownIndexServiceError> {
         if space_id == 0 || document_id == 0 || document_version_id == 0 {
             return Err(KnowledgeApiMarkdownIndexServiceError::InvalidRequest(
                 "space_id, document_id, and document_version_id are required".to_string(),
             ));
         }
+
         if is_blank(Some(payload_markdown)) {
             return Err(KnowledgeApiMarkdownIndexServiceError::InvalidRequest(
                 "payload content must not be empty".to_string(),
             ));
         }
+        validate_markdown_payload(payload_markdown).map_err(|error| match error {
+            PayloadLimitError::PayloadEmpty => {
+                KnowledgeApiMarkdownIndexServiceError::InvalidRequest(
+                    "payload content must not be empty".to_string(),
+                )
+            }
+            PayloadLimitError::PayloadTooLarge { max_bytes } => {
+                KnowledgeApiMarkdownIndexServiceError::InvalidRequest(format!(
+                    "payload content exceeds maximum allowed size of {max_bytes} bytes"
+                ))
+            }
+        })?;
 
         let chunk_records =
             split_markdown_chunks(space_id, document_id, document_version_id, payload_markdown);
-        let indexed = self
-            .chunks
-            .replace_version_chunks(document_version_id, chunk_records)
-            .await
-            .map_err(KnowledgeApiMarkdownIndexServiceError::Chunk)?;
-        Ok(MarkdownIndexResult {
+        Ok(PreparedMarkdownIndex {
             document_version_id,
-            chunk_count: indexed,
+            chunk_records,
+            ingest_linkage: None,
         })
     }
 }
@@ -163,26 +155,48 @@ pub fn split_markdown_chunks(
     document_version_id: u64,
     markdown: &str,
 ) -> Vec<CreateKnowledgeChunkRecord> {
-    markdown
+    let mut records = Vec::new();
+    for (index, segment) in markdown
         .split("\n\n")
         .map(str::trim)
         .filter(|segment| !segment.is_empty())
+        .flat_map(|segment| split_oversized_paragraph(segment, MAX_MARKDOWN_CHUNK_CHARS))
         .enumerate()
-        .map(|(index, content)| {
-            let content_hash = format!("sha256:{}", sha256_hash(content.as_bytes()));
-            CreateKnowledgeChunkRecord {
-                space_id,
-                collection_id: 0,
-                document_id,
-                document_version_id,
-                chunk_index: (index + 1) as u32,
-                content_text: content.to_string(),
-                content_hash,
-                token_count: Some(estimate_token_count(content)),
-                locator: Some(format!("paragraph:{}", index + 1)),
-            }
-        })
-        .collect()
+    {
+        if records.len() >= MAX_MARKDOWN_CHUNKS {
+            break;
+        }
+        let content_hash = format!("sha256:{}", sha256_hash(segment.as_bytes()));
+        records.push(CreateKnowledgeChunkRecord {
+            space_id,
+            collection_id: 0,
+            document_id,
+            document_version_id,
+            chunk_index: (index + 1) as u32,
+            content_text: segment.clone(),
+            content_hash,
+            token_count: Some(estimate_token_count(&segment)),
+            locator: Some(format!("paragraph:{}", index + 1)),
+        });
+    }
+
+    records
+}
+
+#[cfg(test)]
+mod split_markdown_chunk_tests {
+    use super::*;
+    use crate::ingest::payload_limits::MAX_MARKDOWN_CHUNKS;
+
+    #[test]
+    fn caps_chunk_count_for_large_documents() {
+        let markdown = (0..MAX_MARKDOWN_CHUNKS + 10)
+            .map(|index| format!("paragraph {index}"))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let chunks = split_markdown_chunks(1, 2, 3, &markdown);
+        assert_eq!(chunks.len(), MAX_MARKDOWN_CHUNKS);
+    }
 }
 
 fn estimate_token_count(content: &str) -> u32 {
@@ -194,15 +208,5 @@ pub enum KnowledgeApiMarkdownIndexServiceError {
     #[error("invalid markdown index request: {0}")]
     InvalidRequest(String),
     #[error(transparent)]
-    ObjectRef(
-        #[from] crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError,
-    ),
-    #[error(transparent)]
-    Document(#[from] crate::ports::knowledge_document_store::KnowledgeDocumentStoreError),
-    #[error(transparent)]
-    Version(
-        #[from] crate::ports::knowledge_document_version_store::KnowledgeDocumentVersionStoreError,
-    ),
-    #[error(transparent)]
-    Chunk(#[from] crate::ports::knowledge_chunk_store::KnowledgeChunkStoreError),
+    Metadata(#[from] MarkdownIndexMetadataStoreError),
 }

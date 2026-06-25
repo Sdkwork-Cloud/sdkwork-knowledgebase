@@ -1,4 +1,7 @@
-use crate::okf::concept_service::{OkfConceptService, OkfConceptServiceError};
+use crate::ingest::OKF_IMPORT_CONCURRENCY;
+use crate::okf::concept_service::{
+    OkfConceptService, OkfConceptServiceError, OkfPublishConceptOptions,
+};
 use crate::okf::document::{parse_okf_markdown, OkfConceptDocument};
 use crate::okf::storage::{read_managed_markdown, read_managed_object_bytes};
 use crate::okf::validator::{
@@ -61,71 +64,20 @@ impl<'a> OkfBundleImporterService<'a> {
             ));
         }
 
-        let mut publications = Vec::new();
         let mut skipped_files = Vec::new();
         let mut conformance_errors = Vec::new();
+        let mut publish_requests = Vec::new();
 
         for file in request.files {
-            let bundle_relative_path = file.bundle_relative_path.trim().replace('\\', "/");
-            if is_reserved_bundle_file(&bundle_relative_path) {
-                skipped_files.push(bundle_relative_path);
-                continue;
-            }
-            if let Err(error) = validate_catalog_concept_bundle_relative_path(&bundle_relative_path)
-            {
-                conformance_errors.push(format!("{bundle_relative_path}: {error}"));
-                continue;
-            }
-            let raw_concept_id = bundle_relative_path
-                .strip_suffix(".md")
-                .unwrap_or(bundle_relative_path.as_str());
-            let concept_id = match canonicalize_imported_concept_id(raw_concept_id) {
-                Ok(value) => value,
-                Err(error) => {
-                    conformance_errors.push(format!("{bundle_relative_path}: {error}"));
-                    continue;
+            match classify_bundle_file(file, request.space_id, &request.actor) {
+                BundleFileClassification::Skipped(path) => skipped_files.push(path),
+                BundleFileClassification::ConformanceViolation(message) => {
+                    conformance_errors.push(message)
                 }
-            };
-            let document = match parse_okf_markdown(&file.markdown) {
-                Ok(Some(document)) => document,
-                Ok(None) => {
-                    conformance_errors.push(format!(
-                        "{bundle_relative_path}: missing YAML frontmatter with type"
-                    ));
-                    continue;
+                BundleFileClassification::Ready(publish_request) => {
+                    publish_requests.push(*publish_request)
                 }
-                Err(error) => {
-                    conformance_errors.push(format!("{bundle_relative_path}: {error}"));
-                    continue;
-                }
-            };
-            if let Err(error) = validate_concept_document(&document, &concept_id) {
-                conformance_errors.push(format!("{concept_id}: {error}"));
-                continue;
             }
-
-            let title = document
-                .title
-                .clone()
-                .filter(|value| !is_blank(Some(value.as_str())))
-                .unwrap_or_else(|| title_from_concept_id(&concept_id));
-            let publish_request = publish_request_from_document(
-                request.space_id,
-                concept_id,
-                title,
-                document,
-                request.actor.clone(),
-            );
-            let publication = if request.publish {
-                self.concept_service
-                    .publish_concept(publish_request, drive_space_id)
-                    .await?
-            } else {
-                self.concept_service
-                    .stage_concept_candidate(publish_request, drive_space_id)
-                    .await?
-            };
-            publications.push(publication);
         }
 
         if !conformance_errors.is_empty() {
@@ -133,6 +85,25 @@ impl<'a> OkfBundleImporterService<'a> {
                 "bundle import rejected due to conformance violations: {}",
                 conformance_errors.join("; ")
             )));
+        }
+
+        let mut publications = Vec::with_capacity(publish_requests.len());
+        for batch in publish_requests.chunks(OKF_IMPORT_CONCURRENCY) {
+            publications.extend(
+                publish_okf_concept_batch(
+                    &self.concept_service,
+                    batch,
+                    request.publish,
+                    drive_space_id,
+                )
+                .await?,
+            );
+        }
+
+        if request.publish && !publications.is_empty() {
+            self.concept_service
+                .rebuild_bundle_standard_files(request.space_id, drive_space_id)
+                .await?;
         }
 
         let imported_concept_count = publications.len() as u32;
@@ -144,6 +115,182 @@ impl<'a> OkfBundleImporterService<'a> {
             publications,
         })
     }
+}
+
+async fn publish_okf_concept_batch(
+    concept_service: &OkfConceptService<'_>,
+    batch: &[PublishKnowledgeOkfConceptRequest],
+    publish: bool,
+    drive_space_id: Option<&str>,
+) -> Result<Vec<KnowledgeOkfConceptPublication>, OkfBundleImporterError> {
+    match batch.len() {
+        0 => Ok(vec![]),
+        1 => {
+            let publication = publish_or_stage_concept(
+                concept_service,
+                batch[0].clone(),
+                publish,
+                drive_space_id,
+            )
+            .await?;
+            Ok(vec![publication])
+        }
+        2 => {
+            let (left, right) = tokio::try_join!(
+                publish_or_stage_concept(
+                    concept_service,
+                    batch[0].clone(),
+                    publish,
+                    drive_space_id,
+                ),
+                publish_or_stage_concept(
+                    concept_service,
+                    batch[1].clone(),
+                    publish,
+                    drive_space_id,
+                ),
+            )?;
+            Ok(vec![left, right])
+        }
+        3 => {
+            let (left, middle, right) = tokio::try_join!(
+                publish_or_stage_concept(
+                    concept_service,
+                    batch[0].clone(),
+                    publish,
+                    drive_space_id,
+                ),
+                publish_or_stage_concept(
+                    concept_service,
+                    batch[1].clone(),
+                    publish,
+                    drive_space_id,
+                ),
+                publish_or_stage_concept(
+                    concept_service,
+                    batch[2].clone(),
+                    publish,
+                    drive_space_id,
+                ),
+            )?;
+            Ok(vec![left, middle, right])
+        }
+        _ => {
+            let (one, two, three, four) = tokio::try_join!(
+                publish_or_stage_concept(
+                    concept_service,
+                    batch[0].clone(),
+                    publish,
+                    drive_space_id,
+                ),
+                publish_or_stage_concept(
+                    concept_service,
+                    batch[1].clone(),
+                    publish,
+                    drive_space_id,
+                ),
+                publish_or_stage_concept(
+                    concept_service,
+                    batch[2].clone(),
+                    publish,
+                    drive_space_id,
+                ),
+                publish_or_stage_concept(
+                    concept_service,
+                    batch[3].clone(),
+                    publish,
+                    drive_space_id,
+                ),
+            )?;
+            Ok(vec![one, two, three, four])
+        }
+    }
+}
+
+async fn publish_or_stage_concept(
+    concept_service: &OkfConceptService<'_>,
+    publish_request: PublishKnowledgeOkfConceptRequest,
+    publish: bool,
+    drive_space_id: Option<&str>,
+) -> Result<KnowledgeOkfConceptPublication, OkfBundleImporterError> {
+    if publish {
+        concept_service
+            .publish_concept_with_options(
+                publish_request,
+                drive_space_id,
+                OkfPublishConceptOptions::bundle_import_batch(),
+            )
+            .await
+            .map_err(OkfBundleImporterError::from)
+    } else {
+        concept_service
+            .stage_concept_candidate(publish_request, drive_space_id)
+            .await
+            .map_err(OkfBundleImporterError::from)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum BundleFileClassification {
+    Skipped(String),
+    ConformanceViolation(String),
+    Ready(Box<PublishKnowledgeOkfConceptRequest>),
+}
+
+fn classify_bundle_file(
+    file: ImportOkfBundleFile,
+    space_id: u64,
+    actor: &str,
+) -> BundleFileClassification {
+    let bundle_relative_path = file.bundle_relative_path.trim().replace('\\', "/");
+    if is_reserved_bundle_file(&bundle_relative_path) {
+        return BundleFileClassification::Skipped(bundle_relative_path);
+    }
+    if let Err(error) = validate_catalog_concept_bundle_relative_path(&bundle_relative_path) {
+        return BundleFileClassification::ConformanceViolation(format!(
+            "{bundle_relative_path}: {error}"
+        ));
+    }
+    let raw_concept_id = bundle_relative_path
+        .strip_suffix(".md")
+        .unwrap_or(bundle_relative_path.as_str());
+    let concept_id = match canonicalize_imported_concept_id(raw_concept_id) {
+        Ok(value) => value,
+        Err(error) => {
+            return BundleFileClassification::ConformanceViolation(format!(
+                "{bundle_relative_path}: {error}"
+            ))
+        }
+    };
+    let document = match parse_okf_markdown(&file.markdown) {
+        Ok(Some(document)) => document,
+        Ok(None) => {
+            return BundleFileClassification::ConformanceViolation(format!(
+                "{bundle_relative_path}: missing YAML frontmatter with type"
+            ))
+        }
+        Err(error) => {
+            return BundleFileClassification::ConformanceViolation(format!(
+                "{bundle_relative_path}: {error}"
+            ))
+        }
+    };
+    if let Err(error) = validate_concept_document(&document, &concept_id) {
+        return BundleFileClassification::ConformanceViolation(format!("{concept_id}: {error}"));
+    }
+
+    let title = document
+        .title
+        .clone()
+        .filter(|value| !is_blank(Some(value.as_str())))
+        .unwrap_or_else(|| title_from_concept_id(&concept_id));
+    BundleFileClassification::Ready(Box::new(publish_request_from_document(
+        space_id,
+        concept_id,
+        title,
+        document,
+        actor.to_string(),
+    )))
 }
 
 fn is_reserved_bundle_file(bundle_relative_path: &str) -> bool {
@@ -272,23 +419,10 @@ pub async fn load_import_bundle_from_drive(
         read_import_manifest_files(drive, &import_root, drive_space_id).await?;
 
     let mut files = Vec::new();
-    for bundle_relative_path in manifest_files {
-        let normalized = bundle_relative_path.trim().replace('\\', "/");
-        if is_reserved_bundle_file(&normalized) || !normalized.ends_with(".md") {
-            continue;
-        }
-        let drive_path = format!("{import_root}/{normalized}");
-        let markdown = read_managed_markdown(drive, &drive_path, drive_space_id)
-            .await
-            .map_err(|error| {
-                OkfBundleImporterError::InvalidRequest(format!(
-                    "failed to read import file at {drive_path}: {error}"
-                ))
-            })?;
-        files.push(ImportOkfBundleFile {
-            bundle_relative_path: normalized,
-            markdown,
-        });
+    for batch in manifest_files.chunks(OKF_IMPORT_CONCURRENCY) {
+        files.extend(
+            read_import_bundle_file_batch(drive, &import_root, drive_space_id, batch).await?,
+        );
     }
 
     if files.is_empty() {
@@ -297,6 +431,87 @@ pub async fn load_import_bundle_from_drive(
         )));
     }
     Ok(files)
+}
+
+async fn read_import_bundle_file_batch(
+    drive: &dyn KnowledgeDriveStorage,
+    import_root: &str,
+    drive_space_id: Option<&str>,
+    batch: &[String],
+) -> Result<Vec<ImportOkfBundleFile>, OkfBundleImporterError> {
+    let targets = batch
+        .iter()
+        .filter_map(|bundle_relative_path| {
+            let normalized = bundle_relative_path.trim().replace('\\', "/");
+            if is_reserved_bundle_file(&normalized) || !normalized.ends_with(".md") {
+                return None;
+            }
+            let drive_path = format!("{import_root}/{normalized}");
+            Some((normalized, drive_path))
+        })
+        .collect::<Vec<_>>();
+
+    match targets.len() {
+        0 => Ok(vec![]),
+        1 => {
+            let (normalized, drive_path) = &targets[0];
+            Ok(vec![
+                read_import_bundle_markdown_file(drive, normalized, drive_path, drive_space_id)
+                    .await?,
+            ])
+        }
+        2 => {
+            let (left_path, right_path) = (&targets[0], &targets[1]);
+            let (left, right) = tokio::try_join!(
+                read_import_bundle_markdown_file(drive, &left_path.0, &left_path.1, drive_space_id,),
+                read_import_bundle_markdown_file(
+                    drive,
+                    &right_path.0,
+                    &right_path.1,
+                    drive_space_id,
+                ),
+            )?;
+            Ok(vec![left, right])
+        }
+        3 => {
+            let (a, b, c) = (&targets[0], &targets[1], &targets[2]);
+            let (left, middle, right) = tokio::try_join!(
+                read_import_bundle_markdown_file(drive, &a.0, &a.1, drive_space_id),
+                read_import_bundle_markdown_file(drive, &b.0, &b.1, drive_space_id),
+                read_import_bundle_markdown_file(drive, &c.0, &c.1, drive_space_id),
+            )?;
+            Ok(vec![left, middle, right])
+        }
+        _ => {
+            let (a, b, c, d) = (&targets[0], &targets[1], &targets[2], &targets[3]);
+            let (one, two, three, four) = tokio::try_join!(
+                read_import_bundle_markdown_file(drive, &a.0, &a.1, drive_space_id),
+                read_import_bundle_markdown_file(drive, &b.0, &b.1, drive_space_id),
+                read_import_bundle_markdown_file(drive, &c.0, &c.1, drive_space_id),
+                read_import_bundle_markdown_file(drive, &d.0, &d.1, drive_space_id),
+            )?;
+            Ok(vec![one, two, three, four])
+        }
+    }
+}
+
+async fn read_import_bundle_markdown_file(
+    drive: &dyn KnowledgeDriveStorage,
+    bundle_relative_path: &str,
+    drive_path: &str,
+    drive_space_id: Option<&str>,
+) -> Result<ImportOkfBundleFile, OkfBundleImporterError> {
+    let markdown = read_managed_markdown(drive, drive_path, drive_space_id)
+        .await
+        .map_err(|error| {
+            OkfBundleImporterError::InvalidRequest(format!(
+                "failed to read import file at {drive_path}: {error}"
+            ))
+        })?;
+    Ok(ImportOkfBundleFile {
+        bundle_relative_path: bundle_relative_path.to_string(),
+        markdown,
+    })
 }
 
 async fn read_import_manifest_files(
@@ -312,7 +527,8 @@ async fn read_import_manifest_files(
 
     for manifest_name in MANIFEST_CANDIDATES {
         let manifest_path = format!("{import_root}/{manifest_name}");
-        let manifest_body = match read_managed_markdown(drive, &manifest_path, drive_space_id).await {
+        let manifest_body = match read_managed_markdown(drive, &manifest_path, drive_space_id).await
+        {
             Ok(body) => body,
             Err(_) => continue,
         };
@@ -464,7 +680,8 @@ async fn read_export_manifest_files(
 
     for manifest_name in MANIFEST_CANDIDATES {
         let manifest_path = format!("{export_root}/{manifest_name}");
-        let manifest_body = match read_managed_markdown(drive, &manifest_path, drive_space_id).await {
+        let manifest_body = match read_managed_markdown(drive, &manifest_path, drive_space_id).await
+        {
             Ok(body) => body,
             Err(_) => continue,
         };

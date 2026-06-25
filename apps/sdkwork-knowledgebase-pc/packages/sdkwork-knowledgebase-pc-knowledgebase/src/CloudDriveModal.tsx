@@ -10,10 +10,9 @@ import {
 } from 'lucide-react';
 
 import {
-  importCloudDriveItems,
-  listCloudDriveBrowserItems,
+  CloudDriveService,
   type CloudDriveBrowserItem,
-} from './services/knowledgeDriveImportService';
+} from './services/cloudDriveService';
 
 interface BreadcrumbItem {
   id: string;
@@ -24,6 +23,7 @@ interface CloudDriveModalProps {
   isOpen: boolean;
   onClose: () => void;
   spaceId?: string | null;
+  targetParentFolderId?: string | null;
   onConfirm: (selectedItems: Array<{ title: string; type: string; content?: string; documentId?: number }>) => void;
 }
 
@@ -101,7 +101,13 @@ const renderGridIcon = (item: CloudDriveBrowserItem) => {
   return <FileSpreadsheet size={32} className="text-zinc-500 mb-2 shrink-0" />;
 };
 
-export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDriveModalProps) {
+export function CloudDriveModal({
+  isOpen,
+  onClose,
+  spaceId,
+  targetParentFolderId,
+  onConfirm,
+}: CloudDriveModalProps) {
   const { t } = useTranslation('cloudDrive');
   const [activeTab, setActiveTab] = useState<'my-drive' | 'shared' | 'recent' | 'starred'>('my-drive');
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,7 +132,20 @@ export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDr
     setIsLoading(true);
     setLoadError(null);
     try {
-      const nextItems = await listCloudDriveBrowserItems(spaceId, currentFolderId);
+      let nextItems: CloudDriveBrowserItem[];
+      switch (activeTab) {
+        case 'starred':
+          nextItems = await CloudDriveService.listStarredItems(spaceId);
+          break;
+        case 'recent':
+          nextItems = await CloudDriveService.listRecentItems(spaceId);
+          break;
+        case 'shared':
+          nextItems = await CloudDriveService.listSharedItems(spaceId);
+          break;
+        default:
+          nextItems = await CloudDriveService.listBrowserItems(spaceId, currentFolderId);
+      }
       setItems(nextItems);
       setItemIndex((previous) => {
         const merged = new Map(previous);
@@ -142,7 +161,7 @@ export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDr
     } finally {
       setIsLoading(false);
     }
-  }, [spaceId, currentFolderId, t]);
+  }, [spaceId, currentFolderId, activeTab, t]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -152,11 +171,7 @@ export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDr
     if (!isOpen) {
       return;
     }
-    if (activeTab === 'my-drive') {
-      void loadDriveItems();
-    } else {
-      setItems([]);
-    }
+    void loadDriveItems();
   }, [isOpen, activeTab, loadDriveItems]);
 
   useEffect(() => {
@@ -195,15 +210,12 @@ export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDr
   };
 
   const displayedFiles = useMemo(() => {
-    if (activeTab !== 'my-drive') {
-      return [];
-    }
     if (isBlank(searchQuery)) {
       return items;
     }
     const query = searchQuery.toLowerCase().trim();
     return items.filter((file) => file.name.toLowerCase().includes(query));
-  }, [activeTab, items, searchQuery]);
+  }, [items, searchQuery]);
 
   const handleToggleSelect = (item: CloudDriveBrowserItem, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -245,7 +257,7 @@ export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDr
     setFeedbackMsg(t('syncingFeedback'));
 
     try {
-      const mapped = await importCloudDriveItems(spaceId, objects);
+      const mapped = await CloudDriveService.importItems(spaceId, objects, targetParentFolderId);
       onConfirm(mapped);
       onClose();
     } catch (error) {
@@ -259,8 +271,8 @@ export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDr
     return null;
   }
 
-  const showUnavailableTab = activeTab !== 'my-drive';
-  const currentSelectableFiles = displayedFiles;
+  const showFolderNavigation = activeTab === 'my-drive';
+  const currentSelectableFiles = displayedFiles.filter((item) => item.type !== 'folder');
 
   return createPortal(
     <div className="fixed inset-0 z-[300] bg-zinc-950/40 flex items-center justify-center backdrop-blur-md p-4">
@@ -286,25 +298,33 @@ export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDr
 
         <div className="h-14 border-b border-[var(--color-kb-panel-border)] bg-[var(--color-kb-panel)]/10 px-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-1 text-[13px] text-[var(--color-kb-text-muted)] overflow-hidden">
-            <button
-              onClick={() => navigateToBreadcrumb(-1)}
-              className={`hover:text-[var(--color-kb-accent)] flex items-center gap-1.5 transition-colors shrink-0 font-medium ${!currentFolderId ? 'text-[var(--color-kb-text-heading)] font-semibold' : ''}`}
-            >
-              <Home size={15} />
-              <span>{t('myDrive')}</span>
-            </button>
-
-            {breadcrumbs.map((crumb, idx) => (
-              <React.Fragment key={crumb.id}>
-                <ChevronRight size={14} className="opacity-60 shrink-0" />
+            {showFolderNavigation ? (
+              <>
                 <button
-                  onClick={() => navigateToBreadcrumb(idx)}
-                  className={`hover:text-[var(--color-kb-accent)] transition-colors truncate max-w-[120px] font-medium ${idx === breadcrumbs.length - 1 ? 'text-[var(--color-kb-text-heading)] font-semibold' : ''}`}
+                  onClick={() => navigateToBreadcrumb(-1)}
+                  className={`hover:text-[var(--color-kb-accent)] flex items-center gap-1.5 transition-colors shrink-0 font-medium ${!currentFolderId ? 'text-[var(--color-kb-text-heading)] font-semibold' : ''}`}
                 >
-                  {crumb.name}
+                  <Home size={15} />
+                  <span>{t('myDrive')}</span>
                 </button>
-              </React.Fragment>
-            ))}
+
+                {breadcrumbs.map((crumb, idx) => (
+                  <React.Fragment key={crumb.id}>
+                    <ChevronRight size={14} className="opacity-60 shrink-0" />
+                    <button
+                      onClick={() => navigateToBreadcrumb(idx)}
+                      className={`hover:text-[var(--color-kb-accent)] transition-colors truncate max-w-[120px] font-medium ${idx === breadcrumbs.length - 1 ? 'text-[var(--color-kb-text-heading)] font-semibold' : ''}`}
+                    >
+                      {crumb.name}
+                    </button>
+                  </React.Fragment>
+                ))}
+              </>
+            ) : (
+              <span className="text-[var(--color-kb-text-heading)] font-semibold">
+                {activeTab === 'shared' ? t('sharedWithMe') : activeTab === 'recent' ? t('recentAccess') : t('starredFiles')}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3 w-[360px]">
@@ -399,11 +419,6 @@ export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDr
                 <AlertCircle size={32} className="text-amber-500 mb-3" />
                 <p className="text-[12px] text-[var(--color-kb-text-muted)]">{loadError}</p>
               </div>
-            ) : showUnavailableTab ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                <AlertCircle size={32} className="text-[var(--color-kb-text-muted)] mb-3" />
-                <p className="text-[12px] text-[var(--color-kb-text-muted)]">{t('tabUnavailable', { defaultValue: 'This view is not available for API-backed enterprise drive yet.' })}</p>
-              </div>
             ) : displayedFiles.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
                 <FileText size={40} className="text-[var(--color-kb-text-muted)] opacity-60 mb-3" />
@@ -443,7 +458,7 @@ export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDr
                         <tr
                           key={item.id}
                           onClick={() => {
-                            if (isFolder) {
+                            if (isFolder && showFolderNavigation) {
                               enterFolder(item);
                             }
                           }}
@@ -491,7 +506,7 @@ export function CloudDriveModal({ isOpen, onClose, spaceId, onConfirm }: CloudDr
                       <div
                         key={item.id}
                         onClick={() => {
-                          if (isFolder) {
+                          if (isFolder && showFolderNavigation) {
                             enterFolder(item);
                           }
                         }}

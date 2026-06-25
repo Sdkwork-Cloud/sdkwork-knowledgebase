@@ -255,13 +255,8 @@ async fn export_standard_file(
     let export_path = format!("{export_root}/{bundle_relative_path}");
     drive
         .put_object(
-            PutKnowledgeObjectRequest::text(
-                export_path.clone(),
-                EXPORT_OBJECT_ROLE,
-                body,
-                None,
-            )
-            .with_drive_space_id(drive_space_id),
+            PutKnowledgeObjectRequest::text(export_path.clone(), EXPORT_OBJECT_ROLE, body, None)
+                .with_drive_space_id(drive_space_id),
         )
         .await?;
     Ok(export_path)
@@ -271,7 +266,7 @@ fn normalize_export_type(export_type: &str) -> Result<&'static str, OkfBundleExp
     match export_type.trim() {
         "okf_strict" | "snapshot" => Ok("okf_strict"),
         "okf_with_sources" => Ok("okf_with_sources"),
-        other if other.is_empty() => Err(OkfBundleExporterError::InvalidRequest(
+        "" => Err(OkfBundleExporterError::InvalidRequest(
             "export_type must not be blank".to_string(),
         )),
         other => Err(OkfBundleExporterError::InvalidRequest(format!(

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
+import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
 
-export interface CodeEditorProps {
+export interface CodeEditorProps extends ReactKeyedComponentProps {
   initialContent: string;
   language?: string;
   onChange?: (content: string) => void;

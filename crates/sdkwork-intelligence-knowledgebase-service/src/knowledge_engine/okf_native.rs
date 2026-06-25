@@ -18,14 +18,12 @@ use std::sync::Arc;
 
 use crate::okf::{
     load_import_bundle_from_drive, read_managed_markdown, rebuild_bundle_index_for_space,
-    to_contract_lint_result, ExportOkfBundleRequest, ImportOkfBundleRequest, OkfBundleExporterService,
-    OkfBundleImporterError, OkfBundleImporterService, OkfBundleLinterService, OkfConceptService,
-    OkfConceptServiceError,
+    to_contract_lint_result, ExportOkfBundleRequest, ImportOkfBundleRequest,
+    OkfBundleExporterService, OkfBundleImporterError, OkfBundleImporterService,
+    OkfBundleLinterService, OkfConceptService, OkfConceptServiceError,
 };
 use crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStore;
-use crate::ports::knowledge_drive_storage::{
-    KnowledgeDriveStorage, KnowledgeStorageError,
-};
+use crate::ports::knowledge_drive_storage::{KnowledgeDriveStorage, KnowledgeStorageError};
 use crate::ports::knowledge_drive_workspace::KnowledgeDriveWorkspace;
 use crate::ports::knowledge_okf_bundle_file_store::{
     CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
@@ -37,6 +35,7 @@ use crate::ports::knowledge_okf_concept_store::{
 };
 use crate::ports::knowledge_source_store::KnowledgeSourceStore;
 use crate::ports::knowledge_space_store::KnowledgeSpaceStore;
+use crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStore;
 
 use super::okf_search::{
     body_match_score, combine_metadata_and_body_score, expand_ranked_with_link_edges,
@@ -46,11 +45,13 @@ use super::KnowledgeEngine;
 use crate::ports::knowledge_engine::OkfBundleEngine;
 
 const SPI_ACTOR: &str = "knowledge-engine-spi";
+const OKF_DRIVE_READ_CONCURRENCY: usize = 8;
 
 #[derive(Clone)]
 pub struct OkfNativeKnowledgeEngineDeps {
     pub concepts: Arc<dyn KnowledgeOkfConceptStore>,
     pub drive: Arc<dyn KnowledgeDriveStorage>,
+    pub revision_metadata: Arc<dyn OkfConceptRevisionMetadataStore>,
     pub object_refs: Arc<dyn KnowledgeDriveObjectRefStore>,
     pub link_store: Arc<dyn KnowledgeOkfConceptLinkStore>,
     pub candidate_store: Arc<dyn KnowledgeOkfCandidateStore>,
@@ -68,6 +69,7 @@ impl OkfNativeKnowledgeEngineDeps {
         Self {
             concepts,
             drive,
+            revision_metadata: Arc::new(UnsupportedOkfConceptRevisionMetadataStore),
             object_refs: Arc::new(UnsupportedObjectRefStore),
             link_store: Arc::new(UnsupportedLinkStore),
             candidate_store: Arc::new(UnsupportedCandidateStore),
@@ -98,7 +100,7 @@ impl OkfNativeKnowledgeEngine {
     fn concept_service(&self) -> OkfConceptService<'_> {
         OkfConceptService::new(
             self.deps.drive.as_ref(),
-            self.deps.object_refs.as_ref(),
+            self.deps.revision_metadata.as_ref(),
             self.deps.concepts.as_ref(),
         )
         .with_link_store(self.deps.link_store.as_ref())
@@ -238,36 +240,56 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
         }
 
         let drive_space_id = self.drive_space_id(request.space_id).await.ok().flatten();
-        let mut hits = Vec::new();
-        for (metadata_score, concept) in ranked.into_iter().take(candidate_limit) {
-            let body = read_managed_markdown(
-                self.deps.drive.as_ref(),
-                &concept.logical_path,
-                drive_space_id.as_deref(),
-            )
-            .await
-            .ok();
-            let body_score = body
-                .as_deref()
-                .map(|content| body_match_score(content, &tokens))
-                .unwrap_or(0.0);
-            let score = combine_metadata_and_body_score(metadata_score, body_score);
-            if score <= 0.0 && !tokens.is_empty() {
-                continue;
+        let candidates: Vec<_> = ranked.into_iter().take(candidate_limit).collect();
+        let drive = Arc::clone(&self.deps.drive);
+        let mut hits = Vec::with_capacity(candidates.len().min(request.top_k as usize));
+
+        for chunk in candidates.chunks(OKF_DRIVE_READ_CONCURRENCY) {
+            let mut handles = Vec::with_capacity(chunk.len());
+            for (metadata_score, concept) in chunk {
+                let drive = Arc::clone(&drive);
+                let drive_space_id = drive_space_id.clone();
+                let logical_path = concept.logical_path.clone();
+                let metadata_score = *metadata_score;
+                let concept = concept.clone();
+                handles.push(tokio::spawn(async move {
+                    let body = read_managed_markdown(
+                        drive.as_ref(),
+                        &logical_path,
+                        drive_space_id.as_deref(),
+                    )
+                    .await
+                    .ok();
+                    (metadata_score, concept, body)
+                }));
             }
-            hits.push(KnowledgeEngineSearchHit {
-                document: KnowledgeEngineDocumentRef {
-                    document_id: concept.concept_id.clone(),
-                    title: concept.title.clone(),
-                    source_uri: Some(concept.logical_path.clone()),
-                },
-                snippet: snippet_for_concept(
-                    &concept.description,
-                    body.as_deref(),
-                    &request.query,
-                ),
-                score: Some(score),
-            });
+
+            for handle in handles {
+                let (metadata_score, concept, body) = handle
+                    .await
+                    .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+                let body_score = body
+                    .as_deref()
+                    .map(|content| body_match_score(content, &tokens))
+                    .unwrap_or(0.0);
+                let score = combine_metadata_and_body_score(metadata_score, body_score);
+                if score <= 0.0 && !tokens.is_empty() {
+                    continue;
+                }
+                hits.push(KnowledgeEngineSearchHit {
+                    document: KnowledgeEngineDocumentRef {
+                        document_id: concept.concept_id.clone(),
+                        title: concept.title.clone(),
+                        source_uri: Some(concept.logical_path.clone()),
+                    },
+                    snippet: snippet_for_concept(
+                        &concept.description,
+                        body.as_deref(),
+                        &request.query,
+                    ),
+                    score: Some(score),
+                });
+            }
         }
 
         hits.sort_by(|left, right| {
@@ -308,11 +330,7 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
                 ))
             })?;
 
-        let drive_space_id = self
-            .drive_space_id(request.space_id)
-            .await
-            .ok()
-            .flatten();
+        let drive_space_id = self.drive_space_id(request.space_id).await.ok().flatten();
         let content = read_managed_markdown(
             self.deps.drive.as_ref(),
             &concept.logical_path,
@@ -534,6 +552,55 @@ fn map_concept_service_error(error: OkfConceptServiceError) -> KnowledgeEngineEr
     }
 }
 
+struct UnsupportedOkfConceptRevisionMetadataStore;
+
+#[async_trait::async_trait]
+impl crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStore
+    for UnsupportedOkfConceptRevisionMetadataStore
+{
+    async fn prepare_concept_revision_slot(
+        &self,
+        _concept: crate::ports::knowledge_okf_concept_store::UpsertKnowledgeOkfConceptRecord,
+    ) -> Result<
+        crate::ports::okf_concept_revision_metadata_store::PreparedOkfConceptRevisionSlot,
+        crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError,
+    > {
+        Err(
+            crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError::internal(
+                "okf native engine missing revision metadata store wiring".to_string(),
+            ),
+        )
+    }
+
+    async fn stage_concept_revision_metadata(
+        &self,
+        _record: crate::ports::okf_concept_revision_metadata_store::StageOkfConceptRevisionMetadataRecord,
+    ) -> Result<
+        crate::ports::okf_concept_revision_metadata_store::StagedOkfConceptRevisionMetadata,
+        crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError,
+    > {
+        Err(
+            crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError::internal(
+                "okf native engine missing revision metadata store wiring".to_string(),
+            ),
+        )
+    }
+
+    async fn publish_existing_revision_metadata(
+        &self,
+        _record: crate::ports::okf_concept_revision_metadata_store::PublishOkfConceptRevisionMetadataRecord,
+    ) -> Result<
+        crate::ports::okf_concept_revision_metadata_store::PublishedOkfConceptRevisionMetadata,
+        crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError,
+    > {
+        Err(
+            crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError::internal(
+                "okf native engine missing revision metadata store wiring".to_string(),
+            ),
+        )
+    }
+}
+
 struct UnsupportedObjectRefStore;
 
 #[async_trait::async_trait]
@@ -556,6 +623,18 @@ impl KnowledgeDriveObjectRefStore for UnsupportedObjectRefStore {
         _prefix: &str,
     ) -> Result<
         Vec<sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef>,
+        crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError,
+    > {
+        Err(crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError::Internal(
+            "okf native engine missing object ref store wiring".to_string(),
+        ))
+    }
+
+    async fn get_object_ref_by_id(
+        &self,
+        _object_ref_id: u64,
+    ) -> Result<
+        sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef,
         crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError,
     > {
         Err(crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError::Internal(

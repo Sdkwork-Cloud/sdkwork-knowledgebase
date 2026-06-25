@@ -1,6 +1,8 @@
 use sdkwork_utils_rust::is_blank;
 use std::sync::Arc;
 
+use crate::async_bridge::block_on_async;
+
 use clawrouter_open_sdk::{
     OpenAiChatCompletionRequest, OpenAiChatMessage, SdkworkAiClient, SdkworkError,
 };
@@ -109,13 +111,11 @@ impl ModelProvider for ClawRouterChatModelProvider {
         };
 
         let client = Arc::clone(&self.client);
-        let completion = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async move { client.chat().create(&completion_request).await })
-        })
-        .map_err(|error| {
-            KernelError::provider_error("claw_router.chat.create", map_sdk_error(error))
-        })?;
+        let completion =
+            block_on_async(async move { client.chat().create(&completion_request).await })
+                .map_err(|error| {
+                    KernelError::provider_error("claw_router.chat.create", map_sdk_error(error))
+                })?;
 
         let answer = completion
             .choices

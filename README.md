@@ -7,7 +7,7 @@ This repository follows SDKWork App Standard v3 and the canonical specs in `../s
 ## Workspace paths
 
 ```text
-apis/                                      Authored OpenAPI authority sources and RPC placeholder.
+apis/                                      Synchronized OpenAPI review copies (materialized from sdks/).
 apps/sdkwork-knowledgebase-pc/             PC React + optional Tauri desktop app surface.
 crates/
   sdkwork-knowledgebase-contract           Public DTOs, enums, IDs, operation IDs, and OKF bundle contracts.
@@ -29,7 +29,7 @@ sdks/
   sdkwork-knowledgebase-backend-sdk        Backend SDK family, backend-api OpenAPI authority, and generated TypeScript SDK.
   sdkwork-knowledgebase-sdk                Open SDK family and generated TypeScript SDK.
 jobs/ plugins/ examples/ configs/ deployments/ scripts/ tests/
-                                             Standard root capability directories; some remain placeholder skeletons.
+                                             Standard root capability directories for jobs, plugins, deployment, and verification.
 ```
 
 This repository root is the primary SDKWork Knowledgebase application root and owns `sdkwork.app.config.json`. The PC app surface lives under `apps/sdkwork-knowledgebase-pc/`.
@@ -38,7 +38,13 @@ This workspace follows the standard project root directory dictionary from `../s
 
 ### apis/ vs sdks/
 
-`apis/` is the standard project-root directory for authored API contracts and API review inputs. `sdks/` contains SDK family workspaces, materialized authority OpenAPI, derived `sdkgen` inputs, and generated SDK output. Authority OpenAPI files are materialized under both `apis/` and `sdks/` via `tools/materialize-apis-authority.mjs`.
+`sdks/*/openapi/` is the **generation source of truth** for OpenAPI contracts and SDK families. `apis/` holds synchronized review copies materialized by `tools/materialize-apis-authority.mjs` (`sdks/` → `apis/`). Edit contracts in `sdks/`, then run `pnpm api:materialize` before commit.
+
+Governance metadata is applied by:
+
+- `tools/apply-knowledgebase-openapi-auth-mode.mjs`
+- `tools/apply-knowledgebase-openapi-permissions.mjs`
+- `sdks/standardize-knowledgebase-sdk-family.mjs`
 
 ### plugins/ vs .sdkwork/plugins/
 
@@ -86,38 +92,54 @@ raw/**
 Run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1
+pnpm verify
+pnpm test
+pnpm test:launch-readiness
+pnpm lint
 ```
 
-This checks Rust formatting, workspace tests, OpenAPI operationId standards, SDK family layout, and canonical `sdkwork-sdk-generator` usage.
+`pnpm verify` includes Phase 1 contract checks, security/observability alignment, launch-readiness gates, and cloud gateway validation.
+
+Launch runbook: [deployments/runbooks/production-launch.md](deployments/runbooks/production-launch.md)
+
+Acceptance criteria: [docs/product/prd/PRD-mvp-launch.md](docs/product/prd/PRD-mvp-launch.md)
 
 ## Runtime
 
-Phase 1 ships SQLite-backed HTTP runtimes in `crates/sdkwork-router-knowledgebase-app-api`:
+The workspace ships SQLx-backed HTTP runtimes with SQLite (local dev) or PostgreSQL (default `pnpm dev` and production):
 
-| Binary | Default listen | Surface |
-|--------|----------------|---------|
-| `sdkwork-knowledgebase-app-api` | `127.0.0.1:18081` | App API (34 operations) |
-| `sdkwork-knowledgebase-backend-api` | `127.0.0.1:18082` | Backend API (25 operations) |
-| `sdkwork-knowledgebase-open-api` | `127.0.0.1:18083` | Open API (8 operations) |
+| Binary | Default listen | Surface | Operations |
+|--------|----------------|---------|------------|
+| `sdkwork-knowledgebase-app-api` | `127.0.0.1:18081` | App API | 68 |
+| `sdkwork-knowledgebase-backend-api` | `127.0.0.1:18082` | Backend API | 26 |
+| `sdkwork-knowledgebase-open-api` | `127.0.0.1:18083` | Open API | 8 |
+| `sdkwork-knowledgebase-worker` | health `127.0.0.1:18085` | Background worker | — |
 
 Run from the repository root:
 
 ```powershell
-cargo run -p sdkwork-router-knowledgebase-app-api --bin sdkwork-knowledgebase-app-api
-cargo run -p sdkwork-router-knowledgebase-app-api --bin sdkwork-knowledgebase-backend-api
-cargo run -p sdkwork-router-knowledgebase-app-api --bin sdkwork-knowledgebase-open-api
+pnpm dev
+# or individual binaries:
+cargo run -p sdkwork-knowledgebase-api-server --bin sdkwork-knowledgebase-app-api
+cargo run -p sdkwork-knowledgebase-api-server --bin sdkwork-knowledgebase-backend-api
+cargo run -p sdkwork-knowledgebase-api-server --bin sdkwork-knowledgebase-open-api
+cargo run -p sdkwork-knowledgebase-worker --bin sdkwork-knowledgebase-worker
 ```
 
 Common environment variables:
 
-- `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` (default `sqlite://data/knowledgebase.db?mode=rwc`)
+- `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` (PostgreSQL in default `pnpm dev`; SQLite via `pnpm dev:browser:sqlite`, e.g. `sqlite://data/knowledgebase.db?mode=rwc`)
 - `SDKWORK_KNOWLEDGEBASE_TENANT_ID` (default `1`)
 - `SDKWORK_KNOWLEDGEBASE_ACTOR_ID` / `SDKWORK_KNOWLEDGEBASE_OPERATOR_ID` (optional dev actor)
 - `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT` (default `data/drive-objects`)
 - `SDKWORK_KNOWLEDGEBASE_APP_LISTEN` / `SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN` / `SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN`
 
-Local development injects request context through `dev_auth` middleware. Production deployments must replace this with Appbase-backed authentication.
+Local development may inject request context through `dev_auth` middleware when **both** conditions are met:
+
+- `SDKWORK_KNOWLEDGEBASE_ENVIRONMENT=development`
+- `SDKWORK_KNOWLEDGEBASE_DEV_AUTH_BYPASS=1` (or `true`)
+
+Production deployments must use Appbase-backed authentication and must not enable dev auth bypass.
 
 ## Runtime ID Configuration
 
@@ -150,7 +172,7 @@ Valid values are `0` through `1023`. Local and test runs may omit the variable a
 - App and Backend OpenAPI authority files use SDKWork dotted operation IDs, including `okf.bundle.index.retrieve`, `okf.log.entries.create`, `driveImports.create`, `documents.versions.create`, and `sources.create`.
 - Generated App and Backend TypeScript SDKs are produced with the canonical `sdkwork-sdk-generator` using the SDKWork v3 standard profile.
 - App and Backend SDK families declare Appbase, Drive, and Memory dependency SDKs; dependency-owned Appbase, Drive, and Memory APIs are not generated into knowledgebase transports.
-- App and Backend Rust API crates mount every generated OpenAPI operation path. The hosted SQLx runtime (`KnowledgebaseRuntime`) wires all 67 operations to concrete service implementations; trait default stubs in route crates remain only for library-only injection tests.
+- App and Backend Rust API crates mount every generated OpenAPI operation path. The hosted SQLx runtime (`KnowledgebaseRuntime`) wires all **102** HTTP operations (68 app + 26 backend + 8 open) to concrete service implementations; trait default stubs in route crates remain only for library-only injection tests.
 - The agent provider crate exposes `provider.knowledge.sdkwork-knowledgebase` as a typed `sdkwork-agent-kernel::KnowledgeProvider` adapter backed by an injected retrieval client.
 
 ## SDKWork Documentation Contract
@@ -191,3 +213,10 @@ Extension points are limited to declared public exports, runtime entrypoints, SD
 ### Owner And Status
 
 Owner and lifecycle status are tracked in `specs/component.spec.json`.
+
+## Documentation Canon
+
+- [docs/README.md](docs/README.md)
+- [docs/product/prd/PRD.md](docs/product/prd/PRD.md)
+- [docs/architecture/tech/TECH_ARCHITECTURE.md](docs/architecture/tech/TECH_ARCHITECTURE.md)
+

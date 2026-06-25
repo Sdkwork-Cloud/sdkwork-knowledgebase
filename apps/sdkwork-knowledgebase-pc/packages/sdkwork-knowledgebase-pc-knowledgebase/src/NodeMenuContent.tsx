@@ -23,12 +23,16 @@ export interface NodeMenuItemsProps {
   onOpenNewTab?: (e: React.MouseEvent) => void;
   onOpenSplit?: (e: React.MouseEvent) => void;
   onViewHistory?: (e: React.MouseEvent) => void;
+  showDocumentPermissions?: boolean;
+  showDocumentVersionHistory?: boolean;
   t: (key: string, options?: any) => string;
 }
 
 export function NodeDropdownItems({ 
   isFolder, onNewDoc, onNewFolder, onLocalFile, onLocalAudio, onLocalMusic, onLocalFolder, onCloudDrive, onWebLink, onRename, onDelete, onMoveTo, onCopyTo, 
-  onPin, onEditTags, onPermissions, onOpenNewTab, onOpenSplit, onViewHistory, 
+  onPin, onEditTags, onPermissions, onOpenNewTab, onOpenSplit, onViewHistory,
+  showDocumentPermissions = false,
+  showDocumentVersionHistory = false,
   t 
 }: NodeMenuItemsProps) {
   return (
@@ -94,10 +98,12 @@ export function NodeDropdownItems({
             <Tag size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
             编辑标签
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onPermissions as any}>
-            <UserCog size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
-            成员权限
-          </DropdownMenuItem>
+          {showDocumentPermissions && (
+            <DropdownMenuItem onSelect={onPermissions as any}>
+              <UserCog size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
+              成员权限
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onOpenNewTab as any}>
             <ExternalLink size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
@@ -107,10 +113,12 @@ export function NodeDropdownItems({
             <SplitSquareHorizontal size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
             右侧拆分打开
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onViewHistory as any}>
-            <History size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
-            查看历史版本
-          </DropdownMenuItem>
+          {showDocumentVersionHistory && (
+            <DropdownMenuItem onSelect={onViewHistory as any}>
+              <History size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
+              查看历史版本
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onMoveTo as any}>
             <FolderOutput size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
@@ -137,7 +145,9 @@ export function NodeDropdownItems({
 
 export function NodeContextItems({ 
   isFolder, onNewDoc, onNewFolder, onLocalFile, onLocalAudio, onLocalMusic, onLocalFolder, onCloudDrive, onWebLink, onRename, onDelete, onMoveTo, onCopyTo, 
-  onPin, onEditTags, onPermissions, onOpenNewTab, onOpenSplit, onViewHistory, 
+  onPin, onEditTags, onPermissions, onOpenNewTab, onOpenSplit, onViewHistory,
+  showDocumentPermissions = false,
+  showDocumentVersionHistory = false,
   t 
 }: NodeMenuItemsProps) {
   return (
@@ -203,10 +213,12 @@ export function NodeContextItems({
             <Tag size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
             编辑标签
           </ContextMenuItem>
-          <ContextMenuItem onSelect={onPermissions as any}>
-            <UserCog size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
-            成员权限
-          </ContextMenuItem>
+          {showDocumentPermissions && (
+            <ContextMenuItem onSelect={onPermissions as any}>
+              <UserCog size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
+              成员权限
+            </ContextMenuItem>
+          )}
           <ContextMenuSeparator />
           <ContextMenuItem onSelect={onOpenNewTab as any}>
             <ExternalLink size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
@@ -216,10 +228,12 @@ export function NodeContextItems({
             <SplitSquareHorizontal size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
             右侧拆分打开
           </ContextMenuItem>
-          <ContextMenuItem onSelect={onViewHistory as any}>
-            <History size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
-            查看历史版本
-          </ContextMenuItem>
+          {showDocumentVersionHistory && (
+            <ContextMenuItem onSelect={onViewHistory as any}>
+              <History size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
+              查看历史版本
+            </ContextMenuItem>
+          )}
           <ContextMenuSeparator />
           <ContextMenuItem onSelect={onMoveTo as any}>
             <FolderOutput size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />

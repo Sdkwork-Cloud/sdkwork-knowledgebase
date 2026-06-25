@@ -163,7 +163,10 @@ async fn retrieval_public_web_metadata_is_no_op_when_disabled() {
 
     assert_eq!(result.hits.len(), 1);
     assert_eq!(result.hits[0].chunk_id, 41);
-    assert_ne!(result.hits[0].retrieval_method, KnowledgeRetrievalMethod::External);
+    assert_ne!(
+        result.hits[0].retrieval_method,
+        KnowledgeRetrievalMethod::External
+    );
 }
 
 #[tokio::test]
@@ -335,6 +338,7 @@ async fn retrieval_can_reconstruct_persisted_trace_and_hits() {
         KnowledgeRetrievalTraceRecord {
             tenant_id: 100001,
             retrieval_trace_id: 701,
+            actor_id: Some(9001),
             retrieval_profile_id: Some(31),
             query_text_redacted: Some("enterprise renewal support".to_string()),
             latency_ms: Some(25),

@@ -42,6 +42,46 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     },
     RouteManifestEntry {
         method: "POST",
+        path: "/app/v3/api/knowledge/git_imports",
+        operation_id: "gitImports.create",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/git_syncs",
+        operation_id: "gitSyncs.create",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/wechat/official_accounts",
+        operation_id: "wechat.officialAccounts.list",
+    },
+    RouteManifestEntry {
+        method: "PUT",
+        path: "/app/v3/api/knowledge/wechat/official_accounts",
+        operation_id: "wechat.officialAccounts.replace",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/wechat/applets",
+        operation_id: "wechat.applets.list",
+    },
+    RouteManifestEntry {
+        method: "PUT",
+        path: "/app/v3/api/knowledge/wechat/applets",
+        operation_id: "wechat.applets.replace",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/wechat/articles/publish",
+        operation_id: "wechat.articles.publish",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/wechat/articles/preview",
+        operation_id: "wechat.articles.preview",
+    },
+    RouteManifestEntry {
+        method: "POST",
         path: "/app/v3/api/knowledge/ingests",
         operation_id: "ingests.create",
     },
@@ -74,6 +114,11 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         method: "DELETE",
         path: "/app/v3/api/knowledge/documents/{documentId}",
         operation_id: "documents.delete",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/documents/{documentId}/content",
+        operation_id: "documents.content.retrieve",
     },
     RouteManifestEntry {
         method: "GET",
@@ -279,5 +324,35 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         method: "POST",
         path: "/app/v3/api/knowledge/upload_sessions/{sessionId}/complete",
         operation_id: "uploadSessions.complete",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/market/listings",
+        operation_id: "market.listings.list",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/market/subscriptions",
+        operation_id: "market.subscriptions.create",
+    },
+    RouteManifestEntry {
+        method: "DELETE",
+        path: "/app/v3/api/knowledge/market/subscriptions/{listingId}",
+        operation_id: "market.subscriptions.delete",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/site_deployments",
+        operation_id: "siteDeployments.create",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
+        operation_id: "siteDeployments.preview.retrieve",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/media_tasks",
+        operation_id: "mediaTasks.create",
     },
 ];

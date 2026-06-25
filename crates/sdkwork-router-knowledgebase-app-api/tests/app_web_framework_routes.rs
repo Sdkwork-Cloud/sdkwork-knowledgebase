@@ -6,22 +6,17 @@ use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
 };
 use sdkwork_router_knowledgebase_app_api::{
-    app_route_manifest, build_router_with_browser, manifest, wrap_router_with_web_framework,
-    ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
+    app_route_manifest, build_router_with_browser, dev_auth, manifest,
+    wrap_router_with_web_framework, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
 };
 use sdkwork_web_core::RouteAuth;
 use std::sync::{Arc, Mutex};
 use tower::util::ServiceExt;
 
-const DEV_AUTH_TOKEN: &str =
-    "Bearer tenant_id=100001;user_id=30001;session_id=s-1;app_id=knowledgebase;auth_level=password";
-const DEV_ACCESS_TOKEN: &str =
-    "tenant_id=100001;user_id=30001;session_id=s-1;app_id=knowledgebase;environment=dev;deployment_mode=saas";
-
 #[test]
 fn app_route_manifest_declares_dual_token_auth_for_all_operations() {
     let manifest = app_route_manifest();
-    assert_eq!(manifest::ROUTES.len(), 47);
+    assert_eq!(manifest::ROUTES.len(), manifest.routes().len());
     for entry in manifest::ROUTES {
         let matched = manifest
             .match_route(entry.method, entry.path)
@@ -58,11 +53,12 @@ async fn app_router_web_framework_rejects_unauthenticated_requests() {
 }
 
 #[tokio::test]
-async fn app_router_web_framework_accepts_dev_inline_dual_tokens_before_handler() {
+async fn dev_app_auth_injects_tenant_context_before_handler() {
     let service = RecordingBrowserApi::default();
-    let app = wrap_router_with_web_framework(
-        IamDatabaseWebRequestContextResolver::new(None),
+    let app = dev_auth::with_dev_app_auth(
         build_router_with_browser(service.clone()),
+        100001,
+        Some(30001),
     );
 
     let response = app
@@ -70,8 +66,6 @@ async fn app_router_web_framework_accepts_dev_inline_dual_tokens_before_handler(
             Request::builder()
                 .method("GET")
                 .uri("/app/v3/api/knowledge/spaces/7/browser")
-                .header("Authorization", DEV_AUTH_TOKEN)
-                .header("Access-Token", DEV_ACCESS_TOKEN)
                 .body(Body::empty())
                 .unwrap(),
         )

@@ -2,7 +2,7 @@ import React from 'react';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { Send, Sparkles, Globe, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { AiModelSelector } from '@packages/sdkwork-knowledgebase-pc-commons/src';
+import { AiModelSelector } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 import { CHAT_LAYOUT_MAX, COMPOSER_MAX_HEIGHT } from '../constants';
 import { useComposerAutosize } from '../hooks/useComposerAutosize';
 import type { SearchComposerVariant } from '../types';

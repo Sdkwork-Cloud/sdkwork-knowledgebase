@@ -46,7 +46,7 @@ export function KnowledgebaseAuthShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="sdkwork-knowledgebase-auth-shell">
+    <div className="sdkwork-knowledgebase-auth-shell" data-testid="knowledgebase-pc-auth-shell">
       {shouldRenderDesktopHeader && (
         <header className="sdkwork-knowledgebase-auth-header drag-region">
           <div className="sdkwork-knowledgebase-auth-header-brand">

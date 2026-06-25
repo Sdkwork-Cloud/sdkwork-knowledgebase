@@ -11,6 +11,7 @@ import zhWidget from './locales/zh/widget.json';
 import zhCloudDrive from './locales/zh/cloudDrive.json';
 import zhMcp from './locales/zh/mcp.json';
 import zhSearch from './locales/zh/search.json';
+import zhErrors from './locales/zh/errors.json';
 
 import enCommon from './locales/en/common.json';
 import enKb from './locales/en/kb.json';
@@ -22,6 +23,7 @@ import enWidget from './locales/en/widget.json';
 import enCloudDrive from './locales/en/cloudDrive.json';
 import enMcp from './locales/en/mcp.json';
 import enSearch from './locales/en/search.json';
+import enErrors from './locales/en/errors.json';
 
 import {
   normalizeAppLanguage,
@@ -47,6 +49,7 @@ void i18n
         cloudDrive: zhCloudDrive,
         mcp: zhMcp,
         search: zhSearch,
+        errors: zhErrors,
       },
       en: {
         common: enCommon,
@@ -60,6 +63,7 @@ void i18n
         cloudDrive: enCloudDrive,
         mcp: enMcp,
         search: enSearch,
+        errors: enErrors,
       },
     },
     lng: initialLanguage,
@@ -78,6 +82,7 @@ void i18n
       'cloudDrive',
       'mcp',
       'search',
+      'errors',
     ],
     defaultNS: 'common',
     interpolation: {

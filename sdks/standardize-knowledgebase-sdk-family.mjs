@@ -22,19 +22,19 @@ const currentTenantRequestSchemas = new Set([
 ]);
 
 const appbasePackages = {
-  typescript: "@sdkwork/appbase-app-sdk",
-  rust: "sdkwork-appbase-app-sdk",
-  java: "com.sdkwork:sdkwork-appbase-app-sdk",
-  python: "sdkwork-appbase-app-sdk",
-  go: "github.com/sdkwork/sdkwork-appbase-app-sdk",
+  typescript: "@sdkwork/iam-app-sdk",
+  rust: "sdkwork-iam-app-sdk",
+  java: "com.sdkwork:sdkwork-iam-app-sdk",
+  python: "sdkwork-iam-app-sdk",
+  go: "github.com/sdkwork/sdkwork-iam-app-sdk",
 };
 
 const appbaseBackendPackages = {
-  typescript: "@sdkwork/appbase-backend-sdk",
-  rust: "sdkwork-appbase-backend-sdk",
-  java: "com.sdkwork:sdkwork-appbase-backend-sdk",
-  python: "sdkwork-appbase-backend-sdk",
-  go: "github.com/sdkwork/sdkwork-appbase-backend-sdk",
+  typescript: "@sdkwork/iam-backend-sdk",
+  rust: "sdkwork-iam-backend-sdk",
+  java: "com.sdkwork:sdkwork-iam-backend-sdk",
+  python: "sdkwork-iam-backend-sdk",
+  go: "github.com/sdkwork/sdkwork-iam-backend-sdk",
 };
 
 const driveAppPackages = {
@@ -119,7 +119,7 @@ const families = [
     generatedWorkspace: "sdkwork-knowledgebase-app-sdk-typescript",
     primaryClient: "SdkworkAppClient",
     dependencies: [
-      dependency("sdkwork-appbase-app-sdk", "appbase-identity-and-session-capability", "/app/v3/api", "sdkwork-appbase-app-api", appbasePackages),
+      dependency("sdkwork-iam-app-sdk", "appbase-identity-and-session-capability", "/app/v3/api", "sdkwork-iam-app-api", appbasePackages),
       dependency("sdkwork-drive-app-sdk", "drive-file-and-media-capability", "/app/v3/api", "sdkwork-drive.app", driveAppPackages),
       dependency("sdkwork-memory-app-sdk", "memory-context-capability", "/app/v3/api", "sdkwork-memory.app", memoryAppPackages),
     ],
@@ -147,7 +147,7 @@ const families = [
     generatedWorkspace: "sdkwork-knowledgebase-backend-sdk-typescript",
     primaryClient: "SdkworkBackendClient",
     dependencies: [
-      dependency("sdkwork-appbase-backend-sdk", "appbase-backend-management-capability", "/backend/v3/api", "sdkwork-appbase-backend-api", appbaseBackendPackages),
+      dependency("sdkwork-iam-backend-sdk", "appbase-backend-management-capability", "/backend/v3/api", "sdkwork-iam-backend-api", appbaseBackendPackages),
       dependency("sdkwork-drive-backend-sdk", "drive-backend-management-capability", "/backend/v3/api", "sdkwork-drive.backend", driveBackendPackages),
       dependency("sdkwork-memory-backend-sdk", "memory-backend-management-capability", "/backend/v3/api", "sdkwork-memory.backend", memoryBackendPackages),
     ],

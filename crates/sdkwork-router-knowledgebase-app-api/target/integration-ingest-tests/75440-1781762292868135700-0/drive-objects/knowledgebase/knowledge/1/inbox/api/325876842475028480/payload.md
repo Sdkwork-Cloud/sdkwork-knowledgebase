@@ -1,3 +1,0 @@
-# Hello
-
-Integration ingest body.

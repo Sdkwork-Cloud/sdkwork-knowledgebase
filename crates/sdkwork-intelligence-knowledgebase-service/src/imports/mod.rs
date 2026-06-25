@@ -1,32 +1,33 @@
 mod drive_import_pipeline;
+mod git_import;
+mod git_sync;
+mod github_api;
+
+pub use github_api::GitHubApiError;
 
 pub use drive_import_pipeline::{
     DriveImportPipelineResult, KnowledgeDriveImportPipelineService,
     KnowledgeDriveImportPipelineServiceError,
 };
+pub use git_import::{
+    KnowledgeGitImportRunResult, KnowledgeGitImportService, KnowledgeGitImportServiceError,
+};
+pub use git_sync::{
+    KnowledgeDocumentMarkdownReader, KnowledgeGitSyncService, KnowledgeGitSyncServiceError,
+};
 
 use crate::ports::{
-    knowledge_document_store::{
-        CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
-        KnowledgeDocumentStoreError,
+    drive_import_metadata_store::{
+        DriveImportMetadataStore, DriveImportMetadataStoreError, PrepareDriveImportMetadataRecord,
     },
-    knowledge_document_version_store::{
-        CreateKnowledgeDocumentVersionRecord, KnowledgeDocumentVersionStore,
-        KnowledgeDocumentVersionStoreError,
-    },
-    knowledge_drive_object_ref_store::{
-        CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore,
-        KnowledgeDriveObjectRefStoreError, MANAGED_DRIVE_ACCESS_MODE, SDKWORK_DRIVE_PROVIDER_KIND,
-    },
+    knowledge_document_store::{CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope},
+    knowledge_document_version_store::CreateKnowledgeDocumentVersionRecord,
+    knowledge_drive_object_ref_store::managed_drive_object_ref_record,
     knowledge_drive_storage::{
         HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeStorageError,
     },
-    knowledge_ingestion_job_store::{
-        CreateIngestionJobRecord, IngestionJobStore, IngestionJobStoreError,
-    },
-    knowledge_source_store::{
-        CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
-    },
+    knowledge_ingestion_job_store::CreateIngestionJobRecord,
+    knowledge_source_store::CreateKnowledgeSourceRecord,
 };
 use sdkwork_knowledgebase_contract::{
     ingest::{KnowledgeDriveImportRequest, KnowledgeDriveImportResult},
@@ -38,30 +39,15 @@ use thiserror::Error;
 
 pub struct KnowledgeDriveImportService<'a> {
     drive: &'a dyn KnowledgeDriveStorage,
-    sources: &'a dyn KnowledgeSourceStore,
-    documents: &'a dyn KnowledgeDocumentStore,
-    object_refs: &'a dyn KnowledgeDriveObjectRefStore,
-    versions: &'a dyn KnowledgeDocumentVersionStore,
-    jobs: &'a dyn IngestionJobStore,
+    metadata: &'a dyn DriveImportMetadataStore,
 }
 
 impl<'a> KnowledgeDriveImportService<'a> {
     pub fn new(
         drive: &'a dyn KnowledgeDriveStorage,
-        sources: &'a dyn KnowledgeSourceStore,
-        documents: &'a dyn KnowledgeDocumentStore,
-        object_refs: &'a dyn KnowledgeDriveObjectRefStore,
-        versions: &'a dyn KnowledgeDocumentVersionStore,
-        jobs: &'a dyn IngestionJobStore,
+        metadata: &'a dyn DriveImportMetadataStore,
     ) -> Self {
-        Self {
-            drive,
-            sources,
-            documents,
-            object_refs,
-            versions,
-            jobs,
-        }
+        Self { drive, metadata }
     }
 
     pub async fn import_drive_object(
@@ -117,16 +103,14 @@ impl<'a> KnowledgeDriveImportService<'a> {
             language: request.language.as_deref(),
         };
         let fingerprint = drive_import_idempotency_fingerprint_sha256_hex(&fingerprint_input);
-        let job = self
-            .jobs
-            .create_or_get_job(CreateIngestionJobRecord {
+        self.metadata
+            .validate_drive_import_idempotency(CreateIngestionJobRecord {
                 space_id: request.space_id,
                 source_type: KnowledgeSourceType::DriveObject.as_str().to_string(),
-                idempotency_key,
-                idempotency_fingerprint_sha256_hex: Some(fingerprint),
+                idempotency_key: idempotency_key.clone(),
+                idempotency_fingerprint_sha256_hex: Some(fingerprint.clone()),
             })
-            .await?
-            .job;
+            .await?;
 
         let original_object_ref = self
             .drive
@@ -143,72 +127,56 @@ impl<'a> KnowledgeDriveImportService<'a> {
             )));
         }
 
-        let original_drive_object_ref = self
-            .object_refs
-            .create_or_get_object_ref(CreateKnowledgeDriveObjectRefRecord {
-                space_id: request.space_id,
-                drive_space_id: drive_space_id.clone(),
-                drive_node_id: drive_node_id.clone(),
-                logical_path: Some(original_object_ref.logical_path.clone()),
-                drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
-                drive_storage_provider_id: original_object_ref.storage_provider_id.clone(),
-                drive_bucket: original_object_ref.bucket.clone(),
-                drive_object_key: original_object_ref.object_key.clone(),
-                drive_object_version: original_object_ref.version_id.clone(),
-                drive_etag: original_object_ref.etag.clone(),
-                content_type: Some(original_object_ref.content_type.clone()),
-                size_bytes: original_object_ref.size_bytes,
-                checksum_sha256_hex: original_object_ref.checksum_sha256_hex.clone(),
-                object_role: original_object_ref.object_role.clone(),
-                access_mode: MANAGED_DRIVE_ACCESS_MODE.to_string(),
+        let prepared = self
+            .metadata
+            .create_or_prepare_drive_import_metadata(PrepareDriveImportMetadataRecord {
+                job: CreateIngestionJobRecord {
+                    space_id: request.space_id,
+                    source_type: KnowledgeSourceType::DriveObject.as_str().to_string(),
+                    idempotency_key,
+                    idempotency_fingerprint_sha256_hex: Some(fingerprint),
+                },
+                object_ref: managed_drive_object_ref_record(
+                    request.space_id,
+                    &original_object_ref,
+                    drive_space_id.as_deref(),
+                    drive_node_id.clone(),
+                ),
+                source: CreateKnowledgeSourceRecord {
+                    space_id: request.space_id,
+                    source_type: KnowledgeSourceType::DriveObject,
+                    provider: Some("sdkwork-drive".to_string()),
+                    drive_bucket: Some(request.drive_bucket),
+                    drive_prefix: Some(request.drive_object_key),
+                    connector_metadata_json: None,
+                },
+                document: CreateKnowledgeDocumentRecord {
+                    space_id: request.space_id,
+                    collection_id: 0,
+                    source_id: None,
+                    identity_scope: KnowledgeDocumentIdentityScope::SourceOnly,
+                    original_file_drive_node_id: drive_node_id,
+                    title: request.title,
+                    mime_type: Some(original_object_ref.content_type.clone()),
+                    language: request.language,
+                },
+                version: CreateKnowledgeDocumentVersionRecord {
+                    document_id: 0,
+                    version_no: 1,
+                    original_object_ref_id: 0,
+                    checksum_sha256_hex: original_object_ref.checksum_sha256_hex.clone(),
+                    size_bytes: original_object_ref.size_bytes,
+                    mime_type: Some(original_object_ref.content_type.clone()),
+                },
             })
             .await?;
-
-        let source = self
-            .sources
-            .create_or_get_source(CreateKnowledgeSourceRecord {
-                space_id: request.space_id,
-                source_type: KnowledgeSourceType::DriveObject,
-                provider: Some("sdkwork-drive".to_string()),
-                drive_bucket: Some(request.drive_bucket),
-                drive_prefix: Some(request.drive_object_key),
-                connector_metadata_json: None,
-            })
-            .await?;
-
-        let mut document = self
-            .documents
-            .create_or_get_document(CreateKnowledgeDocumentRecord {
-                space_id: request.space_id,
-                collection_id: 0,
-                source_id: Some(source.id),
-                identity_scope: KnowledgeDocumentIdentityScope::SourceOnly,
-                original_file_drive_node_id: drive_node_id,
-                title: request.title,
-                mime_type: Some(original_object_ref.content_type.clone()),
-                language: request.language,
-            })
-            .await?;
-
-        let version = self
-            .versions
-            .create_or_get_document_version(CreateKnowledgeDocumentVersionRecord {
-                document_id: document.id,
-                version_no: 1,
-                original_object_ref_id: original_drive_object_ref.id,
-                checksum_sha256_hex: original_drive_object_ref.checksum_sha256_hex.clone(),
-                size_bytes: original_drive_object_ref.size_bytes,
-                mime_type: original_drive_object_ref.content_type.clone(),
-            })
-            .await?;
-        document.current_version_id = Some(version.id);
 
         Ok(KnowledgeDriveImportResult {
-            source,
-            document,
-            version,
-            original_object_ref: original_drive_object_ref,
-            job,
+            source: prepared.source,
+            document: prepared.document,
+            version: prepared.version,
+            original_object_ref: prepared.original_object_ref,
+            job: prepared.job,
         })
     }
 }
@@ -328,13 +296,5 @@ pub enum KnowledgeDriveImportServiceError {
     #[error(transparent)]
     Storage(#[from] KnowledgeStorageError),
     #[error(transparent)]
-    SourceStore(#[from] KnowledgeSourceStoreError),
-    #[error(transparent)]
-    DocumentStore(#[from] KnowledgeDocumentStoreError),
-    #[error(transparent)]
-    DriveObjectRefStore(#[from] KnowledgeDriveObjectRefStoreError),
-    #[error(transparent)]
-    VersionStore(#[from] KnowledgeDocumentVersionStoreError),
-    #[error(transparent)]
-    IngestionJobStore(#[from] IngestionJobStoreError),
+    Metadata(#[from] DriveImportMetadataStoreError),
 }

@@ -6,7 +6,7 @@ import {
   dispatchLocateKbFile,
   readKbNavIntent,
   useLocalStorage
-} from '@packages/sdkwork-knowledgebase-pc-commons/src';
+} from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 import { findDocInTree } from './utils/docTreeUtils';
 import { DocumentService, FolderNode, DocumentMeta, KnowledgeBase } from './services/document';
 import { TabCacheService } from './services/tabService';

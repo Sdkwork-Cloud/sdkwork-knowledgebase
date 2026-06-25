@@ -1,3 +1,4 @@
+use crate::okf::DRIVE_WORKSPACE_INIT_DRIVE_SPACE_REQUIRED;
 use crate::okf::{OkfBundleInitializerService, OkfBundleInitializerServiceError};
 use crate::ports::{
     knowledge_access_control::{
@@ -19,6 +20,15 @@ use sdkwork_knowledgebase_contract::space::{
 };
 use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
+
+const MAX_SPACE_MEMBERS_PAGE_SIZE: u32 = 200;
+const DEFAULT_SPACE_MEMBERS_PAGE_SIZE: u32 = 50;
+
+fn normalize_space_members_page_size(page_size: Option<u32>) -> u32 {
+    page_size
+        .unwrap_or(DEFAULT_SPACE_MEMBERS_PAGE_SIZE)
+        .clamp(1, MAX_SPACE_MEMBERS_PAGE_SIZE)
+}
 
 pub struct KnowledgeSpaceService<'a> {
     store: &'a dyn KnowledgeSpaceStore,
@@ -89,8 +99,7 @@ impl<'a> KnowledgeSpaceService<'a> {
         } else {
             if self.okf_bundle_initializer.requires_drive_space_binding() {
                 return Err(KnowledgeSpaceServiceError::InvalidRequest(
-                    "drive_space_id is required when drive workspace initialization is enabled"
-                        .to_string(),
+                    DRIVE_WORKSPACE_INIT_DRIVE_SPACE_REQUIRED.to_string(),
                 ));
             }
             None
@@ -134,7 +143,11 @@ impl<'a> KnowledgeSpaceService<'a> {
         self.get_space_with_access_check(space_id, tenant_id, actor_id)
             .await?;
 
-        if request.name.as_ref().is_some_and(|name| is_blank(Some(name.as_str()))) {
+        if request
+            .name
+            .as_ref()
+            .is_some_and(|name| is_blank(Some(name.as_str())))
+        {
             return Err(KnowledgeSpaceServiceError::InvalidRequest(
                 "name must not be blank".to_string(),
             ));
@@ -178,13 +191,8 @@ impl<'a> KnowledgeSpaceService<'a> {
         tenant_id: &str,
         actor_id: &str,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
-        self.get_space_with_role_check(
-            space_id,
-            tenant_id,
-            actor_id,
-            KnowledgeAccessRole::Reader,
-        )
-        .await
+        self.get_space_with_role_check(space_id, tenant_id, actor_id, KnowledgeAccessRole::Reader)
+            .await
     }
 
     pub async fn get_space_with_role_check(
@@ -323,6 +331,8 @@ impl<'a> KnowledgeSpaceService<'a> {
         space_id: u64,
         tenant_id: &str,
         actor_id: &str,
+        cursor: Option<String>,
+        page_size: Option<u32>,
     ) -> Result<
         crate::ports::knowledge_access_control::KnowledgeSpaceMemberList,
         KnowledgeSpaceServiceError,
@@ -349,8 +359,8 @@ impl<'a> KnowledgeSpaceService<'a> {
                     tenant_id: tenant_id.to_string(),
                     drive_space_id: drive_space_id.clone(),
                     drive_node_id: None,
-                    cursor: None,
-                    page_size: None,
+                    cursor,
+                    page_size: Some(normalize_space_members_page_size(page_size)),
                 },
             )
             .await
@@ -433,6 +443,17 @@ impl<'a> KnowledgeSpaceService<'a> {
                         .await)
                 }
             };
+        } else if self.okf_bundle_initializer.requires_drive_space_binding() {
+            if let Err(error) = self
+                .okf_bundle_initializer
+                .ensure_drive_permission_anchor(space.drive_space_id.as_deref())
+                .await
+                .map_err(KnowledgeSpaceServiceError::OkfBundleInitializer)
+            {
+                return Err(self
+                    .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
+                    .await);
+            }
         }
 
         self.grant_created_space_owner_access(

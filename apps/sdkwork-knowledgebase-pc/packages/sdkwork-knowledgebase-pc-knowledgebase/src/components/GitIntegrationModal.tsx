@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import { X, GitBranch, Share, CheckCircle, Database, HelpCircle, Loader2, ArrowRight, ShieldCheck, Check } from 'lucide-react';
 import { KnowledgeBase, DocumentService } from '../services/document';
-import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
+import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, resolveUserFacingErrorMessage, shouldUseKnowledgebaseDemoFallback, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
 import { useTranslation } from 'react-i18next';
 
 export interface GitIntegrationModalProps {
@@ -14,6 +14,7 @@ export interface GitIntegrationModalProps {
 
 export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegrationModalProps) {
   const { t } = useTranslation('kb');
+  const { t: tErrors } = useTranslation('errors');
   const [repoUrl, setRepoUrl] = useState('');
   const [branch, setBranch] = useState('main');
   const [accessToken, setAccessToken] = useState('');
@@ -64,18 +65,14 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
     setStep(0);
     setProgressMsg(activeSteps[0]);
 
-    if (isKnowledgebaseApiAvailable() && mode === 'sync') {
-      setErrorMessage(
-        t('git.syncUnavailable', {
-          defaultValue: 'Git 同步尚未接入 Knowledgebase API。',
-        }),
-      );
-      setLoading(false);
-      return;
-    }
-
     const useApiImport = isKnowledgebaseApiAvailable() && mode === 'import';
-    if (!useApiImport) {
+    const useApiSync = isKnowledgebaseApiAvailable() && mode === 'sync';
+    if (!useApiImport && !useApiSync) {
+      if (!shouldUseKnowledgebaseDemoFallback()) {
+        setErrorMessage(t('git.apiUnavailable', { defaultValue: '知识库 API 不可用，无法执行 Git 操作。' }));
+        setLoading(false);
+        return;
+      }
       for (let i = 0; i < activeSteps.length; i++) {
         setStep(i);
         setProgressMsg(activeSteps[i]);
@@ -97,20 +94,24 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
             : undefined,
         });
         if (!imported) {
-          throw new Error(
-            t('git.importUnavailable', {
-              defaultValue: 'Git 仓库导入失败，请检查仓库 URL、分支与访问令牌。',
-            }),
-          );
+          throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED);
         }
       } else {
-        const synced = await DocumentService.syncGitRepository(kb.id, commitMsg);
+        const synced = await DocumentService.syncGitRepository(kb.id, commitMsg, {
+          repoUrl,
+          branch,
+          accessToken: accessToken.trim() || undefined,
+          onProgress: useApiSync
+            ? (progress) => {
+                setProgressMsg(progress.message);
+                if (progress.syncedCount) {
+                  setStep(Math.min(activeSteps.length - 1, progress.syncedCount));
+                }
+              }
+            : undefined,
+        });
         if (!synced.success) {
-          throw new Error(
-            t('git.syncUnavailable', {
-              defaultValue: 'Git 同步尚未接入 Knowledgebase API。',
-            }),
-          );
+          throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED);
         }
       }
       setSuccess(true);
@@ -120,7 +121,7 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
       }, 1500);
     } catch (err) {
       console.error(err);
-      setErrorMessage(err instanceof Error ? err.message : String(err));
+      setErrorMessage(resolveUserFacingErrorMessage(err, tErrors));
     } finally {
       setLoading(false);
     }

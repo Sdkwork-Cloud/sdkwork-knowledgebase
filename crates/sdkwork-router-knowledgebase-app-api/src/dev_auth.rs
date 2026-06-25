@@ -3,7 +3,9 @@ use axum::{
     middleware::{self, Next},
     Extension, Router,
 };
-use sdkwork_router_knowledgebase_backend_api::KnowledgeBackendRequestContext;
+use sdkwork_router_knowledgebase_backend_api::{
+    permission::KNOWLEDGE_ADMIN_PERMISSION, KnowledgeBackendRequestContext,
+};
 use sdkwork_router_knowledgebase_open_api::KnowledgeOpenApiRequestContext;
 
 use crate::KnowledgeAppRequestContext;
@@ -46,6 +48,8 @@ pub fn with_dev_backend_auth(router: Router, tenant_id: u64, operator_id: Option
                         .insert(KnowledgeBackendRequestContext {
                             tenant_id,
                             operator_id,
+                            organization_id: None,
+                            permission_scope: vec![KNOWLEDGE_ADMIN_PERMISSION.to_string()],
                         });
                 }
                 next.run(request).await
@@ -70,6 +74,7 @@ pub fn with_dev_open_auth(router: Router, tenant_id: u64, actor_id: Option<u64>)
                             api_key_id: "dev-local".to_string(),
                             tenant_id,
                             actor_id,
+                            organization_id: None,
                         });
                 }
                 next.run(request).await

@@ -1,6 +1,8 @@
 use sdkwork_utils_rust::is_blank;
 use std::sync::Arc;
 
+use crate::async_bridge::block_on_async;
+
 use clawrouter_open_sdk::{OpenAiEmbeddingsRequest, SdkworkAiClient, SdkworkError};
 
 pub const DEFAULT_CLAW_ROUTER_EMBEDDING_MODEL_ID: &str = "openai/text-embedding-3-small";
@@ -42,11 +44,8 @@ impl ClawRouterEmbeddingClient {
         };
 
         let client = Arc::clone(&self.client);
-        let response = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async move { client.embeddings().create(&request).await })
-        })
-        .map_err(map_sdk_error)?;
+        let response = block_on_async(async move { client.embeddings().create(&request).await })
+            .map_err(map_sdk_error)?;
 
         response
             .data

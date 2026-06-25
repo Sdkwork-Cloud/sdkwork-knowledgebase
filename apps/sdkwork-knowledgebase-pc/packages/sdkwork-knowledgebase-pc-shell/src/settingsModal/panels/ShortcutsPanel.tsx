@@ -66,7 +66,8 @@ export function ShortcutsPanel({ filterQuery }: { filterQuery: string }) {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       {visibleGroups.map((group) => (
-        <SettingsCard key={group.id} title={group.title}>
+        <div key={group.id}>
+          <SettingsCard title={group.title}>
           <div className="divide-y divide-zinc-100 dark:divide-[var(--color-kb-panel-border)]">
             {group.items.map((item) => (
               <div key={item.action} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
@@ -87,6 +88,7 @@ export function ShortcutsPanel({ filterQuery }: { filterQuery: string }) {
             ))}
           </div>
         </SettingsCard>
+        </div>
       ))}
 
       {visibleGroups.length === 0 && filterQuery ? <SettingsEmptyFilterState /> : null}

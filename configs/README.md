@@ -1,15 +1,40 @@
 # Configs
 
-Purpose: source-controlled safe config templates, schemas, profile examples, and non-secret defaults.
+Purpose: source-controlled safe config templates, schemas, profile examples, and non-secret defaults for SDKWork Knowledgebase.
 
 Owner: SDKWork Knowledgebase maintainers.
 
-Allowed content: checked-in config schemas, examples, and non-secret defaults.
+## Layout
 
-Forbidden content: `.local` overrides, live credentials, access tokens, private keys, runtime user config, database files, and Redis data.
+| Path | Purpose |
+|------|---------|
+| `topology/` | Deployment profile env templates (`standalone.*`, `cloud.*`) |
+| `sdkwork-api-cloud-gateway.*.toml` | Cloud gateway bundle inputs |
 
-Related specs: `../sdkwork-specs/SDKWORK_WORKSPACE_SPEC.md`, `../sdkwork-specs/CONFIG_SPEC.md`, `../sdkwork-specs/ENVIRONMENT_SPEC.md`, `../sdkwork-specs/RUNTIME_DIRECTORY_SPEC.md`.
+Development database credentials and IAM signing secrets are **not** stored in topology templates. Copy `.env.postgres.example` to `.env.postgres` at the repository root and load it via `pnpm dev --dev-env-file .env.postgres`.
 
-Verification: `powershell -ExecutionPolicy Bypass -File tools/verify_sdkwork_structure.ps1`.
+## Allowed content
 
-Status: inactive placeholder.
+- Checked-in config schemas, examples, and non-secret defaults
+- Topology profile env files without live credentials
+
+## Forbidden content
+
+- `.local` overrides, live credentials, access tokens, private keys
+- Runtime user config, database files, and Redis data
+
+## Related specs
+
+- `../sdkwork-specs/CONFIG_SPEC.md`
+- `../sdkwork-specs/ENVIRONMENT_SPEC.md`
+- `../sdkwork-specs/APP_RUNTIME_TOPOLOGY_SPEC.md`
+- `../sdkwork-specs/RUNTIME_DIRECTORY_SPEC.md`
+
+## Verification
+
+```bash
+pnpm topology:validate
+node ../sdkwork-specs/tools/check-database-framework-standard.mjs --root .
+```
+
+Status: active.

@@ -1,10 +1,16 @@
+use crate::okf::catalog_log;
 use crate::okf::index_rebuild::OkfIndexRebuildError;
+use crate::okf::standard_bundle_catalog_sync::{
+    sync_full_standard_bundle_catalog, StandardBundleCatalogSyncDeps,
+    StandardBundleCatalogSyncError,
+};
 use crate::okf::OkfBundleStandardFileService;
 use crate::ports::knowledge_drive_storage::KnowledgeDriveStorage;
+use crate::ports::knowledge_drive_workspace::KnowledgeDriveWorkspace;
 use crate::ports::knowledge_okf_bundle_file_store::KnowledgeOkfBundleFileStore;
 use crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkStore;
 use crate::ports::knowledge_okf_concept_store::{
-    AppendKnowledgeOkfLogEntryRecord, KnowledgeOkfConceptStore, KnowledgeOkfConceptStoreError,
+    KnowledgeOkfConceptStore, KnowledgeOkfConceptStoreError,
 };
 use crate::ports::knowledge_source_store::{KnowledgeSourceStore, KnowledgeSourceStoreError};
 use crate::ports::knowledge_space_store::{KnowledgeSpaceStore, KnowledgeSpaceStoreError};
@@ -12,7 +18,6 @@ use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError;
 use sdkwork_knowledgebase_contract::okf::OkfBundleLintResult;
 use sdkwork_knowledgebase_contract::OkfLogEventType;
 use thiserror::Error;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 #[async_trait::async_trait]
 pub trait OkfBundleWorkflowEngine: Send + Sync {
@@ -47,6 +52,8 @@ pub enum OkfBundleWorkflowError {
     #[error(transparent)]
     BundleFileRegistry(#[from] crate::okf::OkfBundleFileRegistryServiceError),
     #[error(transparent)]
+    CatalogSync(#[from] StandardBundleCatalogSyncError),
+    #[error(transparent)]
     Engine(#[from] KnowledgeEngineError),
 }
 
@@ -57,6 +64,7 @@ pub struct OkfBundleWorkflowDeps<'a> {
     pub source_store: &'a dyn KnowledgeSourceStore,
     pub link_store: Option<&'a dyn KnowledgeOkfConceptLinkStore>,
     pub bundle_file_store: Option<&'a dyn KnowledgeOkfBundleFileStore>,
+    pub drive_workspace: Option<&'a dyn KnowledgeDriveWorkspace>,
     pub engine: Option<&'a dyn OkfBundleWorkflowEngine>,
 }
 
@@ -79,18 +87,19 @@ pub async fn run_okf_compile_workflow(
         Some(id) => format!("source {id}"),
         None => "bundle".to_string(),
     };
-    append_bundle_log_entry(
+    catalog_log::append_okf_bundle_log_entry(
         deps.concepts,
         space_id,
-        OkfLogEventType::Compile,
+        OkfLogEventType::Compile.as_str(),
         format!("Compiled OKF bundle from {source_label}"),
         actor,
+        Vec::new(),
         Vec::new(),
     )
     .await?;
 
     rebuild_bundle_index(&deps, space_id).await?;
-    refresh_standard_bundle_files(&deps, &space.name, space_id).await
+    refresh_standard_bundle_files(&deps, &space.name, space_id, space.drive_space_id.clone()).await
 }
 
 pub async fn run_okf_eval_workflow(
@@ -115,18 +124,20 @@ pub async fn run_okf_eval_workflow(
             lint_result.issues.len()
         )]
     };
-    append_bundle_log_entry(
+    catalog_log::append_okf_bundle_log_entry(
         deps.concepts,
         space_id,
-        OkfLogEventType::Eval,
+        OkfLogEventType::Eval.as_str(),
         format!("Evaluated OKF bundle quality ({})", lint_result.conformance),
         actor,
+        Vec::new(),
         warnings,
     )
     .await?;
 
     rebuild_bundle_index(&deps, space_id).await?;
-    refresh_standard_bundle_files(&deps, &space.name, space_id).await?;
+    refresh_standard_bundle_files(&deps, &space.name, space_id, space.drive_space_id.clone())
+        .await?;
 
     Ok(lint_result)
 }
@@ -178,58 +189,31 @@ async fn validate_compile_source(
     )))
 }
 
-async fn append_bundle_log_entry(
-    concept_store: &dyn KnowledgeOkfConceptStore,
-    space_id: u64,
-    event_type: OkfLogEventType,
-    title: String,
-    actor: &str,
-    warnings: Vec<String>,
-) -> Result<(), KnowledgeOkfConceptStoreError> {
-    concept_store
-        .append_log_entry(AppendKnowledgeOkfLogEntryRecord {
-            space_id,
-            event_type: event_type.as_str().to_string(),
-            event_time: current_rfc3339_timestamp(),
-            title,
-            actor: actor.to_string(),
-            affected_concepts: Vec::new(),
-            audit_event_id: None,
-            warnings,
-            privacy_level: "internal".to_string(),
-        })
-        .await?;
-    Ok(())
-}
-
 async fn refresh_standard_bundle_files(
     deps: &OkfBundleWorkflowDeps<'_>,
     space_name: &str,
     space_id: u64,
+    drive_space_id: Option<String>,
 ) -> Result<(), OkfBundleWorkflowError> {
-    let space = deps.space_store.get_space(space_id).await?;
-    let concepts = deps.concepts.list_concept_summaries(space_id).await?;
-    let log_entries = deps.concepts.list_log_entries(space_id).await?;
     let files = OkfBundleStandardFileService::new(deps.drive)
-        .persist_standard_files(crate::okf::PersistStandardFilesRequest {
+        .persist_standard_files_after_index_rebuild(crate::okf::PersistStandardFilesRequest {
             space_name: space_name.to_string(),
-            concepts,
-            log_entries,
-            drive_space_id: space.drive_space_id.clone(),
+            concepts: vec![],
+            log_entries: vec![],
+            drive_space_id: drive_space_id.clone(),
         })
         .await?;
 
-    if let Some(bundle_file_store) = deps.bundle_file_store {
-        crate::okf::OkfBundleFileRegistryService::new(bundle_file_store)
-            .register_standard_files(space_id, &files)
-            .await?;
-    }
+    sync_full_standard_bundle_catalog(
+        StandardBundleCatalogSyncDeps {
+            bundle_file_store: deps.bundle_file_store,
+            drive_workspace: deps.drive_workspace,
+        },
+        space_id,
+        &files,
+        drive_space_id.as_deref(),
+    )
+    .await?;
 
     Ok(())
-}
-
-fn current_rfc3339_timestamp() -> String {
-    OffsetDateTime::now_utc()
-        .format(&Rfc3339)
-        .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string())
 }

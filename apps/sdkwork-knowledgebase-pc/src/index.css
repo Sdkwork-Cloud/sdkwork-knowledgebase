@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 @import "tailwindcss";
-@source "../../../../sdkwork-appbase/packages/pc-react/iam/sdkwork-auth-pc-react/src";
-@source "../../../../sdkwork-appbase/packages/pc-react/iam/sdkwork-auth-pc-react/src";
+@source "../../../../sdkwork-iam/apps/sdkwork-iam-pc/packages/sdkwork-auth-pc-react/src";
+@source "../../../../sdkwork-iam/apps/sdkwork-iam-pc/packages/sdkwork-auth-pc-react/src";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -301,7 +301,7 @@ select option {
   color: var(--color-kb-text);
 }
 
-/* Force react-arborist containers to never scroll horizontally */
+/* Knowledge file tree containers must not scroll horizontally */
 .kb-tree-container [style*="overflow"] {
   overflow-x: hidden !important;
 }

@@ -14,5 +14,9 @@ commands.allow = [
   "sync_desktop_preferences",
   "get_desktop_host_status",
   "get_autostart_enabled",
-  "sync_tray_locale"
+  "sync_tray_locale",
+  "write_secure_session_value",
+  "remove_secure_session_value",
+  "clear_secure_session_values",
+  "read_secure_session_snapshot"
 ]

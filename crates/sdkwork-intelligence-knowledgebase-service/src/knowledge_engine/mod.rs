@@ -43,6 +43,7 @@ use crate::ports::knowledge_retrieval_backend::KnowledgeRetrievalBackend;
 use crate::ports::knowledge_retrieval_trace_store::KnowledgeRetrievalTraceStore;
 use crate::ports::knowledge_source_store::KnowledgeSourceStore;
 use crate::ports::knowledge_space_store::KnowledgeSpaceStore;
+use crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStore;
 use sdkwork_knowledgebase_agent_provider::ClawRouterEmbeddingClient;
 use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError;
 
@@ -266,9 +267,11 @@ pub struct KnowledgeEngineRuntimeDeps {
 }
 
 impl KnowledgeEngineRuntimeDeps {
+    #[allow(clippy::too_many_arguments)]
     pub fn okf_from_stores(
         concepts: Arc<dyn KnowledgeOkfConceptStore>,
         drive: Arc<dyn KnowledgeDriveStorage>,
+        revision_metadata: Arc<dyn OkfConceptRevisionMetadataStore>,
         object_refs: Arc<dyn KnowledgeDriveObjectRefStore>,
         link_store: Arc<dyn KnowledgeOkfConceptLinkStore>,
         candidate_store: Arc<dyn KnowledgeOkfCandidateStore>,
@@ -280,6 +283,7 @@ impl KnowledgeEngineRuntimeDeps {
         OkfNativeKnowledgeEngineDeps {
             concepts,
             drive,
+            revision_metadata,
             object_refs,
             link_store,
             candidate_store,

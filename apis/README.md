@@ -38,7 +38,13 @@ powershell -ExecutionPolicy Bypass -File tools/verify_openapi_operation_ids.ps1
 
 ## Current State
 
-API authority OpenAPI files are materialized under `sdks/` SDK family directories. This `apis/` directory is the canonical source location for authored API contracts. As the project matures, OpenAPI authority files should be authored here and materialized to `sdks/` for SDK generation.
+SDK family OpenAPI authorities under `sdks/*/openapi/` are the **generation source of truth**. The `apis/` directory holds synchronized review copies materialized by `tools/materialize-apis-authority.mjs` (`sdks/` → `apis/`). Edit OpenAPI in `sdks/`, run `pnpm api:materialize`, and commit both trees when contracts change.
+
+Governance metadata is applied by:
+
+- `tools/apply-knowledgebase-openapi-auth-mode.mjs` — `x-sdkwork-auth-mode`
+- `tools/apply-knowledgebase-openapi-permissions.mjs` — backend `x-sdkwork-permission`
+- `sdks/standardize-knowledgebase-sdk-family.mjs` — SDK family assembly and open-api derivation
 
 ### API Surface Inventory
 

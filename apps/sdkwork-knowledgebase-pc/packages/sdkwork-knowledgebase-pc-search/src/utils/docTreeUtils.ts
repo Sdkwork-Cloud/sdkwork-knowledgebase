@@ -1,4 +1,4 @@
-import type { DocumentMeta, FolderNode } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/document';
+import type { DocumentMeta, FolderNode } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/document';
 
 export function findDocInTree(
   nodes: (FolderNode | DocumentMeta)[],

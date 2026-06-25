@@ -2,6 +2,8 @@ import { createContext, useContext, type ReactNode } from 'react';
 
 import type { HostAdapter } from '../host/hostAdapter';
 import type { KnowledgebaseRuntimeConfig } from '../config/runtimeConfig';
+import { throwKnowledgebaseError } from '../errors/knowledgebaseAppError';
+import { KnowledgebaseErrorCodes } from '../errors/knowledgebaseErrorCodes';
 import type { KnowledgebaseAppSdkClient } from '../sdk/knowledgebaseAppSdkClient';
 import type { KnowledgebaseDriveAppSdkClient } from '../sdk/driveAppSdkClient';
 import type { SessionStore } from '../session/sessionStore';
@@ -42,7 +44,7 @@ export function KnowledgebaseRuntimeProvider({
 export function useKnowledgebaseRuntime(): KnowledgebasePcRuntime {
   const runtime = useContext(KnowledgebaseRuntimeContext);
   if (!runtime) {
-    throw new Error('useKnowledgebaseRuntime must be used within KnowledgebaseRuntimeProvider');
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.RUNTIME_PROVIDER_REQUIRED);
   }
   return runtime;
 }

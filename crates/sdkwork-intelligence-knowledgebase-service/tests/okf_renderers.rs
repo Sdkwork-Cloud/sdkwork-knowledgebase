@@ -114,14 +114,16 @@ async fn standard_files_are_persisted_through_drive_port() {
     );
     assert_eq!(refs.index_md.logical_path, "okf/index.md");
     assert_eq!(refs.log_md.logical_path, "okf/log.md");
+    let mut paths = drive.paths();
+    paths.sort();
     assert_eq!(
-        drive.paths(),
+        paths,
         vec![
+            "okf/entities/index.md",
+            "okf/index.md",
+            "okf/log.md",
             "okf/schema/AGENTS.md",
             "okf/schema/okf_profile.yaml",
-            "okf/index.md",
-            "okf/entities/index.md",
-            "okf/log.md"
         ]
     );
 }

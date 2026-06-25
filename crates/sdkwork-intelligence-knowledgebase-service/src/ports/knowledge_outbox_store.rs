@@ -13,7 +13,29 @@ pub trait KnowledgeOutboxStore: Send + Sync {
         limit: u32,
     ) -> Result<Vec<PendingOutboxEvent>, KnowledgeOutboxStoreError>;
 
+    async fn claim_pending_events(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<PendingOutboxEvent>, KnowledgeOutboxStoreError>;
+
+    async fn release_stale_claimed_events(
+        &self,
+        stale_after_secs: u64,
+    ) -> Result<usize, KnowledgeOutboxStoreError>;
+
     async fn mark_published(&self, event_id: u64) -> Result<(), KnowledgeOutboxStoreError>;
+
+    async fn mark_failed(
+        &self,
+        event_id: u64,
+        error_message: &str,
+    ) -> Result<(), KnowledgeOutboxStoreError>;
+
+    async fn requeue_failed_events(
+        &self,
+        limit: u32,
+        max_retry_count: u32,
+    ) -> Result<usize, KnowledgeOutboxStoreError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

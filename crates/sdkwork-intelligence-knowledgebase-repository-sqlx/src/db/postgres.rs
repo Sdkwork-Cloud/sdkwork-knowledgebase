@@ -53,7 +53,7 @@ pub async fn connect_postgres_via_framework_lifecycle(
         .map_err(|error| PostgresRepositoryError::Sqlx(error.to_string()))?;
     bootstrap_knowledgebase_database(pool)
         .await
-        .map_err(|error| PostgresRepositoryError::Sqlx(error))?;
+        .map_err(PostgresRepositoryError::Sqlx)?;
     crate::db::bootstrap::connect_knowledgebase_any_pool_from_url(database_url)
         .await
         .map_err(|error| PostgresRepositoryError::Sqlx(error.to_string()))

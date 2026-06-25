@@ -1,4 +1,6 @@
 pub const PREFIX: &str = "/knowledge/v3/api";
+pub const LIVEZ: &str = "/livez";
+pub const READYZ: &str = "/readyz";
 pub const HEALTHZ: &str = "/healthz";
 pub const RETRIEVALS: &str = "/knowledge/v3/api/retrievals";
 pub const RETRIEVAL: &str = "/knowledge/v3/api/retrievals/{retrieval_id}";

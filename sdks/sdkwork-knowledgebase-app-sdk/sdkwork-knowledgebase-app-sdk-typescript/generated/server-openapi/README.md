@@ -18,7 +18,7 @@ pnpm add @sdkwork/knowledgebase-app-sdk
 import { SdkworkAppClient } from '@sdkwork/knowledgebase-app-sdk';
 
 const client = new SdkworkAppClient({
-  baseUrl: 'http://localhost:8080',
+  baseUrl: '/app/v3/api',
   timeout: 30000,
 });
 
@@ -27,7 +27,7 @@ client.setAuthToken('your-auth-token');
 client.setAccessToken('your-access-token');
 
 // Use the SDK
-const result = await client.knowledge.documents.list();
+const result = await client.knowledge.okf.bundle.index.retrieve();
 ```
 
 ## Authentication
@@ -44,7 +44,7 @@ Access-Token: <accessToken>
 import { SdkworkAppClient } from '@sdkwork/knowledgebase-app-sdk';
 
 const client = new SdkworkAppClient({
-  baseUrl: 'http://localhost:8080',
+  baseUrl: '/app/v3/api',
   timeout: 30000, // Request timeout in ms
   headers: {      // Custom headers
     'X-Custom-Header': 'value',
@@ -61,8 +61,8 @@ const client = new SdkworkAppClient({
 ### knowledge
 
 ```typescript
-// GET /app/v3/api/knowledge/documents
-const result = await client.knowledge.documents.list();
+// Retrieve the OKF bundle index
+const result = await client.knowledge.okf.bundle.index.retrieve();
 ```
 
 ## Error Handling
@@ -71,7 +71,7 @@ const result = await client.knowledge.documents.list();
 import { SdkworkAppClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-app-sdk';
 
 try {
-  const result = await client.knowledge.documents.list();
+  const result = await client.knowledge.okf.bundle.index.retrieve();
 } catch (error) {
   if (error instanceof AuthenticationError) {
     console.error('Authentication failed:', error.message);

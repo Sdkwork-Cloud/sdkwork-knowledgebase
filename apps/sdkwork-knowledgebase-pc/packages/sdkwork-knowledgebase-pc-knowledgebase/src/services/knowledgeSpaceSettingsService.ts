@@ -2,8 +2,8 @@ import type { KnowledgeAccessLevel } from '@sdkwork/knowledgebase-app-sdk';
 import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import {
   getKnowledgebaseAppSdkClient,
-  getKnowledgebaseTenantId,
   readRegisteredSpaces,
+  requireKnowledgebaseTenantId,
 } from 'sdkwork-knowledgebase-pc-core';
 
 import type { KnowledgeBase } from './document';
@@ -82,18 +82,12 @@ function mapAccessLevel(
 }
 
 function resolveGuestContextId(): string {
-  const tenantId = getKnowledgebaseTenantId();
-  if (!tenantId) {
-    throw new Error('Knowledgebase tenant context is required for permission settings.');
-  }
+  const tenantId = requireKnowledgebaseTenantId();
   return `tenant-${tenantId}`;
 }
 
 export async function ensureSpaceAgentProfile(spaceId: number): Promise<string> {
-  const tenantId = getKnowledgebaseTenantId();
-  if (!tenantId) {
-    throw new Error('Knowledgebase tenant context is required for agent profile settings.');
-  }
+  const tenantId = requireKnowledgebaseTenantId();
 
   const cached = readSpaceAgentProfileCache(tenantId, spaceId);
   const client = getKnowledgebaseAppSdkClient().client;

@@ -1,4 +1,4 @@
-import type { DocumentMeta } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/document';
+import type { DocumentMeta } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/document';
 import type { SearchMediaItem, SearchRelatedMedia } from '../types';
 import {
   buildDemoKbMeetingTranscript,

@@ -11,13 +11,17 @@ use sdkwork_knowledgebase_contract::{
     },
     upload::{CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest},
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
-    CreateKnowledgeSpaceRequest, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
-    KnowledgeAgentProfileRequest, KnowledgeBrowserView, KnowledgeContextPackRequest,
-    KnowledgeDriveImportRequest, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
-    ListKnowledgeBrowserRequest, ListOkfConceptsQuery, OkfBundleExportRequest,
-    OkfBundleImportRequest, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest,
-    OkfQualityRunRequest, OkfQueryRequest, GrantKnowledgeSpaceMemberRequest,
-    KnowledgeSpaceMemberSubjectType, UpdateKnowledgeSpaceRequest,
+    CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, KnowledgeAgentBindingRequest,
+    KnowledgeAgentChatRequest, KnowledgeAgentProfileRequest, KnowledgeBrowserView,
+    KnowledgeContextPackRequest, KnowledgeDriveImportRequest, KnowledgeGitImportRequest,
+    KnowledgeGitSyncRequest, KnowledgeIngestRequest, KnowledgeMarketSubscriptionRequest,
+    KnowledgeMediaTaskRequest, KnowledgeRetrievalRequest, KnowledgeSiteDeploymentRequest,
+    KnowledgeSpaceMemberSubjectType, KnowledgeWechatArticlesPreviewRequest,
+    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatReplaceAppletsRequest,
+    KnowledgeWechatReplaceOfficialAccountsRequest, ListKnowledgeBrowserRequest,
+    ListOkfConceptsQuery, OkfBundleExportRequest, OkfBundleImportRequest, OkfConceptUpsertRequest,
+    OkfContextPackRequest, OkfFileAnswerRequest, OkfQualityRunRequest, OkfQueryRequest,
+    UpdateKnowledgeSpaceRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -29,9 +33,10 @@ use crate::{
     },
     auth::require_app_context,
     paths, ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi,
-    KnowledgeAppRequestContext, KnowledgeBrowserApi, KnowledgeDocumentAppService,
-    KnowledgeDriveImportAppService, KnowledgeIngestAppService, KnowledgeOkfAppService,
-    KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
+    KnowledgeAppRequestContext, KnowledgeBrowserApi, KnowledgeCommerceAppService,
+    KnowledgeDocumentAppService, KnowledgeDriveImportAppService, KnowledgeGitImportAppService,
+    KnowledgeIngestAppService, KnowledgeOkfAppService, KnowledgeRetrievalAppService,
+    KnowledgeSpaceAppService,
 };
 
 #[derive(Clone)]
@@ -117,6 +122,7 @@ where
 pub fn build_router_with_full_app_api(
     space: Arc<dyn KnowledgeSpaceAppService>,
     drive_import: Arc<dyn KnowledgeDriveImportAppService>,
+    git_import: Arc<dyn KnowledgeGitImportAppService>,
     ingest: Arc<dyn KnowledgeIngestAppService>,
     document: Arc<dyn KnowledgeDocumentAppService>,
     okf: Arc<dyn KnowledgeOkfAppService>,
@@ -125,10 +131,13 @@ pub fn build_router_with_full_app_api(
     agent: Arc<dyn KnowledgeAgentAppService>,
     context_binding: Arc<dyn crate::KnowledgeContextBindingAppService>,
     upload_session: Arc<dyn crate::KnowledgeUploadSessionAppService>,
+    wechat: Arc<dyn crate::KnowledgeWechatAppService>,
+    commerce: Arc<dyn KnowledgeCommerceAppService>,
 ) -> Router {
     build_router_with_shared_app_api(Arc::new(FullAppApi::new(
         space,
         drive_import,
+        git_import,
         ingest,
         document,
         okf,
@@ -137,6 +146,8 @@ pub fn build_router_with_full_app_api(
         agent,
         context_binding,
         upload_session,
+        wechat,
+        commerce,
     )))
 }
 
@@ -149,10 +160,17 @@ pub fn build_router_with_shared_app_api_and_readiness(
     readiness: Option<ReadinessCheck>,
 ) -> Router {
     Router::new()
+        .route(paths::LIVEZ, get(livez))
+        .route(paths::READYZ, get(readyz))
         .route(paths::HEALTHZ, get(health))
         .route(paths::SPACES, post(create_space))
-        .route(paths::SPACE, get(retrieve_space).patch(update_space).delete(delete_space))
+        .route(
+            paths::SPACE,
+            get(retrieve_space).patch(update_space).delete(delete_space),
+        )
         .route(paths::DRIVE_IMPORTS, post(create_drive_import))
+        .route(paths::GIT_IMPORTS, post(create_git_import))
+        .route(paths::GIT_SYNCS, post(create_git_sync))
         .route(paths::INGESTS, post(create_ingest))
         .route(paths::INGEST, get(retrieve_ingest))
         .route(paths::DOCUMENTS, get(list_documents).post(create_document))
@@ -166,9 +184,13 @@ pub fn build_router_with_shared_app_api_and_readiness(
             paths::DOCUMENT_VERSIONS,
             get(list_document_versions).post(create_document_version),
         )
+        .route(paths::DOCUMENT_CONTENT, get(retrieve_document_content))
         .route(paths::OKF_CONCEPTS, get(list_okf_concepts))
         .route(paths::OKF_CONCEPT_UPSERT, put(upsert_okf_concept))
-        .route(paths::OKF_CONCEPT, get(retrieve_okf_concept).delete(delete_okf_concept))
+        .route(
+            paths::OKF_CONCEPT,
+            get(retrieve_okf_concept).delete(delete_okf_concept),
+        )
         .route(
             paths::OKF_CONCEPT_REVISIONS,
             get(list_okf_concept_revisions),
@@ -228,20 +250,62 @@ pub fn build_router_with_shared_app_api_and_readiness(
             paths::UPLOAD_SESSION_COMPLETE,
             post(complete_upload_session),
         )
+        .route(
+            paths::WECHAT_OFFICIAL_ACCOUNTS,
+            get(list_wechat_official_accounts).put(replace_wechat_official_accounts),
+        )
+        .route(
+            paths::WECHAT_APPLETS,
+            get(list_wechat_applets).put(replace_wechat_applets),
+        )
+        .route(
+            paths::WECHAT_ARTICLES_PUBLISH,
+            post(publish_wechat_articles),
+        )
+        .route(
+            paths::WECHAT_ARTICLES_PREVIEW,
+            post(preview_wechat_articles),
+        )
+        .route(paths::MARKET_LISTINGS, get(list_market_listings))
+        .route(
+            paths::MARKET_SUBSCRIPTIONS,
+            post(create_market_subscription),
+        )
+        .route(
+            paths::MARKET_SUBSCRIPTION,
+            delete(delete_market_subscription),
+        )
+        .route(paths::SITE_DEPLOYMENTS, post(create_site_deployment))
+        .route(
+            paths::SITE_DEPLOYMENT_PREVIEW,
+            get(retrieve_site_deployment_preview),
+        )
+        .route(paths::MEDIA_TASKS, post(create_media_task))
         .with_state(AppState { api, readiness })
 }
 
-async fn health(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiProblem> {
+async fn livez() -> Json<serde_json::Value> {
+    Json(serde_json::json!({ "status": "ok" }))
+}
+
+async fn readyz(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiProblem> {
     if let Some(readiness) = &state.readiness {
         readiness.check().await.map_err(|error| {
+            sdkwork_knowledgebase_observability::set_readiness_status(false);
+            eprintln!("[knowledgebase-app-api] readiness check failed: {error}");
             ApiProblem::new(
                 StatusCode::SERVICE_UNAVAILABLE,
-                "database_unavailable",
-                error.to_string(),
+                "dependencies_unavailable",
+                "One or more dependencies are unavailable.",
             )
         })?;
     }
+    sdkwork_knowledgebase_observability::set_readiness_status(true);
     Ok(Json(serde_json::json!({ "status": "ok" })))
+}
+
+async fn health(State(state): State<AppState>) -> Result<Json<serde_json::Value>, ApiProblem> {
+    readyz(State(state)).await
 }
 
 #[derive(Debug, Deserialize)]
@@ -303,12 +367,13 @@ async fn list_space_members(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(space_id): Path<u64>,
+    Query(query): Query<ListSpaceMembersQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
     ok_json(
         state
             .api
-            .list_space_members(context, space_id)
+            .list_space_members(context, space_id, query.cursor, query.page_size)
             .await,
     )
 }
@@ -350,6 +415,144 @@ async fn create_drive_import(
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
     created_json(state.api.create_drive_import(context, request).await)
+}
+
+async fn create_git_import(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<KnowledgeGitImportRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    created_json(state.api.create_git_import(context, request).await)
+}
+
+async fn create_git_sync(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<KnowledgeGitSyncRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    created_json(state.api.create_git_sync(context, request).await)
+}
+
+async fn list_wechat_official_accounts(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(state.api.list_wechat_official_accounts(context).await)
+}
+
+async fn replace_wechat_official_accounts(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<KnowledgeWechatReplaceOfficialAccountsRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .replace_wechat_official_accounts(context, request)
+            .await,
+    )
+}
+
+async fn list_wechat_applets(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(state.api.list_wechat_applets(context).await)
+}
+
+async fn replace_wechat_applets(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<KnowledgeWechatReplaceAppletsRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(state.api.replace_wechat_applets(context, request).await)
+}
+
+async fn publish_wechat_articles(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<KnowledgeWechatArticlesPublishRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(state.api.publish_wechat_articles(context, request).await)
+}
+
+async fn preview_wechat_articles(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<KnowledgeWechatArticlesPreviewRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(state.api.preview_wechat_articles(context, request).await)
+}
+
+async fn list_market_listings(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(state.api.list_market_listings(context).await)
+}
+
+async fn create_market_subscription(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<KnowledgeMarketSubscriptionRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    created_json(state.api.create_market_subscription(context, request).await)
+}
+
+async fn delete_market_subscription(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(listing_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .delete_market_subscription(context, listing_id)
+            .await,
+    )
+}
+
+async fn create_site_deployment(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<KnowledgeSiteDeploymentRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    created_json(state.api.create_site_deployment(context, request).await)
+}
+
+async fn retrieve_site_deployment_preview(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(deployment_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .retrieve_site_deployment_preview(context, deployment_id)
+            .await,
+    )
+}
+
+async fn create_media_task(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Json(request): Json<KnowledgeMediaTaskRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    created_json(state.api.create_media_task(context, request).await)
 }
 
 async fn create_ingest(
@@ -397,6 +600,20 @@ async fn retrieve_document(
     ok_json(state.api.retrieve_document(context, document_id).await)
 }
 
+async fn retrieve_document_content(
+    State(state): State<AppState>,
+    context: Option<Extension<KnowledgeAppRequestContext>>,
+    Path(document_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .retrieve_document_content(context, document_id)
+            .await,
+    )
+}
+
 async fn update_document(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
@@ -432,12 +649,7 @@ async fn list_document_versions(
     Path(document_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ok_json(
-        state
-            .api
-            .list_document_versions(context, document_id)
-            .await,
-    )
+    ok_json(state.api.list_document_versions(context, document_id).await)
 }
 
 async fn create_document_version(
@@ -467,8 +679,8 @@ async fn list_okf_concepts(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Query(query): Query<ListOkfConceptsQuery>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.list_okf_concepts(query.space_id).await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.list_okf_concepts(context, query.space_id).await)
 }
 
 async fn upsert_okf_concept(
@@ -476,8 +688,8 @@ async fn upsert_okf_concept(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<OkfConceptUpsertRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.upsert_okf_concept(request).await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.upsert_okf_concept(context, request).await)
 }
 
 async fn retrieve_okf_concept(
@@ -485,8 +697,13 @@ async fn retrieve_okf_concept(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(concept_row_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.retrieve_okf_concept(concept_row_id).await)
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .retrieve_okf_concept(context, concept_row_id)
+            .await,
+    )
 }
 
 async fn delete_okf_concept(
@@ -508,32 +725,40 @@ async fn list_okf_concept_revisions(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(concept_row_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.list_okf_concept_revisions(concept_row_id).await)
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .list_okf_concept_revisions(context, concept_row_id)
+            .await,
+    )
 }
 
 async fn retrieve_okf_index(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
+    Query(query): Query<ListOkfConceptsQuery>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.retrieve_okf_index().await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.retrieve_okf_index(context, query.space_id).await)
 }
 
 async fn retrieve_okf_log(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
+    Query(query): Query<ListOkfConceptsQuery>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.retrieve_okf_log().await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.retrieve_okf_log(context, query.space_id).await)
 }
 
 async fn retrieve_okf_schema(
     State(state): State<AppState>,
     context: Option<Extension<KnowledgeAppRequestContext>>,
+    Query(query): Query<ListOkfConceptsQuery>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.retrieve_okf_schema().await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.retrieve_okf_schema(context, query.space_id).await)
 }
 
 async fn create_okf_query(
@@ -541,8 +766,8 @@ async fn create_okf_query(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<OkfQueryRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_okf_query(request).await)
+    let context = require_app_context(context)?;
+    created_json(state.api.create_okf_query(context, request).await)
 }
 
 async fn file_okf_query_answer(
@@ -551,8 +776,13 @@ async fn file_okf_query_answer(
     Path(query_id): Path<u64>,
     Json(request): Json<OkfFileAnswerRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.file_okf_query_answer(query_id, request).await)
+    let context = require_app_context(context)?;
+    created_json(
+        state
+            .api
+            .file_okf_query_answer(context, query_id, request)
+            .await,
+    )
 }
 
 async fn create_okf_context_pack(
@@ -560,8 +790,8 @@ async fn create_okf_context_pack(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<OkfContextPackRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_okf_context_pack(request).await)
+    let context = require_app_context(context)?;
+    created_json(state.api.create_okf_context_pack(context, request).await)
 }
 
 async fn create_okf_export(
@@ -569,8 +799,8 @@ async fn create_okf_export(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<OkfBundleExportRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_okf_export(request).await)
+    let context = require_app_context(context)?;
+    created_json(state.api.create_okf_export(context, request).await)
 }
 
 async fn retrieve_okf_export(
@@ -578,8 +808,8 @@ async fn retrieve_okf_export(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(export_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.retrieve_okf_export(export_id).await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.retrieve_okf_export(context, export_id).await)
 }
 
 async fn create_okf_import(
@@ -587,8 +817,8 @@ async fn create_okf_import(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<OkfBundleImportRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_okf_import(request).await)
+    let context = require_app_context(context)?;
+    created_json(state.api.create_okf_import(context, request).await)
 }
 
 async fn create_okf_lint_run(
@@ -596,8 +826,8 @@ async fn create_okf_lint_run(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Json(request): Json<OkfQualityRunRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_okf_lint_run(request).await)
+    let context = require_app_context(context)?;
+    created_json(state.api.create_okf_lint_run(context, request).await)
 }
 
 async fn list_browser(
@@ -631,10 +861,15 @@ async fn create_retrieval(
     Json(request): Json<KnowledgeRetrievalRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    let tenant_id = context.tenant_id;
+    let actor_id = context.actor_id;
     created_json(
         state
             .api
-            .create_retrieval(request.with_tenant_id(context.tenant_id))
+            .create_retrieval(
+                context,
+                request.with_tenant_id(tenant_id).with_actor_id(actor_id),
+            )
             .await,
     )
 }
@@ -654,10 +889,15 @@ async fn create_context_pack(
     Json(request): Json<KnowledgeContextPackRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    let tenant_id = context.tenant_id;
+    let actor_id = context.actor_id;
     created_json(
         state
             .api
-            .create_context_pack(request.with_tenant_id(context.tenant_id))
+            .create_context_pack(
+                context,
+                request.with_tenant_id(tenant_id).with_actor_id(actor_id),
+            )
             .await,
     )
 }
@@ -668,10 +908,11 @@ async fn create_agent_profile(
     Json(request): Json<KnowledgeAgentProfileRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    let tenant_id = context.tenant_id;
     created_json(
         state
             .api
-            .create_agent_profile(request.with_tenant_id(context.tenant_id))
+            .create_agent_profile(context, request.with_tenant_id(tenant_id))
             .await,
     )
 }
@@ -681,8 +922,8 @@ async fn retrieve_agent_profile(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(profile_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.retrieve_agent_profile(profile_id).await)
+    let context = require_app_context(context)?;
+    ok_json(state.api.retrieve_agent_profile(context, profile_id).await)
 }
 
 async fn update_agent_profile(
@@ -692,10 +933,11 @@ async fn update_agent_profile(
     Json(request): Json<KnowledgeAgentProfileRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    let tenant_id = context.tenant_id;
     ok_json(
         state
             .api
-            .update_agent_profile(profile_id, request.with_tenant_id(context.tenant_id))
+            .update_agent_profile(context, profile_id, request.with_tenant_id(tenant_id))
             .await,
     )
 }
@@ -705,10 +947,10 @@ async fn delete_agent_profile(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(profile_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
+    let context = require_app_context(context)?;
     state
         .api
-        .delete_agent_profile(profile_id)
+        .delete_agent_profile(context, profile_id)
         .await
         .map_err(ApiProblem::from)?;
     Ok(StatusCode::NO_CONTENT.into_response())
@@ -719,8 +961,13 @@ async fn list_agent_profile_bindings(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path(profile_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    ok_json(state.api.list_agent_profile_bindings(profile_id).await)
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .list_agent_profile_bindings(context, profile_id)
+            .await,
+    )
 }
 
 async fn create_agent_profile_binding(
@@ -730,6 +977,7 @@ async fn create_agent_profile_binding(
     Json(request): Json<KnowledgeAgentBindingRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    let tenant_id = context.tenant_id;
     if request.profile_id != profile_id {
         return Err(ApiProblem::new(
             StatusCode::BAD_REQUEST,
@@ -740,7 +988,7 @@ async fn create_agent_profile_binding(
     created_json(
         state
             .api
-            .create_agent_profile_binding(profile_id, request.with_tenant_id(context.tenant_id))
+            .create_agent_profile_binding(context, profile_id, request.with_tenant_id(tenant_id))
             .await,
     )
 }
@@ -752,6 +1000,7 @@ async fn update_agent_profile_binding(
     Json(request): Json<KnowledgeAgentBindingRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    let tenant_id = context.tenant_id;
     if request.profile_id != profile_id {
         return Err(ApiProblem::new(
             StatusCode::BAD_REQUEST,
@@ -763,9 +1012,10 @@ async fn update_agent_profile_binding(
         state
             .api
             .update_agent_profile_binding(
+                context,
                 profile_id,
                 binding_id,
-                request.with_tenant_id(context.tenant_id),
+                request.with_tenant_id(tenant_id),
             )
             .await,
     )
@@ -776,10 +1026,10 @@ async fn delete_agent_profile_binding(
     context: Option<Extension<KnowledgeAppRequestContext>>,
     Path((profile_id, binding_id)): Path<(u64, u64)>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
+    let context = require_app_context(context)?;
     state
         .api
-        .delete_agent_profile_binding(profile_id, binding_id)
+        .delete_agent_profile_binding(context, profile_id, binding_id)
         .await
         .map_err(ApiProblem::from)?;
     Ok(StatusCode::NO_CONTENT.into_response())
@@ -792,12 +1042,14 @@ async fn create_agent_profile_retrieval_preview(
     Json(request): Json<KnowledgeRetrievalRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    let tenant_id = context.tenant_id;
     created_json(
         state
             .api
             .create_agent_profile_retrieval_preview(
+                context,
                 profile_id,
-                request.with_tenant_id(context.tenant_id),
+                request.with_tenant_id(tenant_id),
             )
             .await,
     )
@@ -810,10 +1062,11 @@ async fn create_agent_profile_chat(
     Json(request): Json<KnowledgeAgentChatRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    let tenant_id = context.tenant_id;
     created_json(
         state
             .api
-            .create_agent_chat(profile_id, request.with_tenant_id(context.tenant_id))
+            .create_agent_chat(context, profile_id, request.with_tenant_id(tenant_id))
             .await,
     )
 }
@@ -932,6 +1185,13 @@ where
     result
         .map(|value| (StatusCode::CREATED, Json(value)).into_response())
         .map_err(ApiProblem::from)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListSpaceMembersQuery {
+    cursor: Option<String>,
+    page_size: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]

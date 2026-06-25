@@ -13,9 +13,11 @@ import {
   loadEnvFile,
   loadProfile,
   mergeRuntimeEnv,
+  normalizeText,
   REPO_ROOT,
   resolveCloudGatewayConfigPath,
   resolveDevProfileId,
+  IAM_APPLICATION_BOOTSTRAP_ENV,
   resolveGatewayBind,
   resolveIamDevEnv,
   resolveSurfaceBind,
@@ -23,6 +25,7 @@ import {
   shouldAutostartGateway,
   waitForHttpHealthy,
 } from './lib/knowledgebase-topology.mjs';
+import { mergeRepoDevBootstrapAccessTokenEnv } from '../../sdkwork-iam/scripts/dev/create-dev-bootstrap-access-token-env.mjs';
 
 const HEALTH_PATH = '/healthz';
 const HEALTH_TIMEOUT_MS = 2000;
@@ -121,8 +124,8 @@ function printHelp() {
 Topology-aware Knowledgebase dev entry. Loads configs/topology profile env via @sdkwork/app-topology.
 
 Database profiles:
-  postgres (default)  IAM/login uses PostgreSQL from .env.postgres; phase-1 HTTP handlers use SQLite for knowledge metadata.
-  sqlite              Same SQLite knowledge metadata profile without loading .env.postgres.
+  postgres (default)  IAM/login and Knowledgebase HTTP handlers share PostgreSQL from .env.postgres.
+  sqlite              Portable SQLite knowledge metadata profile without loading .env.postgres.
 
 Options:
   --deployment-profile <standalone|cloud>           Default: standalone
@@ -148,6 +151,23 @@ function resolveDefaultSqliteDatabaseUrl() {
   return `sqlite:///${sqliteFile.split(path.sep).join('/')}?mode=rwc`;
 }
 
+function resolvePostgresKnowledgebaseDatabaseUrl(sourceEnv) {
+  const direct =
+    normalizeText(sourceEnv.SDKWORK_KNOWLEDGEBASE_DATABASE_URL)
+    || normalizeText(sourceEnv.SDKWORK_IAM_DATABASE_URL)
+    || normalizeText(sourceEnv.SDKWORK_CLAW_DATABASE_URL)
+    || normalizeText(sourceEnv.SDKWORK_DATABASE_URL);
+  if (!direct) {
+    throw new Error(
+      'PostgreSQL dev profile requires SDKWORK_CLAW_DATABASE_* in .env.postgres or SDKWORK_KNOWLEDGEBASE_DATABASE_URL.',
+    );
+  }
+  if (!/^postgres(?:ql)?:\/\//i.test(direct)) {
+    throw new Error(`Knowledgebase PostgreSQL dev profile requires a postgres URL, got: ${direct}`);
+  }
+  return direct;
+}
+
 function resolveKnowledgebaseAppDatabaseEnv() {
   return {
     SDKWORK_KNOWLEDGEBASE_DATABASE_ENGINE: 'sqlite',
@@ -157,9 +177,44 @@ function resolveKnowledgebaseAppDatabaseEnv() {
   };
 }
 
-function databaseEnv() {
-  // Phase 1 HTTP handlers are SQLite-backed. IAM/login still uses PostgreSQL when --database postgres.
+function databaseEnv(settings, sourceEnv = {}) {
+  if (settings.database === 'postgres') {
+    const databaseUrl = resolvePostgresKnowledgebaseDatabaseUrl(sourceEnv);
+    return {
+      SDKWORK_KNOWLEDGEBASE_DATABASE_ENGINE: 'postgresql',
+      SDKWORK_KNOWLEDGEBASE_DATABASE_URL: databaseUrl,
+      SDKWORK_KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS:
+        sourceEnv.SDKWORK_KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS
+        || sourceEnv.SDKWORK_CLAW_DATABASE_MAX_CONNECTIONS
+        || '10',
+    };
+  }
   return resolveKnowledgebaseAppDatabaseEnv();
+}
+
+function createBrowserRendererProcess(env) {
+  const browserEnv = sanitizeSpawnEnv({
+    ...env,
+    SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: 'browser',
+    VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: 'browser',
+    VITE_SDKWORK_KNOWLEDGEBASE_DEV_SAME_ORIGIN_API:
+      env.VITE_SDKWORK_KNOWLEDGEBASE_DEV_SAME_ORIGIN_API ?? 'true',
+    VITE_SDKWORK_APPBASE_APP_API_BASE_URL:
+      env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL ?? 'http://127.0.0.1:18081',
+    VITE_SDKWORK_IAM_APP_API_BASE_URL:
+      env.VITE_SDKWORK_IAM_APP_API_BASE_URL ?? 'http://127.0.0.1:18081',
+    VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL:
+      env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL ?? 'http://127.0.0.1:3900',
+  });
+
+  return {
+    label: 'sdkwork-knowledgebase-pc-browser',
+    command: pnpmCommand(),
+    args: ['run', 'dev'],
+    cwd: PC_APP_ROOT,
+    env: browserEnv,
+    shell: pnpmShell(),
+  };
 }
 
 function createDesktopProcess(env) {
@@ -237,23 +292,24 @@ function createPlatformGatewayProcess(env) {
   const args = [
     'run',
     '-p',
-    'sdkwork-api-gateway-api-server',
+    'sdkwork-api-cloud-gateway-api-server',
     '--bin',
-    'sdkwork-api-gateway',
+    'sdkwork-api-cloud-gateway',
     '--',
     '--config',
     gatewayConfig,
   ];
 
   return {
-    label: 'sdkwork-api-gateway',
+    label: 'sdkwork-api-cloud-gateway',
     command: cargoCommand(),
     args,
     cwd: API_GATEWAY_REPO,
     env: {
       ...env,
-      SDKWORK_API_GATEWAY_BIND: bind,
-      SDKWORK_API_GATEWAY_CONFIG: gatewayConfig,
+      ...IAM_APPLICATION_BOOTSTRAP_ENV,
+      SDKWORK_API_CLOUD_GATEWAY_BIND: bind,
+      SDKWORK_API_CLOUD_GATEWAY_CONFIG: gatewayConfig,
     },
   };
 }
@@ -323,24 +379,33 @@ async function main() {
   const postgresDevEnv =
     settings.database === 'postgres' ? loadEnvFile(resolvePostgresDevEnvFile(settings)) : {};
   const iamSourceEnv = mergeRuntimeEnv(process.env, profileEnv, postgresDevEnv);
-  const runtimeEnv = mergeRuntimeEnv(
-    iamSourceEnv,
-    resolveIamDevEnv(iamSourceEnv),
-    databaseEnv(settings),
-    {
-      SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: settings.deploymentProfile,
-      SDKWORK_KNOWLEDGEBASE_SERVICE_LAYOUT: settings.serviceLayout,
-      SDKWORK_KNOWLEDGEBASE_DATABASE_PROFILE: settings.database,
-      SDKWORK_KNOWLEDGEBASE_PROFILE_ID: profileId,
-      SDKWORK_KNOWLEDGEBASE_DEV_MODE: '1',
-      SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: settings.target === 'desktop' ? 'desktop' : 'browser',
-      VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: settings.deploymentProfile,
-      VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: settings.target === 'desktop' ? 'desktop' : 'browser',
-      ...(settings.target === 'desktop'
-        ? { SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_AUTOSTART: 'true' }
-        : {}),
-    },
-  );
+  const iamResolvedEnv = resolveIamDevEnv(iamSourceEnv);
+  const runtimeEnv = mergeRepoDevBootstrapAccessTokenEnv({
+    repoRoot: REPO_ROOT,
+    appId: 'sdkwork-knowledgebase-pc',
+    env: mergeRuntimeEnv(
+      iamSourceEnv,
+      iamResolvedEnv,
+      databaseEnv(settings, iamResolvedEnv),
+      IAM_APPLICATION_BOOTSTRAP_ENV,
+      {
+        SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: settings.deploymentProfile,
+        SDKWORK_KNOWLEDGEBASE_SERVICE_LAYOUT: settings.serviceLayout,
+        SDKWORK_KNOWLEDGEBASE_DATABASE_PROFILE: settings.database,
+        SDKWORK_KNOWLEDGEBASE_PROFILE_ID: profileId,
+        SDKWORK_KNOWLEDGEBASE_DEV_MODE: '1',
+        SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: settings.target === 'desktop' ? 'desktop' : 'browser',
+        VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: settings.deploymentProfile,
+        VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: settings.target === 'desktop' ? 'desktop' : 'browser',
+        ...((settings.target === 'browser' || settings.target === 'desktop')
+          ? { SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_AUTOSTART: 'true' }
+          : {}),
+        ...(settings.target === 'desktop'
+          ? { SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: 'desktop' }
+          : {}),
+      },
+    ),
+  });
 
   const backendProcesses = buildProcessesFromOrchestration(profileId, runtimeEnv);
   const processes =
@@ -416,6 +481,15 @@ async function main() {
   const stop = () => shutdown();
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
+
+  if (settings.target === 'browser') {
+    const browserEntry = createBrowserRendererProcess(runtimeEnv);
+    console.log('[sdkwork-knowledgebase] browser renderer starting (Vite on :5184)');
+    const browserChild = spawnProcessEntry(browserEntry);
+    children.push(browserChild);
+    attachProcessLifecycle(browserEntry, browserChild);
+    return;
+  }
 
   if (settings.target !== 'desktop') {
     return;

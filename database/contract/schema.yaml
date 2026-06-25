@@ -87,3 +87,12 @@ tables:
   - name: kb_okf_candidate
     lifecycle_status: active
     owner: knowledgebase-platform
+  - name: kb_market_listing
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_market_subscription
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_site_deployment
+    lifecycle_status: active
+    owner: knowledgebase-platform

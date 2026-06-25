@@ -1,10 +1,22 @@
 import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
-import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
+import {
+  isKnowledgebaseApiAvailable,
+  KnowledgebaseErrorCodes,
+  shouldUseKnowledgebaseDemoFallback,
+  throwKnowledgebaseError,
+} from 'sdkwork-knowledgebase-pc-core';
+
+import type { McpToolCall } from './mcpAgent';
 
 import {
   buildEditorActionPrompt,
   sendKnowledgeAgentMessage,
+  synthesizeKnowledgeSearchAnswer,
 } from './knowledgeAgentChatService';
+import * as KnowledgeMediaTaskService from './knowledgeMediaTaskService';
+
+type ChatToolCallPayload = Pick<McpToolCall, 'name' | 'arguments'> &
+  Partial<Pick<McpToolCall, 'status' | 'result'>>;
 
 export class AIService {
   static async handleAIAction(
@@ -16,6 +28,10 @@ export class AIService {
     if (isKnowledgebaseApiAvailable()) {
       const prompt = buildEditorActionPrompt(action, text, context, customPrompt);
       return sendKnowledgeAgentMessage(prompt);
+    }
+
+    if (!shouldUseKnowledgebaseDemoFallback()) {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_AI);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 600));
@@ -48,7 +64,7 @@ export class AIService {
     message: string,
     context?: string,
     references?: string,
-  ): Promise<{ result: string; toolCalls?: unknown[] }> {
+  ): Promise<{ result: string; toolCalls?: ChatToolCallPayload[] }> {
     if (isKnowledgebaseApiAvailable()) {
       const prompt = buildEditorActionPrompt(
         'chat',
@@ -57,6 +73,10 @@ export class AIService {
       );
       const result = await sendKnowledgeAgentMessage(prompt);
       return { result, toolCalls: [] };
+    }
+
+    if (!shouldUseKnowledgebaseDemoFallback()) {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_CHAT);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -92,6 +112,10 @@ export class AIService {
       return rewritten;
     }
 
+    if (!shouldUseKnowledgebaseDemoFallback()) {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_STREAM_REWRITE);
+    }
+
     const chunks = [
       `<h1>✨ 科技跃迁：深度解构智能化新纪元</h1>`,
       `<p>在瞬息万变的数字化浪潮中，大语言模型与自主智能体的崛起正在以前所未有的速度重谱生产力边界。</p>`,
@@ -106,9 +130,16 @@ export class AIService {
     return currentHtml;
   }
 
-  static async speechToText(_audioUrl: string): Promise<string> {
+  static async speechToText(
+    audioUrl: string,
+    context?: KnowledgeMediaTaskService.MediaTaskContext,
+  ): Promise<string> {
     if (isKnowledgebaseApiAvailable()) {
-      throw new Error('Speech-to-text is not available through the Knowledgebase app SDK yet.');
+      return KnowledgeMediaTaskService.runSpeechToTextTask(audioUrl, context);
+    }
+
+    if (!shouldUseKnowledgebaseDemoFallback()) {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_SPEECH);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -116,12 +147,22 @@ export class AIService {
   }
 
   static async generateImage(
-    _prompt: string,
-    _aspectMode: string,
-    _styleMode: string,
+    prompt: string,
+    aspectMode: string,
+    styleMode: string,
+    context?: KnowledgeMediaTaskService.MediaTaskContext,
   ): Promise<{ url: string; resolution: string; suggestions: string[]; similars: string[] }> {
     if (isKnowledgebaseApiAvailable()) {
-      throw new Error('Image generation is not available through the Knowledgebase app SDK yet.');
+      return KnowledgeMediaTaskService.runImageGenerationTask(
+        prompt,
+        aspectMode,
+        styleMode,
+        context,
+      );
+    }
+
+    if (!shouldUseKnowledgebaseDemoFallback()) {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_IMAGE);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -131,5 +172,17 @@ export class AIService {
       suggestions: ['尝试赛博朋克风格', '调整为夜晚时间', '增加更多细节'],
       similars: [],
     };
+  }
+
+  static async synthesizeSearchAnswer(query: string, sourcesText: string): Promise<string> {
+    if (isKnowledgebaseApiAvailable()) {
+      return synthesizeKnowledgeSearchAnswer(query, sourcesText);
+    }
+
+    if (!shouldUseKnowledgebaseDemoFallback()) {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_SEARCH);
+    }
+
+    return `根据检索到的资料，关于「${query.trim()}」的要点如下：\n\n${sourcesText || '（暂无可用引用来源）'}`;
   }
 }

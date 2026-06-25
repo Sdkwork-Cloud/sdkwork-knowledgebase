@@ -7,7 +7,7 @@
 - App API: `crates/sdkwork-router-knowledgebase-app-api`, `sdks/sdkwork-knowledgebase-app-sdk`, `/app/v3/api/knowledge`
 - Backend API: `crates/sdkwork-router-knowledgebase-backend-api`, `sdks/sdkwork-knowledgebase-backend-sdk`, `/backend/v3/api/knowledge`
 
-There is no public open-api route crate, open SDK family, normalized open-api route manifest, or `sdkwork-api-gateway` surface for Knowledgebase.
+There is no public open-api route crate, open SDK family, normalized open-api route manifest, or `sdkwork-api-cloud-gateway` surface for Knowledgebase.
 
 Human approval was given on 2026-06-12 to implement the recommended public Knowledgebase open-api contract with prefix `/knowledge/v3/api`.
 
@@ -30,7 +30,7 @@ Human approval was given on 2026-06-12 to implement the recommended public Knowl
 - Add a distinct Knowledgebase open-api surface for external integrations.
 - Keep public API behavior separate from app-api and backend-api.
 - Generate the open SDK family from owner-only OpenAPI metadata.
-- Integrate the new public surface into `sdkwork-api-gateway`.
+- Integrate the new public surface into `sdkwork-api-cloud-gateway`.
 - Avoid technical debt by keeping route crates, manifests, SDK metadata, and gateway config aligned.
 
 ## Non-Goals
@@ -156,7 +156,7 @@ Generated TypeScript output must be produced through the canonical SDKWork gener
 
 ## Gateway Design
 
-Update `E:/sdkwork-space/sdkwork-api-gateway` so the public surface is routable in split mode:
+Update `E:/sdkwork-space/sdkwork-api-cloud-gateway` so the public surface is routable in split mode:
 
 - Add service id constant `KNOWLEDGEBASE_OPEN_API_SERVICE_ID`.
 - Add app manifest env var `SDKWORK_KNOWLEDGEBASE_OPEN_API_BASE_URL`.
@@ -200,8 +200,8 @@ Repository verification:
 
 Gateway verification:
 
-- `cargo test -p sdkwork-api-gateway-config`
-- `cargo test -p sdkwork-api-gateway-runtime`
+- `cargo test -p sdkwork-api-cloud-gateway-config`
+- `cargo test -p sdkwork-api-cloud-gateway-runtime`
 - `cargo fmt --all -- --check`
 - `cargo test --workspace`
 

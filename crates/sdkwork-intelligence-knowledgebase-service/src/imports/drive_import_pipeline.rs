@@ -1,7 +1,11 @@
-use crate::ingest::{split_markdown_chunks, KnowledgeIngestionService, MarkdownIndexResult};
-use crate::ports::knowledge_chunk_store::KnowledgeChunkStore;
+use crate::ingest::{
+    ingest_success_outbox_record, split_markdown_chunks, KnowledgeIngestionService,
+    MarkdownIndexResult,
+};
 use crate::ports::knowledge_drive_storage::{KnowledgeDriveStorage, KnowledgeObjectRef};
-use crate::ports::knowledge_ingestion_job_store::IngestionJobStore;
+use crate::ports::knowledge_ingestion_job_store::{
+    CompleteRunningIngestionRecord, IngestionJobStore,
+};
 use sdkwork_knowledgebase_contract::drive::KnowledgeDriveObjectRef;
 use sdkwork_knowledgebase_contract::ingest::{IngestionJob, KnowledgeDriveImportResult};
 use thiserror::Error;
@@ -9,20 +13,11 @@ use thiserror::Error;
 pub struct KnowledgeDriveImportPipelineService<'a> {
     drive: &'a dyn KnowledgeDriveStorage,
     jobs: &'a dyn IngestionJobStore,
-    chunks: &'a dyn KnowledgeChunkStore,
 }
 
 impl<'a> KnowledgeDriveImportPipelineService<'a> {
-    pub fn new(
-        drive: &'a dyn KnowledgeDriveStorage,
-        jobs: &'a dyn IngestionJobStore,
-        chunks: &'a dyn KnowledgeChunkStore,
-    ) -> Self {
-        Self {
-            drive,
-            jobs,
-            chunks,
-        }
+    pub fn new(drive: &'a dyn KnowledgeDriveStorage, jobs: &'a dyn IngestionJobStore) -> Self {
+        Self { drive, jobs }
     }
 
     pub async fn process_import_result(
@@ -37,17 +32,21 @@ impl<'a> KnowledgeDriveImportPipelineService<'a> {
         }
 
         let ingestion = KnowledgeIngestionService::new(self.jobs);
-        let mut job = ingestion
+        let job = ingestion
             .mark_running(import.job.id)
             .await
             .map_err(KnowledgeDriveImportPipelineServiceError::Ingestion)?;
 
         let object_ref = drive_object_ref_to_storage_ref(&import.original_object_ref);
-        let payload = self
-            .drive
-            .get_object_text(&object_ref)
-            .await
-            .map_err(KnowledgeDriveImportPipelineServiceError::Storage)?;
+        let payload = match self.drive.get_object_text(&object_ref).await {
+            Ok(payload) => payload,
+            Err(error) => {
+                let _ = ingestion
+                    .mark_failed(job.id, format!("drive storage read failed: {error:?}"))
+                    .await;
+                return Err(KnowledgeDriveImportPipelineServiceError::Storage(error));
+            }
+        };
 
         let chunk_records = split_markdown_chunks(
             import.document.space_id,
@@ -55,28 +54,33 @@ impl<'a> KnowledgeDriveImportPipelineService<'a> {
             import.version.id,
             &payload,
         );
-        let indexed = match self
-            .chunks
-            .replace_version_chunks(import.version.id, chunk_records)
+        let completed = match ingestion
+            .complete_with_chunks_and_outbox(CompleteRunningIngestionRecord {
+                job_id: job.id,
+                document_version_id: import.version.id,
+                chunks: chunk_records,
+                outbox: ingest_success_outbox_record(&job),
+            })
             .await
         {
-            Ok(indexed) => indexed,
+            Ok(completed) => completed,
             Err(error) => {
-                let _ = ingestion.mark_failed(job.id, format!("{error:?}")).await;
-                return Err(KnowledgeDriveImportPipelineServiceError::Chunk(error));
+                if let Err(mark_error) = ingestion.mark_failed(job.id, format!("{error:?}")).await {
+                    tracing::error!(
+                        job_id = job.id,
+                        ?mark_error,
+                        "failed to mark ingestion job as failed after drive import completion error"
+                    );
+                }
+                return Err(KnowledgeDriveImportPipelineServiceError::Ingestion(error));
             }
         };
 
-        job = ingestion
-            .mark_succeeded(job.id)
-            .await
-            .map_err(KnowledgeDriveImportPipelineServiceError::Ingestion)?;
-
         Ok(DriveImportPipelineResult {
-            job,
+            job: completed.job,
             index_result: Some(MarkdownIndexResult {
                 document_version_id: import.version.id,
-                chunk_count: indexed,
+                chunk_count: completed.chunk_count,
             }),
         })
     }
@@ -115,6 +119,4 @@ pub enum KnowledgeDriveImportPipelineServiceError {
     Ingestion(#[from] crate::ingest::KnowledgeIngestionServiceError),
     #[error(transparent)]
     Storage(#[from] crate::ports::knowledge_drive_storage::KnowledgeStorageError),
-    #[error(transparent)]
-    Chunk(#[from] crate::ports::knowledge_chunk_store::KnowledgeChunkStoreError),
 }

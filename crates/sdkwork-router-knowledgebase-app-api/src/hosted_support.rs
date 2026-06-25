@@ -2,7 +2,7 @@ use sdkwork_intelligence_knowledgebase_service::{
     ingest::KnowledgeIngestionService,
     okf::{
         run_okf_compile_workflow, run_okf_eval_workflow, OkfBundleFileRegistryService,
-        OkfBundleStandardFileService, OkfBundleWorkflowDeps, OkfConceptService,
+        OkfBundleStandardFileService, OkfBundleWorkflowDeps, OkfBundleWorkflowEngine,
         PersistStandardFilesRequest, PublishExistingOkfConceptRevisionRequest,
     },
     ports::{
@@ -165,20 +165,6 @@ pub(crate) async fn read_managed_okf_text(
     .map_err(Into::into)
 }
 
-pub(crate) fn okf_concept_service(
-    runtime: &crate::runtime::KnowledgebaseRuntime,
-) -> OkfConceptService<'_> {
-    OkfConceptService::new(
-        runtime.drive_storage(),
-        runtime.object_ref_store(),
-        runtime.okf_concept_store(),
-    )
-    .with_link_store(runtime.okf_concept_link_store())
-    .with_candidate_store(runtime.okf_candidate_store())
-    .with_file_entry_store(runtime.okf_bundle_file_store())
-    .with_drive_workspace(runtime.drive_workspace())
-}
-
 pub(crate) async fn publish_okf_concept_revision(
     runtime: &crate::runtime::KnowledgebaseRuntime,
     concept_row_id: u64,
@@ -220,38 +206,8 @@ pub(crate) async fn publish_okf_concept_revision(
     Ok(publication.concept)
 }
 
-pub(crate) async fn import_okf_bundle(
-    runtime: &crate::runtime::KnowledgebaseRuntime,
-    space_id: u64,
-    actor: &str,
-    publish: bool,
-    files: Vec<sdkwork_intelligence_knowledgebase_service::okf::ImportOkfBundleFile>,
-) -> Result<sdkwork_knowledgebase_contract::okf::OkfBundleImportResult, ApiError> {
-    runtime
-        .resolve_okf_bundle_engine_for_space(space_id)
-        .await?;
-    let space = runtime.space_store().get_space(space_id).await?;
-    runtime
-        .knowledge_engines()
-        .import_okf_bundle_files(
-            sdkwork_intelligence_knowledgebase_service::okf::ImportOkfBundleRequest {
-                space_id,
-                actor: actor.to_string(),
-                publish,
-                files,
-            },
-            space.drive_space_id.as_deref(),
-        )
-        .await
-        .map_err(ApiError::from)
-}
-
 pub(crate) fn okf_paths() -> OkfBundlePaths {
     OkfBundlePaths::default()
-}
-
-pub(crate) fn okf_bundle_not_initialized_detail() -> String {
-    "no okf-bundle-initialized knowledge space is available for this tenant".to_string()
 }
 
 fn okf_bundle_workflow_deps(
@@ -264,7 +220,8 @@ fn okf_bundle_workflow_deps(
         source_store: runtime.source_store(),
         link_store: Some(runtime.okf_concept_link_store()),
         bundle_file_store: Some(runtime.okf_bundle_file_store()),
-        engine: Some(runtime.knowledge_engines()),
+        drive_workspace: Some(runtime.drive_workspace()),
+        engine: Some(runtime.knowledge_engines() as &dyn OkfBundleWorkflowEngine),
     }
 }
 
@@ -354,7 +311,7 @@ pub(crate) async fn persist_okf_profile(
     let files = OkfBundleStandardFileService::new(runtime.drive_storage())
         .persist_standard_files(PersistStandardFilesRequest {
             space_name: space.name,
-            concepts: concepts,
+            concepts,
             log_entries: logs,
             drive_space_id: space.drive_space_id.clone(),
         })

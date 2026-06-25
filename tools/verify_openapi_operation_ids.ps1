@@ -5,6 +5,19 @@ $specPaths = @(
     "sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
 )
 
+$openApiSpecPath = "sdks/sdkwork-knowledgebase-sdk/openapi/knowledgebase-open-api.openapi.json"
+
+$requiredOpenOperations = @(
+    "retrievals.create",
+    "retrievals.retrieve",
+    "contextPacks.create",
+    "ingests.create",
+    "ingests.retrieve",
+    "documents.list",
+    "documents.retrieve",
+    "spaces.browser.list"
+)
+
 $required = @(
     "spaces.create",
     "spaces.retrieve",
@@ -29,6 +42,7 @@ $required = @(
     "documents.list",
     "documents.create",
     "documents.retrieve",
+    "documents.content.retrieve",
     "documents.versions.create",
     "documents.versions.list",
     "okf.bundle.index.retrieve",
@@ -122,6 +136,13 @@ foreach ($specPath in $specPaths) {
                     throw "OpenAPI mutating operation has no requestBody: $operationId"
                 }
 
+                if ($specPath -like "*backend-api*") {
+                    $permission = $operation.'x-sdkwork-permission'
+                    if ($permission -ne "knowledge.admin") {
+                        throw "Backend OpenAPI operation must declare x-sdkwork-permission knowledge.admin: $operationId"
+                    }
+                }
+
                 [void]$operationIds.Add([string]$operationId)
             }
         }
@@ -188,4 +209,44 @@ foreach ($requiredSchema in $requiredSchemas) {
     }
 }
 
-Write-Host "Verified $($operationIds.Count) OpenAPI operationIds and $($schemaNames.Count) schemas."
+if (!(Test-Path $openApiSpecPath)) {
+    throw "Missing OpenAPI spec: $openApiSpecPath"
+}
+
+$openSpec = Get-Content -Raw $openApiSpecPath | ConvertFrom-Json
+$openSecuritySchemes = $openSpec.components.securitySchemes
+$apiKey = $openSecuritySchemes.ApiKey
+if (!$apiKey -or $apiKey.type -ne "apiKey" -or $apiKey.in -ne "header" -or $apiKey.name -ne "X-API-Key") {
+    throw "Open API spec must define ApiKey as X-API-Key header security: $openApiSpecPath"
+}
+
+$openOperationIds = New-Object System.Collections.Generic.List[string]
+foreach ($pathProperty in $openSpec.paths.PSObject.Properties) {
+    foreach ($methodProperty in $pathProperty.Value.PSObject.Properties) {
+        $operationId = $methodProperty.Value.operationId
+        if (!$operationId) {
+            continue
+        }
+        $operation = $methodProperty.Value
+        $operationSecurity = $operation.security
+        if (!$operationSecurity -or $operationSecurity.Count -eq 0) {
+            throw "Open API operation must declare api-key security: $operationId"
+        }
+        $firstSecurity = $operationSecurity[0]
+        if (!$firstSecurity.PSObject.Properties["ApiKey"]) {
+            throw "Open API operation must require ApiKey security: $operationId"
+        }
+        if ($operation.'x-sdkwork-auth-mode' -ne "api-key") {
+            throw "Open API operation must declare x-sdkwork-auth-mode api-key: $operationId"
+        }
+        [void]$openOperationIds.Add([string]$operationId)
+    }
+}
+
+foreach ($requiredOpenId in $requiredOpenOperations) {
+    if (!$openOperationIds.Contains($requiredOpenId)) {
+        throw "Missing required open-api operationId: $requiredOpenId"
+    }
+}
+
+Write-Host "Verified $($operationIds.Count) app/backend OpenAPI operationIds, $($openOperationIds.Count) open-api operationIds, and $($schemaNames.Count) schemas."

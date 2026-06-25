@@ -1,4 +1,145 @@
-import { DocumentMeta } from './document';
+import type {
+  KnowledgeWechatApplet,
+  KnowledgeWechatArticle,
+  KnowledgeWechatOfficialAccount,
+} from '@sdkwork/knowledgebase-app-sdk';
+import {
+  getKnowledgebaseAppSdkClient,
+  isKnowledgebaseApiAvailable,
+  KnowledgebaseErrorCodes,
+  shouldUseKnowledgebaseDemoFallback,
+  throwKnowledgebaseError,
+} from 'sdkwork-knowledgebase-pc-core';
+
+import { AIService } from './ai';
+import {
+  hydrateAppletSecrets,
+  hydrateOfficialAccountSecrets,
+  isDesktopSecureStorageAvailable,
+  persistAppletSecrets,
+  persistOfficialAccountSecrets,
+} from './wechatCredentialStore';
+
+function assertWechatDemoFallbackAllowed(): void {
+  if (!shouldUseKnowledgebaseDemoFallback()) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_WECHAT);
+  }
+}
+
+function toOfficialAccount(account: KnowledgeWechatOfficialAccount): OfficialAccount {
+  return {
+    id: account.id,
+    name: account.name,
+    type: account.type === 'service' ? 'service' : 'subscription',
+    avatar: account.avatar,
+    description: account.description,
+    appId: account.appId,
+    appSecret: account.appSecret ?? '',
+    serverUrl: account.serverUrl,
+    token: account.token,
+    encodingAesKey: account.encodingAesKey,
+    encryptMode: account.encryptMode as OfficialAccount['encryptMode'],
+    domainVerifyFileName: account.domainVerifyFileName,
+    domainVerifyFileContent: account.domainVerifyFileContent,
+    jsSecureDomains: account.jsSecureDomains,
+    webAuthDomains: account.webAuthDomains,
+    businessDomains: account.businessDomains,
+    group: account.group,
+  };
+}
+
+function fromOfficialAccount(account: OfficialAccount): KnowledgeWechatOfficialAccount {
+  return {
+    id: account.id,
+    name: account.name,
+    type: account.type,
+    avatar: account.avatar,
+    description: account.description,
+    appId: account.appId,
+    appSecret: account.appSecret || undefined,
+    serverUrl: account.serverUrl,
+    token: account.token,
+    encodingAesKey: account.encodingAesKey,
+    encryptMode: account.encryptMode,
+    domainVerifyFileName: account.domainVerifyFileName,
+    domainVerifyFileContent: account.domainVerifyFileContent,
+    jsSecureDomains: account.jsSecureDomains,
+    webAuthDomains: account.webAuthDomains,
+    businessDomains: account.businessDomains,
+    group: account.group,
+  };
+}
+
+function toApplet(applet: KnowledgeWechatApplet): WechatAppletConfig {
+  return {
+    id: applet.id,
+    name: applet.name,
+    appId: applet.appId,
+    originalId: applet.originalId,
+    appSecret: applet.appSecret,
+    path: applet.path,
+    avatar: applet.avatar,
+    group: applet.group,
+    description: applet.description,
+    requestDomain: applet.requestDomain,
+    socketDomain: applet.socketDomain,
+    uploadDomain: applet.uploadDomain,
+    downloadDomain: applet.downloadDomain,
+    udpDomain: applet.udpDomain,
+    tcpDomain: applet.tcpDomain,
+    businessDomain: applet.businessDomain,
+    domainVerifyFileName: applet.domainVerifyFileName,
+    domainVerifyFileContent: applet.domainVerifyFileContent,
+    msgToken: applet.msgToken,
+    msgEncodingAESKey: applet.msgEncodingAESKey,
+    msgDataFormat: applet.msgDataFormat as WechatAppletConfig['msgDataFormat'],
+    msgEncryptMode: applet.msgEncryptMode as WechatAppletConfig['msgEncryptMode'],
+  };
+}
+
+function fromApplet(applet: WechatAppletConfig): KnowledgeWechatApplet {
+  return {
+    id: applet.id,
+    name: applet.name,
+    appId: applet.appId,
+    originalId: applet.originalId,
+    appSecret: applet.appSecret,
+    path: applet.path,
+    avatar: applet.avatar,
+    group: applet.group,
+    description: applet.description,
+    requestDomain: applet.requestDomain,
+    socketDomain: applet.socketDomain,
+    uploadDomain: applet.uploadDomain,
+    downloadDomain: applet.downloadDomain,
+    udpDomain: applet.udpDomain,
+    tcpDomain: applet.tcpDomain,
+    businessDomain: applet.businessDomain,
+    domainVerifyFileName: applet.domainVerifyFileName,
+    domainVerifyFileContent: applet.domainVerifyFileContent,
+    msgToken: applet.msgToken,
+    msgEncodingAESKey: applet.msgEncodingAESKey,
+    msgDataFormat: applet.msgDataFormat,
+    msgEncryptMode: applet.msgEncryptMode,
+  };
+}
+
+function toArticle(article: WechatArticle): KnowledgeWechatArticle {
+  return {
+    id: article.id,
+    title: article.title,
+    author: article.author,
+    content: article.content,
+    cover: article.cover,
+    abstract: article.abstract,
+  };
+}
+
+const MOCK_SECRET_PLACEHOLDER = 'mock-only-not-a-real-secret';
+
+function wechatSdk() {
+  return getKnowledgebaseAppSdkClient().client.knowledge.wechat;
+}
 
 export interface OfficialAccount {
   id: string;
@@ -14,9 +155,9 @@ export interface OfficialAccount {
   encryptMode?: 'plain' | 'compatible' | 'safe';
   domainVerifyFileName?: string;
   domainVerifyFileContent?: string;
-  jsSecureDomains?: string[]; // JS接口安全域名 (最多5个)
-  webAuthDomains?: string[]; // 网页授权域名 (最多2个)
-  businessDomains?: string[]; // 业务域名 (最多3个)
+  jsSecureDomains?: string[];
+  webAuthDomains?: string[];
+  businessDomains?: string[];
   group?: string;
 }
 
@@ -30,15 +171,15 @@ export interface WechatAppletConfig {
   avatar: string;
   group?: string;
   description?: string;
-  requestDomain?: string[]; // request合法域名
-  socketDomain?: string[]; // socket合法域名
-  uploadDomain?: string[]; // uploadFile合法域名
-  downloadDomain?: string[]; // downloadFile合法域名
-  udpDomain?: string[]; // udp合法域名
-  tcpDomain?: string[]; // tcp合法域名
-  businessDomain?: string[]; // 业务域名 (WebView)
-  domainVerifyFileName?: string; // 业务域名校验文件
-  domainVerifyFileContent?: string; // 业务域名校验文件内容
+  requestDomain?: string[];
+  socketDomain?: string[];
+  uploadDomain?: string[];
+  downloadDomain?: string[];
+  udpDomain?: string[];
+  tcpDomain?: string[];
+  businessDomain?: string[];
+  domainVerifyFileName?: string;
+  domainVerifyFileContent?: string;
   msgToken?: string;
   msgEncodingAESKey?: string;
   msgDataFormat?: 'json' | 'xml';
@@ -62,7 +203,6 @@ export interface WechatArticle {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// ============ MOCK DATA ============
 let mockOfficialAccounts: OfficialAccount[] = [
   {
     id: '1',
@@ -70,14 +210,14 @@ let mockOfficialAccounts: OfficialAccount[] = [
     type: 'subscription',
     avatar: '🤖',
     appId: 'wx57d8123abc456ef0',
-    appSecret: '3a8f9d0c2e4b6d8f0a2c4e6b8d0a2c4e',
+    appSecret: MOCK_SECRET_PLACEHOLDER,
     serverUrl: 'https://api.ai-base.com/wechat/callback',
-    token: 'aibasetoken123456',
-    encodingAesKey: '9JbM4zRzKpY8mFqXwT4n6pLmD2s8eVjY1hC3vB5nKxW',
+    token: 'mock-token',
+    encodingAesKey: 'mock-encoding-aes-key',
     encryptMode: 'safe',
     domainVerifyFileName: 'MP_verify_ai_base.txt',
     domainVerifyFileContent: 'ai-base-verification-code-12345',
-    group: '科技数码'
+    group: '科技数码',
   },
   {
     id: '2',
@@ -85,14 +225,14 @@ let mockOfficialAccounts: OfficialAccount[] = [
     type: 'subscription',
     avatar: '💡',
     appId: 'wx92f8713def456ba1',
-    appSecret: 'e8f0a2c4e6b8d0a2c4e6b8d0a3a8f9d0',
+    appSecret: MOCK_SECRET_PLACEHOLDER,
     serverUrl: 'https://api.indiedev.org/wechat/events',
-    token: 'indiedevtoken7890',
-    encodingAesKey: '6HdB5zRzKpY8mFqXwT4n6pLmD2s8eVjY1hC3vB5nKxW',
+    token: 'mock-token',
+    encodingAesKey: 'mock-encoding-aes-key',
     encryptMode: 'safe',
     domainVerifyFileName: 'MP_verify_indiedev.txt',
     domainVerifyFileContent: 'indie-developer-weekly-code-98765',
-    group: '科技数码'
+    group: '科技数码',
   },
   {
     id: '3',
@@ -100,15 +240,15 @@ let mockOfficialAccounts: OfficialAccount[] = [
     type: 'service',
     avatar: '⚡',
     appId: 'wx31d6248fed192ca5',
-    appSecret: 'c2e4b6d8f0a2c4e6b8d0a2c4e6b8d0a2',
+    appSecret: MOCK_SECRET_PLACEHOLDER,
     serverUrl: 'https://services.geekfront.cn/wx/msg',
-    token: 'geekfronttokensecret99',
-    encodingAesKey: '2FfZ8zRzKpY8mFqXwT4n6pLmD2s8eVjY1hC3vB5nKxW',
+    token: 'mock-token',
+    encodingAesKey: 'mock-encoding-aes-key',
     encryptMode: 'safe',
     domainVerifyFileName: 'MP_verify_geekfront.txt',
     domainVerifyFileContent: 'geek-frontline-verification-code-5555',
-    group: '企业矩阵'
-  }
+    group: '企业矩阵',
+  },
 ];
 
 let mockApplets: WechatAppletConfig[] = [
@@ -119,7 +259,7 @@ let mockApplets: WechatAppletConfig[] = [
     path: 'pages/index/index',
     avatar: 'AS',
     group: '工具',
-    description: '办公辅助'
+    description: '办公辅助',
   },
   {
     id: 'a2',
@@ -128,84 +268,137 @@ let mockApplets: WechatAppletConfig[] = [
     path: 'pages/home/main',
     avatar: '🎨',
     group: 'AI工具',
-    description: '智能生成配图'
-  }
+    description: '智能生成配图',
+  },
 ];
 
 export class WechatService {
-  /**
-   * 取回所有公众号账号信息
-   */
   static async getOfficialAccounts(): Promise<OfficialAccount[]> {
+    if (isKnowledgebaseApiAvailable()) {
+      const list = await wechatSdk().officialAccounts.list();
+      const accounts = list.accounts.map(toOfficialAccount);
+      if (isDesktopSecureStorageAvailable()) {
+        return Promise.all(accounts.map((account) => hydrateOfficialAccountSecrets(account)));
+      }
+      return accounts;
+    }
+    assertWechatDemoFallbackAllowed();
     await delay(300);
     return JSON.parse(JSON.stringify(mockOfficialAccounts));
   }
 
-  /**
-   * 批量保存/更新公众号配置信息
-   */
   static async saveOfficialAccounts(accounts: OfficialAccount[]): Promise<boolean> {
+    if (isKnowledgebaseApiAvailable()) {
+      const prepared = isDesktopSecureStorageAvailable()
+        ? await Promise.all(
+            accounts.map(async (account) => {
+              await persistOfficialAccountSecrets(account);
+              return hydrateOfficialAccountSecrets(account);
+            }),
+          )
+        : accounts;
+      await wechatSdk().officialAccounts.replace({
+        accounts: prepared.map(fromOfficialAccount),
+      });
+      return true;
+    }
+    assertWechatDemoFallbackAllowed();
     await delay(500);
     mockOfficialAccounts = JSON.parse(JSON.stringify(accounts));
     return true;
   }
 
-  /**
-   * 取回所有小程序配置信息
-   */
   static async getApplets(): Promise<WechatAppletConfig[]> {
+    if (isKnowledgebaseApiAvailable()) {
+      const list = await wechatSdk().applets.list();
+      const applets = list.applets.map(toApplet);
+      if (isDesktopSecureStorageAvailable()) {
+        return Promise.all(applets.map((applet) => hydrateAppletSecrets(applet)));
+      }
+      return applets;
+    }
+    assertWechatDemoFallbackAllowed();
     await delay(300);
     return JSON.parse(JSON.stringify(mockApplets));
   }
 
-  /**
-   * 批量保存/更新小程序配置信息
-   */
   static async saveApplets(applets: WechatAppletConfig[]): Promise<boolean> {
+    if (isKnowledgebaseApiAvailable()) {
+      const prepared = isDesktopSecureStorageAvailable()
+        ? await Promise.all(
+            applets.map(async (applet) => {
+              await persistAppletSecrets(applet);
+              return hydrateAppletSecrets(applet);
+            }),
+          )
+        : applets;
+      await wechatSdk().applets.replace({
+        applets: prepared.map(fromApplet),
+      });
+      return true;
+    }
+    assertWechatDemoFallbackAllowed();
     await delay(500);
     mockApplets = JSON.parse(JSON.stringify(applets));
     return true;
   }
 
-
-  /**
-   * 发布/推送微信图文消息
-   */
   static async publishArticles(
-      selectedAccountIds: string[], 
-      articles: WechatArticle[], 
-      options?: { 
-          sendNotification?: boolean; 
-          groupNotification?: boolean; 
-          selectedGroupId?: string; 
-          scheduleTime?: string | null; 
-      }
+    selectedAccountIds: string[],
+    articles: WechatArticle[],
+    options?: {
+      sendNotification?: boolean;
+      groupNotification?: boolean;
+      selectedGroupId?: string;
+      scheduleTime?: string | null;
+    },
   ): Promise<{ success: boolean; message: string }> {
-    await delay(1500); // Simulate network publish action
     if (!selectedAccountIds.length || !articles.length) {
-      throw new Error('No accounts or articles provided.');
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.WECHAT_INVALID_ARGS);
     }
-    console.log('Publishing to accounts:', selectedAccountIds, 'with options:', options);
-    return { success: true, message: 'Articles successfully pushed to WeChat.' };
+    if (isKnowledgebaseApiAvailable()) {
+      return wechatSdk().articles.publish({
+        accountIds: selectedAccountIds,
+        articles: articles.map(toArticle),
+        sendNotification: options?.sendNotification,
+        groupNotification: options?.groupNotification,
+        selectedGroupId: options?.selectedGroupId,
+        scheduleTime: options?.scheduleTime ?? undefined,
+      });
+    }
+    assertWechatDemoFallbackAllowed();
+    await delay(1500);
+    return { success: true, message: '' };
   }
 
-  /**
-   * 发送预览到指定微信
-   */
-  static async sendPreview(accountId: string, wechatIds: string[], articles: WechatArticle[]): Promise<{ success: boolean; message: string }> {
-    await delay(1200); // Simulate network publish action
+  static async sendPreview(
+    accountId: string,
+    wechatIds: string[],
+    articles: WechatArticle[],
+  ): Promise<{ success: boolean; message: string }> {
     if (!accountId || !wechatIds.length || !articles.length) {
-      throw new Error('Invalid arguments for sendPreview.');
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.WECHAT_INVALID_ARGS);
     }
-    return { success: true, message: 'Preview successfully sent to WeChat.' };
+    if (isKnowledgebaseApiAvailable()) {
+      return wechatSdk().articles.preview({
+        accountId,
+        wechatIds,
+        articles: articles.map(toArticle),
+      });
+    }
+    assertWechatDemoFallbackAllowed();
+    await delay(1200);
+    return { success: true, message: '' };
   }
 
-  /**
-   * 智能排版功能
-   */
   static async autoFormatContent(content: string, type: string): Promise<string> {
-    await delay(1200); // Simulate processing
-    // Simple mock formatting: just wrapping with a stylish div
+    if (isKnowledgebaseApiAvailable()) {
+      const wrapped = `<article data-wechat-format="${type}">${content}</article>`;
+      return AIService.streamRewrite(wrapped, () => undefined);
+    }
+
+    assertWechatDemoFallbackAllowed();
+    await delay(1200);
     return `<div style="font-family: inherit; color: #222; text-align: justify; line-height: 1.8; padding: 20px 10px;">${content}</div>`;
   }
 }

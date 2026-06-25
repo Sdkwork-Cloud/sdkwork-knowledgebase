@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, expect, it } from 'vitest';
 import { createTiptapExportContentProvider } from './editorDocumentExport';
 
 describe('createTiptapExportContentProvider', () => {
@@ -14,8 +13,8 @@ describe('createTiptapExportContentProvider', () => {
     });
 
     const content = getContent();
-    assert.equal(content?.sourceKind, 'markdown');
-    assert.equal(content?.markdown, '# Hello');
+    expect(content?.sourceKind).toBe('markdown');
+    expect(content?.markdown).toBe('# Hello');
   });
 
   it('uses editor html in visual mode', () => {
@@ -30,8 +29,8 @@ describe('createTiptapExportContentProvider', () => {
     });
 
     const content = getContent();
-    assert.equal(content?.sourceKind, 'richtext');
-    assert.match(content?.html ?? '', /<strong>Hi<\/strong>/);
-    assert.equal(content?.markdown, '**Hi**');
+    expect(content?.sourceKind).toBe('richtext');
+    expect(content?.html ?? '').toMatch(/<strong>Hi<\/strong>/);
+    expect(content?.markdown).toBe('**Hi**');
   });
 });

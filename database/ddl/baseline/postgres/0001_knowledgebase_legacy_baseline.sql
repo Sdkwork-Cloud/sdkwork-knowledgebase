@@ -764,3 +764,96 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_okf_candidate_uuid
 CREATE INDEX IF NOT EXISTS idx_kb_okf_candidate_space_state
     ON kb_okf_candidate (tenant_id, space_id, state, updated_at);
 
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606220001__knowledgebase_outbox_delivery.sql
+-- Outbox delivery retry metadata for failed event requeue.
+
+ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS last_error TEXT;
+ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS retry_count BIGINT NOT NULL DEFAULT 0;
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606220002__knowledgebase_chunk_fts.sql
+-- PostgreSQL keyword search vector for chunk retrieval.
+
+ALTER TABLE kb_chunk ADD COLUMN IF NOT EXISTS search_vector tsvector;
+
+UPDATE kb_chunk
+SET search_vector = to_tsvector('simple', coalesce(content_text, ''))
+WHERE search_vector IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_kb_chunk_search_vector
+    ON kb_chunk USING GIN (search_vector);
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606220003__knowledgebase_outbox_claim.sql
+ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS claimed_at VARCHAR(64);
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606230001__knowledgebase_performance_indexes.sql
+CREATE INDEX IF NOT EXISTS idx_kb_ingestion_job_tenant_state_status
+    ON kb_ingestion_job (tenant_id, state, status);
+
+CREATE INDEX IF NOT EXISTS idx_kb_outbox_stale_claim
+    ON kb_outbox_event (tenant_id, status, claimed_at);
+
+-- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606240001__knowledge_market_and_site_deployment.sql
+CREATE TABLE IF NOT EXISTS kb_market_listing (
+    id BIGINT NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    title VARCHAR(256) NOT NULL,
+    icon VARCHAR(64),
+    description TEXT,
+    author VARCHAR(128),
+    tags_json TEXT NOT NULL DEFAULT '[]',
+    provider VARCHAR(128),
+    model_name VARCHAR(128),
+    subscribers_count INTEGER NOT NULL DEFAULT 0,
+    documents_count INTEGER NOT NULL DEFAULT 0,
+    status INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    FOREIGN KEY (space_id) REFERENCES kb_space(id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_market_listing_space
+    ON kb_market_listing (tenant_id, space_id)
+    WHERE status = 1;
+
+CREATE INDEX IF NOT EXISTS idx_kb_market_listing_status
+    ON kb_market_listing (tenant_id, status, updated_at);
+
+CREATE TABLE IF NOT EXISTS kb_market_subscription (
+    id BIGINT NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    subscriber_actor_id BIGINT NOT NULL,
+    listing_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    status INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (id),
+    FOREIGN KEY (listing_id) REFERENCES kb_market_listing(id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_market_subscription_actor_listing
+    ON kb_market_subscription (tenant_id, subscriber_actor_id, listing_id)
+    WHERE status = 1;
+
+CREATE TABLE IF NOT EXISTS kb_site_deployment (
+    id BIGINT NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    space_id BIGINT NOT NULL,
+    platform VARCHAR(64) NOT NULL,
+    site_name VARCHAR(256),
+    custom_domain VARCHAR(256),
+    site_logo_data_url TEXT,
+    deployed_url TEXT NOT NULL,
+    preview_object_key TEXT NOT NULL,
+    status INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    version INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    FOREIGN KEY (space_id) REFERENCES kb_space(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_kb_site_deployment_space
+    ON kb_site_deployment (tenant_id, space_id, status, updated_at);
+

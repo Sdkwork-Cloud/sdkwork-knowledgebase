@@ -3,6 +3,7 @@
 pub mod agent;
 pub mod agent_chat;
 pub mod browser;
+pub mod commerce;
 pub mod context_binding;
 pub mod domain;
 pub mod embedding_retrieval_backend;
@@ -20,3 +21,4 @@ pub mod rag;
 pub mod retrieval;
 pub mod service;
 pub mod space;
+pub mod wechat;

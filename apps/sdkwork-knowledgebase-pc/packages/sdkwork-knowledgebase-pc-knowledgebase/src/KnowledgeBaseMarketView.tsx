@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Check, Sparkles, Compass, ArrowRight, ShieldCheck, Tag } from 'lucide-react';
 import { DocumentService, MarketKnowledgeBase } from './services/document';
-import { useLocalStorage } from '@packages/sdkwork-knowledgebase-pc-commons/src';
+import { useLocalStorage } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 
 interface KnowledgeBaseMarketViewProps {
   onSubscribedChange: () => void;

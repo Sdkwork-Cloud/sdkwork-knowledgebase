@@ -1,3 +1,5 @@
+pub mod commerce_store;
+pub mod drive_import_metadata_store;
 pub mod knowledge_access_control;
 pub mod knowledge_agent_profile_store;
 pub mod knowledge_browser_projection_store;
@@ -20,8 +22,11 @@ pub mod knowledge_okf_bundle_file_store;
 pub mod knowledge_okf_candidate_store;
 pub mod knowledge_okf_concept_link_store;
 pub mod knowledge_okf_concept_store;
+pub mod knowledge_outbox_dispatcher;
 pub mod knowledge_outbox_store;
 pub mod knowledge_retrieval_backend;
 pub mod knowledge_retrieval_trace_store;
 pub mod knowledge_source_store;
 pub mod knowledge_space_store;
+pub mod markdown_index_metadata_store;
+pub mod okf_concept_revision_metadata_store;

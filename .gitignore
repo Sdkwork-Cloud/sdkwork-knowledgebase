@@ -54,6 +54,11 @@ apps/sdkwork-knowledgebase-pc/**/build/
 apps/sdkwork-knowledgebase-pc/**/src-tauri/target/
 apps/sdkwork-knowledgebase-pc/**/*.zip
 
+# Playwright / e2e local output
+**/test-results/
+**/playwright-report/
+**/playwright/.cache/
+
 # Merge / backup scratch
 apps/_pc26-extract/
 apps/_pc26-merge/

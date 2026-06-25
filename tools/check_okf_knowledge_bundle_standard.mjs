@@ -83,6 +83,10 @@ const requiredOkfServiceModules = [
   "storage.rs",
   "linter.rs",
   "bundle_workflow.rs",
+  "catalog_log.rs",
+  "governance_drive.rs",
+  "standard_bundle_catalog_sync.rs",
+  "standard_bundle_refresh.rs",
 ];
 
 const requiredOkfStorageSymbols = [
@@ -102,6 +106,9 @@ const requiredOkfStorageSymbols = [
   "canonicalize_imported_concept_id",
   "validate_catalog_concept_id",
   "OkfBundleWorkflowEngine",
+  "persist_standard_files_after_index_rebuild",
+  "persist_dynamic_standard_bundle_files",
+  "ensure_drive_permission_anchor",
 ];
 
 const requiredOkfMigrationTables = ["kb_okf_concept", "kb_okf_concept_link", "kb_okf_candidate"];
@@ -229,6 +236,18 @@ async function assertRequiredOkfStorageSymbols() {
     path.join(
       root,
       "crates/sdkwork-intelligence-knowledgebase-service/src/okf/bundle_workflow.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/governance_drive.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/standard_bundle_catalog_sync.rs",
+    ),
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/file_registry.rs",
     ),
     path.join(
       root,

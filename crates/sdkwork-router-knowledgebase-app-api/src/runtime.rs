@@ -1,33 +1,41 @@
 use async_trait::async_trait;
 use sdkwork_drive_storage_local::LocalDriveObjectStore;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_knowledgebase_and_install_schema, knowledgebase_health_check,
-    SqliteContextBindingStore, SqliteIngestionJobStore, SqliteKnowledgeAgentProfileStore,
+    connect_knowledgebase_and_install_schema, connect_postgres_pool,
+    default_knowledge_id_generator, is_postgres_database_url,
+    keyword_search_backend_for_database_url, knowledgebase_health_check, KnowledgeAuditEventRecord,
+    KnowledgeAuditEventStore, PgVectorKnowledgeRetrievalBackend, PgVectorLayeredRetrievalBackend,
+    SqliteCommerceStore, SqliteContextBindingStore, SqliteDriveImportMetadataStore,
+    SqliteIngestionJobStore, SqliteKnowledgeAgentProfileStore, SqliteKnowledgeAuditEventStore,
     SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeChunkRetrievalStore,
     SqliteKnowledgeChunkStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
     SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeEmbeddingStore, SqliteKnowledgeIndexStore,
     SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeOkfCandidateStore,
     SqliteKnowledgeOkfConceptLinkStore, SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
     SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
+    SqliteMarkdownIndexMetadataStore, SqliteOkfConceptRevisionMetadataStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
     agent::KnowledgeAgentService,
     agent_chat::KnowledgeAgentChatService,
-    embedding_retrieval_backend::ClawRouterEmbeddingRetrievalBackend,
+    embedding_retrieval_backend::SharedKnowledgeRetrievalBackend,
     knowledge_engine::{
         build_default_registry, DefaultKnowledgeEngineRegistry, KnowledgeEngineRuntimeDeps,
         KnowledgeEngineSpaceResolver,
     },
     ports::{
-        knowledge_retrieval_backend::KnowledgeRetrievalBackend,
+        knowledge_chunk_store::KnowledgeChunkStore,
+        knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStore,
+        knowledge_drive_storage::KnowledgeDriveStorage,
+        knowledge_outbox_store::KnowledgeOutboxStore,
+        knowledge_retrieval_trace_store::KnowledgeRetrievalTraceStore,
         knowledge_space_store::KnowledgeSpaceStore,
     },
-    retrieval::KnowledgeRetrievalService,
+    retrieval::{KnowledgeRetrievalService, KnowledgeRetrievalServiceError},
 };
 use sdkwork_knowledgebase_contract::agent_chat::{
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
 };
-use sdkwork_knowledgebase_contract::ingest::IngestionJob;
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeContextPack,
@@ -39,7 +47,9 @@ use sdkwork_knowledgebase_drive::{
     KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
     KnowledgebaseKnowledgeAccessControlAdapter,
 };
+use sdkwork_utils_rust::is_blank;
 use sqlx::AnyPool;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -54,13 +64,19 @@ use crate::{
     },
     build_router_with_shared_app_api_and_readiness,
     hosted::{
-        HostedBrowserService, HostedDocumentService, HostedDriveImportService, HostedIngestService,
-        HostedOkfService, HostedSpaceService,
+        HostedBrowserService, HostedDocumentService, HostedDriveImportService,
+        HostedGitImportService, HostedIngestService, HostedOkfService, HostedSpaceService,
+    },
+    hosted_access::{
+        ensure_runtime_tenant, require_actor_id, require_agent_binding_space_access,
+        require_agent_profile_space_access, require_bindings_space_access, require_space_access,
     },
     hosted_backend::HostedBackendApi,
+    hosted_commerce::HostedCommerceService,
     hosted_context_binding::HostedContextBindingService,
     hosted_open::HostedOpenApi,
     hosted_upload::HostedUploadSessionService,
+    hosted_wechat::HostedWechatService,
     ApiError, ApiResult, KnowledgeAgentAppService, KnowledgeAppRequestContext,
     KnowledgeRetrievalAppService, ReadinessCheck,
 };
@@ -73,11 +89,11 @@ pub struct KnowledgebaseRuntime {
     pool: AnyPool,
     drive_pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     tenant_id_str: String,
     operator_id: String,
     retrieval_store: Arc<SqliteKnowledgeChunkRetrievalStore>,
-    embedding_retrieval_backend:
-        Option<Arc<ClawRouterEmbeddingRetrievalBackend<SqliteKnowledgeChunkRetrievalStore>>>,
+    retrieval_backend: SharedKnowledgeRetrievalBackend,
     retrieval_profile_store: Arc<SqliteKnowledgeRetrievalProfileStore>,
     index_store: Arc<SqliteKnowledgeIndexStore>,
     embedding_store: Arc<SqliteKnowledgeEmbeddingStore>,
@@ -92,7 +108,10 @@ pub struct KnowledgebaseRuntime {
     version_store: Arc<SqliteKnowledgeDocumentVersionStore>,
     object_ref_store: Arc<SqliteKnowledgeDriveObjectRefStore>,
     ingestion_job_store: Arc<SqliteIngestionJobStore>,
+    drive_import_metadata_store: Arc<SqliteDriveImportMetadataStore>,
+    markdown_index_metadata_store: Arc<SqliteMarkdownIndexMetadataStore>,
     outbox_store: Arc<SqliteKnowledgeOutboxStore>,
+    outbox_dispatcher: Arc<dyn sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_dispatcher::KnowledgeOutboxDispatcher>,
     chunk_store: Arc<SqliteKnowledgeChunkStore>,
     context_binding_store: Arc<SqliteContextBindingStore>,
     browser_projection_store: Arc<SqliteKnowledgeBrowserProjectionStore>,
@@ -102,12 +121,24 @@ pub struct KnowledgebaseRuntime {
     drive_workspace: Arc<KnowledgebaseDriveWorkspaceAdapter>,
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
     knowledge_engines: Arc<DefaultKnowledgeEngineRegistry>,
+    commerce_store: Arc<SqliteCommerceStore>,
 }
 
 impl KnowledgebaseRuntime {
     pub async fn connect(database_url: &str, tenant_id: u64) -> Result<Self, sqlx::Error> {
         let pool = connect_knowledgebase_and_install_schema(database_url).await?;
         let drive_pool = connect_knowledgebase_drive_pool(database_url).await?;
+        let pg_pool: Option<sqlx::PgPool> = if is_postgres_database_url(database_url) {
+            connect_postgres_pool(database_url).await.ok()
+        } else {
+            None
+        };
+        let keyword_backend = keyword_search_backend_for_database_url(database_url);
+        let database_engine = if is_postgres_database_url(database_url) {
+            sdkwork_database_config::DatabaseEngine::Postgres
+        } else {
+            sdkwork_database_config::DatabaseEngine::Sqlite
+        };
         Ok(Self::from_pools(
             pool,
             drive_pool,
@@ -115,9 +146,13 @@ impl KnowledgebaseRuntime {
             default_organization_id(),
             default_operator_id(),
             default_drive_storage_root(),
+            keyword_backend,
+            pg_pool,
+            database_engine,
         ))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn from_pools(
         pool: AnyPool,
         drive_pool: AnyPool,
@@ -125,6 +160,9 @@ impl KnowledgebaseRuntime {
         organization_id: u64,
         operator_id: String,
         drive_storage_root: PathBuf,
+        keyword_backend: sdkwork_intelligence_knowledgebase_repository_sqlx::KeywordSearchBackend,
+        pg_pool: Option<sqlx::PgPool>,
+        database_engine: sdkwork_database_config::DatabaseEngine,
     ) -> Self {
         let tenant_id_str = tenant_id.to_string();
         let object_store = Arc::new(LocalDriveObjectStore::new(drive_storage_root));
@@ -150,23 +188,34 @@ impl KnowledgebaseRuntime {
             drive_pool.clone(),
         ));
 
-        let retrieval_store = Arc::new(SqliteKnowledgeChunkRetrievalStore::new(
+        let retrieval_store = Arc::new(SqliteKnowledgeChunkRetrievalStore::with_keyword_backend(
             pool.clone(),
             tenant_id,
+            keyword_backend,
+            default_knowledge_id_generator(),
         ));
-        let embedding_retrieval_backend =
-            resolve_claw_router_client_from_env().ok().map(|client| {
-                Arc::new(ClawRouterEmbeddingRetrievalBackend::new(
-                    retrieval_store.as_ref().clone(),
-                    ClawRouterEmbeddingClient::new(Arc::new(client)),
-                ))
-            });
 
-        let retrieval_backend: Arc<dyn KnowledgeRetrievalBackend> =
-            match &embedding_retrieval_backend {
-                Some(backend) => backend.clone(),
-                None => retrieval_store.clone(),
-            };
+        let base_retrieval: SharedKnowledgeRetrievalBackend = if let Some(pg_pool) = pg_pool {
+            Arc::new(PgVectorLayeredRetrievalBackend::new(
+                retrieval_store.clone(),
+                Arc::new(PgVectorKnowledgeRetrievalBackend::new(pg_pool, tenant_id)),
+            ))
+        } else {
+            retrieval_store.clone()
+        };
+
+        let retrieval_backend: SharedKnowledgeRetrievalBackend =
+            resolve_claw_router_client_from_env()
+                .ok()
+                .map(|client| {
+                    Arc::new(
+                        sdkwork_intelligence_knowledgebase_service::embedding_retrieval_backend::ClawRouterEmbeddingRetrievalBackend::new(
+                            base_retrieval.clone(),
+                            ClawRouterEmbeddingClient::new(Arc::new(client)),
+                        ),
+                    ) as SharedKnowledgeRetrievalBackend
+                })
+                .unwrap_or(base_retrieval);
 
         let okf_concept_store =
             Arc::new(SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id));
@@ -187,6 +236,10 @@ impl KnowledgebaseRuntime {
             pool.clone(),
             tenant_id,
         ));
+        let okf_revision_metadata_store = Arc::new(SqliteOkfConceptRevisionMetadataStore::new(
+            pool.clone(),
+            tenant_id,
+        ));
         let source_store = Arc::new(SqliteKnowledgeSourceStore::new(pool.clone(), tenant_id));
         let object_ref_store = Arc::new(SqliteKnowledgeDriveObjectRefStore::new(
             pool.clone(),
@@ -194,7 +247,11 @@ impl KnowledgebaseRuntime {
         ));
         let document_store = Arc::new(SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id));
         let index_store = Arc::new(SqliteKnowledgeIndexStore::new(pool.clone(), tenant_id));
-        let embedding_store = Arc::new(SqliteKnowledgeEmbeddingStore::new(pool.clone(), tenant_id));
+        let embedding_store = Arc::new(SqliteKnowledgeEmbeddingStore::new(
+            pool.clone(),
+            tenant_id,
+            database_engine,
+        ));
         let rag_embedder = resolve_claw_router_client_from_env()
             .ok()
             .map(|client| ClawRouterEmbeddingClient::new(Arc::new(client)));
@@ -204,6 +261,7 @@ impl KnowledgebaseRuntime {
             okf: KnowledgeEngineRuntimeDeps::okf_from_stores(
                 okf_concept_store.clone(),
                 drive_storage.clone(),
+                okf_revision_metadata_store.clone(),
                 object_ref_store.clone(),
                 okf_concept_link_store.clone(),
                 okf_candidate_store.clone(),
@@ -213,7 +271,7 @@ impl KnowledgebaseRuntime {
                 space_store.clone(),
             ),
             rag_documents: document_store.clone(),
-            retrieval_backend,
+            retrieval_backend: retrieval_backend.clone(),
             retrieval_traces: retrieval_store.clone(),
             rag_index_store: Some(index_store.clone()),
             rag_embedding_store: Some(embedding_store.clone()),
@@ -224,15 +282,30 @@ impl KnowledgebaseRuntime {
                 ),
         }));
 
+        let audit_store = Arc::new(SqliteKnowledgeAuditEventStore::new(pool.clone(), tenant_id));
+        sdkwork_knowledgebase_observability::install_audit_persistence(Arc::new(move |event| {
+            audit_store.record(KnowledgeAuditEventRecord {
+                event_type: event.event_type,
+                actor_type: event.actor_type,
+                actor_id: event.actor_id,
+                resource_type: event.resource_type,
+                resource_id: event.resource_id,
+                result: event.result,
+                request_id: None,
+                trace_id: None,
+                payload: event.payload,
+            });
+        }));
+
         Self {
             retrieval_store,
-            embedding_retrieval_backend,
+            retrieval_backend,
             retrieval_profile_store: Arc::new(SqliteKnowledgeRetrievalProfileStore::new(
                 pool.clone(),
                 tenant_id,
             )),
             index_store,
-            embedding_store: embedding_store,
+            embedding_store,
             agent_store: Arc::new(SqliteKnowledgeAgentProfileStore::new(
                 pool.clone(),
                 tenant_id,
@@ -249,17 +322,42 @@ impl KnowledgebaseRuntime {
                 tenant_id,
             )),
             object_ref_store,
-            ingestion_job_store: Arc::new(SqliteIngestionJobStore::new(pool.clone(), tenant_id)),
-            outbox_store: Arc::new(SqliteKnowledgeOutboxStore::new(pool.clone(), tenant_id)),
-            chunk_store: Arc::new(SqliteKnowledgeChunkStore::new(pool.clone(), tenant_id)),
+            ingestion_job_store: Arc::new(SqliteIngestionJobStore::with_keyword_backend(
+                pool.clone(),
+                tenant_id,
+                keyword_backend,
+                default_knowledge_id_generator(),
+            )),
+            drive_import_metadata_store: Arc::new(SqliteDriveImportMetadataStore::new(
+                pool.clone(),
+                tenant_id,
+            )),
+            markdown_index_metadata_store: Arc::new(SqliteMarkdownIndexMetadataStore::new(
+                pool.clone(),
+                tenant_id,
+            )),
+            outbox_store: Arc::new(
+                SqliteKnowledgeOutboxStore::new(pool.clone(), tenant_id).with_postgres_skip_locked_claim(
+                    database_engine == sdkwork_database_config::DatabaseEngine::Postgres,
+                ),
+            ),
+            outbox_dispatcher:
+                sdkwork_intelligence_knowledgebase_service::outbox::knowledge_outbox_dispatcher_from_env(),
+            chunk_store: Arc::new(SqliteKnowledgeChunkStore::with_keyword_backend(
+                pool.clone(),
+                tenant_id,
+                keyword_backend,
+                default_knowledge_id_generator(),
+            )),
             context_binding_store: Arc::new(SqliteContextBindingStore::new(pool.clone())),
             browser_projection_store: Arc::new(SqliteKnowledgeBrowserProjectionStore::new(
                 pool.clone(),
                 tenant_id,
             )),
-            pool,
+            pool: pool.clone(),
             drive_pool,
             tenant_id,
+            organization_id,
             tenant_id_str,
             operator_id,
             drive_storage,
@@ -268,6 +366,7 @@ impl KnowledgebaseRuntime {
             drive_workspace,
             access_control,
             knowledge_engines,
+            commerce_store: Arc::new(SqliteCommerceStore::new(pool.clone())),
         }
     }
 
@@ -279,16 +378,31 @@ impl KnowledgebaseRuntime {
         self.tenant_id
     }
 
+    pub fn organization_id(&self) -> u64 {
+        self.organization_id
+    }
+
+    pub(crate) fn arc_agent_store(&self) -> Arc<SqliteKnowledgeAgentProfileStore> {
+        self.agent_store.clone()
+    }
+
+    pub(crate) fn arc_retrieval_profile_store(&self) -> Arc<SqliteKnowledgeRetrievalProfileStore> {
+        self.retrieval_profile_store.clone()
+    }
+
+    pub(crate) fn arc_space_store(&self) -> Arc<SqliteKnowledgeSpaceStore> {
+        self.space_store.clone()
+    }
+
+    pub(crate) fn commerce_store(&self) -> &SqliteCommerceStore {
+        &self.commerce_store
+    }
+
     pub(crate) fn retrieval_service(&self) -> KnowledgeRetrievalService<'_> {
-        match &self.embedding_retrieval_backend {
-            Some(backend) => {
-                KnowledgeRetrievalService::new(backend.as_ref(), self.retrieval_store.as_ref())
-            }
-            None => KnowledgeRetrievalService::new(
-                self.retrieval_store.as_ref(),
-                self.retrieval_store.as_ref(),
-            ),
-        }
+        KnowledgeRetrievalService::new(
+            self.retrieval_backend.as_ref(),
+            self.retrieval_store.as_ref(),
+        )
     }
 
     pub async fn readiness_check(&self) -> Result<(), sqlx::Error> {
@@ -314,6 +428,7 @@ impl KnowledgebaseRuntime {
             Arc::new(FullAppApi::new(
                 Arc::new(HostedSpaceService::new(self.clone())),
                 Arc::new(HostedDriveImportService::new(self.clone())),
+                Arc::new(HostedGitImportService::new(self.clone())),
                 Arc::new(HostedIngestService::new(self.clone())),
                 Arc::new(HostedDocumentService::new(self.clone())),
                 Arc::new(HostedOkfService::new(self.clone())),
@@ -322,6 +437,8 @@ impl KnowledgebaseRuntime {
                 Arc::new(HostedAgentService::new(self.clone())),
                 Arc::new(HostedContextBindingService::new(self.clone())),
                 Arc::new(HostedUploadSessionService::new(self.clone())),
+                Arc::new(HostedWechatService::new(self.clone())),
+                Arc::new(HostedCommerceService::new(self.clone())),
             )),
             Some(ReadinessCheck::new(self.pool.clone())),
         )
@@ -340,15 +457,22 @@ impl KnowledgebaseRuntime {
     }
 
     pub fn build_backend_router(&self) -> axum::Router {
-        sdkwork_router_knowledgebase_backend_api::build_router_with_shared_backend_api(Arc::new(
-            HostedBackendApi::new(self.clone()),
-        ))
+        sdkwork_router_knowledgebase_backend_api::build_router_with_shared_backend_api_and_readiness(
+            Arc::new(HostedBackendApi::new(self.clone())),
+            self.tenant_id(),
+            Some(
+                sdkwork_router_knowledgebase_backend_api::DbReadinessCheck::new(self.pool.clone()),
+            ),
+        )
     }
 
     pub fn build_open_api_router(&self) -> axum::Router {
-        sdkwork_router_knowledgebase_open_api::build_router_with_shared_open_api(Arc::new(
-            HostedOpenApi::new(self.clone()),
-        ))
+        sdkwork_router_knowledgebase_open_api::build_router_with_shared_open_api_and_readiness(
+            Arc::new(HostedOpenApi::new(self.clone())),
+            Some(
+                sdkwork_router_knowledgebase_backend_api::DbReadinessCheck::new(self.pool.clone()),
+            ),
+        )
     }
 
     pub async fn build_backend_router_with_web_framework(&self) -> axum::Router {
@@ -405,8 +529,23 @@ impl KnowledgebaseRuntime {
         &self.ingestion_job_store
     }
 
+    pub(crate) fn drive_import_metadata_store(&self) -> &SqliteDriveImportMetadataStore {
+        &self.drive_import_metadata_store
+    }
+
+    pub(crate) fn markdown_index_metadata_store(&self) -> &SqliteMarkdownIndexMetadataStore {
+        &self.markdown_index_metadata_store
+    }
+
     pub(crate) fn outbox_store(&self) -> &SqliteKnowledgeOutboxStore {
         &self.outbox_store
+    }
+
+    pub(crate) fn outbox_dispatcher(
+        &self,
+    ) -> &dyn sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_dispatcher::KnowledgeOutboxDispatcher
+    {
+        self.outbox_dispatcher.as_ref()
     }
 
     pub(crate) fn chunk_store(&self) -> &SqliteKnowledgeChunkStore {
@@ -623,52 +762,133 @@ impl KnowledgebaseRuntime {
             .ok()
     }
 
-    pub(crate) async fn try_append_ingest_succeeded_outbox(&self, job: &IngestionJob) {
-        use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::{
-            AppendOutboxEventRecord, KnowledgeOutboxStore,
-        };
-
-        let payload_json = serde_json::json!({
-            "spaceId": job.space_id,
-            "sourceType": job.source_type,
-            "idempotencyKey": job.idempotency_key,
-            "state": format!("{:?}", job.state).to_ascii_lowercase(),
-        })
-        .to_string();
-        let _ = self
-            .outbox_store()
-            .append_event(AppendOutboxEventRecord {
-                aggregate_type: "ingestion_job".to_string(),
-                aggregate_id: job.id,
-                event_type: "knowledge.ingest.succeeded".to_string(),
-                payload_json,
-            })
-            .await;
-    }
-
     pub async fn publish_pending_outbox_events(&self, limit: u32) -> usize {
         use sdkwork_intelligence_knowledgebase_service::outbox::KnowledgeOutboxPublisherService;
 
-        KnowledgeOutboxPublisherService::new(self.outbox_store())
-            .publish_pending(limit)
+        let _ = self.requeue_failed_outbox_events(limit).await;
+        KnowledgeOutboxPublisherService::new(
+            self.tenant_id(),
+            self.outbox_store(),
+            self.outbox_dispatcher(),
+        )
+        .publish_pending(limit)
+        .await
+        .map(|result| result.published)
+        .unwrap_or(0)
+    }
+
+    pub async fn requeue_failed_outbox_events(&self, limit: u32) -> usize {
+        let max_retry_count = std::env::var("SDKWORK_KNOWLEDGEBASE_OUTBOX_MAX_RETRIES")
+            .ok()
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or(5)
+            .clamp(1, 32);
+        self.outbox_store()
+            .requeue_failed_events(limit, max_retry_count)
             .await
-            .map(|result| result.published)
             .unwrap_or(0)
+    }
+
+    pub async fn read_document_content_markdown(
+        &self,
+        document_id: u64,
+    ) -> Result<sdkwork_knowledgebase_contract::document::KnowledgeDocumentContent, String> {
+        use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::KnowledgeObjectRef;
+        use sdkwork_knowledgebase_contract::document::KnowledgeDocumentContent;
+
+        let versions = self
+            .version_store()
+            .list_versions_for_document(document_id)
+            .await
+            .map_err(|error| error.to_string())?;
+        let latest = versions
+            .last()
+            .ok_or_else(|| "document has no versions".to_string())?;
+        let object_ref = self
+            .object_ref_store()
+            .get_object_ref_by_id(latest.original_object_ref_id)
+            .await
+            .map_err(|error| error.to_string())?;
+        let storage_ref = KnowledgeObjectRef {
+            storage_provider_id: object_ref.drive_storage_provider_id.clone(),
+            bucket: object_ref.drive_bucket.clone(),
+            object_key: object_ref.drive_object_key.clone(),
+            logical_path: object_ref
+                .logical_path
+                .clone()
+                .unwrap_or_else(|| object_ref.drive_object_key.clone()),
+            object_role: object_ref.object_role.clone(),
+            content_type: object_ref
+                .content_type
+                .clone()
+                .unwrap_or_else(|| "text/markdown; charset=utf-8".to_string()),
+            size_bytes: object_ref.size_bytes,
+            checksum_sha256_hex: object_ref.checksum_sha256_hex.clone(),
+            etag: object_ref.drive_etag.clone(),
+            version_id: object_ref.drive_object_version.clone(),
+        };
+
+        if let Ok(content) = self.drive_storage().get_object_text(&storage_ref).await {
+            if !is_blank(Some(content.as_str())) {
+                let content_source = "drive_object".to_string();
+                return Ok(KnowledgeDocumentContent {
+                    document_id,
+                    content_markdown: content,
+                    content_source: content_source.clone(),
+                    content_version: build_document_content_version(
+                        latest,
+                        object_ref.drive_etag.as_deref(),
+                        &content_source,
+                    ),
+                });
+            }
+        }
+
+        let chunks = self
+            .chunk_store()
+            .list_chunk_texts_for_document_version(latest.id)
+            .await
+            .map_err(|error| error.to_string())?;
+        if chunks.is_empty() {
+            return Err("document content is not available".to_string());
+        }
+
+        let content_source = "chunk_concat".to_string();
+        Ok(KnowledgeDocumentContent {
+            document_id,
+            content_markdown: chunks.join("\n\n"),
+            content_source: content_source.clone(),
+            content_version: build_document_content_version(latest, None, &content_source),
+        })
     }
 
     pub async fn process_queued_ingestion_jobs(&self, limit: u32) -> usize {
         use sdkwork_intelligence_knowledgebase_service::ingest::KnowledgeIngestionJobWorkerService;
 
-        KnowledgeIngestionJobWorkerService::new(
-            self.ingestion_job_store(),
-            self.drive_storage(),
-            self.chunk_store(),
-        )
-        .process_queued_jobs(limit)
-        .await
-        .map(|result| result.processed)
-        .unwrap_or(0)
+        KnowledgeIngestionJobWorkerService::new(self.ingestion_job_store(), self.drive_storage())
+            .process_queued_jobs(limit)
+            .await
+            .map(|result| result.processed)
+            .unwrap_or(0)
     }
+}
+
+fn build_document_content_version(
+    version: &sdkwork_knowledgebase_contract::document::KnowledgeDocumentVersion,
+    drive_etag: Option<&str>,
+    content_source: &str,
+) -> String {
+    if let Some(etag) = drive_etag.filter(|value| !value.is_empty()) {
+        return format!("{content_source}:etag:{etag}");
+    }
+    if let Some(checksum) = version
+        .checksum_sha256_hex
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    {
+        return format!("{content_source}:v{}:{checksum}", version.id);
+    }
+    format!("{content_source}:v{}:{}", version.id, version.version_no)
 }
 
 fn default_organization_id() -> u64 {
@@ -701,17 +921,71 @@ impl HostedRetrievalService {
     fn service(&self) -> KnowledgeRetrievalService<'_> {
         self.runtime.retrieval_service()
     }
+
+    async fn authorize_retrieval_request(
+        &self,
+        context: &KnowledgeAppRequestContext,
+        request: &KnowledgeRetrievalRequest,
+    ) -> ApiResult<()> {
+        ensure_runtime_tenant(&self.runtime, context)?;
+        require_bindings_space_access(&self.runtime, context, &request.bindings).await?;
+        self.runtime
+            .ensure_bindings_support_rag_retrieval(&request.bindings)
+            .await
+    }
+
+    async fn authorize_retrieval_trace(
+        &self,
+        context: &KnowledgeAppRequestContext,
+        retrieval_id: u64,
+    ) -> ApiResult<()> {
+        ensure_runtime_tenant(&self.runtime, context)?;
+        let _actor_id = require_actor_id(context)?;
+
+        let trace = self
+            .runtime
+            .retrieval_store()
+            .retrieve_trace(context.tenant_id, retrieval_id)
+            .await
+            .map_err(|error| ApiError::from(KnowledgeRetrievalServiceError::TraceStore(error)))?;
+
+        if let Some(trace_actor_id) = trace.actor_id {
+            if context.actor_id != Some(trace_actor_id) {
+                return Err(ApiError::new(
+                    axum::http::StatusCode::FORBIDDEN,
+                    "retrieval_trace_access_denied",
+                    "authenticated actor does not own this retrieval trace",
+                ));
+            }
+        }
+
+        let hits = self
+            .runtime
+            .retrieval_store()
+            .list_trace_hits(context.tenant_id, retrieval_id)
+            .await
+            .map_err(|error| ApiError::from(KnowledgeRetrievalServiceError::TraceStore(error)))?;
+
+        let mut seen = HashSet::new();
+        for hit in hits {
+            if seen.insert(hit.space_id) {
+                require_space_access(&self.runtime, context, hit.space_id).await?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[async_trait]
 impl KnowledgeRetrievalAppService for HostedRetrievalService {
     async fn retrieve(
         &self,
-        request: KnowledgeRetrievalRequest,
+        context: KnowledgeAppRequestContext,
+        mut request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        self.runtime
-            .ensure_bindings_support_rag_retrieval(&request.bindings)
-            .await?;
+        self.authorize_retrieval_request(&context, &request).await?;
+        request = request.with_actor_id(context.actor_id);
         self.service().retrieve(request).await.map_err(Into::into)
     }
 
@@ -720,13 +994,8 @@ impl KnowledgeRetrievalAppService for HostedRetrievalService {
         context: KnowledgeAppRequestContext,
         retrieval_id: u64,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        if context.tenant_id != self.runtime.tenant_id {
-            return Err(ApiError::new(
-                axum::http::StatusCode::FORBIDDEN,
-                "tenant_id_mismatch",
-                "authenticated tenant does not match configured runtime tenant",
-            ));
-        }
+        self.authorize_retrieval_trace(&context, retrieval_id)
+            .await?;
         self.service()
             .retrieve_persisted(context.tenant_id, retrieval_id)
             .await
@@ -735,11 +1004,27 @@ impl KnowledgeRetrievalAppService for HostedRetrievalService {
 
     async fn create_context_pack(
         &self,
-        request: KnowledgeContextPackRequest,
+        context: KnowledgeAppRequestContext,
+        mut request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack> {
-        self.runtime
-            .ensure_bindings_support_rag_retrieval(&request.bindings)
+        let retrieval_request = KnowledgeRetrievalRequest {
+            tenant_id: request.tenant_id,
+            actor_id: request.actor_id,
+            query: request.query.clone(),
+            retrieval_profile_id: request.retrieval_profile_id,
+            bindings: request.bindings.clone(),
+            methods: vec![],
+            top_k: None,
+            include_citations: request.include_citations,
+            include_trace: true,
+            context_budget_tokens: Some(request.context_budget_tokens),
+            metadata: vec![],
+        };
+        self.authorize_retrieval_request(&context, &retrieval_request)
             .await?;
+        request = request
+            .with_tenant_id(context.tenant_id)
+            .with_actor_id(context.actor_id);
         self.service()
             .create_context_pack(request)
             .await
@@ -762,54 +1047,93 @@ impl HostedAgentService {
 impl KnowledgeAgentAppService for HostedAgentService {
     async fn create_profile(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
+        ensure_runtime_tenant(&self.runtime, &context)?;
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
         service.create_profile(request).await.map_err(Into::into)
     }
 
-    async fn retrieve_profile(&self, profile_id: u64) -> ApiResult<KnowledgeAgentProfile> {
+    async fn retrieve_profile(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<KnowledgeAgentProfile> {
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
-        service
+        let profile = service
             .retrieve_profile(profile_id)
             .await
-            .map_err(Into::into)
+            .map_err(ApiError::from)?;
+        require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
+        Ok(profile)
     }
 
     async fn update_profile(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
+        let existing = service
+            .retrieve_profile(profile_id)
+            .await
+            .map_err(ApiError::from)?;
+        require_agent_profile_space_access(&self.runtime, &context, &existing).await?;
         service
             .update_profile(profile_id, request)
             .await
             .map_err(Into::into)
     }
 
-    async fn delete_profile(&self, profile_id: u64) -> ApiResult<()> {
+    async fn delete_profile(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<()> {
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
+        let existing = service
+            .retrieve_profile(profile_id)
+            .await
+            .map_err(ApiError::from)?;
+        require_agent_profile_space_access(&self.runtime, &context, &existing).await?;
         service.delete_profile(profile_id).await.map_err(Into::into)
     }
 
-    async fn list_bindings(&self, profile_id: u64) -> ApiResult<KnowledgeAgentBindingList> {
+    async fn list_bindings(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<KnowledgeAgentBindingList> {
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
+        let profile = service
+            .retrieve_profile(profile_id)
+            .await
+            .map_err(ApiError::from)?;
+        require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
         service.list_bindings(profile_id).await.map_err(Into::into)
     }
 
     async fn create_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
+        let profile = service
+            .retrieve_profile(profile_id)
+            .await
+            .map_err(ApiError::from)?;
+        require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
+        require_agent_binding_space_access(&self.runtime, &context, request.space_id).await?;
         service
             .create_binding(profile_id, request)
             .await
@@ -818,21 +1142,38 @@ impl KnowledgeAgentAppService for HostedAgentService {
 
     async fn update_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         binding_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
+        let profile = service
+            .retrieve_profile(profile_id)
+            .await
+            .map_err(ApiError::from)?;
+        require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
+        require_agent_binding_space_access(&self.runtime, &context, request.space_id).await?;
         service
             .update_binding(profile_id, binding_id, request)
             .await
             .map_err(Into::into)
     }
 
-    async fn delete_binding(&self, profile_id: u64, binding_id: u64) -> ApiResult<()> {
+    async fn delete_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+        binding_id: u64,
+    ) -> ApiResult<()> {
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
+        let profile = service
+            .retrieve_profile(profile_id)
+            .await
+            .map_err(ApiError::from)?;
+        require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
         service
             .delete_binding(profile_id, binding_id)
             .await
@@ -841,11 +1182,18 @@ impl KnowledgeAgentAppService for HostedAgentService {
 
     async fn preview_retrieval(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
+        let profile = service
+            .retrieve_profile(profile_id)
+            .await
+            .map_err(ApiError::from)?;
+        require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
+        require_bindings_space_access(&self.runtime, &context, &request.bindings).await?;
         service
             .preview_retrieval(profile_id, request)
             .await
@@ -854,14 +1202,20 @@ impl KnowledgeAgentAppService for HostedAgentService {
 
     async fn create_agent_chat(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
+        let retrieval = self.runtime.retrieval_service();
+        let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
+        let profile = service
+            .retrieve_profile(profile_id)
+            .await
+            .map_err(ApiError::from)?;
+        require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
+
         let retrieval_client = RuntimeKnowledgebaseRetrievalClient::new(self.runtime.clone());
-        let okf_client = RuntimeOkfKnowledgeClient::new(
-            self.runtime.clone(),
-            self.runtime.okf_concept_store.clone(),
-        );
+        let okf_client = RuntimeOkfKnowledgeClient::new(self.runtime.clone());
         let claw_router_client = resolve_claw_router_client_from_env()
             .ok()
             .map(std::sync::Arc::new);
@@ -871,7 +1225,7 @@ impl KnowledgeAgentAppService for HostedAgentService {
         let space_mode_resolver = RuntimeSpaceModeResolver::new(self.runtime.space_store.clone());
         let space_engine_client =
             Arc::new(RuntimeSpaceKnowledgeEngineClient::new(self.runtime.clone()));
-        let service = KnowledgeAgentChatService::new(
+        let chat_service = KnowledgeAgentChatService::new(
             self.runtime.agent_store.as_ref(),
             &retrieval,
             retrieval_client,
@@ -881,7 +1235,10 @@ impl KnowledgeAgentAppService for HostedAgentService {
             Some(&space_mode_resolver),
             Some(space_engine_client),
         );
-        service.chat(profile_id, request).await.map_err(Into::into)
+        chat_service
+            .chat(profile_id, request)
+            .await
+            .map_err(Into::into)
     }
 }
 
@@ -904,9 +1261,10 @@ impl AgentAndRetrievalHostedApi {
 impl crate::KnowledgeAppApi for AgentAndRetrievalHostedApi {
     async fn create_retrieval(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        self.retrieval.retrieve(request).await
+        self.retrieval.retrieve(context, request).await
     }
 
     async fn retrieve_retrieval(
@@ -921,81 +1279,108 @@ impl crate::KnowledgeAppApi for AgentAndRetrievalHostedApi {
 
     async fn create_context_pack(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack> {
-        self.retrieval.create_context_pack(request).await
+        self.retrieval.create_context_pack(context, request).await
     }
 
     async fn create_agent_profile(
         &self,
+        context: KnowledgeAppRequestContext,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.create_profile(request).await
+        self.agent.create_profile(context, request).await
     }
 
-    async fn retrieve_agent_profile(&self, profile_id: u64) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.retrieve_profile(profile_id).await
+    async fn retrieve_agent_profile(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<KnowledgeAgentProfile> {
+        self.agent.retrieve_profile(context, profile_id).await
     }
 
     async fn update_agent_profile(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        self.agent.update_profile(profile_id, request).await
+        self.agent
+            .update_profile(context, profile_id, request)
+            .await
     }
 
-    async fn delete_agent_profile(&self, profile_id: u64) -> ApiResult<()> {
-        self.agent.delete_profile(profile_id).await
+    async fn delete_agent_profile(
+        &self,
+        context: KnowledgeAppRequestContext,
+        profile_id: u64,
+    ) -> ApiResult<()> {
+        self.agent.delete_profile(context, profile_id).await
     }
 
     async fn list_agent_profile_bindings(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
     ) -> ApiResult<KnowledgeAgentBindingList> {
-        self.agent.list_bindings(profile_id).await
+        self.agent.list_bindings(context, profile_id).await
     }
 
     async fn create_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
-        self.agent.create_binding(profile_id, request).await
+        self.agent
+            .create_binding(context, profile_id, request)
+            .await
     }
 
     async fn update_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         binding_id: u64,
         request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
         self.agent
-            .update_binding(profile_id, binding_id, request)
+            .update_binding(context, profile_id, binding_id, request)
             .await
     }
 
     async fn delete_agent_profile_binding(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         binding_id: u64,
     ) -> ApiResult<()> {
-        self.agent.delete_binding(profile_id, binding_id).await
+        self.agent
+            .delete_binding(context, profile_id, binding_id)
+            .await
     }
 
     async fn create_agent_profile_retrieval_preview(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        self.agent.preview_retrieval(profile_id, request).await
+        self.agent
+            .preview_retrieval(context, profile_id, request)
+            .await
     }
 
     async fn create_agent_chat(
         &self,
+        context: KnowledgeAppRequestContext,
         profile_id: u64,
         request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
-        self.agent.create_agent_chat(profile_id, request).await
+        self.agent
+            .create_agent_chat(context, profile_id, request)
+            .await
     }
 }

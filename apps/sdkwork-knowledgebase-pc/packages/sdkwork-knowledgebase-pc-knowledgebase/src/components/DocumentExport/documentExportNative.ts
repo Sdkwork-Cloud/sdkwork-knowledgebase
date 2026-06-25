@@ -21,7 +21,7 @@ function decodeBinaryResourcePayload(payload: BinaryResourcePayload): Uint8Array
 
 async function decodeExportPayload(payload: BinaryResourcePayload): Promise<Uint8Array> {
   try {
-    const { decodeBinaryResourcePayload: decodeFromCore } = await import('@packages/sdkwork-knowledgebase-pc-core/src');
+    const { decodeBinaryResourcePayload: decodeFromCore } = await import('sdkwork-knowledgebase-pc-core');
     return decodeFromCore({
       dataBase64: payload.dataBase64,
       mimeType: payload.mimeType ?? undefined,

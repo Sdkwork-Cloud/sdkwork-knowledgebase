@@ -328,6 +328,64 @@ for (const relativePath of requiredSkeletonPaths) {
   );
 }
 
+const requiredIngestMetadataAlignment = [
+  {
+    file: 'crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_drive_object_ref_store.rs',
+    symbols: ['managed_drive_object_ref_record', 'MANAGED_DRIVE_ACCESS_MODE'],
+  },
+  {
+    file: 'crates/sdkwork-intelligence-knowledgebase-service/src/ports/markdown_index_metadata_store.rs',
+    symbols: ['MarkdownIndexSourceBinding', 'Conflict(String)'],
+  },
+  {
+    file: 'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_knowledge_document_metadata_transaction.rs',
+    symbols: ['create_or_get_source_in_transaction'],
+  },
+  {
+    file: 'crates/sdkwork-intelligence-knowledgebase-service/src/ingest/api_markdown_ingest_pipeline.rs',
+    symbols: [
+      'MarkdownIndexSourceBinding::Create',
+      'mark_failed',
+      'replay_if_not_processable',
+      'attach_drive_import_linkage',
+      'complete_with_chunks_and_outbox',
+    ],
+    forbidden: ['KnowledgeSourceStore'],
+  },
+  {
+    file: 'crates/sdkwork-intelligence-knowledgebase-service/src/ingest/service.rs',
+    symbols: ['(IngestionJobState::Failed, IngestionJobState::Running)'],
+  },
+  {
+    file: 'crates/sdkwork-intelligence-knowledgebase-service/src/ingest/markdown_index.rs',
+    symbols: ['managed_drive_object_ref_record', 'PrepareMarkdownIndexMetadataRecord', 'drive_space_id: Option<&str>', 'ingest_linkage'],
+  },
+  {
+    file: 'crates/sdkwork-intelligence-knowledgebase-service/src/imports/mod.rs',
+    symbols: ['managed_drive_object_ref_record', 'create_or_prepare_drive_import_metadata'],
+  },
+  {
+    file: 'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_markdown_index_metadata_store.rs',
+    symbols: ['create_or_get_source_in_transaction', 'MarkdownIndexSourceBinding'],
+  },
+];
+
+for (const entry of requiredIngestMetadataAlignment) {
+  const content = readText(entry.file);
+  for (const symbol of entry.symbols ?? []) {
+    assert(
+      content.includes(symbol),
+      `${entry.file} must declare ingest metadata alignment symbol ${symbol}`,
+    );
+  }
+  for (const forbidden of entry.forbidden ?? []) {
+    assert(
+      !content.includes(forbidden),
+      `${entry.file} must not retain legacy ${forbidden} after atomic markdown metadata binding`,
+    );
+  }
+}
+
 if (failures.length > 0) {
   process.stderr.write(
     `Architecture alignment failed:\n${failures.map((failure) => `- ${failure}`).join('\n')}\n`,

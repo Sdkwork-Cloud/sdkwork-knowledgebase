@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sdkwork-knowledgebase-open-api
+  labels:
+    app: sdkwork-knowledgebase
+    component: open-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sdkwork-knowledgebase
+      component: open-api
+  template:
+    metadata:
+      labels:
+        app: sdkwork-knowledgebase
+        component: open-api
+    spec:
+      securityContext:
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: open-api
+          image: registry.sdkwork.com/apps/sdkwork-knowledgebase/api:0.1.0
+          env:
+            - name: KB_API_BINARY
+              value: sdkwork-knowledgebase-open-api
+            - name: SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_BIND
+              value: 0.0.0.0:8080
+            - name: SDKWORK_KNOWLEDGEBASE_ENVIRONMENT
+              value: production
+            - name: SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          envFrom:
+            - secretRef:
+                name: sdkwork-knowledgebase-runtime
+            - configMapRef:
+                name: sdkwork-knowledgebase-topology
+          ports:
+            - containerPort: 8080
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sdkwork-knowledgebase-open-api
+  labels:
+    app: sdkwork-knowledgebase
+    component: open-api
+spec:
+  selector:
+    app: sdkwork-knowledgebase
+    component: open-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

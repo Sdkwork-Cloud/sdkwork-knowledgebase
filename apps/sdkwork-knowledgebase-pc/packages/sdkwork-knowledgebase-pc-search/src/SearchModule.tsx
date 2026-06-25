@@ -1,7 +1,7 @@
 import { isBlank, trim } from '@sdkwork/utils';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DocumentService } from '@packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/document';
+import { DocumentService } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/document';
 import { SearchChatHeader } from './components/SearchChatHeader';
 import { SearchChatThread } from './components/SearchChatThread';
 import { SearchComposer } from './components/SearchComposer';

@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { toast } from './components/ui/toast-manager';
 import { KnowledgeBase, DocumentService } from './services/document';
-import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 
 interface DeployWebsiteModalProps {
   isOpen: boolean;
@@ -100,13 +99,17 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
     setDeployStep('正在分析并序列化站点内容...');
     
     try {
-      const selectedPlatform = 'vercel'; // mock platform since no UI selects it yet
-      const res = await DocumentService.publishWebsite(selectedPlatform, activeKb.id);
+      const selectedPlatform = 'vercel';
+      const res = await DocumentService.publishWebsite(selectedPlatform, activeKb.id, {
+        siteName: siteName || activeKb.title,
+        customDomain: customDomain || undefined,
+        siteLogo: logoBase64 || undefined,
+      });
 
       if (!res.success) {
-        setDeployStep('网站部署尚未接入 Knowledgebase API。');
+        setDeployStep('网站部署失败，请检查知识库内容后重试。');
         setIsDeploying(false);
-        toast.error('网站部署尚未接入 Knowledgebase API。');
+        toast.error('网站部署失败，请检查知识库内容后重试。');
         return;
       }
 

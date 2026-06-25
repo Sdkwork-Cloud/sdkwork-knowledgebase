@@ -20,6 +20,7 @@ sdkwork-router-knowledgebase-open-api = { path = "../sdkwork-router-knowledgebas
 sdkwork-drive-storage-local = { path = "../../../sdkwork-drive/crates/sdkwork-drive-storage-local" }
 sdkwork-intelligence-knowledgebase-service.workspace = true
 sdkwork-intelligence-knowledgebase-repository-sqlx.workspace = true
+sdkwork_database_config.workspace = true
 sdkwork-knowledgebase-agent-provider.workspace = true
 sdkwork-knowledgebase-engine-dify.workspace = true
 sdkwork-knowledgebase-engine-ragflow.workspace = true
@@ -33,13 +34,16 @@ sdkwork-knowledgebase-engine-haystack.workspace = true
 sdkwork-knowledgebase-engine-chroma.workspace = true
 clawrouter-open-sdk.workspace = true
 sdkwork-agent-kernel.workspace = true
-sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "any"] }
+sdkwork-knowledgebase-observability.workspace = true
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net"] }
 
 [dev-dependencies]
+async-trait.workspace = true
 tokio.workspace = true
 tower.workspace = true
 serde_json.workspace = true
 wiremock.workspace = true
+sdkwork-knowledgebase-observability.workspace = true
 sdkwork-knowledgebase-worker = { path = "../sdkwork-knowledgebase-worker" }
 sdkwork-knowledgebase-contract.workspace = true

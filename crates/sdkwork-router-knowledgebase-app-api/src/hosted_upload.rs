@@ -1,12 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ingest::{
-    KnowledgeApiMarkdownIndexService, KnowledgeIngestionService, KnowledgeUploadSessionService,
-};
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::{
-    KnowledgeDriveStorage, PutKnowledgeObjectRequest,
+    ApiMarkdownIngestPipeline, ExistingMarkdownIngestJobParams, KnowledgeUploadSessionService,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::IngestionJobStore;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
 use sdkwork_knowledgebase_contract::ingest::{IngestionJob, IngestionJobState};
 use sdkwork_knowledgebase_contract::upload::{
@@ -66,78 +62,36 @@ impl HostedUploadSessionService {
         payload_markdown: &str,
         job_id: u64,
     ) -> ApiResult<IngestionJob> {
-        let ingestion = KnowledgeIngestionService::new(self.runtime.ingestion_job_store());
-        let mut job = ingestion
-            .mark_running(job_id)
-            .await
-            .map_err(ApiError::from)?;
-
-        let payload_path = format!("inbox/api/{job_id}/payload.md");
         let space = self.runtime.space_store().get_space(space_id).await?;
-        let payload_object_ref = self
-            .runtime
-            .drive_storage()
-            .put_object(
-                PutKnowledgeObjectRequest::text(
-                    payload_path,
-                    "api_payload",
-                    payload_markdown,
-                    None,
-                )
-                .with_drive_space_id(space.drive_space_id.as_deref()),
-            )
-            .await
-            .map_err(ApiError::from)?;
-
-        let indexer = KnowledgeApiMarkdownIndexService::new(
-            self.runtime.document_store(),
-            self.runtime.version_store(),
-            self.runtime.object_ref_store(),
-            self.runtime.chunk_store(),
+        let pipeline = ApiMarkdownIngestPipeline::new(
+            self.runtime.drive_storage(),
+            self.runtime.ingestion_job_store(),
+            self.runtime.markdown_index_metadata_store(),
         );
-        let source = self
-            .runtime
-            .source_store()
-            .create_or_get_source(
-                sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::CreateKnowledgeSourceRecord {
+        let result = pipeline
+            .run_existing_queued_job(
+                ExistingMarkdownIngestJobParams {
                     space_id,
-                    source_type: sdkwork_knowledgebase_contract::source::KnowledgeSourceType::Api,
-                    provider: Some("upload-session".to_string()),
-                    drive_bucket: None,
-                    drive_prefix: Some(format!("upload_sessions/{job_id}")),
-                    connector_metadata_json: None,
+                    job_id,
+                    title: title.to_string(),
+                    payload_markdown: payload_markdown.to_string(),
+                    ingest_provider: "upload-session".to_string(),
+                    source_drive_prefix: format!("upload_sessions/{job_id}"),
+                    payload_logical_path: format!("inbox/api/{job_id}/payload.md"),
                 },
+                space.drive_space_id.as_deref(),
             )
             .await
             .map_err(ApiError::from)?;
-        let index_result = match indexer
-            .index_payload_markdown(
-                space_id,
-                source.id,
-                title,
-                payload_markdown,
-                &payload_object_ref,
-            )
-            .await
-        {
-            Ok(index_result) => index_result,
-            Err(error) => {
-                let _ = ingestion.mark_failed(job.id, format!("{error:?}")).await;
-                return Err(ApiError::from(error));
-            }
-        };
 
-        let _ = self
-            .runtime
-            .try_embed_document_version(space_id, index_result.document_version_id)
-            .await;
+        if let Some(document_version_id) = result.document_version_id {
+            let _ = self
+                .runtime
+                .try_embed_document_version(space_id, document_version_id)
+                .await;
+        }
 
-        job = ingestion
-            .mark_succeeded(job.id)
-            .await
-            .map_err(ApiError::from)?;
-        self.runtime.try_append_ingest_succeeded_outbox(&job).await;
-        Ok(job)
+        Ok(result.job)
     }
 }
 
@@ -183,17 +137,17 @@ impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
             ));
         }
 
-        let space = self.runtime.space_store().get_space(request.space_id).await?;
+        let space = self
+            .runtime
+            .space_store()
+            .get_space(request.space_id)
+            .await?;
         let upload_service = KnowledgeUploadSessionService::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
         );
         let payload_markdown = upload_service
-            .resolve_payload_markdown(
-                &session,
-                &request,
-                space.drive_space_id.as_deref(),
-            )
+            .resolve_payload_markdown(&session, &request, space.drive_space_id.as_deref())
             .await
             .map_err(ApiError::from)?;
 

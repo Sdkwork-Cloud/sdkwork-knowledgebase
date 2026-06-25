@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "types": ["vite/client"]
+  },
+  "include": [
+    "src/config/**/*.ts",
+    "src/errors/**/*.ts",
+    "src/api/**/*.ts",
+    "src/session/**/*.ts",
+    "src/host/**/*.ts"
+  ]
+}

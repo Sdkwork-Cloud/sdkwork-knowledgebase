@@ -1,27 +1,33 @@
 import type { IngestionJob } from '@sdkwork/knowledgebase-app-sdk';
-import { getKnowledgebaseAppSdkClient } from 'sdkwork-knowledgebase-pc-core';
+import {
+  KnowledgebaseErrorCodes,
+  requireKnowledgebaseAppSdkHttpClient,
+  throwKnowledgebaseError,
+} from 'sdkwork-knowledgebase-pc-core';
 
 const INGEST_POLL_INTERVAL_MS = 250;
 const INGEST_POLL_TIMEOUT_MS = 30_000;
 
 export async function waitForIngestJob(jobId: number): Promise<IngestionJob> {
-  const client = getKnowledgebaseAppSdkClient().client;
+  const client = requireKnowledgebaseAppSdkHttpClient();
   const deadline = Date.now() + INGEST_POLL_TIMEOUT_MS;
   let job = await client.knowledge.ingests.retrieve(jobId);
 
   while (job.state === 'queued' || job.state === 'running') {
     if (Date.now() >= deadline) {
-      throw new Error(`Ingest job ${jobId} did not complete within ${INGEST_POLL_TIMEOUT_MS / 1000}s.`);
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED);
     }
     await new Promise((resolve) => setTimeout(resolve, INGEST_POLL_INTERVAL_MS));
     job = await client.knowledge.ingests.retrieve(jobId);
   }
 
   if (job.state === 'failed') {
-    throw new Error(job.errorMessage ?? `Ingest job ${jobId} failed.`);
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED, {
+      cause: job.errorMessage ?? undefined,
+    });
   }
   if (job.state === 'cancelled') {
-    throw new Error(`Ingest job ${jobId} was cancelled.`);
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED);
   }
 
   return job;
@@ -31,8 +37,8 @@ export async function resolveIngestedDocument(
   spaceId: number,
   title: string,
 ): Promise<{ id: number; title: string }> {
-  const client = getKnowledgebaseAppSdkClient().client;
-  const documents = await client.knowledge.documents.list();
+  const client = requireKnowledgebaseAppSdkHttpClient();
+  const documents = await client.knowledge.documents.list({ spaceId });
   const normalizedTitle = title.trim();
 
   const matches = documents.items.filter(
@@ -54,5 +60,5 @@ export async function resolveIngestedDocument(
     return { id: node.documentId, title: node.name };
   }
 
-  throw new Error(`Could not resolve ingested document "${normalizedTitle}" in space ${spaceId}.`);
+  throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED);
 }

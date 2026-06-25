@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, LayoutTemplate, Wand2, Check, Sparkles, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
+import { AIService } from '../services/ai';
+import { sanitizePreviewHtml } from '../utils/htmlSanitizer';
 
 export interface TypographyModalProps {
   isOpen: boolean;
@@ -322,16 +325,35 @@ export function TypographyModal({ isOpen, onClose, originalContent, onConfirm, a
     triggerAutoStyle(selectedTemplateId, colObj.value, activeContent);
   };
 
-  const handleRewrite = () => {
+  const handleRewrite = async () => {
     setIsRewriting(true);
-    setTimeout(() => {
+    try {
+      if (isKnowledgebaseApiAvailable()) {
+        const plainText = activeContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        const polished = await AIService.handleAIAction(
+          'polish',
+          plainText || articleTitle || '',
+          articleTitle || '',
+        );
+        const rewritten = polished.trim().startsWith('<')
+          ? polished
+          : `<p>${polished.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
+        setActiveContent(rewritten);
+        triggerAutoStyle(selectedTemplateId, activeColor.value, rewritten);
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1200));
       const rewritten = activeContent.replace(/<p[^>]*>([\s\S]*?)<\/p>/g, (match, p1) => {
         return `<p>${p1}${t('aiRewrittenFeedback', { defaultValue: '【此段内容已通过微信金句引擎优化润色】' })}</p>`;
       });
       setActiveContent(rewritten);
       triggerAutoStyle(selectedTemplateId, activeColor.value, rewritten);
+    } catch (error) {
+      console.error(error);
+    } finally {
       setIsRewriting(false);
-    }, 1200);
+    }
   };
 
   if (!isOpen) return null;
@@ -421,7 +443,7 @@ export function TypographyModal({ isOpen, onClose, originalContent, onConfirm, a
 
                     {/* Rich HTML body output without layout classes that mask style colors */}
                     <div className="text-[14.5px] leading-relaxed text-zinc-800" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif' }}>
-                      <div dangerouslySetInnerHTML={{ __html: previewContent || `<p style="color: #a1a1aa;">${t('noContent', { ns: 'mcp' }) || '目前暂无正文内容...'}</p>` }} />
+                      <div dangerouslySetInnerHTML={{ __html: sanitizePreviewHtml(previewContent || `<p style="color: #a1a1aa;">${t('noContent', { ns: 'mcp' }) || '目前暂无正文内容...'}</p>`) }} />
                     </div>
                   </div>
                 )}

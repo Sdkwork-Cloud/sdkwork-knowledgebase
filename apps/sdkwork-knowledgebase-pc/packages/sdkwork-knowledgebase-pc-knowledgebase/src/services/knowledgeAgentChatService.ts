@@ -1,8 +1,11 @@
 import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import {
-  getKnowledgebaseAppSdkClient,
-  getKnowledgebaseTenantId,
-  readRegisteredSpaces,
+  KnowledgebaseErrorCodes,
+  requireKnowledgebaseAppSdkHttpClient,
+  requireKnowledgebaseTenantId,
+  requireNonEmptyString,
+  requirePrimaryRegisteredSpaceId,
+  throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 
 import { ensureSpaceAgentProfile } from './knowledgeSpaceSettingsService';
@@ -12,15 +15,8 @@ const DEFAULT_MODEL_ID = 'contract';
 const DEFAULT_AGENT_IMPLEMENTATION_ID = 'plugin.intelligence.knowledgebase-contract';
 
 function resolvePrimarySpaceId(): number {
-  const tenantId = getKnowledgebaseTenantId();
-  if (!tenantId) {
-    throw new Error('Knowledgebase tenant context is required for agent chat.');
-  }
-  const registry = readRegisteredSpaces(tenantId);
-  if (registry.length === 0) {
-    throw new Error('Create a knowledge space before using AI features.');
-  }
-  return registry[0].spaceId;
+  requireKnowledgebaseTenantId();
+  return requirePrimaryRegisteredSpaceId();
 }
 
 async function ensureDefaultAgentProfile(spaceId: number): Promise<string> {
@@ -35,13 +31,11 @@ export async function sendKnowledgeAgentMessage(
     mode?: 'okf_bundle' | 'rag';
   },
 ): Promise<string> {
-  if (isBlank(message)) {
-    throw new Error('Agent chat message must not be empty.');
-  }
+  requireNonEmptyString(message, KnowledgebaseErrorCodes.MESSAGE_REQUIRED);
 
   const spaceId = options?.spaceId ?? resolvePrimarySpaceId();
   const profileId = await ensureDefaultAgentProfile(spaceId);
-  const client = getKnowledgebaseAppSdkClient().client;
+  const client = requireKnowledgebaseAppSdkHttpClient();
   const profile = await client.knowledge.agentProfiles.retrieve(profileId);
 
   const response = await client.knowledge.agentProfiles.chat.create(profileId, {
@@ -64,7 +58,7 @@ export async function queryKnowledgeSpace(
     return '';
   }
 
-  const client = getKnowledgebaseAppSdkClient().client;
+  const client = requireKnowledgebaseAppSdkHttpClient();
   const result = await client.knowledge.okf.queries.create({
     spaceId,
     query: query.trim(),
@@ -76,15 +70,8 @@ export async function synthesizeKnowledgeSearchAnswer(
   query: string,
   sourcesText: string,
 ): Promise<string> {
-  const tenantId = getKnowledgebaseTenantId();
-  if (!tenantId) {
-    throw new Error('Knowledgebase tenant context is required for search synthesis.');
-  }
-
-  const registry = readRegisteredSpaces(tenantId);
-  if (registry.length === 0) {
-    throw new Error('Create a knowledge space before running search synthesis.');
-  }
+  requireKnowledgebaseTenantId();
+  const spaceId = requirePrimaryRegisteredSpaceId();
 
   const prompt = `用户搜索问题：${query.trim()}
 
@@ -94,9 +81,9 @@ ${sourcesText || '（无可用引用来源）'}
 请输出结构化 Markdown 中文回答：语气专业、引用序号准确、结尾给出 2-3 个追问方向。`;
 
   try {
-    return await queryKnowledgeSpace(registry[0].spaceId, prompt);
+    return await queryKnowledgeSpace(spaceId, prompt);
   } catch {
-    return sendKnowledgeAgentMessage(prompt, { spaceId: registry[0].spaceId });
+    return sendKnowledgeAgentMessage(prompt, { spaceId });
   }
 }
 

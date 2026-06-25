@@ -3,8 +3,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_lin
     KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
     ReplaceKnowledgeOkfConceptLinksRecord,
 };
-use sqlx::Row;
 use sqlx::AnyPool;
+use sqlx::Row;
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};

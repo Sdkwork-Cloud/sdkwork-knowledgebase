@@ -1,8 +1,6 @@
 import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
-import {
-  getKnowledgebaseDriveAppSdkClient,
-  isKnowledgebaseDriveApiAvailable,
-} from 'sdkwork-knowledgebase-pc-core';
+import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isKnowledgebaseDriveApiAvailable, requireDriveApiClient } from 'sdkwork-knowledgebase-pc-core';
 
 import type { DocumentMeta, FolderNode } from './document';
 
@@ -15,10 +13,7 @@ export interface DriveDocumentMetadata {
 }
 
 function requireDriveClient() {
-  if (!isKnowledgebaseDriveApiAvailable()) {
-    throw new Error('Drive SDK is required for document metadata but is not configured.');
-  }
-  return getKnowledgebaseDriveAppSdkClient().client;
+  return requireDriveApiClient();
 }
 
 export function resolveDriveNodeId(node: KnowledgeBrowserNode): string | null {
@@ -127,6 +122,12 @@ async function enrichDocumentTreeItem(
   favoriteNodeIds?: Set<string>,
 ): Promise<void> {
   if (item.type === 'folder') {
+    const folderNode = nodeByDocId.get(item.id);
+    const folderDriveNodeId = folderNode ? resolveDriveNodeId(folderNode) : null;
+    if (folderDriveNodeId && favoriteNodeIds?.has(folderDriveNodeId)) {
+      item.isPinned = true;
+    }
+
     const children = (item as FolderNode).children ?? [];
     await Promise.all(
       children.map((child) => enrichDocumentTreeItem(child, nodeByDocId, loadOkfTags, favoriteNodeIds)),

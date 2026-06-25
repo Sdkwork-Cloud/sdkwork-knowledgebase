@@ -1,4 +1,8 @@
-import { createKnowledgebaseSessionTokenManager } from 'sdkwork-knowledgebase-pc-core';
+import {
+  createKnowledgebaseSessionTokenManager,
+  KnowledgebaseErrorCodes,
+  throwKnowledgebaseError,
+} from 'sdkwork-knowledgebase-pc-core';
 import type {
   KnowledgebaseRuntimeConfig,
   KnowledgebaseSessionTokenManager,
@@ -10,7 +14,7 @@ import type {
 import {
   createClient,
   type SdkworkAppClient,
-} from '@sdkwork/appbase-app-sdk';
+} from '@sdkwork/iam-app-sdk';
 import {
   createSdkworkAppbasePcAuthRuntime,
   type SdkworkAppbasePcAuthRuntimeComposition,
@@ -23,7 +27,7 @@ import type {
   IamEnvironment,
 } from '@sdkwork/iam-contracts';
 
-const APPBASE_APP_SDK_FAMILY_ID = 'sdkwork-appbase-app-sdk';
+const APPBASE_APP_SDK_FAMILY_ID = 'sdkwork-iam-app-sdk';
 const APP_API_PREFIX = '/app/v3/api';
 
 export type KnowledgebaseIamRuntime = ReturnType<
@@ -148,7 +152,7 @@ function ensureIamTenantSelectionCompat(client: SdkworkAppClient): SdkworkAppCli
 
   sessions.tenantSelection = {
     create: async () => {
-      throw new Error('appbase app SDK is missing sessions.tenantSelection.create');
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.IAM_RUNTIME_MISSING);
     },
   };
   return client;

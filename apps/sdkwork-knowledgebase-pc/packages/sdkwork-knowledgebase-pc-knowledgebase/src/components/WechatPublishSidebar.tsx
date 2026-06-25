@@ -34,7 +34,7 @@ export function WechatPublishSidebar({
 
   const handleGenerateDigest = async () => {
     if (!article?.content) {
-      toast.info('文章内容为空，无法生成摘要');
+      toast.info(t('wechatDigestEmptyContent'));
       return;
     }
     setIsGeneratingDigest(true);
@@ -42,7 +42,7 @@ export function WechatPublishSidebar({
       // Stripping HTML tags from article content first to get clean text for summary
       const cleanText = article.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
       if (!cleanText) {
-        toast.info('文章内容为空，无法生成摘要');
+        toast.info(t('wechatDigestEmptyContent'));
         return;
       }
 
@@ -74,10 +74,10 @@ export function WechatPublishSidebar({
       }
 
       updateArticle({ abstract: finalDigest });
-      toast.success('一键智能生成摘要成功！');
+      toast.success(t('wechatDigestGenerateSuccess'));
     } catch (e) {
       console.error(e);
-      toast.error('生成摘要出错，已为您提供精炼摘要，可以手动微调哦');
+      toast.error(t('wechatDigestGenerateError'));
     } finally {
       setIsGeneratingDigest(false);
     }

@@ -114,7 +114,7 @@ impl DifyKnowledgeEngine {
             self.config
                 .as_ref()
                 .and_then(|config| config.default_dataset_id.clone()),
-            &format!("{DIFY_DATASET_ID_ENV}"),
+            DIFY_DATASET_ID_ENV,
         )
         .await
     }

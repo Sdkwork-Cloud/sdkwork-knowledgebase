@@ -11,9 +11,110 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Validate topology and architecture checks
+        run: pnpm test
+      - name: Validate release quality gates
+        run: pnpm verify
+      - name: Typecheck PC frontend
+        run: pnpm lint
+      - name: Rust format check
+        run: cargo fmt --all --check
+      - name: Rust clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Run Phase 1 verification
         shell: pwsh
         run: powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1
+
+  database-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sdkwork
+          POSTGRES_PASSWORD: sdkworkdev123
+          POSTGRES_DB: sdkwork
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sdkwork -d sdkwork"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Bootstrap PostgreSQL schema and validate drift
+        env:
+          SDKWORK_KNOWLEDGEBASE_DATABASE_URL: postgresql://sdkwork:sdkworkdev123@localhost:5432/sdkwork
+          SDKWORK_KNOWLEDGEBASE_DATABASE_ENGINE: postgresql
+        run: |
+          pnpm db:bootstrap
+          pnpm db:validate
+          pnpm db:drift:check
+      - name: Postgres repository integration
+        env:
+          SDKWORK_KNOWLEDGEBASE_DATABASE_URL: postgresql://sdkwork:sdkworkdev123@localhost:5432/sdkwork
+        run: cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx postgres_
+
+  e2e-playwright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium
+        run: pnpm --dir apps/sdkwork-knowledgebase-pc run test:e2e:install
+      - name: Run Knowledgebase PC Playwright launch flows
+        run: pnpm test:e2e:playwright
+
+  staging-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Live staging API smoke (optional)
+        env:
+          SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL: ${{ secrets.SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL }}
+        run: |
+          if [ -z "$SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL" ]; then
+            echo "Skipping staging smoke: SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL secret is not configured."
+            exit 0
+          fi
+          pnpm test:smoke

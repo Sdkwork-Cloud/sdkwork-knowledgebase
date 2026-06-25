@@ -469,6 +469,16 @@ impl KnowledgeSpaceStore for MemorySpaceStore {
         space.status = KnowledgeSpaceStatus::Deleted;
         Ok(())
     }
+
+    async fn update_space(
+        &self,
+        _space_id: u64,
+        _record: sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::UpdateKnowledgeSpaceRecord,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
+        Err(KnowledgeSpaceStoreError::Internal(
+            "not implemented".to_string(),
+        ))
+    }
 }
 
 #[derive(Default)]

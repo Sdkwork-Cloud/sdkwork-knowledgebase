@@ -114,7 +114,7 @@ impl AnythingLlmKnowledgeEngine {
             self.config
                 .as_ref()
                 .and_then(|config| config.default_workspace_slug.clone()),
-            &format!("{ANYTHINGLLM_WORKSPACE_SLUG_ENV}"),
+            ANYTHINGLLM_WORKSPACE_SLUG_ENV,
         )
         .await
     }

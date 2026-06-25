@@ -9,10 +9,12 @@ mod error;
 pub mod hosted;
 mod hosted_access;
 mod hosted_backend;
+mod hosted_commerce;
 mod hosted_context_binding;
 mod hosted_open;
 mod hosted_support;
 mod hosted_upload;
+mod hosted_wechat;
 pub mod http_route_manifest;
 mod knowledge_engine_adapters;
 pub mod manifest;
@@ -26,9 +28,10 @@ pub use error::{ApiError, ApiProblem, ApiResult};
 pub use http_route_manifest::app_route_manifest;
 pub use ports::{
     KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext, KnowledgeBrowserApi,
-    KnowledgeContextBindingAppService, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
-    KnowledgeIngestAppService, KnowledgeOkfAppService, KnowledgeRetrievalAppService,
-    KnowledgeSpaceAppService, KnowledgeUploadSessionAppService,
+    KnowledgeCommerceAppService, KnowledgeContextBindingAppService, KnowledgeDocumentAppService,
+    KnowledgeDriveImportAppService, KnowledgeGitImportAppService, KnowledgeIngestAppService,
+    KnowledgeOkfAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
+    KnowledgeUploadSessionAppService, KnowledgeWechatAppService,
 };
 pub use routes::{
     build_router_with_agent_and_retrieval_services, build_router_with_agent_service,

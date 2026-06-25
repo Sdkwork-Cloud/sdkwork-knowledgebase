@@ -1,4 +1,5 @@
 use sdkwork_knowledgebase_contract::okf::OkfConceptSummary;
+use sdkwork_utils_rust::is_blank;
 use std::collections::HashMap;
 
 use crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkEdge;
@@ -163,14 +164,14 @@ pub fn expand_ranked_with_link_edges(
         for edge in edges {
             if edge.from_concept_id == concept_id {
                 let anchor_bonus = tokens.iter().any(|token| {
-                    !token.is_empty()
-                        && edge
-                            .anchor_text
-                            .to_lowercase()
-                            .contains(token.as_str())
+                    !token.is_empty() && edge.anchor_text.to_lowercase().contains(token.as_str())
                 });
                 let boost = score * LINK_OUTBOUND_BOOST
-                    + if anchor_bonus { ANCHOR_MATCH_BOOST } else { 0.0 };
+                    + if anchor_bonus {
+                        ANCHOR_MATCH_BOOST
+                    } else {
+                        0.0
+                    };
                 apply_link_boost(
                     &mut score_by_id,
                     &edge.to_concept_id,
@@ -263,14 +264,10 @@ pub fn extract_body_snippet(body: &str, query: &str, max_len: usize) -> String {
     snippet
 }
 
-pub fn snippet_for_concept(
-    description: &str,
-    body: Option<&str>,
-    query: &str,
-) -> String {
+pub fn snippet_for_concept(description: &str, body: Option<&str>, query: &str) -> String {
     if let Some(body) = body {
         let body_snippet = extract_body_snippet(body, query, DEFAULT_SNIPPET_CHARS);
-        if !body_snippet.trim().is_empty() {
+        if !is_blank(Some(body_snippet.as_str())) {
             return body_snippet;
         }
     }
@@ -409,6 +406,8 @@ mod tests {
 
         let expanded = expand_ranked_with_link_edges(ranked, &edges, &summaries, &[], 4);
 
-        assert!(expanded.iter().any(|(_, page)| page.concept_id == "tables/orders"));
+        assert!(expanded
+            .iter()
+            .any(|(_, page)| page.concept_id == "tables/orders"));
     }
 }

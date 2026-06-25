@@ -9,9 +9,8 @@ use sdkwork_knowledgebase_contract::context_binding::{
 };
 
 use crate::{
-    hosted_access::require_space_access,
-    runtime::KnowledgebaseRuntime, ApiError, ApiResult, KnowledgeAppRequestContext,
-    KnowledgeContextBindingAppService,
+    hosted_access::require_space_access, runtime::KnowledgebaseRuntime, ApiError, ApiResult,
+    KnowledgeAppRequestContext, KnowledgeContextBindingAppService,
 };
 
 #[derive(Clone)]
