@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "generator": "@sdkwork/sdk-generator",
+  "sdk": {
+    "name": "KnowledgebaseBackend",
+    "version": "0.1.0",
+    "language": "typescript",
+    "sdkType": "backend",
+    "protocol": "http",
+    "packageName": "@sdkwork/knowledgebase-backend-sdk"
+  },
+  "changeFingerprint": "ac34ab93b600b8cec6726b800aec2b0daedba4a3c1883a70f80ae322dd09788f",
+  "changes": {
+    "createdGeneratedFiles": [],
+    "updatedGeneratedFiles": [
+      "src/types/knowledge-okf-bundle-file.ts",
+      "src/types/okf-bundle-export-request.ts"
+    ],
+    "unchangedGeneratedFiles": [
+      "bin/publish-core.mjs",
+      "bin/publish.ps1",
+      "bin/publish.sh",
+      "bin/sdk-gen.bat",
+      "bin/sdk-gen.sh",
+      "CHANGELOG.md",
+      "LICENSE",
+      "package.json",
+      "README.md",
+      "sdkwork-sdk.json",
+      "src/api/base.ts",
+      "src/api/index.ts",
+      "src/api/knowledge.ts",
+      "src/api/paths.ts",
+      "src/auth/index.ts",
+      "src/http/client.ts",
+      "src/http/index.ts",
+      "src/index.ts",
+      "src/sdk.ts",
+      "src/types/common.ts",
+      "src/types/create-knowledge-document-request.ts",
+      "src/types/create-knowledge-document-version-request.ts",
+      "src/types/create-knowledge-source-request.ts",
+      "src/types/create-knowledge-space-request.ts",
+      "src/types/index.ts",
+      "src/types/ingestion-job-state.ts",
+      "src/types/ingestion-job.ts",
+      "src/types/knowledge-agent-binding-list.ts",
+      "src/types/knowledge-agent-binding-request.ts",
+      "src/types/knowledge-agent-binding.ts",
+      "src/types/knowledge-agent-profile-request.ts",
+      "src/types/knowledge-agent-profile.ts",
+      "src/types/knowledge-agent-status.ts",
+      "src/types/knowledge-citation.ts",
+      "src/types/knowledge-context-fragment.ts",
+      "src/types/knowledge-context-pack-request.ts",
+      "src/types/knowledge-context-pack.ts",
+      "src/types/knowledge-document-list.ts",
+      "src/types/knowledge-document-state.ts",
+      "src/types/knowledge-document-version-list.ts",
+      "src/types/knowledge-document-version-state.ts",
+      "src/types/knowledge-document-version.ts",
+      "src/types/knowledge-document-visibility.ts",
+      "src/types/knowledge-document.ts",
+      "src/types/knowledge-drive-import-request.ts",
+      "src/types/knowledge-drive-import-result.ts",
+      "src/types/knowledge-drive-object-ref.ts",
+      "src/types/knowledge-filter.ts",
+      "src/types/knowledge-index-request.ts",
+      "src/types/knowledge-index.ts",
+      "src/types/knowledge-ingest-request.ts",
+      "src/types/knowledge-memory-context-fragment.ts",
+      "src/types/knowledge-okf-bundle-file-list.ts",
+      "src/types/knowledge-okf-profile-request.ts",
+      "src/types/knowledge-provider-health.ts",
+      "src/types/knowledge-retrieval-binding.ts",
+      "src/types/knowledge-retrieval-method.ts",
+      "src/types/knowledge-retrieval-profile-request.ts",
+      "src/types/knowledge-retrieval-profile.ts",
+      "src/types/knowledge-retrieval-request.ts",
+      "src/types/knowledge-retrieval-result.ts",
+      "src/types/knowledge-retrieval-trace-list.ts",
+      "src/types/knowledge-retrieval-trace.ts",
+      "src/types/knowledge-source-list.ts",
+      "src/types/knowledge-source-type.ts",
+      "src/types/knowledge-source.ts",
+      "src/types/knowledge-space-status.ts",
+      "src/types/knowledge-space.ts",
+      "src/types/okf-bundle-file-kind.ts",
+      "src/types/okf-bundle-import-request.ts",
+      "src/types/okf-bundle-import-result.ts",
+      "src/types/okf-bundle-index-rebuild-request.ts",
+      "src/types/okf-candidate-result-list.ts",
+      "src/types/okf-candidate-result.ts",
+      "src/types/okf-candidate-review-request.ts",
+      "src/types/okf-compile-job-request.ts",
+      "src/types/okf-concept-publish-request.ts",
+      "src/types/okf-concept-summary.ts",
+      "src/types/okf-context-pack-request.ts",
+      "src/types/okf-file-answer-request.ts",
+      "src/types/okf-index-document.ts",
+      "src/types/okf-log-document.ts",
+      "src/types/okf-log-entry.ts",
+      "src/types/okf-profile-document.ts",
+      "src/types/okf-quality-run-request.ts",
+      "src/types/okf-quality-run.ts",
+      "src/types/okf-query-request.ts",
+      "src/types/okf-query-result.ts",
+      "src/types/problem-details.ts",
+      "tsconfig.json"
+    ],
+    "deletedGeneratedFiles": [],
+    "scaffoldedFiles": [],
+    "preservedScaffoldFiles": [
+      "custom/build-runtime.mjs",
+      "custom/README.md"
+    ],
+    "backedUpFiles": []
+  },
+  "impact": {
+    "schemaVersion": 1,
+    "areas": [
+      "models"
+    ],
+    "details": [
+      {
+        "area": "models",
+        "paths": [
+          "src/types/knowledge-okf-bundle-file.ts",
+          "src/types/okf-bundle-export-request.ts"
+        ]
+      }
+    ],
+    "requiresVerification": true,
+    "summary": "Detected impact areas: models. Verification is required."
+  },
+  "verificationPlan": {
+    "shouldRun": true,
+    "runPhase": "now",
+    "summary": "Detected impact areas: models. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "steps": [
+      {
+        "id": "check",
+        "title": "Unified package check",
+        "required": true,
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "check"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action check"
+      },
+      {
+        "id": "build",
+        "title": "Unified package build",
+        "required": true,
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "build"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action build"
+      }
+    ]
+  },
+  "executionDecision": {
+    "schemaVersion": 1,
+    "riskLevel": "medium",
+    "nextAction": "verify",
+    "requiresManualReview": false,
+    "applyRequiresExpectedFingerprint": false,
+    "summary": "Changes have been applied. Run the required verification plan now.",
+    "reasons": [
+      "verification-required"
+    ]
+  },
+  "preservedLegacyFiles": false
+}

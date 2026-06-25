@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase",
+    "displayName": "SDKWork Knowledgebase",
+    "version": "0.1.0",
+    "type": "web-backend-service",
+    "root": "sdkwork-knowledgebase",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "surface": "backend-service",
+    "languages": [
+      "rust"
+    ],
+    "generated": false,
+    "manifests": [
+      "Cargo.toml"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "COMPONENT_SPEC.md",
+      "path": "../sdkwork-specs/COMPONENT_SPEC.md",
+      "purpose": "Component-local contract and discovery rules."
+    },
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored source structure and generated code boundaries."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Canonical SDKWork naming rules."
+    },
+    {
+      "file": "MODULE_SPEC.md",
+      "path": "../sdkwork-specs/MODULE_SPEC.md",
+      "purpose": "Reusable module and package boundary rules."
+    },
+    {
+      "file": "TEST_SPEC.md",
+      "path": "../sdkwork-specs/TEST_SPEC.md",
+      "purpose": "Verification and contract testing expectations."
+    },
+    {
+      "file": "RUST_CODE_SPEC.md",
+      "path": "../sdkwork-specs/RUST_CODE_SPEC.md",
+      "purpose": "Rust crate and module rules."
+    },
+    {
+      "file": "API_SPEC.md",
+      "path": "../sdkwork-specs/API_SPEC.md",
+      "purpose": "HTTP API contract standard, OpenAPI profile, operationId, and security declarations."
+    },
+    {
+      "file": "WEB_BACKEND_SPEC.md",
+      "path": "../sdkwork-specs/WEB_BACKEND_SPEC.md",
+      "purpose": "Web backend implementation layering, handler/service/repository boundaries, and route crate rules."
+    },
+    {
+      "file": "SDK_SPEC.md",
+      "path": "../sdkwork-specs/SDK_SPEC.md",
+      "purpose": "SDK naming, generated client behavior, and service integration rules."
+    },
+    {
+      "file": "SDK_WORKSPACE_GENERATION_SPEC.md",
+      "path": "../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md",
+      "purpose": "Application-root sdks/ workspace layout, authority OpenAPI placement, and generated artifact placement."
+    },
+    {
+      "file": "DOMAIN_SPEC.md",
+      "path": "../sdkwork-specs/DOMAIN_SPEC.md",
+      "purpose": "Canonical domain names and bounded context rules."
+    },
+    {
+      "file": "SECURITY_SPEC.md",
+      "path": "../sdkwork-specs/SECURITY_SPEC.md",
+      "purpose": "Token model, authn/authz, tenant isolation, and secure logging rules."
+    },
+    {
+      "file": "WEB_FRAMEWORK_SPEC.md",
+      "path": "../sdkwork-specs/WEB_FRAMEWORK_SPEC.md",
+      "purpose": "Mandatory sdkwork-web-framework integration for HTTP surfaces."
+    },
+    {
+      "file": "DEPLOYMENT_SPEC.md",
+      "path": "../sdkwork-specs/DEPLOYMENT_SPEC.md",
+      "purpose": "Standalone/cloud deployment profile parity and runtime target coverage."
+    },
+    {
+      "file": "DATABASE_SPEC.md",
+      "path": "../sdkwork-specs/DATABASE_SPEC.md",
+      "purpose": "Database contract, table naming, logical types, tenant isolation, indexes, schema evolution."
+    }
+  ],
+  "contracts": {
+    "publicExports": [
+      "."
+    ],
+    "runtimeEntrypoints": [
+      "sdkwork-knowledgebase-app-api",
+      "sdkwork-knowledgebase-backend-api",
+      "sdkwork-knowledgebase-open-api",
+      "sdkwork-knowledgebase-worker",
+      "crates/sdkwork-router-knowledgebase-app-api/src/runtime.rs",
+      "crates/sdkwork-router-knowledgebase-backend-api/src/routes.rs",
+      "crates/sdkwork-router-knowledgebase-open-api/src/routes.rs"
+    ],
+    "routeManifests": [
+      "sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json",
+      "sdks/_route-manifests/backend-api/sdkwork-router-knowledgebase-backend-api.route-manifest.json",
+      "sdks/_route-manifests/open-api/sdkwork-router-knowledgebase-open-api.route-manifest.json"
+    ],
+    "routeManifest": "sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json",
+    "sdkClients": [
+      {
+        "family": "sdkwork-knowledgebase-app-sdk",
+        "client": "SdkworkAppClient",
+        "surface": "app-api"
+      },
+      {
+        "family": "sdkwork-knowledgebase-backend-sdk",
+        "client": "SdkworkBackendClient",
+        "surface": "backend-api"
+      },
+      {
+        "family": "sdkwork-knowledgebase-sdk",
+        "client": "SdkworkKnowledgebaseClient",
+        "surface": "open-api"
+      }
+    ],
+    "sdkDependencies": [
+      {
+        "workspace": "sdkwork-web-framework",
+        "role": "http-request-context-and-interceptor-framework",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-database",
+        "role": "database-pool-config-and-sqlx-bootstrap",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-utils",
+        "role": "cross-language-generic-utility-helpers",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-appbase",
+        "role": "appbase-identity-and-session-capability",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-id",
+        "role": "identifier-generation",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-sdk-generator",
+        "role": "openapi-sdk-generation",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-drive",
+        "role": "drive-file-and-media-capability",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-memory",
+        "role": "memory-context-capability",
+        "required": true
+      },
+      {
+        "workspace": "sdkwork-kernel",
+        "role": "agent-kernel-capability",
+        "required": true
+      }
+    ],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": [],
+    "configKeys": [
+      "SDKWORK_KNOWLEDGEBASE_DATABASE_URL",
+      "SDKWORK_KNOWLEDGEBASE_TENANT_ID",
+      "SDKWORK_KNOWLEDGEBASE_ACTOR_ID",
+      "SDKWORK_KNOWLEDGEBASE_OPERATOR_ID",
+      "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
+      "SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID",
+      "SDKWORK_KNOWLEDGEBASE_APP_LISTEN",
+      "SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN",
+      "SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN",
+      "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_URL",
+      "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_SECRET",
+      "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_TIMEOUT_SECS",
+      "SDKWORK_KNOWLEDGEBASE_OUTBOX_MAX_RETRIES"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1",
+      "node tools/check_sdkwork_knowledgebase_architecture_alignment.mjs"
+    ]
+  }
+}

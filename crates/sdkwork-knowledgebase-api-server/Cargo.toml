@@ -1,0 +1,24 @@
+[package]
+name = "sdkwork-knowledgebase-api-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+axum.workspace = true
+sdkwork-router-knowledgebase-app-api = { path = "../sdkwork-router-knowledgebase-app-api" }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal"] }
+tracing = "0.1"
+sdkwork-knowledgebase-observability = { path = "../sdkwork-knowledgebase-observability", features = ["otel"] }
+
+[[bin]]
+name = "sdkwork-knowledgebase-app-api"
+path = "src/bin/app_main.rs"
+
+[[bin]]
+name = "sdkwork-knowledgebase-backend-api"
+path = "src/bin/backend_main.rs"
+
+[[bin]]
+name = "sdkwork-knowledgebase-open-api"
+path = "src/bin/open_main.rs"

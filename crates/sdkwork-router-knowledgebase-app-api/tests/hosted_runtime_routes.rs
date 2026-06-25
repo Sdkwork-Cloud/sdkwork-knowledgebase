@@ -1,0 +1,4205 @@
+use axum::body::Body;
+use axum::http::{Method, Request, StatusCode};
+use sdkwork_router_knowledgebase_app_api::{dev_auth, KnowledgebaseRuntime};
+use serde_json::Value;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tower::util::ServiceExt;
+
+static EXTERNAL_ADAPTER_ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+fn lock_external_adapter_env() -> std::sync::MutexGuard<'static, ()> {
+    EXTERNAL_ADAPTER_ENV_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+#[tokio::test]
+async fn hosted_app_router_lists_documents() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let space_id = create_space(&app, "Document List Space").await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/app/v3/api/knowledge/documents?spaceId={space_id}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_ne!(
+        response.status(),
+        StatusCode::NOT_IMPLEMENTED,
+        "hosted app api must not return operation_not_implemented for documents.list"
+    );
+
+    let body = response_body_json(response).await;
+    assert!(body["items"].is_array());
+}
+
+#[tokio::test]
+async fn hosted_backend_router_serves_provider_health() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/backend/v3/api/knowledge/provider_health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_ne!(
+        response.status(),
+        StatusCode::NOT_IMPLEMENTED,
+        "hosted backend must not return operation_not_implemented for providerHealth.retrieve"
+    );
+
+    let body = response_body_json(response).await;
+    assert_eq!(body["status"], "ok");
+    let provider_id = body["providerId"].as_str().expect("providerId");
+    assert!(
+        provider_id.contains("engine.knowledge.okf.native"),
+        "providerId must include okf native engine: {provider_id}"
+    );
+    assert!(
+        provider_id.contains("engine.knowledge.rag.native"),
+        "providerId must include rag native engine: {provider_id}"
+    );
+    assert!(
+        provider_id.contains("engine.knowledge.external.dify"),
+        "providerId must include dify catalog engine: {provider_id}"
+    );
+    assert!(
+        provider_id.contains("engine.knowledge.external.ragflow"),
+        "providerId must include ragflow catalog engine: {provider_id}"
+    );
+}
+
+#[tokio::test]
+async fn hosted_backend_router_lists_sources() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/backend/v3/api/knowledge/sources")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_body_json(response).await;
+    assert!(body["items"].is_array());
+}
+
+#[tokio::test]
+async fn hosted_app_router_upserts_okf_concept() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"OKF Test Space","description":"Hosted upsert integration"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space = response_body_json(space_response).await;
+    let space_id = space["id"].as_u64().expect("created space id");
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::PUT)
+                .uri("/app/v3/api/knowledge/okf/concepts/upsert")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r##"{{"spaceId":{space_id},"conceptId":"tables/users","markdown":"---\ntype: Entity\ntitle: Users\n---\n# Users\n","actor":"author","publish":false}}"##
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_ne!(
+        response.status(),
+        StatusCode::NOT_IMPLEMENTED,
+        "hosted app api must not return operation_not_implemented for okf.concepts.upsert"
+    );
+
+    let body = response_body_json(response).await;
+    assert_eq!(body["conceptId"], "tables/users");
+    assert_eq!(body["title"], "Users");
+}
+
+#[tokio::test]
+async fn hosted_app_lists_okf_concepts_for_space() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let space_id = create_space(&app, "Concept List Space").await;
+    publish_okf_concept(
+        &app,
+        space_id,
+        "tables/users",
+        "---\ntype: Entity\ntitle: Users\n---\n# Users\n\nUser table.\n\n# Citations\n\n[1] [Src](https://example.com)\n",
+    )
+    .await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/app/v3/api/knowledge/okf/concepts?spaceId={space_id}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_body_json(response).await;
+    assert!(body["items"]
+        .as_array()
+        .expect("concept items")
+        .iter()
+        .any(|item| item["conceptId"] == "tables/users"));
+}
+
+#[tokio::test]
+async fn hosted_backend_lists_okf_candidates_for_space() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_id = create_space(&app, "Candidate Space").await;
+    let response = backend
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/okf/candidates?spaceId={space_id}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_ne!(response.status(), StatusCode::NOT_IMPLEMENTED);
+    let body = response_body_json(response).await;
+    assert!(body["items"].is_array());
+}
+
+#[tokio::test]
+async fn hosted_backend_registers_okf_profile_and_rebuilds_index() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_id = create_space(&app, "Profile Space").await;
+    publish_okf_concept(
+        &app,
+        space_id,
+        "entities/widget",
+        "---\ntype: Entity\ntitle: Widget\n---\n# Widget\n\nWidget entity.\n\n# Citations\n\n[1] [Src](https://example.com)\n",
+    )
+    .await;
+
+    let profile_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/okf/profile")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"profileVersion":"2026-06-19"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+
+    let rebuild_response = backend
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/okf/index/rebuild")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(r#"{{"spaceId":{space_id}}}"#)))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rebuild_response.status(), StatusCode::OK);
+    let rebuild_body = response_body_json(rebuild_response).await;
+    assert!(rebuild_body["markdown"]
+        .as_str()
+        .unwrap_or("")
+        .contains("/entities/index.md"));
+}
+
+#[tokio::test]
+async fn hosted_backend_imports_staged_export_bundle() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_id = create_space(&app, "Backend Import Space").await;
+    publish_okf_concept(
+        &app,
+        space_id,
+        "entities/gadget",
+        "---\ntype: Entity\ntitle: Gadget\n---\n# Gadget\n\nA gadget.\n\n# Citations\n\n[1] [Src](https://example.com)\n",
+    )
+    .await;
+
+    let export_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/okf/exports")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"exportType":"okf_strict","stageForImport":true,"importId":"backend-import"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(export_response.status(), StatusCode::CREATED);
+
+    let import_response = backend
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/okf/imports")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"importType":"okf_strict","importId":"backend-import"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(import_response.status(), StatusCode::CREATED);
+    let import_body = response_body_json(import_response).await;
+    assert!(import_body["importedConceptCount"].as_u64().unwrap_or(0) >= 1);
+}
+
+#[tokio::test]
+async fn hosted_app_export_stages_bundle_for_import_roundtrip() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let source_space = create_space(&app, "Export Source").await;
+    publish_okf_concept(
+        &app,
+        source_space,
+        "entities/widget",
+        "---\ntype: Entity\ntitle: Widget\n---\n# Widget\n\nA durable widget.\n\n# Citations\n\n[1] [Src](https://example.com)\n",
+    )
+    .await;
+
+    let export_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/okf/exports")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{source_space},"exportType":"okf_strict","stageForImport":true,"importId":"api-roundtrip"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(export_response.status(), StatusCode::CREATED);
+    let export_body = response_body_json(export_response).await;
+    assert_eq!(export_body["importId"], "api-roundtrip");
+    assert_eq!(
+        export_body["stagedImportRoot"],
+        "inbox/drive-imports/api-roundtrip"
+    );
+
+    let import_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/okf/imports")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{source_space},"importType":"okf_strict","importId":"api-roundtrip"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let import_status = import_response.status();
+    let import_body = response_body_json(import_response).await;
+    if import_status != StatusCode::CREATED {
+        panic!("import staged bundle failed: {import_body}");
+    }
+    assert!(import_body["importedConceptCount"].as_u64().unwrap_or(0) >= 1);
+
+    let concepts_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/app/v3/api/knowledge/okf/concepts?spaceId={source_space}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(concepts_response.status(), StatusCode::OK);
+    let concepts_body = response_body_json(concepts_response).await;
+    assert!(concepts_body["items"]
+        .as_array()
+        .expect("concept list")
+        .iter()
+        .any(|item| item["conceptId"] == "entities/widget"));
+}
+
+#[tokio::test]
+async fn hosted_backend_export_stages_bundle_for_import() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let source_space = create_space(&app, "Backend Export Source").await;
+    publish_okf_concept(
+        &app,
+        source_space,
+        "entities/widget",
+        "---\ntype: Entity\ntitle: Widget\n---\n# Widget\n\nA durable widget.\n\n# Citations\n\n[1] [Src](https://example.com)\n",
+    )
+    .await;
+
+    let export_response = backend
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/okf/exports")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{source_space},"exportType":"okf_strict","stageForImport":true,"importId":"backend-roundtrip"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(export_response.status(), StatusCode::CREATED);
+    let export_body = response_body_json(export_response).await;
+    assert_eq!(export_body["importId"], "backend-roundtrip");
+    assert_eq!(
+        export_body["stagedImportRoot"],
+        "inbox/drive-imports/backend-roundtrip"
+    );
+}
+
+#[tokio::test]
+async fn hosted_backend_runs_okf_lint_job_for_space() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_id = create_space(&app, "Lint Space").await;
+    publish_okf_concept(
+        &app,
+        space_id,
+        "entities/lintable",
+        "---\ntype: Entity\ntitle: Lintable\n---\n# Lintable\n\nLint target.\n\n# Citations\n\n[1] [Src](https://example.com)\n",
+    )
+    .await;
+
+    let response = backend
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/okf/lint_runs")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(r#"{{"spaceId":{space_id}}}"#)))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_body_json(response).await;
+    assert_eq!(body["state"], "succeeded");
+}
+
+#[tokio::test]
+async fn hosted_backend_runs_okf_compile_job_for_space() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_id = create_space(&app, "Compile Space").await;
+    publish_okf_concept(
+        &app,
+        space_id,
+        "entities/compilable",
+        "---\ntype: Entity\ntitle: Compilable\n---\n# Compilable\n\nCompile target.\n\n# Citations\n\n[1] [Src](https://example.com)\n",
+    )
+    .await;
+
+    let response = backend
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/okf/compile_jobs")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(r#"{{"spaceId":{space_id}}}"#)))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_body_json(response).await;
+    assert_eq!(body["state"], "succeeded");
+}
+
+#[tokio::test]
+async fn hosted_backend_approves_okf_candidate() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_id = create_space(&app, "Approve Space").await;
+    stage_okf_concept(
+        &app,
+        space_id,
+        "entities/approve-me",
+        "---\ntype: Entity\ntitle: Approve Me\n---\n# Approve Me\n\nPending review.\n",
+    )
+    .await;
+
+    let candidates = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/okf/candidates?spaceId={space_id}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(candidates.status(), StatusCode::OK);
+    let candidate_items = response_body_json(candidates).await["items"]
+        .as_array()
+        .expect("candidate items")
+        .clone();
+    let candidate_id = candidate_items
+        .iter()
+        .find(|item| item["state"] == "candidate_ready")
+        .and_then(|item| item["id"].as_u64())
+        .expect("open candidate id");
+
+    let approve_response = backend
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/okf/candidates/{candidate_id}/approve"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"reviewerId":99,"note":"approved in test"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(approve_response.status(), StatusCode::CREATED);
+    let approve_body = response_body_json(approve_response).await;
+    assert_eq!(approve_body["state"], "published");
+}
+
+#[tokio::test]
+async fn hosted_backend_rejects_okf_candidate() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_id = create_space(&app, "Reject Space").await;
+    stage_okf_concept(
+        &app,
+        space_id,
+        "entities/reject-me",
+        "---\ntype: Entity\ntitle: Reject Me\n---\n# Reject Me\n\nNot ready.\n",
+    )
+    .await;
+
+    let candidates = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/okf/candidates?spaceId={space_id}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(candidates.status(), StatusCode::OK);
+    let candidate_id = response_body_json(candidates).await["items"]
+        .as_array()
+        .expect("candidate items")
+        .iter()
+        .find(|item| item["state"] == "candidate_ready")
+        .and_then(|item| item["id"].as_u64())
+        .expect("open candidate id");
+
+    let reject_response = backend
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/okf/candidates/{candidate_id}/reject"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"reviewerId":99,"note":"rejected in test"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reject_response.status(), StatusCode::CREATED);
+    let reject_body = response_body_json(reject_response).await;
+    assert_eq!(reject_body["state"], "rejected");
+}
+
+#[tokio::test]
+async fn hosted_backend_resolves_external_space_to_catalog_engine() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"External Hosted Space","description":"External knowledge mode","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"dify"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+    let source_body = response_body_json(source_response).await;
+    assert_eq!(source_body["provider"], "dify");
+    assert_eq!(source_body["sourceType"], "connector");
+
+    let implementation_id = runtime
+        .resolve_knowledge_engine_implementation_id_for_space(space_id)
+        .await
+        .expect("resolve external engine");
+    assert_eq!(implementation_id, "engine.knowledge.external.dify");
+}
+
+#[tokio::test]
+async fn hosted_backend_resolves_external_space_to_ragflow_engine() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"RAGFlow Hosted Space","description":"External RAGFlow mode","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"ragflow"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+    let source_body = response_body_json(source_response).await;
+    assert_eq!(source_body["provider"], "ragflow");
+    assert_eq!(source_body["sourceType"], "connector");
+
+    let implementation_id = runtime
+        .resolve_knowledge_engine_implementation_id_for_space(space_id)
+        .await
+        .expect("resolve external engine");
+    assert_eq!(implementation_id, "engine.knowledge.external.ragflow");
+}
+
+#[tokio::test]
+async fn hosted_backend_resolves_external_space_to_onyx_engine() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Onyx Hosted Space","description":"External Onyx mode","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"onyx"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let implementation_id = runtime
+        .resolve_knowledge_engine_implementation_id_for_space(space_id)
+        .await
+        .expect("resolve external engine");
+    assert_eq!(implementation_id, "engine.knowledge.external.onyx");
+}
+
+#[tokio::test]
+async fn hosted_backend_resolves_external_space_to_anythingllm_engine() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"AnythingLLM Hosted Space","description":"External AnythingLLM mode","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"anythingllm"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let implementation_id = runtime
+        .resolve_knowledge_engine_implementation_id_for_space(space_id)
+        .await
+        .expect("resolve external engine");
+    assert_eq!(implementation_id, "engine.knowledge.external.anythingllm");
+}
+
+#[tokio::test]
+async fn hosted_backend_resolves_external_space_to_open_webui_engine() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Open WebUI Hosted Space","description":"External Open WebUI mode","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"open-webui"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let implementation_id = runtime
+        .resolve_knowledge_engine_implementation_id_for_space(space_id)
+        .await
+        .expect("resolve external engine");
+    assert_eq!(implementation_id, "engine.knowledge.external.open-webui");
+}
+
+#[tokio::test]
+async fn hosted_backend_resolves_external_space_to_flowise_engine() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Flowise Hosted Space","description":"External Flowise mode","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"flowise"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let implementation_id = runtime
+        .resolve_knowledge_engine_implementation_id_for_space(space_id)
+        .await
+        .expect("resolve external engine");
+    assert_eq!(implementation_id, "engine.knowledge.external.flowise");
+}
+
+#[tokio::test]
+async fn hosted_backend_resolves_external_space_to_chroma_engine() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Chroma Hosted Space","description":"External Chroma mode","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"chroma"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let implementation_id = runtime
+        .resolve_knowledge_engine_implementation_id_for_space(space_id)
+        .await
+        .expect("resolve external engine");
+    assert_eq!(implementation_id, "engine.knowledge.external.chroma");
+}
+
+#[tokio::test]
+async fn hosted_backend_resolves_external_space_to_qdrant_engine() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Qdrant Hosted Space","description":"External Qdrant mode","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"qdrant"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let implementation_id = runtime
+        .resolve_knowledge_engine_implementation_id_for_space(space_id)
+        .await
+        .expect("resolve external engine");
+    assert_eq!(implementation_id, "engine.knowledge.external.qdrant");
+}
+
+#[tokio::test]
+async fn hosted_backend_resolves_external_space_to_weaviate_engine() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Weaviate Hosted Space","description":"External Weaviate mode","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"weaviate"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let implementation_id = runtime
+        .resolve_knowledge_engine_implementation_id_for_space(space_id)
+        .await
+        .expect("resolve external engine");
+    assert_eq!(implementation_id, "engine.knowledge.external.weaviate");
+}
+
+#[tokio::test]
+async fn hosted_backend_resolves_external_space_to_haystack_engine() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Haystack Hosted Space","description":"External Haystack mode","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"haystack"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let implementation_id = runtime
+        .resolve_knowledge_engine_implementation_id_for_space(space_id)
+        .await
+        .expect("resolve external engine");
+    assert_eq!(implementation_id, "engine.knowledge.external.haystack");
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_rejects_unconfigured_external_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    clear_dify_adapter_env();
+    clear_ragflow_adapter_env();
+    clear_onyx_adapter_env();
+    clear_anythingllm_adapter_env();
+    clear_open_webui_adapter_env();
+    clear_flowise_adapter_env();
+    clear_chroma_adapter_env();
+    clear_qdrant_adapter_env();
+    clear_weaviate_adapter_env();
+    clear_haystack_adapter_env();
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"External Agent Space","description":"External agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"dify"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"External Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the external knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::BAD_REQUEST,
+        "unconfigured external adapter must fail agent chat before LLM invocation"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    let detail = chat_body["detail"]
+        .as_str()
+        .or_else(|| chat_body["title"].as_str())
+        .unwrap_or("");
+    assert!(
+        detail.to_ascii_lowercase().contains("unsupported")
+            || detail.to_ascii_lowercase().contains("adapter")
+            || detail.to_ascii_lowercase().contains("catalog")
+            || detail.to_ascii_lowercase().contains("dify")
+            || detail.to_ascii_lowercase().contains("dataset"),
+        "expected unconfigured adapter rejection detail, got: {chat_body}"
+    );
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/datasets/ds-hosted-e2e/retrieve"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "records": [{
+                    "segment": {
+                        "id": "seg-hosted",
+                        "content": "hosted external knowledge snippet",
+                        "document": { "name": "Hosted External Doc" }
+                    },
+                    "score": 0.95
+                }]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _dify_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _dify_api_key = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_API_KEY", "hosted-test-key");
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured External Space","description":"Configured external agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"dify","connectorMetadataJson":"{{\"datasetId\":\"ds-hosted-e2e\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured External Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the external knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured external engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted External Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted External Doc")));
+}
+
+#[tokio::test]
+async fn hosted_external_read_resolves_configured_dify_citation_document() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/datasets/ds-read-e2e/retrieve"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "records": [{
+                    "segment": {
+                        "id": "seg-read",
+                        "document_id": "doc-read",
+                        "content": "hosted citation snippet",
+                        "document": { "name": "Hosted Read Doc" }
+                    },
+                    "score": 0.95
+                }]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+    wiremock::Mock::given(wiremock::matchers::method("GET"))
+        .and(wiremock::matchers::path(
+            "/datasets/ds-read-e2e/documents/doc-read/segments/seg-read",
+        ))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "content": "hosted segment full body",
+                    "document": { "name": "Hosted Read Doc" }
+                }
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _dify_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _dify_api_key = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_API_KEY", "hosted-read-key");
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"External Read Space","description":"External read E2E","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"dify","connectorMetadataJson":"{{\"datasetId\":\"ds-read-e2e\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"External Read Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the external knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    let chat_body = response_body_json(chat_response).await;
+    let logical_path = chat_body["citations"][0]["logicalPath"]
+        .as_str()
+        .expect("citation logical path");
+    let (_, local_document_id) = logical_path
+        .split_once('/')
+        .expect("scoped citation logical path");
+    assert_eq!(local_document_id, "doc-read#seg-read");
+
+    let document = runtime
+        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .await
+        .expect("read citation document through SPI");
+    assert_eq!(document.content, "hosted segment full body");
+    assert_eq!(document.title, "Hosted Read Doc");
+}
+
+#[tokio::test]
+async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/api/v1/retrieval"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "code": 0,
+                "data": {
+                    "chunks": [{
+                        "id": "chunk-read",
+                        "content": "hosted citation snippet",
+                        "document_id": "doc-read",
+                        "document_keyword": "Hosted RAGFlow Read Doc",
+                        "similarity": 0.95
+                    }]
+                }
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+    wiremock::Mock::given(wiremock::matchers::method("GET"))
+        .and(wiremock::matchers::path(
+            "/api/v1/datasets/ds-read-ragflow/documents/doc-read/chunks/chunk-read",
+        ))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "code": 0,
+                "data": {
+                    "content": "hosted ragflow chunk full body",
+                    "document_keyword": "Hosted RAGFlow Read Doc"
+                }
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _ragflow_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _ragflow_api_key = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_API_KEY",
+        "hosted-ragflow-read-key",
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"RAGFlow Read Space","description":"RAGFlow read E2E","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"ragflow","connectorMetadataJson":"{{\"datasetId\":\"ds-read-ragflow\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"RAGFlow Read Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the RAGFlow knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    let chat_body = response_body_json(chat_response).await;
+    let logical_path = chat_body["citations"][0]["logicalPath"]
+        .as_str()
+        .expect("citation logical path");
+    let (_, local_document_id) = logical_path
+        .split_once('/')
+        .expect("scoped citation logical path");
+    assert_eq!(local_document_id, "doc-read#chunk-read");
+
+    let document = runtime
+        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .await
+        .expect("read citation document through SPI");
+    assert_eq!(document.content, "hosted ragflow chunk full body");
+    assert_eq!(document.title, "Hosted RAGFlow Read Doc");
+}
+
+#[tokio::test]
+async fn hosted_external_read_resolves_configured_open_webui_citation_document() {
+    const SNIPPET: &str = "hosted openwebui read snippet";
+    use sdkwork_knowledgebase_engine_open_webui::chunk_id_from_content;
+
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(
+            "/api/v1/retrieval/query/collection",
+        ))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "distances": [[0.95]],
+                "documents": [[SNIPPET]],
+                "metadatas": [[{
+                    "source": "Hosted Open WebUI Read Doc",
+                    "url": "file://read.txt"
+                }]]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _open_webui_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _open_webui_api_key = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_API_KEY",
+        "hosted-open-webui-read-key",
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Open WebUI Read Space","description":"Open WebUI read E2E","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"open-webui","connectorMetadataJson":"{{\"datasetId\":\"kb-read-open-webui\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Open WebUI Read Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Open WebUI knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    let chat_body = response_body_json(chat_response).await;
+    let logical_path = chat_body["citations"][0]["logicalPath"]
+        .as_str()
+        .expect("citation logical path");
+    let (_, local_document_id) = logical_path
+        .split_once('/')
+        .expect("scoped citation logical path");
+    let chunk_id = chunk_id_from_content(SNIPPET);
+    assert_eq!(
+        local_document_id,
+        format!("Hosted Open WebUI Read Doc#{chunk_id}")
+    );
+
+    let document = runtime
+        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .await
+        .expect("read citation document through SPI");
+    assert_eq!(document.content, SNIPPET);
+    assert_eq!(document.title, "Hosted Open WebUI Read Doc");
+}
+
+#[tokio::test]
+async fn hosted_external_read_resolves_configured_flowise_citation_document() {
+    const SNIPPET: &str = "hosted flowise read snippet";
+    use sdkwork_knowledgebase_engine_flowise::chunk_id_from_content;
+
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(
+            "/api/v1/document-store/vectorstore/query",
+        ))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "timeTaken": 8,
+                "docs": [{
+                    "pageContent": SNIPPET,
+                    "metadata": {
+                        "source": "Hosted Flowise Read Doc",
+                        "url": "file://read.txt"
+                    }
+                }]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _flowise_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_FLOWISE_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _flowise_api_key = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_FLOWISE_API_KEY",
+        "hosted-flowise-read-key",
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Flowise Read Space","description":"Flowise read E2E","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"flowise","connectorMetadataJson":"{{\"datasetId\":\"store-read-flowise\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Flowise Read Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Flowise knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    let chat_body = response_body_json(chat_response).await;
+    let logical_path = chat_body["citations"][0]["logicalPath"]
+        .as_str()
+        .expect("citation logical path");
+    let (_, local_document_id) = logical_path
+        .split_once('/')
+        .expect("scoped citation logical path");
+    let chunk_id = chunk_id_from_content(SNIPPET);
+    assert_eq!(
+        local_document_id,
+        format!("Hosted Flowise Read Doc#{chunk_id}")
+    );
+
+    let document = runtime
+        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .await
+        .expect("read citation document through SPI");
+    assert_eq!(document.content, SNIPPET);
+    assert_eq!(document.title, "Hosted Flowise Read Doc");
+}
+
+#[tokio::test]
+async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
+    const SNIPPET: &str = "hosted qdrant read snippet";
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    let collection_name = "kb-read-qdrant";
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(format!(
+            "/collections/{collection_name}/points/query"
+        )))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "result": {
+                    "points": [{
+                        "id": "point-read",
+                        "score": 0.95,
+                        "payload": {
+                            "title": "Hosted Qdrant Read Doc",
+                            "text": SNIPPET,
+                            "source": "file://read.txt"
+                        }
+                    }]
+                },
+                "status": "ok"
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(format!(
+            "/collections/{collection_name}/points"
+        )))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "result": [{
+                    "id": "point-read",
+                    "payload": {
+                        "title": "Hosted Qdrant Read Doc",
+                        "text": SNIPPET,
+                        "source": "file://read.txt"
+                    }
+                }],
+                "status": "ok"
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _qdrant_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_QDRANT_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _qdrant_query_model = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_QDRANT_QUERY_MODEL",
+        "sentence-transformers/all-minilm-l6-v2",
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Qdrant Read Space","description":"Qdrant read E2E","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"qdrant","connectorMetadataJson":"{{\"datasetId\":\"{collection_name}\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Qdrant Read Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Qdrant knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    let chat_body = response_body_json(chat_response).await;
+    let logical_path = chat_body["citations"][0]["logicalPath"]
+        .as_str()
+        .expect("citation logical path");
+    let (_, local_document_id) = logical_path
+        .split_once('/')
+        .expect("scoped citation logical path");
+    assert_eq!(local_document_id, "Hosted Qdrant Read Doc#point-read");
+
+    let document = runtime
+        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .await
+        .expect("read citation document through SPI");
+    assert_eq!(document.content, SNIPPET);
+    assert_eq!(document.title, "Hosted Qdrant Read Doc");
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/api/v1/retrieval"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "code": 0,
+                "data": {
+                    "chunks": [{
+                        "id": "chunk-hosted",
+                        "content": "hosted ragflow knowledge snippet",
+                        "document_id": "doc-hosted",
+                        "document_keyword": "Hosted RAGFlow Doc",
+                        "similarity": 0.95
+                    }]
+                }
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _ragflow_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _ragflow_api_key = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_API_KEY",
+        "hosted-ragflow-key",
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured RAGFlow Space","description":"Configured RAGFlow agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"ragflow","connectorMetadataJson":"{{\"datasetId\":\"ds-ragflow-hosted\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured RAGFlow Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the RAGFlow knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured RAGFlow engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted RAGFlow Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted RAGFlow Doc")));
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/search"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "results": [{
+                    "title": "Hosted Onyx Doc",
+                    "url": "https://example.com/onyx-hosted",
+                    "content": "hosted onyx knowledge snippet",
+                    "source_type": "web"
+                }]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _onyx_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_ONYX_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _onyx_api_key = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_ONYX_API_KEY", "hosted-onyx-key");
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured Onyx Space","description":"Configured Onyx agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"onyx"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured Onyx Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Onyx knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured Onyx engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted Onyx Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted Onyx Doc")));
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(
+            "/api/v1/workspace/ws-hosted/vector-search",
+        ))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "results": [{
+                    "id": "chunk-hosted",
+                    "text": "hosted anythingllm knowledge snippet",
+                    "score": 0.95,
+                    "metadata": {
+                        "title": "Hosted AnythingLLM Doc",
+                        "url": "file://hosted.txt"
+                    }
+                }]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _anythingllm_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _anythingllm_api_key = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_API_KEY",
+        "hosted-anythingllm-key",
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured AnythingLLM Space","description":"Configured AnythingLLM agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"anythingllm","connectorMetadataJson":"{{\"workspaceSlug\":\"ws-hosted\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured AnythingLLM Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the AnythingLLM knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured AnythingLLM engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted AnythingLLM Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted AnythingLLM Doc")));
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(
+            "/api/v1/retrieval/query/collection",
+        ))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "distances": [[0.95]],
+                "documents": [["hosted openwebui knowledge snippet"]],
+                "metadatas": [[{
+                    "source": "Hosted Open WebUI Doc",
+                    "url": "file://hosted.txt"
+                }]]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _open_webui_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _open_webui_api_key = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_API_KEY",
+        "hosted-open-webui-key",
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured Open WebUI Space","description":"Configured Open WebUI agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"open-webui","connectorMetadataJson":"{{\"datasetId\":\"kb-hosted\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured Open WebUI Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Open WebUI knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured Open WebUI engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted Open WebUI Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted Open WebUI Doc")));
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(
+            "/api/v1/document-store/vectorstore/query",
+        ))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "timeTaken": 10,
+                "docs": [{
+                    "pageContent": "hosted flowise knowledge snippet",
+                    "metadata": {
+                        "source": "Hosted Flowise Doc",
+                        "url": "file://hosted.txt"
+                    }
+                }]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _flowise_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_FLOWISE_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _flowise_api_key = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_FLOWISE_API_KEY",
+        "hosted-flowise-key",
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured Flowise Space","description":"Configured Flowise agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"flowise","connectorMetadataJson":"{{\"datasetId\":\"store-hosted\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured Flowise Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Flowise knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured Flowise engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted Flowise Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted Flowise Doc")));
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_chroma_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    let collection_id = "603a7b51-ae7c-4b0a-8865-e454ed2f6766";
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(format!(
+            "/api/v2/tenants/default_tenant/databases/default_database/collections/{collection_id}/query"
+        )))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "ids": [["rec-hosted"]],
+                "documents": [["hosted chroma knowledge snippet"]],
+                "metadatas": [[{
+                    "title": "Hosted Chroma Doc",
+                    "source": "file://hosted.txt"
+                }]],
+                "distances": [[0.08]]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _chroma_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_CHROMA_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured Chroma Space","description":"Configured Chroma agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"chroma","connectorMetadataJson":"{{\"datasetId\":\"{collection_id}\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured Chroma Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Chroma knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured Chroma engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted Chroma Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted Chroma Doc")));
+}
+
+#[tokio::test]
+async fn hosted_external_read_resolves_configured_chroma_citation_document() {
+    const SNIPPET: &str = "hosted chroma read snippet";
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    let collection_id = "603a7b51-ae7c-4b0a-8865-e454ed2f6766";
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(format!(
+            "/api/v2/tenants/default_tenant/databases/default_database/collections/{collection_id}/query"
+        )))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "ids": [["rec-read"]],
+                "documents": [[SNIPPET]],
+                "metadatas": [[{
+                    "title": "Hosted Chroma Read Doc",
+                    "source": "file://read.txt"
+                }]],
+                "distances": [[0.08]]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(format!(
+            "/api/v2/tenants/default_tenant/databases/default_database/collections/{collection_id}/get"
+        )))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "ids": ["rec-read"],
+                "documents": [SNIPPET],
+                "metadatas": [{
+                    "title": "Hosted Chroma Read Doc",
+                    "source": "file://read.txt"
+                }]
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _chroma_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_CHROMA_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Chroma Read Space","description":"Chroma read E2E","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"chroma","connectorMetadataJson":"{{\"datasetId\":\"{collection_id}\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Chroma Read Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Chroma knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    let chat_body = response_body_json(chat_response).await;
+    let logical_path = chat_body["citations"][0]["logicalPath"]
+        .as_str()
+        .expect("citation logical path");
+    let (_, local_document_id) = logical_path
+        .split_once('/')
+        .expect("scoped citation logical path");
+    assert_eq!(local_document_id, "Hosted Chroma Read Doc#rec-read");
+
+    let document = runtime
+        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .await
+        .expect("read citation document through SPI");
+    assert_eq!(document.content, SNIPPET);
+    assert_eq!(document.title, "Hosted Chroma Read Doc");
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    let collection_name = "policies-hosted";
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(format!(
+            "/collections/{collection_name}/points/query"
+        )))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "result": {
+                    "points": [{
+                        "id": "pt-hosted",
+                        "score": 0.95,
+                        "payload": {
+                            "title": "Hosted Qdrant Doc",
+                            "text": "hosted qdrant knowledge snippet",
+                            "source": "file://hosted.txt"
+                        }
+                    }]
+                },
+                "status": "ok"
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _qdrant_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_QDRANT_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _qdrant_query_model = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_QDRANT_QUERY_MODEL",
+        "sentence-transformers/all-minilm-l6-v2",
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured Qdrant Space","description":"Configured Qdrant agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"qdrant","connectorMetadataJson":"{{\"datasetId\":\"{collection_name}\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured Qdrant Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Qdrant knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured Qdrant engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted Qdrant Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted Qdrant Doc")));
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    let class_name = "KnowledgeChunk";
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/v1/graphql"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "Get": {
+                        class_name: [{
+                            "title": "Hosted Weaviate Doc",
+                            "content": "hosted weaviate knowledge snippet",
+                            "_additional": {
+                                "id": "obj-hosted",
+                                "certainty": 0.95
+                            }
+                        }]
+                    }
+                }
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _weaviate_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_WEAVIATE_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured Weaviate Space","description":"Configured Weaviate agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"weaviate","connectorMetadataJson":"{{\"datasetId\":\"{class_name}\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured Weaviate Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Weaviate knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured Weaviate engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted Weaviate Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted Weaviate Doc")));
+}
+
+#[tokio::test]
+async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
+    const SNIPPET: &str = "hosted weaviate read snippet";
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    let class_name = "KnowledgeChunk";
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path("/v1/graphql"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "Get": {
+                        class_name: [{
+                            "title": "Hosted Weaviate Read Doc",
+                            "content": SNIPPET,
+                            "_additional": {
+                                "id": "obj-read",
+                                "certainty": 0.95
+                            }
+                        }]
+                    }
+                }
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+    wiremock::Mock::given(wiremock::matchers::method("GET"))
+        .and(wiremock::matchers::path(format!(
+            "/v1/objects/{class_name}/obj-read"
+        )))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "properties": {
+                    "title": "Hosted Weaviate Read Doc",
+                    "content": SNIPPET,
+                    "source": "file://read.txt"
+                }
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _weaviate_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_WEAVIATE_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Weaviate Read Space","description":"Weaviate read E2E","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"weaviate","connectorMetadataJson":"{{\"datasetId\":\"{class_name}\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Weaviate Read Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Weaviate knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    let chat_body = response_body_json(chat_response).await;
+    let logical_path = chat_body["citations"][0]["logicalPath"]
+        .as_str()
+        .expect("citation logical path");
+    let (_, local_document_id) = logical_path
+        .split_once('/')
+        .expect("scoped citation logical path");
+    assert_eq!(local_document_id, "Hosted Weaviate Read Doc#obj-read");
+
+    let document = runtime
+        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .await
+        .expect("read citation document through SPI");
+    assert_eq!(document.content, SNIPPET);
+    assert_eq!(document.title, "Hosted Weaviate Read Doc");
+}
+
+#[tokio::test]
+async fn hosted_external_agent_chat_succeeds_with_configured_haystack_adapter() {
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    let pipeline_name = "retrieval_pipeline";
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(format!("/{pipeline_name}/run")))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "retriever": {
+                    "documents": [{
+                        "id": "doc-hosted",
+                        "content": "hosted haystack knowledge snippet",
+                        "meta": {
+                            "title": "Hosted Haystack Doc",
+                            "source": "file://hosted.txt"
+                        },
+                        "score": 0.93
+                    }]
+                }
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _haystack_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_HAYSTACK_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Configured Haystack Space","description":"Configured Haystack agent chat","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"haystack","connectorMetadataJson":"{{\"datasetId\":\"{pipeline_name}\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Configured Haystack Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Haystack knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "configured Haystack engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "external");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Hosted Haystack Doc");
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Hosted Haystack Doc")));
+}
+
+#[tokio::test]
+async fn hosted_external_read_resolves_configured_haystack_citation_document() {
+    const SNIPPET: &str = "hosted haystack read snippet";
+    let _env_guard = lock_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    let pipeline_name = "retrieval_pipeline";
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .and(wiremock::matchers::path(format!("/{pipeline_name}/run")))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "retriever": {
+                    "documents": [{
+                        "id": "doc-read",
+                        "content": SNIPPET,
+                        "meta": {
+                            "title": "Hosted Haystack Read Doc",
+                            "source": "file://read.txt"
+                        },
+                        "score": 0.95
+                    }]
+                }
+            })),
+        )
+        .mount(&mock_server)
+        .await;
+
+    let _haystack_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_HAYSTACK_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+
+    let space_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Haystack Read Space","description":"Haystack read E2E","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_body_json(space_response).await["id"]
+        .as_u64()
+        .expect("external space id");
+
+    let source_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/sources")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"spaceId":{space_id},"sourceType":"connector","provider":"haystack","connectorMetadataJson":"{{\"datasetId\":\"{pipeline_name}\"}}"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(source_response.status(), StatusCode::CREATED);
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"Haystack Read Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"external","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is in the Haystack knowledge base?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    let chat_body = response_body_json(chat_response).await;
+    let logical_path = chat_body["citations"][0]["logicalPath"]
+        .as_str()
+        .expect("citation logical path");
+    let (_, local_document_id) = logical_path
+        .split_once('/')
+        .expect("scoped citation logical path");
+    assert_eq!(local_document_id, "Hosted Haystack Read Doc#doc-read");
+
+    let document = runtime
+        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .await
+        .expect("read citation document through SPI");
+    assert_eq!(document.content, SNIPPET);
+    assert_eq!(document.title, "Hosted Haystack Read Doc");
+}
+
+#[tokio::test]
+async fn hosted_okf_agent_chat_succeeds_with_published_concept_citations() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let space_id = create_space(&app, "OKF Agent Chat Space").await;
+    publish_okf_concept(
+        &app,
+        space_id,
+        "concepts/agent-target",
+        "---\ntype: Knowledge Concept\ntitle: Agent Target\ndescription: Hosted OKF agent citation target for chat\n---\n# Agent Target\n\nHosted OKF knowledge for agent chat.\n\n# Citations\n\n[1] [Src](https://example.com)\n",
+    )
+    .await;
+
+    let profile_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/agent_profiles")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","name":"OKF Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.knowledgebase-contract","modelId":"contract","agentImplementationId":"plugin.intelligence.knowledgebase-contract","knowledgeMode":"okf_bundle","status":"active"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(profile_response.status(), StatusCode::CREATED);
+    let profile_body = response_body_json(profile_response).await;
+    let profile_id = json_u64_field(&profile_body, "profileId").expect("created profile id");
+
+    let binding_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"tenantId":"1","profileId":"{profile_id}","spaceId":"{space_id}","priority":0,"enabled":true}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+
+    let chat_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/app/v3/api/knowledge/agent_profiles/{profile_id}/chat"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"tenantId":"1","message":"What is the Agent Target concept?"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        chat_response.status(),
+        StatusCode::CREATED,
+        "OKF native engine must complete agent chat"
+    );
+    let chat_body = response_body_json(chat_response).await;
+    assert_eq!(chat_body["mode"], "okf_bundle");
+    assert!(chat_body["citations"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(chat_body["citations"][0]["title"], "Agent Target");
+    assert_eq!(
+        chat_body["citations"][0]["conceptId"],
+        "concepts/agent-target"
+    );
+    assert_eq!(
+        chat_body["citations"][0]["logicalPath"],
+        format!("{space_id}/concepts/agent-target")
+    );
+    assert_eq!(
+        chat_body["citations"][0]["locator"],
+        format!("okf:{space_id}:concepts/agent-target")
+    );
+    assert!(chat_body["answer"]
+        .as_str()
+        .is_some_and(|answer| answer.contains("Agent Target")));
+
+    let logical_path = chat_body["citations"][0]["logicalPath"]
+        .as_str()
+        .expect("citation logical path");
+    let (_, local_document_id) = logical_path
+        .split_once('/')
+        .expect("scoped citation logical path");
+    assert_eq!(local_document_id, "concepts/agent-target");
+
+    let document = runtime
+        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .await
+        .expect("read OKF citation document through SPI");
+    assert!(document
+        .content
+        .contains("Hosted OKF knowledge for agent chat"));
+    assert_eq!(document.title, "Agent Target");
+}
+
+#[tokio::test]
+async fn hosted_app_runs_okf_lint_job_for_space() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let space_id = create_space(&app, "App Lint Space").await;
+    publish_okf_concept(
+        &app,
+        space_id,
+        "entities/app-lint",
+        "---\ntype: Entity\ntitle: App Lint\n---\n# App Lint\n\nApp lint target.\n\n# Citations\n\n[1] [Src](https://example.com)\n",
+    )
+    .await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/okf/lint_runs")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(r#"{{"spaceId":{space_id}}}"#)))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+    let body = response_body_json(response).await;
+    assert_eq!(body["state"], "succeeded");
+}
+
+async fn create_space(app: &axum::Router, name: &str) -> u64 {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"name":"{name}","description":"Hosted OKF integration"}}"#
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+    response_body_json(response).await["id"]
+        .as_u64()
+        .expect("created space id")
+}
+
+async fn publish_okf_concept(app: &axum::Router, space_id: u64, concept_id: &str, markdown: &str) {
+    upsert_okf_concept(app, space_id, concept_id, markdown, true).await;
+}
+
+async fn stage_okf_concept(app: &axum::Router, space_id: u64, concept_id: &str, markdown: &str) {
+    upsert_okf_concept(app, space_id, concept_id, markdown, false).await;
+}
+
+async fn upsert_okf_concept(
+    app: &axum::Router,
+    space_id: u64,
+    concept_id: &str,
+    markdown: &str,
+    publish: bool,
+) {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::PUT)
+                .uri("/app/v3/api/knowledge/okf/concepts/upsert")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r##"{{"spaceId":{space_id},"conceptId":"{concept_id}","markdown":{markdown_json},"actor":"author","publish":{publish}}}"##,
+                    markdown_json = serde_json::to_string(markdown).expect("serialize markdown")
+                )))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    if response.status() != StatusCode::OK {
+        let body = response_body_json(response).await;
+        panic!("upsert okf concept failed: {body}");
+    }
+}
+
+#[tokio::test]
+async fn hosted_open_router_lists_documents() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_open_auth(runtime.build_open_api_router(), 1, Some(42));
+    let app_router = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let space_id = create_space(&app_router, "Open Document List Space").await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/knowledge/v3/api/documents?spaceId={space_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_ne!(
+        response.status(),
+        StatusCode::NOT_IMPLEMENTED,
+        "hosted open api must not return operation_not_implemented for documents.list"
+    );
+
+    let body = response_body_json(response).await;
+    assert!(body["items"].is_array());
+}
+
+struct TempEnvVar {
+    key: &'static str,
+    previous: Option<String>,
+}
+
+impl TempEnvVar {
+    fn set(key: &'static str, value: &str) -> Self {
+        let previous = std::env::var(key).ok();
+        std::env::set_var(key, value);
+        Self { key, previous }
+    }
+}
+
+impl Drop for TempEnvVar {
+    fn drop(&mut self) {
+        match &self.previous {
+            Some(value) => std::env::set_var(self.key, value),
+            None => std::env::remove_var(self.key),
+        }
+    }
+}
+
+fn clear_dify_adapter_env() {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL",
+        "SDKWORK_KNOWLEDGEBASE_DIFY_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_DIFY_DATASET_ID",
+    ] {
+        std::env::remove_var(key);
+    }
+}
+
+fn clear_ragflow_adapter_env() {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_BASE_URL",
+        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_DATASET_ID",
+    ] {
+        std::env::remove_var(key);
+    }
+}
+
+fn clear_onyx_adapter_env() {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_ONYX_BASE_URL",
+        "SDKWORK_KNOWLEDGEBASE_ONYX_API_KEY",
+    ] {
+        std::env::remove_var(key);
+    }
+}
+
+fn clear_anythingllm_adapter_env() {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_BASE_URL",
+        "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_WORKSPACE_SLUG",
+    ] {
+        std::env::remove_var(key);
+    }
+}
+
+fn clear_open_webui_adapter_env() {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_BASE_URL",
+        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_KNOWLEDGE_ID",
+    ] {
+        std::env::remove_var(key);
+    }
+}
+
+fn clear_flowise_adapter_env() {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_FLOWISE_BASE_URL",
+        "SDKWORK_KNOWLEDGEBASE_FLOWISE_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_FLOWISE_STORE_ID",
+    ] {
+        std::env::remove_var(key);
+    }
+}
+
+fn clear_chroma_adapter_env() {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_CHROMA_BASE_URL",
+        "SDKWORK_KNOWLEDGEBASE_CHROMA_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_CHROMA_COLLECTION_ID",
+        "SDKWORK_KNOWLEDGEBASE_CHROMA_TENANT",
+        "SDKWORK_KNOWLEDGEBASE_CHROMA_DATABASE",
+    ] {
+        std::env::remove_var(key);
+    }
+}
+
+fn clear_qdrant_adapter_env() {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_QDRANT_BASE_URL",
+        "SDKWORK_KNOWLEDGEBASE_QDRANT_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_QDRANT_COLLECTION_NAME",
+        "SDKWORK_KNOWLEDGEBASE_QDRANT_QUERY_MODEL",
+        "SDKWORK_KNOWLEDGEBASE_QDRANT_USING_VECTOR",
+    ] {
+        std::env::remove_var(key);
+    }
+}
+
+fn clear_weaviate_adapter_env() {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_WEAVIATE_BASE_URL",
+        "SDKWORK_KNOWLEDGEBASE_WEAVIATE_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_WEAVIATE_CLASS_NAME",
+        "SDKWORK_KNOWLEDGEBASE_WEAVIATE_TITLE_PROPERTY",
+        "SDKWORK_KNOWLEDGEBASE_WEAVIATE_CONTENT_PROPERTY",
+    ] {
+        std::env::remove_var(key);
+    }
+}
+
+fn clear_haystack_adapter_env() {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_HAYSTACK_BASE_URL",
+        "SDKWORK_KNOWLEDGEBASE_HAYSTACK_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_HAYSTACK_PIPELINE",
+        "SDKWORK_KNOWLEDGEBASE_HAYSTACK_WORKSPACE",
+        "SDKWORK_KNOWLEDGEBASE_HAYSTACK_DEPLOYMENT_MODE",
+        "SDKWORK_KNOWLEDGEBASE_HAYSTACK_QUERY_FIELD",
+    ] {
+        std::env::remove_var(key);
+    }
+}
+
+async fn test_runtime() -> KnowledgebaseRuntime {
+    static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock before unix epoch")
+        .as_nanos();
+    let sequence = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let work_dir = std::env::current_dir().expect("current directory");
+    let test_root = work_dir
+        .join("target")
+        .join("hosted-runtime-tests")
+        .join(format!("{}-{}-{}", std::process::id(), nanos, sequence));
+    std::fs::create_dir_all(&test_root).expect("create hosted runtime test directory");
+
+    let drive_root = test_root.join("drive-objects");
+    std::fs::create_dir_all(&drive_root).expect("create hosted runtime drive storage root");
+    std::env::set_var(
+        "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
+        drive_root.to_string_lossy().as_ref(),
+    );
+
+    let database_path = test_root.join("knowledgebase.db");
+    let relative_database_path = database_path
+        .strip_prefix(&work_dir)
+        .unwrap_or(&database_path)
+        .display()
+        .to_string()
+        .replace('\\', "/");
+    let database_url = format!("sqlite://{relative_database_path}?mode=rwc");
+    KnowledgebaseRuntime::connect(&database_url, 1)
+        .await
+        .expect("initialize hosted runtime")
+}
+
+async fn response_body_json(response: axum::response::Response) -> Value {
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read response body");
+    serde_json::from_slice(&bytes).expect("parse response json")
+}
+
+fn json_u64_field(body: &Value, field: &str) -> Option<u64> {
+    body.get(field)
+        .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse().ok()))
+}

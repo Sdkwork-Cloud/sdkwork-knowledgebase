@@ -1,0 +1,25 @@
+{
+  "name": "@sdkwork/sdkwork-knowledgebase-pc-commons",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./stringUtils": "./src/stringUtils.ts",
+    "./reactKeyedProps": "./src/reactKeyedProps.ts",
+    "./htmlSanitizer": "./src/htmlSanitizer.ts"
+  },
+  "dependencies": {
+    "@sdkwork/utils": "workspace:*",
+    "dompurify": "^3.4.11",
+    "lucide-react": "^0.487.0",
+    "react": "^19.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.4"
+  },
+  "scripts": {
+    "test": "vitest run"
+  }
+}

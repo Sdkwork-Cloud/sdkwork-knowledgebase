@@ -1,0 +1,248 @@
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { fileURLToPath } from 'node:url';
+import {defineConfig, loadEnv} from 'vite';
+import { browserSecurityHeadersPlugin } from './config/browser/securityHeaders';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const repoRoot = path.resolve(__dirname, '../..');
+const appbaseRoot = path.resolve(repoRoot, '../sdkwork-appbase');
+const iamRoot = path.resolve(repoRoot, '../sdkwork-iam');
+const DEFAULT_PLATFORM_API_GATEWAY_TARGET = 'http://127.0.0.1:3900';
+
+export default defineConfig(({mode}) => {
+  const env = loadEnv(mode, __dirname, '');
+  const platformApiGatewayTarget =
+    env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL
+    || process.env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL
+    || env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL
+    || process.env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL
+    || DEFAULT_PLATFORM_API_GATEWAY_TARGET;
+  const appApiTarget =
+    env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL
+    || process.env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL
+    || 'http://127.0.0.1:18081';
+
+  return {
+    ...(mode === 'development'
+      ? {
+          define: {
+            'process.env.SDKWORK_ACCESS_TOKEN': JSON.stringify(
+              env.SDKWORK_ACCESS_TOKEN ?? process.env.SDKWORK_ACCESS_TOKEN ?? '',
+            ),
+          },
+        }
+      : {}),
+    plugins: [react(), tailwindcss(), browserSecurityHeadersPlugin(mode === 'development')],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) {
+              return undefined;
+            }
+            if (
+              id.includes('/node_modules/react/')
+              || id.includes('/node_modules/react-dom/')
+              || id.includes('/node_modules/react-router')
+              || id.includes('/node_modules/scheduler/')
+            ) {
+              return 'vendor-react';
+            }
+            if (id.includes('@monaco-editor') || id.includes('monaco-editor')) {
+              return 'vendor-monaco';
+            }
+            if (id.includes('@tiptap') || id.includes('prosemirror')) {
+              return 'vendor-editor';
+            }
+            if (id.includes('pdfjs') || id.includes('react-pdf')) {
+              return 'vendor-pdf';
+            }
+            if (id.includes('html2canvas')) {
+              return 'vendor-export';
+            }
+            return 'vendor';
+          },
+        },
+      },
+    },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react-dom/client',
+        'react/jsx-dev-runtime',
+        'react/jsx-runtime',
+        'react-router-dom',
+        'lucide-react',
+        'i18next',
+        'react-i18next',
+        'marked',
+        'dompurify',
+        'clsx',
+        'tailwind-merge',
+        'html2canvas-pro',
+        '@monaco-editor/react',
+        '@radix-ui/react-context-menu',
+        '@radix-ui/react-dropdown-menu',
+        '@tiptap/core',
+        '@tiptap/react',
+        '@tiptap/react/menus',
+        '@tiptap/starter-kit',
+        '@tiptap/extension-bubble-menu',
+        '@tiptap/extension-image',
+        '@tiptap/extension-placeholder',
+        'tiptap-markdown',
+        'react-pdf',
+      ],
+      exclude: ['pdfjs-dist'],
+    },
+    resolve: {
+      dedupe: ['react', 'react-dom'],
+      alias: [
+        { find: '@', replacement: path.resolve(__dirname, '.') },
+        {
+          find: /^@sdkwork\/sdkwork-knowledgebase-pc-commons\/(.*)$/,
+          replacement: `${path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-commons/src')}/$1`,
+        },
+        {
+          find: '@sdkwork/sdkwork-knowledgebase-pc-commons',
+          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-commons/src/index.ts'),
+        },
+        {
+          find: /^@sdkwork\/sdkwork-knowledgebase-pc-knowledgebase\/(.*)$/,
+          replacement: `${path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-knowledgebase/src')}/$1`,
+        },
+        {
+          find: '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase',
+          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-knowledgebase/src/index.ts'),
+        },
+        {
+          find: /^@sdkwork\/sdkwork-knowledgebase-pc-shell\/(.*)$/,
+          replacement: `${path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-shell/src')}/$1`,
+        },
+        {
+          find: '@sdkwork/sdkwork-knowledgebase-pc-shell',
+          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-shell/src/index.ts'),
+        },
+        {
+          find: '@sdkwork/auth-pc-react',
+          replacement: path.resolve(
+            iamRoot,
+            'apps/sdkwork-iam-pc/packages/sdkwork-auth-pc-react/src/index.ts',
+          ),
+        },
+        {
+          find: '@sdkwork/auth-runtime-pc-react',
+          replacement: path.resolve(
+            iamRoot,
+            'apps/sdkwork-iam-pc/packages/sdkwork-auth-runtime-pc-react/src/index.ts',
+          ),
+        },
+        {
+          find: '@sdkwork/knowledgebase-app-sdk',
+          replacement: path.resolve(
+            repoRoot,
+            'sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/src/index.ts',
+          ),
+        },
+        {
+          find: '@sdkwork/iam-app-sdk',
+          replacement: path.resolve(
+            iamRoot,
+            'sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/index.ts',
+          ),
+        },
+        {
+          find: '@sdkwork/iam-backend-sdk',
+          replacement: path.resolve(
+            iamRoot,
+            'sdks/sdkwork-iam-backend-sdk/sdkwork-iam-backend-sdk-typescript/generated/server-openapi/src/index.ts',
+          ),
+        },
+        {
+          find: '@sdkwork/appbase-pc-react',
+          replacement: path.resolve(
+            appbaseRoot,
+            'packages/pc-react/foundation/sdkwork-appbase-pc-react/src/index.ts',
+          ),
+        },
+        {
+          find: '@sdkwork/iam-contracts',
+          replacement: path.resolve(
+            iamRoot,
+            'apps/sdkwork-iam-common/packages/sdkwork-iam-contracts/src/index.ts',
+          ),
+        },
+        {
+          find: '@sdkwork/sdk-common',
+          replacement: path.resolve(
+            repoRoot,
+            '../sdkwork-sdk-commons/sdkwork-sdk-common-typescript/src/index.ts',
+          ),
+        },
+        {
+          find: '@sdkwork/ui-pc-react',
+          replacement: path.resolve(repoRoot, '../sdkwork-ui/sdkwork-ui-pc-react/src/index.ts'),
+        },
+        {
+          find: '@sdkwork/core-pc-react',
+          replacement: path.resolve(__dirname, 'src/bootstrap/sdkworkCorePcReactShim.ts'),
+        },
+        {
+          find: '@sdkwork/knowledgebase-pc-search',
+          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-search/src/index.ts'),
+        },
+        {
+          find: 'sdkwork-knowledgebase-pc-core',
+          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-core/src'),
+        },
+        {
+          find: 'sdkwork-knowledgebase-pc-core/host/hostAdapter',
+          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-core/src/host/hostAdapter.ts'),
+        },
+        {
+          find: '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils',
+          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-commons/src/stringUtils.ts'),
+        },
+        {
+          find: '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps',
+          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-commons/src/reactKeyedProps.ts'),
+        },
+        {
+          find: '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer',
+          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-commons/src/htmlSanitizer.ts'),
+        },
+      ],
+    },
+    server: {
+      port: 5184,
+      strictPort: true,
+      // HMR is disabled in AI Studio via DISABLE_HMR env var.
+      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      hmr: process.env.DISABLE_HMR !== 'true',
+      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
+      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: {
+        '/app/v3/api/knowledge': {
+          target: appApiTarget,
+          changeOrigin: true,
+        },
+        '/app/v3/api': {
+          target: platformApiGatewayTarget,
+          changeOrigin: true,
+        },
+        '/backend/v3/api': {
+          target: platformApiGatewayTarget,
+          changeOrigin: true,
+        },
+        '/knowledge/v3/api': {
+          target: platformApiGatewayTarget,
+          changeOrigin: true,
+        },
+      },
+    },
+  };
+});

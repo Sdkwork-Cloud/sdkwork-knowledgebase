@@ -1,0 +1,36 @@
+[package]
+name = "sdkwork-intelligence-knowledgebase-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+clawrouter-open-sdk.workspace = true
+sdkwork-agent-kernel.workspace = true
+sdkwork-agent-plugin-rig.workspace = true
+sdkwork-agent-plugin-core.workspace = true
+sdkwork-knowledgebase-agent-provider.workspace = true
+sdkwork-knowledgebase-contract.workspace = true
+sdkwork-knowledgebase-observability.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+sdkwork-utils-rust.workspace = true
+sha2.workspace = true
+aes-gcm = "0.10"
+base64 = "0.22"
+hmac = "0.12"
+thiserror.workspace = true
+time.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros"] }
+tracing = "0.1"
+uuid.workspace = true
+reqwest = { workspace = true, features = ["multipart"] }
+urlencoding = "2"
+
+[dev-dependencies]
+tokio.workspace = true
+wiremock.workspace = true
+sdkwork-knowledgebase-engine-dify.workspace = true
+sdkwork-knowledgebase-engine-ragflow.workspace = true

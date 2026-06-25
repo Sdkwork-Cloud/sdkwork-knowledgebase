@@ -1,0 +1,2 @@
+ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS last_error TEXT;
+ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS retry_count BIGINT NOT NULL DEFAULT 0;

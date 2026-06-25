@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-pc",
+    "displayName": "SDKWork Knowledgebase PC",
+    "version": "0.1.0",
+    "type": "app-surface",
+    "root": "apps/sdkwork-knowledgebase-pc",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "surface": "pc-browser-desktop",
+    "languages": [
+      "typescript"
+    ],
+    "generated": false,
+    "manifests": [
+      "package.json",
+      "vite.config.ts",
+      "tsconfig.json"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "APP_PC_ARCHITECTURE_SPEC.md",
+      "path": "../../../sdkwork-specs/APP_PC_ARCHITECTURE_SPEC.md",
+      "purpose": "PC browser/desktop package taxonomy and runtime boundaries."
+    },
+    {
+      "file": "APP_PC_REACT_UI_SPEC.md",
+      "path": "../../../sdkwork-specs/APP_PC_REACT_UI_SPEC.md",
+      "purpose": "PC React UI package split and SDK integration rules."
+    },
+    {
+      "file": "APP_SDK_INTEGRATION_SPEC.md",
+      "path": "../../../sdkwork-specs/APP_SDK_INTEGRATION_SPEC.md",
+      "purpose": "Generated app SDK integration and auth/session wiring."
+    },
+    {
+      "file": "FRONTEND_CODE_SPEC.md",
+      "path": "../../../sdkwork-specs/FRONTEND_CODE_SPEC.md",
+      "purpose": "Frontend package structure, error boundaries, and UI safety."
+    }
+  ],
+  "contracts": {
+    "sdkClients": [
+      "@sdkwork/knowledgebase-app-sdk",
+      "@sdkwork/drive-app-sdk",
+      "@sdkwork/iam-app-sdk"
+    ],
+    "routeManifests": []
+  }
+}

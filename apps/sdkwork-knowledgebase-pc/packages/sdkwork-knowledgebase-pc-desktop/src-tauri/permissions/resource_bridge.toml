@@ -1,0 +1,29 @@
+[[permission]]
+identifier = "allow-resource-bridge"
+description = "Enables desktop resource bridge commands for PDF, file IO, and external links."
+commands.allow = [
+  "fetch_binary_resource",
+  "read_local_resource",
+  "open_external_url",
+  "save_binary_resource",
+  "save_export_file",
+  "reveal_export_file",
+  "open_export_file",
+  "locate_export_file",
+  "export_document_pdf"
+]
+
+[[permission]]
+identifier = "deny-resource-bridge"
+description = "Denies desktop resource bridge commands."
+commands.deny = [
+  "fetch_binary_resource",
+  "read_local_resource",
+  "open_external_url",
+  "save_binary_resource",
+  "save_export_file",
+  "reveal_export_file",
+  "open_export_file",
+  "locate_export_file",
+  "export_document_pdf"
+]

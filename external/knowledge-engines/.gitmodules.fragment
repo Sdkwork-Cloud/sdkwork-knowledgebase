@@ -1,0 +1,53 @@
+# Reference fragment for optional upstream git submodule pins.
+# Copy entries into .gitmodules when initializing adapter development:
+#   node tools/sync_external_knowledge_engine_submodules.mjs --apply
+#
+# Catalog authority: external/knowledge-engines/catalog.manifest.json
+
+[submodule "external/knowledge-engines/upstream/dify"]
+	path = external/knowledge-engines/upstream/dify
+	url = https://github.com/langgenius/dify.git
+
+[submodule "external/knowledge-engines/upstream/ragflow"]
+	path = external/knowledge-engines/upstream/ragflow
+	url = https://github.com/infiniflow/ragflow.git
+
+[submodule "external/knowledge-engines/upstream/onyx"]
+	path = external/knowledge-engines/upstream/onyx
+	url = https://github.com/onyx-dot-app/onyx.git
+
+[submodule "external/knowledge-engines/upstream/anythingllm"]
+	path = external/knowledge-engines/upstream/anythingllm
+	url = https://github.com/Mintplex-Labs/anything-llm.git
+
+[submodule "external/knowledge-engines/upstream/open-webui"]
+	path = external/knowledge-engines/upstream/open-webui
+	url = https://github.com/open-webui/open-webui.git
+
+[submodule "external/knowledge-engines/upstream/flowise"]
+	path = external/knowledge-engines/upstream/flowise
+	url = https://github.com/FlowiseAI/Flowise.git
+
+[submodule "external/knowledge-engines/upstream/langchain"]
+	path = external/knowledge-engines/upstream/langchain
+	url = https://github.com/langchain-ai/langchain.git
+
+[submodule "external/knowledge-engines/upstream/llamaindex"]
+	path = external/knowledge-engines/upstream/llamaindex
+	url = https://github.com/run-llama/llama_index.git
+
+[submodule "external/knowledge-engines/upstream/haystack"]
+	path = external/knowledge-engines/upstream/haystack
+	url = https://github.com/deepset-ai/haystack.git
+
+[submodule "external/knowledge-engines/upstream/qdrant"]
+	path = external/knowledge-engines/upstream/qdrant
+	url = https://github.com/qdrant/qdrant.git
+
+[submodule "external/knowledge-engines/upstream/weaviate"]
+	path = external/knowledge-engines/upstream/weaviate
+	url = https://github.com/weaviate/weaviate.git
+
+[submodule "external/knowledge-engines/upstream/chroma"]
+	path = external/knowledge-engines/upstream/chroma
+	url = https://github.com/chroma-core/chroma.git

@@ -1,0 +1,90 @@
+import React from 'react';
+import { Settings2, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { OfficialAccount } from '../../services/wechat';
+
+interface Props {
+  filteredList: OfficialAccount[];
+  viewMode: 'list' | 'grid';
+  selectedOfficialAccountIds: string[];
+  setSelectedOfficialAccountIds: (ids: string[]) => void;
+  openEditor: (oa?: OfficialAccount) => void;
+}
+
+export function OAGrid({
+  filteredList,
+  viewMode,
+  selectedOfficialAccountIds,
+  setSelectedOfficialAccountIds,
+  openEditor
+}: Props) {
+  const { t } = useTranslation('officialAccount');
+
+  if (filteredList.length === 0) {
+    return (
+      <div className="col-span-full flex flex-col items-center justify-center py-24 border-2 border-dashed border-[var(--color-kb-panel-border)] rounded-2xl bg-[var(--color-kb-panel)]">
+        <Settings2 size={48} className="text-[var(--color-kb-text-muted)] mb-4 opacity-50" />
+        <span className="text-[15px] font-bold text-[var(--color-kb-text-heading)] mb-1">{t('emptyConfigs')}</span>
+        <span className="text-[13px] font-medium text-[var(--color-kb-text-muted)]">{t('emptyConfigsHint')}</span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {filteredList.map((app) => {
+        const isSelected = selectedOfficialAccountIds.includes(app.id);
+        return (
+          <div 
+            key={app.id} 
+            className={`group flex items-start gap-4 bg-[var(--color-kb-panel)] border ${isSelected ? 'border-[#07c160] ring-2 ring-[#07c160]/20 bg-[#07c160]/[0.03]' : 'border-[var(--color-kb-panel-border)] hover:border-[#07c160]/40 hover:shadow-md'} rounded-2xl p-5 transition-all cursor-pointer relative`}
+            onClick={() => {
+              if (isSelected) {
+                setSelectedOfficialAccountIds(selectedOfficialAccountIds.filter(id => id !== app.id));
+              } else {
+                setSelectedOfficialAccountIds([...selectedOfficialAccountIds, app.id]);
+              }
+            }}
+          >
+             {/* Radio Checkbox */}
+             <div className="pt-1 select-none">
+               <div className={`w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center transition-all shrink-0 ${isSelected ? 'bg-[#07c160] border-[#07c160] text-white shadow-sm' : 'border-[var(--color-kb-panel-border)] bg-[var(--color-kb-editor)] group-hover:border-[#07c160]/50'}`}>
+                  {isSelected && <Check size={12} strokeWidth={4} />}
+               </div>
+             </div>
+             
+             {/* Avatar */}
+             <div className="w-14 h-14 rounded-[14px] bg-[var(--color-kb-editor)] border border-[var(--color-kb-panel-border)] flex items-center justify-center text-3xl shadow-sm shrink-0 object-cover overflow-hidden select-none">
+               {app.avatar.length <= 2 ? app.avatar : <img src={app.avatar} alt="avatar" className="w-full h-full object-cover" />}
+             </div>
+
+             {/* Details */}
+             <div className="flex-1 min-w-0 pr-10 pt-0.5">
+               <h4 className="text-[15px] font-bold text-[var(--color-kb-text-heading)] truncate mb-1">{app.name}</h4>
+               <div className="flex items-center gap-2 mb-2">
+                 <span className={`text-[11px] px-2 py-0.5 rounded-md font-bold tracking-wider shrink-0 shadow-sm ${app.type === 'service' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800' : 'bg-orange-50 text-orange-600 border border-orange-100 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800'}`}>
+                   {app.type === 'service' ? t('serviceAccount') : t('subscriptionAccount')}
+                 </span>
+                 <span className="text-[12px] text-[var(--color-kb-text-muted)] truncate font-mono">
+                   {app.appId || t('unconfiguredAppId')}
+                 </span>
+               </div>
+               {app.description && (
+                 <p className="text-[12px] text-[var(--color-kb-text)] line-clamp-2 leading-relaxed opacity-80">{app.description}</p>
+               )}
+             </div>
+
+             {/* Edit Action */}
+             <button 
+               onClick={(e) => { e.stopPropagation(); openEditor(app); }}
+               className="absolute top-1/2 -translate-y-1/2 right-4 w-8 h-8 flex items-center justify-center text-[var(--color-kb-text-muted)] hover:text-white hover:bg-[#07c160] rounded-full transition-all opacity-0 group-hover:opacity-100 shadow-sm hover:shadow"
+               title={t('editConfigTooltip')}
+             >
+               <Settings2 size={16} />
+             </button>
+          </div>
+        );
+      })}
+    </>
+  );
+}

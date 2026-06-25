@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.api.authority.manifest",
+  "surfaces": [
+    {
+      "authorityPath": "apis/open-api/knowledgebase-open-api.openapi.json",
+      "sdkPath": "sdks/sdkwork-knowledgebase-sdk/openapi/knowledgebase-open-api.openapi.json"
+    },
+    {
+      "authorityPath": "apis/app-api/knowledgebase-app-api.openapi.json",
+      "sdkPath": "sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json"
+    },
+    {
+      "authorityPath": "apis/backend-api/knowledgebase-backend-api.openapi.json",
+      "sdkPath": "sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
+    }
+  ]
+}

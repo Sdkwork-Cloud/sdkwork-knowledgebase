@@ -1,0 +1,77 @@
+/target/
+/target-*/
+**/target/
+**/hosted-runtime-tests/
+**/integration-ingest-tests/
+/.tmp/
+/.codex-tmp/
+
+# Node
+node_modules/
+package-lock.json
+
+# Generated SDK local build artifacts.
+sdks/**/generated/server-openapi/node_modules/
+sdks/**/generated/server-openapi/dist/
+sdks/**/generated/server-openapi/package-lock.json
+
+# Environment and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.staging.local
+.env.production.local
+.env.postgres
+.env.release.local
+config/*.local.toml
+configs/*.local.toml
+
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor/IDE
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*~
+
+# Logs and temp
+*.log
+*.tmp
+*.bak
+
+# Local SDKWork workspace data
+.sdkwork/local/
+.sdkwork/tmp/
+.sdkwork/cache/
+.sdkwork/secrets/
+.sdkwork/knowledgebase/
+.sdkwork/runtime/
+**/.sdkwork/local/
+**/.sdkwork/tmp/
+**/.sdkwork/cache/
+**/.sdkwork/secrets/
+**/.sdkwork/knowledgebase/
+**/.sdkwork/runtime/
+**/.sdkwork/manual-backups/
+
+# PC app build artifacts
+apps/sdkwork-knowledgebase-pc/**/node_modules/
+apps/sdkwork-knowledgebase-pc/**/dist/
+apps/sdkwork-knowledgebase-pc/**/build/
+apps/sdkwork-knowledgebase-pc/**/src-tauri/target/
+apps/sdkwork-knowledgebase-pc/**/*.zip
+
+# Playwright / e2e local output
+**/test-results/
+**/playwright-report/
+**/playwright/.cache/
+
+# Merge / backup scratch
+apps/_pc26-extract/
+apps/_pc26-merge/
+backup/

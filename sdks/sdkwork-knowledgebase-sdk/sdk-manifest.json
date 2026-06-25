@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "sdkName": "sdkwork-knowledgebase-sdk",
+  "packageName": "@sdkwork/knowledgebase-sdk",
+  "sdkOwner": "sdkwork-knowledgebase",
+  "apiAuthority": "sdkwork-knowledgebase-open-api",
+  "sdkFamily": "sdkwork-knowledgebase-sdk",
+  "sdkType": "open",
+  "sdkSurface": "open",
+  "language": "typescript",
+  "apiPrefix": "/knowledge/v3/api",
+  "generationInputSpec": "openapi/knowledgebase-open-api.openapi.json",
+  "generatedOutput": "sdkwork-knowledgebase-sdk-typescript/generated/server-openapi",
+  "standardProfile": "sdkwork-v3",
+  "sdkDependencies": [],
+  "ownerOnlyOperationCount": 8,
+  "standardVersion": "2026-06-06",
+  "managedBy": "sdks/standardize-knowledgebase-sdk-family.mjs"
+}

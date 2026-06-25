@@ -1,0 +1,36 @@
+{
+  "name": "@sdkwork/knowledgebase-pc-knowledge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit --project ../../tsconfig.json"
+  },
+  "dependencies": {
+    "@sdkwork/knowledgebase-app-sdk": "workspace:*",
+    "@sdkwork/drive-app-sdk": "workspace:*",
+    "@sdkwork/sdkwork-knowledgebase-pc-commons": "workspace:*",
+    "sdkwork-knowledgebase-pc-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "i18next": "^26.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-i18next": "^17.0.0"
+  },
+  "sdkwork": {
+    "workspace": "sdkwork-knowledgebase",
+    "product": "sdkwork-knowledgebase",
+    "architecture": "pc",
+    "domain": "knowledgebase",
+    "capability": "knowledge",
+    "status": "ready"
+  }
+}

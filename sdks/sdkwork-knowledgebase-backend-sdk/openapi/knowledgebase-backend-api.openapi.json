@@ -1,0 +1,6534 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "SDKWork Knowledgebase Backend API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/backend/v3/api/knowledge/sources": {
+      "get": {
+        "operationId": "sources.list",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeSourceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "List knowledge sources",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "List knowledge sources",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      },
+      "post": {
+        "operationId": "sources.create",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateKnowledgeSourceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeSource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Create a knowledge source",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Create a knowledge source",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/compile_jobs": {
+      "post": {
+        "operationId": "okf.compileJobs.create",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfCompileJobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestionJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Create an OKF compile job",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Create an OKF compile job",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/candidates": {
+      "get": {
+        "operationId": "okf.candidates.list",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfCandidateResultList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "List OKF candidates",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "parameters": [
+          {
+            "name": "spaceId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ],
+        "summary": "List OKF candidates",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/candidates/{candidateId}/approve": {
+      "post": {
+        "operationId": "okf.candidates.approve",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfCandidateResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfCandidateReviewRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Approve an OKF candidate",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Approve an OKF candidate",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/candidates/{candidateId}/reject": {
+      "post": {
+        "operationId": "okf.candidates.reject",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfCandidateResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfCandidateReviewRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Reject an OKF candidate",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Reject an OKF candidate",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/concepts/{conceptId}/publish": {
+      "post": {
+        "operationId": "okf.concepts.publish",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "conceptId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfConceptSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfConceptPublishRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Publish an OKF concept",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Publish an OKF concept",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/profile": {
+      "post": {
+        "operationId": "okf.profile.create",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeOkfProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeOkfBundleFile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Create an OKF profile",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Create an OKF profile",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/profile/{profileId}": {
+      "patch": {
+        "operationId": "okf.profile.update",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeOkfProfileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeOkfBundleFile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Update an OKF profile",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Update an OKF profile",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/index/rebuild": {
+      "post": {
+        "operationId": "okf.bundle.index.rebuild",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfIndexDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfBundleIndexRebuildRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Rebuild the OKF bundle index",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Rebuild the OKF bundle index",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/log_entries": {
+      "post": {
+        "operationId": "okf.log.entries.create",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfLogEntry"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfLogEntry"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Create an OKF log entry",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Create an OKF log entry",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/exports": {
+      "post": {
+        "operationId": "okf.bundle.export.create",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfBundleExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeOkfBundleFile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Create an OKF bundle export",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Create an OKF bundle export",
+        "x-sdkwork-rate-limit-tier": "write-heavy",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/exports/{exportId}": {
+      "get": {
+        "operationId": "okf.bundle.export.retrieve",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "exportId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "uint64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeOkfBundleFile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Retrieve an OKF bundle export",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Retrieve an OKF bundle export",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/bundle/files": {
+      "get": {
+        "operationId": "okf.bundle.files.list",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeOkfBundleFileList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "List OKF bundle files",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "List OKF bundle files",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/lint_runs": {
+      "post": {
+        "operationId": "okf.lintRuns.create",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfQualityRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfQualityRunRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Create an OKF lint run",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Create an OKF lint run",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/eval_runs": {
+      "post": {
+        "operationId": "okf.evalRuns.create",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfQualityRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfQualityRunRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Create an OKF eval run",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Create an OKF eval run",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/indexes": {
+      "post": {
+        "operationId": "indexes.create",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeIndex"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeIndexRequest"
+              }
+            }
+          }
+        },
+        "description": "Create a knowledge index",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Create a knowledge index",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/indexes/{indexId}": {
+      "get": {
+        "operationId": "indexes.retrieve",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeIndex"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "parameters": [
+          {
+            "name": "indexId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          }
+        ],
+        "description": "Retrieve a knowledge index",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Retrieve a knowledge index",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/indexes/{indexId}/rebuild": {
+      "post": {
+        "operationId": "indexes.rebuild",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfIndexDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfBundleIndexRebuildRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "indexId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          }
+        ],
+        "description": "Rebuild a knowledge index",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Rebuild a knowledge index",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/retrieval_profiles": {
+      "post": {
+        "operationId": "retrievalProfiles.create",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeRetrievalProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeRetrievalProfileRequest"
+              }
+            }
+          }
+        },
+        "description": "Create a retrieval profile",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Create a retrieval profile",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/retrieval_profiles/{profileId}": {
+      "get": {
+        "operationId": "retrievalProfiles.retrieve",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeRetrievalProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          }
+        ],
+        "description": "Retrieve a retrieval profile",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Retrieve a retrieval profile",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      },
+      "patch": {
+        "operationId": "retrievalProfiles.update",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeRetrievalProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeRetrievalProfileRequest"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          }
+        ],
+        "description": "Update a retrieval profile",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Update a retrieval profile",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/retrieval_traces": {
+      "get": {
+        "operationId": "retrievalTraces.list",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeRetrievalTraceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "List retrieval traces",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "List retrieval traces",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/retrieval_traces/{traceId}": {
+      "get": {
+        "operationId": "retrievalTraces.retrieve",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeRetrievalTrace"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "parameters": [
+          {
+            "name": "traceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          }
+        ],
+        "description": "Retrieve a retrieval trace",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Retrieve a retrieval trace",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/provider_health": {
+      "get": {
+        "operationId": "providerHealth.retrieve",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeProviderHealth"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Retrieve provider health status",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Retrieve provider health status",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/okf/imports": {
+      "post": {
+        "operationId": "okf.bundle.import.create",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OkfBundleImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkfBundleImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "Import an OKF bundle from drive staging",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+        "summary": "Import an OKF bundle from drive staging",
+        "x-sdkwork-rate-limit-tier": "write-heavy",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateKnowledgeSpaceRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "KnowledgeSpace": {
+        "type": "object",
+        "required": [
+          "id",
+          "uuid",
+          "name",
+          "status",
+          "okfBundleInitialized"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "uuid": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driveSpaceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/KnowledgeSpaceStatus"
+          },
+          "okfBundleInitialized": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KnowledgeSpaceStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "archived",
+          "deleted"
+        ]
+      },
+      "KnowledgeIngestRequest": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "title",
+          "idempotencyKey"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payloadMarkdown": {
+            "type": "string"
+          },
+          "sourceUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "IngestionJob": {
+        "type": "object",
+        "required": [
+          "id",
+          "spaceId",
+          "sourceType",
+          "idempotencyKey",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/IngestionJobState"
+          },
+          "errorMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "IngestionJobState": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed",
+          "cancelled"
+        ]
+      },
+      "KnowledgeDriveImportRequest": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "title",
+          "driveStorageProviderId",
+          "driveBucket",
+          "driveObjectKey",
+          "idempotencyKey"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "driveBucket": {
+            "type": "string",
+            "minLength": 1
+          },
+          "driveObjectKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driveSpaceId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "driveNodeId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128
+          },
+          "driveStorageProviderId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "KnowledgeSource": {
+        "type": "object",
+        "required": [
+          "id",
+          "spaceId",
+          "sourceType"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "sourceType": {
+            "$ref": "#/components/schemas/KnowledgeSourceType"
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driveBucket": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "drivePrefix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "connectorMetadataJson": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "JSON connector config for external knowledge engines (for example Dify datasetId)."
+          }
+        }
+      },
+      "KnowledgeSourceType": {
+        "type": "string",
+        "enum": [
+          "upload",
+          "drive_object",
+          "drive_folder",
+          "url",
+          "connector",
+          "api"
+        ]
+      },
+      "KnowledgeDocument": {
+        "type": "object",
+        "required": [
+          "id",
+          "spaceId",
+          "collectionId",
+          "title",
+          "visibility",
+          "contentState",
+          "indexState"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "collectionId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "sourceId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64"
+          },
+          "originalFileDriveNodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currentVersionId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/KnowledgeDocumentVisibility"
+          },
+          "contentState": {
+            "$ref": "#/components/schemas/KnowledgeDocumentState"
+          },
+          "indexState": {
+            "$ref": "#/components/schemas/KnowledgeDocumentVersionState"
+          }
+        }
+      },
+      "KnowledgeDocumentVersion": {
+        "type": "object",
+        "required": [
+          "id",
+          "documentId",
+          "versionNo",
+          "originalObjectRefId",
+          "sizeBytes",
+          "parseState",
+          "indexState"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "documentId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "versionNo": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "originalObjectRefId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "checksumSha256Hex": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "mimeType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parseState": {
+            "$ref": "#/components/schemas/KnowledgeDocumentVersionState"
+          },
+          "indexState": {
+            "$ref": "#/components/schemas/KnowledgeDocumentVersionState"
+          }
+        }
+      },
+      "KnowledgeDocumentVisibility": {
+        "type": "string",
+        "enum": [
+          "private",
+          "space",
+          "organization",
+          "public"
+        ]
+      },
+      "KnowledgeDocumentState": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "ready",
+          "archived",
+          "deleted"
+        ]
+      },
+      "KnowledgeDocumentVersionState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "succeeded",
+          "failed"
+        ]
+      },
+      "KnowledgeOkfBundleFile": {
+        "type": "object",
+        "required": [
+          "id",
+          "spaceId",
+          "logicalPath",
+          "entryType",
+          "artifactRole",
+          "driveBucket",
+          "driveObjectKey"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "logicalPath": {
+            "type": "string"
+          },
+          "entryType": {
+            "$ref": "#/components/schemas/OkfBundleFileKind"
+          },
+          "artifactRole": {
+            "type": "string"
+          },
+          "driveBucket": {
+            "type": "string"
+          },
+          "driveObjectKey": {
+            "type": "string"
+          },
+          "checksumSha256Hex": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stagedImportRoot": {
+            "type": "string"
+          },
+          "importId": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfBundleFileKind": {
+        "type": "string",
+        "enum": [
+          "bundle_profile",
+          "bundle_index",
+          "bundle_log",
+          "concept_revision",
+          "graph_export",
+          "context_pack",
+          "output_export"
+        ]
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "instance": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "traceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "KnowledgeDriveImportResult": {
+        "type": "object",
+        "required": [
+          "source",
+          "document",
+          "version",
+          "originalObjectRef",
+          "job"
+        ],
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/KnowledgeSource"
+          },
+          "document": {
+            "$ref": "#/components/schemas/KnowledgeDocument"
+          },
+          "version": {
+            "$ref": "#/components/schemas/KnowledgeDocumentVersion"
+          },
+          "originalObjectRef": {
+            "$ref": "#/components/schemas/KnowledgeDriveObjectRef"
+          },
+          "job": {
+            "$ref": "#/components/schemas/IngestionJob"
+          }
+        }
+      },
+      "KnowledgeDriveObjectRef": {
+        "type": "object",
+        "required": [
+          "id",
+          "spaceId",
+          "driveProviderKind",
+          "driveStorageProviderId",
+          "driveBucket",
+          "driveObjectKey",
+          "sizeBytes",
+          "objectRole",
+          "accessMode"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "driveSpaceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driveNodeId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "logicalPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driveProviderKind": {
+            "type": "string"
+          },
+          "driveBucket": {
+            "type": "string"
+          },
+          "driveObjectKey": {
+            "type": "string"
+          },
+          "driveObjectVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driveEtag": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contentType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "checksumSha256Hex": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "objectRole": {
+            "type": "string"
+          },
+          "accessMode": {
+            "type": "string"
+          },
+          "driveStorageProviderId": {
+            "type": "string"
+          }
+        }
+      },
+      "KnowledgeSourceList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeSource"
+            }
+          }
+        }
+      },
+      "KnowledgeDocumentList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeDocument"
+            }
+          }
+        }
+      },
+      "KnowledgeDocumentVersionList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeDocumentVersion"
+            }
+          }
+        }
+      },
+      "KnowledgeOkfBundleFileList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeOkfBundleFile"
+            }
+          }
+        }
+      },
+      "CreateKnowledgeSourceRequest": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "sourceType"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "sourceType": {
+            "$ref": "#/components/schemas/KnowledgeSourceType"
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "driveBucket": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "drivePrefix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "connectorMetadataJson": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "JSON connector config for external knowledge engines (for example Dify datasetId)."
+          }
+        }
+      },
+      "CreateKnowledgeDocumentRequest": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "title"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "collectionId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "sourceId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64"
+          },
+          "title": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CreateKnowledgeDocumentVersionRequest": {
+        "type": "object",
+        "required": [
+          "documentId",
+          "originalObjectRefId",
+          "sizeBytes"
+        ],
+        "properties": {
+          "documentId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "originalObjectRefId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "checksumSha256Hex": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "mimeType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OkfIndexDocument": {
+        "type": "object",
+        "required": [
+          "markdown"
+        ],
+        "properties": {
+          "markdown": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfLogDocument": {
+        "type": "object",
+        "required": [
+          "markdown"
+        ],
+        "properties": {
+          "markdown": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfProfileDocument": {
+        "type": "object",
+        "required": [
+          "agentsMarkdown",
+          "schemaYaml"
+        ],
+        "properties": {
+          "agentsMarkdown": {
+            "type": "string"
+          },
+          "schemaYaml": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfConceptSummary": {
+        "type": "object",
+        "required": [
+          "title",
+          "conceptId",
+          "conceptType",
+          "logicalPath",
+          "description",
+          "sourceCount",
+          "updatedAt",
+          "tags"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "conceptId": {
+            "type": "string"
+          },
+          "conceptType": {
+            "type": "string"
+          },
+          "logicalPath": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sourceCount": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "OkfQueryRequest": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "query"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "query": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfQueryResult": {
+        "type": "object",
+        "required": [
+          "answerMarkdown"
+        ],
+        "properties": {
+          "answerMarkdown": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OkfFileAnswerRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "answerMarkdown"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "answerMarkdown": {
+            "type": "string"
+          }
+        }
+      },
+      "KnowledgeOkfProfileRequest": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "profileVersion"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "profileVersion": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfLogEntry": {
+        "type": "object",
+        "required": [
+          "occurredAt",
+          "eventType",
+          "title",
+          "actor",
+          "affectedPages",
+          "warnings"
+        ],
+        "properties": {
+          "occurredAt": {
+            "type": "string"
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "affectedPages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "auditEventId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "OkfBundleExportRequest": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "exportType"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "exportType": {
+            "type": "string"
+          },
+          "stageForImport": {
+            "type": "boolean",
+            "default": false
+          },
+          "importId": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfCompileJobRequest": {
+        "type": "object",
+        "required": [
+          "spaceId"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "sourceId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64"
+          }
+        }
+      },
+      "OkfContextPackRequest": {
+        "type": "object",
+        "required": [
+          "spaceId"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "query": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OkfCandidateResult": {
+        "type": "object",
+        "required": [
+          "id",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfQualityRun": {
+        "type": "object",
+        "required": [
+          "id",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfCandidateResultList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OkfCandidateResult"
+            }
+          }
+        }
+      },
+      "OkfCandidateReviewRequest": {
+        "type": "object",
+        "properties": {
+          "reviewerId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OkfConceptPublishRequest": {
+        "type": "object",
+        "properties": {
+          "publisherId": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OkfBundleIndexRebuildRequest": {
+        "type": "object",
+        "required": [
+          "spaceId"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          }
+        }
+      },
+      "OkfQualityRunRequest": {
+        "type": "object",
+        "required": [
+          "spaceId"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "profile": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "KnowledgeRetrievalMethod": {
+        "type": "string",
+        "enum": [
+          "exact",
+          "keyword",
+          "full_text",
+          "structured",
+          "graph",
+          "vector",
+          "hybrid",
+          "llm_rerank",
+          "external"
+        ]
+      },
+      "KnowledgeAgentStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "active",
+          "disabled",
+          "archived"
+        ]
+      },
+      "KnowledgeFilter": {
+        "type": "object",
+        "required": [
+          "key",
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "KnowledgeRetrievalBinding": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "priority"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "collectionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceFilter": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KnowledgeFilter"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documentFilter": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KnowledgeFilter"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "topK": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minScore": {
+            "anyOf": [
+              {
+                "type": "number",
+                "format": "double"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "KnowledgeRetrievalRequest": {
+        "type": "object",
+        "required": [
+          "query",
+          "bindings",
+          "includeCitations",
+          "includeTrace"
+        ],
+        "properties": {
+          "actorId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "query": {
+            "type": "string"
+          },
+          "retrievalProfileId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeRetrievalBinding"
+            }
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeRetrievalMethod"
+            },
+            "default": []
+          },
+          "topK": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "includeCitations": {
+            "type": "boolean"
+          },
+          "includeTrace": {
+            "type": "boolean"
+          },
+          "contextBudgetTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadata": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeFilter"
+            },
+            "default": []
+          }
+        }
+      },
+      "KnowledgeRetrievalTrace": {
+        "type": "object",
+        "required": [
+          "retrievalTraceId",
+          "status",
+          "resultCount"
+        ],
+        "properties": {
+          "retrievalTraceId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "status": {
+            "type": "string"
+          },
+          "latencyMs": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "uint64"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resultCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "KnowledgeCitation": {
+        "type": "object",
+        "required": [
+          "documentId",
+          "title"
+        ],
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "documentVersionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "chunkId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "sourceUri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "locator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "format": "double"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "KnowledgeContextFragment": {
+        "type": "object",
+        "required": [
+          "chunkId",
+          "documentId",
+          "spaceId",
+          "title",
+          "content",
+          "rank",
+          "retrievalMethod"
+        ],
+        "properties": {
+          "chunkId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "documentId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "documentVersionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spaceId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "collectionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "format": "double"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rank": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tokenCount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retrievalMethod": {
+            "$ref": "#/components/schemas/KnowledgeRetrievalMethod"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnowledgeCitation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "KnowledgeRetrievalResult": {
+        "type": "object",
+        "required": [
+          "retrievalId",
+          "hits"
+        ],
+        "properties": {
+          "retrievalId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "trace": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnowledgeRetrievalTrace"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeContextFragment"
+            }
+          }
+        }
+      },
+      "KnowledgeContextPackRequest": {
+        "type": "object",
+        "required": [
+          "query",
+          "bindings",
+          "contextBudgetTokens",
+          "includeCitations"
+        ],
+        "properties": {
+          "actorId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "query": {
+            "type": "string"
+          },
+          "retrievalProfileId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeRetrievalBinding"
+            }
+          },
+          "contextBudgetTokens": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "includeCitations": {
+            "type": "boolean"
+          },
+          "memoryPolicyRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "KnowledgeContextPack": {
+        "type": "object",
+        "required": [
+          "contextPackId",
+          "query",
+          "fragments",
+          "memoryFragments",
+          "estimatedTokens",
+          "citations",
+          "truncated"
+        ],
+        "properties": {
+          "contextPackId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "retrievalId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "query": {
+            "type": "string"
+          },
+          "fragments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeContextFragment"
+            }
+          },
+          "estimatedTokens": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeCitation"
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "memoryFragments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeMemoryContextFragment"
+            }
+          }
+        }
+      },
+      "KnowledgeAgentBinding": {
+        "type": "object",
+        "required": [
+          "bindingId",
+          "profileId",
+          "tenantId",
+          "spaceId",
+          "priority",
+          "enabled"
+        ],
+        "properties": {
+          "bindingId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "profileId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "tenantId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "spaceId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "collectionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceFilter": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KnowledgeFilter"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documentFilter": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KnowledgeFilter"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "topK": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minScore": {
+            "anyOf": [
+              {
+                "type": "number",
+                "format": "double"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KnowledgeAgentBindingRequest": {
+        "type": "object",
+        "required": [
+          "profileId",
+          "spaceId",
+          "priority",
+          "enabled"
+        ],
+        "properties": {
+          "profileId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "spaceId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "collectionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceFilter": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KnowledgeFilter"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documentFilter": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KnowledgeFilter"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "topK": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minScore": {
+            "anyOf": [
+              {
+                "type": "number",
+                "format": "double"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KnowledgeAgentBindingList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeAgentBinding"
+            }
+          }
+        }
+      },
+      "KnowledgeAgentProfile": {
+        "type": "object",
+        "required": [
+          "profileId",
+          "tenantId",
+          "name",
+          "systemInstruction",
+          "modelProviderId",
+          "modelId",
+          "status",
+          "bindings"
+        ],
+        "properties": {
+          "profileId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "tenantId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "systemInstruction": {
+            "type": "string"
+          },
+          "modelProviderId": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string"
+          },
+          "modelParameters": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retrievalProfileId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "citationPolicy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "memoryPolicyRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "toolPolicyRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answerPolicy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "agentImplementationId": {
+            "type": "string",
+            "default": "plugin.intelligence.rig"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KnowledgeAgentStatus"
+          },
+          "bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeAgentBinding"
+            }
+          }
+        }
+      },
+      "KnowledgeAgentProfileRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "systemInstruction",
+          "modelProviderId",
+          "modelId",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "systemInstruction": {
+            "type": "string"
+          },
+          "modelProviderId": {
+            "type": "string"
+          },
+          "modelId": {
+            "type": "string"
+          },
+          "modelParameters": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retrievalProfileId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "citationPolicy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "memoryPolicyRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "toolPolicyRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answerPolicy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "agentImplementationId": {
+            "type": "string",
+            "default": "plugin.intelligence.rig"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KnowledgeAgentStatus"
+          }
+        }
+      },
+      "KnowledgeIndexRequest": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "indexKind"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "collectionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "indexKind": {
+            "type": "string"
+          },
+          "embeddingProviderId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "embeddingModel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dimension": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metric": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "KnowledgeIndex": {
+        "type": "object",
+        "required": [
+          "indexId",
+          "tenantId",
+          "spaceId",
+          "indexKind",
+          "status"
+        ],
+        "properties": {
+          "indexId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "tenantId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "spaceId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "indexKind": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "KnowledgeRetrievalProfileRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "strategy",
+          "topK",
+          "rerankEnabled",
+          "contextBudgetTokens",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "strategy": {
+            "type": "string"
+          },
+          "topK": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minScore": {
+            "anyOf": [
+              {
+                "type": "number",
+                "format": "double"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rerankEnabled": {
+            "type": "boolean"
+          },
+          "contextBudgetTokens": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "KnowledgeRetrievalProfile": {
+        "type": "object",
+        "required": [
+          "retrievalProfileId",
+          "tenantId",
+          "name",
+          "strategy",
+          "topK",
+          "rerankEnabled",
+          "contextBudgetTokens",
+          "status"
+        ],
+        "properties": {
+          "retrievalProfileId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "tenantId": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "strategy": {
+            "type": "string"
+          },
+          "topK": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "minScore": {
+            "anyOf": [
+              {
+                "type": "number",
+                "format": "double"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rerankEnabled": {
+            "type": "boolean"
+          },
+          "contextBudgetTokens": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "KnowledgeRetrievalTraceList": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeRetrievalTrace"
+            }
+          }
+        }
+      },
+      "KnowledgeProviderHealth": {
+        "type": "object",
+        "required": [
+          "status",
+          "providerId"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "providerId": {
+            "type": "string"
+          },
+          "checkedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "KnowledgeMemoryContextFragment": {
+        "type": "object",
+        "required": [
+          "memoryId",
+          "content",
+          "rank"
+        ],
+        "properties": {
+          "memoryId": {
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "format": "double"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rank": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tokenCount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "format": "int32"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceUri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "policyRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "OkfBundleImportRequest": {
+        "type": "object",
+        "required": [
+          "spaceId",
+          "importType"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "integer",
+            "format": "uint64"
+          },
+          "importType": {
+            "type": "string"
+          },
+          "importId": {
+            "type": "string"
+          }
+        }
+      },
+      "OkfBundleImportResult": {
+        "type": "object",
+        "required": [
+          "importedConceptCount",
+          "skippedFiles"
+        ],
+        "properties": {
+          "importedConceptCount": {
+            "type": "integer",
+            "format": "uint32"
+          },
+          "skippedFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "AuthToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "AccessToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Access-Token"
+      }
+    }
+  },
+  "x-sdkwork-owner": "sdkwork-knowledgebase",
+  "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+  "x-sdkwork-sdk-family": "sdkwork-knowledgebase-backend-sdk",
+  "x-sdkwork-owner-only-input": true,
+  "x-sdkwork-standard-version": "2026-06-06",
+  "servers": [
+    {
+      "url": "/backend/v3/api"
+    }
+  ]
+}

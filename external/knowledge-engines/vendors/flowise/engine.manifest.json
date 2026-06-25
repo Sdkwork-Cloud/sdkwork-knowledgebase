@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine.vendor",
+  "vendorId": "flowise",
+  "displayName": "Flowise",
+  "category": "workflow_builder",
+  "implementationId": "engine.knowledge.external.flowise",
+  "agentProviderId": "provider.knowledge.external.flowise",
+  "integrationTier": "adapter",
+  "upstream": {
+    "repositoryUrl": "https://github.com/FlowiseAI/Flowise",
+    "defaultBranch": "main",
+    "submodulePath": "external/knowledge-engines/upstream/flowise",
+    "license": "Apache-2.0",
+    "homepage": "https://flowiseai.com"
+  },
+  "spiMapping": {
+    "search": true,
+    "read": true,
+    "list": false,
+    "health": true,
+    "ingest": true,
+    "syncSources": false
+  },
+  "authModels": ["api_key"],
+  "adapterCrate": "crates/sdkwork-knowledgebase-engine-flowise",
+  "notes": "Low-code LangChain/LlamaIndex workflow builder for RAG and agents."
+}

@@ -1,0 +1,17 @@
+[package]
+name = "sdkwork-knowledgebase-database-host"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+description = "SDKWork Knowledgebase database lifecycle bootstrap."
+
+[lib]
+name = "sdkwork_knowledgebase_database_host"
+path = "src/lib.rs"
+
+[dependencies]
+dotenvy = "0.15"
+sdkwork_database_config = { workspace = true }
+sdkwork_database_lifecycle = { workspace = true }
+sdkwork_database_spi = { workspace = true }
+sdkwork_database_sqlx = { workspace = true }

@@ -1,0 +1,23 @@
+{
+  "receiveCoupon": "立即领取代金券",
+  "themeCardTitle": "💡 微信精选主题卡片框架",
+  "themeCardDesc": "在这里自定义填充你的干货知识。优秀的读者往往喜欢具有极简结构、清晰视觉层次、并且具备适度间距的文章阅读体验。",
+  "voteTitlePrefix": "🗳️ 问卷票选卡片:",
+  "voteBtn": "投他一票",
+  "voteFooter": "一点击即统计各方选票率",
+  "searchPrefix": "🔍 微信搜一搜: ",
+  "directSearch": "直连搜索",
+  "channelPrefix": "官方视频号 · ",
+  "watchOriginal": "前往看原片",
+  "adTitle": "打造公众号原创内容极简排版的终极法宝",
+  "adSubtitle": "腾讯云开发者平台专约提供支持",
+  "adLabel": "广告",
+  "followBtn": "关注",
+  "giftTitle": "☕ 如果文章对你有启发，可以通过赞赏请作者喝杯拿铁支持原创：",
+  "giftBtnSmall": "小额请咖啡",
+  "giftBtnAny": "赞赏任意金额",
+  "appletCardTitle": "微信官方特权小程序",
+  "appletAccelerate": "小程序加速通道开启",
+  "appletDirectAccess": "支持公众号内点击直接流式访问",
+  "fallbackWidget": "【{{toolName}}】组件占位标志"
+}

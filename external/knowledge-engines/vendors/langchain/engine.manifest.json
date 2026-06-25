@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine.vendor",
+  "vendorId": "langchain",
+  "displayName": "LangChain",
+  "category": "retrieval_framework",
+  "implementationId": "engine.knowledge.external.langchain",
+  "agentProviderId": "provider.knowledge.external.langchain",
+  "integrationTier": "catalog",
+  "upstream": {
+    "repositoryUrl": "https://github.com/langchain-ai/langchain",
+    "defaultBranch": "master",
+    "submodulePath": "external/knowledge-engines/upstream/langchain",
+    "license": "MIT",
+    "homepage": "https://www.langchain.com"
+  },
+  "spiMapping": {
+    "search": true,
+    "read": true,
+    "list": true,
+    "health": false,
+    "ingest": true,
+    "syncSources": false
+  },
+  "authModels": ["api_key", "env_config"],
+  "adapterCrate": "crates/sdkwork-knowledgebase-engine-langchain",
+  "notes": "Composable LLM/RAG framework; integrate via LangServe or custom retrieval chains."
+}

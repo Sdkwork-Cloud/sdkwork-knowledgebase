@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-locate-export-file"
+description = "Enables the locate_export_file command without any pre-configured scope."
+commands.allow = ["locate_export_file"]
+
+[[permission]]
+identifier = "deny-locate-export-file"
+description = "Denies the locate_export_file command without any pre-configured scope."
+commands.deny = ["locate_export_file"]

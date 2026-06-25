@@ -1,0 +1,22 @@
+{
+  "name": "@sdkwork/knowledgebase-pc-search",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sdkwork/utils": "workspace:*",
+    "dompurify": "^3.4.11",
+    "lucide-react": "^0.546.0",
+    "marked": "^18.0.5",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "react-i18next": "^17.0.8"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.4"
+  }
+}

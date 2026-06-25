@@ -1,0 +1,102 @@
+[workspace]
+members = [
+    "crates/sdkwork-knowledgebase-database-host",
+    "crates/sdkwork-knowledgebase-contract",
+    "crates/sdkwork-knowledgebase-agent-provider",
+    "crates/sdkwork-intelligence-knowledgebase-object-key-service",
+    "crates/sdkwork-knowledgebase-drive",
+    "crates/sdkwork-knowledgebase-memory",
+    "crates/sdkwork-knowledgebase-test-support",
+    "crates/sdkwork-router-knowledgebase-app-api",
+    "crates/sdkwork-router-knowledgebase-open-api",
+    "crates/sdkwork-router-knowledgebase-backend-api",
+    "crates/sdkwork-knowledgebase-api-server",
+    "crates/sdkwork-knowledgebase-contract-tests",
+    "crates/sdkwork-knowledgebase-observability",
+    "crates/sdkwork-knowledgebase-worker",
+    "crates/sdkwork-intelligence-knowledgebase-service",
+    "crates/sdkwork-intelligence-knowledgebase-repository-sqlx",
+    "crates/sdkwork-knowledgebase-engine-dify",
+    "crates/sdkwork-knowledgebase-engine-ragflow",
+    "crates/sdkwork-knowledgebase-engine-onyx",
+    "crates/sdkwork-knowledgebase-engine-anythingllm",
+    "crates/sdkwork-knowledgebase-engine-open-webui",
+    "crates/sdkwork-knowledgebase-engine-flowise",
+    "crates/sdkwork-knowledgebase-engine-chroma",
+    "crates/sdkwork-knowledgebase-engine-qdrant",
+    "crates/sdkwork-knowledgebase-engine-weaviate",
+    "crates/sdkwork-knowledgebase-engine-haystack",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "AGPL-3.0-or-later"
+
+[workspace.dependencies]
+async-trait = "0.1"
+axum = { version = "0.8", features = ["ws"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+sha2 = "0.10"
+thiserror = "1"
+time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
+tower = { version = "0.5", features = ["util"] }
+uuid = { version = "1", features = ["serde", "v4"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+wiremock = "0.6"
+
+sdkwork-knowledgebase-contract = { path = "crates/sdkwork-knowledgebase-contract" }
+sdkwork-knowledgebase-agent-provider = { path = "crates/sdkwork-knowledgebase-agent-provider" }
+clawrouter-open-sdk = { path = "../sdkwork-claw-router/sdks/clawrouter-open-sdk/clawrouter-open-sdk-rust/generated/server-openapi" }
+sdkwork-agent-kernel = { path = "../sdkwork-kernel/sdkwork-agent-kernel" }
+sdkwork-agent-plugin-rig = { path = "../sdkwork-kernel/sdkwork-kernel-plugins/crates/sdkwork-agent-plugin-rig" }
+sdkwork-agent-plugin-core = { path = "../sdkwork-kernel/sdkwork-kernel-plugins/crates/sdkwork-agent-plugin-core" }
+sdkwork-intelligence-knowledgebase-object-key-service = { path = "crates/sdkwork-intelligence-knowledgebase-object-key-service" }
+sdkwork-knowledgebase-memory = { path = "crates/sdkwork-knowledgebase-memory" }
+sdkwork-knowledgebase-test-support = { path = "crates/sdkwork-knowledgebase-test-support" }
+sdkwork-intelligence-knowledgebase-service = { path = "crates/sdkwork-intelligence-knowledgebase-service" }
+sdkwork-intelligence-knowledgebase-repository-sqlx = { path = "crates/sdkwork-intelligence-knowledgebase-repository-sqlx" }
+sdkwork-iam-web-adapter = { path = "../sdkwork-iam/crates/sdkwork-iam-web-adapter" }
+sdkwork-web-axum = { path = "../sdkwork-web-framework/crates/sdkwork-web-axum" }
+sdkwork-web-core = { path = "../sdkwork-web-framework/crates/sdkwork-web-core" }
+sdkwork-web-store-redis = { path = "../sdkwork-web-framework/crates/sdkwork-web-store-redis" }
+sdkwork-database-config = { path = "../sdkwork-database/crates/sdkwork-database-config", package = "sdkwork-database-config" }
+sdkwork-database-lifecycle = { path = "../sdkwork-database/crates/sdkwork-database-lifecycle", package = "sdkwork-database-lifecycle" }
+sdkwork-database-spi = { path = "../sdkwork-database/crates/sdkwork-database-spi", package = "sdkwork-database-spi" }
+sdkwork-database-sqlx = { path = "../sdkwork-database/crates/sdkwork-database-sqlx", package = "sdkwork-database-sqlx" }
+sdkwork-database-repository = { path = "../sdkwork-database/crates/sdkwork-database-repository", package = "sdkwork-database-repository" }
+sdkwork-knowledgebase-database-host = { path = "crates/sdkwork-knowledgebase-database-host" }
+sdkwork_database_config = { path = "../sdkwork-database/crates/sdkwork-database-config", package = "sdkwork-database-config" }
+sdkwork_database_lifecycle = { path = "../sdkwork-database/crates/sdkwork-database-lifecycle", package = "sdkwork-database-lifecycle" }
+sdkwork_database_spi = { path = "../sdkwork-database/crates/sdkwork-database-spi", package = "sdkwork-database-spi" }
+sdkwork_database_sqlx = { path = "../sdkwork-database/crates/sdkwork-database-sqlx", package = "sdkwork-database-sqlx" }
+sdkwork_database_repository = { path = "../sdkwork-database/crates/sdkwork-database-repository", package = "sdkwork-database-repository" }
+
+# Local workspace dependency. This keeps sdkwork-drive as the only lower-level
+# storage provider and prevents knowledgebase service crates from using object
+# storage SDKs directly.
+sdkwork-drive-storage-contract = { path = "../sdkwork-drive/crates/sdkwork-drive-storage-contract" }
+
+# SDKWork workspace members - declared once at workspace root
+sdkwork-knowledgebase-drive = { path = "crates/sdkwork-knowledgebase-drive" }
+sdkwork-knowledgebase-observability = { path = "crates/sdkwork-knowledgebase-observability" }
+sdkwork-knowledgebase-engine-dify = { path = "crates/sdkwork-knowledgebase-engine-dify" }
+sdkwork-knowledgebase-engine-ragflow = { path = "crates/sdkwork-knowledgebase-engine-ragflow" }
+sdkwork-knowledgebase-engine-onyx = { path = "crates/sdkwork-knowledgebase-engine-onyx" }
+sdkwork-knowledgebase-engine-anythingllm = { path = "crates/sdkwork-knowledgebase-engine-anythingllm" }
+sdkwork-knowledgebase-engine-open-webui = { path = "crates/sdkwork-knowledgebase-engine-open-webui" }
+sdkwork-knowledgebase-engine-flowise = { path = "crates/sdkwork-knowledgebase-engine-flowise" }
+sdkwork-knowledgebase-engine-chroma = { path = "crates/sdkwork-knowledgebase-engine-chroma" }
+sdkwork-knowledgebase-engine-qdrant = { path = "crates/sdkwork-knowledgebase-engine-qdrant" }
+sdkwork-knowledgebase-engine-weaviate = { path = "crates/sdkwork-knowledgebase-engine-weaviate" }
+sdkwork-knowledgebase-engine-haystack = { path = "crates/sdkwork-knowledgebase-engine-haystack" }
+sdkwork-drive-workspace-service = { path = "../sdkwork-drive/crates/sdkwork-drive-workspace-service" }
+sdkwork-drive-config = { path = "../sdkwork-drive/crates/sdkwork-drive-config" }
+sdkwork-memory-spi = { path = "../sdkwork-memory/crates/sdkwork-memory-spi" }
+sdkwork-id-core = { path = "../sdkwork-id/crates/sdkwork-id-core" }
+sdkwork-utils-rust = { path = "../sdkwork-utils/packages/sdkwork-utils-rust" }
+sdkwork_utils_rust = { path = "../sdkwork-utils/packages/sdkwork-utils-rust", package = "sdkwork-utils-rust" }

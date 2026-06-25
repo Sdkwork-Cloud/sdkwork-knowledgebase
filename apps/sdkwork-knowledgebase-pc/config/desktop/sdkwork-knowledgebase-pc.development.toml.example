@@ -1,0 +1,22 @@
+# SDKWork Knowledgebase PC desktop host profile (development example)
+#
+# Copy to a local override file outside version control when customizing desktop host behavior.
+
+[app]
+key = "sdkwork-knowledgebase-pc"
+runtime_target = "desktop"
+deployment_profile = "standalone"
+
+[window]
+title = "SDKWork Knowledgebase"
+width = 1440
+height = 900
+
+[runtime]
+environment = "development"
+config_profile = "dev"
+
+[database]
+engine = "sqlite"
+file = "~/.sdkwork/knowledgebase/data/knowledgebase.sqlite"
+max_connections = 1

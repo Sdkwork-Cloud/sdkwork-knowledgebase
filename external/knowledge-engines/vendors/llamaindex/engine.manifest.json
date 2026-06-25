@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine.vendor",
+  "vendorId": "llamaindex",
+  "displayName": "LlamaIndex",
+  "category": "retrieval_framework",
+  "implementationId": "engine.knowledge.external.llamaindex",
+  "agentProviderId": "provider.knowledge.external.llamaindex",
+  "integrationTier": "catalog",
+  "upstream": {
+    "repositoryUrl": "https://github.com/run-llama/llama_index",
+    "defaultBranch": "main",
+    "submodulePath": "external/knowledge-engines/upstream/llamaindex",
+    "license": "MIT",
+    "homepage": "https://www.llamaindex.ai"
+  },
+  "spiMapping": {
+    "search": true,
+    "read": true,
+    "list": true,
+    "health": false,
+    "ingest": true,
+    "syncSources": false
+  },
+  "authModels": ["api_key", "env_config"],
+  "adapterCrate": "crates/sdkwork-knowledgebase-engine-llamaindex",
+  "notes": "Data framework for indexing and retrieval pipelines; often embedded in custom services."
+}

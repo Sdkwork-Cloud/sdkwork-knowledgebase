@@ -1,0 +1,12 @@
+{
+  "name": "@sdkwork/sdkwork-knowledgebase-pc-shell",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}

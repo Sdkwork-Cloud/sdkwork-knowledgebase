@@ -1,0 +1,343 @@
+{
+  "schemaVersion": 1,
+  "generator": "@sdkwork/sdk-generator",
+  "artifacts": {
+    "stateDir": ".sdkwork",
+    "manifestPath": ".sdkwork/sdkwork-generator-manifest.json",
+    "changeSummaryPath": ".sdkwork/sdkwork-generator-changes.json",
+    "executionReportPath": ".sdkwork/sdkwork-generator-report.json",
+    "manualBackupDir": ".sdkwork/manual-backups"
+  },
+  "status": "ok",
+  "mode": "apply",
+  "hasChanges": true,
+  "hasDestructiveChanges": false,
+  "changeFingerprint": "e55cbc59acac0088232827ded6a4f15ea89d28b0ddc67edf7d477d1ded4c0b93",
+  "changeImpact": {
+    "schemaVersion": 1,
+    "areas": [
+      "api-surface",
+      "models",
+      "documentation",
+      "unknown"
+    ],
+    "details": [
+      {
+        "area": "api-surface",
+        "paths": [
+          "src/api/knowledge.ts",
+          "src/sdk.ts"
+        ]
+      },
+      {
+        "area": "models",
+        "paths": [
+          "src/types/knowledge-browser-node-type.ts",
+          "src/types/knowledge-browser-node.ts",
+          "src/types/knowledge-browser-view.ts"
+        ]
+      },
+      {
+        "area": "documentation",
+        "paths": [
+          "README.md"
+        ]
+      },
+      {
+        "area": "unknown",
+        "paths": [
+          "src/index.ts"
+        ]
+      }
+    ],
+    "requiresVerification": true,
+    "summary": "Detected impact areas: api-surface, models, documentation, unknown. Verification is required."
+  },
+  "executionDecision": {
+    "schemaVersion": 1,
+    "riskLevel": "high",
+    "nextAction": "verify",
+    "requiresManualReview": false,
+    "applyRequiresExpectedFingerprint": false,
+    "summary": "Changes have been applied. Run the required verification plan now.",
+    "reasons": [
+      "manual-review-required",
+      "unknown-impact",
+      "verification-required"
+    ]
+  },
+  "executionHandoff": {
+    "schemaVersion": 1,
+    "summary": "Run the required verification commands now.",
+    "steps": [
+      {
+        "id": "verify-check",
+        "title": "Unified package check",
+        "required": true,
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, documentation, unknown.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "check"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action check"
+      },
+      {
+        "id": "verify-build",
+        "title": "Unified package build",
+        "required": true,
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, documentation, unknown.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "build"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action build"
+      }
+    ]
+  },
+  "verificationPlan": {
+    "shouldRun": true,
+    "runPhase": "now",
+    "summary": "Detected impact areas: api-surface, models, documentation, unknown. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "steps": [
+      {
+        "id": "check",
+        "title": "Unified package check",
+        "required": true,
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, documentation, unknown.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "check"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action check"
+      },
+      {
+        "id": "build",
+        "title": "Unified package build",
+        "required": true,
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, documentation, unknown.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "build"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action build"
+      }
+    ]
+  },
+  "sdk": {
+    "name": "Knowledgebase",
+    "version": "0.1.0",
+    "language": "typescript",
+    "sdkType": "custom",
+    "protocol": "http",
+    "outputPath": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
+    "packageName": "@sdkwork/knowledgebase-sdk"
+  },
+  "versioning": {
+    "resolvedVersion": "0.1.0",
+    "localVersions": []
+  },
+  "stats": {
+    "totalFiles": 49,
+    "models": 25,
+    "apis": 1,
+    "types": 27
+  },
+  "warnings": [],
+  "syncSummary": {
+    "dryRun": false,
+    "controlPlaneEnabled": true,
+    "writtenFiles": 7,
+    "skippedScaffoldFiles": 2,
+    "skippedUnchangedGeneratedFiles": 40,
+    "deletedGeneratedFiles": 0,
+    "changeSummaryPath": ".sdkwork/sdkwork-generator-changes.json",
+    "changeFingerprint": "e55cbc59acac0088232827ded6a4f15ea89d28b0ddc67edf7d477d1ded4c0b93",
+    "changes": {
+      "createdGeneratedFiles": [],
+      "updatedGeneratedFiles": [
+        "README.md",
+        "src/api/knowledge.ts",
+        "src/index.ts",
+        "src/sdk.ts",
+        "src/types/knowledge-browser-node-type.ts",
+        "src/types/knowledge-browser-node.ts",
+        "src/types/knowledge-browser-view.ts"
+      ],
+      "unchangedGeneratedFiles": [
+        "bin/publish-core.mjs",
+        "bin/publish.ps1",
+        "bin/publish.sh",
+        "bin/sdk-gen.bat",
+        "bin/sdk-gen.sh",
+        "CHANGELOG.md",
+        "LICENSE",
+        "package.json",
+        "sdkwork-sdk.json",
+        "src/api/base.ts",
+        "src/api/index.ts",
+        "src/api/paths.ts",
+        "src/auth/index.ts",
+        "src/http/client.ts",
+        "src/http/index.ts",
+        "src/types/common.ts",
+        "src/types/index.ts",
+        "src/types/ingestion-job-state.ts",
+        "src/types/ingestion-job.ts",
+        "src/types/knowledge-browser-node-permissions.ts",
+        "src/types/knowledge-browser-page.ts",
+        "src/types/knowledge-citation.ts",
+        "src/types/knowledge-context-fragment.ts",
+        "src/types/knowledge-context-pack-request.ts",
+        "src/types/knowledge-context-pack.ts",
+        "src/types/knowledge-document-list.ts",
+        "src/types/knowledge-document-state.ts",
+        "src/types/knowledge-document-version-state.ts",
+        "src/types/knowledge-document-visibility.ts",
+        "src/types/knowledge-document.ts",
+        "src/types/knowledge-filter.ts",
+        "src/types/knowledge-ingest-request.ts",
+        "src/types/knowledge-memory-context-fragment.ts",
+        "src/types/knowledge-retrieval-binding.ts",
+        "src/types/knowledge-retrieval-method.ts",
+        "src/types/knowledge-retrieval-request.ts",
+        "src/types/knowledge-retrieval-result.ts",
+        "src/types/knowledge-retrieval-trace.ts",
+        "src/types/problem-details.ts",
+        "tsconfig.json"
+      ],
+      "deletedGeneratedFiles": [],
+      "scaffoldedFiles": [],
+      "preservedScaffoldFiles": [
+        "custom/build-runtime.mjs",
+        "custom/README.md"
+      ],
+      "backedUpFiles": []
+    },
+    "impact": {
+      "schemaVersion": 1,
+      "areas": [
+        "api-surface",
+        "models",
+        "documentation",
+        "unknown"
+      ],
+      "details": [
+        {
+          "area": "api-surface",
+          "paths": [
+            "src/api/knowledge.ts",
+            "src/sdk.ts"
+          ]
+        },
+        {
+          "area": "models",
+          "paths": [
+            "src/types/knowledge-browser-node-type.ts",
+            "src/types/knowledge-browser-node.ts",
+            "src/types/knowledge-browser-view.ts"
+          ]
+        },
+        {
+          "area": "documentation",
+          "paths": [
+            "README.md"
+          ]
+        },
+        {
+          "area": "unknown",
+          "paths": [
+            "src/index.ts"
+          ]
+        }
+      ],
+      "requiresVerification": true,
+      "summary": "Detected impact areas: api-surface, models, documentation, unknown. Verification is required."
+    },
+    "verificationPlan": {
+      "shouldRun": true,
+      "runPhase": "now",
+      "summary": "Detected impact areas: api-surface, models, documentation, unknown. Verification is required. Run the required verification commands now against the generated SDK output.",
+      "steps": [
+        {
+          "id": "check",
+          "title": "Unified package check",
+          "required": true,
+          "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, documentation, unknown.",
+          "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
+          "command": "node",
+          "args": [
+            "./bin/publish-core.mjs",
+            "--language",
+            "typescript",
+            "--project-dir",
+            ".",
+            "--action",
+            "check"
+          ],
+          "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action check"
+        },
+        {
+          "id": "build",
+          "title": "Unified package build",
+          "required": true,
+          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, documentation, unknown.",
+          "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
+          "command": "node",
+          "args": [
+            "./bin/publish-core.mjs",
+            "--language",
+            "typescript",
+            "--project-dir",
+            ".",
+            "--action",
+            "build"
+          ],
+          "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action build"
+        }
+      ]
+    },
+    "executionDecision": {
+      "schemaVersion": 1,
+      "riskLevel": "high",
+      "nextAction": "verify",
+      "requiresManualReview": false,
+      "applyRequiresExpectedFingerprint": false,
+      "summary": "Changes have been applied. Run the required verification plan now.",
+      "reasons": [
+        "manual-review-required",
+        "unknown-impact",
+        "verification-required"
+      ]
+    },
+    "backedUpFiles": [],
+    "preservedLegacyFiles": false
+  }
+}

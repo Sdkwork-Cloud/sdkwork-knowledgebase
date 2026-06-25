@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine.vendor",
+  "vendorId": "weaviate",
+  "displayName": "Weaviate",
+  "category": "vector_store",
+  "implementationId": "engine.knowledge.external.weaviate",
+  "agentProviderId": "provider.knowledge.external.weaviate",
+  "integrationTier": "adapter",
+  "upstream": {
+    "repositoryUrl": "https://github.com/weaviate/weaviate",
+    "defaultBranch": "main",
+    "submodulePath": "external/knowledge-engines/upstream/weaviate",
+    "license": "BSD-3-Clause",
+    "homepage": "https://weaviate.io"
+  },
+  "spiMapping": {
+    "search": true,
+    "read": false,
+    "list": true,
+    "health": true,
+    "ingest": true,
+    "syncSources": false
+  },
+  "authModels": ["api_key", "oidc"],
+  "adapterCrate": "crates/sdkwork-knowledgebase-engine-weaviate",
+  "notes": "Vector database with hybrid search; common backend for Dify and custom RAG stacks."
+}

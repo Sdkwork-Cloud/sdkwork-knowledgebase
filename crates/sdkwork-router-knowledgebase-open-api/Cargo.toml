@@ -1,0 +1,21 @@
+[package]
+name = "sdkwork-router-knowledgebase-open-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+axum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sdkwork-knowledgebase-contract.workspace = true
+sdkwork-iam-web-adapter.workspace = true
+sdkwork-router-knowledgebase-backend-api = { path = "../sdkwork-router-knowledgebase-backend-api" }
+sdkwork-knowledgebase-observability.workspace = true
+sdkwork-web-axum.workspace = true
+sdkwork-web-core.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+tower.workspace = true

@@ -1,0 +1,15 @@
+schemaVersion: 1
+kind: sdkwork.sdkgen.config
+input: knowledgebase-app-api.openapi.json
+output: ../sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi
+sdkOwner: sdkwork-knowledgebase
+apiAuthority: sdkwork-knowledgebase-app-api
+sdkFamily: sdkwork-knowledgebase-app-sdk
+standardProfile: sdkwork-v3
+languageTargets:
+  - typescript
+ownerOnly: true
+domain: intelligence
+capability: knowledgebase
+prefix: /app/v3/api
+surface: app-api

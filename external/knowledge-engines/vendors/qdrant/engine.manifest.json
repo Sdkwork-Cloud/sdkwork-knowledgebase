@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine.vendor",
+  "vendorId": "qdrant",
+  "displayName": "Qdrant",
+  "category": "vector_store",
+  "implementationId": "engine.knowledge.external.qdrant",
+  "agentProviderId": "provider.knowledge.external.qdrant",
+  "integrationTier": "adapter",
+  "upstream": {
+    "repositoryUrl": "https://github.com/qdrant/qdrant",
+    "defaultBranch": "master",
+    "submodulePath": "external/knowledge-engines/upstream/qdrant",
+    "license": "Apache-2.0",
+    "homepage": "https://qdrant.tech"
+  },
+  "spiMapping": {
+    "search": true,
+    "read": false,
+    "list": true,
+    "health": true,
+    "ingest": true,
+    "syncSources": false
+  },
+  "authModels": ["api_key"],
+  "adapterCrate": "crates/sdkwork-knowledgebase-engine-qdrant",
+  "notes": "Vector database backend; pairs with native RAG ingest or external platform retrieval."
+}

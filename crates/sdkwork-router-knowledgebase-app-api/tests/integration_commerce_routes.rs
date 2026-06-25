@@ -1,0 +1,365 @@
+use axum::body::Body;
+use axum::http::{Method, Request, StatusCode};
+use sdkwork_router_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
+use serde_json::json;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tower::util::ServiceExt;
+
+#[tokio::test]
+async fn integration_market_list_bootstraps_from_created_space() {
+    let runtime = test_runtime().await;
+    let space_id = create_space(&runtime, "Market Bootstrap Space").await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(paths::MARKET_LISTINGS)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "market list failed: {}",
+        response_body_string(response).await
+    );
+    let body = response_body_json(response).await;
+    let items = body["items"].as_array().expect("market items array");
+    assert!(
+        !items.is_empty(),
+        "expected market catalog bootstrap from knowledge spaces"
+    );
+    assert!(
+        items
+            .iter()
+            .any(|item| item["title"].as_str() == Some("Market Bootstrap Space")),
+        "expected created space to appear in market catalog: {body}"
+    );
+    assert_ne!(items[0]["id"].as_str(), None);
+    let _ = space_id;
+}
+
+#[tokio::test]
+async fn integration_market_subscription_round_trip() {
+    let runtime = test_runtime().await;
+    let _space_id = create_space(&runtime, "Market Subscription Space").await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let list_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(paths::MARKET_LISTINGS)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(list_response.status(), StatusCode::OK);
+    let listing_id = response_body_json(list_response).await["items"][0]["id"]
+        .as_str()
+        .expect("listing id")
+        .parse::<u64>()
+        .expect("numeric listing id");
+
+    let subscribe_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(paths::MARKET_SUBSCRIPTIONS)
+                .header("content-type", "application/json")
+                .body(Body::from(json!({ "listingId": listing_id }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        subscribe_response.status(),
+        StatusCode::CREATED,
+        "subscribe failed: {}",
+        response_body_string(subscribe_response).await
+    );
+    assert_eq!(
+        response_body_json(subscribe_response).await["success"],
+        true
+    );
+
+    let subscribed_list = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(paths::MARKET_LISTINGS)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let subscribed_body = response_body_json(subscribed_list).await;
+    let subscribed_item = subscribed_body["items"]
+        .as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item["id"] == listing_id.to_string())
+        })
+        .expect("subscribed listing");
+    assert_eq!(subscribed_item["isSubscribed"], true);
+
+    let unsubscribe_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri(format!(
+                    "/app/v3/api/knowledge/market/subscriptions/{listing_id}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unsubscribe_response.status(), StatusCode::OK);
+    assert_eq!(
+        response_body_json(unsubscribe_response).await["success"],
+        true
+    );
+}
+
+#[tokio::test]
+async fn integration_site_deployment_publishes_ingested_documents() {
+    let runtime = test_runtime().await;
+    let space_id = create_space(&runtime, "Site Deployment Space").await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let ingest_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(paths::INGESTS)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "spaceId": space_id,
+                        "title": "deploy-page",
+                        "idempotencyKey": "integration-site-deploy-001",
+                        "payloadMarkdown": "# Deploy\n\nPublished body."
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        ingest_response.status(),
+        StatusCode::CREATED,
+        "ingest failed: {}",
+        response_body_string(ingest_response).await
+    );
+
+    let deploy_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(paths::SITE_DEPLOYMENTS)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "spaceId": space_id,
+                        "platform": "vercel",
+                        "siteName": "Deploy Demo"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        deploy_response.status(),
+        StatusCode::CREATED,
+        "site deployment failed: {}",
+        response_body_string(deploy_response).await
+    );
+    let deploy_body = response_body_json(deploy_response).await;
+    assert_eq!(deploy_body["success"], true);
+    assert!(deploy_body["url"]
+        .as_str()
+        .is_some_and(|url| url.starts_with("https://")));
+    let deployment_id = deploy_body["deploymentId"].as_u64().expect("deployment id");
+
+    let preview_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/app/v3/api/knowledge/site_deployments/{deployment_id}/preview"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        preview_response.status(),
+        StatusCode::OK,
+        "preview failed: {}",
+        response_body_string(preview_response).await
+    );
+    let preview_body = response_body_json(preview_response).await;
+    assert_eq!(preview_body["deploymentId"], deployment_id);
+    assert!(
+        preview_body["html"]
+            .as_str()
+            .is_some_and(|html| html.contains("Deploy Demo")),
+        "preview html should include site title"
+    );
+}
+
+#[tokio::test]
+async fn integration_media_task_requires_agent_profile() {
+    let runtime = test_runtime().await;
+    let space_id = create_space(&runtime, "Media Task Space").await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(paths::MEDIA_TASKS)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "spaceId": space_id,
+                        "taskType": "generate_image",
+                        "prompt": "A calm mountain landscape"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = response_body_string(response).await;
+    assert!(
+        body.contains("commerce_agent_profile_required"),
+        "expected agent profile validation, got: {body}"
+    );
+}
+
+#[tokio::test]
+async fn integration_git_sync_rejects_invalid_request() {
+    let runtime = test_runtime().await;
+    let space_id = create_space(&runtime, "Git Sync Space").await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(paths::GIT_SYNCS)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "spaceId": space_id,
+                        "repoUrl": "",
+                        "commitMessage": "sync",
+                        "idempotencyKey": "integration-git-sync-invalid"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+async fn create_space(runtime: &KnowledgebaseRuntime, name: &str) -> u64 {
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(paths::SPACES)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": name,
+                        "description": "Commerce integration test space"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::CREATED,
+        "create space failed: {}",
+        response_body_string(response).await
+    );
+    response_body_json(response).await["id"]
+        .as_u64()
+        .expect("space id")
+}
+
+async fn test_runtime() -> KnowledgebaseRuntime {
+    static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock before unix epoch")
+        .as_nanos();
+    let sequence = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let work_dir = std::env::current_dir().expect("current directory");
+    let test_root = work_dir
+        .join("target")
+        .join("integration-commerce-tests")
+        .join(format!("{}-{}-{}", std::process::id(), nanos, sequence));
+    std::fs::create_dir_all(&test_root).expect("create integration commerce test directory");
+    let drive_root = test_root.join("drive-objects");
+    std::fs::create_dir_all(&drive_root).expect("create drive storage root");
+    std::env::set_var(
+        "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
+        drive_root.to_string_lossy().as_ref(),
+    );
+
+    let database_path = test_root.join("knowledgebase.db");
+    let relative_database_path = database_path
+        .strip_prefix(&work_dir)
+        .unwrap_or(&database_path)
+        .display()
+        .to_string()
+        .replace('\\', "/");
+    let database_url = format!("sqlite://{relative_database_path}?mode=rwc");
+    KnowledgebaseRuntime::connect(&database_url, 1)
+        .await
+        .expect("initialize integration commerce runtime")
+}
+
+async fn response_body_json(response: axum::response::Response) -> serde_json::Value {
+    let text = response_body_string(response).await;
+    serde_json::from_str(&text).expect("parse response json")
+}
+
+async fn response_body_string(response: axum::response::Response) -> String {
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read response body");
+    String::from_utf8(bytes.to_vec()).expect("utf8 response body")
+}

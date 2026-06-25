@@ -1,0 +1,49 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sdkwork-knowledgebase
+  labels:
+    app: sdkwork-knowledgebase
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "32m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - knowledgebase.sdkwork.com
+        - knowledgebase-admin.sdkwork.com
+        - knowledge.sdkwork.com
+      secretName: sdkwork-knowledgebase-tls
+  rules:
+    - host: knowledgebase.sdkwork.com
+      http:
+        paths:
+          - path: /app/v3/api
+            pathType: Prefix
+            backend:
+              service:
+                name: sdkwork-knowledgebase-app-api
+                port:
+                  name: http
+    - host: knowledgebase-admin.sdkwork.com
+      http:
+        paths:
+          - path: /backend/v3/api
+            pathType: Prefix
+            backend:
+              service:
+                name: sdkwork-knowledgebase-backend-api
+                port:
+                  name: http
+    - host: knowledge.sdkwork.com
+      http:
+        paths:
+          - path: /knowledge/v3/api
+            pathType: Prefix
+            backend:
+              service:
+                name: sdkwork-knowledgebase-open-api
+                port:
+                  name: http

@@ -1,0 +1,22 @@
+identifier = "default"
+description = "Allow narrow SDKWork Knowledgebase desktop host capabilities."
+commands.allow = [
+  "window_control",
+  "fetch_binary_resource",
+  "read_local_resource",
+  "open_external_url",
+  "save_binary_resource",
+  "save_export_file",
+  "reveal_export_file",
+  "open_export_file",
+  "locate_export_file",
+  "export_document_pdf",
+  "sync_desktop_preferences",
+  "get_desktop_host_status",
+  "get_autostart_enabled",
+  "sync_tray_locale",
+  "write_secure_session_value",
+  "remove_secure_session_value",
+  "clear_secure_session_values",
+  "read_secure_session_snapshot"
+]

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine.vendor",
+  "vendorId": "haystack",
+  "displayName": "Haystack",
+  "category": "retrieval_framework",
+  "implementationId": "engine.knowledge.external.haystack",
+  "agentProviderId": "provider.knowledge.external.haystack",
+  "integrationTier": "adapter",
+  "upstream": {
+    "repositoryUrl": "https://github.com/deepset-ai/haystack",
+    "defaultBranch": "main",
+    "submodulePath": "external/knowledge-engines/upstream/haystack",
+    "license": "Apache-2.0",
+    "homepage": "https://haystack.deepset.ai"
+  },
+  "spiMapping": {
+    "search": true,
+    "read": true,
+    "list": true,
+    "health": true,
+    "ingest": true,
+    "syncSources": false
+  },
+  "authModels": ["api_key", "bearer_token"],
+  "adapterCrate": "crates/sdkwork-knowledgebase-engine-haystack",
+  "notes": "Production-oriented NLP/RAG pipelines with document stores and REST deployment."
+}

@@ -1,0 +1,242 @@
+use crate::ports::knowledge_drive_storage::{
+    KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError, PutKnowledgeObjectRequest,
+};
+use sdkwork_knowledgebase_contract::{
+    mirror::{
+        DeltaManifest, DeltaOperations, MirrorContentPolicy, MirrorDatabase, MirrorManifest,
+        OkfBundleCompatibility,
+    },
+    OkfBundlePaths,
+};
+use sdkwork_utils_rust::{is_blank, sha256_hash};
+use serde::Serialize;
+use thiserror::Error;
+
+const LOCAL_MIRROR_SCHEMA_VERSION: &str = "1.0.0";
+const OKF_BUNDLE_PROFILE: &str = "external/knowledge-catalog/okf/SPEC.md";
+const SNAPSHOT_PACKAGE_KIND: &str = "snapshot";
+const DELTA_PACKAGE_KIND: &str = "delta";
+const SNAPSHOT_OBJECT_ROLE: &str = "local_mirror_snapshot";
+const DELTA_OBJECT_ROLE: &str = "local_mirror_delta";
+
+pub struct KnowledgeLocalMirrorManifestService<'a> {
+    drive: &'a dyn KnowledgeDriveStorage,
+}
+
+impl<'a> KnowledgeLocalMirrorManifestService<'a> {
+    pub fn new(drive: &'a dyn KnowledgeDriveStorage) -> Self {
+        Self { drive }
+    }
+
+    pub async fn persist_snapshot_manifest(
+        &self,
+        request: PersistLocalMirrorSnapshotManifestRequest,
+    ) -> Result<PersistedLocalMirrorSnapshotManifest, KnowledgeLocalMirrorManifestServiceError>
+    {
+        validate_required("space_id", &request.space_id)?;
+        validate_required("created_at", &request.created_at)?;
+        validate_required("objects_manifest", &request.objects_manifest)?;
+        validate_required("checksums", &request.checksums)?;
+        let snapshot_version = safe_path_segment("snapshot_version", &request.snapshot_version)?;
+        if let Some(base_snapshot_version) = &request.base_snapshot_version {
+            safe_path_segment("base_snapshot_version", base_snapshot_version)?;
+        }
+
+        let space_uuid = request.space_id.clone();
+        let manifest = MirrorManifest {
+            schema_version: LOCAL_MIRROR_SCHEMA_VERSION.to_string(),
+            space_id: request.space_id,
+            snapshot_version: request.snapshot_version,
+            base_snapshot_version: request.base_snapshot_version,
+            created_at: request.created_at,
+            package_kind: SNAPSHOT_PACKAGE_KIND.to_string(),
+            content_policy: request.content_policy,
+            okf_bundle_compatibility: okf_bundle_compatibility(),
+            database: request.database,
+            objects_manifest: request.objects_manifest,
+            index_manifests: request.index_manifests,
+            checksums: request.checksums,
+        };
+
+        let object_ref = self
+            .persist_json(
+                format!("mirror/snapshots/{snapshot_version}/mirror_manifest.json"),
+                SNAPSHOT_OBJECT_ROLE,
+                &space_uuid,
+                &manifest,
+            )
+            .await?;
+
+        Ok(PersistedLocalMirrorSnapshotManifest {
+            manifest,
+            object_ref,
+        })
+    }
+
+    pub async fn persist_delta_manifest(
+        &self,
+        request: PersistLocalMirrorDeltaManifestRequest,
+    ) -> Result<PersistedLocalMirrorDeltaManifest, KnowledgeLocalMirrorManifestServiceError> {
+        validate_required("space_id", &request.space_id)?;
+        validate_required("created_at", &request.created_at)?;
+        validate_required("requires_schema_version", &request.requires_schema_version)?;
+        validate_required("checksums", &request.checksums)?;
+        let from_snapshot_version =
+            safe_path_segment("from_snapshot_version", &request.from_snapshot_version)?;
+        let to_snapshot_version =
+            safe_path_segment("to_snapshot_version", &request.to_snapshot_version)?;
+        if from_snapshot_version == to_snapshot_version {
+            return Err(KnowledgeLocalMirrorManifestServiceError::InvalidRequest(
+                "from_snapshot_version and to_snapshot_version must differ".to_string(),
+            ));
+        }
+
+        let space_uuid = request.space_id.clone();
+        let manifest = DeltaManifest {
+            schema_version: LOCAL_MIRROR_SCHEMA_VERSION.to_string(),
+            space_id: request.space_id,
+            package_kind: DELTA_PACKAGE_KIND.to_string(),
+            from_snapshot_version: request.from_snapshot_version,
+            to_snapshot_version: request.to_snapshot_version,
+            created_at: request.created_at,
+            requires_schema_version: request.requires_schema_version,
+            operations: request.operations,
+            checksums: request.checksums,
+        };
+
+        let object_ref = self
+            .persist_json(
+                format!(
+                    "mirror/deltas/{from_snapshot_version}_to_{to_snapshot_version}/delta_manifest.json"
+                ),
+                DELTA_OBJECT_ROLE,
+                &space_uuid,
+                &manifest,
+            )
+            .await?;
+
+        Ok(PersistedLocalMirrorDeltaManifest {
+            manifest,
+            object_ref,
+        })
+    }
+
+    async fn persist_json<T>(
+        &self,
+        logical_path: String,
+        object_role: &str,
+        space_uuid: &str,
+        value: &T,
+    ) -> Result<KnowledgeObjectRef, KnowledgeLocalMirrorManifestServiceError>
+    where
+        T: Serialize,
+    {
+        let body = serde_json::to_vec_pretty(value).map_err(|error| {
+            KnowledgeLocalMirrorManifestServiceError::Internal(error.to_string())
+        })?;
+        let checksum_sha256_hex = sha256_hash(&body);
+        self.drive
+            .put_object(PutKnowledgeObjectRequest::managed_json(
+                logical_path,
+                object_role,
+                body,
+                checksum_sha256_hex,
+                space_uuid,
+            ))
+            .await
+            .map_err(KnowledgeLocalMirrorManifestServiceError::Storage)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersistLocalMirrorSnapshotManifestRequest {
+    pub space_id: String,
+    pub snapshot_version: String,
+    pub base_snapshot_version: Option<String>,
+    pub created_at: String,
+    pub content_policy: MirrorContentPolicy,
+    pub database: MirrorDatabase,
+    pub objects_manifest: String,
+    pub index_manifests: Vec<String>,
+    pub checksums: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersistedLocalMirrorSnapshotManifest {
+    pub manifest: MirrorManifest,
+    pub object_ref: KnowledgeObjectRef,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersistLocalMirrorDeltaManifestRequest {
+    pub space_id: String,
+    pub from_snapshot_version: String,
+    pub to_snapshot_version: String,
+    pub created_at: String,
+    pub requires_schema_version: String,
+    pub operations: DeltaOperations,
+    pub checksums: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersistedLocalMirrorDeltaManifest {
+    pub manifest: DeltaManifest,
+    pub object_ref: KnowledgeObjectRef,
+}
+
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum KnowledgeLocalMirrorManifestServiceError {
+    #[error("invalid local mirror manifest request: {0}")]
+    InvalidRequest(String),
+    #[error(transparent)]
+    Storage(#[from] KnowledgeStorageError),
+    #[error("local mirror manifest internal error: {0}")]
+    Internal(String),
+}
+
+fn okf_bundle_compatibility() -> OkfBundleCompatibility {
+    let paths = OkfBundlePaths::default();
+    OkfBundleCompatibility {
+        okf_version: "0.1".to_string(),
+        profile: OKF_BUNDLE_PROFILE.to_string(),
+        agent_instruction_path: paths.local_mirror_agents_md.to_string(),
+        profile_path: paths.local_mirror_profile.to_string(),
+        raw_root: paths.local_mirror_raw_root.to_string(),
+        bundle_root: paths.local_mirror_bundle_root.to_string(),
+        index_path: "index.md".to_string(),
+        log_path: "log.md".to_string(),
+    }
+}
+
+fn validate_required(
+    field: &str,
+    value: &str,
+) -> Result<(), KnowledgeLocalMirrorManifestServiceError> {
+    if is_blank(Some(value)) {
+        return Err(KnowledgeLocalMirrorManifestServiceError::InvalidRequest(
+            format!("{field} is required"),
+        ));
+    }
+    Ok(())
+}
+
+fn safe_path_segment(
+    field: &str,
+    value: &str,
+) -> Result<String, KnowledgeLocalMirrorManifestServiceError> {
+    validate_required(field, value)?;
+    if value == "."
+        || value == ".."
+        || value.contains('/')
+        || value.contains('\\')
+        || value.contains(':')
+        || !value
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' || ch == '_')
+    {
+        return Err(KnowledgeLocalMirrorManifestServiceError::InvalidRequest(
+            format!("{field} is not a safe path segment"),
+        ));
+    }
+    Ok(value.to_string())
+}

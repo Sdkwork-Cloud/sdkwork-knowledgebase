@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.external-knowledge-engine.vendor",
+  "vendorId": "chroma",
+  "displayName": "Chroma",
+  "category": "vector_store",
+  "implementationId": "engine.knowledge.external.chroma",
+  "agentProviderId": "provider.knowledge.external.chroma",
+  "integrationTier": "adapter",
+  "upstream": {
+    "repositoryUrl": "https://github.com/chroma-core/chroma",
+    "defaultBranch": "main",
+    "submodulePath": "external/knowledge-engines/upstream/chroma",
+    "license": "Apache-2.0",
+    "homepage": "https://www.trychroma.com"
+  },
+  "spiMapping": {
+    "search": true,
+    "read": false,
+    "list": true,
+    "health": true,
+    "ingest": true,
+    "syncSources": false
+  },
+  "authModels": ["api_key", "bearer_token"],
+  "adapterCrate": "crates/sdkwork-knowledgebase-engine-chroma",
+  "notes": "Embedded-friendly vector store used by many OSS RAG tutorials and platforms."
+}

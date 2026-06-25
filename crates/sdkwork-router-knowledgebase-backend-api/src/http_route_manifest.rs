@@ -1,0 +1,174 @@
+use sdkwork_web_core::{HttpMethod, HttpRoute, HttpRouteManifest, RateLimitTier};
+
+const fn abuse_sensitive_route(
+    method: HttpMethod,
+    path: &'static str,
+    tag: &'static str,
+    operation_id: &'static str,
+) -> HttpRoute {
+    HttpRoute::dual_token(method, path, tag, operation_id)
+        .with_rate_limit_tier(RateLimitTier::AuthCritical)
+}
+
+const HTTP_ROUTES: &[HttpRoute] = &[
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/sources",
+        "knowledge",
+        "sources.list",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/sources",
+        "knowledge",
+        "sources.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/compile_jobs",
+        "knowledge",
+        "okf.compileJobs.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/okf/candidates",
+        "knowledge",
+        "okf.candidates.list",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/candidates/{candidateId}/approve",
+        "knowledge",
+        "okf.candidates.approve",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/candidates/{candidateId}/reject",
+        "knowledge",
+        "okf.candidates.reject",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/concepts/{conceptId}/publish",
+        "knowledge",
+        "okf.concepts.publish",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/profile",
+        "knowledge",
+        "okf.profile.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Patch,
+        "/backend/v3/api/knowledge/okf/profile/{profileId}",
+        "knowledge",
+        "okf.profile.update",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/index/rebuild",
+        "knowledge",
+        "okf.bundle.index.rebuild",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/log_entries",
+        "knowledge",
+        "okf.log.entries.create",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/exports",
+        "knowledge",
+        "okf.bundle.export.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/okf/exports/{exportId}",
+        "knowledge",
+        "okf.bundle.export.retrieve",
+    ),
+    abuse_sensitive_route(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/imports",
+        "knowledge",
+        "okf.bundle.import.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/okf/bundle/files",
+        "knowledge",
+        "okf.bundle.files.list",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/lint_runs",
+        "knowledge",
+        "okf.lintRuns.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/okf/eval_runs",
+        "knowledge",
+        "okf.evalRuns.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/indexes",
+        "knowledge",
+        "indexes.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/indexes/{indexId}",
+        "knowledge",
+        "indexes.retrieve",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/indexes/{indexId}/rebuild",
+        "knowledge",
+        "indexes.rebuild",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/retrieval_profiles",
+        "knowledge",
+        "retrievalProfiles.create",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/retrieval_profiles/{profileId}",
+        "knowledge",
+        "retrievalProfiles.retrieve",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Patch,
+        "/backend/v3/api/knowledge/retrieval_profiles/{profileId}",
+        "knowledge",
+        "retrievalProfiles.update",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/retrieval_traces",
+        "knowledge",
+        "retrievalTraces.list",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/retrieval_traces/{traceId}",
+        "knowledge",
+        "retrievalTraces.retrieve",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/provider_health",
+        "knowledge",
+        "providerHealth.retrieve",
+    ),
+];
+
+pub fn backend_route_manifest() -> HttpRouteManifest {
+    HttpRouteManifest::new(HTTP_ROUTES)
+}

@@ -1,0 +1,97 @@
+{
+  "managerTitle": "公众号推送渠道管理",
+  "managerDesc": "多渠道智能化分发配置与管理",
+  "channelGroups": "渠道分组",
+  "manageCustomGroups": "管理自定义分组",
+  "allAccounts": "全部账号",
+  "pendingAccountsList": "待发账号列表",
+  "listView": "列表视图",
+  "gridView": "网格视图",
+  "addNewConfig": "新增配置",
+  
+  "emptyConfigs": "暂无公众号配置",
+  "emptyConfigsHint": "点击右上角“新增配置”开始添加",
+  
+  "serviceAccount": "服务号",
+  "subscriptionAccount": "订阅号",
+  "unconfiguredAppId": "未配置 AppID",
+  "editConfigTooltip": "编辑配置",
+  
+  "selectedAccountCount": "已选择 <1>{{count}}</1> 个渠道进行群发",
+  "cancel": "取消",
+  "confirmAndContinue": "确认并继续",
+  "confirm": "确定",
+  "saveConfig": "保存配置",
+
+  "editConfigTitle": "编辑配置: {{name}}",
+  "newConfigTitle": "新建公众号配置",
+  "configSubtitle": "完善商业化连接配置与接口连通",
+
+  "addNewGroup": "新增业务分组",
+  "groupName": "分组名称",
+  "inputGroupNamePlaceholder": "请输入分组名称",
+  "unassignedGroup": "未分组",
+  
+  "basicInfo": "基本信息",
+  "developerConfig": "开发者配置",
+  "domainSettings": "域名设置",
+  "messagePush": "消息推送",
+
+  "oaNameLabel": "公众号名称",
+  "oaNamePlaceholder": "例如: AI人工智能基地",
+  "descriptionLabel": "备注信息 (选填)",
+  "descriptionPlaceholder": "描述该公众号的作用或归属...",
+  "accountTypeLabel": "账号类型",
+  "defaultGroupLabel": "默认分类",
+
+  "avatarLabel": "图标头像 (Avatar)",
+  "uploadLocalImage": "本地图片",
+  "uploadLocalImageHint": "上传本地图片",
+  "remove": "移除",
+
+  "developerHint": "请在微信公众平台「配置与开发 - 基本配置」中获取开发者ID (AppID) 和开发者密码 (AppSecret)。",
+  "appIdLabel": "AppID (公众号ID)",
+  "appIdPlaceholder": "wx1234567890abcdef",
+  "appSecretLabel": "AppSecret (开发者密钥)",
+  "appSecretPlaceholder": "********************************",
+
+  "domainHint": "请确保填写的域名已在微信公众平台的「公众号设置 - 功能设置」中完成配置。需要上传校验文件才能使域名生效。",
+  "jsSecureDomainLabel": "JS接口安全域名",
+  "webAuthDomainLabel": "网页授权域名",
+  "businessDomainLabel": "业务域名",
+  "domainPlaceholder": "例如: example.com (不带 HTTP 和 /)",
+  "max5": "(最多5个)",
+  "max2": "(最多2个)",
+  "max3": "(最多3个)",
+  "add": "添加",
+
+  "domainVerifyFileLabel": "业务域名校验文件",
+  "uploadVerifyFile": "上传校验文件 (**.txt)",
+  "downloadVerifyFileHint": "请将下载的校验文件上传至此处",
+
+  "serverHint": "请在微信公众平台「配置与开发 - 基本配置」中配置服务器地址 (URL)、令牌 (Token) 和 消息加解密密钥 (EncodingAESKey)。",
+  "serverUrlLabel": "服务器地址 (URL)",
+  "serverUrlPlaceholder": "https://example.com/api/wechat",
+  "tokenLabel": "Token (令牌)",
+  "tokenPlaceholder": "必须为英文或数字",
+  "encodingAESKeyLabel": "EncodingAESKey (消息加解密密钥)",
+  "encodingAESKeyPlaceholder": "43位字符的密钥",
+  "generateRandom": "随机生成",
+  "msgEncryptModeLabel": "消息加解密方式",
+  "plainMode": "明文模式",
+  "compatibleMode": "兼容模式",
+  "safeMode": "安全模式",
+
+  "errors": {
+    "minOneAccount": "至少需要保留一个公众号配置",
+    "confirmDeleteGroup": "确认删除「{{group}}」分组吗？该分组下的应用将自动归类到「未分组」。",
+    "groupExists": "该分组已存在",
+    "invalidTxt": "只能上传 TXT 验证文件",
+    "uploadSuccess": "文件上传成功",
+    "invalidImage": "请上传图片文件",
+    "fillRequired": "请填写完整公众号名称",
+    "invalidDomains": "存在格式不正确的域名，请检查红框部分",
+    "domainFormatError": "域名格式错误",
+    "saveSuccess": "保存成功"
+  }
+}
