@@ -19,7 +19,7 @@ use sdkwork_agent_kernel::{
     RuntimeBuilder,
 };
 use sdkwork_agent_plugin_core::SdkworkKernelPlugin;
-use sdkwork_agent_plugin_rig::{ids as rig_ids, rig_agent_manifest, RigKernelPlugin};
+use sdkwork_agent_provider_rig::{ids as rig_ids, rig_agent_manifest, RigKernelPlugin};
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::{
     KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID, RIG_AGENT_IMPLEMENTATION_ID,

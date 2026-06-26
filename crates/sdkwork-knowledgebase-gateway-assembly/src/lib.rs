@@ -6,12 +6,10 @@ pub struct ApplicationAssembly {
     pub router: axum::Router,
 }
 
-pub async fn assemble_application_router() -> ApplicationAssembly {
-    let mut router = axum::Router::new();
-    router = router.merge(sdkwork_routes_knowledgebase_app_api::gateway_mount());
-    router = router.merge(sdkwork_routes_knowledgebase_backend_api::gateway_mount());
-    router = router.merge(sdkwork_routes_knowledgebase_open_api::gateway_mount());
-    ApplicationAssembly { router }
+pub async fn assemble_application_router() -> Result<ApplicationAssembly, String> {
+    Ok(ApplicationAssembly {
+        router: axum::Router::new(),
+    })
 }
 
 pub fn assembly_route_count() -> usize {

@@ -1,6 +1,6 @@
 //! Configurable knowledge agent runtime implementation identifiers.
 
-/// Default production agent runtime: Rig kernel plugin (`sdkwork-agent-plugin-rig`).
+/// Default production agent runtime: Rig kernel provider (`sdkwork-agent-provider-rig`).
 pub const RIG_AGENT_IMPLEMENTATION_ID: &str = "plugin.intelligence.rig";
 
 /// Offline / contract-test agent runtime without external LLM dependencies.

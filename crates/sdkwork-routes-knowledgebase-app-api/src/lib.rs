@@ -1,5 +1,10 @@
 //! App API route boundary for SDKWork Knowledgebase.
 
+use std::sync::Arc;
+
+use axum::Router;
+use sdkwork_web_core::HttpRouteManifest;
+
 mod adapters;
 mod agent_chat_runtime;
 mod auth;

@@ -1,5 +1,10 @@
 //! Backend API route boundary for SDKWork Knowledgebase.
 
+use std::sync::Arc;
+
+use axum::Router;
+use sdkwork_web_core::HttpRouteManifest;
+
 mod auth;
 pub mod error;
 mod handlers;

@@ -27,16 +27,20 @@ pub fn validate_process_config() {
     validate_secrets_encryption_for_production();
     validate_postgres_for_production();
 
-    let organization_id = std::env::var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID")
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(0);
+    let organization_id = resolve_deployment_tenant_id();
     if organization_id == 0 {
         eprintln!(
             "SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID must be set when SDKWORK_KNOWLEDGEBASE_ENVIRONMENT is not development"
         );
         std::process::exit(1);
     }
+}
+
+pub fn resolve_deployment_tenant_id() -> u64 {
+    std::env::var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0)
 }
 
 fn validate_postgres_for_production() {

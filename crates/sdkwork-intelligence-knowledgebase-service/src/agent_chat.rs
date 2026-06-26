@@ -3,7 +3,7 @@ use crate::ports::knowledge_agent_profile_store::{
 };
 use crate::retrieval::{KnowledgeRetrievalExecutor, KnowledgeRetrievalServiceError};
 use sdkwork_agent_kernel::{AgentChatRequest, AgentChatService, KernelError};
-use sdkwork_agent_plugin_rig::ids as rig_ids;
+use sdkwork_agent_provider_rig::ids as rig_ids;
 use sdkwork_knowledgebase_agent_provider::{
     build_knowledge_agent_runtime, default_top_k, resolve_chat_knowledge_mode,
     resolve_model_provider_for_implementation, validate_bindings_support_mode,

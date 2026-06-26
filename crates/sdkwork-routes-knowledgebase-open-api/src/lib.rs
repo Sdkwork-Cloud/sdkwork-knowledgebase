@@ -1,5 +1,10 @@
 //! Open API route boundary for SDKWork Knowledgebase.
 
+use std::sync::Arc;
+
+use axum::Router;
+use sdkwork_web_core::HttpRouteManifest;
+
 mod auth;
 mod error;
 pub mod http_route_manifest;
