@@ -14,7 +14,7 @@ function readRepoFile(relativePath) {
 describe('knowledgebase security standard alignment', () => {
   it('enforces fail-closed tenant and organization guards in hosted access', () => {
     const hostedAccess = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-app-api/src/hosted_access.rs',
+      'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_access.rs',
     );
     assert.match(hostedAccess, /tenant_id_mismatch/);
     assert.match(hostedAccess, /organization_id_mismatch/);
@@ -22,18 +22,21 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(hostedAccess, /ensure_runtime_tenant/);
   });
 
-  it('blocks dev auth bypass in production-like environments', () => {
+  it('routes runtime authentication through sdkwork-iam without product bypass flags', () => {
     const bootstrap = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-app-api/src/bootstrap.rs',
+      'crates/sdkwork-routes-knowledgebase-app-api/src/bootstrap.rs',
     );
-    assert.match(bootstrap, /dev_auth_bypass_enabled/);
-    assert.match(bootstrap, /is_production_like_environment/);
-    assert.match(bootstrap, /validate_dev_auth_policy/);
+    assert.doesNotMatch(bootstrap, /SDKWORK_KNOWLEDGEBASE_DEV_AUTH_BYPASS/);
+    assert.match(bootstrap, /validate_snowflake_node_id_for_production/);
+    const appBootstrap = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-app-api/src/web_bootstrap.rs',
+    );
+    assert.match(appBootstrap, /iam_web_request_context_resolver_from_env/);
   });
 
   it('documents tenant isolation integration coverage', () => {
     const tenantIsolationTest = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-app-api/tests/integration_tenant_isolation.rs',
+      'crates/sdkwork-routes-knowledgebase-app-api/tests/integration_tenant_isolation.rs',
     );
     assert.match(tenantIsolationTest, /tenant_id_mismatch_rejects_space_retrieve/);
     assert.match(tenantIsolationTest, /organization_id_mismatch_rejects_when_runtime_org_configured/);
@@ -41,7 +44,7 @@ describe('knowledgebase security standard alignment', () => {
 
   it('enforces backend knowledge.admin authorization policy', () => {
     const webBootstrap = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-backend-api/src/web_bootstrap.rs',
+      'crates/sdkwork-routes-knowledgebase-backend-api/src/web_bootstrap.rs',
     );
     assert.match(webBootstrap, /KnowledgeBackendAuthorizationPolicy/);
     assert.match(webBootstrap, /knowledge\.admin permission is required/);
@@ -51,16 +54,16 @@ describe('knowledgebase security standard alignment', () => {
 
   it('wires tenant isolation and manifest authorization across HTTP surfaces', () => {
     const assembly = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-backend-api/src/web_framework_assembly.rs',
+      'crates/sdkwork-routes-knowledgebase-backend-api/src/web_framework_assembly.rs',
     );
     assert.match(assembly, /EnforcePrincipalTenantIsolationPolicy/);
     const appBootstrap = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-app-api/src/web_bootstrap.rs',
+      'crates/sdkwork-routes-knowledgebase-app-api/src/web_bootstrap.rs',
     );
     assert.match(appBootstrap, /ManifestAuthorizationPolicy/);
     assert.match(appBootstrap, /apply_knowledgebase_web_framework/);
     const rateLimit = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-backend-api/src/web_rate_limit_store.rs',
+      'crates/sdkwork-routes-knowledgebase-backend-api/src/web_rate_limit_store.rs',
     );
     assert.match(rateLimit, /is_production_like_environment/);
     assert.match(rateLimit, /std::process::exit\(1\)/);
@@ -77,12 +80,12 @@ describe('knowledgebase security standard alignment', () => {
 
   it('wires framework web_audit_event persistence across HTTP surfaces', () => {
     const webAuditStore = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-backend-api/src/web_audit_store.rs',
+      'crates/sdkwork-routes-knowledgebase-backend-api/src/web_audit_store.rs',
     );
     assert.match(webAuditStore, /PostgresWebAuditEmitter/);
     assert.match(webAuditStore, /attach_knowledgebase_audit_emitter/);
     const appBootstrap = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-app-api/src/web_bootstrap.rs',
+      'crates/sdkwork-routes-knowledgebase-app-api/src/web_bootstrap.rs',
     );
     assert.match(appBootstrap, /attach_knowledgebase_audit_emitter/);
     const postgresMigration = readRepoFile(
@@ -94,7 +97,7 @@ describe('knowledgebase security standard alignment', () => {
     );
     assert.match(sqliteMigration, /web_audit_event/);
     const openBootstrap = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-open-api/src/web_bootstrap.rs',
+      'crates/sdkwork-routes-knowledgebase-open-api/src/web_bootstrap.rs',
     );
     assert.match(openBootstrap, /attach_knowledgebase_audit_emitter/);
   });
@@ -113,11 +116,11 @@ describe('knowledgebase security standard alignment', () => {
 
   it('propagates organization_id through open-api hosted bridge', () => {
     const hostedOpen = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-app-api/src/hosted_open.rs',
+      'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_open.rs',
     );
     assert.match(hostedOpen, /organization_id: context\.organization_id/);
     const openBootstrap = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-open-api/src/web_bootstrap.rs',
+      'crates/sdkwork-routes-knowledgebase-open-api/src/web_bootstrap.rs',
     );
     assert.match(openBootstrap, /organization_id/);
   });
@@ -133,7 +136,7 @@ describe('knowledgebase security standard alignment', () => {
 
   it('avoids block_in_place in agent chat runtime bridges', () => {
     const agentRuntime = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-app-api/src/agent_chat_runtime.rs',
+      'crates/sdkwork-routes-knowledgebase-app-api/src/agent_chat_runtime.rs',
     );
     assert.doesNotMatch(agentRuntime, /block_in_place/);
     assert.match(agentRuntime, /block_on_async/);
@@ -141,7 +144,7 @@ describe('knowledgebase security standard alignment', () => {
 
   it('enforces agent profile space access helpers', () => {
     const hostedAccess = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-app-api/src/hosted_access.rs',
+      'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_access.rs',
     );
     assert.match(hostedAccess, /require_agent_profile_space_access/);
     assert.match(hostedAccess, /require_enabled_agent_bindings_space_access/);
@@ -213,10 +216,10 @@ describe('knowledgebase security standard alignment', () => {
   });
 
   it('wires hosted WeChat service in full app runtime instead of stub ports', () => {
-    const runtime = readRepoFile('crates/sdkwork-router-knowledgebase-app-api/src/runtime.rs');
+    const runtime = readRepoFile('crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs');
     assert.match(runtime, /HostedWechatService::new/);
     const hostedWechat = readRepoFile(
-      'crates/sdkwork-router-knowledgebase-app-api/src/hosted_wechat.rs',
+      'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_wechat.rs',
     );
     assert.match(hostedWechat, /publish_articles/);
     assert.match(hostedWechat, /preview_articles/);

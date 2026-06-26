@@ -51,7 +51,7 @@ const utilsRustCrates = [
   'crates/sdkwork-knowledgebase-drive/Cargo.toml',
   'crates/sdkwork-knowledgebase-memory/Cargo.toml',
   'crates/sdkwork-knowledgebase-test-support/Cargo.toml',
-  'crates/sdkwork-router-knowledgebase-app-api/Cargo.toml',
+  'crates/sdkwork-routes-knowledgebase-app-api/Cargo.toml',
 ];
 
 for (const crateToml of utilsRustCrates) {

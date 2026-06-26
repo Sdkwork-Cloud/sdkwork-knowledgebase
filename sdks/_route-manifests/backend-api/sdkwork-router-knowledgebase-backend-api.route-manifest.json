@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "sdkwork.route.manifest",
-  "packageName": "sdkwork-router-knowledgebase-backend-api",
+  "packageName": "sdkwork-routes-knowledgebase-backend-api",
   "surface": "backend-api",
   "owner": "sdkwork-knowledgebase",
   "domain": "intelligence",
@@ -10,8 +10,8 @@
   "sdkFamily": "sdkwork-knowledgebase-backend-sdk",
   "prefix": "/backend/v3/api",
   "source": {
-    "crateRoot": "crates/sdkwork-router-knowledgebase-backend-api",
-    "crateImport": "sdkwork_router_knowledgebase_backend_api",
+    "crateRoot": "crates/sdkwork-routes-knowledgebase-backend-api",
+    "crateImport": "sdkwork_routes_knowledgebase_backend_api",
     "openApiAuthority": "sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
   },
   "routes": [

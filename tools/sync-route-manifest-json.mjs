@@ -7,18 +7,18 @@ const workspaceRoot = path.resolve(scriptDir, '..');
 
 const targets = [
   {
-    manifestRs: 'crates/sdkwork-router-knowledgebase-app-api/src/manifest.rs',
-    jsonFile: 'sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json',
+    manifestRs: 'crates/sdkwork-routes-knowledgebase-app-api/src/manifest.rs',
+    jsonFile: 'sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json',
     apiSurface: 'app-api',
   },
   {
-    manifestRs: 'crates/sdkwork-router-knowledgebase-backend-api/src/manifest.rs',
-    jsonFile: 'sdks/_route-manifests/backend-api/sdkwork-router-knowledgebase-backend-api.route-manifest.json',
+    manifestRs: 'crates/sdkwork-routes-knowledgebase-backend-api/src/manifest.rs',
+    jsonFile: 'sdks/_route-manifests/backend-api/sdkwork-routes-knowledgebase-backend-api.route-manifest.json',
     apiSurface: 'backend-api',
   },
   {
-    manifestRs: 'crates/sdkwork-router-knowledgebase-open-api/src/manifest.rs',
-    jsonFile: 'sdks/_route-manifests/open-api/sdkwork-router-knowledgebase-open-api.route-manifest.json',
+    manifestRs: 'crates/sdkwork-routes-knowledgebase-open-api/src/manifest.rs',
+    jsonFile: 'sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json',
     apiSurface: 'open-api',
   },
 ];

@@ -25,7 +25,7 @@ const sdkworkExtensions = {
   'x-sdkwork-api-authority': 'sdkwork-knowledgebase-app-api',
   'x-sdkwork-request-context': 'WebRequestContext',
   'x-sdkwork-api-surface': 'app-api',
-  'x-sdkwork-source-route-crate': 'sdkwork-router-knowledgebase-app-api',
+  'x-sdkwork-source-route-crate': 'sdkwork-routes-knowledgebase-app-api',
   'x-sdkwork-rate-limit-tier': 'auth-critical',
   'x-sdkwork-auth-mode': 'dual-token',
 };

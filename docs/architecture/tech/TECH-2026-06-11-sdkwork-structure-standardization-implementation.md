@@ -24,8 +24,8 @@
 ### Task 2: Move Rust Components
 
 **Files:**
-- Move: `services/sdkwork-knowledgebase-app-api` to `crates/sdkwork-router-knowledgebase-app-api`
-- Move: `services/sdkwork-knowledgebase-backend-api` to `crates/sdkwork-router-knowledgebase-backend-api`
+- Move: `services/sdkwork-knowledgebase-app-api` to `crates/sdkwork-routes-knowledgebase-app-api`
+- Move: `services/sdkwork-knowledgebase-backend-api` to `crates/sdkwork-routes-knowledgebase-backend-api`
 - Move: `services/sdkwork-knowledgebase-product` to `crates/sdkwork-intelligence-knowledgebase-service`
 - Move: `services/sdkwork-knowledgebase-storage-sqlx` to `crates/sdkwork-intelligence-knowledgebase-repository-sqlx`
 - Move: `crates/sdkwork-knowledgebase-core` to `crates/sdkwork-intelligence-knowledgebase-object-key-service`
@@ -47,8 +47,8 @@
 - [ ] Rename package `sdkwork-knowledgebase-core` to `sdkwork-intelligence-knowledgebase-object-key-service`.
 - [ ] Rename package `sdkwork-knowledgebase-product` to `sdkwork-intelligence-knowledgebase-service`.
 - [ ] Rename package `sdkwork-knowledgebase-storage-sqlx` to `sdkwork-intelligence-knowledgebase-repository-sqlx`.
-- [ ] Rename package `sdkwork-knowledgebase-app-api` to `sdkwork-router-knowledgebase-app-api`.
-- [ ] Rename package `sdkwork-knowledgebase-backend-api` to `sdkwork-router-knowledgebase-backend-api`.
+- [ ] Rename package `sdkwork-knowledgebase-app-api` to `sdkwork-routes-knowledgebase-app-api`.
+- [ ] Rename package `sdkwork-knowledgebase-backend-api` to `sdkwork-routes-knowledgebase-backend-api`.
 - [ ] Replace Rust import names with final snake_case crate names.
 - [ ] Run `cargo metadata --no-deps` to catch manifest and package-name errors.
 
@@ -74,12 +74,12 @@
 ### Task 5: Add Route Manifest Evidence
 
 **Files:**
-- Create: `crates/sdkwork-router-knowledgebase-app-api/src/manifest.rs`
-- Modify: `crates/sdkwork-router-knowledgebase-app-api/src/lib.rs`
-- Create: `crates/sdkwork-router-knowledgebase-backend-api/src/manifest.rs`
-- Modify: `crates/sdkwork-router-knowledgebase-backend-api/src/lib.rs`
-- Create: `sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json`
-- Create: `sdks/_route-manifests/backend-api/sdkwork-router-knowledgebase-backend-api.route-manifest.json`
+- Create: `crates/sdkwork-routes-knowledgebase-app-api/src/manifest.rs`
+- Modify: `crates/sdkwork-routes-knowledgebase-app-api/src/lib.rs`
+- Create: `crates/sdkwork-routes-knowledgebase-backend-api/src/manifest.rs`
+- Modify: `crates/sdkwork-routes-knowledgebase-backend-api/src/lib.rs`
+- Create: `sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json`
+- Create: `sdks/_route-manifests/backend-api/sdkwork-routes-knowledgebase-backend-api.route-manifest.json`
 
 - [ ] Add framework-neutral manifest modules with package/surface/prefix constants.
 - [ ] Add normalized JSON artifacts under `sdks/_route-manifests`.

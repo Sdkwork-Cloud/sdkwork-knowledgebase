@@ -152,9 +152,9 @@ $expectedPackages = @(
     "sdkwork-knowledgebase-api-server",
     "sdkwork-knowledgebase-contract-tests",
     "sdkwork-knowledgebase-worker",
-    "sdkwork-router-knowledgebase-app-api",
-    "sdkwork-router-knowledgebase-open-api",
-    "sdkwork-router-knowledgebase-backend-api",
+    "sdkwork-routes-knowledgebase-app-api",
+    "sdkwork-routes-knowledgebase-open-api",
+    "sdkwork-routes-knowledgebase-backend-api",
     "sdkwork-intelligence-knowledgebase-service",
     "sdkwork-intelligence-knowledgebase-repository-sqlx"
 )
@@ -230,24 +230,24 @@ foreach ($componentSpec in $componentSpecs) {
 
 $routeManifests = @(
     @{
-        Path = "sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json"
-        PackageName = "sdkwork-router-knowledgebase-app-api"
+        Path = "sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json"
+        PackageName = "sdkwork-routes-knowledgebase-app-api"
         Surface = "app-api"
         Prefix = "/app/v3/api"
         ApiAuthority = "sdkwork-knowledgebase-app-api"
         SdkFamily = "sdkwork-knowledgebase-app-sdk"
     },
     @{
-        Path = "sdks/_route-manifests/backend-api/sdkwork-router-knowledgebase-backend-api.route-manifest.json"
-        PackageName = "sdkwork-router-knowledgebase-backend-api"
+        Path = "sdks/_route-manifests/backend-api/sdkwork-routes-knowledgebase-backend-api.route-manifest.json"
+        PackageName = "sdkwork-routes-knowledgebase-backend-api"
         Surface = "backend-api"
         Prefix = "/backend/v3/api"
         ApiAuthority = "sdkwork-knowledgebase-backend-api"
         SdkFamily = "sdkwork-knowledgebase-backend-sdk"
     },
     @{
-        Path = "sdks/_route-manifests/open-api/sdkwork-router-knowledgebase-open-api.route-manifest.json"
-        PackageName = "sdkwork-router-knowledgebase-open-api"
+        Path = "sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json"
+        PackageName = "sdkwork-routes-knowledgebase-open-api"
         Surface = "open-api"
         Prefix = "/knowledge/v3/api"
         ApiAuthority = "sdkwork-knowledgebase-open-api"

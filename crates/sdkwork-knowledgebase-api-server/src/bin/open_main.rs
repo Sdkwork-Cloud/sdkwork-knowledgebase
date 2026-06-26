@@ -1,5 +1,5 @@
 use sdkwork_knowledgebase_api_server::serve_router;
-use sdkwork_router_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
+use sdkwork_routes_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 
 #[tokio::main]
 async fn main() {

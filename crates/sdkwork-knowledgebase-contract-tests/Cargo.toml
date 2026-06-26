@@ -11,4 +11,4 @@ axum.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tower.workspace = true
-sdkwork-router-knowledgebase-app-api = { path = "../sdkwork-router-knowledgebase-app-api" }
+sdkwork-routes-knowledgebase-app-api = { path = "../sdkwork-routes-knowledgebase-app-api" }

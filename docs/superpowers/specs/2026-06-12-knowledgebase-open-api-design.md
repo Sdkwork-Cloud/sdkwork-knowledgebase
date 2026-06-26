@@ -4,8 +4,8 @@
 
 `sdkwork-knowledgebase` currently owns two SDKWork HTTP surfaces:
 
-- App API: `crates/sdkwork-router-knowledgebase-app-api`, `sdks/sdkwork-knowledgebase-app-sdk`, `/app/v3/api/knowledge`
-- Backend API: `crates/sdkwork-router-knowledgebase-backend-api`, `sdks/sdkwork-knowledgebase-backend-sdk`, `/backend/v3/api/knowledge`
+- App API: `crates/sdkwork-routes-knowledgebase-app-api`, `sdks/sdkwork-knowledgebase-app-sdk`, `/app/v3/api/knowledge`
+- Backend API: `crates/sdkwork-routes-knowledgebase-backend-api`, `sdks/sdkwork-knowledgebase-backend-sdk`, `/backend/v3/api/knowledge`
 
 There is no public open-api route crate, open SDK family, normalized open-api route manifest, or `sdkwork-api-cloud-gateway` surface for Knowledgebase.
 
@@ -53,8 +53,8 @@ The open-api surface uses these SDKWork identities:
 
 | Artifact | Value |
 | --- | --- |
-| Route crate | `sdkwork-router-knowledgebase-open-api` |
-| Route crate path | `crates/sdkwork-router-knowledgebase-open-api` |
+| Route crate | `sdkwork-routes-knowledgebase-open-api` |
+| Route crate path | `crates/sdkwork-routes-knowledgebase-open-api` |
 | API authority | `sdkwork-knowledgebase.open` |
 | SDK family | `sdkwork-knowledgebase-sdk` |
 | TypeScript package | `@sdkwork/knowledgebase-sdk` |
@@ -96,10 +96,10 @@ Handlers must consume typed context when the runtime provides it. They must not 
 
 ## Rust Route Design
 
-Add `crates/sdkwork-router-knowledgebase-open-api` following the SDKWork route crate shape:
+Add `crates/sdkwork-routes-knowledgebase-open-api` following the SDKWork route crate shape:
 
 ```text
-crates/sdkwork-router-knowledgebase-open-api/
+crates/sdkwork-routes-knowledgebase-open-api/
   Cargo.toml
   README.md
   specs/
@@ -130,7 +130,7 @@ Add the open SDK family:
 sdks/
   _route-manifests/
     open-api/
-      sdkwork-router-knowledgebase-open-api.route-manifest.json
+      sdkwork-routes-knowledgebase-open-api.route-manifest.json
   sdkwork-knowledgebase-sdk/
     README.md
     .sdkwork-assembly.json
@@ -185,7 +185,7 @@ Route handlers map service errors through the existing `ApiProblem` style used b
 
 Narrow verification:
 
-- `cargo test -p sdkwork-router-knowledgebase-open-api`
+- `cargo test -p sdkwork-routes-knowledgebase-open-api`
 - `node sdks/standardize-knowledgebase-sdk-family.mjs --check`
 - `node sdks/test/verify-sdk-ownership-boundaries.test.mjs`
 - `powershell -ExecutionPolicy Bypass -File tools/verify_openapi_operation_ids.ps1` when present

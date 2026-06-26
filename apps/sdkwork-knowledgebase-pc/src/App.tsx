@@ -99,8 +99,10 @@ export default function App() {
     <ErrorBoundary>
       <KnowledgebaseRuntimeProvider runtime={runtime}>
         <BrowserRouter>
+      <SdkworkSessionAuthBrowserRoot>
           <KnowledgebaseAppRoutes runtime={runtime} />
-        </BrowserRouter>
+              </SdkworkSessionAuthBrowserRoot>
+    </BrowserRouter>
       </KnowledgebaseRuntimeProvider>
     </ErrorBoundary>
   );

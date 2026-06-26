@@ -7,15 +7,15 @@ const workspaceRoot = path.resolve(scriptDir, "..");
 
 const manifests = [
   {
-    file: "sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json",
+    file: "sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json",
     apiSurface: "app-api",
   },
   {
-    file: "sdks/_route-manifests/backend-api/sdkwork-router-knowledgebase-backend-api.route-manifest.json",
+    file: "sdks/_route-manifests/backend-api/sdkwork-routes-knowledgebase-backend-api.route-manifest.json",
     apiSurface: "backend-api",
   },
   {
-    file: "sdks/_route-manifests/open-api/sdkwork-router-knowledgebase-open-api.route-manifest.json",
+    file: "sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json",
     apiSurface: "open-api",
   },
 ];

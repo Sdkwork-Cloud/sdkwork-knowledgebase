@@ -11,7 +11,7 @@ const openApiPath = path.join(
 );
 const routeManifestPath = path.join(
   workspaceRoot,
-  "sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json",
+  "sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json",
 );
 
 const problemResponse = {
@@ -32,7 +32,7 @@ const extensions = {
   "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
   "x-sdkwork-request-context": "WebRequestContext",
   "x-sdkwork-api-surface": "app-api",
-  "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+  "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
 };
 
 const int64PathParam = (name) => ({

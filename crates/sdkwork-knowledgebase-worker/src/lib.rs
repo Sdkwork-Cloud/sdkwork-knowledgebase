@@ -1,5 +1,5 @@
 use sdkwork_knowledgebase_api_server::shutdown_signal;
-use sdkwork_router_knowledgebase_app_api::KnowledgebaseRuntime;
+use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 
 pub mod health;
 #[derive(Debug, Clone, PartialEq, Eq)]

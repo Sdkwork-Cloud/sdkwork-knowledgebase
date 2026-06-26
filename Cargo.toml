@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/sdkwork-knowledgebase-gateway-assembly",
     "crates/sdkwork-knowledgebase-database-host",
     "crates/sdkwork-knowledgebase-contract",
     "crates/sdkwork-knowledgebase-agent-provider",
@@ -7,9 +8,9 @@ members = [
     "crates/sdkwork-knowledgebase-drive",
     "crates/sdkwork-knowledgebase-memory",
     "crates/sdkwork-knowledgebase-test-support",
-    "crates/sdkwork-router-knowledgebase-app-api",
-    "crates/sdkwork-router-knowledgebase-open-api",
-    "crates/sdkwork-router-knowledgebase-backend-api",
+    "crates/sdkwork-routes-knowledgebase-app-api",
+    "crates/sdkwork-routes-knowledgebase-open-api",
+    "crates/sdkwork-routes-knowledgebase-backend-api",
     "crates/sdkwork-knowledgebase-api-server",
     "crates/sdkwork-knowledgebase-contract-tests",
     "crates/sdkwork-knowledgebase-observability",
@@ -64,6 +65,7 @@ sdkwork-iam-web-adapter = { path = "../sdkwork-iam/crates/sdkwork-iam-web-adapte
 sdkwork-web-axum = { path = "../sdkwork-web-framework/crates/sdkwork-web-axum" }
 sdkwork-web-core = { path = "../sdkwork-web-framework/crates/sdkwork-web-core" }
 sdkwork-web-store-redis = { path = "../sdkwork-web-framework/crates/sdkwork-web-store-redis" }
+sdkwork-web-bootstrap = { path = "../sdkwork-web-framework/crates/sdkwork-web-bootstrap" }
 sdkwork-database-config = { path = "../sdkwork-database/crates/sdkwork-database-config", package = "sdkwork-database-config" }
 sdkwork-database-lifecycle = { path = "../sdkwork-database/crates/sdkwork-database-lifecycle", package = "sdkwork-database-lifecycle" }
 sdkwork-database-spi = { path = "../sdkwork-database/crates/sdkwork-database-spi", package = "sdkwork-database-spi" }

@@ -76,7 +76,7 @@ Each API/worker process is bound to a single runtime tenant via `SDKWORK_KNOWLED
 
 Multi-tenant SaaS deployments should run **one process (or dedicated database schema) per tenant**, not share a single runtime across tenants. Tenant isolation is enforced at the application layer (SQL `tenant_id` filters plus runtime guards); PostgreSQL row-level security is not required for the current single-tenant-per-process model.
 
-Integration coverage: `crates/sdkwork-router-knowledgebase-app-api/tests/integration_tenant_isolation.rs`.
+Integration coverage: `crates/sdkwork-routes-knowledgebase-app-api/tests/integration_tenant_isolation.rs`.
 
 ## Backend authorization
 

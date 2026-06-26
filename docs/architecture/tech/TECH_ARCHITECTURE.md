@@ -7,6 +7,11 @@ Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
 
+
+- [TECH-2026-06-11-sdkwork-structure-standardization-design.md](TECH-2026-06-11-sdkwork-structure-standardization-design.md)
+- [TECH-2026-06-11-sdkwork-structure-standardization-implementation.md](TECH-2026-06-11-sdkwork-structure-standardization-implementation.md)
+- [TECH-2026-06-19-okf-knowledge-bundle-design.md](TECH-2026-06-19-okf-knowledge-bundle-design.md)
+- [TECH-okf-knowledge-bundle.md](TECH-okf-knowledge-bundle.md)
 - [TECH-2026-06-01-knowledgebase-backend-design.md](TECH-2026-06-01-knowledgebase-backend-design.md)
 - [TECH-2026-06-01-knowledgebase-backend-phase1-implementation.md](TECH-2026-06-01-knowledgebase-backend-phase1-implementation.md)
 - [TECH-2026-06-09-knowledgebase-agent-rag-design.md](TECH-2026-06-09-knowledgebase-agent-rag-design.md)
@@ -41,7 +46,7 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 
 - Business logic: `sdkwork-intelligence-knowledgebase-service`
 - Persistence: `sdkwork-intelligence-knowledgebase-repository-sqlx` + `database/` lifecycle
-- HTTP boundaries: `sdkwork-router-knowledgebase-{app,backend,open}-api`
+- HTTP boundaries: `sdkwork-routes-knowledgebase-{app,backend,open}-api`
 - Background work: `sdkwork-knowledgebase-worker` (outbox + ingest maintenance)
 - PC client: `apps/sdkwork-knowledgebase-pc/`
 

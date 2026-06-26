@@ -1,0 +1,17 @@
+[package]
+name = "sdkwork-knowledgebase-gateway-assembly"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+description = "Generated gateway assembly for sdkwork-knowledgebase application HTTP plane."
+
+[lib]
+name = "sdkwork_knowledgebase_gateway_assembly"
+path = "src/lib.rs"
+
+[dependencies]
+axum.workspace = true
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
+sdkwork_routes_knowledgebase_app_api = { package = "sdkwork-routes-knowledgebase-app-api", path = "../sdkwork-routes-knowledgebase-app-api" }
+sdkwork_routes_knowledgebase_backend_api = { package = "sdkwork-routes-knowledgebase-backend-api", path = "../sdkwork-routes-knowledgebase-backend-api" }
+sdkwork_routes_knowledgebase_open_api = { package = "sdkwork-routes-knowledgebase-open-api", path = "../sdkwork-routes-knowledgebase-open-api" }

@@ -10,7 +10,7 @@ SDKWork Knowledgebase maintainers.
 
 ## Allowed Content
 
-- Rust route crates named `sdkwork-router-<capability>-<surface>`.
+- Rust route crates named `sdkwork-routes-<capability>-<surface>`.
 - Rust service crates named `sdkwork-<domain>-<capability>-service`.
 - Rust SQLx repository crates named `sdkwork-<domain>-<capability>-repository-sqlx`.
 - Rust adapter, test-support, and integration crates with focused component specs.

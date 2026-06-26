@@ -52,8 +52,8 @@ foreach ($snippet in $requiredSdkStandardSnippets) {
 }
 
 $forbiddenSdkFamilyDirectories = @(
-    "sdks/sdkwork-router-knowledgebase-app-api",
-    "sdks/sdkwork-router-knowledgebase-backend-api"
+    "sdks/sdkwork-routes-knowledgebase-app-api",
+    "sdks/sdkwork-routes-knowledgebase-backend-api"
 )
 
 foreach ($directory in $forbiddenSdkFamilyDirectories) {
@@ -217,9 +217,9 @@ $packages = @(
     "sdkwork-intelligence-knowledgebase-object-key-service",
     "sdkwork-knowledgebase-drive",
     "sdkwork-knowledgebase-memory",
-    "sdkwork-router-knowledgebase-app-api",
-    "sdkwork-router-knowledgebase-backend-api",
-    "sdkwork-router-knowledgebase-open-api",
+    "sdkwork-routes-knowledgebase-app-api",
+    "sdkwork-routes-knowledgebase-backend-api",
+    "sdkwork-routes-knowledgebase-open-api",
     "sdkwork-knowledgebase-worker",
     "sdkwork-intelligence-knowledgebase-service",
     "sdkwork-intelligence-knowledgebase-repository-sqlx",

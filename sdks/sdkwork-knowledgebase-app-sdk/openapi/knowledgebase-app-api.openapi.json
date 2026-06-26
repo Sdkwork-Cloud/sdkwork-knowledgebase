@@ -149,7 +149,7 @@
         "description": "Create a knowledge space",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Create a knowledge space",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -299,7 +299,7 @@
         "description": "Retrieve a knowledge space",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Retrieve a knowledge space",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -457,7 +457,7 @@
         "description": "Update a knowledge space",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Update a knowledge space",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -598,7 +598,7 @@
         "description": "Delete a knowledge space",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Delete a knowledge space",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -748,7 +748,7 @@
         "description": "Import a drive object into knowledgebase",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Import a drive object into knowledgebase",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -898,7 +898,7 @@
         "description": "Import a Git repository into knowledgebase",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Import a Git repository into knowledgebase",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -1048,7 +1048,7 @@
         "description": "Create an ingestion job",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Create an ingestion job",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -1199,7 +1199,7 @@
         "description": "Retrieve an ingestion job",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Retrieve an ingestion job",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -1349,7 +1349,7 @@
         "description": "List knowledge documents",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "List knowledge documents",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -1496,7 +1496,7 @@
         "description": "Create a knowledge document",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Create a knowledge document",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -1646,7 +1646,7 @@
         "description": "Retrieve a knowledge document",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Retrieve a knowledge document",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -1804,7 +1804,7 @@
         "description": "Update a knowledge document",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Update a knowledge document",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -1945,7 +1945,7 @@
         "description": "Delete a knowledge document",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Delete a knowledge document",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -2096,7 +2096,7 @@
         "description": "Retrieve authoritative knowledge document content",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Retrieve authoritative knowledge document content",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -2246,7 +2246,7 @@
         "description": "List document versions",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "List document versions",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -2404,7 +2404,7 @@
         "description": "Create a document version",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Create a document version",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -2543,7 +2543,7 @@
         "description": "List OKF concepts",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "parameters": [
           {
             "name": "spaceId",
@@ -2704,7 +2704,7 @@
         "description": "Retrieve an OKF concept",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Retrieve an OKF concept",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -2846,7 +2846,7 @@
         "description": "Delete an OKF concept",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-auth-mode": "dual-token"
       }
     },
@@ -2995,7 +2995,7 @@
         "description": "List OKF concept revisions",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "List OKF concept revisions",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -3134,7 +3134,7 @@
         "description": "Retrieve the OKF bundle index",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Retrieve the OKF bundle index",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -3273,7 +3273,7 @@
         "description": "Retrieve the OKF bundle log",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Retrieve the OKF bundle log",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -3412,7 +3412,7 @@
         "description": "Retrieve the OKF bundle profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Retrieve the OKF bundle profile",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -3561,7 +3561,7 @@
         "description": "Create an OKF query",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Create an OKF query",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -3721,7 +3721,7 @@
         "description": "File an answer for an OKF query",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "File an answer for an OKF query",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -3870,7 +3870,7 @@
         "description": "Create an OKF context pack",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Create an OKF context pack",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -4063,7 +4063,7 @@
         "description": "List browser view of a knowledge space",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "List browser view of a knowledge space",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -4212,7 +4212,7 @@
         "description": "Create a knowledge retrieval",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Create a knowledge retrieval",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -4364,7 +4364,7 @@
         "description": "Retrieve a knowledge retrieval result",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Retrieve a knowledge retrieval result",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -4513,7 +4513,7 @@
         "description": "Create a knowledge context pack",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Create a knowledge context pack",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -4663,7 +4663,7 @@
         "description": "Create a knowledge agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Create a knowledge agent profile",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -4814,7 +4814,7 @@
         "description": "Retrieve a knowledge agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Retrieve a knowledge agent profile",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -4973,7 +4973,7 @@
         "description": "Update a knowledge agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Update a knowledge agent profile",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -5115,7 +5115,7 @@
         "description": "Delete a knowledge agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Delete a knowledge agent profile",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -5266,7 +5266,7 @@
         "description": "List agent profile bindings",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "List agent profile bindings",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -5425,7 +5425,7 @@
         "description": "Create an agent profile binding",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Create an agent profile binding",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -5596,7 +5596,7 @@
         "description": "Update an agent profile binding",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Update an agent profile binding",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -5748,7 +5748,7 @@
         "description": "Delete an agent profile binding",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Delete an agent profile binding",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -5909,7 +5909,7 @@
         "description": "Preview retrieval for an agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Preview retrieval for an agent profile",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -6071,7 +6071,7 @@
         "description": "Chat with a knowledge-backed agent profile",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Chat with a knowledge-backed agent profile",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -6223,7 +6223,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "description": "List knowledge space context bindings",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -6382,7 +6382,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "description": "Create a knowledge space context binding",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -6552,7 +6552,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "description": "List knowledge space members",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -6704,7 +6704,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "description": "Grant knowledge space member access",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -6862,7 +6862,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "description": "Revoke knowledge space member access",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -7013,7 +7013,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "description": "Retrieve a knowledge space context binding",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -7172,7 +7172,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "description": "Update a knowledge space context binding",
         "x-sdkwork-auth-mode": "dual-token"
       },
@@ -7314,7 +7314,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "description": "Delete a knowledge space context binding",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -7463,7 +7463,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "description": "Create a drive-delegated knowledge upload session",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -7625,7 +7625,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "description": "Complete a knowledge upload session and start ingestion",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token"
@@ -7775,7 +7775,7 @@
         "description": "Upsert an OKF concept revision",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "summary": "Upsert an OKF concept revision",
         "x-sdkwork-auth-mode": "dual-token"
       }
@@ -7797,7 +7797,7 @@
         "description": "Create an OKF bundle export",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "requestBody": {
           "required": true,
           "content": {
@@ -7947,7 +7947,7 @@
         "description": "Retrieve an OKF bundle export",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "parameters": [
           {
             "name": "exportId",
@@ -8097,7 +8097,7 @@
         "description": "Import an OKF bundle from drive staging",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "requestBody": {
           "required": true,
           "content": {
@@ -8247,7 +8247,7 @@
         "description": "Create an OKF bundle lint run",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "requestBody": {
           "required": true,
           "content": {
@@ -8513,7 +8513,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "read",
         "x-sdkwork-auth-mode": "dual-token",
         "description": "List WeChat official accounts"
@@ -8651,7 +8651,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token",
         "requestBody": {
@@ -8801,7 +8801,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "read",
         "x-sdkwork-auth-mode": "dual-token",
         "description": "List WeChat applets"
@@ -8939,7 +8939,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token",
         "requestBody": {
@@ -9089,7 +9089,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token",
         "requestBody": {
@@ -9239,7 +9239,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token",
         "requestBody": {
@@ -9399,7 +9399,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
         "x-sdkwork-auth-mode": "dual-token",
         "description": "Sync knowledge space documents to a Git repository"
@@ -9539,7 +9539,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
         "x-sdkwork-auth-mode": "dual-token",
         "description": "List knowledge market catalog listings"
@@ -9689,7 +9689,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
         "x-sdkwork-auth-mode": "dual-token",
         "description": "Subscribe to a knowledge market listing"
@@ -9840,7 +9840,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
         "x-sdkwork-auth-mode": "dual-token",
         "description": "Unsubscribe from a knowledge market listing"
@@ -9990,7 +9990,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
         "x-sdkwork-auth-mode": "dual-token",
         "description": "Deploy a knowledge space as a static website"
@@ -10141,7 +10141,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
         "x-sdkwork-auth-mode": "dual-token",
         "description": "Retrieve site deployment preview HTML"
@@ -10291,7 +10291,7 @@
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "app-api",
-        "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
         "x-sdkwork-auth-mode": "dual-token",
         "description": "Create a knowledge media task (image generation or speech-to-text)"

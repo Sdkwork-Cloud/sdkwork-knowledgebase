@@ -62,7 +62,7 @@ const backendImportOperation = {
     description: "Import an OKF bundle from drive staging",
     "x-sdkwork-request-context": "WebRequestContext",
     "x-sdkwork-api-surface": "backend-api",
-    "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-backend-api",
+    "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
   },
 };
 
@@ -117,7 +117,7 @@ const appUpsertOperation = {
     description: "Upsert an OKF concept revision",
     "x-sdkwork-request-context": "WebRequestContext",
     "x-sdkwork-api-surface": "app-api",
-    "x-sdkwork-source-route-crate": "sdkwork-router-knowledgebase-app-api",
+    "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
   },
 };
 
@@ -145,7 +145,7 @@ const appSurface = {
   owner: "sdkwork-knowledgebase",
   authority: "sdkwork-knowledgebase-app-api",
   surface: "app-api",
-  crate: "sdkwork-router-knowledgebase-app-api",
+  crate: "sdkwork-routes-knowledgebase-app-api",
 };
 
 function appOperation(method, operationId, description, extra = {}) {

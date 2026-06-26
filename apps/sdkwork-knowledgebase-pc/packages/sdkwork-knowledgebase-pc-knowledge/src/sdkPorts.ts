@@ -8,6 +8,8 @@ export interface KnowledgebasePcSdkPorts {
   getDriveClient: () => SdkworkDriveAppClient;
   readHostSession: () => SessionSnapshot | null;
   subscribeHostSession?: (listener: () => void) => () => void;
+  resolveHostLanguage?: () => string;
+  subscribeHostLanguage?: (listener: (language: string) => void) => () => void;
 }
 
 let sdkPorts: KnowledgebasePcSdkPorts | null = null;

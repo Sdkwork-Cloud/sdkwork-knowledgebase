@@ -1,7 +1,7 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use sdkwork_router_knowledgebase_app_api::{
-    build_router_with_shared_app_api_and_readiness, dev_auth, paths, KnowledgeAppApi,
+use sdkwork_routes_knowledgebase_app_api::{
+    build_router_with_shared_app_api_and_readiness, paths, KnowledgeAppApi,
 };
 use serde_json::Value;
 use std::sync::Arc;
@@ -13,12 +13,8 @@ struct UnimplementedAppApi;
 impl KnowledgeAppApi for UnimplementedAppApi {}
 
 #[tokio::test]
-async fn contract_health_route_matches_openapi_path() {
-    let app = dev_auth::with_dev_app_auth(
-        build_router_with_shared_app_api_and_readiness(Arc::new(UnimplementedAppApi), None),
-        1,
-        Some(1),
-    );
+async fn contract_health_probe_is_not_exposed_on_business_router() {
+    let app = build_router_with_shared_app_api_and_readiness(Arc::new(UnimplementedAppApi), None);
 
     let response = app
         .oneshot(
@@ -30,7 +26,7 @@ async fn contract_health_route_matches_openapi_path() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 #[test]

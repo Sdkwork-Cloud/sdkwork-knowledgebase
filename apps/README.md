@@ -1,19 +1,41 @@
-# Apps
+# apps/
 
-Purpose: runnable application surface roots, app shells, and client packages promoted to application surfaces.
+Application: sdkwork-knowledgebase
+Status: active
+Owner: SDKWork maintainers
+Specs: APPLICATION_SPEC.md, SDKWORK_WORKSPACE_SPEC.md
 
-Owner: SDKWork Knowledgebase maintainers.
+## Primary App Surface
 
-Allowed content: app surface roots that carry their own local dictionary when independently built or launched.
+The repository root is the primary runnable app surface.
+The repository root `sdkwork.app.config.json` governs the primary application manifest.
 
-Forbidden content: Rust workspace crates, generated SDK output, runtime user config, secrets, and local build artifacts.
+## Directory Index
 
-## Active Surfaces
+| Directory | Surface role | Runnable | Purpose | Entry |
+| --- | --- | --- | --- | --- |
+| _pc26-extract | app | yes | _pc26-extract app application root. | `_pc26-extract/` |
+| _pc26-merge | app | yes | Run and deploy your AI Studio app | [README](_pc26-merge/README.md) |
+| sdkwork-knowledgebase-pc | pc | yes | SDKWork Knowledgebase PC | [README](sdkwork-knowledgebase-pc/README.md) |
 
-| Surface | Path | Architecture |
-| --- | --- | --- |
-| PC browser/desktop | `sdkwork-knowledgebase-pc/` | `APP_PC_ARCHITECTURE_SPEC.md` |
+## Allowed Content
 
-Related specs: `../sdkwork-specs/SDKWORK_WORKSPACE_SPEC.md`, `../sdkwork-specs/APP_MANIFEST_SPEC.md`, `../sdkwork-specs/APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC.md`, `../sdkwork-specs/APP_PC_ARCHITECTURE_SPEC.md`.
+- Selected language/architecture application roots with `README.md`, `AGENTS.md`, `.sdkwork/`, and `specs/` when authored packages exist.
+- Architecture-local `packages/`, `config/`, `src/`, `lib/`, `App/`, or `entry/` directories required by the owning architecture standard.
 
-Verification: `pnpm verify` from repository root.
+## Forbidden Content
+
+- Repository-root API contracts, generated SDK workspaces, Rust crates, or deployment descriptors moved under `apps/`.
+- Runtime secrets, user-private state, generated SDK transport output, or cross-application copied business logic.
+
+## Related Specs
+
+- `../sdkwork-specs/APPLICATION_SPEC.md`
+- `../sdkwork-specs/SDKWORK_WORKSPACE_SPEC.md`
+- `../sdkwork-specs/APP_CLIENT_ARCHITECTURE_ALIGNMENT_SPEC.md`
+
+## Verification
+
+```bash
+node ../sdkwork-specs/tools/check-apps-directory-index.mjs --root .
+```

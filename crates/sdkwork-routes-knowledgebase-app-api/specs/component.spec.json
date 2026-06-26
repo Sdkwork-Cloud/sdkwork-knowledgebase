@@ -1,0 +1,129 @@
+﻿{
+    "schemaVersion":  1,
+    "kind":  "sdkwork.component.spec",
+    "component":  {
+                      "name":  "sdkwork-routes-knowledgebase-app-api",
+                      "displayName":  "SDKWork Router Knowledgebase App API",
+                      "version":  "0.1.0",
+                      "type":  "rust-route-crate",
+                      "root":  "sdkwork-knowledgebase/crates/sdkwork-routes-knowledgebase-app-api",
+                      "domain":  "intelligence",
+                      "capability":  "knowledgebase",
+                      "languages":  [
+                                        "rust"
+                                    ],
+                      "generated":  false,
+                      "manifests":  [
+                                        "Cargo.toml"
+                                    ],
+                      "surface":  "app-api"
+                  },
+    "canonicalSpecs":  [
+                           {
+                               "file":  "COMPONENT_SPEC.md",
+                               "path":  "../../../sdkwork-specs/COMPONENT_SPEC.md",
+                               "purpose":  "Component-local contract and discovery rules."
+                           },
+                           {
+                               "file":  "CODE_STYLE_SPEC.md",
+                               "path":  "../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+                               "purpose":  "Authored source structure and generated code boundaries."
+                           },
+                           {
+                               "file":  "NAMING_SPEC.md",
+                               "path":  "../../../sdkwork-specs/NAMING_SPEC.md",
+                               "purpose":  "Canonical SDKWork naming rules."
+                           },
+                           {
+                               "file":  "MODULE_SPEC.md",
+                               "path":  "../../../sdkwork-specs/MODULE_SPEC.md",
+                               "purpose":  "Reusable module and package boundary rules."
+                           },
+                           {
+                               "file":  "TEST_SPEC.md",
+                               "path":  "../../../sdkwork-specs/TEST_SPEC.md",
+                               "purpose":  "Verification and contract testing expectations."
+                           },
+                           {
+                               "file":  "RUST_CODE_SPEC.md",
+                               "path":  "../../../sdkwork-specs/RUST_CODE_SPEC.md",
+                               "purpose":  "Rust crate and module rules."
+                           },
+                           {
+                               "file":  "WEB_BACKEND_SPEC.md",
+                               "path":  "../../../sdkwork-specs/WEB_BACKEND_SPEC.md",
+                               "purpose":  "HTTP backend controller, service, repository, and route boundary rules."
+                           },
+                           {
+                               "file":  "API_SPEC.md",
+                               "path":  "../../../sdkwork-specs/API_SPEC.md",
+                               "purpose":  "HTTP API contract authority rules."
+                           },
+                           {
+                               "file":  "DOMAIN_SPEC.md",
+                               "path":  "../../../sdkwork-specs/DOMAIN_SPEC.md",
+                               "purpose":  "Domain and capability boundary rules."
+                           },
+                           {
+                               "file":  "WEB_FRAMEWORK_SPEC.md",
+                               "path":  "../../../sdkwork-specs/WEB_FRAMEWORK_SPEC.md",
+                               "purpose":  "Mandatory sdkwork-web-framework integration for HTTP surfaces."
+                           },
+                           {
+                               "file":  "SECURITY_SPEC.md",
+                               "path":  "../../../sdkwork-specs/SECURITY_SPEC.md",
+                               "purpose":  "Protected backend behavior rules."
+                           },
+                           {
+                               "file":  "SDK_SPEC.md",
+                               "path":  "../../../sdkwork-specs/SDK_SPEC.md",
+                               "purpose":  "SDK naming, generated client behavior, and service integration rules."
+                           },
+                           {
+                               "file":  "SDK_WORKSPACE_GENERATION_SPEC.md",
+                               "path":  "../../../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md",
+                               "purpose":  "Route manifest to SDK authority mapping."
+                           }
+                       ],
+    "contracts":  {
+                      "publicExports":  [
+                                            "."
+                                        ],
+                      "runtimeEntrypoints":  [
+                                                 "KnowledgebaseRuntime",
+                                                 "app_route_manifest",
+                                                 "build_full_app_router",
+                                                 "build_backend_router",
+                                                 "build_open_api_router",
+                                                 "wrap_router_with_web_framework_from_env",
+                                                 "sdkwork-knowledgebase-app-api",
+                                                 "sdkwork-knowledgebase-backend-api",
+                                                 "sdkwork-knowledgebase-open-api"
+                                             ],
+                      "routeManifest":  "sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json",
+                      "authMode":  "dual-token",
+                      "sdkClients":  [
+
+                                     ],
+                      "events":  [
+
+                                 ],
+                      "configKeys":  [
+
+                                     ],
+                      "sdkDependencies":  [
+
+                                          ],
+                      "dependencyApiExports":  [
+
+                                               ],
+                      "dependencyApiSurfaces":  [
+
+                                                ]
+                  },
+    "verification":  {
+                         "commands":  [
+                                          "cargo test -p sdkwork-routes-knowledgebase-app-api"
+                                      ]
+                     }
+}

@@ -1,5 +1,5 @@
 use axum::{http::StatusCode, routing::get, Json, Router};
-use sdkwork_router_knowledgebase_app_api::ReadinessCheck;
+use sdkwork_routes_knowledgebase_app_api::ReadinessCheck;
 use serde_json::{json, Value};
 
 async fn livez() -> StatusCode {
@@ -7,11 +7,13 @@ async fn livez() -> StatusCode {
 }
 
 async fn readyz_check(readiness: ReadinessCheck) -> Result<Json<Value>, StatusCode> {
-    readiness.check().await.map_err(|error| {
-        tracing::warn!(?error, "knowledgebase worker readiness check failed");
-        sdkwork_knowledgebase_observability::set_readiness_status(false);
-        StatusCode::SERVICE_UNAVAILABLE
-    })?;
+    sdkwork_web_bootstrap::ReadinessCheck::check(&readiness)
+        .await
+        .map_err(|error| {
+            tracing::warn!(?error, "knowledgebase worker readiness check failed");
+            sdkwork_knowledgebase_observability::set_readiness_status(false);
+            StatusCode::SERVICE_UNAVAILABLE
+        })?;
     sdkwork_knowledgebase_observability::set_readiness_status(true);
     Ok(Json(json!({ "status": "ok" })))
 }

@@ -77,7 +77,7 @@ for (const relativePath of requiredPaths) {
 }
 
 const runtimeSource = await readFile(
-  path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/runtime.rs"),
+  path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs"),
   "utf8",
 );
 
@@ -118,63 +118,63 @@ assert(
 
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
     "utf8",
   )).includes("RagflowKnowledgeEngine"),
   "runtime must wire RAGFlow adapter crate alongside Dify",
 );
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
     "utf8",
   )).includes("OnyxKnowledgeEngine"),
   "runtime must wire Onyx adapter crate alongside Dify and RAGFlow",
 );
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
     "utf8",
   )).includes("AnythingLlmKnowledgeEngine"),
   "runtime must wire AnythingLLM adapter crate alongside other external adapters",
 );
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
     "utf8",
   )).includes("OpenWebuiKnowledgeEngine"),
   "runtime must wire Open WebUI adapter crate alongside other external adapters",
 );
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
     "utf8",
   )).includes("FlowiseKnowledgeEngine"),
   "runtime must wire Flowise adapter crate alongside other external adapters",
 );
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
     "utf8",
   )).includes("ChromaKnowledgeEngine"),
   "runtime must wire Chroma adapter crate alongside other external adapters",
 );
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
     "utf8",
   )).includes("QdrantKnowledgeEngine"),
   "runtime must wire Qdrant adapter crate alongside other external adapters",
 );
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
     "utf8",
   )).includes("WeaviateKnowledgeEngine"),
   "runtime must wire Weaviate adapter crate alongside other external adapters",
 );
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
     "utf8",
   )).includes("HaystackKnowledgeEngine"),
   "runtime must wire Haystack adapter crate alongside other external adapters",
@@ -192,7 +192,7 @@ assert(
 );
 
 const hostedBackendSource = await readFile(
-  path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/hosted_backend.rs"),
+  path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/hosted_backend.rs"),
   "utf8",
 );
 
@@ -366,7 +366,7 @@ assert(
 const agentChatRuntimeSource = await readFile(
   path.join(
     root,
-    "crates/sdkwork-router-knowledgebase-app-api/src/agent_chat_runtime.rs",
+    "crates/sdkwork-routes-knowledgebase-app-api/src/agent_chat_runtime.rs",
   ),
   "utf8",
 );
@@ -394,7 +394,7 @@ assert(
 const hostedRoutesSource = await readFile(
   path.join(
     root,
-    "crates/sdkwork-router-knowledgebase-app-api/tests/hosted_runtime_routes.rs",
+    "crates/sdkwork-routes-knowledgebase-app-api/tests/hosted_runtime_routes.rs",
   ),
   "utf8",
 );
@@ -491,7 +491,7 @@ assert(
 
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/runtime.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs"),
     "utf8",
   )).includes("read_knowledge_engine_document_for_space"),
   "hosted runtime must expose knowledge engine read bridge for external citation E2E",
@@ -499,14 +499,14 @@ assert(
 
 assert(
   (await readFile(
-    path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/hosted_support.rs"),
+    path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/hosted_support.rs"),
     "utf8",
   )).includes("rebuild_okf_index"),
   "hosted OKF index rebuild must route through knowledge engine SPI",
 );
 
 const hostedSupportSource = await readFile(
-  path.join(root, "crates/sdkwork-router-knowledgebase-app-api/src/hosted_support.rs"),
+  path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/hosted_support.rs"),
   "utf8",
 );
 assert(

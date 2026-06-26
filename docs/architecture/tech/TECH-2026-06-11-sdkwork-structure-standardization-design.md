@@ -51,8 +51,8 @@ Rust package final identities:
 | `sdkwork-knowledgebase-core` | `sdkwork-intelligence-knowledgebase-object-key-service` | Focused object key planning service/helper boundary |
 | `sdkwork-knowledgebase-product` | `sdkwork-intelligence-knowledgebase-service` | Business services, ports, domain use cases, wiki/retrieval/import orchestration |
 | `sdkwork-knowledgebase-storage-sqlx` | `sdkwork-intelligence-knowledgebase-repository-sqlx` | SQLx repository implementations and migration registry |
-| `sdkwork-knowledgebase-app-api` | `sdkwork-router-knowledgebase-app-api` | App API route adapter |
-| `sdkwork-knowledgebase-backend-api` | `sdkwork-router-knowledgebase-backend-api` | Backend API route adapter |
+| `sdkwork-knowledgebase-app-api` | `sdkwork-routes-knowledgebase-app-api` | App API route adapter |
+| `sdkwork-knowledgebase-backend-api` | `sdkwork-routes-knowledgebase-backend-api` | Backend API route adapter |
 
 No compatibility package aliases or wrapper crates will be added. Downstream code inside this repository will import the final crate names only.
 
@@ -85,10 +85,10 @@ Every moved or renamed component updates:
 
 The two route crates will expose source route manifest modules and normalized JSON artifacts:
 
-- `crates/sdkwork-router-knowledgebase-app-api/src/manifest.rs`
-- `crates/sdkwork-router-knowledgebase-backend-api/src/manifest.rs`
-- `sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json`
-- `sdks/_route-manifests/backend-api/sdkwork-router-knowledgebase-backend-api.route-manifest.json`
+- `crates/sdkwork-routes-knowledgebase-app-api/src/manifest.rs`
+- `crates/sdkwork-routes-knowledgebase-backend-api/src/manifest.rs`
+- `sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json`
+- `sdks/_route-manifests/backend-api/sdkwork-routes-knowledgebase-backend-api.route-manifest.json`
 
 The normalized artifacts will include `kind: sdkwork.route.manifest`, package name, surface, owner, domain, capability, API authority, SDK family, prefix, source crate root/import, and path list. They are evidence for standards validation and SDK workspace traceability; OpenAPI authority files under `sdks/sdkwork-knowledgebase-*-sdk/openapi/` remain the SDK generation source.
 

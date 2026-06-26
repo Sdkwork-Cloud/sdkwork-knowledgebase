@@ -18,8 +18,8 @@ crates/
                                              Business services, ports, and pure use cases.
   sdkwork-intelligence-knowledgebase-repository-sqlx
                                              SQL migration registry and SQLite/Postgres SQLx repositories via sdkwork-database.
-  sdkwork-router-knowledgebase-app-api     App HTTP route boundary for generated App SDK operations.
-  sdkwork-router-knowledgebase-backend-api Backend HTTP route boundary for generated Backend SDK operations.
+  sdkwork-routes-knowledgebase-app-api     App HTTP route boundary for generated App SDK operations.
+  sdkwork-routes-knowledgebase-backend-api Backend HTTP route boundary for generated Backend SDK operations.
   sdkwork-knowledgebase-drive              Adapter to sdkwork-drive storage contracts.
   sdkwork-knowledgebase-memory             Adapter from Knowledgebase context packs to sdkwork-memory SPI.
   sdkwork-knowledgebase-test-support       Test fakes and fixtures.
@@ -134,12 +134,9 @@ Common environment variables:
 - `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT` (default `data/drive-objects`)
 - `SDKWORK_KNOWLEDGEBASE_APP_LISTEN` / `SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN` / `SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN`
 
-Local development may inject request context through `dev_auth` middleware when **both** conditions are met:
-
-- `SDKWORK_KNOWLEDGEBASE_ENVIRONMENT=development`
-- `SDKWORK_KNOWLEDGEBASE_DEV_AUTH_BYPASS=1` (or `true`)
-
-Production deployments must use Appbase-backed authentication and must not enable dev auth bypass.
+Runtime authentication is owned by `sdkwork-iam` through the shared web framework and
+`sdkwork-iam-web-adapter`. Local and production deployments must provide standard IAM-backed
+request context instead of product-local auth bypass middleware.
 
 ## Runtime ID Configuration
 
@@ -220,3 +217,6 @@ Owner and lifecycle status are tracked in `specs/component.spec.json`.
 - [docs/product/prd/PRD.md](docs/product/prd/PRD.md)
 - [docs/architecture/tech/TECH_ARCHITECTURE.md](docs/architecture/tech/TECH_ARCHITECTURE.md)
 
+## Application Roots
+
+- [apps directory index](apps/README.md)

@@ -166,13 +166,13 @@ const families = [
 function routeCrateFor(family) {
   switch (family.sdkTarget) {
     case "app":
-      return "sdkwork-router-knowledgebase-app-api";
+      return "sdkwork-routes-knowledgebase-app-api";
     case "backend":
-      return "sdkwork-router-knowledgebase-backend-api";
+      return "sdkwork-routes-knowledgebase-backend-api";
     case "open":
-      return "sdkwork-router-knowledgebase-open-api";
+      return "sdkwork-routes-knowledgebase-open-api";
     default:
-      return `sdkwork-router-knowledgebase-${family.sdkTarget}-api`;
+      return `sdkwork-routes-knowledgebase-${family.sdkTarget}-api`;
   }
 }
 

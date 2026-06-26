@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "sdkwork.route.manifest",
-  "packageName": "sdkwork-router-knowledgebase-open-api",
+  "packageName": "sdkwork-routes-knowledgebase-open-api",
   "surface": "open-api",
   "owner": "sdkwork-knowledgebase",
   "domain": "intelligence",
@@ -10,8 +10,8 @@
   "sdkFamily": "sdkwork-knowledgebase-sdk",
   "prefix": "/knowledge/v3/api",
   "source": {
-    "crateRoot": "crates/sdkwork-router-knowledgebase-open-api",
-    "crateImport": "sdkwork_router_knowledgebase_open_api",
+    "crateRoot": "crates/sdkwork-routes-knowledgebase-open-api",
+    "crateImport": "sdkwork_routes_knowledgebase_open_api",
     "openApiAuthority": "sdks/sdkwork-knowledgebase-sdk/openapi/knowledgebase-open-api.openapi.json"
   },
   "routes": [

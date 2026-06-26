@@ -164,9 +164,9 @@ assert(
 );
 
 const routerCrates = [
-  'crates/sdkwork-router-knowledgebase-open-api/Cargo.toml',
-  'crates/sdkwork-router-knowledgebase-app-api/Cargo.toml',
-  'crates/sdkwork-router-knowledgebase-backend-api/Cargo.toml',
+  'crates/sdkwork-routes-knowledgebase-open-api/Cargo.toml',
+  'crates/sdkwork-routes-knowledgebase-app-api/Cargo.toml',
+  'crates/sdkwork-routes-knowledgebase-backend-api/Cargo.toml',
 ];
 
 for (const routerCrate of routerCrates) {
@@ -242,9 +242,9 @@ for (const workspace of [
 }
 
 const routeManifestPaths = [
-  'sdks/_route-manifests/open-api/sdkwork-router-knowledgebase-open-api.route-manifest.json',
-  'sdks/_route-manifests/app-api/sdkwork-router-knowledgebase-app-api.route-manifest.json',
-  'sdks/_route-manifests/backend-api/sdkwork-router-knowledgebase-backend-api.route-manifest.json',
+  'sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json',
+  'sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json',
+  'sdks/_route-manifests/backend-api/sdkwork-routes-knowledgebase-backend-api.route-manifest.json',
 ];
 
 for (const relativePath of routeManifestPaths) {

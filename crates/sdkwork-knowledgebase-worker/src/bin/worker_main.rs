@@ -1,6 +1,6 @@
 use sdkwork_knowledgebase_api_server::init_tracing;
 use sdkwork_knowledgebase_worker::{health, run_polling_loop};
-use sdkwork_router_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
+use sdkwork_routes_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 
 #[tokio::main]
 async fn main() {
@@ -47,7 +47,7 @@ async fn main() {
     );
 
     let readiness =
-        sdkwork_router_knowledgebase_app_api::ReadinessCheck::new(runtime.pool().clone());
+        sdkwork_routes_knowledgebase_app_api::ReadinessCheck::new(runtime.pool().clone());
     let health_addr_for_task = health_addr.clone();
     tokio::spawn(async move {
         health::serve_worker_health(&health_addr_for_task, readiness).await;

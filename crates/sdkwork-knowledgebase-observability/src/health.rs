@@ -1,7 +1,9 @@
-//! Kubernetes-style liveness/readiness helpers for Knowledgebase HTTP surfaces.
+//! Kubernetes-style liveness/readiness path constants and web-bootstrap re-exports.
 
-use axum::Json;
-use serde_json::{json, Value};
+pub use sdkwork_web_bootstrap::{
+    healthz_handler, infra_public_path_prefixes, livez_handler, readyz_handler,
+    READINESS_DEPENDENCY_UNAVAILABLE,
+};
 
 pub const LIVEZ: &str = "/livez";
 pub const READYZ: &str = "/readyz";
@@ -10,15 +12,3 @@ pub const HEALTHZ: &str = "/healthz";
 pub const READINESS_UNAVAILABLE_CODE: &str = "dependencies_not_ready";
 pub const READINESS_UNAVAILABLE_DETAIL: &str =
     "Service dependencies are not ready. Please try again later.";
-
-pub fn livez_response() -> Json<Value> {
-    Json(json!({ "status": "ok" }))
-}
-
-pub fn readyz_ok_response() -> Json<Value> {
-    Json(json!({ "status": "ok" }))
-}
-
-pub fn healthz_ok_response() -> Json<Value> {
-    readyz_ok_response()
-}

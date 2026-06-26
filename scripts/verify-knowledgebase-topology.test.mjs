@@ -148,7 +148,7 @@ test('knowledgebase topology adapter exports IAM application bootstrap env alias
 });
 
 test('default PostgreSQL development path is not blocked by SQLite-only runtime wiring', async () => {
-  const runtimeSource = await read('crates/sdkwork-router-knowledgebase-app-api/src/runtime.rs');
+  const runtimeSource = await read('crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs');
   const appMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/app_main.rs');
   const backendMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/backend_main.rs');
   const openMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/open_main.rs');
@@ -267,7 +267,7 @@ test('production cloud topology orchestrates background worker and health probes
   assert.ok(processIds.includes('application.backend-http'));
   assert.ok(processIds.includes('application.open-http'));
 
-  const bootstrapSource = await read('crates/sdkwork-router-knowledgebase-app-api/src/bootstrap.rs');
+  const bootstrapSource = await read('crates/sdkwork-routes-knowledgebase-app-api/src/bootstrap.rs');
   assert.match(bootstrapSource, /is_development_environment/);
   assert.match(bootstrapSource, /validate_snowflake_node_id_for_production/);
   assert.match(bootstrapSource, /DEV_AUTH_BYPASS requires SDKWORK_KNOWLEDGEBASE_ENVIRONMENT=development/);

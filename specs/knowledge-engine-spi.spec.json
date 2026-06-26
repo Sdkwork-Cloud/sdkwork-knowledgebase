@@ -34,7 +34,7 @@
     },
     "routerPorts": {
       "role": "Thin HTTP adapters (KnowledgeAppApi, KnowledgeBackendApi, KnowledgeOpenApi).",
-      "location": "crates/sdkwork-router-knowledgebase-*-api/src/ports.rs",
+      "location": "crates/sdkwork-routes-knowledgebase-*-api/src/ports.rs",
       "mustNot": ["own business rules", "choose implementation without registry"]
     },
     "knowledgeEngineSpi": {

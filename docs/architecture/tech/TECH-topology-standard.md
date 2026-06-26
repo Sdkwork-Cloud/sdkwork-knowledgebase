@@ -10,7 +10,7 @@ This repository adopts the shared SDKWork runtime topology framework.
 
 ## Archetype
 
-`application-http-gateway`: Knowledgebase exposes application HTTP surfaces through `sdkwork-router-knowledgebase-*` route binaries. Shared IAM and appbase SDKs use `platform.api-gateway` unless a standalone profile embeds the required platform adapter.
+`application-http-gateway`: Knowledgebase exposes application HTTP surfaces through `sdkwork-routes-knowledgebase-*` route binaries. Shared IAM and appbase SDKs use `platform.api-gateway` unless a standalone profile embeds the required platform adapter.
 
 ## Default Dev Profile
 

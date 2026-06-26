@@ -13,8 +13,8 @@
 ### Task 1: Characterize Existing Reusable Service Boundaries
 
 **Files:**
-- Read: `crates/sdkwork-router-knowledgebase-app-api/src/*.rs`
-- Read: `crates/sdkwork-router-knowledgebase-backend-api/src/*.rs`
+- Read: `crates/sdkwork-routes-knowledgebase-app-api/src/*.rs`
+- Read: `crates/sdkwork-routes-knowledgebase-backend-api/src/*.rs`
 - Read: `crates/sdkwork-intelligence-knowledgebase-service/src/**/*.rs`
 - Read: `crates/sdkwork-knowledgebase-contract/src/**/*.rs`
 
@@ -26,50 +26,50 @@
 ### Task 2: Add Failing Open Route Crate Tests
 
 **Files:**
-- Create: `crates/sdkwork-router-knowledgebase-open-api/tests/open_api_routes.rs`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/Cargo.toml` only after the test target is defined
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/tests/open_api_routes.rs`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/Cargo.toml` only after the test target is defined
 
-- [ ] Write a failing test that imports `sdkwork_router_knowledgebase_open_api::manifest` and asserts package, surface, authority, SDK family, prefix, and the approved route list.
+- [ ] Write a failing test that imports `sdkwork_routes_knowledgebase_open_api::manifest` and asserts package, surface, authority, SDK family, prefix, and the approved route list.
 - [ ] Write failing HTTP route tests for representative operations:
   - `POST /knowledge/v3/api/retrievals`
   - `GET /knowledge/v3/api/retrievals/{retrievalId}`
   - `POST /knowledge/v3/api/context_packs`
   - `GET /knowledge/v3/api/spaces/{spaceId}/browser`
-- [ ] Run `cargo test -p sdkwork-router-knowledgebase-open-api`.
+- [ ] Run `cargo test -p sdkwork-routes-knowledgebase-open-api`.
 - [ ] Confirm the failure is due to the missing package or missing public API symbols.
 
 ### Task 3: Implement Minimal Open Route Crate
 
 **Files:**
-- Create: `crates/sdkwork-router-knowledgebase-open-api/Cargo.toml`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/README.md`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/specs/README.md`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/specs/component.spec.json`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/src/lib.rs`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/src/manifest.rs`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/src/paths.rs`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/src/routes.rs`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/src/handlers.rs`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/src/error.rs`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/src/ports.rs`
-- Create: `crates/sdkwork-router-knowledgebase-open-api/src/adapters.rs`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/Cargo.toml`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/README.md`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/specs/README.md`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/specs/component.spec.json`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/src/lib.rs`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/src/manifest.rs`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/src/paths.rs`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/src/routes.rs`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/src/handlers.rs`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/src/error.rs`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/src/ports.rs`
+- Create: `crates/sdkwork-routes-knowledgebase-open-api/src/adapters.rs`
 - Modify: `Cargo.toml`
 
 - [ ] Add the new Cargo workspace member.
-- [ ] Add route crate metadata with package name `sdkwork-router-knowledgebase-open-api`.
+- [ ] Add route crate metadata with package name `sdkwork-routes-knowledgebase-open-api`.
 - [ ] Keep `src/lib.rs` to modules and public re-exports only.
 - [ ] Add path constants in `paths.rs` for `/knowledge/v3/api`.
 - [ ] Add `manifest.rs` with `surface = "open-api"`, `apiAuthority = "sdkwork-knowledgebase.open"`, `sdkFamily = "sdkwork-knowledgebase-sdk"`, and `auth.mode = "api-key"` semantics.
 - [ ] Add service traits in `ports.rs` for the approved public operations.
 - [ ] Add `routes.rs` and `handlers.rs` as thin Axum adapters.
 - [ ] Add adapters only where needed to reuse existing service trait shapes without leaking app-session context.
-- [ ] Run `cargo test -p sdkwork-router-knowledgebase-open-api`.
+- [ ] Run `cargo test -p sdkwork-routes-knowledgebase-open-api`.
 - [ ] Refactor only after tests pass.
 
 ### Task 4: Add Route Manifest Artifact And SDK Family Metadata Tests
 
 **Files:**
-- Create: `sdks/_route-manifests/open-api/sdkwork-router-knowledgebase-open-api.route-manifest.json`
+- Create: `sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json`
 - Modify: `sdks/test/verify-sdk-ownership-boundaries.test.mjs`
 - Modify: `tools/verify_sdkwork_structure.ps1`
 - Modify: `tools/verify_phase1.ps1` if new checks are not already covered
@@ -149,7 +149,7 @@
 **Repository:** `E:/sdkwork-space/sdkwork-knowledgebase`
 
 **Commands:**
-- `cargo test -p sdkwork-router-knowledgebase-open-api`
+- `cargo test -p sdkwork-routes-knowledgebase-open-api`
 - `node sdks/standardize-knowledgebase-sdk-family.mjs --check`
 - `node sdks/test/verify-sdk-ownership-boundaries.test.mjs`
 - `powershell -ExecutionPolicy Bypass -File tools/verify_sdkwork_structure.ps1`
