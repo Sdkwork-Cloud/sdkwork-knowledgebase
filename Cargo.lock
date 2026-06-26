@@ -2089,8 +2089,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdkwork-agent-plugin-rig"
-version = "0.1.0"
+name = "sdkwork-agent-provider-rig"
+version = "0.2.0"
 dependencies = [
  "sdkwork-agent-kernel",
  "sdkwork-agent-plugin-core",
@@ -2292,6 +2292,7 @@ dependencies = [
  "rand_core 0.6.4",
  "sdkwork-iam-context-service",
  "sdkwork-iam-module-registry",
+ "sdkwork-id-core",
  "sha2",
  "sqlx",
  "uuid",
@@ -2397,7 +2398,7 @@ dependencies = [
  "reqwest",
  "sdkwork-agent-kernel",
  "sdkwork-agent-plugin-core",
- "sdkwork-agent-plugin-rig",
+ "sdkwork-agent-provider-rig",
  "sdkwork-knowledgebase-agent-provider",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-engine-dify",
@@ -2425,7 +2426,7 @@ dependencies = [
  "clawrouter-open-sdk",
  "sdkwork-agent-kernel",
  "sdkwork-agent-plugin-core",
- "sdkwork-agent-plugin-rig",
+ "sdkwork-agent-provider-rig",
  "sdkwork-knowledgebase-contract",
  "sdkwork-utils-rust",
  "serde_json",
@@ -2437,6 +2438,7 @@ name = "sdkwork-knowledgebase-api-server"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
+ "sdkwork-knowledgebase-gateway-assembly",
  "sdkwork-knowledgebase-observability",
  "sdkwork-routes-knowledgebase-app-api",
  "tokio",
@@ -2635,6 +2637,17 @@ dependencies = [
  "serde_json",
  "tokio",
  "wiremock",
+]
+
+[[package]]
+name = "sdkwork-knowledgebase-gateway-assembly"
+version = "0.1.0"
+dependencies = [
+ "axum 0.8.9",
+ "sdkwork-routes-knowledgebase-app-api",
+ "sdkwork-routes-knowledgebase-backend-api",
+ "sdkwork-routes-knowledgebase-open-api",
+ "tokio",
 ]
 
 [[package]]
