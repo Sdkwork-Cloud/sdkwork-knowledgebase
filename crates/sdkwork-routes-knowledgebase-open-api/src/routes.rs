@@ -9,13 +9,14 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeBrowserView, KnowledgeContextPackRequest, KnowledgeIngestRequest,
     KnowledgeRetrievalRequest, ListKnowledgeBrowserRequest,
 };
-use sdkwork_routes_knowledgebase_backend_api::{
-    health, DbReadinessCheck,
-};
+use sdkwork_routes_knowledgebase_backend_api::{health, DbReadinessCheck};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::{auth::require_context, paths, ApiProblem, ApiResult, KnowledgeOpenApi, KnowledgeOpenApiRequestContext};
+use crate::{
+    auth::require_context, paths, ApiProblem, ApiResult, KnowledgeOpenApi,
+    KnowledgeOpenApiRequestContext,
+};
 
 #[derive(Clone)]
 struct OpenState {

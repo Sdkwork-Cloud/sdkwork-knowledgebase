@@ -44,7 +44,6 @@ pub fn gateway_route_manifest() -> HttpRouteManifest {
     backend_route_manifest()
 }
 
-pub fn gateway_mount(api: Arc<dyn KnowledgeBackendApi>,
-    runtime_tenant_id: u64,) -> Router {
+pub fn gateway_mount(api: Arc<dyn KnowledgeBackendApi>, runtime_tenant_id: u64) -> Router {
     build_router_with_shared_backend_api(api, runtime_tenant_id)
 }

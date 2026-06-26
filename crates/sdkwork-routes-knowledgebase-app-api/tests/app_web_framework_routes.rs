@@ -6,11 +6,11 @@ use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
 };
 use sdkwork_routes_knowledgebase_app_api::{
-    app_route_manifest, build_router_with_browser, manifest,
-    wrap_router_with_web_framework, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
+    app_route_manifest, build_router_with_browser, manifest, wrap_router_with_web_framework,
+    ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
 };
-use sdkwork_web_core::{access_token_jwt, auth_token_jwt};
 use sdkwork_web_core::RouteAuth;
+use sdkwork_web_core::{access_token_jwt, auth_token_jwt};
 use std::sync::{Arc, Mutex};
 use tower::util::ServiceExt;
 

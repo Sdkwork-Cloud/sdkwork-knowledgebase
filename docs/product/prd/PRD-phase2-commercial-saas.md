@@ -27,7 +27,8 @@ Define commercial SaaS landing criteria beyond Phase 1.0 single-tenant productio
 ### Platform
 
 - [x] Multi-tenant isolation **decision** documented — [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md)
-- [ ] Postgres RLS migration and enforcement implemented (Phase 2.1)
+- [x] Postgres RLS migration shipped — `database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql`
+- [ ] Connection checkout sets `app.current_tenant_id` on every pooled Postgres connection (Phase 2.2)
 - [x] Usage metering exported for billing (Prometheus counters + structured `billing_event` JSON logs)
 - [ ] Per-tenant quota: API rate tiers, storage, ingest concurrency, retrieval QPS
 - [ ] Tenant self-service signup and subscription lifecycle

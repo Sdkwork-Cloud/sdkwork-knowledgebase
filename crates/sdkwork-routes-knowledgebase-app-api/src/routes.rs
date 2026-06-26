@@ -278,14 +278,14 @@ async fn readyz(State(state): State<AppState>) -> Result<Json<serde_json::Value>
         sdkwork_web_bootstrap::ReadinessCheck::check(readiness)
             .await
             .map_err(|error| {
-            sdkwork_knowledgebase_observability::set_readiness_status(false);
-            eprintln!("[knowledgebase-app-api] readiness check failed: {error}");
-            ApiProblem::new(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "dependencies_unavailable",
-                "One or more dependencies are unavailable.",
-            )
-        })?;
+                sdkwork_knowledgebase_observability::set_readiness_status(false);
+                eprintln!("[knowledgebase-app-api] readiness check failed: {error}");
+                ApiProblem::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "dependencies_unavailable",
+                    "One or more dependencies are unavailable.",
+                )
+            })?;
     }
     sdkwork_knowledgebase_observability::set_readiness_status(true);
     Ok(Json(serde_json::json!({ "status": "ok" })))

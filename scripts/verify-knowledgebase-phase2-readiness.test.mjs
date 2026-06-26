@@ -18,6 +18,25 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
     assert.match(adr, /app\.current_tenant_id/);
   });
 
+  it('ships Postgres RLS migration for tenant-scoped kb_* tables', () => {
+    const migration = readRepoFile('database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql');
+    const crateMigration = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606260001__knowledgebase_postgres_rls.sql',
+    );
+    assert.match(migration, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(migration, /tenant_isolation/);
+    assert.match(migration, /kb_audit_event/);
+    assert.match(crateMigration, /app\.current_tenant_id/);
+  });
+
+  it('exposes Postgres tenant session setter for RLS checkout wiring', () => {
+    const sessionModule = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/postgres_tenant_session.rs',
+    );
+    assert.match(sessionModule, /POSTGRES_TENANT_SESSION_KEY/);
+    assert.match(sessionModule, /set_postgres_session_tenant_id/);
+  });
+
   it('exports billable usage counters from observability crate', () => {
     const billingModule = readRepoFile(
       'crates/sdkwork-knowledgebase-observability/src/billing_metrics.rs',

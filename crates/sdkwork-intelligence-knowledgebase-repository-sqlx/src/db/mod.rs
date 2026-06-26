@@ -5,6 +5,7 @@
 
 pub mod bootstrap;
 pub mod postgres;
+pub mod postgres_tenant_session;
 pub mod sqlite;
 
 pub use bootstrap::{
@@ -16,6 +17,9 @@ pub use postgres::{
     connect_postgres_and_install_schema, connect_postgres_pool,
     connect_postgres_via_framework_lifecycle, is_postgres_database_url, postgres_health_check,
     PostgresRepositoryError,
+};
+pub use postgres_tenant_session::{
+    set_postgres_session_tenant_id, POSTGRES_TENANT_SESSION_KEY,
 };
 pub use sqlite::{
     connect_sqlite_and_install_schema, connect_sqlite_pool, install_sqlite_core_schema,
