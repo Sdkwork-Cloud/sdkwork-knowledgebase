@@ -71,6 +71,6 @@ Structured audit log lines use `audit_event` fields: `okf.concept.published`, `o
 
 ## References
 
-- Design: `docs/superpowers/specs/2026-06-19-okf-knowledge-bundle-design.md`
+- Design: [TECH-2026-06-19-okf-knowledge-bundle-design.md](TECH-2026-06-19-okf-knowledge-bundle-design.md)
 - Contract: `specs/okf-knowledge-bundle.spec.json`
 

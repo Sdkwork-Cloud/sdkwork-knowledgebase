@@ -15,8 +15,8 @@
     "specs/component.spec.json"
   ],
   "designDocs": [
-    "docs/superpowers/specs/2026-06-19-okf-knowledge-bundle-design.md",
-    "docs/superpowers/specs/2026-06-09-knowledgebase-agent-rag-design.md"
+    "docs/architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md",
+    "docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md"
   ],
   "purpose": "Product-level Service Provider Interface (SPI) for switchable knowledge engines: native OKF bundle, native RAG, and third-party knowledge backends.",
   "layering": {

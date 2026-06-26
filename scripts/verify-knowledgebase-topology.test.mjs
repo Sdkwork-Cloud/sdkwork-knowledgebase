@@ -74,7 +74,7 @@ test('declares SDKWork v3 deployment topology spec and profile env files for sdk
   assert.equal(await exists('specs/topology.spec.json'), true);
   assert.equal(await exists('scripts/lib/knowledgebase-topology.mjs'), true);
   assert.equal(await exists('scripts/knowledgebase-dev.mjs'), true);
-  assert.equal(await exists('docs/topology-standard.md'), true);
+  assert.equal(await exists('docs/architecture/tech/TECH-topology-standard.md'), true);
 
   const spec = await readJson('specs/topology.spec.json');
   assert.equal(spec.schemaVersion, 2);
@@ -268,9 +268,12 @@ test('production cloud topology orchestrates background worker and health probes
   assert.ok(processIds.includes('application.open-http'));
 
   const bootstrapSource = await read('crates/sdkwork-routes-knowledgebase-app-api/src/bootstrap.rs');
-  assert.match(bootstrapSource, /is_development_environment/);
   assert.match(bootstrapSource, /validate_snowflake_node_id_for_production/);
-  assert.match(bootstrapSource, /DEV_AUTH_BYPASS requires SDKWORK_KNOWLEDGEBASE_ENVIRONMENT=development/);
+  assert.match(
+    bootstrapSource,
+    /SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID must be set when SDKWORK_KNOWLEDGEBASE_ENVIRONMENT is not development/,
+  );
+  assert.doesNotMatch(bootstrapSource, /DEV_AUTH_BYPASS/);
 
   const workerSource = await read('crates/sdkwork-knowledgebase-worker/src/lib.rs');
   assert.match(workerSource, /shutdown_signal/);

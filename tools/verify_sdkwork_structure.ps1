@@ -85,7 +85,7 @@ Assert-PathExists ".sdkwork/plugins/README.md" "Missing SDKWORK plugins README"
 Assert-PathExists ".sdkwork/.gitignore" "Missing SDKWORK workspace .gitignore"
 
 Assert-PathExists "specs/topology.spec.json" "Missing topology spec"
-Assert-PathExists "docs/topology-standard.md" "Missing topology standard doc"
+Assert-PathExists "docs/architecture/tech/TECH-topology-standard.md" "Missing topology standard doc"
 Assert-PathExists "scripts/lib/knowledgebase-topology.mjs" "Missing topology adapter"
 Assert-PathExists "scripts/knowledgebase-dev.mjs" "Missing topology dev orchestrator"
 
@@ -304,9 +304,9 @@ $forbiddenImportNames = @(
 
 $contentForbiddenPatterns = $forbiddenImportNames
 $excludedHistoricalDocs = @(
-    "docs/superpowers/specs/2026-06-01-knowledgebase-backend-design.md",
-    "docs/superpowers/plans/2026-06-01-knowledgebase-backend-phase1-implementation.md",
-    "docs/superpowers/plans/2026-06-09-knowledgebase-agent-rag-implementation.md",
+    "docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md",
+    "docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-phase1-implementation.md",
+    "docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-implementation.md",
     "tools/verify_sdkwork_structure.ps1"
 )
 

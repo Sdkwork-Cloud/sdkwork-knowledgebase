@@ -3373,7 +3373,7 @@ Once OpenAPI files exist, SDK generation checks become mandatory.
 
 After this design is approved:
 
-1. Create an implementation plan under `docs/superpowers/plans/`.
+1. Create an implementation plan under `docs/architecture/tech/`.
 2. Scaffold the Rust workspace.
 3. Write failing tests first for the drive storage boundary and database schema contracts.
 4. Implement the minimal backend foundation.

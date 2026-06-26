@@ -16,7 +16,7 @@ function Invoke-Checked {
 
 Invoke-Checked powershell -ExecutionPolicy Bypass -File tools/verify_sdkwork_structure.ps1
 
-$knowledgebaseDesignPath = "docs/superpowers/specs/2026-06-01-knowledgebase-backend-design.md"
+$knowledgebaseDesignPath = "docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md"
 $knowledgebaseDesign = Get-Content -Raw $knowledgebaseDesignPath
 
 $canonicalSdkGeneratorRoot = "..\sdkwork-sdk-generator"
@@ -234,14 +234,15 @@ Invoke-Checked cargo test --workspace
 Invoke-Checked node tools/check_okf_knowledge_bundle_standard.mjs
 Invoke-Checked powershell -ExecutionPolicy Bypass -File tools/verify_openapi_operation_ids.ps1
 
-$okfKnowledgeBundle = Get-Content -Raw docs/okf-knowledge-bundle.md
+$okfKnowledgeBundlePath = "docs/architecture/tech/TECH-okf-knowledge-bundle.md"
+$okfKnowledgeBundle = Get-Content -Raw $okfKnowledgeBundlePath
 # Detect common mojibake/replacement characters without embedding them directly in this script.
 if ($okfKnowledgeBundle.Contains([char]0x9225) -or $okfKnowledgeBundle.Contains([char]0x922B) -or $okfKnowledgeBundle.Contains([char]0xFFFD)) {
-    throw "docs/okf-knowledge-bundle.md contains mojibake replacement text"
+    throw "$okfKnowledgeBundlePath contains mojibake replacement text"
 }
 
 if (!$okfKnowledgeBundle.Contains("Database objects created by SDKWork Knowledgebase use the") -or !$okfKnowledgeBundle.Contains('`kb_` prefix')) {
-    throw "docs/okf-knowledge-bundle.md must document the SDKWork Knowledgebase kb_ database object naming standard"
+    throw "$okfKnowledgeBundlePath must document the SDKWork Knowledgebase kb_ database object naming standard"
 }
 
 $databaseObjectSearchRoots = @(

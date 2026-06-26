@@ -1,13 +1,14 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+import { appRoot, vitestSharedAliases } from '../../vitest.shared';
 
 const packageRoot = path.dirname(fileURLToPath(import.meta.url));
-const appRoot = path.resolve(packageRoot, '../..');
 
 export default defineConfig({
   resolve: {
     alias: {
+      ...vitestSharedAliases,
       '@sdkwork/sdkwork-knowledgebase-pc-commons': path.join(
         appRoot,
         'packages/sdkwork-knowledgebase-pc-commons/src',

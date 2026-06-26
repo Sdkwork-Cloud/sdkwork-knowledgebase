@@ -3,7 +3,7 @@
   "kind": "sdkwork.okf-knowledge-bundle.spec",
   "okfVersion": "0.1",
   "normativeSpec": "external/knowledge-catalog/okf/SPEC.md",
-  "designDoc": "docs/superpowers/specs/2026-06-19-okf-knowledge-bundle-design.md",
+  "designDoc": "docs/architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md",
   "bundle": {
     "driveRoot": "okf",
     "reservedFilenames": ["index.md", "log.md"],

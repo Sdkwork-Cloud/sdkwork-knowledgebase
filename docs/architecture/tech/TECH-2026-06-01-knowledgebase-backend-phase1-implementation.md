@@ -58,7 +58,7 @@ Create:
 
 Modify:
 
-- `docs/superpowers/specs/2026-06-01-knowledgebase-backend-design.md` only if implementation reveals a design correction.
+- `docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md` only if implementation reveals a design correction.
 
 ## Task 1: Workspace Scaffold
 

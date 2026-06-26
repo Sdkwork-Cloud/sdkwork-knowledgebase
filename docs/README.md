@@ -16,6 +16,10 @@ SDKWork Knowledgebase maintainers.
 | MVP launch acceptance | [product/prd/PRD-mvp-launch.md](product/prd/PRD-mvp-launch.md) |
 | Phase 2 commercial SaaS | [product/prd/PRD-phase2-commercial-saas.md](product/prd/PRD-phase2-commercial-saas.md) |
 | Technical architecture | [architecture/tech/TECH_ARCHITECTURE.md](architecture/tech/TECH_ARCHITECTURE.md) |
+| Backend design (SDK, routes, persistence) | [architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md](architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md) |
+| Open API design | [architecture/tech/TECH-2026-06-12-knowledgebase-open-api-design.md](architecture/tech/TECH-2026-06-12-knowledgebase-open-api-design.md) |
+| OKF knowledge bundle | [architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md](architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md) |
+| Agent RAG design | [architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md](architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md) |
 | Tenant isolation | [runbooks/tenant-isolation.md](runbooks/tenant-isolation.md) |
 | Audit retention | [runbooks/audit-retention.md](runbooks/audit-retention.md) |
 | Phase 2 RLS ADR | [adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md) |
@@ -32,7 +36,6 @@ Production launch and backup procedures live under `deployments/runbooks/`:
 - Architecture decision records under `docs/adr/`
 - Active product and architecture docs under `docs/product/` and `docs/architecture/`
 - Operator runbooks under `docs/runbooks/`
-- Historical implementation notes under `docs/superpowers/` (labeled as history)
 
 ## Forbidden content
 
@@ -40,6 +43,7 @@ Production launch and backup procedures live under `deployments/runbooks/`:
 - Generated SDK transport output
 - Secrets, tokens, or customer data
 - Active API contracts (use `apis/` and `sdks/`)
+- Duplicate historical design copies (canonical architecture lives under `docs/architecture/tech/`; `docs/superpowers/` is redirect-only)
 
 ## Related specs
 
@@ -56,23 +60,3 @@ pnpm lint
 ```
 
 Status: active.
-
-## Canon Documents
-
-| Document | Path |
-| --- | --- |
-| Product PRD | [product/prd/PRD.md](product/prd/PRD.md) |
-| Technical architecture | [architecture/tech/TECH_ARCHITECTURE.md](architecture/tech/TECH_ARCHITECTURE.md) |
-
-- [docs/product/prd/PRD.md](product/prd/PRD.md)
-- [docs/architecture/tech/TECH_ARCHITECTURE.md](architecture/tech/TECH_ARCHITECTURE.md)
-
-## Canon Documents
-
-| Document | Path |
-| --- | --- |
-| Product PRD | [product/prd/PRD.md](product/prd/PRD.md) |
-| Technical architecture | [architecture/tech/TECH_ARCHITECTURE.md](architecture/tech/TECH_ARCHITECTURE.md) |
-
-- [docs/product/prd/PRD.md](product/prd/PRD.md)
-- [docs/architecture/tech/TECH_ARCHITECTURE.md](architecture/tech/TECH_ARCHITECTURE.md)
