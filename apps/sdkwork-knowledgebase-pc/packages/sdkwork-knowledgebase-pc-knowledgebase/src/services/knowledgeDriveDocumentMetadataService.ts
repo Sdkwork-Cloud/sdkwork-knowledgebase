@@ -17,7 +17,7 @@ function requireDriveClient() {
 }
 
 export function resolveDriveNodeId(node: KnowledgeBrowserNode): string | null {
-  return node.driveNodeId?.trim() || node.id?.trim() || null;
+  return trim(node.driveNodeId) || trim(node.id) || null;
 }
 
 function parseTagsProperty(raw?: string | null): string[] {
@@ -29,7 +29,7 @@ function parseTagsProperty(raw?: string | null): string[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0);
+    return parsed.filter((entry): entry is string => typeof entry === 'string' && !isBlank(entry));
   } catch {
     return raw
       .split(',')

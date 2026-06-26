@@ -5,6 +5,7 @@ This directory owns the technical architecture Canon for the repository.
 ## Fixed Entry
 
 - [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md) — required entry document. Keep summary, status, and links here.
+- [TECH-topology-standard.md](TECH-topology-standard.md) — runtime topology adoption for this application root.
 
 ## Splitting Rules
 

@@ -1,4 +1,3 @@
-> Migrated from `docs/superpowers/specs/2026-06-19-okf-knowledge-bundle-design.md` on 2026-06-24.
 > Owner: SDKWork maintainers
 
 Date: 2026-06-19  
@@ -636,16 +635,15 @@ pnpm verify
 
 以下清单 **逐项清零** 后方可声称 OKF 标准实现完成。
 
-### 16.1 文档
+### 16.1 文档（已完成）
 
-| 动作 | 路径 |
-|------|------|
-| DELETE | `docs/llm-wiki.md` |
-| DELETE | `docs/superpowers/specs/2026-06-19-llm-wiki-to-okf-design.md` |
-| REPLACE | `docs/okf-knowledge-bundle.md`（新建，产品级 OKF 说明） |
-| REVISE | `docs/superpowers/specs/2026-06-01-knowledgebase-backend-design.md`（wiki → okf） |
-| REVISE | `docs/superpowers/plans/2026-06-01-knowledgebase-backend-phase1-implementation.md` |
-| REVISE | `README.md` |
+| 动作 | 路径 | 状态 |
+|------|------|------|
+| DELETE | `docs/llm-wiki.md` | done |
+| REPLACE | [TECH-okf-knowledge-bundle.md](TECH-okf-knowledge-bundle.md) | done |
+| REVISE | [TECH-2026-06-01-knowledgebase-backend-design.md](TECH-2026-06-01-knowledgebase-backend-design.md) | done |
+| REVISE | [TECH-2026-06-01-knowledgebase-backend-phase1-implementation.md](TECH-2026-06-01-knowledgebase-backend-phase1-implementation.md) | done |
+| REVISE | `README.md` | done |
 
 ### 16.2 Rust 源码（删除文件）
 
@@ -707,7 +705,7 @@ node tools/check_okf_knowledge_bundle_standard.mjs
 
 # 2. 全仓无 wiki/llm_wiki 残留（排除 external/okf 样例与 forbiddenLegacy 清单本身）
 rg -l 'llm_wiki|LlmWiki|WikiPageType|kb_wiki_|wiki\.pages|wiki_schema' \
-  --glob '!external/**' --glob '!target/**' --glob '!docs/superpowers/specs/2026-06-01*'
+  --glob '!external/**' --glob '!target/**' --glob '!docs/architecture/tech/TECH-2026-06-01*'
 # 期望：零匹配
 
 # 3. OKF 合规
