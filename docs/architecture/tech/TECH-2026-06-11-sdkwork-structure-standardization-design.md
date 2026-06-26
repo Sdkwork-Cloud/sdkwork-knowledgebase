@@ -1,4 +1,3 @@
-> Migrated from `docs/superpowers/specs/2026-06-11-sdkwork-structure-standardization-design.md` on 2026-06-24.
 > Owner: SDKWork Knowledgebase maintainers
 >
 > **Superseded (2026-06-24):** Structure migration is complete. `apps/sdkwork-knowledgebase-pc/` is the active PC surface; `crates/` holds Rust workspace members. Current architecture: [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md).

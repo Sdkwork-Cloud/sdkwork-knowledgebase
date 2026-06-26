@@ -36,11 +36,11 @@ export async function resolveKnowledgeBrowserParentDriveNodeId(
   kbId: string,
   parentReference: string | null | undefined,
 ): Promise<string | undefined> {
-  if (!parentReference?.trim()) {
+  if (isBlank(parentReference)) {
     return undefined;
   }
 
-  const trimmed = parentReference.trim();
+  const trimmed = trim(parentReference)!;
   const nodes = await listAllKnowledgeBrowserNodes(spaceIdFromKbId(kbId));
   const node = findBrowserNodeByParentReference(nodes, trimmed, kbId);
   if (!node) {
@@ -61,11 +61,11 @@ export async function resolveKnowledgeBrowserParentNodeId(
   kbId: string,
   parentReference: string | null | undefined,
 ): Promise<string | null> {
-  if (!parentReference?.trim()) {
+  if (isBlank(parentReference)) {
     return null;
   }
 
-  const trimmed = parentReference.trim();
+  const trimmed = trim(parentReference)!;
   const nodes = await listAllKnowledgeBrowserNodes(spaceIdFromKbId(kbId));
   const node = findBrowserNodeByParentReference(nodes, trimmed, kbId);
   if (!node) {

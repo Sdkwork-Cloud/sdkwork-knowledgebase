@@ -4,6 +4,7 @@ repository: sdkwork-knowledgebase
 canon:
   prd: docs/product/prd/PRD.md
   techArchitecture: docs/architecture/tech/TECH_ARCHITECTURE.md
+  topologyStandard: docs/architecture/tech/TECH-topology-standard.md
   backendDesign: docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md
   openApiDesign: docs/architecture/tech/TECH-2026-06-12-knowledgebase-open-api-design.md
   okfDesign: docs/architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md

@@ -1,9 +1,9 @@
 # SDKWork Knowledgebase — Phase 2 Commercial SaaS
 
-Status: planned  
+Status: **in progress** — Phase 2.0 foundations complete; Phase 2.1 shared multi-tenant RLS pending  
 Owner: SDKWork maintainers  
 Application: sdkwork-knowledgebase  
-Updated: 2026-06-24  
+Updated: 2026-06-25  
 Parent: [PRD.md](PRD.md)  
 Prerequisite: [PRD-mvp-launch.md](PRD-mvp-launch.md) Phase 1.0 complete
 
@@ -18,7 +18,7 @@ Define commercial SaaS landing criteria beyond Phase 1.0 single-tenant productio
 | Deployment model | One tenant per API/worker process | Shared multi-tenant platform |
 | Billing | Platform-level or manual | Seat/usage metering (Stripe or SDKWork platform) |
 | Auth | IAM dual-token + backend `knowledge.admin` | + SSO/SCIM (platform IAM) |
-| Data isolation | App-layer `tenant_id` filters | Postgres RLS or schema-per-tenant (decision required) |
+| Data isolation | App-layer `tenant_id` filters | Postgres RLS ([ADR decided](../../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md); migration Phase 2.1) |
 | Desktop | Prelaunch-disabled | Enabled with CI packaging |
 | Legal | AGPL review for redistribution | Commercial license or SaaS exception |
 
@@ -26,7 +26,8 @@ Define commercial SaaS landing criteria beyond Phase 1.0 single-tenant productio
 
 ### Platform
 
-- [ ] Multi-tenant data model decided and implemented (RLS vs schema-per-tenant) — **decision:** [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md); RLS migration pending Phase 2.1
+- [x] Multi-tenant isolation **decision** documented — [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md)
+- [ ] Postgres RLS migration and enforcement implemented (Phase 2.1)
 - [x] Usage metering exported for billing (Prometheus counters + structured `billing_event` JSON logs)
 - [ ] Per-tenant quota: API rate tiers, storage, ingest concurrency, retrieval QPS
 - [ ] Tenant self-service signup and subscription lifecycle
@@ -34,7 +35,7 @@ Define commercial SaaS landing criteria beyond Phase 1.0 single-tenant productio
 ### Product
 
 - [ ] Admin console for tenant operators (sources, indexes, members) without raw backend API
-- [x] Audit retention policy documented ([audit-retention.md](../runbooks/audit-retention.md))
+- [x] Audit retention policy documented ([audit-retention.md](../../runbooks/audit-retention.md))
 - [ ] GDPR export/delete workflows automated for `kb_audit_event`
 - [ ] SLA dashboard: availability, P95 retrieval, error budget alerts
 
@@ -52,7 +53,7 @@ Phase 2 adds gates on top of Phase 1.0:
 pnpm verify
 pnpm test:launch-readiness
 pnpm test:phase2-readiness
-# Phase 2 additions (to be defined):
+# Phase 2.1 additions (planned):
 # pnpm test:multi-tenant-isolation
 # pnpm test:billing-metering
 ```
@@ -60,7 +61,6 @@ pnpm test:phase2-readiness
 ## References
 
 - [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md)
-
 - [PRD.md](PRD.md) §7 Phases
-- [docs/runbooks/tenant-isolation.md](../runbooks/tenant-isolation.md)
+- [docs/runbooks/tenant-isolation.md](../../runbooks/tenant-isolation.md)
 - `../sdkwork-specs/IAM_SPEC.md`, `SECURITY_SPEC.md`, `RELEASE_SPEC.md`

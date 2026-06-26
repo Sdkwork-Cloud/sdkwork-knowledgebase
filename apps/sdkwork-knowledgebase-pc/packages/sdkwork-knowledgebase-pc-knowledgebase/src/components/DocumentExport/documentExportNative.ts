@@ -49,7 +49,7 @@ export async function tryNativeDocumentPdfExport(
     return null;
   }
 
-  if (isBlank(content.html) && !content.markdown?.trim()) {
+  if (isBlank(content.html) && isBlank(content.markdown)) {
     return null;
   }
 

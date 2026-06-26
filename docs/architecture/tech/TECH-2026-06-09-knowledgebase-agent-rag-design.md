@@ -1,4 +1,3 @@
-> Migrated from `docs/superpowers/specs/2026-06-09-knowledgebase-agent-rag-design.md` on 2026-06-24.
 > Owner: SDKWork maintainers
 
 - Date: 2026-06-09

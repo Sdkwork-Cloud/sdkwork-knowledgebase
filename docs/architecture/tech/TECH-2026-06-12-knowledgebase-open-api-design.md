@@ -1,4 +1,3 @@
-> Migrated from `docs/superpowers/specs/2026-06-12-knowledgebase-open-api-design.md` on 2026-06-24.
 > Owner: SDKWork maintainers
 
 ## Context

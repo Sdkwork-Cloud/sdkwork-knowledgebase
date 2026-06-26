@@ -359,11 +359,12 @@ export async function openExportFile(path: string): Promise<void> {
 export async function resolveSavedExportPath(
   result: SaveExportFileResult,
 ): Promise<string | undefined> {
-  if (result.path?.trim()) {
-    return result.path;
+  const savedPath = trim(result.path);
+  if (savedPath) {
+    return savedPath;
   }
 
-  if (!result.pathLabel?.trim()) {
+  if (isBlank(result.pathLabel)) {
     return undefined;
   }
 

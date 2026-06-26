@@ -787,7 +787,7 @@ export async function placeDocumentInParentFolder(
   kbId: string,
   parentId: string | null,
 ): Promise<void> {
-  if (!parentId?.trim()) {
+  if (isBlank(parentId)) {
     return;
   }
 
