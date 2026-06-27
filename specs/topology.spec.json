@@ -110,19 +110,19 @@
   },
   "components": {
     "appApiRouter": {
-      "crate": "sdkwork-knowledgebase-api-server",
+      "crate": "sdkwork-knowledgebase-standalone-gateway",
       "binary": "sdkwork-knowledgebase-app-api"
     },
     "backendApiRouter": {
-      "crate": "sdkwork-knowledgebase-api-server",
+      "crate": "sdkwork-knowledgebase-standalone-gateway",
       "binary": "sdkwork-knowledgebase-backend-api"
     },
     "openApiRouter": {
-      "crate": "sdkwork-knowledgebase-api-server",
+      "crate": "sdkwork-knowledgebase-standalone-gateway",
       "binary": "sdkwork-knowledgebase-open-api"
     },
     "cloudGateway": {
-      "crate": "sdkwork-api-cloud-gateway-api-server",
+      "crate": "sdkwork-api-cloud-gateway",
       "binary": "sdkwork-api-cloud-gateway",
       "repository": "sdkwork-api-cloud-gateway",
       "configGlob": "configs/sdkwork-api-cloud-gateway.knowledgebase.{profile}.toml"
@@ -134,7 +134,7 @@
         "processes": [
           {
             "id": "application.public-ingress",
-            "crate": "sdkwork-knowledgebase-api-server",
+            "crate": "sdkwork-knowledgebase-standalone-gateway",
             "binary": "sdkwork-knowledgebase-standalone-gateway",
             "required": true
           },
@@ -153,7 +153,7 @@
         "processes": [
           {
             "id": "application.public-ingress",
-            "crate": "sdkwork-knowledgebase-api-server",
+            "crate": "sdkwork-knowledgebase-standalone-gateway",
             "binary": "sdkwork-knowledgebase-standalone-gateway",
             "required": true
           },
@@ -172,14 +172,14 @@
         "processes": [
           {
             "id": "platform.api-gateway",
-            "crate": "sdkwork-api-cloud-gateway-api-server",
+            "crate": "sdkwork-api-cloud-gateway",
             "binary": "sdkwork-api-cloud-gateway",
             "repository": "sdkwork-api-cloud-gateway",
             "required": false
           },
           {
             "id": "application.public-ingress",
-            "crate": "sdkwork-knowledgebase-api-server",
+            "crate": "sdkwork-knowledgebase-standalone-gateway",
             "binary": "sdkwork-knowledgebase-standalone-gateway",
             "required": true
           },
@@ -199,26 +199,26 @@
         "processes": [
           {
             "id": "platform.api-gateway",
-            "crate": "sdkwork-api-cloud-gateway-api-server",
+            "crate": "sdkwork-api-cloud-gateway",
             "binary": "sdkwork-api-cloud-gateway",
             "repository": "sdkwork-api-cloud-gateway",
             "required": true
           },
           {
             "id": "application.public-ingress",
-            "crate": "sdkwork-knowledgebase-api-server",
-            "binary": "sdkwork-knowledgebase-app-api",
+            "crate": "sdkwork-knowledgebase-standalone-gateway",
+            "binary": "sdkwork-knowledgebase-standalone-gateway",
             "required": true
           },
           {
             "id": "application.backend-http",
-            "crate": "sdkwork-knowledgebase-api-server",
+            "crate": "sdkwork-knowledgebase-standalone-gateway",
             "binary": "sdkwork-knowledgebase-backend-api",
             "required": true
           },
           {
             "id": "application.open-http",
-            "crate": "sdkwork-knowledgebase-api-server",
+            "crate": "sdkwork-knowledgebase-standalone-gateway",
             "binary": "sdkwork-knowledgebase-open-api",
             "required": true
           },

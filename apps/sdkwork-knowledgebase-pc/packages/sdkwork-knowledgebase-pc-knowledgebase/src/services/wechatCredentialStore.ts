@@ -1,5 +1,4 @@
 import { isBlank } from '@sdkwork/utils';
-import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 
 const WECHAT_CREDENTIAL_NAMESPACE = 'sdkwork.knowledgebase.pc.wechat.credentials.v1';
 
@@ -138,8 +137,4 @@ export function stripAppletSecrets<T extends { appSecret?: string; msgToken?: st
     msgToken: undefined,
     msgEncodingAESKey: undefined,
   };
-}
-
-export function isWechatBackendApiAvailable(): boolean {
-  return isKnowledgebaseApiAvailable();
 }

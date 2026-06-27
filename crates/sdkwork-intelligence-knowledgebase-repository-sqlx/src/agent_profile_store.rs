@@ -501,6 +501,41 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         }
         Ok(())
     }
+
+    async fn resolve_profile_id_for_space(
+        &self,
+        tenant_id: u64,
+        space_id: u64,
+    ) -> Result<Option<u64>, KnowledgeAgentProfileStoreError> {
+        ensure_tenant_scope(self.tenant_id, tenant_id)?;
+        let tenant_id_i64 = to_i64("tenant_id", tenant_id)?;
+        let space_id_i64 = to_i64("space_id", space_id)?;
+
+        let row = sqlx::query(
+            r#"
+            SELECT profile_id
+            FROM kb_agent_knowledge_binding
+            WHERE tenant_id = $1 AND space_id = $2 AND enabled = 1 AND status = $3
+            ORDER BY priority DESC, id ASC
+            LIMIT 1
+            "#,
+        )
+        .bind(tenant_id_i64)
+        .bind(space_id_i64)
+        .bind(ACTIVE_ROW_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(agent_sqlx_error)?;
+
+        Ok(row.and_then(|row| {
+            let profile_id = row.get::<i64, _>("profile_id") as u64;
+            if profile_id == 0 {
+                None
+            } else {
+                Some(profile_id)
+            }
+        }))
+    }
 }
 
 impl SqliteKnowledgeAgentProfileStore {

@@ -1,4 +1,4 @@
-﻿import i18n from '../i18n';
+import i18n from '../i18n';
 import { resolveKnowledgebaseAuthLocaleFromAppLanguage } from '../i18n/locale';
 
 export interface SdkworkAuthAppearanceConfig {
@@ -46,6 +46,22 @@ export function resolveKnowledgebaseAuthRuntimeConfig(): SdkworkAuthRuntimeConfi
     registerMethods: ['email', 'phone'],
     verificationPolicy: KNOWLEDGEBASE_VERIFICATION_POLICY,
   };
+
+  // Defense-in-depth: refuse to start if dev-only auth credentials leaked into
+  // a production bundle. The build-time guard in vite.config.ts should already
+  // prevent this, but we assert again at runtime in case the build guard is
+  // bypassed (e.g. via custom build pipeline).
+  // See sdkwork-specs/ENVIRONMENT_SPEC.md §3 (VITE_*_AUTH_DEV_* gating).
+  if (import.meta.env.PROD) {
+    const leakedEmail = import.meta.env.VITE_SDKWORK_KNOWLEDGEBASE_AUTH_DEV_EMAIL;
+    const leakedPassword = import.meta.env.VITE_SDKWORK_KNOWLEDGEBASE_AUTH_DEV_PASSWORD;
+    if (leakedEmail || leakedPassword) {
+      throw new Error(
+        'VITE_SDKWORK_KNOWLEDGEBASE_AUTH_DEV_* must not be present in production builds. '
+        + 'Aborting startup to prevent dev auth credentials from being used in production.',
+      );
+    }
+  }
 
   if (import.meta.env.DEV) {
     const email = import.meta.env.VITE_SDKWORK_KNOWLEDGEBASE_AUTH_DEV_EMAIL;

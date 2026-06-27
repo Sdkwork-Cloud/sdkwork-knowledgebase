@@ -20,7 +20,7 @@
     "dev:desktop:sqlite": "node scripts/knowledgebase-dev.mjs --target desktop --deployment-profile standalone --service-layout unified-process --database sqlite",
     "build": "pnpm --dir apps/sdkwork-knowledgebase-pc run build",
     "build:desktop": "pnpm --dir apps/sdkwork-knowledgebase-pc run build:desktop",
-    "build:server": "cargo build --release -p sdkwork-knowledgebase-api-server",
+    "build:server": "cargo build --release -p sdkwork-knowledgebase-standalone-gateway",
     "test": "pnpm topology:validate && pnpm test:topology && pnpm test:frontend && pnpm test:rust && pnpm test:smoke && pnpm test:launch-readiness && pnpm test:e2e && pnpm test:observability && pnpm test:security && pnpm db:validate",
     "test:rust": "cargo test --workspace",
     "test:security": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-security.test.mjs",

@@ -23,8 +23,8 @@ use std::sync::Arc;
 
 pub use client::DifyApiClient;
 pub use config::{
-    dataset_id_from_connector_metadata, DifyConnectorConfig, DIFY_API_KEY_ENV, DIFY_BASE_URL_ENV,
-    DIFY_DATASET_ID_ENV,
+    dataset_id_from_connector_metadata, DifyConnectorConfig, DIFY_BASE_URL_ENV,
+    DIFY_CREDENTIAL_ENV, DIFY_CREDENTIAL_FILE_ENV, DIFY_DATASET_ID_ENV,
 };
 
 pub const DIFY_VENDOR_ID: &str = "dify";
@@ -87,7 +87,7 @@ impl DifyKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Dify adapter requires {DIFY_BASE_URL_ENV} and {DIFY_API_KEY_ENV}; optional default dataset via {DIFY_DATASET_ID_ENV} or kb_source connector metadata datasetId"
+            "Dify adapter requires {DIFY_BASE_URL_ENV} and {DIFY_CREDENTIAL_ENV}; optional default dataset via {DIFY_DATASET_ID_ENV} or kb_source connector metadata datasetId"
         )
     }
 

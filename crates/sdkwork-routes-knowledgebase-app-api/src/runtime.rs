@@ -25,6 +25,7 @@ use sdkwork_intelligence_knowledgebase_service::{
     },
     ports::{
         knowledge_chunk_store::KnowledgeChunkStore,
+        knowledge_context_binding_store::KnowledgeContextBindingStore,
         knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStore,
         knowledge_drive_storage::KnowledgeDriveStorage,
         knowledge_outbox_store::KnowledgeOutboxStore,
@@ -36,6 +37,7 @@ use sdkwork_intelligence_knowledgebase_service::{
 use sdkwork_knowledgebase_contract::agent_chat::{
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
 };
+use sdkwork_knowledgebase_contract::context_binding::ListKnowledgeSpaceContextBindingsRequest;
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeContextPack,
@@ -405,13 +407,31 @@ impl KnowledgebaseRuntime {
         )
     }
 
-    pub async fn readiness_check(&self) -> Result<(), sqlx::Error> {
-        knowledgebase_health_check(&self.pool).await?;
-        knowledgebase_drive_health_check(&self.drive_pool).await?;
-        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM kb_space_context_binding")
-            .fetch_one(&self.pool)
+    pub async fn readiness_check(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        knowledgebase_health_check(&self.pool)
             .await
-            .map(|_| ())
+            .map_err(|error| Box::new(error) as Box<dyn std::error::Error + Send + Sync>)?;
+        knowledgebase_drive_health_check(&self.drive_pool)
+            .await
+            .map_err(|error| Box::new(error) as Box<dyn std::error::Error + Send + Sync>)?;
+        self.context_binding_store()
+            .list_space_bindings(
+                self.tenant_id,
+                ListKnowledgeSpaceContextBindingsRequest {
+                    space_id: 0,
+                    context_type: None,
+                    cursor: None,
+                    page_size: Some(1),
+                },
+            )
+            .await
+            .map_err(|error| {
+                Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    error.to_string(),
+                )) as Box<dyn std::error::Error + Send + Sync>
+            })?;
+        Ok(())
     }
 
     pub fn build_agent_and_retrieval_router(&self) -> axum::Router {
@@ -473,6 +493,25 @@ impl KnowledgebaseRuntime {
                 sdkwork_routes_knowledgebase_backend_api::DbReadinessCheck::new(self.pool.clone()),
             ),
         )
+    }
+
+    pub async fn build_backend_business_router_with_web_framework(&self) -> axum::Router {
+        sdkwork_routes_knowledgebase_backend_api::wrap_router_with_web_framework_from_env(
+            sdkwork_routes_knowledgebase_backend_api::build_business_router_with_shared_backend_api(
+                Arc::new(HostedBackendApi::new(self.clone())),
+                self.tenant_id(),
+            ),
+        )
+        .await
+    }
+
+    pub async fn build_open_business_router_with_web_framework(&self) -> axum::Router {
+        sdkwork_routes_knowledgebase_open_api::wrap_router_with_web_framework_from_env(
+            sdkwork_routes_knowledgebase_open_api::build_business_router_with_shared_open_api(
+                Arc::new(HostedOpenApi::new(self.clone())),
+            ),
+        )
+        .await
     }
 
     pub async fn build_backend_router_with_web_framework(&self) -> axum::Router {

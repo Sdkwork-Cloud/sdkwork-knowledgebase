@@ -11,7 +11,7 @@ members = [
     "crates/sdkwork-routes-knowledgebase-app-api",
     "crates/sdkwork-routes-knowledgebase-open-api",
     "crates/sdkwork-routes-knowledgebase-backend-api",
-    "crates/sdkwork-knowledgebase-api-server",
+    "crates/sdkwork-knowledgebase-standalone-gateway",
     "crates/sdkwork-knowledgebase-contract-tests",
     "crates/sdkwork-knowledgebase-observability",
     "crates/sdkwork-knowledgebase-worker",
@@ -52,7 +52,7 @@ wiremock = "0.6"
 
 sdkwork-knowledgebase-contract = { path = "crates/sdkwork-knowledgebase-contract" }
 sdkwork-knowledgebase-agent-provider = { path = "crates/sdkwork-knowledgebase-agent-provider" }
-clawrouter-open-sdk = { path = "../sdkwork-claw-router/sdks/clawrouter-open-sdk/clawrouter-open-sdk-rust/generated/server-openapi" }
+clawrouter-open-sdk = { path = "../sdkwork-clawrouter/sdks/clawrouter-open-sdk/clawrouter-open-sdk-rust/generated/server-openapi" }
 sdkwork-agent-kernel = { path = "../sdkwork-kernel/sdkwork-agent-kernel" }
 sdkwork-agent-provider-rig = { path = "../sdkwork-kernel/agent-providers/crates/sdkwork-agent-provider-rig" }
 sdkwork-agent-plugin-core = { path = "../sdkwork-kernel/sdkwork-kernel-plugins/crates/sdkwork-agent-plugin-core" }
@@ -99,6 +99,6 @@ sdkwork-knowledgebase-engine-haystack = { path = "crates/sdkwork-knowledgebase-e
 sdkwork-drive-workspace-service = { path = "../sdkwork-drive/crates/sdkwork-drive-workspace-service" }
 sdkwork-drive-config = { path = "../sdkwork-drive/crates/sdkwork-drive-config" }
 sdkwork-memory-spi = { path = "../sdkwork-memory/crates/sdkwork-memory-spi" }
-sdkwork-id-core = { path = "../sdkwork-id/crates/sdkwork-id-core" }
+sdkwork-database-id = { path = "../sdkwork-database/crates/sdkwork-database-id", package = "sdkwork-database-id" }
 sdkwork-utils-rust = { path = "../sdkwork-utils/packages/sdkwork-utils-rust" }
 sdkwork_utils_rust = { path = "../sdkwork-utils/packages/sdkwork-utils-rust", package = "sdkwork-utils-rust" }

@@ -1,4 +1,4 @@
-use sdkwork_knowledgebase_api_server::shutdown_signal;
+use sdkwork_knowledgebase_standalone_gateway::shutdown_signal;
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 
 pub mod health;

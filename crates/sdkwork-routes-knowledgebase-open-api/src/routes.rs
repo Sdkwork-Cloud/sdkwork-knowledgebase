@@ -38,6 +38,13 @@ pub fn build_router_with_shared_open_api_and_readiness(
     api: Arc<dyn KnowledgeOpenApi>,
     readiness: Option<DbReadinessCheck>,
 ) -> Router {
+    health::mount_knowledgebase_infra_routes(
+        build_business_router_with_shared_open_api(api),
+        health::knowledgebase_service_router_config(readiness),
+    )
+}
+
+pub fn build_business_router_with_shared_open_api(api: Arc<dyn KnowledgeOpenApi>) -> Router {
     let business = Router::new()
         .route(paths::RETRIEVALS, post(create_retrieval))
         .route(paths::RETRIEVAL, get(retrieve_retrieval))
@@ -48,10 +55,11 @@ pub fn build_router_with_shared_open_api_and_readiness(
         .route(paths::DOCUMENT, get(retrieve_document))
         .route(paths::SPACE_BROWSER, get(list_browser))
         .with_state(OpenState { api });
-    health::mount_knowledgebase_infra_routes(
-        business,
-        health::knowledgebase_service_router_config(readiness),
-    )
+    business
+}
+
+pub fn gateway_mount_business(api: Arc<dyn KnowledgeOpenApi>) -> Router {
+    build_business_router_with_shared_open_api(api)
 }
 
 async fn create_retrieval(

@@ -28,8 +28,9 @@ pub use http_route_manifest::backend_route_manifest;
 pub use permission::{can_access_knowledge_admin, KNOWLEDGE_ADMIN_PERMISSION};
 pub use ports::{KnowledgeBackendApi, KnowledgeBackendRequestContext};
 pub use routes::{
-    build_router_with_backend_api, build_router_with_shared_backend_api,
-    build_router_with_shared_backend_api_and_readiness,
+    build_business_router_with_shared_backend_api, build_router_with_backend_api,
+    build_router_with_shared_backend_api, build_router_with_shared_backend_api_and_readiness,
+    gateway_mount_business,
 };
 pub use sdkwork_knowledgebase_contract::ProblemDetails;
 pub use web_audit_store::attach_knowledgebase_audit_emitter;

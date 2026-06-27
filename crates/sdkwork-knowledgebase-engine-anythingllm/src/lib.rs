@@ -23,8 +23,8 @@ use std::sync::Arc;
 
 pub use client::AnythingLlmApiClient;
 pub use config::{
-    workspace_slug_from_connector_metadata, AnythingLlmConnectorConfig, ANYTHINGLLM_API_KEY_ENV,
-    ANYTHINGLLM_BASE_URL_ENV, ANYTHINGLLM_WORKSPACE_SLUG_ENV,
+    workspace_slug_from_connector_metadata, AnythingLlmConnectorConfig, ANYTHINGLLM_CREDENTIAL_ENV,
+    ANYTHINGLLM_CREDENTIAL_FILE_ENV, ANYTHINGLLM_BASE_URL_ENV, ANYTHINGLLM_WORKSPACE_SLUG_ENV,
 };
 
 pub const ANYTHINGLLM_VENDOR_ID: &str = "anythingllm";
@@ -87,7 +87,7 @@ impl AnythingLlmKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "AnythingLLM adapter requires {ANYTHINGLLM_BASE_URL_ENV} and {ANYTHINGLLM_API_KEY_ENV}; optional default workspace via {ANYTHINGLLM_WORKSPACE_SLUG_ENV} or kb_source connector metadata workspaceSlug"
+            "AnythingLLM adapter requires {ANYTHINGLLM_BASE_URL_ENV} and {ANYTHINGLLM_CREDENTIAL_ENV} or {ANYTHINGLLM_CREDENTIAL_FILE_ENV}; optional default workspace via {ANYTHINGLLM_WORKSPACE_SLUG_ENV} or kb_source connector metadata workspaceSlug"
         )
     }
 

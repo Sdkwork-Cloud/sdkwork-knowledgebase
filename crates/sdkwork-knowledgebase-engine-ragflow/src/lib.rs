@@ -23,8 +23,8 @@ use std::sync::Arc;
 
 pub use client::RagflowApiClient;
 pub use config::{
-    dataset_id_from_connector_metadata, RagflowConnectorConfig, RAGFLOW_API_KEY_ENV,
-    RAGFLOW_BASE_URL_ENV, RAGFLOW_DATASET_ID_ENV,
+    dataset_id_from_connector_metadata, RagflowConnectorConfig, RAGFLOW_BASE_URL_ENV,
+    RAGFLOW_CREDENTIAL_ENV, RAGFLOW_CREDENTIAL_FILE_ENV, RAGFLOW_DATASET_ID_ENV,
 };
 
 pub const RAGFLOW_VENDOR_ID: &str = "ragflow";
@@ -87,7 +87,7 @@ impl RagflowKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "RAGFlow adapter requires {RAGFLOW_BASE_URL_ENV} and {RAGFLOW_API_KEY_ENV}; optional default dataset via {RAGFLOW_DATASET_ID_ENV} or kb_source connector metadata datasetId"
+            "RAGFlow adapter requires {RAGFLOW_BASE_URL_ENV} and {RAGFLOW_CREDENTIAL_ENV}; optional default dataset via {RAGFLOW_DATASET_ID_ENV} or kb_source connector metadata datasetId"
         )
     }
 

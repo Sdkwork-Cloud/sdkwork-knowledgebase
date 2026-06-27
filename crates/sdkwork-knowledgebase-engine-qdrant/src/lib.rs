@@ -23,9 +23,9 @@ use std::sync::Arc;
 
 pub use client::QdrantApiClient;
 pub use config::{
-    collection_name_from_connector_metadata, QdrantConnectorConfig, QDRANT_API_KEY_ENV,
-    QDRANT_BASE_URL_ENV, QDRANT_COLLECTION_NAME_ENV, QDRANT_QUERY_MODEL_ENV,
-    QDRANT_USING_VECTOR_ENV,
+    collection_name_from_connector_metadata, QdrantConnectorConfig, QDRANT_BASE_URL_ENV,
+    QDRANT_COLLECTION_NAME_ENV, QDRANT_CREDENTIAL_ENV, QDRANT_CREDENTIAL_FILE_ENV,
+    QDRANT_QUERY_MODEL_ENV, QDRANT_USING_VECTOR_ENV,
 };
 
 pub const QDRANT_VENDOR_ID: &str = "qdrant";
@@ -88,7 +88,7 @@ impl QdrantKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Qdrant adapter requires {QDRANT_BASE_URL_ENV}; optional auth via {QDRANT_API_KEY_ENV}; collection via {QDRANT_COLLECTION_NAME_ENV} or kb_source connector metadata datasetId; text search via {QDRANT_QUERY_MODEL_ENV}"
+            "Qdrant adapter requires {QDRANT_BASE_URL_ENV}; optional auth via {QDRANT_CREDENTIAL_ENV} or {QDRANT_CREDENTIAL_FILE_ENV}; collection via {QDRANT_COLLECTION_NAME_ENV} or kb_source connector metadata datasetId; text search via {QDRANT_QUERY_MODEL_ENV}"
         )
     }
 

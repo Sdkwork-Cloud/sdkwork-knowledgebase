@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: sdkwork-knowledgebase-api-ingress
+  name: sdkwork-knowledgebase-network-policy
   labels:
     app: sdkwork-knowledgebase
 spec:
@@ -10,7 +10,9 @@ spec:
       app: sdkwork-knowledgebase
   policyTypes:
     - Ingress
+    - Egress
   ingress:
+    # Public ingress (API surfaces served on port 8080).
     - from:
         - namespaceSelector:
             matchLabels:
@@ -18,6 +20,7 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+    # Prometheus scraping on the API metrics port (8080).
     - from:
         - namespaceSelector:
             matchLabels:
@@ -25,10 +28,78 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+    # Worker health and metrics scraping on port 18085.
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: monitoring
       ports:
+        - protocol: TCP
+          port: 18085
+    # Same-namespace inter-service traffic for split-services topology
+    # (app-api <-> backend-api <-> open-api <-> worker coordination).
+    - from:
+        - podSelector:
+            matchLabels:
+              app: sdkwork-knowledgebase
+      ports:
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 18085
+  egress:
+    # DNS resolution (kube-system CoreDNS).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # PostgreSQL primary/replica in the database namespace.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: database
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Redis for distributed rate limiting and outbox claim coordination
+    # (cloud + split-services topology, multi-replica HA).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # OpenTelemetry OTLP collector (gRPC 4317, HTTP 4318).
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 4317
+        - protocol: TCP
+          port: 4318
+    # Outbound HTTPS for knowledge ingestion sources, OAuth providers,
+    # WeChat Open Platform APIs, SearXNG public web search, and Drive storage.
+    # Restricted to port 443 to enforce TLS-protected egress.
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+    # Same-namespace inter-service egress for split-services topology.
+    - to:
+        - podSelector:
+            matchLabels:
+              app: sdkwork-knowledgebase
+      ports:
+        - protocol: TCP
+          port: 8080
         - protocol: TCP
           port: 18085

@@ -105,7 +105,7 @@ assert(cargoToml.includes('sdkwork-iam-web-adapter'), 'Cargo.toml must declare s
 assert(cargoToml.includes('sdkwork-database-config'), 'Cargo.toml must declare sdkwork-database-config');
 assert(cargoToml.includes('sdkwork-database-sqlx'), 'Cargo.toml must declare sdkwork-database-sqlx');
 assert(cargoToml.includes('sdkwork-database-repository'), 'Cargo.toml must declare sdkwork-database-repository');
-assert(cargoToml.includes('sdkwork-knowledgebase-api-server'), 'Cargo.toml must include sdkwork-knowledgebase-api-server');
+assert(cargoToml.includes('sdkwork-knowledgebase-standalone-gateway'), 'Cargo.toml must include sdkwork-knowledgebase-standalone-gateway');
 assert(
   cargoToml.includes('sdkwork-intelligence-knowledgebase-repository-sqlx'),
   'Cargo.toml must include repository-sqlx crate',

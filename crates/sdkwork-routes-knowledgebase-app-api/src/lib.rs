@@ -60,3 +60,7 @@ pub fn gateway_route_manifest() -> HttpRouteManifest {
 pub fn gateway_mount(browser: Arc<dyn KnowledgeBrowserApi>) -> Router {
     build_router_with_shared_browser(browser)
 }
+
+pub fn gateway_mount_business(browser: Arc<dyn KnowledgeBrowserApi>) -> Router {
+    gateway_mount(browser)
+}

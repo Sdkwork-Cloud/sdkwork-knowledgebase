@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use sdkwork_intelligence_knowledgebase_repository_sqlx::connect_postgres_pool;
 use sdkwork_knowledgebase_observability::environment::is_production_like_environment;
 use sdkwork_utils_rust::is_blank;
 use sdkwork_web_axum::WebFrameworkLayer;
@@ -79,7 +80,7 @@ async fn build_knowledgebase_audit_emitter() -> Option<Arc<dyn AuditEmitter>> {
     }
 
     let database_url = knowledgebase_database_url()?;
-    let pool = PgPool::connect(&database_url).await.ok()?;
+    let pool = connect_postgres_pool(&database_url).await.ok()?;
     Some(Arc::new(PostgresWebAuditEmitter::new(pool)))
 }
 

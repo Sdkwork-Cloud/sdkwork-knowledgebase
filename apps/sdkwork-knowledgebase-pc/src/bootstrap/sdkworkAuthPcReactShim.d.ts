@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 export interface SdkworkIamAuthRoutesProps {
   basePath?: string;
@@ -9,4 +9,12 @@ export interface SdkworkIamAuthRoutesProps {
 
 export function SdkworkIamAuthRoutes(
   props: SdkworkIamAuthRoutesProps,
+): ReactElement | null;
+
+export interface SdkworkSessionAuthBrowserRootProps {
+  children: ReactNode;
+}
+
+export function SdkworkSessionAuthBrowserRoot(
+  props: SdkworkSessionAuthBrowserRootProps,
 ): ReactElement | null;

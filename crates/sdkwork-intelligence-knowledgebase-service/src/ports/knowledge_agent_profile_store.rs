@@ -47,6 +47,22 @@ pub trait KnowledgeAgentProfileStore: Send + Sync {
         profile_id: u64,
         binding_id: u64,
     ) -> Result<(), KnowledgeAgentProfileStoreError>;
+
+    /// Resolve the highest-priority active agent profile bound to a knowledge space.
+    ///
+    /// Route crates use this instead of issuing raw SQL against
+    /// `kb_agent_knowledge_binding`, keeping persistence concerns inside the
+    /// repository layer.
+    async fn resolve_profile_id_for_space(
+        &self,
+        tenant_id: u64,
+        space_id: u64,
+    ) -> Result<Option<u64>, KnowledgeAgentProfileStoreError> {
+        let _ = (tenant_id, space_id);
+        Err(KnowledgeAgentProfileStoreError::Internal(
+            "resolve_profile_id_for_space is not implemented for this store".to_string(),
+        ))
+    }
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

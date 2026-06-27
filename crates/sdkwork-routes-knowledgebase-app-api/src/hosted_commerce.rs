@@ -6,6 +6,9 @@ use sdkwork_intelligence_knowledgebase_service::ports::commerce_store::{
     KnowledgeMarketStore, KnowledgeMarketStoreError, KnowledgeSiteDeploymentStore,
     KnowledgeSiteDeploymentStoreError,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_agent_profile_store::{
+    KnowledgeAgentProfileStore, KnowledgeAgentProfileStoreError,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_chunk_store::KnowledgeChunkStore;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
 use sdkwork_knowledgebase_contract::agent_chat::KnowledgeAgentChatRequest;
@@ -20,7 +23,6 @@ use sdkwork_knowledgebase_contract::site_deployment::{
     KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
 };
 use sdkwork_utils_rust::is_blank;
-use sqlx::Row;
 
 use crate::{
     agent_chat_runtime::{
@@ -45,29 +47,18 @@ impl HostedCommerceService {
     }
 
     async fn resolve_agent_profile_id(&self, tenant_id: u64, space_id: u64) -> ApiResult<u64> {
-        let row = sqlx::query(
-            r#"
-            SELECT profile_id
-            FROM kb_agent_knowledge_binding
-            WHERE tenant_id = $1 AND space_id = $2 AND enabled = 1 AND status = 1
-            ORDER BY priority DESC, id ASC
-            LIMIT 1
-            "#,
-        )
-        .bind(tenant_id as i64)
-        .bind(space_id as i64)
-        .fetch_optional(self.runtime.pool())
-        .await
-        .map_err(|error| {
-            ApiError::internal("commerce_agent_binding_lookup_failed", error.to_string())
-        })?;
-        let Some(row) = row else {
-            return Err(ApiError::invalid_request(
+        let profile_id = self
+            .runtime
+            .arc_agent_store()
+            .resolve_profile_id_for_space(tenant_id, space_id)
+            .await
+            .map_err(map_agent_profile_store_error)?;
+        let profile_id = profile_id.ok_or_else(|| {
+            ApiError::invalid_request(
                 "commerce_agent_profile_required",
                 "create an agent profile for this knowledge space before running media tasks",
-            ));
-        };
-        let profile_id = row.get::<i64, _>("profile_id") as u64;
+            )
+        })?;
         if profile_id == 0 {
             return Err(ApiError::invalid_request(
                 "commerce_agent_profile_required",
@@ -371,6 +362,22 @@ fn extract_first_markdown_image_url(answer: &str) -> Option<String> {
         .map(str::trim)
         .filter(|value| value.starts_with("http://") || value.starts_with("https://"))
         .map(str::to_string)
+}
+
+fn map_agent_profile_store_error(error: KnowledgeAgentProfileStoreError) -> ApiError {
+    match error {
+        KnowledgeAgentProfileStoreError::NotFound(profile_id) => ApiError::new(
+            axum::http::StatusCode::NOT_FOUND,
+            "agent_profile_not_found",
+            format!("knowledge agent profile {profile_id} was not found"),
+        ),
+        KnowledgeAgentProfileStoreError::Conflict(detail) => {
+            ApiError::invalid_request("agent_profile_conflict", detail)
+        }
+        KnowledgeAgentProfileStoreError::Internal(detail) => {
+            ApiError::internal("agent_profile_store_failed", detail)
+        }
+    }
 }
 
 fn map_market_error(error: KnowledgeMarketStoreError) -> ApiError {

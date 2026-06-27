@@ -25,9 +25,9 @@ use std::sync::Arc;
 pub use client::{chunk_id_from_content, HaystackApiClient};
 pub use config::{
     pipeline_name_from_connector_metadata, workspace_name_from_connector_metadata,
-    HaystackConnectorConfig, HaystackDeploymentMode, HAYSTACK_API_KEY_ENV, HAYSTACK_BASE_URL_ENV,
-    HAYSTACK_DEPLOYMENT_MODE_ENV, HAYSTACK_PIPELINE_ENV, HAYSTACK_QUERY_FIELD_ENV,
-    HAYSTACK_WORKSPACE_ENV,
+    HaystackConnectorConfig, HaystackDeploymentMode, HAYSTACK_BASE_URL_ENV,
+    HAYSTACK_CREDENTIAL_ENV, HAYSTACK_CREDENTIAL_FILE_ENV, HAYSTACK_DEPLOYMENT_MODE_ENV,
+    HAYSTACK_PIPELINE_ENV, HAYSTACK_QUERY_FIELD_ENV, HAYSTACK_WORKSPACE_ENV,
 };
 
 pub const HAYSTACK_VENDOR_ID: &str = "haystack";
@@ -90,7 +90,7 @@ impl HaystackKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Haystack adapter requires {HAYSTACK_BASE_URL_ENV}; optional auth via {HAYSTACK_API_KEY_ENV}; pipeline via {HAYSTACK_PIPELINE_ENV} or kb_source connector metadata datasetId; workspace via {HAYSTACK_WORKSPACE_ENV} or connector metadata workspaceSlug for Deepset Cloud"
+            "Haystack adapter requires {HAYSTACK_BASE_URL_ENV}; optional auth via {HAYSTACK_CREDENTIAL_ENV} or {HAYSTACK_CREDENTIAL_FILE_ENV}; pipeline via {HAYSTACK_PIPELINE_ENV} or kb_source connector metadata datasetId; workspace via {HAYSTACK_WORKSPACE_ENV} or connector metadata workspaceSlug for Deepset Cloud"
         )
     }
 

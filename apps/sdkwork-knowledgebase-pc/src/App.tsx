@@ -1,6 +1,7 @@
 import React, { Suspense, useMemo, type ErrorInfo, type ReactNode } from 'react';
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { SdkworkSessionAuthBrowserRoot } from '@sdkwork/auth-pc-react';
 import {
   KnowledgebaseAuthGate,
   KnowledgebaseErrorCodes,
@@ -99,10 +100,10 @@ export default function App() {
     <ErrorBoundary>
       <KnowledgebaseRuntimeProvider runtime={runtime}>
         <BrowserRouter>
-      <SdkworkSessionAuthBrowserRoot>
-          <KnowledgebaseAppRoutes runtime={runtime} />
-              </SdkworkSessionAuthBrowserRoot>
-    </BrowserRouter>
+          <SdkworkSessionAuthBrowserRoot>
+            <KnowledgebaseAppRoutes runtime={runtime} />
+          </SdkworkSessionAuthBrowserRoot>
+        </BrowserRouter>
       </KnowledgebaseRuntimeProvider>
     </ErrorBoundary>
   );

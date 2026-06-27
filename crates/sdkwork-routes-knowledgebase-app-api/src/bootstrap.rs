@@ -1,5 +1,8 @@
 use axum::Router;
+use sdkwork_routes_knowledgebase_backend_api::{health, DbReadinessCheck};
 use sdkwork_utils_rust::is_blank;
+use sdkwork_web_bootstrap::assemble_multi_surface_router;
+use std::sync::Arc;
 
 pub use sdkwork_knowledgebase_observability::{
     is_development_environment, is_production_like_environment, knowledgebase_environment,
@@ -28,9 +31,20 @@ pub fn validate_process_config() {
     validate_postgres_for_production();
 
     let organization_id = resolve_deployment_tenant_id();
-    if organization_id == 0 {
+    if organization_id == 0 && !is_development_environment() {
         eprintln!(
             "SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID must be set when SDKWORK_KNOWLEDGEBASE_ENVIRONMENT is not development"
+        );
+        std::process::exit(1);
+    }
+
+    let tenant_id = std::env::var("SDKWORK_KNOWLEDGEBASE_TENANT_ID")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(0);
+    if tenant_id == 0 && !is_development_environment() {
+        eprintln!(
+            "SDKWORK_KNOWLEDGEBASE_TENANT_ID must be set when SDKWORK_KNOWLEDGEBASE_ENVIRONMENT is not development"
         );
         std::process::exit(1);
     }
@@ -107,16 +121,36 @@ pub fn is_unified_process_layout() -> bool {
         .unwrap_or(false)
 }
 
+pub async fn build_served_unified_business_router(
+    runtime: &KnowledgebaseRuntime,
+    _tenant_id: u64,
+    _actor_id: Option<u64>,
+    _operator_id: Option<u64>,
+) -> Router {
+    let app_router = runtime.build_full_app_router_with_web_framework().await;
+    let backend_router = runtime
+        .build_backend_business_router_with_web_framework()
+        .await;
+    let open_router = runtime.build_open_business_router_with_web_framework().await;
+    app_router.merge(backend_router).merge(open_router)
+}
+
 pub async fn build_served_unified_router(
     runtime: &KnowledgebaseRuntime,
     _tenant_id: u64,
     _actor_id: Option<u64>,
     _operator_id: Option<u64>,
 ) -> Router {
-    let app_router = build_served_app_router(runtime, 0, None).await;
-    let backend_router = build_served_backend_router(runtime, 0, None).await;
-    let open_router = build_served_open_router(runtime, 0, None).await;
-    app_router.merge(backend_router).merge(open_router)
+    let readiness = DbReadinessCheck::new(runtime.pool().clone());
+    let app_router = runtime.build_full_app_router_with_web_framework().await;
+    let backend_router = runtime
+        .build_backend_business_router_with_web_framework()
+        .await;
+    let open_router = runtime.build_open_business_router_with_web_framework().await;
+    assemble_multi_surface_router(
+        [app_router, backend_router, open_router],
+        health::knowledgebase_service_router_config(Some(readiness)),
+    )
 }
 
 pub async fn build_served_app_router(

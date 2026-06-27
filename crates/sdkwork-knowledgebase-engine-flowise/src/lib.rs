@@ -23,8 +23,8 @@ use std::sync::Arc;
 
 pub use client::{chunk_id_from_content, FlowiseApiClient};
 pub use config::{
-    store_id_from_connector_metadata, FlowiseConnectorConfig, FLOWISE_API_KEY_ENV,
-    FLOWISE_BASE_URL_ENV, FLOWISE_STORE_ID_ENV,
+    store_id_from_connector_metadata, FlowiseConnectorConfig, FLOWISE_BASE_URL_ENV,
+    FLOWISE_CREDENTIAL_ENV, FLOWISE_CREDENTIAL_FILE_ENV, FLOWISE_STORE_ID_ENV,
 };
 
 pub const FLOWISE_VENDOR_ID: &str = "flowise";
@@ -87,7 +87,7 @@ impl FlowiseKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Flowise adapter requires {FLOWISE_BASE_URL_ENV} and {FLOWISE_API_KEY_ENV}; optional default document store via {FLOWISE_STORE_ID_ENV} or kb_source connector metadata datasetId"
+            "Flowise adapter requires {FLOWISE_BASE_URL_ENV} and {FLOWISE_CREDENTIAL_ENV}; optional default document store via {FLOWISE_STORE_ID_ENV} or kb_source connector metadata datasetId"
         )
     }
 

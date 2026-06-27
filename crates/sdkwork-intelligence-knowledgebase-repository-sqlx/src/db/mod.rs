@@ -19,7 +19,8 @@ pub use postgres::{
     PostgresRepositoryError,
 };
 pub use postgres_tenant_session::{
-    set_postgres_session_tenant_id, POSTGRES_TENANT_SESSION_KEY,
+    require_postgres_rls_tenant_id, resolve_postgres_rls_tenant_id, set_postgres_session_tenant_id,
+    POSTGRES_TENANT_SESSION_KEY,
 };
 pub use sqlite::{
     connect_sqlite_and_install_schema, connect_sqlite_pool, install_sqlite_core_schema,

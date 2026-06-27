@@ -149,7 +149,7 @@ $expectedPackages = @(
     "sdkwork-knowledgebase-memory",
     "sdkwork-knowledgebase-test-support",
     "sdkwork-knowledgebase-observability",
-    "sdkwork-knowledgebase-api-server",
+    "sdkwork-knowledgebase-standalone-gateway",
     "sdkwork-knowledgebase-contract-tests",
     "sdkwork-knowledgebase-worker",
     "sdkwork-routes-knowledgebase-app-api",

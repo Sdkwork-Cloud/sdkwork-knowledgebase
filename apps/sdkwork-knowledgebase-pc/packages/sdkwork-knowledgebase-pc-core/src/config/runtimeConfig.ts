@@ -16,14 +16,12 @@ export type SdkworkRuntimeTarget =
 export interface SdkworkDependencySdkBaseUrls {
   openApiBaseUrl?: string;
   appApiBaseUrl?: string;
-  backendApiBaseUrl?: string;
 }
 
 export interface SdkworkSdkBaseUrlConfig {
   defaultApiBaseUrl?: string;
   openApiBaseUrl?: string;
   appApiBaseUrl: string;
-  backendApiBaseUrl?: string;
   dependencySdkBaseUrls: Record<string, SdkworkDependencySdkBaseUrls>;
 }
 
@@ -48,7 +46,6 @@ export interface KnowledgebaseRuntimeConfig {
   runtimeTarget: SdkworkRuntimeTarget;
   appKey: 'sdkwork-knowledgebase-pc';
   appApiBaseUrl: string;
-  backendApiBaseUrl: string;
   openApiBaseUrl: string;
   platformApiGatewayBaseUrl: string;
   sdkBaseUrls: SdkworkSdkBaseUrlConfig;
@@ -63,7 +60,6 @@ export interface RuntimeEnv {
   VITE_SDKWORK_KNOWLEDGEBASE_BUILD_MODE?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL?: string;
-  VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL?: string;
   VITE_SDKWORK_APPBASE_APP_API_BASE_URL?: string;
@@ -78,12 +74,10 @@ export interface RuntimeEnv {
 
 const APP_KEY = 'sdkwork-knowledgebase-pc';
 const LOCAL_APP_API_BASE_URL = 'http://127.0.0.1:18081';
-const LOCAL_BACKEND_API_BASE_URL = 'http://127.0.0.1:18081';
 const LOCAL_OPEN_API_BASE_URL = 'http://127.0.0.1:18081';
 const LOCAL_PLATFORM_API_GATEWAY_BASE_URL = 'http://127.0.0.1:3900';
 
 const CLOUD_APP_API_BASE_URL = 'https://knowledgebase.sdkwork.com/app/v3/api';
-const CLOUD_BACKEND_API_BASE_URL = 'https://knowledgebase-admin.sdkwork.com/backend/v3/api';
 const CLOUD_OPEN_API_BASE_URL = 'https://knowledge.sdkwork.com/knowledge/v3/api';
 const CLOUD_PLATFORM_API_GATEWAY_BASE_URL = 'https://api.sdkwork.com';
 
@@ -212,16 +206,6 @@ function defaultAppApiBaseUrl(
   return CLOUD_APP_API_BASE_URL;
 }
 
-function defaultBackendApiBaseUrl(
-  deploymentProfile: SdkworkDeploymentProfile,
-  environment: SdkworkEnvironment,
-): string {
-  if (deploymentProfile === 'standalone' || environment === 'test') {
-    return LOCAL_BACKEND_API_BASE_URL;
-  }
-  return CLOUD_BACKEND_API_BASE_URL;
-}
-
 function defaultOpenApiBaseUrl(
   deploymentProfile: SdkworkDeploymentProfile,
   environment: SdkworkEnvironment,
@@ -346,9 +330,6 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
   const appApiBaseUrl =
     env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL
     || defaultAppApiBaseUrl(deploymentProfile, environment);
-  const backendApiBaseUrl =
-    env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL
-    || defaultBackendApiBaseUrl(deploymentProfile, environment);
   const openApiBaseUrl =
     env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL
     || defaultOpenApiBaseUrl(deploymentProfile, environment);
@@ -376,13 +357,6 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
     environment,
     appApiBaseUrl,
   );
-  const resolvedBackendApiBaseUrl = applyDevSameOriginApiBaseUrl(
-    env,
-    deploymentProfile,
-    runtimeTarget,
-    environment,
-    backendApiBaseUrl,
-  );
   const resolvedOpenApiBaseUrl = applyDevSameOriginApiBaseUrl(
     env,
     deploymentProfile,
@@ -399,13 +373,11 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
     runtimeTarget,
     appKey: APP_KEY,
     appApiBaseUrl: resolvedAppApiBaseUrl,
-    backendApiBaseUrl: resolvedBackendApiBaseUrl,
     openApiBaseUrl: resolvedOpenApiBaseUrl,
     platformApiGatewayBaseUrl,
     sdkBaseUrls: {
       defaultApiBaseUrl: resolvedAppApiBaseUrl,
       appApiBaseUrl: resolvedAppApiBaseUrl,
-      backendApiBaseUrl: resolvedBackendApiBaseUrl,
       openApiBaseUrl: resolvedOpenApiBaseUrl,
       dependencySdkBaseUrls: {
         'sdkwork-iam-app-sdk': {

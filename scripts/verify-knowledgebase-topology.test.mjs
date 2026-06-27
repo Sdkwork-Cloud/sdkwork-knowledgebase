@@ -149,9 +149,9 @@ test('knowledgebase topology adapter exports IAM application bootstrap env alias
 
 test('default PostgreSQL development path is not blocked by SQLite-only runtime wiring', async () => {
   const runtimeSource = await read('crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs');
-  const appMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/app_main.rs');
-  const backendMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/backend_main.rs');
-  const openMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/open_main.rs');
+  const appMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/app_main.rs');
+  const backendMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/backend_main.rs');
+  const openMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/open_main.rs');
 
   assert.doesNotMatch(
     runtimeSource,
@@ -294,9 +294,9 @@ test('production cloud topology orchestrates background worker and health probes
 });
 
 test('route binaries read topology bind env keys', async () => {
-  const appMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/app_main.rs');
-  const backendMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/backend_main.rs');
-  const openMain = await read('crates/sdkwork-knowledgebase-api-server/src/bin/open_main.rs');
+  const appMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/app_main.rs');
+  const backendMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/backend_main.rs');
+  const openMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/open_main.rs');
 
   assert.match(appMain, /SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND/);
   assert.doesNotMatch(appMain, /SDKWORK_KNOWLEDGEBASE_APP_LISTEN/);

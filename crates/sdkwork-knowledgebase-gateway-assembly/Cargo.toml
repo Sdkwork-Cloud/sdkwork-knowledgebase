@@ -12,6 +12,7 @@ path = "src/lib.rs"
 [dependencies]
 axum.workspace = true
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
+sdkwork-web-bootstrap.workspace = true
 sdkwork_routes_knowledgebase_app_api = { package = "sdkwork-routes-knowledgebase-app-api", path = "../sdkwork-routes-knowledgebase-app-api" }
 sdkwork_routes_knowledgebase_backend_api = { package = "sdkwork-routes-knowledgebase-backend-api", path = "../sdkwork-routes-knowledgebase-backend-api" }
 sdkwork_routes_knowledgebase_open_api = { package = "sdkwork-routes-knowledgebase-open-api", path = "../sdkwork-routes-knowledgebase-open-api" }

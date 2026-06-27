@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use sdkwork_id_core::{max_snowflake_node_id, SnowflakeIdError, SnowflakeIdGenerator};
+use sdkwork_database_id::{max_snowflake_node_id, SnowflakeIdError, SnowflakeIdGenerator};
 
 static DEFAULT_ID_GENERATOR: OnceLock<Arc<dyn KnowledgeIdGenerator>> = OnceLock::new();
 

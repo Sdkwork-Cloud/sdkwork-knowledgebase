@@ -29,12 +29,18 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
     assert.match(crateMigration, /app\.current_tenant_id/);
   });
 
-  it('exposes Postgres tenant session setter for RLS checkout wiring', () => {
-    const sessionModule = readRepoFile(
+  it('wires Postgres tenant session on pool checkout (Phase 2.2)', () => {
+    const bootstrap = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs',
+    );
+    const tenantSession = readRepoFile(
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/postgres_tenant_session.rs',
     );
-    assert.match(sessionModule, /POSTGRES_TENANT_SESSION_KEY/);
-    assert.match(sessionModule, /set_postgres_session_tenant_id/);
+    assert.match(bootstrap, /after_connect/);
+    assert.match(bootstrap, /set_postgres_session_tenant_id/);
+    assert.match(tenantSession, /require_postgres_rls_tenant_id/);
+    const webAudit = readRepoFile('crates/sdkwork-routes-knowledgebase-backend-api/src/web_audit_store.rs');
+    assert.match(webAudit, /connect_postgres_pool/);
   });
 
   it('exports billable usage counters from observability crate', () => {

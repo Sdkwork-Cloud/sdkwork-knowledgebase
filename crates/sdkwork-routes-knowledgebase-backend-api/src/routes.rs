@@ -31,11 +31,21 @@ pub fn build_router_with_shared_backend_api_and_readiness(
     runtime_tenant_id: u64,
     readiness: Option<DbReadinessCheck>,
 ) -> Router {
+    health::mount_knowledgebase_infra_routes(
+        build_business_router_with_shared_backend_api(api, runtime_tenant_id),
+        health::knowledgebase_service_router_config(readiness),
+    )
+}
+
+pub fn build_business_router_with_shared_backend_api(
+    api: Arc<dyn KnowledgeBackendApi>,
+    runtime_tenant_id: u64,
+) -> Router {
     let state = BackendState {
         api,
         runtime_tenant_id,
     };
-    let business = Router::new()
+    Router::new()
         .route(
             paths::SOURCES,
             get(handlers::list_sources).post(handlers::create_source),
@@ -93,9 +103,12 @@ pub fn build_router_with_shared_backend_api_and_readiness(
             paths::PROVIDER_HEALTH,
             get(handlers::retrieve_provider_health),
         )
-        .with_state(state);
-    health::mount_knowledgebase_infra_routes(
-        business,
-        health::knowledgebase_service_router_config(readiness),
-    )
+        .with_state(state)
+}
+
+pub fn gateway_mount_business(
+    api: Arc<dyn KnowledgeBackendApi>,
+    runtime_tenant_id: u64,
+) -> Router {
+    build_business_router_with_shared_backend_api(api, runtime_tenant_id)
 }

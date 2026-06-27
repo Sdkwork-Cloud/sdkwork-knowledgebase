@@ -1,6 +1,6 @@
 # SDKWork Knowledgebase — Phase 2 Commercial SaaS
 
-Status: **in progress** — Phase 2.0 foundations complete; Phase 2.1 shared multi-tenant RLS pending  
+Status: **in progress** — Phase 2.0 foundations and Phase 2.1 RLS migration complete; Phase 2.2 connection checkout wired  
 Owner: SDKWork maintainers  
 Application: sdkwork-knowledgebase  
 Updated: 2026-06-25  
@@ -28,7 +28,7 @@ Define commercial SaaS landing criteria beyond Phase 1.0 single-tenant productio
 
 - [x] Multi-tenant isolation **decision** documented — [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md)
 - [x] Postgres RLS migration shipped — `database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql`
-- [ ] Connection checkout sets `app.current_tenant_id` on every pooled Postgres connection (Phase 2.2)
+- [x] Connection checkout sets `app.current_tenant_id` on every pooled Postgres connection (Phase 2.2)
 - [x] Usage metering exported for billing (Prometheus counters + structured `billing_event` JSON logs)
 - [ ] Per-tenant quota: API rate tiers, storage, ingest concurrency, retrieval QPS
 - [ ] Tenant self-service signup and subscription lifecycle

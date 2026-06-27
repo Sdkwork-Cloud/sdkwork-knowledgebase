@@ -1,4 +1,4 @@
-use sdkwork_id_core::default_snowflake_epoch_millis;
+use sdkwork_database_id::default_snowflake_epoch_millis;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     KnowledgeIdGenerator, KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator,
     SqliteKnowledgeSpaceStore,
@@ -131,7 +131,7 @@ fn snowflake_generator_accepts_configured_node_id_and_rejects_invalid_values() {
         SnowflakeKnowledgeIdGenerator::from_node_id_config(Some("abc"))
             .expect("orchestration identifiers hash to valid node ids")
             .node_id()
-            <= sdkwork_id_core::max_snowflake_node_id()
+            <= sdkwork_database_id::max_snowflake_node_id()
     );
     assert!(
         SnowflakeKnowledgeIdGenerator::from_node_id_config(Some("   "))

@@ -164,10 +164,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_identity
         collection_id,
         identity_scope,
         COALESCE(source_id, 0),
-        CASE
-            WHEN identity_scope = 'source_only' THEN ''
-            ELSE COALESCE(original_file_drive_node_id, '')
-        END
+        (
+            CASE
+                WHEN identity_scope = 'source_only' THEN ''
+                ELSE COALESCE(original_file_drive_node_id, '')
+            END
+        )
     )
     WHERE status = 1;
 

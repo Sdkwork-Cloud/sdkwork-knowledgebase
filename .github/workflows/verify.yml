@@ -7,6 +7,36 @@ on:
   pull_request:
 
 jobs:
+  supply-chain-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Rust CVE audit (RustSec advisory database)
+        run: cargo audit --deny warnings
+      - name: Node.js CVE audit (pnpm audit)
+        run: pnpm audit --audit-level high
+        continue-on-error: false
+      - name: Dependency review (pull requests only)
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0-only, AGPL-3.0-only, SSPL-1.0
+
   phase1:
     runs-on: ubuntu-latest
     steps:

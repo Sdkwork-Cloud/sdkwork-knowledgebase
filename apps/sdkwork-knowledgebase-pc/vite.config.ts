@@ -14,6 +14,22 @@ const DEFAULT_PLATFORM_API_GATEWAY_TARGET = 'http://127.0.0.1:3900';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, __dirname, '');
+
+  // Build-time guard: refuse to bundle dev-only auth credentials into production.
+  // These env vars are dev-only auth form prefill and must never ship to production.
+  // See sdkwork-specs/ENVIRONMENT_SPEC.md §3 (VITE_*_AUTH_DEV_* gating).
+  if (mode === 'production') {
+    const devEmail = env.VITE_SDKWORK_KNOWLEDGEBASE_AUTH_DEV_EMAIL;
+    const devPassword = env.VITE_SDKWORK_KNOWLEDGEBASE_AUTH_DEV_PASSWORD;
+    if (devEmail || devPassword) {
+      throw new Error(
+        'VITE_SDKWORK_KNOWLEDGEBASE_AUTH_DEV_* must not be set in production builds. '
+        + 'These credentials are dev-only auth form prefill and must not ship to production. '
+        + 'Remove them from the build environment before retrying.',
+      );
+    }
+  }
+
   const platformApiGatewayTarget =
     env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL
     || process.env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL
@@ -156,13 +172,6 @@ export default defineConfig(({mode}) => {
           ),
         },
         {
-          find: '@sdkwork/iam-backend-sdk',
-          replacement: path.resolve(
-            iamRoot,
-            'sdks/sdkwork-iam-backend-sdk/sdkwork-iam-backend-sdk-typescript/generated/server-openapi/src/index.ts',
-          ),
-        },
-        {
           find: '@sdkwork/appbase-pc-react',
           replacement: path.resolve(
             appbaseRoot,
@@ -231,10 +240,6 @@ export default defineConfig(({mode}) => {
           changeOrigin: true,
         },
         '/app/v3/api': {
-          target: platformApiGatewayTarget,
-          changeOrigin: true,
-        },
-        '/backend/v3/api': {
           target: platformApiGatewayTarget,
           changeOrigin: true,
         },

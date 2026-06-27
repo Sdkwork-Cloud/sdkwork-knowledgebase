@@ -47,7 +47,7 @@ pub use db::{
     connect_sqlite_and_install_schema, connect_sqlite_pool, install_sqlite_core_schema,
     install_sqlite_schema, is_postgres_database_url, knowledgebase_health_check,
     postgres_health_check, set_postgres_session_tenant_id, sqlite_health_check,
-    POSTGRES_TENANT_SESSION_KEY, PostgresRepositoryError,
+    PostgresRepositoryError, POSTGRES_TENANT_SESSION_KEY,
 };
 pub use drive_object_ref_store::SqliteKnowledgeDriveObjectRefStore;
 pub use embedding_store::SqliteKnowledgeEmbeddingStore;

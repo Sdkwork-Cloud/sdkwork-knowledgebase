@@ -23,8 +23,8 @@ use std::sync::Arc;
 
 pub use client::{chunk_id_from_content, OpenWebuiApiClient};
 pub use config::{
-    knowledge_id_from_connector_metadata, OpenWebuiConnectorConfig, OPEN_WEBUI_API_KEY_ENV,
-    OPEN_WEBUI_BASE_URL_ENV, OPEN_WEBUI_KNOWLEDGE_ID_ENV,
+    knowledge_id_from_connector_metadata, OpenWebuiConnectorConfig, OPEN_WEBUI_BASE_URL_ENV,
+    OPEN_WEBUI_CREDENTIAL_ENV, OPEN_WEBUI_CREDENTIAL_FILE_ENV, OPEN_WEBUI_KNOWLEDGE_ID_ENV,
 };
 
 pub const OPEN_WEBUI_VENDOR_ID: &str = "open-webui";
@@ -87,7 +87,7 @@ impl OpenWebuiKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Open WebUI adapter requires {OPEN_WEBUI_BASE_URL_ENV} and {OPEN_WEBUI_API_KEY_ENV}; optional default knowledge collection via {OPEN_WEBUI_KNOWLEDGE_ID_ENV} or kb_source connector metadata datasetId"
+            "Open WebUI adapter requires {OPEN_WEBUI_BASE_URL_ENV} and {OPEN_WEBUI_CREDENTIAL_ENV}; optional default knowledge collection via {OPEN_WEBUI_KNOWLEDGE_ID_ENV} or kb_source connector metadata datasetId"
         )
     }
 

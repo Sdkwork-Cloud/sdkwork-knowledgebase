@@ -6,7 +6,8 @@
   "displayName": "KNOWLEDGEBASE Database",
   "owner": "knowledgebase-platform",
   "engines": [
-    "postgres"
+    "postgres",
+    "sqlite"
   ],
   "defaultEngine": "postgres",
   "tablePrefix": "kb_",

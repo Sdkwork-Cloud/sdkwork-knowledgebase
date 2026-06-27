@@ -23,9 +23,9 @@ use std::sync::Arc;
 
 pub use client::ChromaApiClient;
 pub use config::{
-    collection_id_from_connector_metadata, ChromaConnectorConfig, CHROMA_API_KEY_ENV,
-    CHROMA_BASE_URL_ENV, CHROMA_COLLECTION_ID_ENV, CHROMA_DATABASE_ENV, CHROMA_TENANT_ENV,
-    DEFAULT_CHROMA_DATABASE, DEFAULT_CHROMA_TENANT,
+    collection_id_from_connector_metadata, ChromaConnectorConfig, CHROMA_CREDENTIAL_ENV,
+    CHROMA_CREDENTIAL_FILE_ENV, CHROMA_BASE_URL_ENV, CHROMA_COLLECTION_ID_ENV, CHROMA_DATABASE_ENV,
+    CHROMA_TENANT_ENV, DEFAULT_CHROMA_DATABASE, DEFAULT_CHROMA_TENANT,
 };
 
 pub const CHROMA_VENDOR_ID: &str = "chroma";
@@ -88,7 +88,7 @@ impl ChromaKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Chroma adapter requires {CHROMA_BASE_URL_ENV}; optional auth via {CHROMA_API_KEY_ENV}; collection via {CHROMA_COLLECTION_ID_ENV} or kb_source connector metadata datasetId"
+            "Chroma adapter requires {CHROMA_BASE_URL_ENV}; optional auth via {CHROMA_CREDENTIAL_ENV} or {CHROMA_CREDENTIAL_FILE_ENV}; collection via {CHROMA_COLLECTION_ID_ENV} or kb_source connector metadata datasetId"
         )
     }
 

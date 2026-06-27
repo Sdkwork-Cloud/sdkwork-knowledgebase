@@ -75,3 +75,7 @@ apps/sdkwork-knowledgebase-pc/**/*.zip
 apps/_pc26-extract/
 apps/_pc26-merge/
 backup/
+
+# SDKWork local runtime state
+.runtime/
+**/.runtime/

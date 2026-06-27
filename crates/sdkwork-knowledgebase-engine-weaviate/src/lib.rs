@@ -24,8 +24,9 @@ use std::sync::Arc;
 pub use client::WeaviateApiClient;
 pub use config::{
     class_name_from_connector_metadata, WeaviateConnectorConfig, DEFAULT_WEAVIATE_CONTENT_PROPERTY,
-    DEFAULT_WEAVIATE_TITLE_PROPERTY, WEAVIATE_API_KEY_ENV, WEAVIATE_BASE_URL_ENV,
-    WEAVIATE_CLASS_NAME_ENV, WEAVIATE_CONTENT_PROPERTY_ENV, WEAVIATE_TITLE_PROPERTY_ENV,
+    DEFAULT_WEAVIATE_TITLE_PROPERTY, WEAVIATE_BASE_URL_ENV, WEAVIATE_CLASS_NAME_ENV,
+    WEAVIATE_CONTENT_PROPERTY_ENV, WEAVIATE_CREDENTIAL_ENV, WEAVIATE_CREDENTIAL_FILE_ENV,
+    WEAVIATE_TITLE_PROPERTY_ENV,
 };
 
 pub const WEAVIATE_VENDOR_ID: &str = "weaviate";
@@ -88,7 +89,7 @@ impl WeaviateKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Weaviate adapter requires {WEAVIATE_BASE_URL_ENV}; optional auth via {WEAVIATE_API_KEY_ENV}; class via {WEAVIATE_CLASS_NAME_ENV} or kb_source connector metadata datasetId"
+            "Weaviate adapter requires {WEAVIATE_BASE_URL_ENV}; optional auth via {WEAVIATE_CREDENTIAL_ENV} or {WEAVIATE_CREDENTIAL_FILE_ENV}; class via {WEAVIATE_CLASS_NAME_ENV} or kb_source connector metadata datasetId"
         )
     }
 

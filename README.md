@@ -23,7 +23,7 @@ crates/
   sdkwork-knowledgebase-drive              Adapter to sdkwork-drive storage contracts.
   sdkwork-knowledgebase-memory             Adapter from Knowledgebase context packs to sdkwork-memory SPI.
   sdkwork-knowledgebase-test-support       Test fakes and fixtures.
-  sdkwork-knowledgebase-api-server         Runnable app/backend/open HTTP API binaries.
+  sdkwork-knowledgebase-standalone-gateway         Runnable app/backend/open HTTP API binaries.
 sdks/
   sdkwork-knowledgebase-app-sdk            App SDK family, app-api OpenAPI authority, and generated TypeScript SDK.
   sdkwork-knowledgebase-backend-sdk        Backend SDK family, backend-api OpenAPI authority, and generated TypeScript SDK.
@@ -120,9 +120,9 @@ Run from the repository root:
 ```powershell
 pnpm dev
 # or individual binaries:
-cargo run -p sdkwork-knowledgebase-api-server --bin sdkwork-knowledgebase-app-api
-cargo run -p sdkwork-knowledgebase-api-server --bin sdkwork-knowledgebase-backend-api
-cargo run -p sdkwork-knowledgebase-api-server --bin sdkwork-knowledgebase-open-api
+cargo run -p sdkwork-knowledgebase-standalone-gateway --bin sdkwork-knowledgebase-app-api
+cargo run -p sdkwork-knowledgebase-standalone-gateway --bin sdkwork-knowledgebase-backend-api
+cargo run -p sdkwork-knowledgebase-standalone-gateway --bin sdkwork-knowledgebase-open-api
 cargo run -p sdkwork-knowledgebase-worker --bin sdkwork-knowledgebase-worker
 ```
 

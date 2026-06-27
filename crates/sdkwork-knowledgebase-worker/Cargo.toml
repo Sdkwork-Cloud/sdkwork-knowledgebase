@@ -15,7 +15,7 @@ path = "src/bin/worker_main.rs"
 [dependencies]
 axum.workspace = true
 sdkwork-intelligence-knowledgebase-service = { workspace = true }
-sdkwork-knowledgebase-api-server = { path = "../sdkwork-knowledgebase-api-server" }
+sdkwork-knowledgebase-standalone-gateway = { path = "../sdkwork-knowledgebase-standalone-gateway" }
 sdkwork-knowledgebase-observability = { path = "../sdkwork-knowledgebase-observability", features = ["otel"] }
 sdkwork-routes-knowledgebase-app-api = { path = "../sdkwork-routes-knowledgebase-app-api" }
 sdkwork-web-bootstrap.workspace = true

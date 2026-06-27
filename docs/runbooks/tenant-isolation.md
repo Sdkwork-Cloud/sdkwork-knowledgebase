@@ -10,7 +10,7 @@ Knowledgebase Phase 1.0 uses **single-tenant-per-process**. Each deployment bind
 - `SDKWORK_KNOWLEDGEBASE_TENANT_ID`
 - `SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID` (non-zero in production-like environments)
 
-Phase 2 shared SaaS adds Postgres RLS policies on `kb_*` tables — see [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md). Apply `database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql` and set `app.current_tenant_id` on every pooled Postgres checkout via `set_postgres_session_tenant_id` before tenant-scoped queries.
+Phase 2 shared SaaS adds Postgres RLS policies on `kb_*` tables — see [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md). Apply `database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql`. Knowledgebase Postgres pools set `app.current_tenant_id` on every checkout via `after_connect` in `connect_knowledgebase_pool_from_url` / `connect_knowledgebase_any_pool_from_url` (Phase 2.2). Production-like deployments must set `SDKWORK_KNOWLEDGEBASE_TENANT_ID`; development defaults to tenant `1` when unset.
 
 ## Incident: cross-tenant access suspicion
 

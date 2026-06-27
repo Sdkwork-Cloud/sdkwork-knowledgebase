@@ -1242,7 +1242,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
         "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _dify_api_key = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_API_KEY", "hosted-test-key");
+    let _dify_credential = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL", "hosted-test-key");
 
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
@@ -1391,7 +1391,7 @@ async fn hosted_external_read_resolves_configured_dify_citation_document() {
         "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _dify_api_key = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_API_KEY", "hosted-read-key");
+    let _dify_credential = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL", "hosted-read-key");
 
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
@@ -1543,8 +1543,8 @@ async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
         "SDKWORK_KNOWLEDGEBASE_RAGFLOW_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _ragflow_api_key = TempEnvVar::set(
-        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_API_KEY",
+    let _ragflow_credential = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_CREDENTIAL",
         "hosted-ragflow-read-key",
     );
 
@@ -1684,8 +1684,8 @@ async fn hosted_external_read_resolves_configured_open_webui_citation_document()
         "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _open_webui_api_key = TempEnvVar::set(
-        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_API_KEY",
+    let _open_webui_credential = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_CREDENTIAL",
         "hosted-open-webui-read-key",
     );
 
@@ -1831,8 +1831,8 @@ async fn hosted_external_read_resolves_configured_flowise_citation_document() {
         "SDKWORK_KNOWLEDGEBASE_FLOWISE_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _flowise_api_key = TempEnvVar::set(
-        "SDKWORK_KNOWLEDGEBASE_FLOWISE_API_KEY",
+    let _flowise_credential = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_FLOWISE_CREDENTIAL",
         "hosted-flowise-read-key",
     );
 
@@ -2140,8 +2140,8 @@ async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
         "SDKWORK_KNOWLEDGEBASE_RAGFLOW_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _ragflow_api_key = TempEnvVar::set(
-        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_API_KEY",
+    let _ragflow_credential = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_CREDENTIAL",
         "hosted-ragflow-key",
     );
 
@@ -2275,7 +2275,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
         "SDKWORK_KNOWLEDGEBASE_ONYX_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _onyx_api_key = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_ONYX_API_KEY", "hosted-onyx-key");
+    let _onyx_credential = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_ONYX_CREDENTIAL", "hosted-onyx-key");
 
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
@@ -2412,8 +2412,8 @@ async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter
         "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _anythingllm_api_key = TempEnvVar::set(
-        "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_API_KEY",
+    let _anythingllm_credential = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_CREDENTIAL",
         "hosted-anythingllm-key",
     );
 
@@ -2549,8 +2549,8 @@ async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter(
         "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _open_webui_api_key = TempEnvVar::set(
-        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_API_KEY",
+    let _open_webui_credential = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_CREDENTIAL",
         "hosted-open-webui-key",
     );
 
@@ -2688,8 +2688,8 @@ async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
         "SDKWORK_KNOWLEDGEBASE_FLOWISE_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _flowise_api_key = TempEnvVar::set(
-        "SDKWORK_KNOWLEDGEBASE_FLOWISE_API_KEY",
+    let _flowise_credential = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_FLOWISE_CREDENTIAL",
         "hosted-flowise-key",
     );
 
@@ -4053,7 +4053,7 @@ impl Drop for TempEnvVar {
 fn clear_dify_adapter_env() {
     for key in [
         "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL",
-        "SDKWORK_KNOWLEDGEBASE_DIFY_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL",
         "SDKWORK_KNOWLEDGEBASE_DIFY_DATASET_ID",
     ] {
         std::env::remove_var(key);
@@ -4063,7 +4063,7 @@ fn clear_dify_adapter_env() {
 fn clear_ragflow_adapter_env() {
     for key in [
         "SDKWORK_KNOWLEDGEBASE_RAGFLOW_BASE_URL",
-        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_RAGFLOW_CREDENTIAL",
         "SDKWORK_KNOWLEDGEBASE_RAGFLOW_DATASET_ID",
     ] {
         std::env::remove_var(key);
@@ -4073,7 +4073,7 @@ fn clear_ragflow_adapter_env() {
 fn clear_onyx_adapter_env() {
     for key in [
         "SDKWORK_KNOWLEDGEBASE_ONYX_BASE_URL",
-        "SDKWORK_KNOWLEDGEBASE_ONYX_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_ONYX_CREDENTIAL",
     ] {
         std::env::remove_var(key);
     }
@@ -4082,7 +4082,7 @@ fn clear_onyx_adapter_env() {
 fn clear_anythingllm_adapter_env() {
     for key in [
         "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_BASE_URL",
-        "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_CREDENTIAL",
         "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_WORKSPACE_SLUG",
     ] {
         std::env::remove_var(key);
@@ -4092,7 +4092,7 @@ fn clear_anythingllm_adapter_env() {
 fn clear_open_webui_adapter_env() {
     for key in [
         "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_BASE_URL",
-        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_CREDENTIAL",
         "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_KNOWLEDGE_ID",
     ] {
         std::env::remove_var(key);
@@ -4102,7 +4102,7 @@ fn clear_open_webui_adapter_env() {
 fn clear_flowise_adapter_env() {
     for key in [
         "SDKWORK_KNOWLEDGEBASE_FLOWISE_BASE_URL",
-        "SDKWORK_KNOWLEDGEBASE_FLOWISE_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_FLOWISE_CREDENTIAL",
         "SDKWORK_KNOWLEDGEBASE_FLOWISE_STORE_ID",
     ] {
         std::env::remove_var(key);
@@ -4112,7 +4112,7 @@ fn clear_flowise_adapter_env() {
 fn clear_chroma_adapter_env() {
     for key in [
         "SDKWORK_KNOWLEDGEBASE_CHROMA_BASE_URL",
-        "SDKWORK_KNOWLEDGEBASE_CHROMA_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_CHROMA_CREDENTIAL",
         "SDKWORK_KNOWLEDGEBASE_CHROMA_COLLECTION_ID",
         "SDKWORK_KNOWLEDGEBASE_CHROMA_TENANT",
         "SDKWORK_KNOWLEDGEBASE_CHROMA_DATABASE",
@@ -4124,7 +4124,7 @@ fn clear_chroma_adapter_env() {
 fn clear_qdrant_adapter_env() {
     for key in [
         "SDKWORK_KNOWLEDGEBASE_QDRANT_BASE_URL",
-        "SDKWORK_KNOWLEDGEBASE_QDRANT_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_QDRANT_CREDENTIAL",
         "SDKWORK_KNOWLEDGEBASE_QDRANT_COLLECTION_NAME",
         "SDKWORK_KNOWLEDGEBASE_QDRANT_QUERY_MODEL",
         "SDKWORK_KNOWLEDGEBASE_QDRANT_USING_VECTOR",
@@ -4136,7 +4136,7 @@ fn clear_qdrant_adapter_env() {
 fn clear_weaviate_adapter_env() {
     for key in [
         "SDKWORK_KNOWLEDGEBASE_WEAVIATE_BASE_URL",
-        "SDKWORK_KNOWLEDGEBASE_WEAVIATE_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_WEAVIATE_CREDENTIAL",
         "SDKWORK_KNOWLEDGEBASE_WEAVIATE_CLASS_NAME",
         "SDKWORK_KNOWLEDGEBASE_WEAVIATE_TITLE_PROPERTY",
         "SDKWORK_KNOWLEDGEBASE_WEAVIATE_CONTENT_PROPERTY",
@@ -4148,7 +4148,7 @@ fn clear_weaviate_adapter_env() {
 fn clear_haystack_adapter_env() {
     for key in [
         "SDKWORK_KNOWLEDGEBASE_HAYSTACK_BASE_URL",
-        "SDKWORK_KNOWLEDGEBASE_HAYSTACK_API_KEY",
+        "SDKWORK_KNOWLEDGEBASE_HAYSTACK_CREDENTIAL",
         "SDKWORK_KNOWLEDGEBASE_HAYSTACK_PIPELINE",
         "SDKWORK_KNOWLEDGEBASE_HAYSTACK_WORKSPACE",
         "SDKWORK_KNOWLEDGEBASE_HAYSTACK_DEPLOYMENT_MODE",
