@@ -11,7 +11,7 @@
   ],
   "defaultEngine": "postgres",
   "tablePrefix": "knowledge_",
-  "contractVersion": "1.1.0",
+  "contractVersion": "1.0.0",
   "baselineStrategy": "baseline-plus-migrations",
   "modules": [],
   "lifecycle": {
