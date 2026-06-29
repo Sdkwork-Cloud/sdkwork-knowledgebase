@@ -20,12 +20,13 @@ crates/
                                              SQL migration registry and SQLite/Postgres SQLx repositories via sdkwork-database.
   sdkwork-routes-knowledgebase-app-api     App HTTP route boundary for generated App SDK operations.
   sdkwork-routes-knowledgebase-backend-api Backend HTTP route boundary for generated Backend SDK operations.
+  sdkwork-routes-knowledgebase-open-api    Open HTTP route boundary for generated Open SDK operations.
   sdkwork-knowledgebase-drive              Adapter to sdkwork-drive storage contracts.
   sdkwork-knowledgebase-memory             Adapter from Knowledgebase context packs to sdkwork-memory SPI.
   sdkwork-knowledgebase-test-support       Test fakes and fixtures.
   sdkwork-knowledgebase-standalone-gateway         Runnable app/backend/open HTTP API binaries.
 sdks/
-  sdkwork-knowledgebase-app-sdk            App SDK family, app-api OpenAPI authority, and generated TypeScript SDK.
+  sdkwork-knowledgebase-app-sdk            App SDK family, app-api OpenAPI authority, generated transport, and composed TypeScript facade (`createKnowledgebaseAppClient`).
   sdkwork-knowledgebase-backend-sdk        Backend SDK family, backend-api OpenAPI authority, and generated TypeScript SDK.
   sdkwork-knowledgebase-sdk                Open SDK family and generated TypeScript SDK.
 jobs/ plugins/ examples/ configs/ deployments/ scripts/ tests/
@@ -92,11 +93,18 @@ raw/**
 Run:
 
 ```powershell
+pnpm check
+pnpm check:dependency-composition
 pnpm verify
+node ../sdkwork-specs/tools/check-api-response-envelope.mjs --workspace .
+pnpm api:materialize:check
+pnpm sdk:generate:check
 pnpm test
 pnpm test:launch-readiness
 pnpm lint
 ```
+
+`pnpm check` includes architecture alignment, PC dependency composition (`specs/dependency.composition.json`), utils integration, and SDKWork script/workflow standards.
 
 `pnpm verify` includes Phase 1 contract checks, security/observability alignment, launch-readiness gates, and cloud gateway validation.
 
@@ -111,7 +119,7 @@ The workspace ships SQLx-backed HTTP runtimes with SQLite (local dev) or Postgre
 | Binary | Default listen | Surface | Operations |
 |--------|----------------|---------|------------|
 | `sdkwork-knowledgebase-app-api` | `127.0.0.1:18081` | App API | 68 |
-| `sdkwork-knowledgebase-backend-api` | `127.0.0.1:18082` | Backend API | 26 |
+| `sdkwork-knowledgebase-backend-api` | `127.0.0.1:18082` | Backend API | 27 |
 | `sdkwork-knowledgebase-open-api` | `127.0.0.1:18083` | Open API | 8 |
 | `sdkwork-knowledgebase-worker` | health `127.0.0.1:18085` | Background worker | — |
 

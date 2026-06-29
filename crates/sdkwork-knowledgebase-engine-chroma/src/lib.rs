@@ -23,9 +23,9 @@ use std::sync::Arc;
 
 pub use client::ChromaApiClient;
 pub use config::{
-    collection_id_from_connector_metadata, ChromaConnectorConfig, CHROMA_CREDENTIAL_ENV,
-    CHROMA_CREDENTIAL_FILE_ENV, CHROMA_BASE_URL_ENV, CHROMA_COLLECTION_ID_ENV, CHROMA_DATABASE_ENV,
-    CHROMA_TENANT_ENV, DEFAULT_CHROMA_DATABASE, DEFAULT_CHROMA_TENANT,
+    collection_id_from_connector_metadata, ChromaConnectorConfig, CHROMA_BASE_URL_ENV,
+    CHROMA_COLLECTION_ID_ENV, CHROMA_CREDENTIAL_ENV, CHROMA_CREDENTIAL_FILE_ENV,
+    CHROMA_DATABASE_ENV, CHROMA_TENANT_ENV, DEFAULT_CHROMA_DATABASE, DEFAULT_CHROMA_TENANT,
 };
 
 pub const CHROMA_VENDOR_ID: &str = "chroma";

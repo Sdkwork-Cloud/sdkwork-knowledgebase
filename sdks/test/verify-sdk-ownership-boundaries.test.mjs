@@ -219,6 +219,56 @@ test("knowledgebase SDK manifests record owner and dependency boundaries outside
   }
 });
 
+test("knowledgebase app SDK exposes composed consumer facade outside generated transport", () => {
+  const manifest = readJson("sdks/sdkwork-knowledgebase-app-sdk/sdk-manifest.json");
+  assert.equal(
+    manifest.composedConsumerPath,
+    "sdkwork-knowledgebase-app-sdk-typescript",
+    "app SDK manifest must declare composed consumer workspace path",
+  );
+  assert.equal(
+    manifest.composedFactory,
+    "createKnowledgebaseAppClient",
+    "app SDK manifest must declare composed consumer factory",
+  );
+  assert.equal(
+    manifest.generatedTransportPackageName,
+    "@sdkwork-internal/knowledgebase-app-sdk-generated",
+    "app SDK manifest must isolate generated transport package naming",
+  );
+
+  const composedPackage = readJson(
+    "sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/package.json",
+  );
+  assert.equal(
+    composedPackage.name,
+    "@sdkwork/knowledgebase-app-sdk",
+    "composed app SDK package must own the public package name",
+  );
+
+  const generatedPackage = readJson(
+    "sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/package.json",
+  );
+  assert.equal(
+    generatedPackage.name,
+    "@sdkwork-internal/knowledgebase-app-sdk-generated",
+    "generated transport package must not reuse the public app SDK package name",
+  );
+
+  const composedSource = readFileSync(
+    path.join(
+      workspaceRoot,
+      "sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/src/index.ts",
+    ),
+    "utf8",
+  );
+  assert.match(
+    composedSource,
+    /export function createKnowledgebaseAppClient/u,
+    "composed app SDK entry must export createKnowledgebaseAppClient",
+  );
+});
+
 test("knowledgebase generated OpenAPI inputs contain only sdkwork-knowledgebase owned operations", () => {
   for (const family of families) {
     const openapi = readJson(path.join("sdks", family.root, family.input));

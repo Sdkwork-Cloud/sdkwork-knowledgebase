@@ -63,21 +63,13 @@ impl BackendApiProblem {
         } else {
             detail.into()
         };
-        let title = status
-            .canonical_reason()
-            .unwrap_or("HTTP Error")
-            .to_string();
         Self {
             status,
-            problem: Box::new(ProblemDetails {
-                r#type: "about:blank".to_string(),
-                title,
-                status: status.as_u16(),
-                detail: Some(client_detail),
-                instance: None,
-                code: Some(code.into()),
-                trace_id: None,
-            }),
+            problem: Box::new(ProblemDetails::pending_trace(
+                status,
+                code,
+                client_detail,
+            )),
         }
     }
 

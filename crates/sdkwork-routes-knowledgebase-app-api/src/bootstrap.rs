@@ -2,7 +2,6 @@ use axum::Router;
 use sdkwork_routes_knowledgebase_backend_api::{health, DbReadinessCheck};
 use sdkwork_utils_rust::is_blank;
 use sdkwork_web_bootstrap::assemble_multi_surface_router;
-use std::sync::Arc;
 
 pub use sdkwork_knowledgebase_observability::{
     is_development_environment, is_production_like_environment, knowledgebase_environment,
@@ -131,7 +130,9 @@ pub async fn build_served_unified_business_router(
     let backend_router = runtime
         .build_backend_business_router_with_web_framework()
         .await;
-    let open_router = runtime.build_open_business_router_with_web_framework().await;
+    let open_router = runtime
+        .build_open_business_router_with_web_framework()
+        .await;
     app_router.merge(backend_router).merge(open_router)
 }
 
@@ -146,7 +147,9 @@ pub async fn build_served_unified_router(
     let backend_router = runtime
         .build_backend_business_router_with_web_framework()
         .await;
-    let open_router = runtime.build_open_business_router_with_web_framework().await;
+    let open_router = runtime
+        .build_open_business_router_with_web_framework()
+        .await;
     assemble_multi_surface_router(
         [app_router, backend_router, open_router],
         health::knowledgebase_service_router_config(Some(readiness)),

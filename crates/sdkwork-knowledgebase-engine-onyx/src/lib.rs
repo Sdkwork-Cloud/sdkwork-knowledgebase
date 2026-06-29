@@ -17,7 +17,9 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
 };
 
 pub use client::{decode_url_document_id, encode_url_document_id, OnyxApiClient};
-pub use config::{OnyxConnectorConfig, ONYX_CREDENTIAL_ENV, ONYX_CREDENTIAL_FILE_ENV, ONYX_BASE_URL_ENV};
+pub use config::{
+    OnyxConnectorConfig, ONYX_BASE_URL_ENV, ONYX_CREDENTIAL_ENV, ONYX_CREDENTIAL_FILE_ENV,
+};
 
 pub const ONYX_VENDOR_ID: &str = "onyx";
 pub const ONYX_IMPLEMENTATION_ID: &str = "engine.knowledge.external.onyx";

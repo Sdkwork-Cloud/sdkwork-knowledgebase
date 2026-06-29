@@ -161,7 +161,7 @@ export default defineConfig(({mode}) => {
           find: '@sdkwork/knowledgebase-app-sdk',
           replacement: path.resolve(
             repoRoot,
-            'sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/src/index.ts',
+            'sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/src/index.ts',
           ),
         },
         {

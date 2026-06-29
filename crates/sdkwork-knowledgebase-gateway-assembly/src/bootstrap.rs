@@ -29,7 +29,9 @@ pub async fn assemble_application_business_router(
     ApplicationAssembly { router }
 }
 
-pub async fn assemble_application_router(runtime: Arc<KnowledgebaseRuntime>) -> ApplicationAssembly {
+pub async fn assemble_application_router(
+    runtime: Arc<KnowledgebaseRuntime>,
+) -> ApplicationAssembly {
     let readiness = DbReadinessCheck::new(runtime.pool().clone());
     let business = assemble_application_business_router(runtime).await;
     let router = assemble_multi_surface_router(

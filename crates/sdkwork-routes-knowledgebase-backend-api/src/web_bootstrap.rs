@@ -9,7 +9,6 @@ use sdkwork_web_core::{
 };
 
 use crate::http_route_manifest::backend_route_manifest;
-use crate::paths;
 use crate::permission::can_access_knowledge_admin;
 use crate::web_framework_assembly::apply_knowledgebase_web_framework;
 use crate::KnowledgeBackendRequestContext;

@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, type ComponentProps } from 'react';
+import { I18nextProvider } from 'react-i18next';
 import { KnowledgebaseRuntimeProvider } from 'sdkwork-knowledgebase-pc-core';
 
 import { KnowledgeBaseApp, ToastContainer } from '../../sdkwork-knowledgebase-pc-knowledgebase/src';
 import '../../../src/index.css';
-import '../../../src/i18n';
+import i18n from '../../../src/i18n';
 
 import { bindHostSessionToKnowledgebaseStore } from './sessionBridge';
 import { createHostManagedKnowledgebaseRuntime } from './createHostManagedKnowledgebaseRuntime';
@@ -22,20 +23,12 @@ function syncHostManagedKnowledgebaseAppearance(): void {
   document.documentElement.classList.toggle('dark', isDark);
 }
 
-export const KnowledgeView: React.FC = () => {
-  const runtime = useMemo(() => {
-    syncKnowledgebaseHostLanguage();
-    return createHostManagedKnowledgebaseRuntime();
-  }, []);
+type HostManagedKnowledgebaseRuntime = ReturnType<typeof createHostManagedKnowledgebaseRuntime>;
 
+const KnowledgeViewContent: React.FC<{ runtime: HostManagedKnowledgebaseRuntime }> = ({ runtime }) => {
   useEffect(() => {
     return bindHostSessionToKnowledgebaseStore(runtime.session);
   }, [runtime.session]);
-
-  useEffect(() => {
-    syncKnowledgebaseHostLanguage();
-    return subscribeKnowledgebaseHostLanguage();
-  }, []);
 
   useEffect(() => {
     syncHostManagedKnowledgebaseAppearance();
@@ -70,5 +63,21 @@ export const KnowledgeView: React.FC = () => {
         <ToastContainer />
       </div>
     </KnowledgebaseRuntimeProvider>
+  );
+};
+
+type KnowledgebaseI18nProviderProps = ComponentProps<typeof I18nextProvider>;
+
+export const KnowledgeView: React.FC = () => {
+  syncKnowledgebaseHostLanguage();
+
+  useEffect(() => subscribeKnowledgebaseHostLanguage(), []);
+
+  const runtime = useMemo(() => createHostManagedKnowledgebaseRuntime(), []);
+
+  return (
+    <I18nextProvider i18n={i18n as KnowledgebaseI18nProviderProps['i18n']}>
+      <KnowledgeViewContent runtime={runtime} />
+    </I18nextProvider>
   );
 };

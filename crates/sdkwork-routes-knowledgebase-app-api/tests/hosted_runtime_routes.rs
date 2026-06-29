@@ -1242,7 +1242,8 @@ async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
         "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _dify_credential = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL", "hosted-test-key");
+    let _dify_credential =
+        TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL", "hosted-test-key");
 
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
@@ -1391,7 +1392,8 @@ async fn hosted_external_read_resolves_configured_dify_citation_document() {
         "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _dify_credential = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL", "hosted-read-key");
+    let _dify_credential =
+        TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL", "hosted-read-key");
 
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
@@ -2275,7 +2277,8 @@ async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
         "SDKWORK_KNOWLEDGEBASE_ONYX_BASE_URL",
         mock_server.uri().as_str(),
     );
-    let _onyx_credential = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_ONYX_CREDENTIAL", "hosted-onyx-key");
+    let _onyx_credential =
+        TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_ONYX_CREDENTIAL", "hosted-onyx-key");
 
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
@@ -4196,7 +4199,12 @@ async fn response_body_json(response: axum::response::Response) -> Value {
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("read response body");
-    serde_json::from_slice(&bytes).expect("parse response json")
+    let value: Value = serde_json::from_slice(&bytes).expect("parse response json");
+    if value["code"].as_i64() == Some(0) {
+        value["data"]["item"].clone()
+    } else {
+        value
+    }
 }
 
 fn json_u64_field(body: &Value, field: &str) -> Option<u64> {

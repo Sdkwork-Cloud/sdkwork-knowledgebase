@@ -145,4 +145,9 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         path: "/backend/v3/api/knowledge/provider_health",
         operation_id: "providerHealth.retrieve",
     },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/backend/v3/api/knowledge/tenants/current",
+        operation_id: "tenants.current.retrieve",
+    },
 ];

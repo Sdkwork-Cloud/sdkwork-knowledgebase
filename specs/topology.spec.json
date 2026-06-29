@@ -211,18 +211,6 @@
             "required": true
           },
           {
-            "id": "application.backend-http",
-            "crate": "sdkwork-knowledgebase-standalone-gateway",
-            "binary": "sdkwork-knowledgebase-backend-api",
-            "required": true
-          },
-          {
-            "id": "application.open-http",
-            "crate": "sdkwork-knowledgebase-standalone-gateway",
-            "binary": "sdkwork-knowledgebase-open-api",
-            "required": true
-          },
-          {
             "id": "application.background-worker",
             "crate": "sdkwork-knowledgebase-worker",
             "binary": "sdkwork-knowledgebase-worker",
@@ -231,9 +219,7 @@
         ],
         "healthSurfaces": [
           "platform.api-gateway",
-          "application.public-ingress",
-          "application.backend-http",
-          "application.open-http"
+          "application.public-ingress"
         ]
       }
     }

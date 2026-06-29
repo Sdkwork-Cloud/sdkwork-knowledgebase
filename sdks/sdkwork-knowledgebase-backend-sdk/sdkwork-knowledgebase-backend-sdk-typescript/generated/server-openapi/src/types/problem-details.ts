@@ -5,4 +5,5 @@ export interface ProblemDetails {
   detail?: string | null;
   instance?: string | null;
   code?: string | null;
+  traceId?: string | null;
 }

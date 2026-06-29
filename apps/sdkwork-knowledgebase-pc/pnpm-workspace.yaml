@@ -1,6 +1,6 @@
 packages:
   - "packages/*"
-  - "../../sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi"
+  - "../../sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript"
   - "../../../sdkwork-ui/sdkwork-ui-pc-react"
   - "../../../sdkwork-appbase/packages/pc-react/foundation/sdkwork-appbase-pc-react"
   - "../../../sdkwork-appbase/packages/pc-react/foundation/sdkwork-i18n-pc-react"

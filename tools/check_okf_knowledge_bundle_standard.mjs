@@ -31,7 +31,6 @@ const skipPathParts = [
   "dist",
   "external",
   ".git",
-  "2026-06-01-knowledgebase-backend-design.md",
   "2026-06-01-knowledgebase-backend-phase1-implementation.md",
   "okf-knowledge-bundle.spec.json",
   "2026-06-19-okf-knowledge-bundle-design.md",

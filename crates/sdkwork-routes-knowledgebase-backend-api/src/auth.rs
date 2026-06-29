@@ -1,30 +1,64 @@
-use axum::{http::StatusCode, Extension};
+use axum::{
+    extract::FromRequestParts,
+    http::{request::Parts, StatusCode},
+};
+use std::ops::Deref;
 
 use crate::{
     permission::can_access_knowledge_admin, routes::BackendState, BackendApiProblem,
     KnowledgeBackendRequestContext,
 };
 
+/// Authenticated backend request context injected by `sdkwork-web-framework` middleware.
+#[derive(Debug, Clone)]
+pub struct RequiredBackendContext(pub KnowledgeBackendRequestContext);
+
+impl Deref for RequiredBackendContext {
+    type Target = KnowledgeBackendRequestContext;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<S> FromRequestParts<S> for RequiredBackendContext
+where
+    S: Send + Sync,
+{
+    type Rejection = BackendApiProblem;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        parts
+            .extensions
+            .get::<KnowledgeBackendRequestContext>()
+            .cloned()
+            .map(RequiredBackendContext)
+            .ok_or_else(|| {
+                BackendApiProblem::new(
+                    StatusCode::UNAUTHORIZED,
+                    "missing_backend_request_context",
+                    "authenticated backend request context is required",
+                )
+            })
+    }
+}
+
+/// Extracts the authenticated backend request context after extractor validation.
 pub fn require_backend_context(
     state: &BackendState,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
 ) -> Result<KnowledgeBackendRequestContext, BackendApiProblem> {
-    let context = context.map(|Extension(context)| context).ok_or_else(|| {
-        BackendApiProblem::new(
-            StatusCode::UNAUTHORIZED,
-            "missing_backend_request_context",
-            "authenticated backend request context is required",
-        )
-    })?;
+    let context = context.0;
     ensure_runtime_tenant(state, &context)?;
     ensure_runtime_organization(&context)?;
     ensure_knowledge_admin_permission(&context)?;
     Ok(context)
 }
 
+/// Extracts context and records an admin audit operation for mutations.
 pub fn require_backend_mutation_context(
     state: &BackendState,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     operation: &str,
 ) -> Result<KnowledgeBackendRequestContext, BackendApiProblem> {
     let context = require_backend_context(state, context)?;

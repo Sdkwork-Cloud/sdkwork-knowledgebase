@@ -73,7 +73,7 @@ async fn tenant_id_mismatch_rejects_space_retrieve() {
 
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     let body = response_body_json(response).await;
-    assert_eq!(body["code"], "tenant_id_mismatch");
+    assert_eq!(body["code"].as_i64(), Some(40303));
 }
 
 #[tokio::test]
@@ -103,7 +103,7 @@ async fn tenant_id_mismatch_rejects_space_creation() {
 
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     let body = response_body_json(response).await;
-    assert_eq!(body["code"], "tenant_id_mismatch");
+    assert_eq!(body["code"].as_i64(), Some(40303));
 }
 
 #[tokio::test]
@@ -134,7 +134,7 @@ async fn organization_id_mismatch_rejects_when_runtime_org_configured() {
 
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
     let body = response_body_json(response).await;
-    assert_eq!(body["code"], "organization_id_mismatch");
+    assert_eq!(body["code"].as_i64(), Some(40304));
 }
 
 async fn create_space(runtime: &KnowledgebaseRuntime, context: KnowledgeAppRequestContext) -> u64 {
@@ -168,7 +168,7 @@ async fn create_space(runtime: &KnowledgebaseRuntime, context: KnowledgeAppReque
         String::from_utf8_lossy(&bytes)
     );
     let body: Value = serde_json::from_slice(&bytes).expect("parse create space response");
-    body["id"].as_u64().expect("space id")
+    body["data"]["item"]["id"].as_u64().expect("space id")
 }
 
 async fn test_runtime() -> KnowledgebaseRuntime {
@@ -208,5 +208,10 @@ async fn response_body_json(response: axum::response::Response) -> serde_json::V
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("read response body");
-    serde_json::from_slice(&bytes).expect("parse response json")
+    let value: serde_json::Value = serde_json::from_slice(&bytes).expect("parse response json");
+    if value["code"].as_i64() == Some(0) {
+        value["data"]["item"].clone()
+    } else {
+        value
+    }
 }

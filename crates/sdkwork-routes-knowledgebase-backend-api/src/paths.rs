@@ -28,3 +28,4 @@ pub const RETRIEVAL_PROFILE: &str = "/backend/v3/api/knowledge/retrieval_profile
 pub const RETRIEVAL_TRACES: &str = "/backend/v3/api/knowledge/retrieval_traces";
 pub const RETRIEVAL_TRACE: &str = "/backend/v3/api/knowledge/retrieval_traces/{trace_id}";
 pub const PROVIDER_HEALTH: &str = "/backend/v3/api/knowledge/provider_health";
+pub const TENANT_LANDING: &str = "/backend/v3/api/knowledge/tenants/current";

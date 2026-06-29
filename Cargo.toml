@@ -100,5 +100,6 @@ sdkwork-drive-workspace-service = { path = "../sdkwork-drive/crates/sdkwork-driv
 sdkwork-drive-config = { path = "../sdkwork-drive/crates/sdkwork-drive-config" }
 sdkwork-memory-spi = { path = "../sdkwork-memory/crates/sdkwork-memory-spi" }
 sdkwork-database-id = { path = "../sdkwork-database/crates/sdkwork-database-id", package = "sdkwork-database-id" }
+sdkwork-id-core = { path = "../sdkwork-id/packages/sdkwork-id-core" }
 sdkwork-utils-rust = { path = "../sdkwork-utils/packages/sdkwork-utils-rust" }
 sdkwork_utils_rust = { path = "../sdkwork-utils/packages/sdkwork-utils-rust", package = "sdkwork-utils-rust" }

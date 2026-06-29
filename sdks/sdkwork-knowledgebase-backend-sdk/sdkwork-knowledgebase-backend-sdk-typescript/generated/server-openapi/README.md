@@ -18,7 +18,7 @@ pnpm add @sdkwork/knowledgebase-backend-sdk
 import { SdkworkBackendClient } from '@sdkwork/knowledgebase-backend-sdk';
 
 const client = new SdkworkBackendClient({
-  baseUrl: 'http://localhost:8080',
+  baseUrl: '/backend/v3/api',
   timeout: 30000,
 });
 
@@ -44,7 +44,7 @@ Access-Token: <accessToken>
 import { SdkworkBackendClient } from '@sdkwork/knowledgebase-backend-sdk';
 
 const client = new SdkworkBackendClient({
-  baseUrl: 'http://localhost:8080',
+  baseUrl: '/backend/v3/api',
   timeout: 30000, // Request timeout in ms
   headers: {      // Custom headers
     'X-Custom-Header': 'value',
@@ -61,7 +61,7 @@ const client = new SdkworkBackendClient({
 ### knowledge
 
 ```typescript
-// GET /backend/v3/api/knowledge/sources
+// List knowledge sources
 const result = await client.knowledge.sources.list();
 ```
 

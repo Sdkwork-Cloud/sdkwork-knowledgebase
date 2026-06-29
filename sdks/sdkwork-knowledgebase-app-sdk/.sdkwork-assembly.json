@@ -26,12 +26,16 @@
       "releaseState": "not_published",
       "generatedPath": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
       "manifestPath": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/package.json",
-      "name": "@sdkwork/knowledgebase-app-sdk",
+      "name": "@sdkwork-internal/knowledgebase-app-sdk-generated",
       "version": "0.1.0",
       "description": "Generator-owned TypeScript transport SDK for sdkwork-knowledgebase-app-api.",
       "consumerSurface": {
         "primaryClient": "SdkworkAppClient",
-        "apiPrefix": "/app/v3/api"
+        "factory": "createKnowledgebaseAppClient",
+        "apiPrefix": "/app/v3/api",
+        "composedManifestPath": "sdkwork-knowledgebase-app-sdk-typescript/package.json",
+        "composedEntryPath": "sdkwork-knowledgebase-app-sdk-typescript/src/index.ts",
+        "packageName": "@sdkwork/knowledgebase-app-sdk"
       }
     }
   ],

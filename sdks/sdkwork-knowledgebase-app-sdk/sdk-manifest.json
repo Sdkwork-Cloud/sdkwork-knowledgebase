@@ -11,6 +11,11 @@
   "apiPrefix": "/app/v3/api",
   "generationInputSpec": "openapi/knowledgebase-app-api.openapi.json",
   "generatedOutput": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
+  "composedConsumerPath": "sdkwork-knowledgebase-app-sdk-typescript",
+  "composedConsumerManifest": "sdkwork-knowledgebase-app-sdk-typescript/package.json",
+  "composedConsumerEntry": "sdkwork-knowledgebase-app-sdk-typescript/src/index.ts",
+  "composedFactory": "createKnowledgebaseAppClient",
+  "generatedTransportPackageName": "@sdkwork-internal/knowledgebase-app-sdk-generated",
   "standardProfile": "sdkwork-v3",
   "sdkDependencies": [
     {

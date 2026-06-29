@@ -167,6 +167,12 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "knowledge",
         "providerHealth.retrieve",
     ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/tenants/current",
+        "knowledge",
+        "tenants.current.retrieve",
+    ),
 ];
 
 pub fn backend_route_manifest() -> HttpRouteManifest {

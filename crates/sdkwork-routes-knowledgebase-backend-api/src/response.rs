@@ -1,7 +1,6 @@
 use axum::{
     http::StatusCode,
-    response::{IntoResponse, Response},
-    Json,
+    response::Response,
 };
 use serde::Serialize;
 
@@ -12,7 +11,12 @@ where
     T: Serialize,
 {
     result
-        .map(|value| Json(value).into_response())
+        .map(|value| {
+            sdkwork_knowledgebase_observability::request_correlation::success_json_response(
+                StatusCode::OK,
+                value,
+            )
+        })
         .map_err(BackendApiProblem::from)
 }
 
@@ -21,6 +25,11 @@ where
     T: Serialize,
 {
     result
-        .map(|value| (StatusCode::CREATED, Json(value)).into_response())
+        .map(|value| {
+            sdkwork_knowledgebase_observability::request_correlation::success_json_response(
+                StatusCode::CREATED,
+                value,
+            )
+        })
         .map_err(BackendApiProblem::from)
 }

@@ -24,9 +24,7 @@ async fn main() {
         .await
         .expect("knowledgebase database readiness check failed");
 
-    let router = assemble_application_router(Arc::new(runtime))
-        .await
-        .router;
+    let router = assemble_application_router(Arc::new(runtime)).await.router;
     serve_router(
         &listen_addr,
         "sdkwork-knowledgebase-standalone-gateway",

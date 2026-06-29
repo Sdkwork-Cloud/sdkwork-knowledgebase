@@ -10,7 +10,18 @@ import {
   Sparkles, Notebook, Video, ArrowLeft, ArrowUp, ArrowDown, Cloud,
   Check, Globe, Key, Upload, Folder, Tags, Wand2
 } from 'lucide-react';
-import { getKnowledgebaseTenantId, readRegisteredSpaces } from 'sdkwork-knowledgebase-pc-core';
+import {
+  getKnowledgebaseTenantId,
+  isKnowledgebaseApiAvailable,
+  KnowledgebaseErrorCodes,
+  readRegisteredSpaces,
+  shouldUseKnowledgebaseDemoFallback,
+  throwKnowledgebaseError,
+} from 'sdkwork-knowledgebase-pc-core';
+import {
+  resolvePrimaryKnowledgebaseKbId,
+  uploadKnowledgebaseMediaUrl,
+} from './services/knowledgeFileUploadService';
 import { DocumentMeta } from './services/document';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './components/ui/dropdown-menu';
@@ -352,11 +363,30 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   const domainVerifyInputRef = useRef<HTMLInputElement>(null);
   const handleInsertImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Mock upload delay and use object URL
-      setTimeout(() => {
-        insertHtmlToEditor(`<p><img src="${URL.createObjectURL(file)}" alt="Local Uploaded Image" style="border-radius: 12px; max-width: 100%; margin: 16px 0; border: 1px solid var(--color-kb-panel-border);" /></p>`);
-      }, 500);
+    if (!file) {
+      return;
+    }
+
+    const kbId = resolvePrimaryKnowledgebaseKbId();
+    if (!kbId || !isKnowledgebaseApiAvailable()) {
+      if (!shouldUseKnowledgebaseDemoFallback()) {
+        toast.error(t('uploadRequiresKnowledgebaseApi', { defaultValue: '请先登录并选择知识库后再上传图片。' }));
+        return;
+      }
+      toast.error(t('uploadRequiresKnowledgebaseApi', { defaultValue: '请先登录并选择知识库后再上传图片。' }));
+      return;
+    }
+
+    try {
+      const url = await uploadKnowledgebaseMediaUrl(file, 'image', kbId);
+      insertHtmlToEditor(
+        `<p><img src="${url}" alt="Uploaded Image" style="border-radius: 12px; max-width: 100%; margin: 16px 0; border: 1px solid var(--color-kb-panel-border);" /></p>`,
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error(t('uploadImageFailed', { defaultValue: '图片上传失败，请稍后重试。' }));
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -898,11 +928,29 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   const coverInputRef = React.useRef<HTMLInputElement>(null);
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setTimeout(() => {
-        setTempCoverToCrop(URL.createObjectURL(file));
-        setIsCropperOpen(true);
-      }, 500);
+    if (!file) {
+      return;
+    }
+
+    const kbId = resolvePrimaryKnowledgebaseKbId();
+    if (!kbId || !isKnowledgebaseApiAvailable()) {
+      if (!shouldUseKnowledgebaseDemoFallback()) {
+        toast.error(t('uploadRequiresKnowledgebaseApi', { defaultValue: '请先登录并选择知识库后再上传封面。' }));
+        return;
+      }
+      toast.error(t('uploadRequiresKnowledgebaseApi', { defaultValue: '请先登录并选择知识库后再上传封面。' }));
+      return;
+    }
+
+    try {
+      const url = await uploadKnowledgebaseMediaUrl(file, 'image', kbId);
+      setTempCoverToCrop(url);
+      setIsCropperOpen(true);
+    } catch (error) {
+      console.error(error);
+      toast.error(t('uploadCoverFailed', { defaultValue: '封面上传失败，请稍后重试。' }));
+    } finally {
+      e.target.value = '';
     }
   };
 

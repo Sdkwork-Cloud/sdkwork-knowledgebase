@@ -7,4 +7,6 @@ export interface KnowledgeSource {
   provider?: string | null;
   driveBucket?: string | null;
   drivePrefix?: string | null;
+  /** JSON connector config for external knowledge engines (for example Dify datasetId). */
+  connectorMetadataJson?: string | null;
 }

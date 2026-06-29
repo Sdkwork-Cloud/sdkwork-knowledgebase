@@ -43,6 +43,7 @@
     }
   ],
   "contracts": {
+    "dependencyComposition": "specs/dependency.composition.json",
     "sdkClients": [
       "@sdkwork/knowledgebase-app-sdk",
       "@sdkwork/drive-app-sdk",

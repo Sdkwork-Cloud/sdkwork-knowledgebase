@@ -36,7 +36,7 @@ async fn integration_hosted_ingest_creates_job_and_chunks_markdown() {
     let body_text = response_body_string(response).await;
     assert_eq!(status, StatusCode::CREATED, "ingest failed: {body_text}");
     let body: serde_json::Value = serde_json::from_str(&body_text).expect("parse ingest json");
-    assert_eq!(body["state"], "succeeded");
+    assert_eq!(body["data"]["item"]["state"], "succeeded");
 
     let chunk_count: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM kb_chunk WHERE tenant_id = 1 AND space_id = $1")
@@ -354,7 +354,7 @@ async fn create_space(runtime: &KnowledgebaseRuntime) -> u64 {
         String::from_utf8_lossy(&bytes)
     );
     let body: Value = serde_json::from_slice(&bytes).expect("parse create space response");
-    body["id"].as_u64().expect("space id")
+    body["data"]["item"]["id"].as_u64().expect("space id")
 }
 
 async fn test_runtime() -> KnowledgebaseRuntime {
@@ -392,7 +392,12 @@ async fn test_runtime() -> KnowledgebaseRuntime {
 
 async fn response_body_json(response: axum::response::Response) -> serde_json::Value {
     let text = response_body_string(response).await;
-    serde_json::from_str(&text).expect("parse response json")
+    let value: serde_json::Value = serde_json::from_str(&text).expect("parse response json");
+    if value["code"].as_i64() == Some(0) {
+        value["data"]["item"].clone()
+    } else {
+        value
+    }
 }
 
 async fn response_body_string(response: axum::response::Response) -> String {

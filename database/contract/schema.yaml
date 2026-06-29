@@ -1,32 +1,39 @@
 schema_version: 1
 kind: sdkwork.database.schema
 module_id: knowledgebase
-contract_version: 1.0.0
+contract_version: 1.1.0
 owner_team: knowledgebase-platform
 compliance_level: L2
 engines:
   - postgres
   - sqlite
-table_prefix: kb_
+table_prefix: knowledge_
 tables:
   - name: kb_space
     lifecycle_status: active
     owner: knowledgebase-platform
+    compatibilityLevel: L0
+    migrationNotes: "Legacy kb_ prefix. New tables use knowledge_ prefix."
   - name: kb_collection
     lifecycle_status: active
     owner: knowledgebase-platform
+    compatibilityLevel: L0
   - name: kb_source
     lifecycle_status: active
     owner: knowledgebase-platform
+    compatibilityLevel: L0
   - name: kb_drive_object_ref
     lifecycle_status: active
     owner: knowledgebase-platform
+    compatibilityLevel: L0
   - name: kb_document
     lifecycle_status: active
     owner: knowledgebase-platform
+    compatibilityLevel: L0
   - name: kb_document_version
     lifecycle_status: active
     owner: knowledgebase-platform
+    compatibilityLevel: L0
   - name: kb_chunk
     lifecycle_status: active
     owner: knowledgebase-platform

@@ -434,7 +434,9 @@ mod tests {
                 &self,
                 _request: KnowledgeAgentProfileRequest,
             ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
-                unimplemented!()
+                Err(KnowledgeAgentProfileStoreError::Internal(
+                    "create_profile not supported in test mock".to_string(),
+                ))
             }
 
             async fn retrieve_profile(
@@ -480,28 +482,36 @@ mod tests {
                 _profile_id: u64,
                 _request: KnowledgeAgentProfileRequest,
             ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
-                unimplemented!()
+                Err(KnowledgeAgentProfileStoreError::Internal(
+                    "update_profile not supported in test mock".to_string(),
+                ))
             }
 
             async fn delete_profile(
                 &self,
                 _profile_id: u64,
             ) -> Result<(), KnowledgeAgentProfileStoreError> {
-                unimplemented!()
+                Err(KnowledgeAgentProfileStoreError::Internal(
+                    "delete_profile not supported in test mock".to_string(),
+                ))
             }
 
             async fn list_bindings(
                 &self,
                 _profile_id: u64,
             ) -> Result<Vec<KnowledgeAgentBinding>, KnowledgeAgentProfileStoreError> {
-                unimplemented!()
+                Err(KnowledgeAgentProfileStoreError::Internal(
+                    "list_bindings not supported in test mock".to_string(),
+                ))
             }
 
             async fn create_binding(
                 &self,
                 _request: sdkwork_knowledgebase_contract::rag::KnowledgeAgentBindingRequest,
             ) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
-                unimplemented!()
+                Err(KnowledgeAgentProfileStoreError::Internal(
+                    "create_binding not supported in test mock".to_string(),
+                ))
             }
 
             async fn update_binding(
@@ -510,7 +520,9 @@ mod tests {
                 _binding_id: u64,
                 _request: sdkwork_knowledgebase_contract::rag::KnowledgeAgentBindingRequest,
             ) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
-                unimplemented!()
+                Err(KnowledgeAgentProfileStoreError::Internal(
+                    "update_binding not supported in test mock".to_string(),
+                ))
             }
 
             async fn delete_binding(
@@ -518,7 +530,9 @@ mod tests {
                 _profile_id: u64,
                 _binding_id: u64,
             ) -> Result<(), KnowledgeAgentProfileStoreError> {
-                unimplemented!()
+                Err(KnowledgeAgentProfileStoreError::Internal(
+                    "delete_binding not supported in test mock".to_string(),
+                ))
             }
         }
 
@@ -637,7 +651,9 @@ mod tests {
             &self,
             _request: KnowledgeAgentProfileRequest,
         ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
-            unimplemented!()
+            Err(KnowledgeAgentProfileStoreError::Internal(
+                "create_profile not supported in test mock".to_string(),
+            ))
         }
 
         async fn retrieve_profile(
@@ -682,28 +698,36 @@ mod tests {
             _profile_id: u64,
             _request: KnowledgeAgentProfileRequest,
         ) -> Result<KnowledgeAgentProfile, KnowledgeAgentProfileStoreError> {
-            unimplemented!()
+            Err(KnowledgeAgentProfileStoreError::Internal(
+                "update_profile not supported in test mock".to_string(),
+            ))
         }
 
         async fn delete_profile(
             &self,
             _profile_id: u64,
         ) -> Result<(), KnowledgeAgentProfileStoreError> {
-            unimplemented!()
+            Err(KnowledgeAgentProfileStoreError::Internal(
+                "delete_profile not supported in test mock".to_string(),
+            ))
         }
 
         async fn list_bindings(
             &self,
             _profile_id: u64,
         ) -> Result<Vec<KnowledgeAgentBinding>, KnowledgeAgentProfileStoreError> {
-            unimplemented!()
+            Err(KnowledgeAgentProfileStoreError::Internal(
+                "list_bindings not supported in test mock".to_string(),
+            ))
         }
 
         async fn create_binding(
             &self,
             _request: sdkwork_knowledgebase_contract::rag::KnowledgeAgentBindingRequest,
         ) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
-            unimplemented!()
+            Err(KnowledgeAgentProfileStoreError::Internal(
+                "create_binding not supported in test mock".to_string(),
+            ))
         }
 
         async fn update_binding(
@@ -712,7 +736,9 @@ mod tests {
             _binding_id: u64,
             _request: sdkwork_knowledgebase_contract::rag::KnowledgeAgentBindingRequest,
         ) -> Result<KnowledgeAgentBinding, KnowledgeAgentProfileStoreError> {
-            unimplemented!()
+            Err(KnowledgeAgentProfileStoreError::Internal(
+                "update_binding not supported in test mock".to_string(),
+            ))
         }
 
         async fn delete_binding(
@@ -720,7 +746,9 @@ mod tests {
             _profile_id: u64,
             _binding_id: u64,
         ) -> Result<(), KnowledgeAgentProfileStoreError> {
-            unimplemented!()
+            Err(KnowledgeAgentProfileStoreError::Internal(
+                "delete_binding not supported in test mock".to_string(),
+            ))
         }
     }
 

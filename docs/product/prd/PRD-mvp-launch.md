@@ -28,7 +28,8 @@ Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Kn
 
 ### Reliability
 
-- [x] Worker `/readyz` probes database readiness (not a stub)
+- [x] Worker `/readyz` probes database connectivity (requires connection pool, not business queries)
+- [x] App API `/readyz` simplified to dependency connectivity checks only (see Phase 0.4)
 - [x] Worker HPA, Service, and ServiceMonitor configured
 - [x] K8s manifests include PDB, NetworkPolicy, and `securityContext`
 - [x] Ingest pipelines log failures when `mark_failed` cannot persist state

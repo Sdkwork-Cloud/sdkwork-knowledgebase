@@ -47,13 +47,10 @@ fn backend_openapi_uses_collection_schema_for_candidate_list_operation() {
     ))
     .unwrap();
 
-    assert_eq!(
-        success_schema_ref(&spec, "okf.candidates.list"),
-        "#/components/schemas/OkfCandidateResultList"
-    );
-    assert!(
-        spec["components"]["schemas"]["OkfCandidateResultList"].is_object(),
-        "OpenAPI must define OkfCandidateResultList schema"
+    assert_list_response_envelope(
+        &spec,
+        "okf.candidates.list",
+        "#/components/schemas/OkfCandidateResult",
     );
 }
 
@@ -210,18 +207,36 @@ fn assert_schema_properties(spec: &Value, schema_name: &str, expected: &[&str]) 
     }
 }
 
-fn success_schema_ref<'a>(spec: &'a Value, operation_id: &str) -> &'a str {
+fn operation_response_schema<'a>(spec: &'a Value, operation_id: &str) -> &'a Value {
     for methods in spec["paths"].as_object().unwrap().values() {
         for operation in methods.as_object().unwrap().values() {
             if operation["operationId"] == operation_id {
-                return operation["responses"]["200"]["content"]["application/json"]["schema"]
-                    ["$ref"]
-                    .as_str()
-                    .unwrap();
+                return &operation["responses"]["200"]["content"]["application/json"]["schema"];
             }
         }
     }
     panic!("missing operationId: {operation_id}");
+}
+
+fn assert_list_response_envelope(spec: &Value, operation_id: &str, item_schema_ref: &str) {
+    let schema = operation_response_schema(spec, operation_id);
+    let all_of = schema["allOf"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{operation_id} must use SdkWorkApiResponse allOf envelope"));
+    assert_eq!(
+        all_of[0]["$ref"], "#/components/schemas/SdkWorkApiResponse",
+        "{operation_id} must extend SdkWorkApiResponse"
+    );
+
+    let data = &all_of[1]["properties"]["data"];
+    assert_eq!(
+        data["properties"]["items"]["items"]["$ref"], item_schema_ref,
+        "{operation_id} must list {item_schema_ref} in data.items"
+    );
+    assert_eq!(
+        data["properties"]["pageInfo"]["$ref"], "#/components/schemas/PageInfo",
+        "{operation_id} must expose data.pageInfo"
+    );
 }
 
 fn method_from_openapi(method_name: &str) -> Method {

@@ -1,6 +1,0 @@
-.venv/
-.adk/
-__pycache__/
-*.pyc
-.env
-proposal.json

@@ -39,13 +39,14 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 - **Backend**: Rust, Axum, SQLx, `sdkwork-web-framework`, PostgreSQL (production), SQLite (local dev)
 - **Storage**: `sdkwork-drive` via `sdkwork-knowledgebase-drive` adapter only
 - **Memory**: `sdkwork-memory` via `sdkwork-knowledgebase-memory` port only
-- **Frontend**: React 19, Vite, TipTap, IAM app SDK, generated knowledgebase app SDK
+- **Frontend**: React 19, Vite, TipTap, IAM app SDK, generated knowledgebase app SDK, `@sdkwork/drive-app-sdk` for all persistent uploads
+- **Client composition**: `apps/sdkwork-knowledgebase-pc/specs/dependency.composition.json` drives SDK inventory and dependency base URLs in `sdkwork-knowledgebase-pc-core`
 - **Observability**: Prometheus `/metrics` (in-cluster only), structured audit logs, optional OTLP
 
 ## 3. System Boundaries
 
-- Business logic: `sdkwork-intelligence-knowledgebase-service`
-- Persistence: `sdkwork-intelligence-knowledgebase-repository-sqlx` + `database/` lifecycle
+- Business logic: `sdkwork-knowledgebase-service`
+- Persistence: `sdkwork-knowledgebase-repository-sqlx` + `database/` lifecycle
 - HTTP boundaries: `sdkwork-routes-knowledgebase-{app,backend,open}-api`
 - Background work: `sdkwork-knowledgebase-worker` (outbox + ingest maintenance)
 - PC client: `apps/sdkwork-knowledgebase-pc/`

@@ -1,4 +1,5 @@
 import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { buildDependencySdkBaseUrls } from '../composition/dependency-runtime.js';
 import { resolveKnowledgebaseFeatureFlags, type KnowledgebaseFeatureFlags } from './knowledgebaseFeatureFlags';
 export type SdkworkEnvironment = 'development' | 'test' | 'staging' | 'production';
 export type SdkworkConfigProfile = 'dev' | 'test' | 'staging' | 'prod';
@@ -379,17 +380,11 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
       defaultApiBaseUrl: resolvedAppApiBaseUrl,
       appApiBaseUrl: resolvedAppApiBaseUrl,
       openApiBaseUrl: resolvedOpenApiBaseUrl,
-      dependencySdkBaseUrls: {
-        'sdkwork-iam-app-sdk': {
-          appApiBaseUrl: appbaseAppApiBaseUrl,
-        },
-        'sdkwork-knowledgebase-app-sdk': {
-          appApiBaseUrl: resolvedAppApiBaseUrl,
-        },
-        'sdkwork-drive-app-sdk': {
-          appApiBaseUrl: driveAppApiBaseUrl,
-        },
-      },
+      dependencySdkBaseUrls: buildDependencySdkBaseUrls({
+        appApiBaseUrl: resolvedAppApiBaseUrl,
+        iamAppApiBaseUrl: appbaseAppApiBaseUrl,
+        driveAppApiBaseUrl,
+      }),
     },
     auth: {
       tokenManagerMode: normalizeTokenManagerMode(

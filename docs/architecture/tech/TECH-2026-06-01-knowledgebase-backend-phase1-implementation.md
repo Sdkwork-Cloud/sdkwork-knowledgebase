@@ -15,4 +15,4 @@ pnpm check
 
 **Design reference:** [TECH-2026-06-01-knowledgebase-backend-design.md](TECH-2026-06-01-knowledgebase-backend-design.md)
 
-**Follow-up design corrections:** edit `docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md` only when implementation reveals a contract change.
+**Follow-up design corrections:** edit [TECH-2026-06-01-knowledgebase-backend-design.md](TECH-2026-06-01-knowledgebase-backend-design.md) for platform-wide backend decisions, or [TECH-2026-06-19-okf-knowledge-bundle-design.md](TECH-2026-06-19-okf-knowledge-bundle-design.md) for OKF bundle contract changes.

@@ -25,7 +25,6 @@ use sdkwork_intelligence_knowledgebase_service::{
     },
     ports::{
         knowledge_chunk_store::KnowledgeChunkStore,
-        knowledge_context_binding_store::KnowledgeContextBindingStore,
         knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStore,
         knowledge_drive_storage::KnowledgeDriveStorage,
         knowledge_outbox_store::KnowledgeOutboxStore,
@@ -37,7 +36,6 @@ use sdkwork_intelligence_knowledgebase_service::{
 use sdkwork_knowledgebase_contract::agent_chat::{
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
 };
-use sdkwork_knowledgebase_contract::context_binding::ListKnowledgeSpaceContextBindingsRequest;
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeContextPack,
@@ -414,23 +412,6 @@ impl KnowledgebaseRuntime {
         knowledgebase_drive_health_check(&self.drive_pool)
             .await
             .map_err(|error| Box::new(error) as Box<dyn std::error::Error + Send + Sync>)?;
-        self.context_binding_store()
-            .list_space_bindings(
-                self.tenant_id,
-                ListKnowledgeSpaceContextBindingsRequest {
-                    space_id: 0,
-                    context_type: None,
-                    cursor: None,
-                    page_size: Some(1),
-                },
-            )
-            .await
-            .map_err(|error| {
-                Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    error.to_string(),
-                )) as Box<dyn std::error::Error + Send + Sync>
-            })?;
         Ok(())
     }
 

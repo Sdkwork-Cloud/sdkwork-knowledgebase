@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.app.config",
+  "application": {
+    "code": "sdkwork-knowledgebase-pc",
+    "name": "SDKWork Knowledgebase PC",
+    "description": "PC browser and desktop client surface for SDKWork Knowledgebase.",
+    "version": "0.1.0",
+    "runtime": {
+      "family": "pc",
+      "framework": "react",
+      "targets": [
+        "browser",
+        "desktop",
+        "tablet"
+      ]
+    },
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "owner": "sdkwork-knowledgebase"
+  },
+  "specs": {
+    "root": "../../../sdkwork-specs",
+    "architecture": "APP_PC_ARCHITECTURE_SPEC.md",
+    "ui": "APP_PC_REACT_UI_SPEC.md"
+  },
+  "packages": {
+    "workspace": "pnpm-workspace.yaml"
+  },
+  "verification": {
+    "commands": [
+      "pnpm lint",
+      "pnpm test:e2e"
+    ]
+  },
+  "runtime": {
+    "supportedDeploymentProfiles": [
+      "standalone",
+      "cloud"
+    ],
+    "defaultDeploymentProfile": "standalone"
+  }
+}

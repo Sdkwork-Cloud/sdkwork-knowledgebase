@@ -103,12 +103,13 @@ pub fn build_business_router_with_shared_backend_api(
             paths::PROVIDER_HEALTH,
             get(handlers::retrieve_provider_health),
         )
+        .route(
+            paths::TENANT_LANDING,
+            get(handlers::retrieve_current_tenant),
+        )
         .with_state(state)
 }
 
-pub fn gateway_mount_business(
-    api: Arc<dyn KnowledgeBackendApi>,
-    runtime_tenant_id: u64,
-) -> Router {
+pub fn gateway_mount_business(api: Arc<dyn KnowledgeBackendApi>, runtime_tenant_id: u64) -> Router {
     build_business_router_with_shared_backend_api(api, runtime_tenant_id)
 }

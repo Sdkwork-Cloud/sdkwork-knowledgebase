@@ -45,9 +45,8 @@ pub use file_registry::{OkfBundleFileRegistryService, OkfBundleFileRegistryServi
 pub(crate) use governance_drive::DRIVE_WORKSPACE_INIT_DRIVE_SPACE_REQUIRED;
 pub use importer::{
     bundle_relative_path_from_logical_path, concept_id_from_bundle_relative_path,
-    discover_bundle_files_from_directory, drive_import_root, load_import_bundle_from_drive,
-    stackoverflow_bundle_root, stage_export_bundle_for_drive_import, ImportOkfBundleFile,
-    ImportOkfBundleRequest, ImportOkfBundleResult, OkfBundleImporterError,
+    drive_import_root, load_import_bundle_from_drive, stage_export_bundle_for_drive_import,
+    ImportOkfBundleFile, ImportOkfBundleRequest, ImportOkfBundleResult, OkfBundleImporterError,
     OkfBundleImporterService,
 };
 pub use index_rebuild::{rebuild_bundle_index_for_space, OkfIndexRebuildError};

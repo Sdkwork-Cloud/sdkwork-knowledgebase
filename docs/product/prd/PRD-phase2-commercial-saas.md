@@ -30,6 +30,8 @@ Define commercial SaaS landing criteria beyond Phase 1.0 single-tenant productio
 - [x] Postgres RLS migration shipped — `database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql`
 - [x] Connection checkout sets `app.current_tenant_id` on every pooled Postgres connection (Phase 2.2)
 - [x] Usage metering exported for billing (Prometheus counters + structured `billing_event` JSON logs)
+- [x] Tenant status API: `GET /backend/v3/api/knowledge/tenants/current` (Phase 3)
+- [x] Tenant isolation spec documented — [specs/tenant-isolation.md](../../../specs/tenant-isolation.md)
 - [ ] Per-tenant quota: API rate tiers, storage, ingest concurrency, retrieval QPS
 - [ ] Tenant self-service signup and subscription lifecycle
 
@@ -37,7 +39,7 @@ Define commercial SaaS landing criteria beyond Phase 1.0 single-tenant productio
 
 - [ ] Admin console for tenant operators (sources, indexes, members) without raw backend API
 - [x] Audit retention policy documented ([audit-retention.md](../../runbooks/audit-retention.md))
-- [ ] GDPR export/delete workflows automated for `kb_audit_event`
+- [ ] GDPR export/delete workflows automated for `knowledge_audit_event`
 - [ ] SLA dashboard: availability, P95 retrieval, error budget alerts
 
 ### Release
@@ -64,4 +66,5 @@ pnpm test:phase2-readiness
 - [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md)
 - [PRD.md](PRD.md) §7 Phases
 - [docs/runbooks/tenant-isolation.md](../../runbooks/tenant-isolation.md)
+- [specs/tenant-isolation.md](../../../specs/tenant-isolation.md) — Tenant isolation architecture specification
 - `../sdkwork-specs/IAM_SPEC.md`, `SECURITY_SPEC.md`, `RELEASE_SPEC.md`

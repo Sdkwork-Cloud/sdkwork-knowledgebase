@@ -168,10 +168,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_document_identity
         collection_id,
         identity_scope,
         COALESCE(source_id, 0),
-        CASE
-            WHEN identity_scope = 'source_only' THEN ''
-            ELSE COALESCE(original_file_drive_node_id, '')
-        END
+        (
+            CASE
+                WHEN identity_scope = 'source_only' THEN ''
+                ELSE COALESCE(original_file_drive_node_id, '')
+            END
+        )
     )
     WHERE status = 1;
 
@@ -674,7 +676,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_space_knowledge_mode
 -- Configurable agent runtime implementation (Rig is the default).
 
 ALTER TABLE kb_agent_profile
-    ADD COLUMN agent_implementation_id TEXT NOT NULL DEFAULT 'plugin.intelligence.rig';
+    ADD COLUMN IF NOT EXISTS agent_implementation_id TEXT NOT NULL DEFAULT 'plugin.intelligence.rig';
 
 CREATE INDEX IF NOT EXISTS idx_kb_agent_profile_agent_implementation
     ON kb_agent_profile (tenant_id, agent_implementation_id, status);

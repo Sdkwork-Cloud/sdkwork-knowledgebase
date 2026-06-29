@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
     response::Response,
-    Extension, Json,
+    Json,
 };
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSourceRequest, KnowledgeIndexRequest, KnowledgeOkfProfileRequest,
@@ -12,9 +12,8 @@ use sdkwork_knowledgebase_contract::{
 use serde::Deserialize;
 
 use crate::{
-    auth::{require_backend_context, require_backend_mutation_context},
+    auth::{require_backend_context, require_backend_mutation_context, RequiredBackendContext},
     error::BackendApiProblem,
-    ports::KnowledgeBackendRequestContext,
     response::{created_json, ok_json},
     routes::BackendState,
 };
@@ -23,7 +22,7 @@ macro_rules! backend_handler {
     ($name:ident, $body:expr) => {
         pub(crate) async fn $name(
             State(state): State<BackendState>,
-            context: Option<Extension<KnowledgeBackendRequestContext>>,
+            context: RequiredBackendContext,
         ) -> Result<Response, BackendApiProblem> {
             require_backend_context(&state, context)?;
             $body(state).await
@@ -43,7 +42,7 @@ backend_handler!(list_sources, |state: BackendState| async move {
 
 pub(crate) async fn create_source(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<CreateKnowledgeSourceRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "sources.create")?;
@@ -52,7 +51,7 @@ pub(crate) async fn create_source(
 
 pub(crate) async fn create_okf_compile_job(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<OkfCompileJobRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.compileJobs.create")?;
@@ -61,7 +60,7 @@ pub(crate) async fn create_okf_compile_job(
 
 pub(crate) async fn list_okf_candidates(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Query(query): Query<ListOkfCandidatesQuery>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(&state, context)?;
@@ -70,7 +69,7 @@ pub(crate) async fn list_okf_candidates(
 
 pub(crate) async fn approve_okf_candidate(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Path(candidate_id): Path<u64>,
     Json(request): Json<OkfCandidateReviewRequest>,
 ) -> Result<Response, BackendApiProblem> {
@@ -80,7 +79,7 @@ pub(crate) async fn approve_okf_candidate(
 
 pub(crate) async fn reject_okf_candidate(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Path(candidate_id): Path<u64>,
     Json(request): Json<OkfCandidateReviewRequest>,
 ) -> Result<Response, BackendApiProblem> {
@@ -90,7 +89,7 @@ pub(crate) async fn reject_okf_candidate(
 
 pub(crate) async fn publish_okf_concept(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Path(concept_id): Path<u64>,
     Json(request): Json<OkfConceptPublishRequest>,
 ) -> Result<Response, BackendApiProblem> {
@@ -100,7 +99,7 @@ pub(crate) async fn publish_okf_concept(
 
 pub(crate) async fn create_okf_profile(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<KnowledgeOkfProfileRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.profile.create")?;
@@ -109,7 +108,7 @@ pub(crate) async fn create_okf_profile(
 
 pub(crate) async fn update_okf_profile(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Path(profile_id): Path<u64>,
     Json(request): Json<KnowledgeOkfProfileRequest>,
 ) -> Result<Response, BackendApiProblem> {
@@ -119,7 +118,7 @@ pub(crate) async fn update_okf_profile(
 
 pub(crate) async fn rebuild_okf_index(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<OkfIndexRebuildRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.bundle.index.rebuild")?;
@@ -128,7 +127,7 @@ pub(crate) async fn rebuild_okf_index(
 
 pub(crate) async fn create_okf_log_entry(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<OkfLogEntry>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.log.entries.create")?;
@@ -137,7 +136,7 @@ pub(crate) async fn create_okf_log_entry(
 
 pub(crate) async fn create_okf_export(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<OkfBundleExportRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.bundle.export.create")?;
@@ -146,7 +145,7 @@ pub(crate) async fn create_okf_export(
 
 pub(crate) async fn create_okf_import(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<OkfBundleImportRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.bundle.import.create")?;
@@ -155,7 +154,7 @@ pub(crate) async fn create_okf_import(
 
 pub(crate) async fn retrieve_okf_export(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Path(export_id): Path<u64>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(&state, context)?;
@@ -168,7 +167,7 @@ backend_handler!(list_okf_bundle_files, |state: BackendState| async move {
 
 pub(crate) async fn create_okf_lint_run(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<OkfQualityRunRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.lintRuns.create")?;
@@ -177,7 +176,7 @@ pub(crate) async fn create_okf_lint_run(
 
 pub(crate) async fn create_okf_eval_run(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<OkfQualityRunRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.evalRuns.create")?;
@@ -186,7 +185,7 @@ pub(crate) async fn create_okf_eval_run(
 
 pub(crate) async fn create_index(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<KnowledgeIndexRequest>,
 ) -> Result<Response, BackendApiProblem> {
     let context = require_backend_mutation_context(&state, context, "indexes.create")?;
@@ -200,7 +199,7 @@ pub(crate) async fn create_index(
 
 pub(crate) async fn retrieve_index(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Path(index_id): Path<u64>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(&state, context)?;
@@ -209,7 +208,7 @@ pub(crate) async fn retrieve_index(
 
 pub(crate) async fn rebuild_index(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Path(index_id): Path<u64>,
     Json(request): Json<OkfIndexRebuildRequest>,
 ) -> Result<Response, BackendApiProblem> {
@@ -219,7 +218,7 @@ pub(crate) async fn rebuild_index(
 
 pub(crate) async fn create_retrieval_profile(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Json(request): Json<KnowledgeRetrievalProfileRequest>,
 ) -> Result<Response, BackendApiProblem> {
     let context = require_backend_mutation_context(&state, context, "retrievalProfiles.create")?;
@@ -233,7 +232,7 @@ pub(crate) async fn create_retrieval_profile(
 
 pub(crate) async fn retrieve_retrieval_profile(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Path(profile_id): Path<u64>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(&state, context)?;
@@ -242,7 +241,7 @@ pub(crate) async fn retrieve_retrieval_profile(
 
 pub(crate) async fn update_retrieval_profile(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Path(profile_id): Path<u64>,
     Json(request): Json<KnowledgeRetrievalProfileRequest>,
 ) -> Result<Response, BackendApiProblem> {
@@ -261,7 +260,7 @@ backend_handler!(list_retrieval_traces, |state: BackendState| async move {
 
 pub(crate) async fn retrieve_retrieval_trace(
     State(state): State<BackendState>,
-    context: Option<Extension<KnowledgeBackendRequestContext>>,
+    context: RequiredBackendContext,
     Path(trace_id): Path<u64>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(&state, context)?;
@@ -270,4 +269,16 @@ pub(crate) async fn retrieve_retrieval_trace(
 
 backend_handler!(retrieve_provider_health, |state: BackendState| async move {
     ok_json(state.api.retrieve_provider_health().await)
+});
+
+// ============================================================================
+// Tenant status handler
+// ============================================================================
+
+// Retrieves the caller's own tenant knowledgebase status.
+//
+// Security: The tenant is identified by the authenticated principal's token claims.
+// Returns space count, document count, and status for the current tenant.
+backend_handler!(retrieve_current_tenant, |state: BackendState| async move {
+    ok_json(state.api.retrieve_current_tenant().await)
 });

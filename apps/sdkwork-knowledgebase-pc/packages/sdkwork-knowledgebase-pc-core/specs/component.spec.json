@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-pc-core",
+    "displayName": "SDKWork Knowledgebase PC Core",
+    "version": "0.1.0",
+    "type": "node-package",
+    "root": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "surface": "pc-core",
+    "languages": [
+      "typescript"
+    ],
+    "generated": false,
+    "manifests": [
+      "package.json"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "APP_PC_ARCHITECTURE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_PC_ARCHITECTURE_SPEC.md",
+      "purpose": "PC browser/desktop package taxonomy and runtime boundaries."
+    },
+    {
+      "file": "APP_SDK_INTEGRATION_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_SDK_INTEGRATION_SPEC.md",
+      "purpose": "Generated app SDK integration and auth/session wiring."
+    },
+    {
+      "file": "CONFIG_SPEC.md",
+      "path": "../../../../../sdkwork-specs/CONFIG_SPEC.md",
+      "purpose": "Typed runtime config and SDK client initialization rules."
+    },
+    {
+      "file": "TYPESCRIPT_CODE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/TYPESCRIPT_CODE_SPEC.md",
+      "purpose": "TypeScript package structure and public exports."
+    }
+  ],
+  "contracts": {
+    "sdkDependencies": [
+      "sdkwork-knowledgebase-app-sdk",
+      "sdkwork-iam-app-sdk",
+      "sdkwork-drive-app-sdk"
+    ],
+    "sdkClients": [
+      "@sdkwork/knowledgebase-app-sdk",
+      "@sdkwork/iam-app-sdk",
+      "@sdkwork/drive-app-sdk"
+    ],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "dependencyComposition": "../../../specs/dependency.composition.json"
+  }
+}

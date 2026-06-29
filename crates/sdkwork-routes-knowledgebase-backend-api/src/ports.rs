@@ -4,8 +4,8 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList, KnowledgeOkfProfileRequest,
     KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
     KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList,
-    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfCandidateResult,
-    OkfCandidateResultList, OkfCandidateReviewRequest, OkfCompileJobRequest,
+    KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult,
+    OkfCandidateResult, OkfCandidateResultList, OkfCandidateReviewRequest, OkfCompileJobRequest,
     OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfIndexRebuildRequest,
     OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
@@ -194,5 +194,13 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
 
     async fn retrieve_provider_health(&self) -> BackendApiResult<KnowledgeProviderHealth> {
         Err(BackendApiError::not_implemented("providerHealth.retrieve"))
+    }
+
+    /// Retrieves the caller's own tenant knowledgebase status.
+    ///
+    /// **Security**: The tenant is identified by the authenticated principal's token claims.
+    /// Returns space count, document count, and status for the current tenant.
+    async fn retrieve_current_tenant(&self) -> BackendApiResult<KnowledgeTenantStatus> {
+        Err(BackendApiError::not_implemented("tenants.current"))
     }
 }

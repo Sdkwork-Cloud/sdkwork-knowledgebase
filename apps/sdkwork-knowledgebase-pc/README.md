@@ -58,7 +58,7 @@ pnpm dev
 
 ## SDK integration
 
-- App API: `@sdkwork/knowledgebase-app-sdk` (generated from `../../sdks/sdkwork-knowledgebase-app-sdk/`)
+- App API: `@sdkwork/knowledgebase-app-sdk` (composed facade over `../../sdks/sdkwork-knowledgebase-app-sdk/`)
 - Drive: `@sdkwork/drive-app-sdk`
 - Auth: `@sdkwork/auth-pc-react`, `@sdkwork/auth-runtime-pc-react` (Appbase IAM)
 - Do not call backend HTTP APIs directly from app packages.

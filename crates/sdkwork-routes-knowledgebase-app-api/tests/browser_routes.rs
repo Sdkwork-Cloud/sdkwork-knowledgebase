@@ -39,7 +39,10 @@ async fn app_router_exposes_browser_route_with_query_parameters() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
-    let page: KnowledgeBrowserPage = serde_json::from_slice(&body).unwrap();
+    let payload: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(0, payload["code"].as_i64().unwrap());
+    let page: KnowledgeBrowserPage =
+        serde_json::from_value(payload["data"]["item"].clone()).unwrap();
     assert_eq!(page.space_id, 7);
     assert_eq!(page.view, KnowledgeBrowserView::OkfBundle);
     assert_eq!(
@@ -90,11 +93,11 @@ async fn app_router_rejects_invalid_browser_view() {
     );
     let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
     let problem: ProblemDetails = serde_json::from_slice(&body).unwrap();
-    assert_eq!(problem.r#type, "about:blank");
+    assert_eq!(problem.r#type, "https://docs.sdkwork.com/problems/40001");
     assert_eq!(problem.title, "Bad Request");
     assert_eq!(problem.status, 400);
-    assert_eq!(problem.code.as_deref(), Some("invalid_browser_view"));
-    assert_eq!(problem.trace_id.as_deref(), Some("corr-browser-001"));
+    assert_eq!(problem.code, 40001);
+    assert_eq!(problem.trace_id, "corr-browser-001");
     assert_eq!(
         problem.detail.as_deref(),
         Some("unsupported browser view: invalid")

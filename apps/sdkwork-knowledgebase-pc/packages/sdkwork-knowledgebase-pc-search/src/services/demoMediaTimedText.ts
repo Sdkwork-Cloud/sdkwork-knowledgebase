@@ -130,11 +130,6 @@ export function buildMeetingMinutesTranscript(topic: string, variant = 0): Media
   return builder(topic);
 }
 
-/** @deprecated Use buildMeetingMinutesTranscript */
-export function buildDemoRecordingTranscript(): MediaTimedLine[] {
-  return buildProductReviewMinutes('检索体验');
-}
-
 export function buildDemoPodcastTranscript(): MediaTimedLine[] {
   return DEMO_PODCAST_TRANSCRIPT;
 }

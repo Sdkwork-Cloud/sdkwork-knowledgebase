@@ -37,7 +37,7 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
     let body_text = response_body_string(response).await;
     assert_eq!(status, StatusCode::CREATED, "ingest failed: {body_text}");
     let job: Value = serde_json::from_str(&body_text).expect("parse ingest json");
-    assert_eq!(job["state"], "succeeded");
+    assert_eq!(job["data"]["item"]["state"], "succeeded");
 
     let pending: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND status = 0 AND event_type = 'knowledge.ingest.succeeded'",
@@ -86,7 +86,7 @@ async fn create_space(app: &axum::Router) -> u64 {
         "create space failed: {body_text}"
     );
     let body: Value = serde_json::from_str(&body_text).expect("parse create space response");
-    body["id"].as_u64().expect("created space id")
+    body["data"]["item"]["id"].as_u64().expect("created space id")
 }
 
 async fn response_body_string(response: axum::response::Response) -> String {

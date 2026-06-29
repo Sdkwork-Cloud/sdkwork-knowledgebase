@@ -1,5 +1,6 @@
 //! Test-only request-context fixtures.
 //!
+//! This module is only compiled in debug builds (`#[cfg(debug_assertions)]`).
 //! Production/runtime assembly must authenticate through `sdkwork-iam` and
 //! `sdkwork-iam-web-adapter` instead of injecting context with these helpers.
 
@@ -88,7 +89,6 @@ pub fn with_dev_open_auth(router: Router, tenant_id: u64, actor_id: Option<u64>)
     ))
 }
 
-#[allow(dead_code)]
 pub fn inject_dev_app_context(
     tenant_id: u64,
     actor_id: Option<u64>,

@@ -255,8 +255,8 @@ async fn integration_media_task_requires_agent_profile() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     let body = response_body_string(response).await;
     assert!(
-        body.contains("commerce_agent_profile_required"),
-        "expected agent profile validation, got: {body}"
+        body.contains("agent profile") && body.contains("40003"),
+        "expected agent profile validation with numeric code 40003, got: {body}"
     );
 }
 
@@ -354,7 +354,12 @@ async fn test_runtime() -> KnowledgebaseRuntime {
 
 async fn response_body_json(response: axum::response::Response) -> serde_json::Value {
     let text = response_body_string(response).await;
-    serde_json::from_str(&text).expect("parse response json")
+    let value: serde_json::Value = serde_json::from_str(&text).expect("parse response json");
+    if value["code"].as_i64() == Some(0) {
+        value["data"]["item"].clone()
+    } else {
+        value
+    }
 }
 
 async fn response_body_string(response: axum::response::Response) -> String {

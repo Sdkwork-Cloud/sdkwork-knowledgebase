@@ -1,8 +1,33 @@
 import { backendApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateResultList, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest } from '../types';
+import type { CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, PageInfo } from '../types';
 
+
+export class KnowledgeTenantsCurrentApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Retrieve current tenant knowledgebase status */
+  async retrieve(): Promise<KnowledgeTenantStatus> {
+    return this.client.get<KnowledgeTenantStatus>(backendApiPath(`/knowledge/tenants/current`));
+  }
+}
+
+export class KnowledgeTenantsApi {
+  private client: HttpClient;
+  public readonly current: KnowledgeTenantsCurrentApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.current = new KnowledgeTenantsCurrentApi(client);
+  }
+
+}
 
 export class KnowledgeProviderHealthApi {
   private client: HttpClient;
@@ -12,7 +37,8 @@ export class KnowledgeProviderHealthApi {
   }
 
 
-async retrieve(): Promise<KnowledgeProviderHealth> {
+/** Retrieve provider health status */
+  async retrieve(): Promise<KnowledgeProviderHealth> {
     return this.client.get<KnowledgeProviderHealth>(backendApiPath(`/knowledge/provider_health`));
   }
 }
@@ -25,11 +51,13 @@ export class KnowledgeRetrievalTracesApi {
   }
 
 
-async list(): Promise<KnowledgeRetrievalTraceList> {
-    return this.client.get<KnowledgeRetrievalTraceList>(backendApiPath(`/knowledge/retrieval_traces`));
+/** List retrieval traces */
+  async list(): Promise<Record<string, unknown>> {
+    return this.client.get<Record<string, unknown>>(backendApiPath(`/knowledge/retrieval_traces`));
   }
 
-async retrieve(traceId: string): Promise<KnowledgeRetrievalTrace> {
+/** Retrieve a retrieval trace */
+  async retrieve(traceId: string): Promise<KnowledgeRetrievalTrace> {
     return this.client.get<KnowledgeRetrievalTrace>(backendApiPath(`/knowledge/retrieval_traces/${serializePathParameter(traceId, { name: 'traceId', style: 'simple', explode: false })}`));
   }
 }
@@ -42,15 +70,18 @@ export class KnowledgeRetrievalProfilesApi {
   }
 
 
-async create(body: KnowledgeRetrievalProfileRequest): Promise<KnowledgeRetrievalProfile> {
+/** Create a retrieval profile */
+  async create(body: KnowledgeRetrievalProfileRequest): Promise<KnowledgeRetrievalProfile> {
     return this.client.post<KnowledgeRetrievalProfile>(backendApiPath(`/knowledge/retrieval_profiles`), body, undefined, undefined, 'application/json');
   }
 
-async retrieve(profileId: string): Promise<KnowledgeRetrievalProfile> {
+/** Retrieve a retrieval profile */
+  async retrieve(profileId: string): Promise<KnowledgeRetrievalProfile> {
     return this.client.get<KnowledgeRetrievalProfile>(backendApiPath(`/knowledge/retrieval_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`));
   }
 
-async update(profileId: string, body: KnowledgeRetrievalProfileRequest): Promise<KnowledgeRetrievalProfile> {
+/** Update a retrieval profile */
+  async update(profileId: string, body: KnowledgeRetrievalProfileRequest): Promise<KnowledgeRetrievalProfile> {
     return this.client.patch<KnowledgeRetrievalProfile>(backendApiPath(`/knowledge/retrieval_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
   }
 }
@@ -63,15 +94,18 @@ export class KnowledgeIndexesApi {
   }
 
 
-async create(body: KnowledgeIndexRequest): Promise<KnowledgeIndex> {
+/** Create a knowledge index */
+  async create(body: KnowledgeIndexRequest): Promise<KnowledgeIndex> {
     return this.client.post<KnowledgeIndex>(backendApiPath(`/knowledge/indexes`), body, undefined, undefined, 'application/json');
   }
 
-async retrieve(indexId: string): Promise<KnowledgeIndex> {
+/** Retrieve a knowledge index */
+  async retrieve(indexId: string): Promise<KnowledgeIndex> {
     return this.client.get<KnowledgeIndex>(backendApiPath(`/knowledge/indexes/${serializePathParameter(indexId, { name: 'indexId', style: 'simple', explode: false })}`));
   }
 
-async rebuild(indexId: string, body: OkfBundleIndexRebuildRequest): Promise<OkfIndexDocument> {
+/** Rebuild a knowledge index */
+  async rebuild(indexId: string, body: OkfBundleIndexRebuildRequest): Promise<OkfIndexDocument> {
     return this.client.post<OkfIndexDocument>(backendApiPath(`/knowledge/indexes/${serializePathParameter(indexId, { name: 'indexId', style: 'simple', explode: false })}/rebuild`), body, undefined, undefined, 'application/json');
   }
 }
@@ -84,7 +118,8 @@ export class KnowledgeOkfEvalRunsApi {
   }
 
 
-async create(body: OkfQualityRunRequest): Promise<OkfQualityRun> {
+/** Create an OKF eval run */
+  async create(body: OkfQualityRunRequest): Promise<OkfQualityRun> {
     return this.client.post<OkfQualityRun>(backendApiPath(`/knowledge/okf/eval_runs`), body, undefined, undefined, 'application/json');
   }
 }
@@ -97,7 +132,8 @@ export class KnowledgeOkfLintRunsApi {
   }
 
 
-async create(body: OkfQualityRunRequest): Promise<OkfQualityRun> {
+/** Create an OKF lint run */
+  async create(body: OkfQualityRunRequest): Promise<OkfQualityRun> {
     return this.client.post<OkfQualityRun>(backendApiPath(`/knowledge/okf/lint_runs`), body, undefined, undefined, 'application/json');
   }
 }
@@ -110,7 +146,8 @@ export class KnowledgeOkfLogEntriesApi {
   }
 
 
-async create(body: OkfLogEntry): Promise<OkfLogEntry> {
+/** Create an OKF log entry */
+  async create(body: OkfLogEntry): Promise<OkfLogEntry> {
     return this.client.post<OkfLogEntry>(backendApiPath(`/knowledge/okf/log_entries`), body, undefined, undefined, 'application/json');
   }
 }
@@ -134,7 +171,8 @@ export class KnowledgeOkfBundleImportApi {
   }
 
 
-async create(body: OkfBundleImportRequest): Promise<OkfBundleImportResult> {
+/** Import an OKF bundle from drive staging */
+  async create(body: OkfBundleImportRequest): Promise<OkfBundleImportResult> {
     return this.client.post<OkfBundleImportResult>(backendApiPath(`/knowledge/okf/imports`), body, undefined, undefined, 'application/json');
   }
 }
@@ -147,8 +185,9 @@ export class KnowledgeOkfBundleFilesApi {
   }
 
 
-async list(): Promise<KnowledgeOkfBundleFileList> {
-    return this.client.get<KnowledgeOkfBundleFileList>(backendApiPath(`/knowledge/okf/bundle/files`));
+/** List OKF bundle files */
+  async list(): Promise<Record<string, unknown>> {
+    return this.client.get<Record<string, unknown>>(backendApiPath(`/knowledge/okf/bundle/files`));
   }
 }
 
@@ -160,11 +199,13 @@ export class KnowledgeOkfBundleExportApi {
   }
 
 
-async create(body: OkfBundleExportRequest): Promise<KnowledgeOkfBundleFile> {
+/** Create an OKF bundle export */
+  async create(body: OkfBundleExportRequest): Promise<KnowledgeOkfBundleFile> {
     return this.client.post<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/exports`), body, undefined, undefined, 'application/json');
   }
 
-async retrieve(exportId: number): Promise<KnowledgeOkfBundleFile> {
+/** Retrieve an OKF bundle export */
+  async retrieve(exportId: number): Promise<KnowledgeOkfBundleFile> {
     return this.client.get<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/exports/${serializePathParameter(exportId, { name: 'exportId', style: 'simple', explode: false })}`));
   }
 }
@@ -177,7 +218,8 @@ export class KnowledgeOkfBundleIndexApi {
   }
 
 
-async rebuild(body: OkfBundleIndexRebuildRequest): Promise<OkfIndexDocument> {
+/** Rebuild the OKF bundle index */
+  async rebuild(body: OkfBundleIndexRebuildRequest): Promise<OkfIndexDocument> {
     return this.client.post<OkfIndexDocument>(backendApiPath(`/knowledge/okf/index/rebuild`), body, undefined, undefined, 'application/json');
   }
 }
@@ -207,11 +249,13 @@ export class KnowledgeOkfProfileApi {
   }
 
 
-async create(body: KnowledgeOkfProfileRequest): Promise<KnowledgeOkfBundleFile> {
+/** Create an OKF profile */
+  async create(body: KnowledgeOkfProfileRequest): Promise<KnowledgeOkfBundleFile> {
     return this.client.post<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/profile`), body, undefined, undefined, 'application/json');
   }
 
-async update(profileId: number, body: KnowledgeOkfProfileRequest): Promise<KnowledgeOkfBundleFile> {
+/** Update an OKF profile */
+  async update(profileId: number, body: KnowledgeOkfProfileRequest): Promise<KnowledgeOkfBundleFile> {
     return this.client.patch<KnowledgeOkfBundleFile>(backendApiPath(`/knowledge/okf/profile/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
   }
 }
@@ -224,7 +268,8 @@ export class KnowledgeOkfConceptsApi {
   }
 
 
-async publish(conceptId: number, body: OkfConceptPublishRequest): Promise<OkfConceptSummary> {
+/** Publish an OKF concept */
+  async publish(conceptId: number, body: OkfConceptPublishRequest): Promise<OkfConceptSummary> {
     return this.client.post<OkfConceptSummary>(backendApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}/publish`), body, undefined, undefined, 'application/json');
   }
 }
@@ -241,18 +286,21 @@ export class KnowledgeOkfCandidatesApi {
   }
 
 
-async list(params: KnowledgeOkfCandidatesListParams): Promise<OkfCandidateResultList> {
+/** List OKF candidates */
+  async list(params: KnowledgeOkfCandidatesListParams): Promise<Record<string, unknown>> {
     const query = buildQueryString([
       { name: 'spaceId', value: params.spaceId, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<OkfCandidateResultList>(appendQueryString(backendApiPath(`/knowledge/okf/candidates`), query));
+    return this.client.get<Record<string, unknown>>(appendQueryString(backendApiPath(`/knowledge/okf/candidates`), query));
   }
 
-async approve(candidateId: number, body: OkfCandidateReviewRequest): Promise<OkfCandidateResult> {
+/** Approve an OKF candidate */
+  async approve(candidateId: number, body: OkfCandidateReviewRequest): Promise<OkfCandidateResult> {
     return this.client.post<OkfCandidateResult>(backendApiPath(`/knowledge/okf/candidates/${serializePathParameter(candidateId, { name: 'candidateId', style: 'simple', explode: false })}/approve`), body, undefined, undefined, 'application/json');
   }
 
-async reject(candidateId: number, body: OkfCandidateReviewRequest): Promise<OkfCandidateResult> {
+/** Reject an OKF candidate */
+  async reject(candidateId: number, body: OkfCandidateReviewRequest): Promise<OkfCandidateResult> {
     return this.client.post<OkfCandidateResult>(backendApiPath(`/knowledge/okf/candidates/${serializePathParameter(candidateId, { name: 'candidateId', style: 'simple', explode: false })}/reject`), body, undefined, undefined, 'application/json');
   }
 }
@@ -265,7 +313,8 @@ export class KnowledgeOkfCompileJobsApi {
   }
 
 
-async create(body: OkfCompileJobRequest): Promise<IngestionJob> {
+/** Create an OKF compile job */
+  async create(body: OkfCompileJobRequest): Promise<IngestionJob> {
     return this.client.post<IngestionJob>(backendApiPath(`/knowledge/okf/compile_jobs`), body, undefined, undefined, 'application/json');
   }
 }
@@ -303,11 +352,13 @@ export class KnowledgeSourcesApi {
   }
 
 
-async list(): Promise<KnowledgeSourceList> {
-    return this.client.get<KnowledgeSourceList>(backendApiPath(`/knowledge/sources`));
+/** List knowledge sources */
+  async list(): Promise<Record<string, unknown>> {
+    return this.client.get<Record<string, unknown>>(backendApiPath(`/knowledge/sources`));
   }
 
-async create(body: CreateKnowledgeSourceRequest): Promise<KnowledgeSource> {
+/** Create a knowledge source */
+  async create(body: CreateKnowledgeSourceRequest): Promise<KnowledgeSource> {
     return this.client.post<KnowledgeSource>(backendApiPath(`/knowledge/sources`), body, undefined, undefined, 'application/json');
   }
 }
@@ -320,6 +371,7 @@ export class KnowledgeApi {
   public readonly retrievalProfiles: KnowledgeRetrievalProfilesApi;
   public readonly retrievalTraces: KnowledgeRetrievalTracesApi;
   public readonly providerHealth: KnowledgeProviderHealthApi;
+  public readonly tenants: KnowledgeTenantsApi;
 
   constructor(client: HttpClient) {
     this.client = client;
@@ -329,6 +381,7 @@ export class KnowledgeApi {
     this.retrievalProfiles = new KnowledgeRetrievalProfilesApi(client);
     this.retrievalTraces = new KnowledgeRetrievalTracesApi(client);
     this.providerHealth = new KnowledgeProviderHealthApi(client);
+    this.tenants = new KnowledgeTenantsApi(client);
   }
 
 }

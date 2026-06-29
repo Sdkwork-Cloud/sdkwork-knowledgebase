@@ -2,9 +2,11 @@ import type { DriveUploaderProfile } from '@sdkwork/drive-app-sdk';
 import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
 import {
   getKnowledgebaseAppSdkClient,
+  getKnowledgebaseTenantId,
   isKnowledgebaseDriveApiAvailable,
   KnowledgebaseErrorCodes,
   parseKnowledgeSpaceId,
+  readRegisteredSpaces,
   requireDriveApiClient,
   requireKnowledgebaseAppSdkHttpClient,
   throwKnowledgebaseError,
@@ -371,4 +373,29 @@ export async function uploadKnowledgebaseFiles(
   }
 
   return results;
+}
+
+export function resolvePrimaryKnowledgebaseKbId(): string | null {
+  const tenantId = getKnowledgebaseTenantId();
+  if (!tenantId) {
+    return null;
+  }
+  const spaces = readRegisteredSpaces(tenantId);
+  if (spaces.length === 0) {
+    return null;
+  }
+  return String(spaces[0].spaceId);
+}
+
+export async function uploadKnowledgebaseMediaUrl(
+  file: File,
+  mediaType: DocumentMeta['type'],
+  kbId: string,
+): Promise<string> {
+  const uploaded = await uploadKnowledgebaseFiles([file], kbId, mediaType);
+  const url = uploaded[0]?.url;
+  if (!url) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.MEDIA_URL_UNRESOLVED);
+  }
+  return url;
 }

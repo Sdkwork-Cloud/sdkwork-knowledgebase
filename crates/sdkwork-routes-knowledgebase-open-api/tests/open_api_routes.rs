@@ -107,8 +107,8 @@ async fn open_retrieval_route_calls_injected_service_with_api_key_context() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
     let body = response_json(response).await;
-    assert_eq!(body["retrievalId"], "701");
-    assert_eq!(body["hits"][0]["chunkId"], "11");
+    assert_eq!(body["data"]["item"]["retrievalId"], "701");
+    assert_eq!(body["data"]["item"]["hits"][0]["chunkId"], "11");
     assert_eq!(
         service.contexts(),
         vec![("api-key-001".to_string(), 100001)]
@@ -140,10 +140,7 @@ async fn open_retrieval_route_rejects_missing_api_key_context() {
         "application/problem+json"
     );
     let problem: ProblemDetails = response_model(response).await;
-    assert_eq!(
-        problem.code.as_deref(),
-        Some("missing_open_api_request_context")
-    );
+    assert_eq!(problem.code, 40101);
 }
 
 #[tokio::test]
@@ -167,8 +164,8 @@ async fn open_context_pack_route_calls_injected_service() {
 
     assert_eq!(response.status(), StatusCode::CREATED);
     let body = response_json(response).await;
-    assert_eq!(body["contextPackId"], "801");
-    assert_eq!(body["fragments"][0]["chunkId"], "11");
+    assert_eq!(body["data"]["item"]["contextPackId"], "801");
+    assert_eq!(body["data"]["item"]["fragments"][0]["chunkId"], "11");
 }
 
 #[tokio::test]
@@ -188,7 +185,7 @@ async fn open_browser_route_preserves_query_parameters() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
-    let page: KnowledgeBrowserPage = response_model(response).await;
+    let page: KnowledgeBrowserPage = response_item(response).await;
     assert_eq!(page.space_id, 7);
     assert_eq!(page.view, KnowledgeBrowserView::OkfBundle);
     assert_eq!(
@@ -219,7 +216,7 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
         .await
         .unwrap();
     assert_eq!(list_response.status(), StatusCode::OK);
-    assert_eq!(response_json(list_response).await["items"][0]["id"], 901);
+    assert_eq!(response_json(list_response).await["data"]["item"]["items"][0]["id"], 901);
 
     let retrieve_response = app
         .clone()
@@ -233,7 +230,7 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
         .await
         .unwrap();
     assert_eq!(retrieve_response.status(), StatusCode::OK);
-    assert_eq!(response_json(retrieve_response).await["id"], 901);
+    assert_eq!(response_json(retrieve_response).await["data"]["item"]["id"], 901);
 
     let ingest_response = app
         .oneshot(
@@ -246,7 +243,7 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
         .await
         .unwrap();
     assert_eq!(ingest_response.status(), StatusCode::OK);
-    assert_eq!(response_json(ingest_response).await["id"], 51);
+    assert_eq!(response_json(ingest_response).await["data"]["item"]["id"], 51);
 }
 
 #[test]
@@ -554,4 +551,13 @@ where
 {
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     serde_json::from_slice(&bytes).unwrap()
+}
+
+/// Unwrap the `SdkWorkApiResponse` envelope and return `data.item`.
+async fn response_item<T>(response: axum::response::Response) -> T
+where
+    T: serde::de::DeserializeOwned,
+{
+    let value: Value = response_json(response).await;
+    serde_json::from_value(value["data"]["item"].clone()).unwrap()
 }

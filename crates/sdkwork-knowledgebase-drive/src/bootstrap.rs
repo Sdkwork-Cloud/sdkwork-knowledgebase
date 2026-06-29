@@ -1,7 +1,12 @@
+use sdkwork_database_config::claw_database::postgres_url_with_search_path;
 use sdkwork_database_config::{DatabaseConfig, DatabaseEngine as SdkDatabaseEngine};
 use sdkwork_database_sqlx::{create_any_pool_from_config, PoolError};
-use sdkwork_drive_config::DatabaseEngine as DriveDatabaseEngine;
-use sdkwork_drive_workspace_service::infrastructure::sql::install_any_schema;
+use sdkwork_drive_config::{
+    DatabaseConfig as DriveDatabaseConfig, DatabaseEngine as DriveDatabaseEngine,
+};
+use sdkwork_drive_workspace_service::infrastructure::sql::{
+    connect_any_database_and_install_schema, install_any_schema,
+};
 use sqlx::AnyPool;
 
 const DEFAULT_DRIVE_PROVIDER_ID: &str = "sdkwork-knowledgebase-local";
@@ -11,12 +16,25 @@ const KNOWLEDGEBASE_DRIVE_POOL_MAX_CONNECTIONS: u32 = 5;
 
 pub async fn connect_knowledgebase_drive_pool(database_url: &str) -> Result<AnyPool, sqlx::Error> {
     let (database_config, drive_engine) = drive_database_config_from_url(database_url)?;
-    let pool = create_any_pool_from_config(database_config)
-        .await
-        .map_err(map_pool_error)?;
-    install_any_schema(&pool, drive_engine)
-        .await
-        .map_err(|error| sqlx::Error::Protocol(error.to_string()))?;
+    let pool = match drive_engine {
+        DriveDatabaseEngine::Postgresql => {
+            let drive_config = DriveDatabaseConfig::from_url_with_max_connections(
+                database_config.url.as_str(),
+                database_config.max_connections,
+            )
+            .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
+            connect_any_database_and_install_schema(&drive_config).await?
+        }
+        DriveDatabaseEngine::Sqlite => {
+            let pool = create_any_pool_from_config(database_config)
+                .await
+                .map_err(map_pool_error)?;
+            install_any_schema(&pool, drive_engine)
+                .await
+                .map_err(|error| sqlx::Error::Protocol(error.to_string()))?;
+            pool
+        }
+    };
     seed_default_drive_storage_provider(&pool, drive_engine).await?;
     Ok(pool)
 }
@@ -44,7 +62,11 @@ fn drive_database_config_from_url(
     Ok((
         DatabaseConfig {
             engine,
-            url: normalized.to_string(),
+            url: if engine == SdkDatabaseEngine::Postgres {
+                postgres_url_with_search_path(normalized, "SDKWORK_KNOWLEDGEBASE")
+            } else {
+                normalized.to_string()
+            },
             max_connections: KNOWLEDGEBASE_DRIVE_POOL_MAX_CONNECTIONS,
             ..DatabaseConfig::default()
         },

@@ -20,7 +20,7 @@ import { AIService } from './services/ai';
 import { DocumentService } from './services/document';
 import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
 import { toast } from './components/ui/toast-manager';
-import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
+import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, shouldUseKnowledgebaseDemoFallback, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
 import { createTiptapExportContentProvider } from './components/DocumentExport';
 import { sanitizeEditorHtml } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
 import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
@@ -126,15 +126,13 @@ export function TiptapEditor({
       }
     }
 
-    if (mediaType === 'image') {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(URL.createObjectURL(file));
-        }, 500);
-      });
+    if (!shouldUseKnowledgebaseDemoFallback()) {
+      toast.error(`请先登录 Knowledgebase API 后再上传${mediaLabel}。`);
+      return null;
     }
 
-    return URL.createObjectURL(file);
+    toast.error(`请先登录 Knowledgebase API 后再上传${mediaLabel}。`);
+    return null;
   };
 
   const uploadImage = async (file: File): Promise<string | null> =>

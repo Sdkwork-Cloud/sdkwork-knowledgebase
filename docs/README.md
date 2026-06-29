@@ -16,7 +16,8 @@ SDKWork Knowledgebase maintainers.
 | MVP launch acceptance | [product/prd/PRD-mvp-launch.md](product/prd/PRD-mvp-launch.md) |
 | Phase 2 commercial SaaS | [product/prd/PRD-phase2-commercial-saas.md](product/prd/PRD-phase2-commercial-saas.md) |
 | Technical architecture | [architecture/tech/TECH_ARCHITECTURE.md](architecture/tech/TECH_ARCHITECTURE.md) |
-| Backend design (SDK, routes, persistence) | [architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md](architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md) |
+| Backend design (storage, crates, persistence, API envelope) | [architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md](architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md) |
+| OKF bundle operator summary | [architecture/tech/TECH-okf-knowledge-bundle.md](architecture/tech/TECH-okf-knowledge-bundle.md) |
 | Open API design | [architecture/tech/TECH-2026-06-12-knowledgebase-open-api-design.md](architecture/tech/TECH-2026-06-12-knowledgebase-open-api-design.md) |
 | OKF knowledge bundle | [architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md](architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md) |
 | Agent RAG design | [architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md](architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md) |

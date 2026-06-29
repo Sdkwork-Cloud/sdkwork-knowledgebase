@@ -1,4 +1,4 @@
-import { createClient, type SdkworkAppClient } from '@sdkwork/knowledgebase-app-sdk';
+import { createKnowledgebaseAppClient, type SdkworkAppClient } from '@sdkwork/knowledgebase-app-sdk';
 import type { KnowledgebaseRuntimeConfig } from '../config/runtimeConfig';
 import type { KnowledgebaseSessionTokenManager } from '../session/sessionTokenManager';
 
@@ -35,7 +35,7 @@ export function createKnowledgebaseAppSdkClient({
   sdkClient,
   tokenManager,
 }: KnowledgebaseAppSdkClientOptions): KnowledgebaseAppSdkClient {
-  const generatedClient = sdkClient ?? createClient({
+  const generatedClient = sdkClient ?? createKnowledgebaseAppClient({
     authMode: 'dual-token',
     baseUrl: normalizeGeneratedSdkBaseUrl(
       resolveKnowledgebaseAppApiBaseUrl(config),

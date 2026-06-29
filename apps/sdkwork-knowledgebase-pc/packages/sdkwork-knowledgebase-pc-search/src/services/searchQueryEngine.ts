@@ -1,7 +1,14 @@
+import { AIService } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/ai';
 import { DocumentService } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/document';
 import { synthesizeKnowledgeSearchAnswer } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/knowledgeAgentChatService';
 import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
-import { getKnowledgebaseAppSdkClient, getKnowledgebaseTenantId, isKnowledgebaseApiAvailable, readRegisteredSpaces } from 'sdkwork-knowledgebase-pc-core';
+import {
+  getKnowledgebaseAppSdkClient,
+  getKnowledgebaseTenantId,
+  isKnowledgebaseApiAvailable,
+  readRegisteredSpaces,
+  shouldUseKnowledgebaseDemoFallback,
+} from 'sdkwork-knowledgebase-pc-core';
 import { buildRelatedMedia } from './buildRelatedMedia';
 import type { SearchSource } from '../types';
 
@@ -218,68 +225,27 @@ export async function generateCitationsAndResults(
       return { sources, relatedMedia, responseText };
     }
 
-    const localHint =
-      localSources.length > 0
-        ? `已匹配 ${localSources.filter((s) => s.type === 'doc').length} 个知识库文件。`
-        : '本次未匹配到知识库文件。';
-    const webHint =
-      webSources.length > 0
-        ? `已补充 ${webSources.length} 个网络来源。`
-        : webSearchEnabled
-          ? '联网检索已开启，但当前环境未返回公共网页来源（请在后端启用 SDKWORK_KNOWLEDGEBASE_PUBLIC_WEB_SEARCH_ENABLED）。'
-          : '';
-
-    const searchPrompt = `你是一个专业的 AI 搜索引擎组件，名为【AI 融合检索与认知底座】。
-用户发出提问/搜索词: "${query}"
-
-检索摘要：${localHint} ${webHint}
-
-下面是辅助参考事实（序号必须与正文引用 [n] 严格对齐）：
-${sourcesText || '（无可用引用来源）'}
-
-请你写出一篇极其优美、结构化、富有逻辑且说服力的专家级中文回答：
-1. 你的语气要真诚、中性、富有行业见解，杜绝假大空无病呻吟。
-2. 必须在回答的对应事实后面标出参考序号。
-3. 如果有知识库文件，请明确写“在您知识库中的《xxx》…”并引用对应序号。
-4. 请使用清晰的 Markdown 格式输出。
-5. 在回答结尾，为用户友好提供 2-3 个深度的“追问方向”作为无序列表结束。
-6. 不要输出 \`\`\`markdown 代码块包裹。`;
-
-    const response = await fetch('/api/ai/action', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'custom',
-        text: query,
-        customPrompt: searchPrompt,
-        context: '用户正在执行全局智能检索，当前时间：' + new Date().toLocaleString()
-      })
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.result && data.result.length > 50) {
-        responseText = data.result;
-        return { sources, relatedMedia, responseText };
-      }
+    if (!shouldUseKnowledgebaseDemoFallback()) {
+      responseText = `### 检索结果\n\n当前未连接 Knowledgebase API，无法生成 AI 综合回答。请登录并启动后端服务后重试。`;
+      return { sources, relatedMedia, responseText };
     }
-    throw new Error('No robust prompt returned, falling back');
+
+    responseText = await AIService.synthesizeSearchAnswer(query, sourcesText);
+    return { sources, relatedMedia, responseText };
   } catch (e) {
-    console.warn(
-      'API route failed during search query synthesis or key missing, applying professional generation fallback:',
-      e
-    );
+    console.warn('Search answer synthesis failed, applying structured fallback:', e);
     await new Promise((r) => setTimeout(r, 600));
 
     const isLocalSearch = localSources.some((s) => s.type === 'doc');
     const localDocName = localSources.find((s) => s.type === 'doc')?.title || '产品路线图';
+    const lower = query.toLowerCase();
 
     if (
-      lower.includes('desktop') ||
-      lower.includes('桌面') ||
-      lower.includes('组件') ||
-      lower.includes('widget') ||
-      lower.includes('设计')
+      lower.includes('desktop')
+      || lower.includes('桌面')
+      || lower.includes('组件')
+      || lower.includes('widget')
+      || lower.includes('设计')
     ) {
       responseText = buildDesktopFallback(isLocalSearch, localDocName);
     } else {

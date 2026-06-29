@@ -111,6 +111,7 @@ assert(
   'Cargo.toml must include repository-sqlx crate',
 );
 assert(cargoToml.includes('sdkwork-utils-rust'), 'Cargo.toml must declare sdkwork-utils-rust');
+assert(cargoToml.includes('sdkwork-id-core'), 'Cargo.toml must declare sdkwork-id-core');
 assert(!cargoToml.includes('sdkwork-discovery'), 'sdkwork-discovery is not required until RPC services exist');
 
 const workflow = readJson('sdkwork.workflow.json');
@@ -315,6 +316,9 @@ const requiredSkeletonPaths = [
   'scripts/README.md',
   'apps/README.md',
   'apps/sdkwork-knowledgebase-pc/AGENTS.md',
+  'apps/sdkwork-knowledgebase-pc/specs/dependency.composition.json',
+  'apps/sdkwork-knowledgebase-pc/sdkwork.app.config.json',
+  'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json',
   'specs/topology.spec.json',
   'specs/knowledge-engine-spi.spec.json',
   'specs/external-knowledge-engine-catalog.spec.json',

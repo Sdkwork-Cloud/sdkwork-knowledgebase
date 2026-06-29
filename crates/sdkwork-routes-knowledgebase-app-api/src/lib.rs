@@ -9,6 +9,7 @@ mod adapters;
 mod agent_chat_runtime;
 mod auth;
 pub mod bootstrap;
+#[cfg(debug_assertions)]
 pub mod dev_auth;
 mod error;
 pub mod hosted;
@@ -57,10 +58,9 @@ pub fn gateway_route_manifest() -> HttpRouteManifest {
     app_route_manifest()
 }
 
+/// Mounts the shared browser API as a gateway sub-router.
+///
+/// This is the canonical gateway mount point for the app API.
 pub fn gateway_mount(browser: Arc<dyn KnowledgeBrowserApi>) -> Router {
     build_router_with_shared_browser(browser)
-}
-
-pub fn gateway_mount_business(browser: Arc<dyn KnowledgeBrowserApi>) -> Router {
-    gateway_mount(browser)
 }

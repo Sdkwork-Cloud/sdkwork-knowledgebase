@@ -1,4 +1,4 @@
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+use reqwest::header::{HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 
@@ -209,7 +209,10 @@ pub async fn fetch_github_file_content(
         urlencoding::encode(branch)
     );
     let mut headers = github_headers(access_token)?;
-    headers.insert(ACCEPT, "application/vnd.github.raw".parse().unwrap());
+    headers.insert(
+        ACCEPT,
+        HeaderValue::from_static("application/vnd.github.raw"),
+    );
     let response = client
         .get(url)
         .headers(headers)
@@ -518,11 +521,17 @@ fn github_headers(
     access_token: Option<&str>,
 ) -> Result<reqwest::header::HeaderMap, GitHubApiError> {
     let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert(ACCEPT, "application/vnd.github+json".parse().unwrap());
-    headers.insert("X-GitHub-Api-Version", "2022-11-28".parse().unwrap());
+    headers.insert(
+        ACCEPT,
+        HeaderValue::from_static("application/vnd.github+json"),
+    );
+    headers.insert(
+        reqwest::header::HeaderName::from_static("x-github-api-version"),
+        HeaderValue::from_static("2022-11-28"),
+    );
     headers.insert(
         USER_AGENT,
-        "SDKWork-Knowledgebase-GitImport/1.0".parse().unwrap(),
+        HeaderValue::from_static("SDKWork-Knowledgebase-GitImport/1.0"),
     );
     if let Some(token) = access_token.filter(|value| !is_blank(Some(value))) {
         headers.insert(

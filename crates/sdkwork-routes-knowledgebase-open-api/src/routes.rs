@@ -1,9 +1,9 @@
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::Response,
     routing::{get, post},
-    Extension, Json, Router,
+    Json, Router,
 };
 use sdkwork_knowledgebase_contract::{
     KnowledgeBrowserView, KnowledgeContextPackRequest, KnowledgeIngestRequest,
@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
-    auth::require_context, paths, ApiProblem, ApiResult, KnowledgeOpenApi,
-    KnowledgeOpenApiRequestContext,
+    auth::{require_context, RequiredOpenContext},
+    paths, ApiProblem, ApiResult, KnowledgeOpenApi,
 };
 
 #[derive(Clone)]
@@ -64,7 +64,7 @@ pub fn gateway_mount_business(api: Arc<dyn KnowledgeOpenApi>) -> Router {
 
 async fn create_retrieval(
     State(state): State<OpenState>,
-    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    context: RequiredOpenContext,
     Json(request): Json<KnowledgeRetrievalRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
@@ -83,7 +83,7 @@ async fn create_retrieval(
 
 async fn retrieve_retrieval(
     State(state): State<OpenState>,
-    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    context: RequiredOpenContext,
     Path(retrieval_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
@@ -92,7 +92,7 @@ async fn retrieve_retrieval(
 
 async fn create_context_pack(
     State(state): State<OpenState>,
-    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    context: RequiredOpenContext,
     Json(request): Json<KnowledgeContextPackRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
@@ -111,7 +111,7 @@ async fn create_context_pack(
 
 async fn create_ingest(
     State(state): State<OpenState>,
-    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    context: RequiredOpenContext,
     Json(request): Json<KnowledgeIngestRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
@@ -120,7 +120,7 @@ async fn create_ingest(
 
 async fn retrieve_ingest(
     State(state): State<OpenState>,
-    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    context: RequiredOpenContext,
     Path(ingest_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
@@ -129,7 +129,7 @@ async fn retrieve_ingest(
 
 async fn list_documents(
     State(state): State<OpenState>,
-    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    context: RequiredOpenContext,
     Query(query): Query<ListDocumentsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
@@ -138,7 +138,7 @@ async fn list_documents(
 
 async fn retrieve_document(
     State(state): State<OpenState>,
-    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    context: RequiredOpenContext,
     Path(document_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
@@ -147,7 +147,7 @@ async fn retrieve_document(
 
 async fn list_browser(
     State(state): State<OpenState>,
-    context: Option<Extension<KnowledgeOpenApiRequestContext>>,
+    context: RequiredOpenContext,
     Path(space_id): Path<u64>,
     Query(query): Query<ListBrowserQuery>,
 ) -> Result<Response, ApiProblem> {
@@ -175,7 +175,12 @@ where
     T: Serialize,
 {
     result
-        .map(|value| Json(value).into_response())
+        .map(|value| {
+            sdkwork_knowledgebase_observability::request_correlation::success_json_response(
+                StatusCode::OK,
+                value,
+            )
+        })
         .map_err(ApiProblem::from)
 }
 
@@ -184,7 +189,12 @@ where
     T: Serialize,
 {
     result
-        .map(|value| (StatusCode::CREATED, Json(value)).into_response())
+        .map(|value| {
+            sdkwork_knowledgebase_observability::request_correlation::success_json_response(
+                StatusCode::CREATED,
+                value,
+            )
+        })
         .map_err(ApiProblem::from)
 }
 

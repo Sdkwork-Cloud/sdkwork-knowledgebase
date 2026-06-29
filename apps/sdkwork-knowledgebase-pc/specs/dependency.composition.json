@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.dependency.composition",
+  "applicationCode": "knowledgebase",
+  "clientArchitecture": "pc",
+  "surfaces": [
+    {
+      "surface": "app",
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "sdkClients": [
+        {
+          "id": "knowledgebaseApp",
+          "workspace": "sdkwork-knowledgebase-app-sdk",
+          "surface": "app-api",
+          "credentialMode": "authenticated-app-api",
+          "role": "application-owned"
+        },
+        {
+          "id": "iamApp",
+          "workspace": "sdkwork-iam-app-sdk",
+          "surface": "app-api",
+          "credentialMode": "authenticated-app-api",
+          "role": "dependency",
+          "sdkDependencyRef": "sdkwork-iam-app-sdk"
+        },
+        {
+          "id": "driveApp",
+          "workspace": "sdkwork-drive-app-sdk",
+          "surface": "app-api",
+          "credentialMode": "authenticated-app-api",
+          "role": "dependency",
+          "sdkDependencyRef": "sdkwork-drive-app-sdk"
+        }
+      ],
+      "reusableModules": [
+        {
+          "id": "knowledgebase",
+          "package": "sdkwork-knowledgebase-pc-knowledgebase",
+          "role": "product-module"
+        },
+        {
+          "id": "search",
+          "package": "sdkwork-knowledgebase-pc-search",
+          "role": "product-module"
+        },
+        {
+          "id": "knowledge",
+          "package": "sdkwork-knowledgebase-pc-knowledge",
+          "role": "product-module"
+        },
+        {
+          "id": "shell",
+          "package": "sdkwork-knowledgebase-pc-shell",
+          "role": "app-shell"
+        },
+        {
+          "id": "commons",
+          "package": "sdkwork-knowledgebase-pc-commons",
+          "role": "shared-ui"
+        }
+      ],
+      "hostAdapters": [
+        {
+          "id": "desktop",
+          "package": "sdkwork-knowledgebase-pc-desktop",
+          "runtimeTarget": "desktop"
+        }
+      ],
+      "dependencyApiExports": [],
+      "dependencyApiSurfaces": []
+    }
+  ],
+  "buildToolEntries": {
+    "pnpm": {
+      "workspacePackages": [
+        "sdkwork-knowledgebase-pc-core",
+        "sdkwork-knowledgebase-pc-commons",
+        "sdkwork-knowledgebase-pc-desktop",
+        "sdkwork-knowledgebase-pc-knowledge",
+        "sdkwork-knowledgebase-pc-knowledgebase",
+        "sdkwork-knowledgebase-pc-search",
+        "sdkwork-knowledgebase-pc-shell"
+      ]
+    }
+  }
+}

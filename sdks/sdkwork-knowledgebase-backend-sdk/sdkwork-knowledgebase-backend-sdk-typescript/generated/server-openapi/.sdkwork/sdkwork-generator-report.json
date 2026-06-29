@@ -12,23 +12,87 @@
   "mode": "apply",
   "hasChanges": true,
   "hasDestructiveChanges": false,
-  "changeFingerprint": "ac34ab93b600b8cec6726b800aec2b0daedba4a3c1883a70f80ae322dd09788f",
+  "changeFingerprint": "932c1cf3cadddb8fac08c4d973872bcf1521697345483f07c93eb975ce32990e",
   "changeImpact": {
     "schemaVersion": 1,
     "areas": [
-      "models"
+      "api-surface",
+      "models",
+      "runtime",
+      "documentation"
     ],
     "details": [
       {
+        "area": "api-surface",
+        "paths": [
+          "src/api/knowledge.ts",
+          "src/http/client.ts"
+        ]
+      },
+      {
         "area": "models",
         "paths": [
-          "src/types/knowledge-okf-bundle-file.ts",
-          "src/types/okf-bundle-export-request.ts"
+          "src/types/create-knowledge-source-request.ts",
+          "src/types/field-error.ts",
+          "src/types/index.ts",
+          "src/types/indexes-create-response201.ts",
+          "src/types/indexes-rebuild-response.ts",
+          "src/types/indexes-retrieve-response.ts",
+          "src/types/knowledge-source.ts",
+          "src/types/knowledge-tenant-status-enum.ts",
+          "src/types/knowledge-tenant-status.ts",
+          "src/types/okf-bundle-export-create-response201.ts",
+          "src/types/okf-bundle-export-retrieve-response.ts",
+          "src/types/okf-bundle-files-list-response.ts",
+          "src/types/okf-bundle-import-create-response201.ts",
+          "src/types/okf-bundle-index-rebuild-response201.ts",
+          "src/types/okf-candidates-approve-response201.ts",
+          "src/types/okf-candidates-list-response.ts",
+          "src/types/okf-candidates-reject-response201.ts",
+          "src/types/okf-compile-jobs-create-response201.ts",
+          "src/types/okf-concepts-publish-response201.ts",
+          "src/types/okf-eval-runs-create-response201.ts",
+          "src/types/okf-lint-runs-create-response201.ts",
+          "src/types/okf-log-entries-create-response201.ts",
+          "src/types/okf-profile-create-response201.ts",
+          "src/types/okf-profile-update-response.ts",
+          "src/types/page-info.ts",
+          "src/types/problem-detail.ts",
+          "src/types/problem-details.ts",
+          "src/types/provider-health-retrieve-response.ts",
+          "src/types/retrieval-profiles-create-response201.ts",
+          "src/types/retrieval-profiles-retrieve-response.ts",
+          "src/types/retrieval-profiles-update-response.ts",
+          "src/types/retrieval-traces-list-response.ts",
+          "src/types/retrieval-traces-retrieve-response.ts",
+          "src/types/sdk-work-api-response.ts",
+          "src/types/sdk-work-command-data.ts",
+          "src/types/sdk-work-command-response.ts",
+          "src/types/sdk-work-list-response.ts",
+          "src/types/sdk-work-page-data.ts",
+          "src/types/sdk-work-platform-error-code.ts",
+          "src/types/sdk-work-resource-data.ts",
+          "src/types/sdk-work-resource-response.ts",
+          "src/types/sources-create-response201.ts",
+          "src/types/sources-list-response.ts",
+          "src/types/tenants-current-retrieve-response.ts"
+        ]
+      },
+      {
+        "area": "runtime",
+        "paths": [
+          "src/http/client.ts"
+        ]
+      },
+      {
+        "area": "documentation",
+        "paths": [
+          "README.md"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: models. Verification is required."
+    "summary": "Detected impact areas: api-surface, models, runtime, documentation. Verification is required."
   },
   "executionDecision": {
     "schemaVersion": 1,
@@ -49,7 +113,7 @@
         "id": "verify-check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, runtime, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -67,7 +131,7 @@
         "id": "verify-build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, runtime, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -86,13 +150,13 @@
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: models. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: api-surface, models, runtime, documentation. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, runtime, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -110,7 +174,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, runtime, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -140,26 +204,72 @@
     "localVersions": []
   },
   "stats": {
-    "totalFiles": 94,
-    "models": 70,
+    "totalFiles": 134,
+    "models": 110,
     "apis": 1,
-    "types": 72
+    "types": 112
   },
   "warnings": [],
   "syncSummary": {
     "dryRun": false,
     "controlPlaneEnabled": true,
-    "writtenFiles": 2,
+    "writtenFiles": 47,
     "skippedScaffoldFiles": 2,
-    "skippedUnchangedGeneratedFiles": 90,
+    "skippedUnchangedGeneratedFiles": 85,
     "deletedGeneratedFiles": 0,
     "changeSummaryPath": ".sdkwork/sdkwork-generator-changes.json",
-    "changeFingerprint": "ac34ab93b600b8cec6726b800aec2b0daedba4a3c1883a70f80ae322dd09788f",
+    "changeFingerprint": "932c1cf3cadddb8fac08c4d973872bcf1521697345483f07c93eb975ce32990e",
     "changes": {
-      "createdGeneratedFiles": [],
+      "createdGeneratedFiles": [
+        "src/types/field-error.ts",
+        "src/types/indexes-create-response201.ts",
+        "src/types/indexes-rebuild-response.ts",
+        "src/types/indexes-retrieve-response.ts",
+        "src/types/knowledge-tenant-status-enum.ts",
+        "src/types/knowledge-tenant-status.ts",
+        "src/types/okf-bundle-export-create-response201.ts",
+        "src/types/okf-bundle-export-retrieve-response.ts",
+        "src/types/okf-bundle-files-list-response.ts",
+        "src/types/okf-bundle-import-create-response201.ts",
+        "src/types/okf-bundle-index-rebuild-response201.ts",
+        "src/types/okf-candidates-approve-response201.ts",
+        "src/types/okf-candidates-list-response.ts",
+        "src/types/okf-candidates-reject-response201.ts",
+        "src/types/okf-compile-jobs-create-response201.ts",
+        "src/types/okf-concepts-publish-response201.ts",
+        "src/types/okf-eval-runs-create-response201.ts",
+        "src/types/okf-lint-runs-create-response201.ts",
+        "src/types/okf-log-entries-create-response201.ts",
+        "src/types/okf-profile-create-response201.ts",
+        "src/types/okf-profile-update-response.ts",
+        "src/types/page-info.ts",
+        "src/types/problem-detail.ts",
+        "src/types/provider-health-retrieve-response.ts",
+        "src/types/retrieval-profiles-create-response201.ts",
+        "src/types/retrieval-profiles-retrieve-response.ts",
+        "src/types/retrieval-profiles-update-response.ts",
+        "src/types/retrieval-traces-list-response.ts",
+        "src/types/retrieval-traces-retrieve-response.ts",
+        "src/types/sdk-work-api-response.ts",
+        "src/types/sdk-work-command-data.ts",
+        "src/types/sdk-work-command-response.ts",
+        "src/types/sdk-work-list-response.ts",
+        "src/types/sdk-work-page-data.ts",
+        "src/types/sdk-work-platform-error-code.ts",
+        "src/types/sdk-work-resource-data.ts",
+        "src/types/sdk-work-resource-response.ts",
+        "src/types/sources-create-response201.ts",
+        "src/types/sources-list-response.ts",
+        "src/types/tenants-current-retrieve-response.ts"
+      ],
       "updatedGeneratedFiles": [
-        "src/types/knowledge-okf-bundle-file.ts",
-        "src/types/okf-bundle-export-request.ts"
+        "README.md",
+        "src/api/knowledge.ts",
+        "src/http/client.ts",
+        "src/types/create-knowledge-source-request.ts",
+        "src/types/index.ts",
+        "src/types/knowledge-source.ts",
+        "src/types/problem-details.ts"
       ],
       "unchangedGeneratedFiles": [
         "bin/publish-core.mjs",
@@ -170,23 +280,18 @@
         "CHANGELOG.md",
         "LICENSE",
         "package.json",
-        "README.md",
         "sdkwork-sdk.json",
         "src/api/base.ts",
         "src/api/index.ts",
-        "src/api/knowledge.ts",
         "src/api/paths.ts",
         "src/auth/index.ts",
-        "src/http/client.ts",
         "src/http/index.ts",
         "src/index.ts",
         "src/sdk.ts",
         "src/types/common.ts",
         "src/types/create-knowledge-document-request.ts",
         "src/types/create-knowledge-document-version-request.ts",
-        "src/types/create-knowledge-source-request.ts",
         "src/types/create-knowledge-space-request.ts",
-        "src/types/index.ts",
         "src/types/ingestion-job-state.ts",
         "src/types/ingestion-job.ts",
         "src/types/knowledge-agent-binding-list.ts",
@@ -215,6 +320,7 @@
         "src/types/knowledge-ingest-request.ts",
         "src/types/knowledge-memory-context-fragment.ts",
         "src/types/knowledge-okf-bundle-file-list.ts",
+        "src/types/knowledge-okf-bundle-file.ts",
         "src/types/knowledge-okf-profile-request.ts",
         "src/types/knowledge-provider-health.ts",
         "src/types/knowledge-retrieval-binding.ts",
@@ -227,9 +333,9 @@
         "src/types/knowledge-retrieval-trace.ts",
         "src/types/knowledge-source-list.ts",
         "src/types/knowledge-source-type.ts",
-        "src/types/knowledge-source.ts",
         "src/types/knowledge-space-status.ts",
         "src/types/knowledge-space.ts",
+        "src/types/okf-bundle-export-request.ts",
         "src/types/okf-bundle-file-kind.ts",
         "src/types/okf-bundle-import-request.ts",
         "src/types/okf-bundle-import-result.ts",
@@ -250,7 +356,6 @@
         "src/types/okf-quality-run.ts",
         "src/types/okf-query-request.ts",
         "src/types/okf-query-result.ts",
-        "src/types/problem-details.ts",
         "tsconfig.json"
       ],
       "deletedGeneratedFiles": [],
@@ -264,30 +369,94 @@
     "impact": {
       "schemaVersion": 1,
       "areas": [
-        "models"
+        "api-surface",
+        "models",
+        "runtime",
+        "documentation"
       ],
       "details": [
         {
+          "area": "api-surface",
+          "paths": [
+            "src/api/knowledge.ts",
+            "src/http/client.ts"
+          ]
+        },
+        {
           "area": "models",
           "paths": [
-            "src/types/knowledge-okf-bundle-file.ts",
-            "src/types/okf-bundle-export-request.ts"
+            "src/types/create-knowledge-source-request.ts",
+            "src/types/field-error.ts",
+            "src/types/index.ts",
+            "src/types/indexes-create-response201.ts",
+            "src/types/indexes-rebuild-response.ts",
+            "src/types/indexes-retrieve-response.ts",
+            "src/types/knowledge-source.ts",
+            "src/types/knowledge-tenant-status-enum.ts",
+            "src/types/knowledge-tenant-status.ts",
+            "src/types/okf-bundle-export-create-response201.ts",
+            "src/types/okf-bundle-export-retrieve-response.ts",
+            "src/types/okf-bundle-files-list-response.ts",
+            "src/types/okf-bundle-import-create-response201.ts",
+            "src/types/okf-bundle-index-rebuild-response201.ts",
+            "src/types/okf-candidates-approve-response201.ts",
+            "src/types/okf-candidates-list-response.ts",
+            "src/types/okf-candidates-reject-response201.ts",
+            "src/types/okf-compile-jobs-create-response201.ts",
+            "src/types/okf-concepts-publish-response201.ts",
+            "src/types/okf-eval-runs-create-response201.ts",
+            "src/types/okf-lint-runs-create-response201.ts",
+            "src/types/okf-log-entries-create-response201.ts",
+            "src/types/okf-profile-create-response201.ts",
+            "src/types/okf-profile-update-response.ts",
+            "src/types/page-info.ts",
+            "src/types/problem-detail.ts",
+            "src/types/problem-details.ts",
+            "src/types/provider-health-retrieve-response.ts",
+            "src/types/retrieval-profiles-create-response201.ts",
+            "src/types/retrieval-profiles-retrieve-response.ts",
+            "src/types/retrieval-profiles-update-response.ts",
+            "src/types/retrieval-traces-list-response.ts",
+            "src/types/retrieval-traces-retrieve-response.ts",
+            "src/types/sdk-work-api-response.ts",
+            "src/types/sdk-work-command-data.ts",
+            "src/types/sdk-work-command-response.ts",
+            "src/types/sdk-work-list-response.ts",
+            "src/types/sdk-work-page-data.ts",
+            "src/types/sdk-work-platform-error-code.ts",
+            "src/types/sdk-work-resource-data.ts",
+            "src/types/sdk-work-resource-response.ts",
+            "src/types/sources-create-response201.ts",
+            "src/types/sources-list-response.ts",
+            "src/types/tenants-current-retrieve-response.ts"
+          ]
+        },
+        {
+          "area": "runtime",
+          "paths": [
+            "src/http/client.ts"
+          ]
+        },
+        {
+          "area": "documentation",
+          "paths": [
+            "README.md"
           ]
         }
       ],
       "requiresVerification": true,
-      "summary": "Detected impact areas: models. Verification is required."
+      "summary": "Detected impact areas: api-surface, models, runtime, documentation. Verification is required."
     },
     "verificationPlan": {
       "shouldRun": true,
       "runPhase": "now",
-      "summary": "Detected impact areas: models. Verification is required. Run the required verification commands now against the generated SDK output.",
+      "summary": "Detected impact areas: api-surface, models, runtime, documentation. Verification is required. Run the required verification commands now against the generated SDK output.",
       "steps": [
         {
           "id": "check",
           "title": "Unified package check",
           "required": true,
-          "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
+          "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, runtime, documentation.",
           "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
           "command": "node",
           "args": [
@@ -305,7 +474,7 @@
           "id": "build",
           "title": "Unified package build",
           "required": true,
-          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
+          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, runtime, documentation.",
           "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
           "command": "node",
           "args": [

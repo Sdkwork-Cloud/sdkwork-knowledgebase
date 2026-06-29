@@ -5,7 +5,19 @@
     {
       "prefix": "kb_",
       "owner": "knowledgebase-platform",
-      "domain": "knowledgebase"
+      "domain": "knowledgebase",
+      "status": "LEGACY_COMPATIBLE",
+      "compatibilityLevel": "L0",
+      "notes": "Legacy prefix from Phase 0.1. All new tables MUST use 'knowledge_' prefix.",
+      "migrationPlan": "Existing kb_ tables are L0 legacy; new migrations should use knowledge_ prefix. Full physical rename deferred to Phase 3."
+    },
+    {
+      "prefix": "knowledge_",
+      "owner": "knowledgebase-platform",
+      "domain": "knowledgebase",
+      "status": "ACTIVE",
+      "compatibilityLevel": "L1",
+      "notes": "Standard prefix for all new knowledgebase tables from Phase 1.2+."
     }
   ]
 }

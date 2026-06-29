@@ -2233,13 +2233,12 @@ dependencies = [
 name = "sdkwork-drive-security"
 version = "0.1.0"
 dependencies = [
- "hmac",
  "http",
  "jsonwebtoken",
  "reqwest",
+ "sdkwork-utils-rust",
  "serde",
  "serde_json",
- "sha2",
  "tokio",
  "tracing",
 ]
@@ -2272,7 +2271,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
- "hmac",
  "reqwest",
  "sdkwork-database-config",
  "sdkwork-database-id",
@@ -2287,7 +2285,6 @@ dependencies = [
  "sdkwork-utils-rust",
  "serde",
  "serde_json",
- "sha2",
  "sqlx",
  "tokio",
  "tracing",
@@ -2450,6 +2447,8 @@ dependencies = [
 name = "sdkwork-knowledgebase-contract"
 version = "0.1.0"
 dependencies = [
+ "http",
+ "sdkwork-utils-rust",
  "serde",
  "serde_json",
  "time",
@@ -2676,6 +2675,7 @@ dependencies = [
  "sdkwork-knowledgebase-contract",
  "sdkwork-utils-rust",
  "sdkwork-web-bootstrap",
+ "serde",
  "serde_json",
  "tokio",
  "tower 0.5.3",
@@ -2884,7 +2884,9 @@ dependencies = [
  "getrandom 0.2.17",
  "hmac",
  "http",
+ "percent-encoding",
  "rsa",
+ "sdkwork-utils-rust",
  "sdkwork-web-contract",
  "serde",
  "serde_json",

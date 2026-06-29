@@ -25,6 +25,7 @@ pub mod site_deployment;
 pub mod source;
 pub mod space;
 pub mod space_member;
+pub mod tenant;
 pub mod upload;
 pub mod wechat;
 
@@ -52,5 +53,6 @@ pub use site_deployment::*;
 pub use source::*;
 pub use space::*;
 pub use space_member::*;
+pub use tenant::*;
 pub use upload::*;
 pub use wechat::*;

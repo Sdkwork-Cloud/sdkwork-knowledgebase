@@ -106,7 +106,7 @@ async fn retrieval_route_maps_service_validation_errors_to_problem_details() {
         "application/problem+json"
     );
     let body = response_json(response).await;
-    assert_eq!(body["code"], "invalid_knowledge_retrieval_request");
+    assert_eq!(body["code"].as_i64(), Some(40001));
     assert_eq!(body["status"], 400);
 }
 
@@ -158,7 +158,7 @@ async fn retrieval_retrieve_route_rejects_missing_app_request_context() {
         "application/problem+json"
     );
     let body = response_json(response).await;
-    assert_eq!(body["code"], "missing_app_request_context");
+    assert_eq!(body["code"].as_i64(), Some(40101));
 }
 
 #[derive(Clone, Default)]
@@ -330,5 +330,10 @@ impl KnowledgeRetrievalAppService for FailingRetrievalService {
 
 async fn response_json(response: axum::response::Response) -> Value {
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-    serde_json::from_slice(&bytes).unwrap()
+    let value: Value = serde_json::from_slice(&bytes).unwrap();
+    if value["code"].as_i64() == Some(0) {
+        value["data"]["item"].clone()
+    } else {
+        value
+    }
 }
