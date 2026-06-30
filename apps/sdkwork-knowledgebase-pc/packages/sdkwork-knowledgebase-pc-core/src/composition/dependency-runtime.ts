@@ -7,6 +7,7 @@ export function listDependencySdkWorkspaces(): string[] {
 
 export function buildDependencySdkBaseUrls(input: {
   appApiBaseUrl: string;
+  openApiBaseUrl: string;
   iamAppApiBaseUrl: string;
   driveAppApiBaseUrl: string;
 }): Record<string, SdkworkDependencySdkBaseUrls> {
@@ -21,7 +22,11 @@ export function buildDependencySdkBaseUrls(input: {
       result[workspace] = { appApiBaseUrl: input.driveAppApiBaseUrl };
       continue;
     }
-    result[workspace] = { appApiBaseUrl: input.appApiBaseUrl };
+    if (workspace === 'sdkwork-knowledgebase-app-sdk') {
+      result[workspace] = { appApiBaseUrl: input.appApiBaseUrl };
+      continue;
+    }
+    result[workspace] = { openApiBaseUrl: input.openApiBaseUrl };
   }
 
   return result;

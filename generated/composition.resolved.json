@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.composition.resolved",
+  "repository": "sdkwork-knowledgebase",
+  "integrations": [
+    {
+      "workspace": "sdkwork-appbase",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-database",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-drive",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-drive-app-sdk",
+      "surface": "app-api",
+      "apiPrefix": "/app/v3/api",
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": "VITE_SDKWORK_DRIVE_APP_API_BASE_URL",
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-iam-app-sdk",
+      "surface": "app-api",
+      "apiPrefix": "/app/v3/api",
+      "connectivityPlane": "platform",
+      "runtimeMode": "external-via-platform-gateway",
+      "mountStatus": null,
+      "envKey": "VITE_SDKWORK_APPBASE_APP_API_BASE_URL",
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-id",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-kernel",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-knowledgebase-app-sdk",
+      "surface": "app-api",
+      "apiPrefix": "/app/v3/api",
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": "VITE_SDKWORK_KNOWLEDGEBASE_APP_API_BASE_URL",
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-memory",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-sdk-generator",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-utils",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-web-framework",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase-pc-core",
+      "source": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-web-framework",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase",
+      "source": "specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-database",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase",
+      "source": "specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-utils",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase",
+      "source": "specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-appbase",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase",
+      "source": "specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-id",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase",
+      "source": "specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-sdk-generator",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase",
+      "source": "specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-drive",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase",
+      "source": "specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-memory",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase",
+      "source": "specs/component.spec.json"
+    },
+    {
+      "workspace": "sdkwork-kernel",
+      "surface": "open-api",
+      "apiPrefix": null,
+      "connectivityPlane": "application",
+      "runtimeMode": "same-origin-embedded",
+      "mountStatus": null,
+      "envKey": null,
+      "forbidProductSameOriginFallback": false,
+      "corePackage": "sdkwork-knowledgebase",
+      "source": "specs/component.spec.json"
+    }
+  ],
+  "permissions": {
+    "inheritanceMode": "module-catalog-with-overrides",
+    "inheritedManifests": [
+      {
+        "workspace": "sdkwork-iam-app-sdk",
+        "manifestRef": "../sdkwork-iam/iam/modules/iam-kernel/iam.module.manifest.json",
+        "inheritPermissions": true
+      }
+    ]
+  },
+  "env": {},
+  "requiresPlatformGatewayProcess": true,
+  "issues": [],
+  "meta": {
+    "resolver": "sdkwork-specs/tools/lib/composition-resolver.mjs",
+    "credentialModes": {
+      "sdkwork-appbase": "protected-open-api-flexible",
+      "sdkwork-database": "protected-open-api-flexible",
+      "sdkwork-drive": "protected-open-api-flexible",
+      "sdkwork-drive-app-sdk": "authenticated-app-api",
+      "sdkwork-iam-app-sdk": "authenticated-app-api",
+      "sdkwork-id": "protected-open-api-flexible",
+      "sdkwork-kernel": "protected-open-api-flexible",
+      "sdkwork-knowledgebase-app-sdk": "authenticated-app-api",
+      "sdkwork-memory": "protected-open-api-flexible",
+      "sdkwork-sdk-generator": "protected-open-api-flexible",
+      "sdkwork-utils": "protected-open-api-flexible",
+      "sdkwork-web-framework": "protected-open-api-flexible"
+    }
+  }
+}

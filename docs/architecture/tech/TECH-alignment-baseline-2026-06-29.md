@@ -24,7 +24,8 @@ Pre-launch alignment baseline against `../sdkwork-specs/`. Native composition au
 | Authority | Location |
 |-----------|----------|
 | Workspace dependency graph | Repository root `pnpm-workspace.yaml` (no nested app workspace) |
-| Frontend SDK inventory | `apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json#contracts.sdkDependencies` |
+| Frontend SDK inventory | `apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json#contracts.sdkDependencies` (app + platform workspaces with `surface` / `credentialMode`) |
+| Resolved composition output | `generated/composition.resolved.json` via `node ../sdkwork-specs/tools/resolve-composition.mjs --root .` |
 | Runtime SDK base URLs | `sdkwork-knowledgebase-pc-core/src/composition/dependency-runtime.ts` |
 | PC app config workspace pointer | `apps/sdkwork-knowledgebase-pc/sdkwork.app.config.json#packages.workspace` → `../../pnpm-workspace.yaml` |
 | Core public exports | `sdkwork-knowledgebase-pc-core/package.json#exports` (`.`, `./sdk`, `./modules`, `./host`, `./session`, `./composition`) |
@@ -37,6 +38,7 @@ Gate: `pnpm check:app-composition` → `node ../sdkwork-specs/tools/verify-repo.
 ```powershell
 pnpm check
 pnpm check:app-composition
+node ../sdkwork-specs/tools/resolve-composition.mjs --root .
 node ../sdkwork-specs/tools/check-api-response-envelope.mjs --workspace .
 pnpm api:materialize:check
 pnpm sdk:generate:check

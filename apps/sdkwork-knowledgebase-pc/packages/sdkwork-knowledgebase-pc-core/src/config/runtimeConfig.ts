@@ -386,6 +386,7 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
       openApiBaseUrl: resolvedOpenApiBaseUrl,
       dependencySdkBaseUrls: buildDependencySdkBaseUrls({
         appApiBaseUrl: resolvedAppApiBaseUrl,
+        openApiBaseUrl: resolvedOpenApiBaseUrl,
         iamAppApiBaseUrl: appbaseAppApiBaseUrl,
         driveAppApiBaseUrl,
       }),

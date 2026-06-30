@@ -48,7 +48,22 @@
   "contracts": {
     "sdkDependencies": [
       {
-        "workspace": "sdkwork-knowledgebase-app-sdk",
+        "workspace": "sdkwork-appbase",
+        "surface": "open-api",
+        "credentialMode": "protected-open-api-flexible"
+      },
+      {
+        "workspace": "sdkwork-database",
+        "surface": "open-api",
+        "credentialMode": "protected-open-api-flexible"
+      },
+      {
+        "workspace": "sdkwork-drive",
+        "surface": "open-api",
+        "credentialMode": "protected-open-api-flexible"
+      },
+      {
+        "workspace": "sdkwork-drive-app-sdk",
         "surface": "app-api",
         "credentialMode": "authenticated-app-api"
       },
@@ -58,9 +73,39 @@
         "credentialMode": "authenticated-app-api"
       },
       {
-        "workspace": "sdkwork-drive-app-sdk",
+        "workspace": "sdkwork-id",
+        "surface": "open-api",
+        "credentialMode": "protected-open-api-flexible"
+      },
+      {
+        "workspace": "sdkwork-kernel",
+        "surface": "open-api",
+        "credentialMode": "protected-open-api-flexible"
+      },
+      {
+        "workspace": "sdkwork-knowledgebase-app-sdk",
         "surface": "app-api",
         "credentialMode": "authenticated-app-api"
+      },
+      {
+        "workspace": "sdkwork-memory",
+        "surface": "open-api",
+        "credentialMode": "protected-open-api-flexible"
+      },
+      {
+        "workspace": "sdkwork-sdk-generator",
+        "surface": "open-api",
+        "credentialMode": "protected-open-api-flexible"
+      },
+      {
+        "workspace": "sdkwork-utils",
+        "surface": "open-api",
+        "credentialMode": "protected-open-api-flexible"
+      },
+      {
+        "workspace": "sdkwork-web-framework",
+        "surface": "open-api",
+        "credentialMode": "protected-open-api-flexible"
       }
     ],
     "sdkClients": [
