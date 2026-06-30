@@ -94,9 +94,6 @@
       "@sdkwork/knowledgebase-pc-search": [
         "./packages/sdkwork-knowledgebase-pc-search/src/index.ts"
       ],
-      "@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils": [
-        "./packages/sdkwork-knowledgebase-pc-commons/src/stringUtils.ts"
-      ],
       "@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps": [
         "./packages/sdkwork-knowledgebase-pc-commons/src/reactKeyedProps.ts"
       ],

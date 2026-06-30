@@ -1,4 +1,4 @@
-import i18n from '../../../../src/i18n';
+import i18n from 'i18next';
 import { escapeHtmlText } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
 
 const t = (key: string, options?: any) => i18n.t(key, { ns: 'widget', ...options });

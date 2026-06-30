@@ -1,5 +1,5 @@
-import i18n from '../i18n';
-import { resolveKnowledgebaseAuthLocaleFromAppLanguage } from '../i18n/locale';
+import i18n from '@sdkwork/knowledgebase-pc-knowledge/i18n';
+import { resolveKnowledgebaseAuthLocaleFromAppLanguage } from '@sdkwork/knowledgebase-pc-knowledge/i18n/locale';
 
 export interface SdkworkAuthAppearanceConfig {
   asidePanelClassName?: string;

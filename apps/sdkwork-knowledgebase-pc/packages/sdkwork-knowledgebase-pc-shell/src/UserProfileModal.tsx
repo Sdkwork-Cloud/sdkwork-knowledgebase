@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { X, Camera, Mail, Phone, Briefcase, Info, Clock, Check, Edit2, AlertCircle, Sparkles, Smile, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLocalStorage } from '@sdkwork/sdkwork-knowledgebase-pc-commons';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { X, GitBranch, Share, CheckCircle, Database, HelpCircle, Loader2, ArrowRight, ShieldCheck, Check } from 'lucide-react';
 import { KnowledgeBase, DocumentService } from '../services/document';
 import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, resolveUserFacingErrorMessage, shouldUseKnowledgebaseDemoFallback, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
@@ -28,7 +28,7 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
 
   // Validate URL format roughly
   useEffect(() => {
-    if (repoUrl.trim() === '') {
+    if (isBlank(repoUrl)) {
       setIsUrlValid(true);
       return;
     }
@@ -83,7 +83,7 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
     try {
       if (mode === 'import') {
         const imported = await DocumentService.importGitRepository(kb.id, repoUrl, branch, {
-          accessToken: accessToken.trim() || undefined,
+          accessToken: isBlank(accessToken) ? undefined : trim(accessToken),
           onProgress: useApiImport
             ? (progress) => {
                 setProgressMsg(progress.message);
@@ -100,7 +100,7 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
         const synced = await DocumentService.syncGitRepository(kb.id, commitMsg, {
           repoUrl,
           branch,
-          accessToken: accessToken.trim() || undefined,
+          accessToken: isBlank(accessToken) ? undefined : trim(accessToken),
           onProgress: useApiSync
             ? (progress) => {
                 setProgressMsg(progress.message);

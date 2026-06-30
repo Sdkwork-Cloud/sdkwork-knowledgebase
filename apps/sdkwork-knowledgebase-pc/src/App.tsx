@@ -10,7 +10,7 @@ import {
 } from 'sdkwork-knowledgebase-pc-core';
 
 import { createKnowledgebasePcRuntime } from './bootstrap/createKnowledgebasePcRuntime';
-import i18n from './i18n';
+import i18n from '@sdkwork/knowledgebase-pc-knowledge/i18n';
 import type { KnowledgebaseIamRuntime } from './bootstrap/knowledgebaseIamRuntime';
 import {
   resolveKnowledgebaseAuthAppearance,

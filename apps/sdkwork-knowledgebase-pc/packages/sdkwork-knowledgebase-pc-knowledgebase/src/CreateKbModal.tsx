@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { X, Plus, Upload, GitBranch, FolderGit2, BookPlus, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

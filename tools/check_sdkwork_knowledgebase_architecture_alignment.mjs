@@ -65,8 +65,22 @@ assert(
   fs.existsSync(path.join(repoRoot, '.github/workflows/package.yml')),
   '.github/workflows/package.yml must exist per GITHUB_WORKFLOW_SPEC.md',
 );
+assert(fs.existsSync(path.join(repoRoot, 'pnpm-workspace.yaml')), 'repository root pnpm-workspace.yaml must exist per APP_COMPOSITION_SPEC.md');
+assert(
+  !fs.existsSync(path.join(repoRoot, 'apps/sdkwork-knowledgebase-pc/pnpm-workspace.yaml')),
+  'nested app-level pnpm-workspace.yaml is forbidden per APP_COMPOSITION_SPEC.md',
+);
+assert(
+  !fs.existsSync(path.join(repoRoot, 'apps/_pc26-merge')),
+  'legacy apps/_pc26-merge extraction directory must not remain in workspace',
+);
+assert(
+  !fs.existsSync(path.join(repoRoot, 'apps/_pc26-extract')),
+  'legacy apps/_pc26-extract extraction directory must not remain in workspace',
+);
 
 const packageJson = readJson('package.json');
+assert(packageJson.scripts?.['check:app-composition'], 'package.json must expose pnpm check:app-composition');
 for (const script of ['dev', 'build', 'test', 'check', 'verify', 'clean']) {
   assert(packageJson.scripts?.[script], `package.json must expose pnpm ${script}`);
 }
@@ -316,9 +330,10 @@ const requiredSkeletonPaths = [
   'scripts/README.md',
   'apps/README.md',
   'apps/sdkwork-knowledgebase-pc/AGENTS.md',
-  'apps/sdkwork-knowledgebase-pc/specs/dependency.composition.json',
   'apps/sdkwork-knowledgebase-pc/sdkwork.app.config.json',
   'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json',
+  'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/src/sdk/sdkContractTypes.ts',
+  'pnpm-workspace.yaml',
   'specs/topology.spec.json',
   'specs/knowledge-engine-spi.spec.json',
   'specs/external-knowledge-engine-catalog.spec.json',
@@ -331,6 +346,32 @@ for (const relativePath of requiredSkeletonPaths) {
     `${relativePath} must exist per SDKWORK_WORKSPACE_SPEC.md skeleton`,
   );
 }
+
+const pcAppConfig = readJson('apps/sdkwork-knowledgebase-pc/sdkwork.app.config.json');
+assert(
+  pcAppConfig.packages?.workspace === '../../pnpm-workspace.yaml',
+  'apps/sdkwork-knowledgebase-pc/sdkwork.app.config.json must reference repository root pnpm-workspace.yaml',
+);
+
+const pcCoreComponentSpec = readJson(
+  'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json',
+);
+const pcCoreSdkInventory = readText(
+  'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/src/composition/sdk-inventory.ts',
+);
+const pcCoreSdkWorkspaces = (pcCoreComponentSpec.contracts?.sdkDependencies ?? []).map(
+  (entry) => entry.workspace,
+);
+for (const workspace of pcCoreSdkWorkspaces) {
+  assert(
+    pcCoreSdkInventory.includes(`'${workspace}'`),
+    `sdk-inventory.ts must list ${workspace} from pc-core component.spec.json#contracts.sdkDependencies`,
+  );
+}
+assert(
+  pcCoreComponentSpec.contracts?.sdkDependencies?.every((entry) => entry.surface && entry.credentialMode),
+  'pc-core component.spec.json sdkDependencies must declare surface and credentialMode per APP_COMPOSITION_SPEC.md',
+);
 
 const requiredIngestMetadataAlignment = [
   {

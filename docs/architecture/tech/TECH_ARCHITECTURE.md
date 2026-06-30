@@ -2,7 +2,7 @@
 
 Status: active  
 Owner: SDKWork maintainers  
-Updated: 2026-06-25  
+Updated: 2026-06-29  
 Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -40,8 +40,8 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 - **Backend**: Rust, Axum, SQLx, `sdkwork-web-framework`, PostgreSQL (production), SQLite (local dev)
 - **Storage**: `sdkwork-drive` via `sdkwork-knowledgebase-drive` adapter only
 - **Memory**: `sdkwork-memory` via `sdkwork-knowledgebase-memory` port only
-- **Frontend**: React 19, Vite, TipTap, IAM app SDK, generated knowledgebase app SDK, `@sdkwork/drive-app-sdk` for all persistent uploads
-- **Client composition**: `apps/sdkwork-knowledgebase-pc/specs/dependency.composition.json` drives SDK inventory and dependency base URLs in `sdkwork-knowledgebase-pc-core`
+- **Frontend**: React 19, Vite, TipTap, IAM app SDK, generated knowledgebase app SDK, `@sdkwork/drive-app-sdk` for persistent uploads
+- **Client composition**: native authority per `APP_COMPOSITION_SPEC.md` — root `pnpm-workspace.yaml`, pc-core `sdkDependencies`, and capability packages import SDK types only via `sdkwork-knowledgebase-pc-core/sdk`
 - **Observability**: Prometheus `/metrics` (in-cluster only), structured audit logs, optional OTLP
 
 ## 3. System Boundaries
@@ -66,10 +66,14 @@ Production uses `cloud.split-services.production` with separate Deployments for 
 ## 6. Verification
 
 ```bash
+pnpm check
+pnpm check:app-composition
+node ../sdkwork-specs/tools/check-api-response-envelope.mjs --workspace .
 pnpm verify
 pnpm test
-pnpm lint
 ```
+
+Gates include architecture alignment, `verify-repo` native composition, PC app hygiene (SDK boundary), utils integration, API envelope, SDK generation, database contract, and Phase 1/2 readiness scripts.
 
 Phase 1.0 launch acceptance: [PRD-mvp-launch.md](../../product/prd/PRD-mvp-launch.md).  
 Phase 2 commercial SaaS: [PRD-phase2-commercial-saas.md](../../product/prd/PRD-phase2-commercial-saas.md).

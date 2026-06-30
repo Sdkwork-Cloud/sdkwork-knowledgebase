@@ -16,6 +16,12 @@
   "peerDependencies": {
     "react": "^19.0.0"
   },
+  "dependencies": {
+    "@sdkwork/drive-app-sdk": "workspace:*",
+    "@sdkwork/knowledgebase-app-sdk": "workspace:*",
+    "@sdkwork/sdkwork-knowledgebase-pc-commons": "workspace:*",
+    "@sdkwork/utils": "workspace:*"
+  },
   "devDependencies": {
     "vitest": "^3.2.4"
   }

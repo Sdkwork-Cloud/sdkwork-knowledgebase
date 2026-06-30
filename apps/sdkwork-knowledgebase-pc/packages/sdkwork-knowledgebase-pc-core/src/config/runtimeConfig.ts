@@ -1,6 +1,6 @@
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
-import { buildDependencySdkBaseUrls } from '../composition/dependency-runtime.js';
-import { resolveKnowledgebaseFeatureFlags, type KnowledgebaseFeatureFlags } from './knowledgebaseFeatureFlags';
+import { isBlank, trim } from '@sdkwork/utils';
+
+import { buildDependencySdkBaseUrls } from '../composition/dependency-runtime.js';import { resolveKnowledgebaseFeatureFlags, type KnowledgebaseFeatureFlags } from './knowledgebaseFeatureFlags';
 export type SdkworkEnvironment = 'development' | 'test' | 'staging' | 'production';
 export type SdkworkConfigProfile = 'dev' | 'test' | 'staging' | 'prod';
 export type SdkworkBuildMode = 'development' | 'test' | 'staging' | 'production';
@@ -107,7 +107,11 @@ const VALID_RUNTIME_TARGETS: SdkworkRuntimeTarget[] = [
 ];
 
 function normalized(value: string | undefined): string | undefined {
-  return value?.trim().toLowerCase() || undefined;
+  if (value === undefined) {
+    return undefined;
+  }
+  const next = trim(value).toLowerCase();
+  return isBlank(next) ? undefined : next;
 }
 
 function parseOneOf<T extends string>(

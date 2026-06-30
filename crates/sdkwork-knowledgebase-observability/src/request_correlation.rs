@@ -64,7 +64,8 @@ pub fn problem_json_response(status: StatusCode, problem: ProblemDetails) -> Res
 /// wire body is `{ "code": 0, "data": { "item": <payload> }, "traceId": "..." }`.
 pub fn success_json_response<T: Serialize>(status: StatusCode, data: T) -> Response {
     let trace_id = resolve_trace_id();
-    let envelope = SdkWorkApiResponse::success(SdkWorkResourceData { item: data }, trace_id.clone());
+    let envelope =
+        SdkWorkApiResponse::success(SdkWorkResourceData { item: data }, trace_id.clone());
     let mut response = (status, Json(envelope)).into_response();
     attach_trace_header(&mut response, &trace_id);
     response
@@ -111,7 +112,9 @@ mod tests {
     #[tokio::test]
     async fn success_json_response_uses_envelope() {
         let response = success_json_response(StatusCode::OK, serde_json::json!({ "id": 42 }));
-        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body");
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
         let payload: serde_json::Value = serde_json::from_slice(&body).expect("json");
         assert_eq!(0, payload["code"].as_i64().unwrap());
         assert_eq!(42, payload["data"]["item"]["id"].as_i64().unwrap());
@@ -136,7 +139,9 @@ mod tests {
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or_default()
         );
-        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body");
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
         let payload: serde_json::Value = serde_json::from_slice(&body).expect("json");
         assert_eq!(40401, payload["code"].as_i64().unwrap());
         assert_eq!(404, payload["status"].as_u64().unwrap());
@@ -147,7 +152,9 @@ mod tests {
     async fn no_content_response_has_no_body() {
         let response = no_content_response();
         assert_eq!(StatusCode::NO_CONTENT, response.status());
-        let body = to_bytes(response.into_body(), usize::MAX).await.expect("body");
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
         assert!(body.is_empty());
     }
 }

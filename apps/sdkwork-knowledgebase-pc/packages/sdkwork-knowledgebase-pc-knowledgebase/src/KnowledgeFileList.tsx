@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { Search, X, FileUp, Plus, FolderUp, MessageSquare, Lightbulb, Link, FileEdit, ChevronRight, FileText, Mic, FolderPlus, Trash2, Folder, Hash, Image as ImageIcon, Video, Music, ChevronDown, MoreHorizontal, Edit2, Cloud, Notebook, CheckSquare, BookOpen } from 'lucide-react';
 import { FolderNode, DocumentMeta, KnowledgeBase, DocumentService } from './services/document';
 import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';

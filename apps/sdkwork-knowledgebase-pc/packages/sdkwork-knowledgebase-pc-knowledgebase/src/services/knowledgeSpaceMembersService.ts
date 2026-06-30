@@ -1,4 +1,4 @@
-import type { KnowledgeSpaceMemberRole } from '@sdkwork/knowledgebase-app-sdk';
+import type { KnowledgeSpaceMemberRole } from 'sdkwork-knowledgebase-pc-core';
 import { getKnowledgebaseAppSdkClient } from 'sdkwork-knowledgebase-pc-core';
 
 export interface KnowledgeSpaceMemberUi {

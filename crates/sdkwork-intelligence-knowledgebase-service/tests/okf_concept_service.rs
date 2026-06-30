@@ -1,9 +1,6 @@
 use async_trait::async_trait;
 mod support;
 
-use support::local_okf_bundle::{
-    discover_bundle_files_from_directory, stackoverflow_bundle_root,
-};
 use sdkwork_intelligence_knowledgebase_service::okf::{
     load_import_bundle_from_drive, stage_export_bundle_for_drive_import, ExportOkfBundleRequest,
     ImportOkfBundleFile, ImportOkfBundleRequest, OkfBundleExporterService, OkfBundleImporterError,
@@ -51,6 +48,7 @@ use sdkwork_knowledgebase_contract::okf::{
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Mutex;
+use support::local_okf_bundle::{discover_bundle_files_from_directory, stackoverflow_bundle_root};
 
 #[tokio::test]
 async fn okf_concept_service_publishes_concept_and_rebuilds_standard_files() {

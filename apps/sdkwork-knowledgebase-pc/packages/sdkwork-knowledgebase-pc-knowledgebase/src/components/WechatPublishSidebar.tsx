@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { Sparkles, Image as ImageIcon, ChevronDown, RefreshCw } from 'lucide-react';
 import { WechatArticle } from '../services/wechat';
 import { useTranslation } from 'react-i18next';

@@ -86,7 +86,9 @@ async fn create_space(app: &axum::Router) -> u64 {
         "create space failed: {body_text}"
     );
     let body: Value = serde_json::from_str(&body_text).expect("parse create space response");
-    body["data"]["item"]["id"].as_u64().expect("created space id")
+    body["data"]["item"]["id"]
+        .as_u64()
+        .expect("created space id")
 }
 
 async fn response_body_string(response: axum::response::Response) -> String {

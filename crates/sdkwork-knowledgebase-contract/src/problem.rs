@@ -57,17 +57,18 @@ impl ProblemDetails {
 
     /// Create a placeholder with an empty trace id; the observability layer
     /// will enrich it with the active request correlation id.
-    pub fn pending_trace(status: http::StatusCode, domain_code: impl Into<String>, detail: impl Into<String>) -> Self {
+    pub fn pending_trace(
+        status: http::StatusCode,
+        domain_code: impl Into<String>,
+        detail: impl Into<String>,
+    ) -> Self {
         Self::from_status(status, domain_code, detail, String::new())
     }
 }
 
 /// Map an HTTP status code (and optional domain code hint) to the canonical
 /// numeric `SdkWorkResultCode` per `API_SPEC.md` §15.3.
-fn platform_code_for_status(
-    status: http::StatusCode,
-    domain_code: &str,
-) -> SdkWorkResultCode {
+fn platform_code_for_status(status: http::StatusCode, domain_code: &str) -> SdkWorkResultCode {
     use http::StatusCode;
     match status {
         StatusCode::BAD_REQUEST => {

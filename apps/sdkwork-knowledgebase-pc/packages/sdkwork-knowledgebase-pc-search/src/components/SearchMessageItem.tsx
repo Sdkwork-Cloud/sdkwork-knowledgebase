@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { Copy, PlusCircle, RotateCcw } from 'lucide-react';
 import type {
   SearchMediaTab,

@@ -1,7 +1,6 @@
 import type { SessionSnapshot } from 'sdkwork-knowledgebase-pc-core';
 import { KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
-import type { SdkworkAppClient } from '@sdkwork/knowledgebase-app-sdk';
-import type { SdkworkDriveAppClient } from '@sdkwork/drive-app-sdk';
+import type { SdkworkAppClient, SdkworkDriveAppClient } from 'sdkwork-knowledgebase-pc-core';
 
 export interface KnowledgebasePcSdkPorts {
   getKnowledgebaseClient: () => SdkworkAppClient;

@@ -1,7 +1,7 @@
 import { AIService } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/ai';
 import { DocumentService } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/document';
 import { synthesizeKnowledgeSearchAnswer } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/knowledgeAgentChatService';
-import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank } from '@sdkwork/utils';
 import {
   getKnowledgebaseAppSdkClient,
   getKnowledgebaseTenantId,

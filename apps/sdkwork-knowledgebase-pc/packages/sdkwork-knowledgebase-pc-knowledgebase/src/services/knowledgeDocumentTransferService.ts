@@ -1,5 +1,4 @@
-import type { DriveNode } from '@sdkwork/drive-app-sdk';
-import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
+import type { DriveNode, KnowledgeBrowserNode } from 'sdkwork-knowledgebase-pc-core';
 import {
   isKnowledgebaseDriveApiAvailable,
   KnowledgebaseErrorCodes,

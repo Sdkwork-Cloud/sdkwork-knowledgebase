@@ -1,5 +1,5 @@
-import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import type { KnowledgeBrowserNode } from 'sdkwork-knowledgebase-pc-core';
+import { isBlank, trim } from '@sdkwork/utils';
 import * as KnowledgeSpaceSettingsService from './knowledgeSpaceSettingsService';
 import {
   applyDriveBrowserNodeUpdates,

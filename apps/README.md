@@ -14,9 +14,7 @@ The repository root `sdkwork.app.config.json` governs the primary application ma
 
 | Directory | Surface role | Runnable | Purpose | Entry |
 | --- | --- | --- | --- | --- |
-| _pc26-extract | app | yes | _pc26-extract app application root. | `_pc26-extract/` |
-| _pc26-merge | app | yes | Run and deploy your AI Studio app | [README](_pc26-merge/README.md) |
-| sdkwork-knowledgebase-pc | pc | yes | SDKWork Knowledgebase PC | [README](sdkwork-knowledgebase-pc/README.md) |
+| sdkwork-knowledgebase-pc | pc | yes | SDKWork Knowledgebase PC browser/desktop | [README](sdkwork-knowledgebase-pc/README.md) |
 
 ## Allowed Content
 

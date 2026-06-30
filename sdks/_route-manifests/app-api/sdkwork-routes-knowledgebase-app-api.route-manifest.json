@@ -16,9 +16,9 @@
   },
   "routes": [
     {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/spaces",
-      "operationId": "spaces.create",
+      "method": "DELETE",
+      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}",
+      "operationId": "agentProfiles.delete",
       "tags": [
         "knowledge"
       ],
@@ -38,9 +38,9 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/spaces/{spaceId}",
-      "operationId": "spaces.retrieve",
+      "method": "DELETE",
+      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}",
+      "operationId": "agentProfiles.bindings.delete",
       "tags": [
         "knowledge"
       ],
@@ -60,9 +60,75 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "PATCH",
-      "path": "/app/v3/api/knowledge/spaces/{spaceId}",
-      "operationId": "spaces.update",
+      "method": "DELETE",
+      "path": "/app/v3/api/knowledge/context_bindings/{bindingId}",
+      "operationId": "contextBindings.delete",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "DELETE",
+      "path": "/app/v3/api/knowledge/documents/{documentId}",
+      "operationId": "documents.delete",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "DELETE",
+      "path": "/app/v3/api/knowledge/market/subscriptions/{listingId}",
+      "operationId": "market.subscriptions.delete",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "DELETE",
+      "path": "/app/v3/api/knowledge/okf/concepts/{conceptId}",
+      "operationId": "okf.concepts.delete",
       "tags": [
         "knowledge"
       ],
@@ -104,53 +170,9 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/drive_imports",
-      "operationId": "driveImports.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/git_imports",
-      "operationId": "gitImports.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/git_syncs",
-      "operationId": "gitSyncs.create",
+      "method": "DELETE",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}/members",
+      "operationId": "spaces.members.revoke",
       "tags": [
         "knowledge"
       ],
@@ -171,30 +193,8 @@
     },
     {
       "method": "GET",
-      "path": "/app/v3/api/knowledge/wechat/official_accounts",
-      "operationId": "wechat.officialAccounts.list",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "PUT",
-      "path": "/app/v3/api/knowledge/wechat/official_accounts",
-      "operationId": "wechat.officialAccounts.replace",
+      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}",
+      "operationId": "agentProfiles.retrieve",
       "tags": [
         "knowledge"
       ],
@@ -215,96 +215,8 @@
     },
     {
       "method": "GET",
-      "path": "/app/v3/api/knowledge/wechat/applets",
-      "operationId": "wechat.applets.list",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "PUT",
-      "path": "/app/v3/api/knowledge/wechat/applets",
-      "operationId": "wechat.applets.replace",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/wechat/articles/publish",
-      "operationId": "wechat.articles.publish",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/wechat/articles/preview",
-      "operationId": "wechat.articles.preview",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/ingests",
-      "operationId": "ingests.create",
+      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
+      "operationId": "agentProfiles.bindings.list",
       "tags": [
         "knowledge"
       ],
@@ -325,8 +237,8 @@
     },
     {
       "method": "GET",
-      "path": "/app/v3/api/knowledge/ingests/{ingestId}",
-      "operationId": "ingests.retrieve",
+      "path": "/app/v3/api/knowledge/context_bindings/{bindingId}",
+      "operationId": "contextBindings.retrieve",
       "tags": [
         "knowledge"
       ],
@@ -368,75 +280,9 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/documents",
-      "operationId": "documents.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
       "method": "GET",
       "path": "/app/v3/api/knowledge/documents/{documentId}",
       "operationId": "documents.retrieve",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "PATCH",
-      "path": "/app/v3/api/knowledge/documents/{documentId}",
-      "operationId": "documents.update",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "DELETE",
-      "path": "/app/v3/api/knowledge/documents/{documentId}",
-      "operationId": "documents.delete",
       "tags": [
         "knowledge"
       ],
@@ -500,9 +346,31 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/documents/{documentId}/versions",
-      "operationId": "documents.versions.create",
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/ingests/{ingestId}",
+      "operationId": "ingests.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/market/listings",
+      "operationId": "market.listings.list",
       "tags": [
         "knowledge"
       ],
@@ -544,28 +412,6 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "PUT",
-      "path": "/app/v3/api/knowledge/okf/concepts/upsert",
-      "operationId": "okf.concepts.upsert",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
       "method": "GET",
       "path": "/app/v3/api/knowledge/okf/concepts/{conceptId}",
       "operationId": "okf.concepts.retrieve",
@@ -588,9 +434,9 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "DELETE",
-      "path": "/app/v3/api/knowledge/okf/concepts/{conceptId}",
-      "operationId": "okf.concepts.delete",
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/okf/concepts/{conceptId}/revisions",
+      "operationId": "okf.concepts.revisions.list",
       "tags": [
         "knowledge"
       ],
@@ -611,8 +457,8 @@
     },
     {
       "method": "GET",
-      "path": "/app/v3/api/knowledge/okf/concepts/{conceptId}/revisions",
-      "operationId": "okf.concepts.revisions.list",
+      "path": "/app/v3/api/knowledge/okf/exports/{exportId}",
+      "operationId": "okf.bundle.export.retrieve",
       "tags": [
         "knowledge"
       ],
@@ -698,9 +544,273 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/okf/queries",
-      "operationId": "okf.queries.create",
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/retrievals/{retrievalId}",
+      "operationId": "retrievals.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
+      "operationId": "siteDeployments.preview.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}",
+      "operationId": "spaces.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}/browser",
+      "operationId": "spaces.browser.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
+      "operationId": "spaces.contextBindings.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}/members",
+      "operationId": "spaces.members.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/wechat/applets",
+      "operationId": "wechat.applets.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/wechat/official_accounts",
+      "operationId": "wechat.officialAccounts.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "PATCH",
+      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}",
+      "operationId": "agentProfiles.update",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "PATCH",
+      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}",
+      "operationId": "agentProfiles.bindings.update",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "PATCH",
+      "path": "/app/v3/api/knowledge/context_bindings/{bindingId}",
+      "operationId": "contextBindings.update",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "PATCH",
+      "path": "/app/v3/api/knowledge/documents/{documentId}",
+      "operationId": "documents.update",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "PATCH",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}",
+      "operationId": "spaces.update",
       "tags": [
         "knowledge"
       ],
@@ -721,8 +831,272 @@
     },
     {
       "method": "POST",
-      "path": "/app/v3/api/knowledge/okf/queries/{queryId}/file_answer",
-      "operationId": "okf.queries.fileAnswer",
+      "path": "/app/v3/api/knowledge/agent_profiles",
+      "operationId": "agentProfiles.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
+      "operationId": "agentProfiles.bindings.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
+      "operationId": "agentProfiles.chat.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
+      "operationId": "agentProfiles.retrievalPreview.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/context_packs",
+      "operationId": "contextPacks.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/documents",
+      "operationId": "documents.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/documents/{documentId}/versions",
+      "operationId": "documents.versions.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/drive_imports",
+      "operationId": "driveImports.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/git_imports",
+      "operationId": "gitImports.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/git_syncs",
+      "operationId": "gitSyncs.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/ingests",
+      "operationId": "ingests.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/market/subscriptions",
+      "operationId": "market.subscriptions.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/media_tasks",
+      "operationId": "mediaTasks.create",
       "tags": [
         "knowledge"
       ],
@@ -786,28 +1160,6 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/okf/exports/{exportId}",
-      "operationId": "okf.bundle.export.retrieve",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
       "method": "POST",
       "path": "/app/v3/api/knowledge/okf/imports",
       "operationId": "okf.bundle.import.create",
@@ -852,9 +1204,31 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/spaces/{spaceId}/browser",
-      "operationId": "spaces.browser.list",
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/okf/queries",
+      "operationId": "okf.queries.create",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/okf/queries/{queryId}/file_answer",
+      "operationId": "okf.queries.fileAnswer",
       "tags": [
         "knowledge"
       ],
@@ -896,9 +1270,9 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/retrievals/{retrievalId}",
-      "operationId": "retrievals.retrieve",
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/site_deployments",
+      "operationId": "siteDeployments.create",
       "tags": [
         "knowledge"
       ],
@@ -919,250 +1293,8 @@
     },
     {
       "method": "POST",
-      "path": "/app/v3/api/knowledge/context_packs",
-      "operationId": "contextPacks.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/agent_profiles",
-      "operationId": "agentProfiles.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}",
-      "operationId": "agentProfiles.retrieve",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "PATCH",
-      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}",
-      "operationId": "agentProfiles.update",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "DELETE",
-      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}",
-      "operationId": "agentProfiles.delete",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
-      "operationId": "agentProfiles.bindings.list",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
-      "operationId": "agentProfiles.bindings.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "PATCH",
-      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}",
-      "operationId": "agentProfiles.bindings.update",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "DELETE",
-      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}",
-      "operationId": "agentProfiles.bindings.delete",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
-      "operationId": "agentProfiles.retrievalPreview.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
-      "operationId": "agentProfiles.chat.create",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
-      "operationId": "spaces.contextBindings.list",
+      "path": "/app/v3/api/knowledge/spaces",
+      "operationId": "spaces.create",
       "tags": [
         "knowledge"
       ],
@@ -1204,119 +1336,9 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/spaces/{spaceId}/members",
-      "operationId": "spaces.members.list",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
       "method": "POST",
       "path": "/app/v3/api/knowledge/spaces/{spaceId}/members",
       "operationId": "spaces.members.grant",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "DELETE",
-      "path": "/app/v3/api/knowledge/spaces/{spaceId}/members",
-      "operationId": "spaces.members.revoke",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/context_bindings/{bindingId}",
-      "operationId": "contextBindings.retrieve",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "PATCH",
-      "path": "/app/v3/api/knowledge/context_bindings/{bindingId}",
-      "operationId": "contextBindings.update",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "DELETE",
-      "path": "/app/v3/api/knowledge/context_bindings/{bindingId}",
-      "operationId": "contextBindings.delete",
       "tags": [
         "knowledge"
       ],
@@ -1380,9 +1402,9 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/market/listings",
-      "operationId": "market.listings.list",
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/wechat/articles/preview",
+      "operationId": "wechat.articles.preview",
       "tags": [
         "knowledge"
       ],
@@ -1403,8 +1425,8 @@
     },
     {
       "method": "POST",
-      "path": "/app/v3/api/knowledge/market/subscriptions",
-      "operationId": "market.subscriptions.create",
+      "path": "/app/v3/api/knowledge/wechat/articles/publish",
+      "operationId": "wechat.articles.publish",
       "tags": [
         "knowledge"
       ],
@@ -1424,9 +1446,9 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "DELETE",
-      "path": "/app/v3/api/knowledge/market/subscriptions/{listingId}",
-      "operationId": "market.subscriptions.delete",
+      "method": "PUT",
+      "path": "/app/v3/api/knowledge/okf/concepts/upsert",
+      "operationId": "okf.concepts.upsert",
       "tags": [
         "knowledge"
       ],
@@ -1446,9 +1468,9 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/site_deployments",
-      "operationId": "siteDeployments.create",
+      "method": "PUT",
+      "path": "/app/v3/api/knowledge/wechat/applets",
+      "operationId": "wechat.applets.replace",
       "tags": [
         "knowledge"
       ],
@@ -1468,31 +1490,9 @@
       "apiSurface": "app-api"
     },
     {
-      "method": "GET",
-      "path": "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
-      "operationId": "siteDeployments.preview.retrieve",
-      "tags": [
-        "knowledge"
-      ],
-      "auth": {
-        "mode": "dual-token",
-        "required": true
-      },
-      "handler": {
-        "module": "crate::routes",
-        "name": null
-      },
-      "ownership": {
-        "owner": "sdkwork-knowledgebase",
-        "apiAuthority": "sdkwork-knowledgebase-app-api"
-      },
-      "requestContext": "WebRequestContext",
-      "apiSurface": "app-api"
-    },
-    {
-      "method": "POST",
-      "path": "/app/v3/api/knowledge/media_tasks",
-      "operationId": "mediaTasks.create",
+      "method": "PUT",
+      "path": "/app/v3/api/knowledge/wechat/official_accounts",
+      "operationId": "wechat.officialAccounts.replace",
       "tags": [
         "knowledge"
       ],

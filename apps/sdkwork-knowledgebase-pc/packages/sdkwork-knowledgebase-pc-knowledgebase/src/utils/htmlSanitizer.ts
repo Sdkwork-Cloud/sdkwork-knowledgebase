@@ -2,4 +2,4 @@ export {
   escapeHtmlText,
   sanitizeEditorHtml,
   sanitizePreviewHtml,
-} from '../../../sdkwork-knowledgebase-pc-commons/src/htmlSanitizer';
+} from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';

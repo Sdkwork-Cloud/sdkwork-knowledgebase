@@ -65,11 +65,7 @@ impl ApiProblem {
         };
         Self {
             status,
-            problem: Box::new(ProblemDetails::pending_trace(
-                status,
-                code,
-                client_detail,
-            )),
+            problem: Box::new(ProblemDetails::pending_trace(status, code, client_detail)),
         }
     }
 

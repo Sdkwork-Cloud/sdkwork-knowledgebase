@@ -1,5 +1,5 @@
 import type { DocumentExportContent, DocumentExportContentProvider, DocumentExportSourceKind } from './types';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 
 export const DEFAULT_EXPORT_TITLE = '无标题';
 

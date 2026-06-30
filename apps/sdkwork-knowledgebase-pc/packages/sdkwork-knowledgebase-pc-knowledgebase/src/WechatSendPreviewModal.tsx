@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { createPortal } from 'react-dom';
 import { X, Plus, Trash2, Send, History, Check, UserPlus, Loader2 } from 'lucide-react';
 import { toast } from './components/ui/toast-manager';
@@ -27,7 +27,7 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
-            setHistory(parsed.filter(item => typeof item === 'string' && item.trim() !== ''));
+            setHistory(parsed.filter((item) => typeof item === 'string' && !isBlank(item)));
           }
         }
       } catch (e) {
@@ -37,8 +37,8 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
       if (previewWechatId) {
         const initial = previewWechatId
           .split(/[,，\s]+/)
-          .map(s => s.trim())
-          .filter(Boolean);
+          .map((segment) => trim(segment))
+          .filter((segment) => !isBlank(segment));
         setRecipients(initial);
       } else {
         setRecipients([]);
@@ -50,10 +50,10 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
   if (!isOpen) return null;
 
   const handleAddRecipient = (idStr: string) => {
-    const trimmed = idStr.trim();
-    if (!trimmed) return;
+    const trimmed = trim(idStr);
+    if (isBlank(trimmed)) return;
     
-    const parts = trimmed.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
+    const parts = trimmed.split(/[,，\s]+/).map((segment) => trim(segment)).filter((segment) => !isBlank(segment));
     
     setRecipients(prev => {
       const combined = [...prev];
@@ -100,10 +100,10 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
 
   const handleSend = async () => {
     let currentRecipients = [...recipients];
-    if (currentRecipients.length === 0 && newIdInput.trim() !== '') {
+    if (currentRecipients.length === 0 && !isBlank(newIdInput)) {
       handleAddRecipient(newIdInput); // This updates state asynchronously
       // Best effort parse to use immediately
-      currentRecipients = newIdInput.trim().split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
+      currentRecipients = trim(newIdInput).split(/[,，\s]+/).map((segment) => trim(segment)).filter((segment) => !isBlank(segment));
     }
 
     if (currentRecipients.length === 0) {
@@ -184,7 +184,7 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
                 <button
                   onClick={() => handleAddRecipient(newIdInput)}
                   className={`px-4 py-2 rounded-lg font-bold text-[13px] transition-colors ${
-                    newIdInput.trim() 
+                    !isBlank(newIdInput)
                       ? 'bg-[#07c160] hover:bg-[#06ad56] text-white shadow-sm' 
                       : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 cursor-not-allowed'
                   }`}
@@ -270,11 +270,11 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
                </button>
                <button 
                  className={`px-6 py-2.5 text-[13.5px] font-extrabold rounded-xl transition-all shadow-sm flex items-center gap-2 ${
-                    recipients.length > 0 || newIdInput.trim() !== ''
+                    recipients.length > 0 || !isBlank(newIdInput)
                       ? 'bg-[#07c160] hover:bg-[#06ad56] text-white hover:shadow-md'
                       : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed'
                  }`}
-                 disabled={(recipients.length === 0 && newIdInput.trim() === '') || isSending} 
+                 disabled={(recipients.length === 0 && isBlank(newIdInput)) || isSending} 
                  onClick={handleSend}
                >
                  {isSending ? (

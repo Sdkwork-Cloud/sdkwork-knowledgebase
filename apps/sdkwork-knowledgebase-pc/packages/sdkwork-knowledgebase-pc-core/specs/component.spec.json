@@ -25,6 +25,11 @@
       "purpose": "PC browser/desktop package taxonomy and runtime boundaries."
     },
     {
+      "file": "APP_COMPOSITION_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_COMPOSITION_SPEC.md",
+      "purpose": "Native-authority application composition and core-package import entrypoints."
+    },
+    {
       "file": "APP_SDK_INTEGRATION_SPEC.md",
       "path": "../../../../../sdkwork-specs/APP_SDK_INTEGRATION_SPEC.md",
       "purpose": "Generated app SDK integration and auth/session wiring."
@@ -42,9 +47,21 @@
   ],
   "contracts": {
     "sdkDependencies": [
-      "sdkwork-knowledgebase-app-sdk",
-      "sdkwork-iam-app-sdk",
-      "sdkwork-drive-app-sdk"
+      {
+        "workspace": "sdkwork-knowledgebase-app-sdk",
+        "surface": "app-api",
+        "credentialMode": "authenticated-app-api"
+      },
+      {
+        "workspace": "sdkwork-iam-app-sdk",
+        "surface": "app-api",
+        "credentialMode": "authenticated-app-api"
+      },
+      {
+        "workspace": "sdkwork-drive-app-sdk",
+        "surface": "app-api",
+        "credentialMode": "authenticated-app-api"
+      }
     ],
     "sdkClients": [
       "@sdkwork/knowledgebase-app-sdk",
@@ -52,7 +69,6 @@
       "@sdkwork/drive-app-sdk"
     ],
     "dependencyApiExports": [],
-    "dependencyApiSurfaces": [],
-    "dependencyComposition": "../../../specs/dependency.composition.json"
+    "dependencyApiSurfaces": []
   }
 }

@@ -1,5 +1,5 @@
-import type { DriveUploaderProfile } from '@sdkwork/drive-app-sdk';
-import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import type { DriveUploaderProfile } from 'sdkwork-knowledgebase-pc-core';
+import { isBlank } from '@sdkwork/utils';
 import {
   getKnowledgebaseAppSdkClient,
   getKnowledgebaseTenantId,

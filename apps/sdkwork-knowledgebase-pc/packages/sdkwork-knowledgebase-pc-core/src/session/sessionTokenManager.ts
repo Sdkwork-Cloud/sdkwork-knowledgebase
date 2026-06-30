@@ -1,6 +1,6 @@
-import type { SessionSnapshot, SessionStore } from './sessionStore';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank } from '@sdkwork/utils';
 
+import type { SessionSnapshot, SessionStore } from './sessionStore';
 export interface KnowledgebaseSessionAuthTokens {
   accessToken?: string;
   authToken?: string;
@@ -128,7 +128,7 @@ function decodeJwtExpiryEpochSeconds(token: string): number | undefined {
     if (typeof exp === 'number' && Number.isFinite(exp)) {
       return exp;
     }
-    if (typeof exp === 'string' && exp.trim() !== '' && Number.isFinite(Number(exp))) {
+    if (typeof exp === 'string' && !isBlank(exp) && Number.isFinite(Number(exp))) {
       return Number(exp);
     }
   } catch {

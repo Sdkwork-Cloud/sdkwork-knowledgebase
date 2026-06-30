@@ -13,10 +13,6 @@ export default defineConfig({
         appRoot,
         'packages/sdkwork-knowledgebase-pc-commons/src',
       ),
-      '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils': path.join(
-        appRoot,
-        'packages/sdkwork-knowledgebase-pc-commons/src/stringUtils.ts',
-      ),
       'sdkwork-knowledgebase-pc-core': path.join(appRoot, 'packages/sdkwork-knowledgebase-pc-core/src'),
     },
   },

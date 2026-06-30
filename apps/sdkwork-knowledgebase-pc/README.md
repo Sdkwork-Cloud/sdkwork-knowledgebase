@@ -19,7 +19,7 @@ Launch acceptance: `../../docs/product/prd/PRD-mvp-launch.md`.
 | `packages/sdkwork-knowledgebase-pc-desktop` | Tauri desktop host |
 | `packages/sdkwork-knowledgebase-pc-knowledge` | Host-managed embed surface (optional; not wired into default shell) |
 
-Import rule: use package names (`@sdkwork/sdkwork-knowledgebase-pc-*`). Do not use `@packages/` deep paths or raw HTTP for business APIs.
+Import rule: use package names (`@sdkwork/sdkwork-knowledgebase-pc-*`). Capability packages import SDK contract types and clients only through `sdkwork-knowledgebase-pc-core` (`./sdk` export). Do not use `@packages/` deep paths or raw HTTP for business APIs.
 
 ## Config examples
 
@@ -39,6 +39,8 @@ Repository-root `.env.postgres` supplies development database and IAM signing se
 - pnpm 10+
 - Rust toolchain (desktop builds and backend dev orchestration)
 
+Install dependencies once from the **repository root** (`pnpm install`). The PC surface participates in the root `pnpm-workspace.yaml` per `APP_COMPOSITION_SPEC.md`.
+
 ## Local development
 
 From the repository root:
@@ -48,19 +50,29 @@ pnpm dev:browser
 pnpm dev:desktop
 ```
 
-Or from this directory:
+Or from this directory (after root `pnpm install`):
 
 ```powershell
-pnpm install
 cp .env.example .env.local
 pnpm dev
 ```
+
+## Composition (APP_COMPOSITION_SPEC)
+
+| Authority | Location |
+| --- | --- |
+| Workspace graph | Repository root `pnpm-workspace.yaml` |
+| Frontend SDK inventory | `packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json#contracts.sdkDependencies` |
+| Runtime SDK base URLs | `packages/sdkwork-knowledgebase-pc-core/src/composition/dependency-runtime.ts` |
+
+Gate: `pnpm check:app-composition` from repository root.
 
 ## SDK integration
 
 - App API: `@sdkwork/knowledgebase-app-sdk` (composed facade over `../../sdks/sdkwork-knowledgebase-app-sdk/`)
 - Drive: `@sdkwork/drive-app-sdk`
 - Auth: `@sdkwork/auth-pc-react`, `@sdkwork/auth-runtime-pc-react` (Appbase IAM)
+- String helpers: `@sdkwork/utils` (`isBlank`, `trim`) — import directly; do not add local re-export shims
 - Do not call backend HTTP APIs directly from app packages.
 
 Production builds must not rely on demo/mock fallbacks (`VITE_SDKWORK_KNOWLEDGEBASE_ENABLE_DEMO_MODE=false` or unset in production).
@@ -70,9 +82,12 @@ Production builds must not rely on demo/mock fallbacks (`VITE_SDKWORK_KNOWLEDGEB
 From repository root:
 
 ```powershell
+pnpm check
+pnpm check:pc-app-hygiene
+pnpm check:utils-integration
 pnpm lint
 pnpm test:frontend
-pnpm check:pc-app-hygiene
+pnpm verify
 pnpm test:e2e:playwright
 ```
 

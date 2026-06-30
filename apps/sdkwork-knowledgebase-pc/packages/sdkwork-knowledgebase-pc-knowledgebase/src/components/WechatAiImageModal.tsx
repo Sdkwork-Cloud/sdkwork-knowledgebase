@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { X, Clock, FileText, ArrowUp, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 import { AIService } from '../services/ai';

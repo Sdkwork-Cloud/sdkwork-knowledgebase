@@ -17,7 +17,7 @@ time.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 sdkwork-knowledgebase-agent-provider.workspace = true
 sdkwork-intelligence-knowledgebase-service.workspace = true
-sdkwork-database-id = { path = "../../../sdkwork-database/crates/sdkwork-database-id" }
+sdkwork-database-id = { workspace = true }
 sdkwork-knowledgebase-observability.workspace = true
 sdkwork-utils-rust.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }

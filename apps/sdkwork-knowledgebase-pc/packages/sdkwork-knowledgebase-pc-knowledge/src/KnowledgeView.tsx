@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, type ComponentProps } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { KnowledgebaseRuntimeProvider } from 'sdkwork-knowledgebase-pc-core';
 
-import { KnowledgeBaseApp, ToastContainer } from '../../sdkwork-knowledgebase-pc-knowledgebase/src';
-import '../../../src/index.css';
-import i18n from '../../../src/i18n';
+import { KnowledgeBaseApp, ToastContainer } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase';
+import '@sdkwork/knowledgebase-pc-knowledge/i18n';
+import i18n from './i18n';
 
 import { bindHostSessionToKnowledgebaseStore } from './sessionBridge';
 import { createHostManagedKnowledgebaseRuntime } from './createHostManagedKnowledgebaseRuntime';

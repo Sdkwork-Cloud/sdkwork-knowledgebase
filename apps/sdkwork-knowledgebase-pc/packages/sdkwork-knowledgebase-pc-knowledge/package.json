@@ -8,6 +8,16 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./i18n": {
+      "types": "./src/i18n/index.ts",
+      "import": "./src/i18n/index.ts",
+      "default": "./src/i18n/index.ts"
+    },
+    "./i18n/locale": {
+      "types": "./src/i18n/locale.ts",
+      "import": "./src/i18n/locale.ts",
+      "default": "./src/i18n/locale.ts"
     }
   },
   "scripts": {
@@ -17,13 +27,14 @@
     "@sdkwork/knowledgebase-app-sdk": "workspace:*",
     "@sdkwork/drive-app-sdk": "workspace:*",
     "@sdkwork/sdkwork-knowledgebase-pc-commons": "workspace:*",
+    "@sdkwork/sdkwork-knowledgebase-pc-knowledgebase": "workspace:*",
+    "i18next": "^26.3.1",
+    "react-i18next": "^17.0.8",
     "sdkwork-knowledgebase-pc-core": "workspace:*"
   },
   "peerDependencies": {
-    "i18next": "^26.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-i18next": "^17.0.0"
+    "react-dom": "^19.0.0"
   },
   "sdkwork": {
     "workspace": "sdkwork-knowledgebase",

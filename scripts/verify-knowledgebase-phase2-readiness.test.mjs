@@ -40,7 +40,8 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
     assert.match(bootstrap, /set_postgres_session_tenant_id/);
     assert.match(tenantSession, /require_postgres_rls_tenant_id/);
     const webAudit = readRepoFile('crates/sdkwork-routes-knowledgebase-backend-api/src/web_audit_store.rs');
-    assert.match(webAudit, /connect_postgres_pool/);
+    assert.match(webAudit, /connect_and_bootstrap_webstore_database_from_env/);
+    assert.match(webAudit, /shared_audit_emitter_pg/);
   });
 
   it('exports billable usage counters from observability crate', () => {

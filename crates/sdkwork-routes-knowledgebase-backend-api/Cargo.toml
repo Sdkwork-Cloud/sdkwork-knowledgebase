@@ -14,10 +14,10 @@ sdkwork-knowledgebase-contract.workspace = true
 sdkwork-intelligence-knowledgebase-repository-sqlx.workspace = true
 sdkwork-iam-web-adapter.workspace = true
 sdkwork-web-axum.workspace = true
-sdkwork-web-bootstrap = { path = "../../../sdkwork-web-framework/crates/sdkwork-web-bootstrap", features = ["sqlx"] }
+sdkwork-web-bootstrap = { workspace = true, features = ["sqlx"] }
 sdkwork-web-core.workspace = true
-sdkwork-web-store-redis = { path = "../../../sdkwork-web-framework/crates/sdkwork-web-store-redis" }
-sdkwork-web-store-sqlx = { path = "../../../sdkwork-web-framework/crates/sdkwork-web-store-sqlx", features = ["sqlite", "postgres"] }
+sdkwork-web-store-redis = { workspace = true }
+sdkwork-web-store-sqlx = { workspace = true, features = ["sqlite", "postgres"] }
 sdkwork_utils_rust.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }

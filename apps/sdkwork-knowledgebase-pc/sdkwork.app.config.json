@@ -25,7 +25,7 @@
     "ui": "APP_PC_REACT_UI_SPEC.md"
   },
   "packages": {
-    "workspace": "pnpm-workspace.yaml"
+    "workspace": "../../pnpm-workspace.yaml"
   },
   "verification": {
     "commands": [

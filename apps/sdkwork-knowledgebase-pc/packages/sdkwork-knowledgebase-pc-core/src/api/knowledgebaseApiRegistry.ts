@@ -1,5 +1,6 @@
-import type { KnowledgebaseAppSdkClient } from '../sdk/knowledgebaseAppSdkClient';
-import { KnowledgebaseErrorCodes } from '../errors/knowledgebaseErrorCodes';
+import { isBlank, trim } from '@sdkwork/utils';
+
+import type { KnowledgebaseAppSdkClient } from '../sdk/knowledgebaseAppSdkClient';import { KnowledgebaseErrorCodes } from '../errors/knowledgebaseErrorCodes';
 import { throwKnowledgebaseError } from '../errors/knowledgebaseAppError';
 
 let appSdkClient: KnowledgebaseAppSdkClient | null = null;
@@ -25,11 +26,10 @@ export function isKnowledgebaseApiAvailable(): boolean {
 }
 
 function readBooleanEnv(value: string | undefined): boolean | undefined {
-  if (value === undefined || value.trim() === '') {
+  if (value === undefined || isBlank(value)) {
     return undefined;
   }
-  const normalized = value.trim().toLowerCase();
-  if (normalized === '1' || normalized === 'true' || normalized === 'yes') {
+  const normalized = trim(value).toLowerCase();  if (normalized === '1' || normalized === 'true' || normalized === 'yes') {
     return true;
   }
   if (normalized === '0' || normalized === 'false' || normalized === 'no') {

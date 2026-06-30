@@ -213,8 +213,11 @@ export default defineConfig(({mode}) => {
           replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-core/src/host/hostAdapter.ts'),
         },
         {
-          find: '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils',
-          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-commons/src/stringUtils.ts'),
+          find: '@sdkwork/utils',
+          replacement: path.resolve(
+            repoRoot,
+            '../sdkwork-utils/packages/sdkwork-utils-typescript/src/index.ts',
+          ),
         },
         {
           find: '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps',

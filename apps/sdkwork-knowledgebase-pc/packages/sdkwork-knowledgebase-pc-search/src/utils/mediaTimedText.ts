@@ -1,5 +1,5 @@
 import type { MediaTimedLine } from '../types';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 
 export function findActiveTimedLineIndex(lines: MediaTimedLine[], currentTime: number): number {
   if (!lines.length) return -1;

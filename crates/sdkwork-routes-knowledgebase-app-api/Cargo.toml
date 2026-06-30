@@ -18,7 +18,7 @@ sdkwork-web-core.workspace = true
 sdkwork-web-bootstrap.workspace = true
 sdkwork-routes-knowledgebase-backend-api = { path = "../sdkwork-routes-knowledgebase-backend-api" }
 sdkwork-routes-knowledgebase-open-api = { path = "../sdkwork-routes-knowledgebase-open-api" }
-sdkwork-drive-storage-local = { path = "../../../sdkwork-drive/crates/sdkwork-drive-storage-local" }
+sdkwork-drive-storage-local = { workspace = true }
 sdkwork-intelligence-knowledgebase-service.workspace = true
 sdkwork-intelligence-knowledgebase-repository-sqlx.workspace = true
 sdkwork_database_config.workspace = true

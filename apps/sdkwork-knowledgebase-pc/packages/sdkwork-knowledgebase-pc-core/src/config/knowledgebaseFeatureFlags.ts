@@ -1,5 +1,6 @@
-import type { SdkworkEnvironment } from './runtimeConfig';
+import { isBlank, trim } from '@sdkwork/utils';
 
+import type { SdkworkEnvironment } from './runtimeConfig';
 export interface KnowledgebaseFeatureFlags {
   documentVersionHistory: boolean;
   documentPermissionsModal: boolean;
@@ -13,11 +14,10 @@ export interface KnowledgebaseFeatureFlags {
 }
 
 function readBooleanEnv(value: string | undefined, defaultValue: boolean): boolean {
-  if (value === undefined || value.trim() === '') {
+  if (value === undefined || isBlank(value)) {
     return defaultValue;
   }
-  const normalized = value.trim().toLowerCase();
-  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+  const normalized = trim(value).toLowerCase();  return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
 export function resolveKnowledgebaseFeatureFlags(

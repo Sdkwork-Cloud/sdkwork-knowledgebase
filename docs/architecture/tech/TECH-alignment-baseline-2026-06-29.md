@@ -6,31 +6,37 @@ Updated: 2026-06-29
 
 ## Purpose
 
-This document records the repository alignment baseline against `../sdkwork-specs/` after pre-launch standardization. Use it as the verification checklist before production release.
+Pre-launch alignment baseline against `../sdkwork-specs/`. Native composition authority (ADR-20260629) replaces the retired parallel `dependency.composition.json` model.
 
 ## Framework Integration
 
 | Framework | Status | Evidence |
 |-----------|--------|----------|
-| sdkwork-specs | Aligned | Root `AGENTS.md`, canonical specs in `specs/component.spec.json`, automated `pnpm check` |
-| sdkwork-web-framework | Aligned | Route crates use `sdkwork-web-axum`, `web_bootstrap.rs`, `SdkWorkApiResponse` mapping |
-| sdkwork-database | Aligned | `database/` lifecycle, `pnpm db:*`, `sdkwork-database-*` in repository-sqlx |
-| sdkwork-utils | Aligned | `sdkwork-utils-rust` / `@sdkwork/utils`, `check:utils-integration` |
-| sdkwork-drive | Aligned | `sdkwork-knowledgebase-drive` adapter, `@sdkwork/drive-app-sdk` PC uploads |
-| sdkwork-discovery | Deferred | HTTP-only phase; `apis/rpc/README.md` placeholder until gRPC services exist |
+| sdkwork-specs | Aligned | `AGENTS.md`, `pnpm check`, `verify-repo.mjs` |
+| sdkwork-web-framework | Aligned | Route crates + `web_bootstrap.rs` + envelope mapping |
+| sdkwork-database | Aligned | `database/` lifecycle + `pnpm db:*` |
+| sdkwork-utils | Aligned | `sdkwork-utils-rust` / `@sdkwork/utils` + strict `check:utils-integration` (no `.trim()` blank bypass) |
+| sdkwork-drive | Aligned | `sdkwork-knowledgebase-drive` + `@sdkwork/drive-app-sdk` PC uploads |
+| sdkwork-discovery | Deferred | HTTP-only; enable when RPC services ship |
 
-## Client Dependency Composition
+## Native Composition (APP_COMPOSITION_SPEC)
 
-- Manifest: `apps/sdkwork-knowledgebase-pc/specs/dependency.composition.json`
-- Core package: `sdkwork-knowledgebase-pc-core/src/composition/`
-- Runtime derivation: `buildDependencySdkBaseUrls()` in `dependency-runtime.ts`
-- Gate: `pnpm check:dependency-composition`
+| Authority | Location |
+|-----------|----------|
+| Workspace dependency graph | Repository root `pnpm-workspace.yaml` (no nested app workspace) |
+| Frontend SDK inventory | `apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/specs/component.spec.json#contracts.sdkDependencies` |
+| Runtime SDK base URLs | `sdkwork-knowledgebase-pc-core/src/composition/dependency-runtime.ts` |
+| PC app config workspace pointer | `apps/sdkwork-knowledgebase-pc/sdkwork.app.config.json#packages.workspace` → `../../pnpm-workspace.yaml` |
+| Core public exports | `sdkwork-knowledgebase-pc-core/package.json#exports` (`.`, `./sdk`, `./modules`, `./host`, `./session`, `./composition`) |
+| SDK contract types (capability packages) | `sdkwork-knowledgebase-pc-core/src/sdk/sdkContractTypes.ts` |
+
+Gate: `pnpm check:app-composition` → `node ../sdkwork-specs/tools/verify-repo.mjs --root .`
 
 ## Verification Commands
 
 ```powershell
 pnpm check
-pnpm check:dependency-composition
+pnpm check:app-composition
 node ../sdkwork-specs/tools/check-api-response-envelope.mjs --workspace .
 pnpm api:materialize:check
 pnpm sdk:generate:check
@@ -41,7 +47,25 @@ pnpm test
 
 ## Pre-Launch Policy
 
-- No raw HTTP in product UI services (use generated app SDK or composed facades).
-- No persistent file bytes outside `sdkwork-drive` (PC via `@sdkwork/drive-app-sdk`, Rust via `sdkwork-knowledgebase-drive`).
-- No local filesystem bundle discovery in production Rust libraries (test fixtures live under `tests/support/` only).
+- Capability packages must not import `@sdkwork/*-app-sdk` directly; use pc-core contract re-exports.
+- Blank/trim helpers must import `@sdkwork/utils` directly (no `pc-commons/stringUtils` re-export shim).
+- No `specs/dependency.composition.json` or `contracts.dependencyComposition` pointers.
+- No raw HTTP in product UI services; use generated app SDK or composed facades.
+- No persistent file bytes outside `sdkwork-drive`.
+- No local filesystem bundle discovery in production Rust libraries (test fixtures under `tests/support/` only).
 - Demo/offline UX is development-only via `shouldUseKnowledgebaseDemoFallback()`; production builds fail closed.
+
+## Verification Status (2026-06-29)
+
+All gates green on repository root:
+
+| Gate | Result |
+|------|--------|
+| `pnpm check` | pass |
+| `pnpm verify` | pass |
+| `verify-repo.mjs` | pass |
+| API envelope checker | pass |
+| Phase 1 launch readiness | pass |
+| Phase 2 commercial readiness | pass |
+
+Dead bootstrap re-export shims under `apps/sdkwork-knowledgebase-pc/src/bootstrap/` were removed; account/session helpers live in `sdkwork-knowledgebase-pc-core/session` and `account/accountViewModel.ts`.

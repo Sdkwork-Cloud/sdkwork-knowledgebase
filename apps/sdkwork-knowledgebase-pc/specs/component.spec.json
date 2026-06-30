@@ -27,6 +27,11 @@
       "purpose": "PC browser/desktop package taxonomy and runtime boundaries."
     },
     {
+      "file": "APP_COMPOSITION_SPEC.md",
+      "path": "../../../sdkwork-specs/APP_COMPOSITION_SPEC.md",
+      "purpose": "Native-authority application composition and workspace policy."
+    },
+    {
       "file": "APP_PC_REACT_UI_SPEC.md",
       "path": "../../../sdkwork-specs/APP_PC_REACT_UI_SPEC.md",
       "purpose": "PC React UI package split and SDK integration rules."
@@ -43,7 +48,6 @@
     }
   ],
   "contracts": {
-    "dependencyComposition": "specs/dependency.composition.json",
     "sdkClients": [
       "@sdkwork/knowledgebase-app-sdk",
       "@sdkwork/drive-app-sdk",

@@ -1,4 +1,4 @@
-import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank } from '@sdkwork/utils';
 import {
   KnowledgebaseErrorCodes,
   requireKnowledgebaseApiAvailable,

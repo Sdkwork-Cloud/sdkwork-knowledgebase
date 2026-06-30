@@ -1,6 +1,6 @@
 import { createRuntimeConfig } from 'sdkwork-knowledgebase-pc-core';
 import React from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { MoreHorizontal, CheckSquare, Folder, Hash, Image as ImageIcon, Video, Music, FileText, Pin } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from './components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent } from './components/ui/context-menu';

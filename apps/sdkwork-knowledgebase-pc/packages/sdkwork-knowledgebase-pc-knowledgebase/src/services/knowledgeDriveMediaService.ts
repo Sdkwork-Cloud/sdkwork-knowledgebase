@@ -1,4 +1,4 @@
-import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
+import type { KnowledgeBrowserNode } from 'sdkwork-knowledgebase-pc-core';
 import {
   getKnowledgebaseDriveAppSdkClient,
   isKnowledgebaseDriveApiAvailable,

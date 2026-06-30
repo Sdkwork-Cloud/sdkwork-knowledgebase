@@ -82,7 +82,8 @@ describe('knowledgebase security standard alignment', () => {
     const webAuditStore = readRepoFile(
       'crates/sdkwork-routes-knowledgebase-backend-api/src/web_audit_store.rs',
     );
-    assert.match(webAuditStore, /PostgresWebAuditEmitter/);
+    assert.match(webAuditStore, /shared_audit_emitter_pg/);
+    assert.match(webAuditStore, /shared_audit_emitter\(/);
     assert.match(webAuditStore, /attach_knowledgebase_audit_emitter/);
     const appBootstrap = readRepoFile(
       'crates/sdkwork-routes-knowledgebase-app-api/src/web_bootstrap.rs',

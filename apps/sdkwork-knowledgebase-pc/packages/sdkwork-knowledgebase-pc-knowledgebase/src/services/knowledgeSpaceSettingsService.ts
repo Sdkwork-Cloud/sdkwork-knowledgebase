@@ -1,5 +1,5 @@
-import type { KnowledgeAccessLevel } from '@sdkwork/knowledgebase-app-sdk';
-import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import type { KnowledgeAccessLevel } from 'sdkwork-knowledgebase-pc-core';
+import { isBlank } from '@sdkwork/utils';
 import {
   getKnowledgebaseAppSdkClient,
   readRegisteredSpaces,

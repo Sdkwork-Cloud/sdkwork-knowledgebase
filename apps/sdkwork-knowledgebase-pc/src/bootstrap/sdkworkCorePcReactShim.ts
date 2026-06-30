@@ -4,6 +4,7 @@ import {
 } from 'sdkwork-knowledgebase-pc-core';
 import { createRuntimeConfig } from 'sdkwork-knowledgebase-pc-core/config/runtimeConfig';
 import { DEFAULT_SESSION_STORAGE_KEY } from 'sdkwork-knowledgebase-pc-core/session/sessionStore';
+import { trim } from '@sdkwork/utils';
 
 export interface PcReactRuntimeSession {
   accessToken?: string;
@@ -29,7 +30,7 @@ function readStorage(): Storage | undefined {
 }
 
 function normalizeToken(value: unknown): string | undefined {
-  const normalized = typeof value === 'string' ? value.trim() : '';
+  const normalized = typeof value === 'string' ? trim(value) : '';
   return normalized.replace(/^Bearer\s+/i, '') || undefined;
 }
 

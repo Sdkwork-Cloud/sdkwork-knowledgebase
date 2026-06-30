@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank } from '@sdkwork/utils';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {

@@ -73,10 +73,10 @@ for (const relativePath of rustSources) {
   }
 }
 
-const pcWorkspace = readText('apps/sdkwork-knowledgebase-pc/pnpm-workspace.yaml');
+const pcWorkspace = readText('pnpm-workspace.yaml');
 assert(
   pcWorkspace.includes('sdkwork-utils/packages/sdkwork-utils-typescript'),
-  'apps/sdkwork-knowledgebase-pc/pnpm-workspace.yaml must include @sdkwork/utils workspace package',
+  'pnpm-workspace.yaml must include @sdkwork/utils workspace package',
 );
 
 const pcPackageJson = JSON.parse(readText('apps/sdkwork-knowledgebase-pc/package.json'));
@@ -93,6 +93,22 @@ assert(
   'sdkwork-knowledgebase-pc-commons must declare @sdkwork/utils',
 );
 
+const pcCorePackageJson = JSON.parse(
+  readText('apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/package.json'),
+);
+assert(
+  pcCorePackageJson.dependencies?.['@sdkwork/utils'],
+  'sdkwork-knowledgebase-pc-core must declare @sdkwork/utils',
+);
+
+const pcShellPackageJson = JSON.parse(
+  readText('apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-shell/package.json'),
+);
+assert(
+  pcShellPackageJson.dependencies?.['@sdkwork/utils'],
+  'sdkwork-knowledgebase-pc-shell must declare @sdkwork/utils',
+);
+
 const tsSources = walkFiles('apps/sdkwork-knowledgebase-pc/packages', (filePath) =>
   /\.(ts|tsx)$/u.test(filePath),
 );
@@ -101,14 +117,16 @@ const legacyBlankPatterns = [
   /\.trim\(\)\.length\s*===\s*0/u,
   /\.trim\(\)\.length\s*>\s*0/u,
   /![\w.?()[\]'"-]+\.trim\(\)/u,
+  /\b[\w.?()[\]'"-]+\.trim\(\)\s*!==\s*['"]['"]/u,
+  /\b[\w.?()[\]'"-]+\.trim\(\)\s*===\s*['"]['"]/u,
 ];
 
 for (const relativePath of tsSources) {
   const text = readText(relativePath);
-  if (
-    text.includes('@sdkwork/utils')
-    || text.includes('sdkwork-knowledgebase-pc-commons/stringUtils')
-  ) {
+  if (text.includes('sdkwork-knowledgebase-pc-commons/stringUtils')) {
+    failures.push(
+      `${relativePath} must import isBlank/trim from @sdkwork/utils instead of pc-commons/stringUtils`,
+    );
     continue;
   }
   for (const pattern of legacyBlankPatterns) {

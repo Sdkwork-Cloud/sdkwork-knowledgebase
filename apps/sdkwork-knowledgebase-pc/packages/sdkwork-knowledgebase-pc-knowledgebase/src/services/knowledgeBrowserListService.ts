@@ -1,4 +1,4 @@
-import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
+import type { KnowledgeBrowserNode } from 'sdkwork-knowledgebase-pc-core';
 import { requireKnowledgebaseAppSdkHttpClient } from 'sdkwork-knowledgebase-pc-core';
 
 const BROWSER_NODE_CACHE_TTL_MS = 30_000;

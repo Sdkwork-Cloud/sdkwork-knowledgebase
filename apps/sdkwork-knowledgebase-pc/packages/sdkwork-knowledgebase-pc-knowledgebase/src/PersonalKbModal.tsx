@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { createPortal } from 'react-dom';
 import { 
   X, Search, Library, Folder, FileText, Hash, Image as ImageIcon, 

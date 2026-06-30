@@ -1,4 +1,4 @@
-import { DocumentService, type KnowledgeBase as KnowledgebaseRecord } from '../../sdkwork-knowledgebase-pc-knowledgebase/src/services/document';
+import { DocumentService, type KnowledgeBase as KnowledgebaseRecord } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/document';
 
 export interface KnowledgeSelectionItem {
   id: string;

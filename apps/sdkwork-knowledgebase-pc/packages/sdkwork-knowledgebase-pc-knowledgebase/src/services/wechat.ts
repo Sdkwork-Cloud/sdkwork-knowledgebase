@@ -2,7 +2,7 @@ import type {
   KnowledgeWechatApplet,
   KnowledgeWechatArticle,
   KnowledgeWechatOfficialAccount,
-} from '@sdkwork/knowledgebase-app-sdk';
+} from 'sdkwork-knowledgebase-pc-core';
 import {
   getKnowledgebaseAppSdkClient,
   isKnowledgebaseApiAvailable,

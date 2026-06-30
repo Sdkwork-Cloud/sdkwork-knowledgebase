@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { marked } from 'marked';
 
 export function parseFollowUpSuggestions(content: string): string[] {

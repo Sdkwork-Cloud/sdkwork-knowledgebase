@@ -6,6 +6,8 @@ This repository follows SDKWork App Standard v3 and the canonical specs in `../s
 
 ## Workspace paths
 
+Repository root declares one monorepo manifest per `APP_COMPOSITION_SPEC.md` (single root graph; no nested app-level workspace files).
+
 ```text
 apis/                                      Synchronized OpenAPI review copies (materialized from sdks/).
 apps/sdkwork-knowledgebase-pc/             PC React + optional Tauri desktop app surface.
@@ -94,7 +96,7 @@ Run:
 
 ```powershell
 pnpm check
-pnpm check:dependency-composition
+pnpm check:app-composition
 pnpm verify
 node ../sdkwork-specs/tools/check-api-response-envelope.mjs --workspace .
 pnpm api:materialize:check
@@ -104,7 +106,7 @@ pnpm test:launch-readiness
 pnpm lint
 ```
 
-`pnpm check` includes architecture alignment, PC dependency composition (`specs/dependency.composition.json`), utils integration, and SDKWork script/workflow standards.
+`pnpm check` includes architecture alignment, native app composition (`verify-repo.mjs` + `component.spec.json#contracts.sdkDependencies`), PC app hygiene (including capability-package SDK import boundaries), utils integration, and SDKWork script/workflow standards.
 
 `pnpm verify` includes Phase 1 contract checks, security/observability alignment, launch-readiness gates, and cloud gateway validation.
 

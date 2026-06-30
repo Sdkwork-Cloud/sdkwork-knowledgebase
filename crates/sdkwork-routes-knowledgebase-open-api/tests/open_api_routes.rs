@@ -216,7 +216,10 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
         .await
         .unwrap();
     assert_eq!(list_response.status(), StatusCode::OK);
-    assert_eq!(response_json(list_response).await["data"]["item"]["items"][0]["id"], 901);
+    assert_eq!(
+        response_json(list_response).await["data"]["item"]["items"][0]["id"],
+        901
+    );
 
     let retrieve_response = app
         .clone()
@@ -230,7 +233,10 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
         .await
         .unwrap();
     assert_eq!(retrieve_response.status(), StatusCode::OK);
-    assert_eq!(response_json(retrieve_response).await["data"]["item"]["id"], 901);
+    assert_eq!(
+        response_json(retrieve_response).await["data"]["item"]["id"],
+        901
+    );
 
     let ingest_response = app
         .oneshot(
@@ -243,7 +249,10 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
         .await
         .unwrap();
     assert_eq!(ingest_response.status(), StatusCode::OK);
-    assert_eq!(response_json(ingest_response).await["data"]["item"]["id"], 51);
+    assert_eq!(
+        response_json(ingest_response).await["data"]["item"]["id"],
+        51
+    );
 }
 
 #[test]

@@ -16,14 +16,11 @@ import {
 import {
   createKnowledgebaseAccountViewModel,
   KNOWLEDGEBASE_POST_AUTH_LANDING_FLAG,
+  signOutKnowledgebaseSession,
+  useHydrateKnowledgebaseAccount,
   useKnowledgebaseRuntime,
   useKnowledgebaseSessionSnapshot,
 } from 'sdkwork-knowledgebase-pc-core';
-
-import {
-  signOutKnowledgebaseSession,
-  useHydrateKnowledgebaseAccount,
-} from '../../../src/bootstrap/knowledgebaseAccountSession';
 import { SettingsModal } from './SettingsModal';
 import { GlobalNav } from './GlobalNav';
 import { UserProfileModal, DEFAULT_USER_PROFILE, type UserProfile } from './UserProfileModal';

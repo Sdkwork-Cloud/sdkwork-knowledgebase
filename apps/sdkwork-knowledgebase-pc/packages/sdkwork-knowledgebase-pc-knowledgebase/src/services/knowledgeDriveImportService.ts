@@ -1,6 +1,5 @@
-import type { DriveNode } from '@sdkwork/drive-app-sdk';
-import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
-import { isBlank } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import type { DriveNode, KnowledgeBrowserNode } from 'sdkwork-knowledgebase-pc-core';
+import { isBlank } from '@sdkwork/utils';
 import {
   getKnowledgebaseDriveAppSdkClient,
   isKnowledgebaseDriveApiAvailable,

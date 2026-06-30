@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
+import { isBlank, trim } from '@sdkwork/utils';
 import { Send, Sparkles, X, User, Bot, Loader2, Paperclip, File, Check, Terminal, Activity, Code, Cpu, Play, CheckCircle2, Wand2, Mic, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AiModelSelector } from '@sdkwork/sdkwork-knowledgebase-pc-commons';

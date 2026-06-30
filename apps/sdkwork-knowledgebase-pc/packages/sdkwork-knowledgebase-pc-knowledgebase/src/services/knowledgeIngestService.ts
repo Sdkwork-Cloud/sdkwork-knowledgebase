@@ -1,4 +1,4 @@
-import type { IngestionJob } from '@sdkwork/knowledgebase-app-sdk';
+import type { IngestionJob } from 'sdkwork-knowledgebase-pc-core';
 import {
   KnowledgebaseErrorCodes,
   requireKnowledgebaseAppSdkHttpClient,

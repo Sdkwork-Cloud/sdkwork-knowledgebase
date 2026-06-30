@@ -17,8 +17,14 @@ export { resolveKnowledgebaseFeatureFlags } from './config/knowledgebaseFeatureF
 export type { KnowledgebaseFeatureFlags } from './config/knowledgebaseFeatureFlags';
 export * from './sdk/knowledgebaseAppSdkClient';
 export * from './sdk/driveAppSdkClient';
+export * from './sdk/sdkContractTypes';
 export * from './session/sessionStore';
 export * from './session/sessionTokenManager';
+export {
+  signOutKnowledgebaseAccount,
+  signOutKnowledgebaseSession,
+  useHydrateKnowledgebaseAccount,
+} from './session/accountSession';
 export type {
   KnowledgebaseRuntimeConfig,
   RuntimeEnv,

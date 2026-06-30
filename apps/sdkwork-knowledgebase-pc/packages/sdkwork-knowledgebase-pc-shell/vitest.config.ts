@@ -9,10 +9,6 @@ export default defineConfig({
   resolve: {
     alias: {
       ...vitestSharedAliases,
-      '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils': path.join(
-        appRoot,
-        'packages/sdkwork-knowledgebase-pc-commons/src/stringUtils.ts',
-      ),
     },
   },
   test: {

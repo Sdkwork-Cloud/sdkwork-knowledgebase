@@ -1,4 +1,4 @@
-import type { KnowledgeBrowserNode } from '@sdkwork/knowledgebase-app-sdk';
+import type { KnowledgeBrowserNode } from 'sdkwork-knowledgebase-pc-core';
 import { getKnowledgebaseTenantId, parseKnowledgeSpaceId, readRegisteredSpaces } from 'sdkwork-knowledgebase-pc-core';
 
 import type { DocumentMeta } from './document';

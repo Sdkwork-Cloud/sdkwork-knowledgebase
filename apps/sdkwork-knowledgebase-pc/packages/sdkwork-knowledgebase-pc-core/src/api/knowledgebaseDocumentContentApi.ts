@@ -2,7 +2,7 @@ import {
   getKnowledgebaseAppSdkClient,
   isKnowledgebaseApiAvailable,
 } from './knowledgebaseApiRegistry';
-import type { KnowledgeDocumentContent } from '@sdkwork/knowledgebase-app-sdk';
+import type { KnowledgeDocumentContent } from '../sdk/sdkContractTypes.js';
 
 export type KnowledgeDocumentContentPayload = KnowledgeDocumentContent;
 

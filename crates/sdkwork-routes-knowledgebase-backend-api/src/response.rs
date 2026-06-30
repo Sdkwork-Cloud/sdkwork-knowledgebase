@@ -1,7 +1,4 @@
-use axum::{
-    http::StatusCode,
-    response::Response,
-};
+use axum::{http::StatusCode, response::Response};
 use serde::Serialize;
 
 use crate::error::{BackendApiProblem, BackendApiResult};

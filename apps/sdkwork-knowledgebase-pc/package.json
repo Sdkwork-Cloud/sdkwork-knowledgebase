@@ -17,12 +17,15 @@
   },
   "dependencies": {
     "@sdkwork/iam-app-sdk": "workspace:*",
+    "@sdkwork/iam-contracts": "workspace:*",
     "@sdkwork/auth-pc-react": "workspace:*",
     "@sdkwork/auth-runtime-pc-react": "workspace:*",
     "@sdkwork/drive-app-sdk": "workspace:*",
     "@sdkwork/knowledgebase-app-sdk": "workspace:*",
+    "@sdkwork/knowledgebase-pc-knowledge": "workspace:*",
     "@sdkwork/utils": "workspace:*",
     "@sdkwork/ui-pc-react": "workspace:*",
+    "sdkwork-knowledgebase-pc-core": "workspace:*",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -60,7 +63,8 @@
     "rehype-sanitize": "^6.0.0",
     "tailwind-merge": "^3.6.0",
     "tiptap-markdown": "^0.9.0",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "tailwindcss": "^4.1.14"
   },
   "devDependencies": {
     "@playwright/test": "^1.52.0",
@@ -68,7 +72,6 @@
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
-    "tailwindcss": "^4.1.14",
     "ts-morph": "^28.0.0",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",

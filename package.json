@@ -3,9 +3,9 @@
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
-  "packageManager": "pnpm@10.30.2",
+  "packageManager": "pnpm@10.33.0",
   "dependencies": {
-    "@sdkwork/app-topology": "file:../sdkwork-app-topology"
+    "@sdkwork/app-topology": "workspace:*"
   },
   "scripts": {
     "dev": "pnpm dev:browser",
@@ -32,8 +32,8 @@
     "test:e2e:playwright": "pnpm --dir apps/sdkwork-knowledgebase-pc run test:e2e",
     "test:topology": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-topology.test.mjs",
     "test:frontend": "pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-commons test && pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core test && pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-search test && pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase test && pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-shell test",
-    "check": "pnpm check:architecture-alignment && pnpm check:dependency-composition && pnpm check:pc-app-hygiene && pnpm check:utils-integration && pnpm check:pnpm-script-standard && pnpm check:agent-workflow-standard && pnpm check:okf-standard && pnpm check:external-engine-catalog && pnpm check:knowledge-engine-spi",
-    "check:dependency-composition": "node tools/check_dependency_composition_standard.mjs",
+    "check": "pnpm check:architecture-alignment && pnpm check:app-composition && pnpm check:pc-app-hygiene && pnpm check:utils-integration && pnpm check:pnpm-script-standard && pnpm check:agent-workflow-standard && pnpm check:okf-standard && pnpm check:external-engine-catalog && pnpm check:knowledge-engine-spi",
+    "check:app-composition": "node ../sdkwork-specs/tools/verify-repo.mjs --root .",
     "check:utils-integration": "node tools/check_utils_integration_standard.mjs",
     "check:okf-standard": "node tools/check_okf_knowledge_bundle_standard.mjs",
     "check:external-engine-catalog": "node tools/check_external_knowledge_engine_catalog.mjs",
@@ -42,7 +42,7 @@
     "check:pc-app-hygiene": "node tools/check_pc_app_hygiene.mjs",
     "check:pnpm-script-standard": "node ../sdkwork-specs/tools/check-pnpm-script-standard.mjs --root . --product-prefix knowledgebase,kb",
     "check:agent-workflow-standard": "node ../sdkwork-specs/tools/check-agent-workflow-standard.mjs --root .",
-    "verify": "powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1 && pnpm check && pnpm test:security && pnpm test:observability && pnpm test:launch-readiness && pnpm test:phase2-readiness && pnpm gateway:validate:cloud",
+    "verify": "powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1 && pnpm check && pnpm test:security && pnpm test:observability && pnpm test:launch-readiness && pnpm test:phase2-readiness && pnpm gateway:validate:cloud && pnpm run check:app-composition",
     "clean": "cargo clean && node -e \"const fs=require('node:fs'); for (const dir of ['artifacts','target']) { if (fs.existsSync(dir)) fs.rmSync(dir,{recursive:true,force:true}); }\"",
     "typecheck": "pnpm --dir apps/sdkwork-knowledgebase-pc run lint",
     "lint": "pnpm --dir apps/sdkwork-knowledgebase-pc run lint",

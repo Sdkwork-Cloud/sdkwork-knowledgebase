@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { isBlank, trim } from '@sdkwork/sdkwork-knowledgebase-pc-commons/stringUtils';
-import type { SessionSnapshot, SessionStore } from '../session/sessionStore';
+import { isBlank, trim } from '@sdkwork/utils';
 
+import type { SessionSnapshot, SessionStore } from '../session/sessionStore';
 export interface KnowledgebaseAuthLocationLike {
   hash?: string;
   pathname: string;
@@ -178,8 +178,8 @@ export function isKnowledgebaseAuthRoute(pathname: string): boolean {
 }
 
 function normalizePathname(pathname: string): string {
-  const normalized = pathname.trim();
-  if (!normalized) {
+  const normalized = trim(pathname);
+  if (isBlank(normalized)) {
     return DEFAULT_HOME_PATH;
   }
   return normalized.startsWith('/') ? normalized : `/${normalized}`;
