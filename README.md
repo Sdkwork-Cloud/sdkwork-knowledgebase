@@ -1,4 +1,5 @@
 # SDKWork Knowledgebase
+repository-kind: application
 
 Rust backend and PC web/desktop client for SDKWork Knowledgebase.
 

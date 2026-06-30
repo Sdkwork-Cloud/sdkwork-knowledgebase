@@ -47,7 +47,7 @@ pnpm test
 
 ## Pre-Launch Policy
 
-- Capability packages must not import `@sdkwork/*-app-sdk` directly; use pc-core contract re-exports.
+- Root `README.md` declares `repository-kind: application` per `SDKWORK_WORKSPACE_SPEC.md`.
 - Blank/trim helpers must import `@sdkwork/utils` directly (no `pc-commons/stringUtils` re-export shim).
 - No `specs/dependency.composition.json` or `contracts.dependencyComposition` pointers.
 - No raw HTTP in product UI services; use generated app SDK or composed facades.
