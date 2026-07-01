@@ -117,7 +117,7 @@ fn ensure_knowledge_admin_permission(
     Err(BackendApiProblem::new(
         StatusCode::FORBIDDEN,
         "knowledge_admin_permission_required",
-        "knowledge.admin permission is required for backend-api operations",
+        "knowledge.platform.manage permission is required for backend-api operations",
     ))
 }
 

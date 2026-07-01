@@ -1,423 +1,433 @@
 use sdkwork_web_core::{HttpMethod, HttpRoute, HttpRouteManifest, RateLimitTier};
 
-const fn abuse_sensitive_route(
+const fn knowledge_route(
     method: HttpMethod,
     path: &'static str,
-    tag: &'static str,
     operation_id: &'static str,
+    permission: &'static str,
 ) -> HttpRoute {
-    HttpRoute::dual_token(method, path, tag, operation_id)
+    HttpRoute::dual_token(method, path, "knowledge", operation_id)
+        .with_required_permission(permission)
+}
+
+const fn knowledge_abuse_route(
+    method: HttpMethod,
+    path: &'static str,
+    operation_id: &'static str,
+    permission: &'static str,
+) -> HttpRoute {
+    knowledge_route(method, path, operation_id, permission)
         .with_rate_limit_tier(RateLimitTier::AuthCritical)
 }
 
 const HTTP_ROUTES: &[HttpRoute] = &[
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/spaces",
-        "knowledge",
         "spaces.create",
+        "knowledge.spaces.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/spaces/{spaceId}",
-        "knowledge",
         "spaces.retrieve",
+        "knowledge.spaces.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Patch,
         "/app/v3/api/knowledge/spaces/{spaceId}",
-        "knowledge",
         "spaces.update",
+        "knowledge.spaces.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/spaces/{spaceId}",
-        "knowledge",
         "spaces.delete",
+        "knowledge.spaces.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/drive_imports",
-        "knowledge",
         "driveImports.create",
+        "knowledge.imports.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/git_imports",
-        "knowledge",
         "gitImports.create",
+        "knowledge.imports.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/git_syncs",
-        "knowledge",
         "gitSyncs.create",
+        "knowledge.imports.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/wechat/official_accounts",
-        "knowledge",
         "wechat.officialAccounts.list",
+        "knowledge.wechat.manage",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Put,
         "/app/v3/api/knowledge/wechat/official_accounts",
-        "knowledge",
         "wechat.officialAccounts.replace",
+        "knowledge.wechat.manage",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/wechat/applets",
-        "knowledge",
         "wechat.applets.list",
+        "knowledge.wechat.manage",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Put,
         "/app/v3/api/knowledge/wechat/applets",
-        "knowledge",
         "wechat.applets.replace",
+        "knowledge.wechat.manage",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/wechat/articles/publish",
-        "knowledge",
         "wechat.articles.publish",
+        "knowledge.wechat.manage",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/wechat/articles/preview",
-        "knowledge",
         "wechat.articles.preview",
+        "knowledge.wechat.manage",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/ingests",
-        "knowledge",
         "ingests.create",
+        "knowledge.ingests.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/ingests/{ingestId}",
-        "knowledge",
         "ingests.retrieve",
+        "knowledge.ingests.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/documents",
-        "knowledge",
         "documents.list",
+        "knowledge.documents.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/documents",
-        "knowledge",
         "documents.create",
+        "knowledge.documents.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/documents/{documentId}",
-        "knowledge",
         "documents.retrieve",
+        "knowledge.documents.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Patch,
         "/app/v3/api/knowledge/documents/{documentId}",
-        "knowledge",
         "documents.update",
+        "knowledge.documents.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/documents/{documentId}",
-        "knowledge",
         "documents.delete",
+        "knowledge.documents.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/documents/{documentId}/content",
-        "knowledge",
         "documents.content.retrieve",
+        "knowledge.documents.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/documents/{documentId}/versions",
-        "knowledge",
         "documents.versions.list",
+        "knowledge.documents.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/documents/{documentId}/versions",
-        "knowledge",
         "documents.versions.create",
+        "knowledge.documents.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/concepts",
-        "knowledge",
         "okf.concepts.list",
+        "knowledge.okf.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Put,
         "/app/v3/api/knowledge/okf/concepts/upsert",
-        "knowledge",
         "okf.concepts.upsert",
+        "knowledge.okf.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/concepts/{conceptId}",
-        "knowledge",
         "okf.concepts.retrieve",
+        "knowledge.okf.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/okf/concepts/{conceptId}",
-        "knowledge",
         "okf.concepts.delete",
+        "knowledge.okf.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/concepts/{conceptId}/revisions",
-        "knowledge",
         "okf.concepts.revisions.list",
+        "knowledge.okf.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/index",
-        "knowledge",
         "okf.bundle.index.retrieve",
+        "knowledge.okf.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/log",
-        "knowledge",
         "okf.bundle.log.retrieve",
+        "knowledge.okf.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/profile",
-        "knowledge",
         "okf.bundle.profile.retrieve",
+        "knowledge.okf.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/okf/queries",
-        "knowledge",
         "okf.queries.create",
+        "knowledge.okf.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/okf/queries/{queryId}/file_answer",
-        "knowledge",
         "okf.queries.fileAnswer",
+        "knowledge.okf.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/okf/context_packs",
-        "knowledge",
         "okf.contextPacks.create",
+        "knowledge.okf.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/okf/exports",
-        "knowledge",
         "okf.bundle.export.create",
+        "knowledge.okf.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/exports/{exportId}",
-        "knowledge",
         "okf.bundle.export.retrieve",
+        "knowledge.okf.read",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/okf/imports",
-        "knowledge",
         "okf.bundle.import.create",
+        "knowledge.okf.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/okf/lint_runs",
-        "knowledge",
         "okf.lintRuns.create",
+        "knowledge.okf.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/spaces/{spaceId}/browser",
-        "knowledge",
         "spaces.browser.list",
+        "knowledge.spaces.read",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/retrievals",
-        "knowledge",
         "retrievals.create",
+        "knowledge.retrievals.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/retrievals/{retrievalId}",
-        "knowledge",
         "retrievals.retrieve",
+        "knowledge.retrievals.read",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/context_packs",
-        "knowledge",
         "contextPacks.create",
+        "knowledge.context_packs.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/agent_profiles",
-        "knowledge",
         "agentProfiles.create",
+        "knowledge.agent_profiles.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/agent_profiles/{profileId}",
-        "knowledge",
         "agentProfiles.retrieve",
+        "knowledge.agent_profiles.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Patch,
         "/app/v3/api/knowledge/agent_profiles/{profileId}",
-        "knowledge",
         "agentProfiles.update",
+        "knowledge.agent_profiles.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/agent_profiles/{profileId}",
-        "knowledge",
         "agentProfiles.delete",
+        "knowledge.agent_profiles.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
-        "knowledge",
         "agentProfiles.bindings.list",
+        "knowledge.agent_profiles.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
-        "knowledge",
         "agentProfiles.bindings.create",
+        "knowledge.agent_profiles.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Patch,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}",
-        "knowledge",
         "agentProfiles.bindings.update",
+        "knowledge.agent_profiles.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}",
-        "knowledge",
         "agentProfiles.bindings.delete",
+        "knowledge.agent_profiles.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
-        "knowledge",
         "agentProfiles.retrievalPreview.create",
+        "knowledge.agent_profiles.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
-        "knowledge",
         "agentProfiles.chat.create",
+        "knowledge.agent_profiles.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
-        "knowledge",
         "spaces.contextBindings.list",
+        "knowledge.spaces.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
-        "knowledge",
         "spaces.contextBindings.create",
+        "knowledge.spaces.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/spaces/{spaceId}/members",
-        "knowledge",
         "spaces.members.list",
+        "knowledge.spaces.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/spaces/{spaceId}/members",
-        "knowledge",
         "spaces.members.grant",
+        "knowledge.spaces.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/spaces/{spaceId}/members",
-        "knowledge",
         "spaces.members.revoke",
+        "knowledge.spaces.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/context_bindings/{bindingId}",
-        "knowledge",
         "contextBindings.retrieve",
+        "knowledge.context_bindings.read",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Patch,
         "/app/v3/api/knowledge/context_bindings/{bindingId}",
-        "knowledge",
         "contextBindings.update",
+        "knowledge.context_bindings.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/context_bindings/{bindingId}",
-        "knowledge",
         "contextBindings.delete",
+        "knowledge.context_bindings.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/upload_sessions",
-        "knowledge",
         "uploadSessions.create",
+        "knowledge.uploads.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/upload_sessions/{sessionId}/complete",
-        "knowledge",
         "uploadSessions.complete",
+        "knowledge.uploads.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/market/listings",
-        "knowledge",
         "market.listings.list",
+        "knowledge.market.read",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/market/subscriptions",
-        "knowledge",
         "market.subscriptions.create",
+        "knowledge.market.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/market/subscriptions/{listingId}",
-        "knowledge",
         "market.subscriptions.delete",
+        "knowledge.market.write",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/site_deployments",
-        "knowledge",
         "siteDeployments.create",
+        "knowledge.deployments.write",
     ),
-    HttpRoute::dual_token(
+    knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
-        "knowledge",
         "siteDeployments.preview.retrieve",
+        "knowledge.deployments.read",
     ),
-    abuse_sensitive_route(
+    knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/media_tasks",
-        "knowledge",
         "mediaTasks.create",
+        "knowledge.media.write",
     ),
 ];
 

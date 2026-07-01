@@ -173,7 +173,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "List knowledge sources",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -347,7 +347,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create a knowledge source",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -523,7 +523,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create an OKF compile job",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -708,7 +708,7 @@
         ],
         "summary": "List OKF candidates",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -895,7 +895,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Approve an OKF candidate",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1082,7 +1082,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Reject an OKF candidate",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1269,7 +1269,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Publish an OKF concept",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1445,7 +1445,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create an OKF profile",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1632,7 +1632,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Update an OKF profile",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1808,7 +1808,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Rebuild the OKF bundle index",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1984,7 +1984,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create an OKF log entry",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -2161,7 +2161,7 @@
         "summary": "Create an OKF bundle export",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -2338,7 +2338,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve an OKF bundle export",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -2512,7 +2512,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "List OKF bundle files",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -2688,7 +2688,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create an OKF lint run",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -2864,7 +2864,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create an OKF eval run",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3040,7 +3040,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create a knowledge index",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3218,7 +3218,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve a knowledge index",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3406,7 +3406,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Rebuild a knowledge index",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3582,7 +3582,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create a retrieval profile",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3760,7 +3760,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve a retrieval profile",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3946,7 +3946,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Update a retrieval profile",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -4120,7 +4120,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "List retrieval traces",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -4298,7 +4298,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve a retrieval trace",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -4464,7 +4464,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve provider health status",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -4630,7 +4630,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve current tenant knowledgebase status",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -4807,7 +4807,7 @@
         "summary": "Import an OKF bundle from drive staging",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-permission": "knowledge.platform.manage",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"

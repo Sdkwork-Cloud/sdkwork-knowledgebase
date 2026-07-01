@@ -19,13 +19,13 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
   });
 
   it('ships Postgres RLS migration for tenant-scoped kb_* tables', () => {
-    const migration = readRepoFile('database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql');
+    const baseline = readRepoFile('database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql');
     const crateMigration = readRepoFile(
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606260001__knowledgebase_postgres_rls.sql',
     );
-    assert.match(migration, /ENABLE ROW LEVEL SECURITY/);
-    assert.match(migration, /tenant_isolation/);
-    assert.match(migration, /kb_audit_event/);
+    assert.match(baseline, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(baseline, /tenant_isolation/);
+    assert.match(baseline, /kb_audit_event/);
     assert.match(crateMigration, /app\.current_tenant_id/);
   });
 

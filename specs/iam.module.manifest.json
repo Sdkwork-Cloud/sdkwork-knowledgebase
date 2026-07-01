@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.iam.module",
+  "moduleId": "knowledge",
+  "catalogVersion": "1.0.0",
+  "domain": "knowledge",
+  "owner": "sdkwork-knowledgebase",
+  "displayName": "Knowledgebase Module",
+  "permissions": {
+    "catalog": [
+      {
+        "code": "knowledge.spaces.read",
+        "name": "Read knowledge spaces",
+        "resource": "knowledge.spaces",
+        "action": "read",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.spaces.write",
+        "name": "Create and update knowledge spaces",
+        "resource": "knowledge.spaces",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.documents.read",
+        "name": "Read knowledge documents",
+        "resource": "knowledge.documents",
+        "action": "read",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.documents.write",
+        "name": "Create and update knowledge documents",
+        "resource": "knowledge.documents",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.ingests.read",
+        "name": "Read knowledge ingests",
+        "resource": "knowledge.ingests",
+        "action": "read",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.ingests.write",
+        "name": "Create knowledge ingests",
+        "resource": "knowledge.ingests",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.imports.write",
+        "name": "Import knowledge from drive or git",
+        "resource": "knowledge.imports",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.okf.read",
+        "name": "Read OKF knowledge bundles",
+        "resource": "knowledge.okf",
+        "action": "read",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.okf.write",
+        "name": "Mutate OKF knowledge bundles",
+        "resource": "knowledge.okf",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.platform.manage",
+        "name": "Manage knowledge platform backend operations",
+        "resource": "knowledge.platform",
+        "action": "manage",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": "knowledge.admin"
+      }
+    ],
+    "openapiAuthorities": [
+      {
+        "authorityId": "sdkwork-knowledgebase-app-api",
+        "surface": "app-api"
+      },
+      {
+        "authorityId": "sdkwork-knowledgebase-backend-api",
+        "surface": "backend-api"
+      }
+    ]
+  },
+  "roles": {
+    "domainStandardRoles": [],
+    "roleGrantExtensions": [
+      {
+        "roleCode": "app_user",
+        "patterns": [
+          "knowledge.spaces.read",
+          "knowledge.spaces.write",
+          "knowledge.documents.read",
+          "knowledge.documents.write",
+          "knowledge.ingests.read",
+          "knowledge.ingests.write",
+          "knowledge.imports.write",
+          "knowledge.okf.read",
+          "knowledge.okf.write"
+        ]
+      },
+      {
+        "roleCode": "org_admin",
+        "patterns": [
+          "knowledge.*"
+        ]
+      }
+    ],
+    "roleExclusions": []
+  },
+  "directory": {
+    "organizationTemplates": [],
+    "departmentTemplates": [],
+    "positionTemplates": [],
+    "membershipTemplates": []
+  },
+  "policyConditions": {
+    "supportedAttributes": []
+  },
+  "oauthScopeMappings": [],
+  "dependencies": {
+    "requiresModules": [
+      "iam-kernel"
+    ]
+  }
+}

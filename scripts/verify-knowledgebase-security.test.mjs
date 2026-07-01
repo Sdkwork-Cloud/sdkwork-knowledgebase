@@ -47,7 +47,7 @@ describe('knowledgebase security standard alignment', () => {
       'crates/sdkwork-routes-knowledgebase-backend-api/src/web_bootstrap.rs',
     );
     assert.match(webBootstrap, /KnowledgeBackendAuthorizationPolicy/);
-    assert.match(webBootstrap, /knowledge\.admin permission is required/);
+    assert.match(webBootstrap, /knowledge\.platform\.manage permission is required/);
     assert.match(webBootstrap, /with_authorization_policy/);
     assert.match(webBootstrap, /apply_knowledgebase_web_framework/);
   });
@@ -70,10 +70,8 @@ describe('knowledgebase security standard alignment', () => {
   });
 
   it('persists durable kb_audit_event records', () => {
-    const migration = readRepoFile(
-      'database/migrations/postgres/0005_knowledgebase_audit_event.up.sql',
-    );
-    assert.match(migration, /kb_audit_event/);
+    const baseline = readRepoFile('database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql');
+    assert.match(baseline, /kb_audit_event/);
     const audit = readRepoFile('crates/sdkwork-knowledgebase-observability/src/audit.rs');
     assert.match(audit, /install_audit_persistence/);
   });
@@ -89,14 +87,8 @@ describe('knowledgebase security standard alignment', () => {
       'crates/sdkwork-routes-knowledgebase-app-api/src/web_bootstrap.rs',
     );
     assert.match(appBootstrap, /attach_knowledgebase_audit_emitter/);
-    const postgresMigration = readRepoFile(
-      'database/migrations/postgres/0006_web_audit_event.up.sql',
-    );
-    assert.match(postgresMigration, /web_audit_event/);
-    const sqliteMigration = readRepoFile(
-      'database/migrations/sqlite/0006_web_audit_event.up.sql',
-    );
-    assert.match(sqliteMigration, /web_audit_event/);
+    const baseline = readRepoFile('database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql');
+    assert.match(baseline, /web_audit_event/);
     const openBootstrap = readRepoFile(
       'crates/sdkwork-routes-knowledgebase-open-api/src/web_bootstrap.rs',
     );
@@ -195,7 +187,7 @@ describe('knowledgebase security standard alignment', () => {
     assert.doesNotMatch(ingress, /path: \/metrics/);
   });
 
-  it('declares knowledge.admin on backend OpenAPI operations', () => {
+  it('declares knowledge.platform.manage on backend OpenAPI operations', () => {
     const backendOpenApi = JSON.parse(
       readRepoFile(
         'sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json',
@@ -209,11 +201,19 @@ describe('knowledgebase security standard alignment', () => {
         }
         assert.equal(
           operation['x-sdkwork-permission'],
-          'knowledge.admin',
-          `backend operation ${operation.operationId ?? method} must declare knowledge.admin`,
+          'knowledge.platform.manage',
+          `backend operation ${operation.operationId ?? method} must declare knowledge.platform.manage`,
         );
       }
     }
+  });
+
+  it('requires manifest permissions on knowledge app-api spaces.create route', () => {
+    const routeManifest = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-app-api/src/http_route_manifest.rs',
+    );
+    assert.match(routeManifest, /"spaces\.create"[\s\S]*?"knowledge\.spaces\.write"/u);
+    assert.match(routeManifest, /with_required_permission\(permission\)/u);
   });
 
   it('wires hosted WeChat service in full app runtime instead of stub ports', () => {

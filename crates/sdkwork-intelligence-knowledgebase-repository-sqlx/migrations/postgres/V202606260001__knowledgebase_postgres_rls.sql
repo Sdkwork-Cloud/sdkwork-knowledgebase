@@ -40,19 +40,38 @@ BEGIN
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);
         EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', table_name);
-        EXECUTE format(
-            'CREATE POLICY tenant_isolation ON %I AS PERMISSIVE FOR ALL TO PUBLIC USING (tenant_id = current_setting(''app.current_tenant_id'', true)::bigint) WITH CHECK (tenant_id = current_setting(''app.current_tenant_id'', true)::bigint)',
-            table_name
-        );
+        IF NOT EXISTS (
+            SELECT 1
+            FROM pg_policies
+            WHERE schemaname = current_schema()
+              AND tablename = table_name
+              AND policyname = 'tenant_isolation'
+        ) THEN
+            EXECUTE format(
+                'CREATE POLICY tenant_isolation ON %I AS PERMISSIVE FOR ALL TO PUBLIC USING (tenant_id = current_setting(''app.current_tenant_id'', true)::bigint) WITH CHECK (tenant_id = current_setting(''app.current_tenant_id'', true)::bigint)',
+                table_name
+            );
+        END IF;
     END LOOP;
 END $$;
 
-ALTER TABLE web_audit_event ENABLE ROW LEVEL SECURITY;
-ALTER TABLE web_audit_event FORCE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+    ALTER TABLE web_audit_event ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE web_audit_event FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY tenant_isolation ON web_audit_event
-    AS PERMISSIVE
-    FOR ALL
-    TO PUBLIC
-    USING (tenant_id IS NOT DISTINCT FROM current_setting('app.current_tenant_id', true))
-    WITH CHECK (tenant_id IS NOT DISTINCT FROM current_setting('app.current_tenant_id', true));
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_policies
+        WHERE schemaname = current_schema()
+          AND tablename = 'web_audit_event'
+          AND policyname = 'tenant_isolation'
+    ) THEN
+        CREATE POLICY tenant_isolation ON web_audit_event
+            AS PERMISSIVE
+            FOR ALL
+            TO PUBLIC
+            USING (tenant_id IS NOT DISTINCT FROM current_setting('app.current_tenant_id', true))
+            WITH CHECK (tenant_id IS NOT DISTINCT FROM current_setting('app.current_tenant_id', true));
+    END IF;
+END $$;

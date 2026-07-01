@@ -79,3 +79,13 @@ backup/
 # SDKWork local runtime state
 .runtime/
 **/.runtime/
+.env.*
+!.env.example
+!.env.*.example
+!.env.postgres.example
+coverage/
+**/.pnpm-store/
+**/.sdkwork/dart/pub-cache/
+**/.sdkwork/sdkwork-generator-changes.json
+**/.sdkwork/sdkwork-generator-manifest.json
+**/.sdkwork/sdkwork-generator-report.json

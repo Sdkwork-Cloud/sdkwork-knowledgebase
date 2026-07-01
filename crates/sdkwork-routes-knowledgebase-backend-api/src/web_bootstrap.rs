@@ -37,7 +37,7 @@ impl AuthorizationPolicy for KnowledgeBackendAuthorizationPolicy {
             return Ok(());
         }
         Err(WebFrameworkError::forbidden(
-            "knowledge.admin permission is required",
+            "knowledge.platform.manage permission is required",
         ))
     }
 }
