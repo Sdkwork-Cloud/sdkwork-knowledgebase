@@ -62,6 +62,11 @@ async fn sqlite_space_repository_initializes_okf_bundle_standard_files() {
     assert_eq!(space_row.get::<i64, _>("okf_bundle_initialized"), 1);
     assert_eq!(space_row.get::<i64, _>("status"), 1);
 
+    let summary = spaces.summarize_tenant_knowledgebase().await.unwrap();
+    assert_eq!(summary.space_count, 1);
+    assert_eq!(summary.document_count, 0);
+    assert!(summary.created_at.is_some());
+
     let rows = sqlx::query(
         r#"
         SELECT logical_path, file_kind, artifact_role, drive_bucket, drive_object_key,

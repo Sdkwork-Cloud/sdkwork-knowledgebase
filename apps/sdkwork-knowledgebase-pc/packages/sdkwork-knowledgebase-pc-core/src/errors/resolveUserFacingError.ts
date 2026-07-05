@@ -25,6 +25,15 @@ function mapHttpStatusToCode(status?: number): string {
   }
 }
 
+function mapPlatformProblemCode(code: string): string {
+  switch (code) {
+    case '60002':
+      return KnowledgebaseErrorCodes.TENANT_QUOTA_EXCEEDED;
+    default:
+      return code;
+  }
+}
+
 export function resolveKnowledgebaseErrorCode(error: unknown): string {
   if (isKnowledgebaseAppError(error)) {
     return error.code;
@@ -32,7 +41,7 @@ export function resolveKnowledgebaseErrorCode(error: unknown): string {
 
   const problem = parseSdkProblemDetails(error);
   if (problem?.code) {
-    return problem.code;
+    return mapPlatformProblemCode(problem.code);
   }
   if (problem?.status !== undefined) {
     return mapHttpStatusToCode(problem.status);

@@ -37,5 +37,6 @@
     "api",
     "app",
     "sdkwork"
-  ]
+  ],
+  "sdkworkRole": "transport"
 }

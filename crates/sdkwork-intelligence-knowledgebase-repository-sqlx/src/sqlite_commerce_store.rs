@@ -281,7 +281,7 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
         })?;
 
         sqlx::query(
-            "UPDATE kb_market_listing SET subscribers_count = subscribers_count + 1, updated_at = $3 WHERE tenant_id = $1 AND id = $2",
+            "UPDATE kb_market_listing SET subscribers_count = subscribers_count + 1, updated_at = CAST($3 AS TIMESTAMP) WHERE tenant_id = $1 AND id = $2",
         )
         .bind(tenant_id as i64)
         .bind(listing_id as i64)
@@ -320,7 +320,7 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
         }
 
         sqlx::query(
-            "UPDATE kb_market_listing SET subscribers_count = CASE WHEN subscribers_count > 0 THEN subscribers_count - 1 ELSE 0 END, updated_at = $3 WHERE tenant_id = $1 AND id = $2",
+            "UPDATE kb_market_listing SET subscribers_count = CASE WHEN subscribers_count > 0 THEN subscribers_count - 1 ELSE 0 END, updated_at = CAST($3 AS TIMESTAMP) WHERE tenant_id = $1 AND id = $2",
         )
         .bind(tenant_id as i64)
         .bind(listing_id as i64)

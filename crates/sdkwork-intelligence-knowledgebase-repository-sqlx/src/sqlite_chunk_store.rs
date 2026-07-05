@@ -9,6 +9,9 @@ use crate::chunk_transaction::replace_version_chunks_with_pool;
 use crate::id::{default_knowledge_id_generator, KnowledgeIdGenerator};
 use crate::keyword_search::KeywordSearchBackend;
 
+/// Safety cap for in-process document content assembly (PAGINATION_SPEC store-level bound).
+const MAX_CHUNKS_PER_DOCUMENT_LOAD: i64 = 2000;
+
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeChunkStore {
     pool: AnyPool,
@@ -86,11 +89,13 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
             FROM kb_chunk
             WHERE tenant_id = $1 AND document_version_id = $2 AND status = $3
             ORDER BY chunk_index ASC
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
         .bind(version_id)
         .bind(ACTIVE_STATUS)
+        .bind(MAX_CHUNKS_PER_DOCUMENT_LOAD)
         .fetch_all(&self.pool)
         .await
         .map_err(|error| KnowledgeChunkStoreError::Internal(error.to_string()))?;
@@ -117,11 +122,13 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
             FROM kb_chunk
             WHERE tenant_id = $1 AND document_version_id = $2 AND status = $3
             ORDER BY chunk_index ASC
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
         .bind(version_id)
         .bind(ACTIVE_STATUS)
+        .bind(MAX_CHUNKS_PER_DOCUMENT_LOAD)
         .fetch_all(&self.pool)
         .await
         .map_err(|error| KnowledgeChunkStoreError::Internal(error.to_string()))?;
@@ -142,11 +149,13 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
             FROM kb_chunk
             WHERE tenant_id = $1 AND document_version_id = $2 AND status = $3
             ORDER BY chunk_index ASC
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
         .bind(version_id)
         .bind(ACTIVE_STATUS)
+        .bind(MAX_CHUNKS_PER_DOCUMENT_LOAD)
         .fetch_all(&self.pool)
         .await
         .map_err(|error| KnowledgeChunkStoreError::Internal(error.to_string()))?;

@@ -48,7 +48,7 @@ pub(crate) async fn upsert_okf_candidate_in_transaction(
             SET candidate_type = $1,
                 state = $2,
                 markdown_object_ref_id = $3,
-                updated_at = $4,
+                updated_at = CAST($4 AS TIMESTAMP),
                 version = version + 1
             WHERE tenant_id = $5 AND id = $6 AND status = $7
             "#,
@@ -146,7 +146,7 @@ pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
         SET state = $1,
             reviewer_id = $2,
             review_note = $3,
-            updated_at = $4,
+            updated_at = CAST($4 AS TIMESTAMP),
             version = version + 1
         WHERE tenant_id = $5 AND space_id = $6 AND concept_id = $7 AND status = $8
         "#,

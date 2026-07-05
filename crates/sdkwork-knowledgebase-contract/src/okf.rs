@@ -72,6 +72,8 @@ pub struct OkfConceptSummaryList {
 #[serde(rename_all = "camelCase")]
 pub struct ListOkfConceptsQuery {
     pub space_id: u64,
+    pub cursor: Option<String>,
+    pub page_size: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

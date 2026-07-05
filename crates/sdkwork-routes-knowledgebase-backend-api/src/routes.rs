@@ -80,7 +80,10 @@ pub fn build_business_router_with_shared_backend_api(
         )
         .route(paths::OKF_LINT_RUNS, post(handlers::create_okf_lint_run))
         .route(paths::OKF_EVAL_RUNS, post(handlers::create_okf_eval_run))
-        .route(paths::INDEXES, post(handlers::create_index))
+        .route(
+            paths::INDEXES,
+            get(handlers::list_indexes).post(handlers::create_index),
+        )
         .route(paths::INDEX, get(handlers::retrieve_index))
         .route(paths::INDEX_REBUILD, post(handlers::rebuild_index))
         .route(
@@ -106,6 +109,19 @@ pub fn build_business_router_with_shared_backend_api(
         .route(
             paths::TENANT_LANDING,
             get(handlers::retrieve_current_tenant),
+        )
+        .route(paths::SPACES, get(handlers::list_spaces))
+        .route(
+            paths::SPACE_MEMBERS,
+            get(handlers::list_space_members),
+        )
+        .route(
+            paths::COMPLIANCE_AUDIT_EVENTS_EXPORT,
+            post(handlers::export_audit_events),
+        )
+        .route(
+            paths::COMPLIANCE_AUDIT_EVENTS_ANONYMIZE,
+            post(handlers::anonymize_audit_subject),
         )
         .with_state(state)
 }

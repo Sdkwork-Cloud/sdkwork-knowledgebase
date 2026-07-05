@@ -212,7 +212,7 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
         let pages = self
             .deps
             .concepts
-            .list_concept_summaries(request.space_id)
+            .list_concept_summaries(request.space_id, None)
             .await
             .map_err(map_okf_store_error)?;
 
@@ -314,7 +314,7 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
         let pages = self
             .deps
             .concepts
-            .list_concept_summaries(request.space_id)
+            .list_concept_summaries(request.space_id, None)
             .await
             .map_err(map_okf_store_error)?;
 
@@ -354,13 +354,12 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
         let pages = self
             .deps
             .concepts
-            .list_concept_summaries(request.space_id)
+            .list_concept_summaries(request.space_id, Some(request.limit.max(1)))
             .await
             .map_err(map_okf_store_error)?;
 
         let items = pages
             .into_iter()
-            .take(request.limit.max(1) as usize)
             .map(|concept| KnowledgeEngineDocumentRef {
                 document_id: concept.concept_id,
                 title: concept.title,
@@ -380,7 +379,7 @@ impl OkfBundleEngine for OkfNativeKnowledgeEngine {
     ) -> Result<Vec<OkfConceptSummary>, KnowledgeEngineError> {
         self.deps
             .concepts
-            .list_concept_summaries(space_id)
+            .list_concept_summaries(space_id, None)
             .await
             .map_err(map_okf_store_error)
     }

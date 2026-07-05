@@ -49,3 +49,30 @@ pub async fn serve_worker_health(listen_addr: &str, readiness: ReadinessCheck) {
         .await
         .expect("serve knowledgebase worker health");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use sdkwork_routes_knowledgebase_backend_api::DbReadinessCheck;
+    use tower::util::ServiceExt;
+
+    #[tokio::test]
+    async fn livez_returns_ok_without_readiness_dependency() {
+        let pool = sqlx::AnyPool::connect("sqlite::memory:")
+            .await
+            .expect("sqlite memory pool");
+        let app = worker_health_router(DbReadinessCheck::new(pool));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/livez")
+                    .body(Body::empty())
+                    .expect("livez request"),
+            )
+            .await
+            .expect("livez response");
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+}

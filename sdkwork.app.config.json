@@ -30,6 +30,7 @@
     "tenantId": "100001",
     "organizationId": "0",
     "accessTokenPermissionScope": [
+      "knowledge.*",
       "iam.users.read",
       "iam.organizations.read",
       "iam.roles.read",
@@ -253,7 +254,7 @@
         "content": "Initial SDKWork App Standard v3 manifest for SDKWork Knowledgebase.",
         "highlights": [
           "SDKWork App Standard v3 configuration initialized",
-          "PlusApp projection metadata standardized",
+          "platform_app projection metadata standardized",
           "Download package matrix normalized"
         ],
         "packageIds": [

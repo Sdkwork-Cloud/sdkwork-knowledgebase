@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
     context_binding::{
-        CreateKnowledgeSpaceContextBindingRequest, KnowledgeSpaceContextBinding,
-        KnowledgeSpaceContextBindingList, UpdateKnowledgeSpaceContextBindingRequest,
+        CreateKnowledgeSpaceContextBindingRequest, KnowledgeContextType,
+        KnowledgeSpaceContextBinding, UpdateKnowledgeSpaceContextBindingRequest,
     },
     upload::{
         CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
@@ -12,26 +12,27 @@ use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile,
-    KnowledgeAgentProfileRequest, KnowledgeBrowserPage, KnowledgeContextPack,
+    KnowledgeAgentProfileRequest,     KnowledgeBrowserNode, KnowledgeContextPack,
     KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent,
-    KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList,
+    KnowledgeDocumentVersion,
     KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest,
     KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult,
     KnowledgeIngestRequest, KnowledgeMarketCatalogList, KnowledgeMarketSubscriptionRequest,
     KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult,
     KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest,
     KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest,
-    KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceMemberList,
+    KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceMember,
     KnowledgeSpaceMemberSubjectType, KnowledgeWechatAppletList,
     KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest,
     KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
     KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
     ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
-    OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest,
+    OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest,
     OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
     OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult,
     UpdateKnowledgeSpaceRequest,
 };
+use sdkwork_utils_rust::SdkWorkPageData;
 
 use crate::{ApiError, ApiResult};
 
@@ -76,7 +77,7 @@ pub trait KnowledgeSpaceAppService: Send + Sync + 'static {
         space_id: u64,
         cursor: Option<String>,
         page_size: Option<u32>,
-    ) -> ApiResult<KnowledgeSpaceMemberList>;
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSpaceMember>>;
 
     async fn grant_space_member(
         &self,
@@ -214,7 +215,9 @@ pub trait KnowledgeDocumentAppService: Send + Sync + 'static {
         &self,
         context: KnowledgeAppRequestContext,
         space_id: u64,
-    ) -> ApiResult<KnowledgeDocumentList>;
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeDocument>>;
 
     async fn create_document(
         &self,
@@ -245,7 +248,9 @@ pub trait KnowledgeDocumentAppService: Send + Sync + 'static {
         &self,
         context: KnowledgeAppRequestContext,
         document_id: u64,
-    ) -> ApiResult<KnowledgeDocumentVersionList>;
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeDocumentVersion>>;
 
     async fn create_document_version(
         &self,
@@ -267,7 +272,9 @@ pub trait KnowledgeOkfAppService: Send + Sync + 'static {
         &self,
         context: KnowledgeAppRequestContext,
         space_id: u64,
-    ) -> ApiResult<OkfConceptSummaryList>;
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<OkfConceptSummary>>;
 
     async fn retrieve_okf_concept(
         &self,
@@ -361,7 +368,7 @@ pub trait KnowledgeBrowserApi: Send + Sync + 'static {
         &self,
         context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<KnowledgeBrowserPage>;
+    ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>>;
 }
 
 #[async_trait]
@@ -389,11 +396,13 @@ pub trait KnowledgeRetrievalAppService: Send + Sync + 'static {
 pub trait KnowledgeUploadSessionAppService: Send + Sync + 'static {
     async fn create_upload_session(
         &self,
+        context: KnowledgeAppRequestContext,
         request: CreateKnowledgeUploadSessionRequest,
     ) -> ApiResult<KnowledgeUploadSession>;
 
     async fn complete_upload_session(
         &self,
+        context: KnowledgeAppRequestContext,
         session_id: u64,
         request: CompleteKnowledgeUploadSessionRequest,
     ) -> ApiResult<IngestionJob>;
@@ -405,7 +414,10 @@ pub trait KnowledgeContextBindingAppService: Send + Sync + 'static {
         &self,
         context: KnowledgeAppRequestContext,
         space_id: u64,
-    ) -> ApiResult<KnowledgeSpaceContextBindingList>;
+        cursor: Option<String>,
+        page_size: Option<u32>,
+        context_type: Option<KnowledgeContextType>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSpaceContextBinding>>;
 
     async fn create_space_context_binding(
         &self,
@@ -545,7 +557,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _space_id: u64,
         _cursor: Option<String>,
         _page_size: Option<u32>,
-    ) -> ApiResult<KnowledgeSpaceMemberList> {
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSpaceMember>> {
         Err(ApiError::not_implemented("spaces.members.list"))
     }
 
@@ -612,7 +624,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         &self,
         _context: KnowledgeAppRequestContext,
         _space_id: u64,
-    ) -> ApiResult<KnowledgeDocumentList> {
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeDocument>> {
         Err(ApiError::not_implemented("documents.list"))
     }
 
@@ -653,7 +667,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         &self,
         _context: KnowledgeAppRequestContext,
         _document_id: u64,
-    ) -> ApiResult<KnowledgeDocumentVersionList> {
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeDocumentVersion>> {
         Err(ApiError::not_implemented("documents.versions.list"))
     }
 
@@ -677,9 +693,10 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
     async fn list_okf_concepts(
         &self,
         _context: KnowledgeAppRequestContext,
-        space_id: u64,
-    ) -> ApiResult<OkfConceptSummaryList> {
-        let _ = space_id;
+        _space_id: u64,
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<OkfConceptSummary>> {
         Err(ApiError::not_implemented("okf.concepts.list"))
     }
 
@@ -800,7 +817,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         &self,
         _context: KnowledgeAppRequestContext,
         _request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<KnowledgeBrowserPage> {
+    ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>> {
         Err(ApiError::not_implemented("spaces.browser.list"))
     }
 
@@ -921,7 +938,10 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         &self,
         _context: KnowledgeAppRequestContext,
         _space_id: u64,
-    ) -> ApiResult<KnowledgeSpaceContextBindingList> {
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+        _context_type: Option<KnowledgeContextType>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSpaceContextBinding>> {
         Err(ApiError::not_implemented("spaces.contextBindings.list"))
     }
 
@@ -961,6 +981,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
 
     async fn create_upload_session(
         &self,
+        _context: KnowledgeAppRequestContext,
         _request: CreateKnowledgeUploadSessionRequest,
     ) -> ApiResult<KnowledgeUploadSession> {
         Err(ApiError::not_implemented("uploadSessions.create"))
@@ -968,6 +989,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
 
     async fn complete_upload_session(
         &self,
+        _context: KnowledgeAppRequestContext,
         _session_id: u64,
         _request: CompleteKnowledgeUploadSessionRequest,
     ) -> ApiResult<IngestionJob> {

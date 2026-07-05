@@ -141,7 +141,8 @@ Knowledgebase provides a single endpoint to retrieve the caller's own tenant
 knowledgebase statistics:
 
 - `GET /backend/v3/api/knowledge/tenants/current` — retrieve tenant status
-  - Returns: `{ tenant_name?, status, space_count, document_count, created_at? }`
+  - Returns: `{ tenant_name?, status, space_count, document_count, created_at?, quota? }`
+  - `quota` includes document, ingest concurrency, and retrieval-per-minute limits with current usage
   - **Security**: Tenant identity is derived from `WebRequestPrincipal.tenant_id()`
     — no `tenant_id` parameter is accepted.
 
@@ -150,6 +151,27 @@ knowledgebase statistics:
 - Each tenant runs in its own API/worker process (Phase 1)
 - Shared Postgres instance (Phase 2+) uses RLS session context per connection
 - No cross-tenant data access is possible even if token validation is bypassed
+
+### 5.4 Tenant Business Quotas (Phase 2+)
+
+Business quotas are enforced in app-api handlers and surfaced to operators through
+`KnowledgeTenantStatus.quota` on the backend admin API and `/admin` console.
+
+| Environment variable | Default (dev) | Enforced on |
+| --- | --- | --- |
+| `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_DOCUMENTS` | platform default | Document create |
+| `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_CONCURRENT_INGEST_JOBS` | platform default | Ingest start / post-enqueue verify |
+| `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_RETRIEVALS_PER_MINUTE` | platform default | Retrieval rate limit store |
+| `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_STORAGE_BYTES` | 100 GiB | Markdown ingest, upload session complete, and drive import (projected against `SUM(kb_drive_object_ref.size_bytes)` for active refs) |
+
+Quota violations return `ProblemDetail` with code `60002` (`knowledge_tenant_quota_exceeded`).
+
+GDPR subject export and anonymization for `kb_audit_event` are available through:
+
+- `POST /backend/v3/api/knowledge/compliance/audit_events/export` (`compliance.auditEvents.export`)
+- `POST /backend/v3/api/knowledge/compliance/audit_events/anonymize_actor` (`compliance.auditEvents.anonymizeActor`)
+
+See [audit-retention.md](../docs/runbooks/audit-retention.md) for operator procedures.
 
 ## 6. Fail-Closed Verification
 

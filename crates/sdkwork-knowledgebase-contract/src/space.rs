@@ -39,3 +39,9 @@ pub enum KnowledgeSpaceStatus {
     Archived,
     Deleted,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeSpaceList {
+    pub items: Vec<KnowledgeSpace>,
+}

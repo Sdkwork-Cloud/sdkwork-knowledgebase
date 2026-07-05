@@ -104,11 +104,11 @@ async fn creating_space_binds_dedicated_drive_knowledge_space_before_okf_initial
     );
     assert_eq!(
         drive_spaces.requested_owner_subject_type(),
-        Some("user".to_string())
+        Some("app".to_string())
     );
     assert_eq!(
         drive_spaces.requested_owner_subject_id(),
-        Some("test-owner".to_string())
+        Some("sdkwork-knowledgebase:space-1".to_string())
     );
     assert!(created.okf_bundle_initialized);
     assert_eq!(drive.paths().len(), 4);

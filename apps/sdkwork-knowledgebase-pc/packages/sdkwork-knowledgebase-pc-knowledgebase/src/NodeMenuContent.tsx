@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, FolderPlus, FileUp, FolderUp, Cloud, Link, Edit2, Trash2, Pin, Tag, UserCog, Copy, ChevronRight, ExternalLink, SplitSquareHorizontal, History, ArrowRight, FolderOutput, Mic, Music } from 'lucide-react';
+import { FileText, FolderPlus, FileUp, FolderUp, Cloud, Link, Edit2, Trash2, Pin, Tag, UserCog, Copy, ChevronRight, ExternalLink, History, ArrowRight, FolderOutput, Mic, Music } from 'lucide-react';
 import { DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from './components/ui/dropdown-menu';
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubTrigger, ContextMenuSubContent } from './components/ui/context-menu';
 
@@ -21,7 +21,6 @@ export interface NodeMenuItemsProps {
   onEditTags?: (e: React.MouseEvent) => void;
   onPermissions?: (e: React.MouseEvent) => void;
   onOpenNewTab?: (e: React.MouseEvent) => void;
-  onOpenSplit?: (e: React.MouseEvent) => void;
   onViewHistory?: (e: React.MouseEvent) => void;
   showDocumentPermissions?: boolean;
   showDocumentVersionHistory?: boolean;
@@ -30,7 +29,7 @@ export interface NodeMenuItemsProps {
 
 export function NodeDropdownItems({ 
   isFolder, onNewDoc, onNewFolder, onLocalFile, onLocalAudio, onLocalMusic, onLocalFolder, onCloudDrive, onWebLink, onRename, onDelete, onMoveTo, onCopyTo, 
-  onPin, onEditTags, onPermissions, onOpenNewTab, onOpenSplit, onViewHistory,
+  onPin, onEditTags, onPermissions, onOpenNewTab, onViewHistory,
   showDocumentPermissions = false,
   showDocumentVersionHistory = false,
   t 
@@ -109,10 +108,6 @@ export function NodeDropdownItems({
             <ExternalLink size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
             在新标签页中打开
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onOpenSplit as any}>
-            <SplitSquareHorizontal size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
-            右侧拆分打开
-          </DropdownMenuItem>
           {showDocumentVersionHistory && (
             <DropdownMenuItem onSelect={onViewHistory as any}>
               <History size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
@@ -145,7 +140,7 @@ export function NodeDropdownItems({
 
 export function NodeContextItems({ 
   isFolder, onNewDoc, onNewFolder, onLocalFile, onLocalAudio, onLocalMusic, onLocalFolder, onCloudDrive, onWebLink, onRename, onDelete, onMoveTo, onCopyTo, 
-  onPin, onEditTags, onPermissions, onOpenNewTab, onOpenSplit, onViewHistory,
+  onPin, onEditTags, onPermissions, onOpenNewTab, onViewHistory,
   showDocumentPermissions = false,
   showDocumentVersionHistory = false,
   t 
@@ -223,10 +218,6 @@ export function NodeContextItems({
           <ContextMenuItem onSelect={onOpenNewTab as any}>
             <ExternalLink size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
             在新标签页中打开
-          </ContextMenuItem>
-          <ContextMenuItem onSelect={onOpenSplit as any}>
-            <SplitSquareHorizontal size={14} className="mr-2 text-[var(--color-kb-text-muted)]" />
-            右侧拆分打开
           </ContextMenuItem>
           {showDocumentVersionHistory && (
             <ContextMenuItem onSelect={onViewHistory as any}>

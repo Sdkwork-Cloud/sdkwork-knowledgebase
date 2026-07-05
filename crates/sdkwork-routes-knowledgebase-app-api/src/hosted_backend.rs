@@ -16,20 +16,23 @@ use sdkwork_knowledgebase_agent_provider::{
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sdkwork_knowledgebase_contract::{
-    CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest,
+    CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexList,
+    KnowledgeIndexRequest,
     KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList, KnowledgeOkfProfileRequest,
     KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
     KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList,
-    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfCandidateResult,
+    KnowledgeSpace, KnowledgeSpaceMemberList, KnowledgeTenantStatus, KnowledgeTenantStatusEnum, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfCandidateResult,
     OkfCandidateResultList, OkfCandidateReviewRequest, OkfCompileJobRequest,
     OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfIndexRebuildRequest,
     OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
+use sdkwork_utils_rust::SdkWorkPageData;
 use sdkwork_routes_knowledgebase_backend_api::{
     BackendApiError, BackendApiResult, KnowledgeBackendApi,
 };
 
 use crate::{
+    hosted_access::list_space_members_admin_with_runtime,
     hosted_support::{
         concept_to_summary, create_okf_bundle_export, create_okf_bundle_import,
         persist_okf_profile, rebuild_okf_index_document, retrieve_okf_bundle_export,
@@ -90,6 +93,12 @@ impl HostedBackendApi {
             })
             .await
             .map_err(|error| map_internal(error.to_string()))?;
+
+        if result.created {
+            crate::tenant_quota_enforcement::verify_ingest_capacity_after_enqueue(&self.runtime)
+                .await
+                .map_err(|error| error.to_backend_api_error())?;
+        }
 
         let mut job = result.job;
         if job.state != IngestionJobState::Queued {
@@ -498,6 +507,16 @@ impl KnowledgeBackendApi for HostedBackendApi {
         })
     }
 
+    async fn list_indexes(&self) -> BackendApiResult<KnowledgeIndexList> {
+        let items = self
+            .runtime
+            .index_store()
+            .list_active_indexes(200)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        Ok(KnowledgeIndexList { items })
+    }
+
     async fn create_index(
         &self,
         request: KnowledgeIndexRequest,
@@ -714,6 +733,137 @@ impl KnowledgeBackendApi for HostedBackendApi {
             provider_id: engine_ids.join(","),
             checked_at: None,
         })
+    }
+
+    async fn retrieve_current_tenant(&self) -> BackendApiResult<KnowledgeTenantStatus> {
+        let summary = self
+            .runtime
+            .space_store()
+            .summarize_tenant_knowledgebase()
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        let quota = crate::tenant_quota_enforcement::load_tenant_quota_status(&self.runtime)
+            .await
+            .map_err(|error| error.to_backend_api_error())?;
+        Ok(KnowledgeTenantStatus {
+            tenant_name: None,
+            status: KnowledgeTenantStatusEnum::Active,
+            space_count: summary.space_count,
+            document_count: summary.document_count,
+            created_at: summary.created_at,
+            quota: Some(quota),
+        })
+    }
+
+    async fn list_spaces(
+        &self,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeSpace>> {
+        let normalized_page_size =
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+        let cursor_id = sdkwork_routes_knowledgebase_backend_api::pagination::parse_u64_cursor(
+            cursor.as_deref(),
+        )
+        .map_err(|_| {
+            BackendApiError::new(
+                axum::http::StatusCode::BAD_REQUEST,
+                "invalid_parameter",
+                "cursor must be a valid space id",
+            )
+        })?;
+        let (items, next_cursor, has_more) = self
+            .runtime
+            .space_store()
+            .list_spaces_page(cursor_id, normalized_page_size)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        Ok(
+            sdkwork_routes_knowledgebase_backend_api::pagination::cursor_page_data(
+                items,
+                next_cursor,
+                has_more,
+                normalized_page_size,
+            ),
+        )
+    }
+
+    async fn list_space_members(
+        &self,
+        space_id: u64,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<KnowledgeSpaceMemberList> {
+        list_space_members_admin_with_runtime(&self.runtime, space_id, cursor, page_size)
+            .await
+            .map_err(map_api_error)
+    }
+
+    async fn export_audit_events(
+        &self,
+        request: sdkwork_knowledgebase_contract::ExportKnowledgeAuditEventsRequest,
+    ) -> BackendApiResult<sdkwork_knowledgebase_contract::KnowledgeAuditEventExport> {
+        use sdkwork_knowledgebase_contract::KnowledgeAuditEventItem;
+        use sdkwork_utils_rust::is_blank;
+
+        if is_blank(Some(request.actor_id.as_str())) {
+            return Err(BackendApiError::new(
+                axum::http::StatusCode::BAD_REQUEST,
+                "invalid_audit_export_request",
+                "actor_id is required",
+            ));
+        }
+        let records = self
+            .runtime
+            .audit_event_store()
+            .list_events_by_actor(&request.actor_id, 5_000)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        let items = records
+            .into_iter()
+            .map(|record| KnowledgeAuditEventItem {
+                id: record
+                    .uuid
+                    .or_else(|| record.id.map(|value| value.to_string()))
+                    .unwrap_or_default(),
+                event_type: record.event_type,
+                actor_type: record.actor_type,
+                actor_id: record.actor_id,
+                resource_type: record.resource_type,
+                resource_id: record.resource_id.map(|value| value.to_string()),
+                result: record.result,
+                trace_id: record.trace_id.or(record.request_id),
+                created_at: record.created_at.unwrap_or_default(),
+            })
+            .collect();
+        Ok(sdkwork_knowledgebase_contract::KnowledgeAuditEventExport { items })
+    }
+
+    async fn anonymize_audit_subject(
+        &self,
+        request: sdkwork_knowledgebase_contract::AnonymizeKnowledgeAuditSubjectRequest,
+    ) -> BackendApiResult<sdkwork_knowledgebase_contract::AnonymizeKnowledgeAuditSubjectResult>
+    {
+        use sdkwork_utils_rust::is_blank;
+
+        if is_blank(Some(request.actor_id.as_str())) {
+            return Err(BackendApiError::new(
+                axum::http::StatusCode::BAD_REQUEST,
+                "invalid_audit_anonymize_request",
+                "actor_id is required",
+            ));
+        }
+        let anonymized_count = self
+            .runtime
+            .audit_event_store()
+            .anonymize_actor(&request.actor_id)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        Ok(
+            sdkwork_knowledgebase_contract::AnonymizeKnowledgeAuditSubjectResult {
+                anonymized_count,
+            },
+        )
     }
 }
 

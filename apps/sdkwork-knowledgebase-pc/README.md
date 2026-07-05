@@ -17,7 +17,7 @@ Launch acceptance: `../../docs/product/prd/PRD-mvp-launch.md`.
 | `packages/sdkwork-knowledgebase-pc-knowledgebase` | Editor, drive browser, WeChat, market |
 | `packages/sdkwork-knowledgebase-pc-search` | Search and media viewer module |
 | `packages/sdkwork-knowledgebase-pc-desktop` | Tauri desktop host |
-| `packages/sdkwork-knowledgebase-pc-knowledge` | Host-managed embed surface (optional; not wired into default shell) |
+| `packages/sdkwork-knowledgebase-pc-knowledge` | Host-managed embed surface (`KnowledgeView`, `KnowledgebaseModal`, host `sdkPorts`) |
 
 Import rule: use package names (`@sdkwork/sdkwork-knowledgebase-pc-*`). Capability packages import SDK contract types and clients only through `sdkwork-knowledgebase-pc-core` (`./sdk` export). Do not use `@packages/` deep paths or raw HTTP for business APIs.
 
@@ -74,6 +74,13 @@ Gate: `pnpm check:app-composition` from repository root.
 - Auth: `@sdkwork/auth-pc-react`, `@sdkwork/auth-runtime-pc-react` (Appbase IAM)
 - String helpers: `@sdkwork/utils` (`isBlank`, `trim`) — import directly; do not add local re-export shims
 - Do not call backend HTTP APIs directly from app packages.
+
+## Host embedding (IM and sibling PC apps)
+
+- Export package: `@sdkwork/knowledgebase-pc-knowledge`
+- Hosts configure runtime through `configureKnowledgebasePcRuntime({ sdkPorts })` and may implement `openHostKnowledgeWindow` for desktop detached windows.
+- Browser hosts render `KnowledgebaseModal` inline; desktop hosts default to iframe + optional native window via host bridge.
+- Contract tests in consuming apps: `pnpm test:knowledgebase-app-sdk-integration` (IM PC).
 
 Production builds must not rely on demo/mock fallbacks (`VITE_SDKWORK_KNOWLEDGEBASE_ENABLE_DEMO_MODE=false` or unset in production).
 

@@ -66,7 +66,7 @@ impl<'a> OkfBundleExporterService<'a> {
         let mut exported_files = Vec::new();
         let concepts = self
             .concept_store
-            .list_concept_summaries(request.space_id)
+            .list_concept_summaries(request.space_id, None)
             .await?;
 
         exported_files.push(

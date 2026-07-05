@@ -214,7 +214,10 @@ impl KnowledgeEngine for CatalogExternalKnowledgeEngine {
         &self,
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
-        Ok(KnowledgeEngineDocumentList { items: Vec::new() })
+        Err(KnowledgeEngineError::Unsupported(
+            "catalog external engine list_documents is not implemented; use native OKF/RAG search"
+                .to_string(),
+        ))
     }
 }
 

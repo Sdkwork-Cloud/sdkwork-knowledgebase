@@ -11,7 +11,11 @@ use sdkwork_knowledgebase_contract::upload::{
 };
 use sdkwork_utils_rust::is_blank;
 
-use crate::{runtime::KnowledgebaseRuntime, ApiError, ApiResult, KnowledgeUploadSessionAppService};
+use crate::{
+    hosted_access::require_space_access,
+    runtime::KnowledgebaseRuntime,
+    ApiError, ApiResult, KnowledgeAppRequestContext, KnowledgeUploadSessionAppService,
+};
 
 #[derive(Clone)]
 pub(crate) struct HostedUploadSessionService {
@@ -99,8 +103,11 @@ impl HostedUploadSessionService {
 impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
     async fn create_upload_session(
         &self,
+        context: KnowledgeAppRequestContext,
         request: CreateKnowledgeUploadSessionRequest,
     ) -> ApiResult<KnowledgeUploadSession> {
+        require_space_access(&self.runtime, &context, request.space_id).await?;
+        crate::tenant_quota_enforcement::ensure_tenant_can_start_ingest(&self.runtime).await?;
         let service = KnowledgeUploadSessionService::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
@@ -113,9 +120,11 @@ impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
 
     async fn complete_upload_session(
         &self,
+        context: KnowledgeAppRequestContext,
         session_id: u64,
         request: CompleteKnowledgeUploadSessionRequest,
     ) -> ApiResult<IngestionJob> {
+        require_space_access(&self.runtime, &context, request.space_id).await?;
         if request.space_id == 0 {
             return Err(ApiError::invalid_request(
                 "invalid_upload_session_request",
@@ -150,6 +159,12 @@ impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
             .resolve_payload_markdown(&session, &request, space.drive_space_id.as_deref())
             .await
             .map_err(ApiError::from)?;
+
+        crate::tenant_quota_enforcement::ensure_tenant_can_add_storage(
+            &self.runtime,
+            u64::try_from(payload_markdown.len()).unwrap_or(u64::MAX),
+        )
+        .await?;
 
         self.run_ingest_pipeline(
             request.space_id,

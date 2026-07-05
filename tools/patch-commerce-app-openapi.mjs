@@ -2,11 +2,18 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  commandEnvelope,
+  createdResponse,
+  jsonResponse,
+  listEnvelope,
+  listPaginationQueryParams,
+  resourceEnvelope,
+} from './lib/openapi-envelope.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const targets = [
   path.join(root, 'sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json'),
-  path.join(root, 'apis/app-api/knowledgebase-app-api.openapi.json'),
 ];
 
 const problemRef = { $ref: '#/components/schemas/ProblemDetails' };
@@ -37,16 +44,10 @@ const commercePaths = {
       tags: ['knowledge'],
       summary: 'List knowledge market catalog listings',
       security: [{ AuthToken: [], AccessToken: [] }],
+      parameters: [...listPaginationQueryParams],
       responses: {
         ...errorResponses,
-        200: {
-          description: 'OK',
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/KnowledgeMarketCatalogList' },
-            },
-          },
-        },
+        200: jsonResponse(listEnvelope('#/components/schemas/KnowledgeMarketCatalogItem')),
       },
       ...sdkworkExtensions,
     },
@@ -67,14 +68,7 @@ const commercePaths = {
       },
       responses: {
         ...errorResponses,
-        201: {
-          description: 'Created',
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/KnowledgeMarketSubscriptionResult' },
-            },
-          },
-        },
+        201: createdResponse(commandEnvelope('#/components/schemas/KnowledgeMarketSubscriptionResult')),
       },
       ...sdkworkExtensions,
     },
@@ -95,14 +89,7 @@ const commercePaths = {
       ],
       responses: {
         ...errorResponses,
-        200: {
-          description: 'OK',
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/KnowledgeMarketSubscriptionResult' },
-            },
-          },
-        },
+        200: jsonResponse(commandEnvelope('#/components/schemas/KnowledgeMarketSubscriptionResult')),
       },
       ...sdkworkExtensions,
     },
@@ -123,14 +110,7 @@ const commercePaths = {
       },
       responses: {
         ...errorResponses,
-        201: {
-          description: 'Created',
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/KnowledgeSiteDeploymentResult' },
-            },
-          },
-        },
+        201: createdResponse(commandEnvelope('#/components/schemas/KnowledgeSiteDeploymentResult')),
       },
       ...sdkworkExtensions,
     },
@@ -151,14 +131,7 @@ const commercePaths = {
       ],
       responses: {
         ...errorResponses,
-        200: {
-          description: 'OK',
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/KnowledgeSiteDeploymentPreview' },
-            },
-          },
-        },
+        200: jsonResponse(resourceEnvelope('#/components/schemas/KnowledgeSiteDeploymentPreview')),
       },
       ...sdkworkExtensions,
     },
@@ -179,14 +152,7 @@ const commercePaths = {
       },
       responses: {
         ...errorResponses,
-        201: {
-          description: 'Created',
-          content: {
-            'application/json': {
-              schema: { $ref: '#/components/schemas/KnowledgeMediaTaskResult' },
-            },
-          },
-        },
+        201: createdResponse(commandEnvelope('#/components/schemas/KnowledgeMediaTaskResult')),
       },
       ...sdkworkExtensions,
     },
@@ -221,16 +187,6 @@ const commerceSchemas = {
       provider: { type: 'string', minLength: 1 },
       modelName: { type: 'string', minLength: 1 },
       isSubscribed: { type: 'boolean' },
-    },
-  },
-  KnowledgeMarketCatalogList: {
-    type: 'object',
-    required: ['items'],
-    properties: {
-      items: {
-        type: 'array',
-        items: { $ref: '#/components/schemas/KnowledgeMarketCatalogItem' },
-      },
     },
   },
   KnowledgeMarketSubscriptionRequest: {

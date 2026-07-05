@@ -6,6 +6,7 @@
 pub mod bootstrap;
 pub mod postgres;
 pub mod postgres_tenant_session;
+pub mod sql_timestamp;
 pub mod sqlite;
 
 pub use bootstrap::{

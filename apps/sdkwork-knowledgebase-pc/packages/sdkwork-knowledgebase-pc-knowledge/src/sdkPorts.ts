@@ -2,13 +2,17 @@ import type { SessionSnapshot } from 'sdkwork-knowledgebase-pc-core';
 import { KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
 import type { SdkworkAppClient, SdkworkDriveAppClient } from 'sdkwork-knowledgebase-pc-core';
 
-export interface KnowledgebasePcSdkPorts {
-  getKnowledgebaseClient: () => SdkworkAppClient;
+import type { HostKnowledgeWindowRequest } from './hostKnowledgeWindowRequest';
+
+export type { HostKnowledgeWindowRequest };
+
+export interface KnowledgebasePcSdkPorts {  getKnowledgebaseClient: () => SdkworkAppClient;
   getDriveClient: () => SdkworkDriveAppClient;
   readHostSession: () => SessionSnapshot | null;
   subscribeHostSession?: (listener: () => void) => () => void;
   resolveHostLanguage?: () => string;
   subscribeHostLanguage?: (listener: (language: string) => void) => () => void;
+  openHostKnowledgeWindow?: (request: HostKnowledgeWindowRequest) => Promise<boolean>;
 }
 
 let sdkPorts: KnowledgebasePcSdkPorts | null = null;

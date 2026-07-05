@@ -210,9 +210,10 @@ impl KnowledgeEngine for FlowiseKnowledgeEngine {
         &self,
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
-        Ok(KnowledgeEngineDocumentList {
-            items: Vec::<KnowledgeEngineDocumentRef>::new(),
-        })
+        Err(KnowledgeEngineError::Unsupported(
+            "adapter-tier list_documents is not implemented; use search hits or native ingestion"
+                .to_string(),
+        ))
     }
 }
 

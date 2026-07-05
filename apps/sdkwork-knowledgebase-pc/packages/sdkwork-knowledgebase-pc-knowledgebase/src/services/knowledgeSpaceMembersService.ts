@@ -1,5 +1,6 @@
 import type { KnowledgeSpaceMemberRole } from 'sdkwork-knowledgebase-pc-core';
 import { getKnowledgebaseAppSdkClient } from 'sdkwork-knowledgebase-pc-core';
+import { normalizeSdkWorkListPage } from './sdkWorkListPage';
 
 export interface KnowledgeSpaceMemberUi {
   name: string;
@@ -47,6 +48,14 @@ export class KnowledgeSpaceMembersService {
     return loadKnowledgeSpaceMembers(spaceId);
   }
 
+  static loadMembersPage(
+    spaceId: number,
+    cursor: string | null = null,
+    pageSize = 20,
+  ): Promise<KnowledgeSpaceMembersPage> {
+    return loadKnowledgeSpaceMembersPage(spaceId, cursor, pageSize);
+  }
+
   static syncMembers(
     spaceId: number,
     desired: KnowledgeSpaceMemberUi[],
@@ -54,22 +63,110 @@ export class KnowledgeSpaceMembersService {
   ): Promise<void> {
     return syncKnowledgeSpaceMembers(spaceId, desired, previous);
   }
+
+  static syncMembersPartial(
+    spaceId: number,
+    uiMembers: KnowledgeSpaceMemberUi[],
+    baselineMembers: KnowledgeSpaceMemberUi[],
+    loadedEmails: ReadonlySet<string>,
+  ): Promise<void> {
+    const { desired, previous } = buildPartialMemberSyncPayload(
+      uiMembers,
+      baselineMembers,
+      loadedEmails,
+    );
+    return syncKnowledgeSpaceMembers(spaceId, desired, previous);
+  }
 }
 
 export async function loadKnowledgeSpaceMembers(
   spaceId: number,
 ): Promise<KnowledgeSpaceMemberUi[]> {
+  const members: KnowledgeSpaceMemberUi[] = [];
+  let cursor: string | null = null;
+
+  do {
+    const page = await loadKnowledgeSpaceMembersPage(spaceId, cursor, 100);
+    members.push(...page.items);
+    cursor = page.hasMore ? page.nextCursor : null;
+  } while (cursor);
+
+  return members;
+}
+
+export interface KnowledgeSpaceMembersPage {
+  items: KnowledgeSpaceMemberUi[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+/**
+ * Builds a safe sync payload when the UI only shows a paginated subset of members.
+ * Baseline members that were never loaded in the UI are preserved; removals apply
+ * only to emails the user had loaded and then deleted from the list.
+ */
+export function buildPartialMemberSyncPayload(
+  uiMembers: KnowledgeSpaceMemberUi[],
+  baselineMembers: KnowledgeSpaceMemberUi[],
+  loadedEmails: ReadonlySet<string>,
+): { desired: KnowledgeSpaceMemberUi[]; previous: KnowledgeSpaceMemberUi[] } {
+  const normalizeEmail = (email: string) => email.toLowerCase();
+  const uiByEmail = new Map(uiMembers.map((member) => [normalizeEmail(member.email), member]));
+  const baselineByEmail = new Map(
+    baselineMembers.map((member) => [normalizeEmail(member.email), member]),
+  );
+  const desiredByEmail = new Map(baselineByEmail);
+
+  for (const email of loadedEmails) {
+    const normalized = normalizeEmail(email);
+    const uiMember = uiByEmail.get(normalized);
+    if (uiMember) {
+      desiredByEmail.set(normalized, uiMember);
+    } else if (baselineByEmail.has(normalized)) {
+      desiredByEmail.delete(normalized);
+    }
+  }
+
+  for (const [normalized, member] of uiByEmail) {
+    if (!baselineByEmail.has(normalized)) {
+      desiredByEmail.set(normalized, member);
+    }
+  }
+
+  return {
+    desired: Array.from(desiredByEmail.values()),
+    previous: baselineMembers,
+  };
+}
+
+export async function loadKnowledgeSpaceMembersPage(
+  spaceId: number,
+  cursor: string | null = null,
+  pageSize = 20,
+): Promise<KnowledgeSpaceMembersPage> {
   const spaceKey = String(spaceId);
-  const list = await getKnowledgebaseAppSdkClient().client.knowledge.spaces.members.list(spaceKey);
-  return list.members
-    .filter((member) => member.subjectType === 'user')
-    .map((member) => ({
+  const client = getKnowledgebaseAppSdkClient().client;
+  const page = normalizeSdkWorkListPage(
+    await client.knowledge.spaces.members.list(spaceKey, { cursor, pageSize }),
+  );
+  const items: KnowledgeSpaceMemberUi[] = [];
+  for (const member of page.items) {
+    if (member.subjectType !== 'user') {
+      continue;
+    }
+    items.push({
       name: displayNameFromEmail(member.subjectId),
       email: member.subjectId,
       role: toUiRole(member.role),
       avatar: avatarFromEmail(member.subjectId),
       inherited: member.inherited,
-    }));
+    });
+  }
+  return {
+    items,
+    nextCursor: page.nextCursor,
+    hasMore: page.hasMore,
+  };
 }
 
 export async function syncKnowledgeSpaceMembers(

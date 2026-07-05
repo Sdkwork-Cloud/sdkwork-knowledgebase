@@ -189,6 +189,7 @@ impl SqliteKnowledgeEmbeddingStore {
             FROM kb_chunk
             WHERE tenant_id = $1 AND space_id = $2 AND status = $3
             ORDER BY id ASC
+            LIMIT 2000
             "#,
         )
         .bind(tenant_id)

@@ -25,7 +25,7 @@ import {
   shouldAutostartGateway,
   waitForHttpHealthy,
 } from './lib/knowledgebase-topology.mjs';
-import { mergeRepoDevBootstrapAccessTokenEnv } from '../../sdkwork-iam/scripts/dev/create-dev-bootstrap-access-token-env.mjs';
+import { mergeRepoDevBootstrapAccessTokenEnv, readApplicationManifest, resolveRepoApplicationManifestPath } from './lib/knowledgebase-dev-bootstrap-access-token-env.mjs';
 
 const HEALTH_PATH = '/healthz';
 const HEALTH_TIMEOUT_MS = 2000;
@@ -149,6 +149,53 @@ function resolveDefaultSqliteDatabaseUrl() {
   ensureKnowledgebaseDataDir();
   const sqliteFile = path.join(REPO_ROOT, '.sdkwork', 'runtime', 'knowledgebase', 'knowledgebase.sqlite');
   return `sqlite:///${sqliteFile.split(path.sep).join('/')}?mode=rwc`;
+}
+
+function resolveKnowledgebaseRuntimeTenantEnv(env = {}) {
+  const manifest = readApplicationManifest(resolveRepoApplicationManifestPath(REPO_ROOT));
+  return {
+    SDKWORK_KNOWLEDGEBASE_TENANT_ID:
+      normalizeText(env.SDKWORK_KNOWLEDGEBASE_TENANT_ID)
+      ?? normalizeText(manifest?.backend?.tenantId)
+      ?? '100001',
+    SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID:
+      normalizeText(env.SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID)
+      ?? normalizeText(manifest?.backend?.organizationId)
+      ?? '0',
+  };
+}
+
+function materializePostgresDatabaseSearchPath(env, urlKey, servicePrefix) {
+  const databaseUrl = normalizeText(env[urlKey]);
+  if (!databaseUrl || !/^postgres(?:ql)?:\/\//i.test(databaseUrl)) {
+    return env;
+  }
+  if (/[?&]options=/i.test(databaseUrl)) {
+    return env;
+  }
+
+  const schema =
+    normalizeText(env[`${servicePrefix}_DATABASE_SCHEMA`])
+    || normalizeText(env.SDKWORK_CLAW_DATABASE_SCHEMA)
+    || 'sdkwork_ai_dev';
+  const optionValue = encodeURIComponent(`-c search_path=${schema},public`);
+  const separator = databaseUrl.includes('?') ? '&' : '?';
+  return {
+    ...env,
+    [urlKey]: `${databaseUrl}${separator}options=${optionValue}`,
+  };
+}
+
+function materializeIamDatabaseSearchPath(env) {
+  return materializePostgresDatabaseSearchPath(env, 'SDKWORK_IAM_DATABASE_URL', 'SDKWORK_IAM');
+}
+
+function materializeKnowledgebaseDevDatabaseEnv(env) {
+  return materializePostgresDatabaseSearchPath(
+    materializeIamDatabaseSearchPath(env),
+    'SDKWORK_KNOWLEDGEBASE_DATABASE_URL',
+    'SDKWORK_KNOWLEDGEBASE',
+  );
 }
 
 function resolvePostgresKnowledgebaseDatabaseUrl(sourceEnv) {
@@ -380,7 +427,7 @@ async function main() {
     settings.database === 'postgres' ? loadEnvFile(resolvePostgresDevEnvFile(settings)) : {};
   const iamSourceEnv = mergeRuntimeEnv(process.env, profileEnv, postgresDevEnv);
   const iamResolvedEnv = resolveIamDevEnv(iamSourceEnv);
-  const runtimeEnv = mergeRepoDevBootstrapAccessTokenEnv({
+  const runtimeEnv = materializeKnowledgebaseDevDatabaseEnv(mergeRepoDevBootstrapAccessTokenEnv({
     repoRoot: REPO_ROOT,
     appId: 'sdkwork-knowledgebase-pc',
     env: mergeRuntimeEnv(
@@ -388,6 +435,7 @@ async function main() {
       iamResolvedEnv,
       databaseEnv(settings, iamResolvedEnv),
       IAM_APPLICATION_BOOTSTRAP_ENV,
+      resolveKnowledgebaseRuntimeTenantEnv(iamSourceEnv),
       {
         SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: settings.deploymentProfile,
         SDKWORK_KNOWLEDGEBASE_SERVICE_LAYOUT: settings.serviceLayout,
@@ -397,7 +445,7 @@ async function main() {
         SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: settings.target === 'desktop' ? 'desktop' : 'browser',
         VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: settings.deploymentProfile,
         VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: settings.target === 'desktop' ? 'desktop' : 'browser',
-        ...((settings.target === 'browser' || settings.target === 'desktop')
+        ...((settings.target === 'browser' || settings.target === 'desktop') && settings.deploymentProfile === 'cloud'
           ? { SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_AUTOSTART: 'true' }
           : {}),
         ...(settings.target === 'desktop'
@@ -405,7 +453,7 @@ async function main() {
           : {}),
       },
     ),
-  });
+  }));
 
   const backendProcesses = buildProcessesFromOrchestration(profileId, runtimeEnv);
   const processes =

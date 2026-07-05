@@ -295,8 +295,8 @@ function commitKnowledgebaseIamRuntimeSession(
 ): KnowledgebaseIamSessionLike | undefined {
   const nextSession: SessionSnapshot = {
     ...session.getSnapshot(),
-    accessToken: iamSession.accessToken,
-    authToken: iamSession.authToken,
+    accessToken: normalizeIamSessionToken(iamSession.accessToken),
+    authToken: normalizeIamSessionToken(iamSession.authToken),
     refreshToken: iamSession.refreshToken,
     sessionId: iamSession.sessionId ?? iamSession.context?.sessionId,
   };
@@ -355,8 +355,8 @@ function syncKnowledgebaseIamSession(
   iamSession: KnowledgebaseIamSessionLike,
 ): void {
   mergeKnowledgebaseSession(session, {
-    accessToken: iamSession.accessToken,
-    authToken: iamSession.authToken,
+    accessToken: normalizeIamSessionToken(iamSession.accessToken),
+    authToken: normalizeIamSessionToken(iamSession.authToken),
     context: iamSession.context
       ? toKnowledgebaseSessionContext(iamSession.context)
       : undefined,
@@ -449,6 +449,20 @@ function compactSessionPatch<T extends object>(value: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined),
   ) as Partial<T>;
+}
+
+function normalizeIamSessionToken(token: string | undefined): string | undefined {
+  if (!token) {
+    return undefined;
+  }
+
+  const trimmed = token.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const withoutBearer = trimmed.replace(/^Bearer\s+/i, '').trim();
+  return withoutBearer || undefined;
 }
 
 function resolveIamDeploymentModeForRuntime(config: KnowledgebaseRuntimeConfig): IamDeploymentMode {

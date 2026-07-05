@@ -13,13 +13,20 @@ use sdkwork_knowledgebase_contract::space::{KnowledgeSpace, KnowledgeSpaceStatus
 use sdkwork_utils_rust::is_blank;
 use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::utc_sql_timestamp_text;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TenantKnowledgebaseSummary {
+    pub space_count: u64,
+    pub document_count: u64,
+    pub created_at: Option<String>,
+}
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeSpaceStore {
@@ -52,6 +59,138 @@ impl SqliteKnowledgeSpaceStore {
             id_generator,
         }
     }
+
+    pub async fn summarize_tenant_knowledgebase(
+        &self,
+    ) -> Result<TenantKnowledgebaseSummary, KnowledgeSpaceStoreError> {
+        let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = space_to_i64("organization_id", self.organization_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT
+                (SELECT COUNT(*)
+                 FROM kb_space
+                 WHERE tenant_id = $1 AND organization_id = $2 AND status = $3) AS space_count,
+                (SELECT COUNT(*)
+                 FROM kb_document d
+                 INNER JOIN kb_space s
+                   ON s.id = d.space_id AND s.tenant_id = d.tenant_id
+                 WHERE d.tenant_id = $1
+                   AND s.organization_id = $2
+                   AND d.status = $3
+                   AND s.status = $3) AS document_count,
+                (SELECT MIN(CAST(created_at AS TEXT))
+                 FROM kb_space
+                 WHERE tenant_id = $1 AND organization_id = $2 AND status = $3) AS earliest_created_at
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(organization_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(space_sqlx_error)?;
+
+        Ok(TenantKnowledgebaseSummary {
+            space_count: row
+                .try_get::<i64, _>("space_count")
+                .map_err(space_sqlx_error)? as u64,
+            document_count: row
+                .try_get::<i64, _>("document_count")
+                .map_err(space_sqlx_error)? as u64,
+            created_at: optional_timestamp_string(&row, "earliest_created_at")?,
+        })
+    }
+
+    pub async fn list_active_spaces(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<KnowledgeSpace>, KnowledgeSpaceStoreError> {
+        let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = space_to_i64("organization_id", self.organization_id)?;
+        let limit = i64::from(limit.clamp(1, 500));
+        let rows = sqlx::query(
+            r#"
+            SELECT id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
+            FROM kb_space
+            WHERE tenant_id = $1 AND organization_id = $2 AND status = $3
+            ORDER BY id DESC
+            LIMIT $4
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(organization_id)
+        .bind(ACTIVE_STATUS)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(space_sqlx_error)?;
+
+        rows.iter().map(space_from_row).collect()
+    }
+
+    pub async fn list_spaces_page(
+        &self,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeSpace>, Option<String>, bool), KnowledgeSpaceStoreError> {
+        let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = space_to_i64("organization_id", self.organization_id)?;
+        let page_size = i64::from(page_size.clamp(1, 200));
+        let fetch_limit = page_size + 1;
+        let cursor_id = cursor
+            .map(|value| space_to_i64("cursor", value))
+            .transpose()?;
+
+        let rows = if let Some(after_id) = cursor_id {
+            sqlx::query(
+                r#"
+                SELECT id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
+                FROM kb_space
+                WHERE tenant_id = $1 AND organization_id = $2 AND status = $3 AND id > $4
+                ORDER BY id ASC
+                LIMIT $5
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(ACTIVE_STATUS)
+            .bind(after_id)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(space_sqlx_error)?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
+                FROM kb_space
+                WHERE tenant_id = $1 AND organization_id = $2 AND status = $3
+                ORDER BY id ASC
+                LIMIT $4
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(ACTIVE_STATUS)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(space_sqlx_error)?
+        };
+
+        let has_more = rows.len() > page_size as usize;
+        let mut items = Vec::new();
+        for row in rows.iter().take(page_size as usize) {
+            items.push(space_from_row(row)?);
+        }
+        let next_cursor = if has_more {
+            items.last().map(|space| space.id.to_string())
+        } else {
+            None
+        };
+        Ok((items, next_cursor, has_more))
+    }
 }
 
 #[async_trait]
@@ -63,7 +202,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = space_to_i64("organization_id", self.organization_id)?;
         let id = next_i64_id(&self.id_generator).map_err(space_id_error)?;
-        let now = space_now()?;
+        let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
         let row = sqlx::query(
             r#"
@@ -82,8 +221,8 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-            RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode, knowledge_mode
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CAST($11 AS TIMESTAMP), CAST($12 AS TIMESTAMP), $13)
+            RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         )
         .bind(id)
@@ -138,12 +277,12 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let organization_id = space_to_i64("organization_id", self.organization_id)?;
         let space_id_i64 = space_to_i64("space_id", space_id)?;
         let drive_space_id = require_safe_drive_id(drive_space_id, "drive_space_id")?;
-        let now = space_now()?;
+        let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
         let row = sqlx::query(
             r#"
             UPDATE kb_space
-            SET drive_space_id = $1, updated_at = $2, version = version + 1
+            SET drive_space_id = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
@@ -168,12 +307,12 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = space_to_i64("organization_id", self.organization_id)?;
         let space_id_i64 = space_to_i64("space_id", space_id)?;
-        let now = space_now()?;
+        let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
         let row = sqlx::query(
             r#"
             UPDATE kb_space
-            SET okf_bundle_initialized = 1, updated_at = $1, version = version + 1
+            SET okf_bundle_initialized = 1, updated_at = CAST($1 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $2 AND organization_id = $3 AND id = $4 AND status = $5
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
@@ -207,12 +346,12 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = space_to_i64("organization_id", self.organization_id)?;
         let space_id_i64 = space_to_i64("space_id", space_id)?;
-        let now = space_now()?;
+        let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
         let row = sqlx::query(
             r#"
             UPDATE kb_space
-            SET name = $1, description = $2, updated_at = $3, version = version + 1
+            SET name = $1, description = $2, updated_at = CAST($3 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $4 AND organization_id = $5 AND id = $6 AND status = $7
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
@@ -235,12 +374,12 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = space_to_i64("organization_id", self.organization_id)?;
         let space_id_i64 = space_to_i64("space_id", space_id)?;
-        let now = space_now()?;
+        let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
         sqlx::query(
             r#"
             UPDATE kb_space
-            SET status = $1, updated_at = $2, version = version + 1
+            SET status = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
             "#,
         )
@@ -334,7 +473,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
         let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
         let space_id = okf_bundle_file_to_i64("space_id", record.space_id)?;
         let id = next_i64_id(&self.id_generator).map_err(okf_bundle_file_id_error)?;
-        let now = okf_bundle_file_now()?;
+        let now = utc_sql_timestamp_text().map_err(KnowledgeOkfBundleFileStoreError::Internal)?;
 
         let row = sqlx::query(
             r#"
@@ -354,7 +493,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CAST($12 AS TIMESTAMP), CAST($13 AS TIMESTAMP), $14)
             RETURNING
                 id,
                 space_id,
@@ -394,7 +533,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
         let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
         let space_id = okf_bundle_file_to_i64("space_id", record.space_id)?;
         let id = next_i64_id(&self.id_generator).map_err(okf_bundle_file_id_error)?;
-        let now = okf_bundle_file_now()?;
+        let now = utc_sql_timestamp_text().map_err(KnowledgeOkfBundleFileStoreError::Internal)?;
 
         let row = sqlx::query(
             r#"
@@ -414,7 +553,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CAST($12 AS TIMESTAMP), CAST($13 AS TIMESTAMP), $14)
             ON CONFLICT(tenant_id, space_id, logical_path)
             DO UPDATE SET
                 file_kind = excluded.file_kind,
@@ -670,18 +809,14 @@ fn bool_code(value: bool) -> i64 {
     }
 }
 
-fn space_now() -> Result<String, KnowledgeSpaceStoreError> {
-    now_rfc3339().map_err(KnowledgeSpaceStoreError::Internal)
-}
-
-fn okf_bundle_file_now() -> Result<String, KnowledgeOkfBundleFileStoreError> {
-    now_rfc3339().map_err(KnowledgeOkfBundleFileStoreError::Internal)
-}
-
-fn now_rfc3339() -> Result<String, String> {
-    OffsetDateTime::now_utc()
-        .format(&Rfc3339)
-        .map_err(|error| error.to_string())
+fn optional_timestamp_string(
+    row: &AnyRow,
+    column: &str,
+) -> Result<Option<String>, KnowledgeSpaceStoreError> {
+    let value = row
+        .try_get::<Option<String>, _>(column)
+        .map_err(space_sqlx_error)?;
+    Ok(value.filter(|text| !is_blank(Some(text.as_str()))))
 }
 
 fn space_to_i64(field: &str, value: u64) -> Result<i64, KnowledgeSpaceStoreError> {

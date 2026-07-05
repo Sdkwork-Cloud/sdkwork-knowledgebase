@@ -1,4 +1,4 @@
-# Knowledgebase
+# sdkwork-knowledgebase-sdk
 
 Generated SDKWork v3 API-key open-api transport SDK.
 
@@ -15,9 +15,9 @@ pnpm add @sdkwork/knowledgebase-sdk
 ## Quick Start
 
 ```typescript
-import { SdkworkCustomClient } from '@sdkwork/knowledgebase-sdk';
+import { SdkworkKnowledgebaseOpenClient } from '@sdkwork/knowledgebase-sdk';
 
-const client = new SdkworkCustomClient({
+const client = new SdkworkKnowledgebaseOpenClient({
   baseUrl: '/knowledge/v3/api',
   timeout: 30000,
 });
@@ -25,7 +25,10 @@ const client = new SdkworkCustomClient({
 client.setApiKey('your-api-key');
 
 // Use the SDK
-const result = await client.knowledge.documents.list();
+const params = {
+  spaceId: 1,
+};
+const result = await client.knowledge.documents.list(params);
 ```
 
 ## Authentication
@@ -44,9 +47,9 @@ client.setApiKey('your-api-key');
 ## Configuration (Non-Auth)
 
 ```typescript
-import { SdkworkCustomClient } from '@sdkwork/knowledgebase-sdk';
+import { SdkworkKnowledgebaseOpenClient } from '@sdkwork/knowledgebase-sdk';
 
-const client = new SdkworkCustomClient({
+const client = new SdkworkKnowledgebaseOpenClient({
   baseUrl: '/knowledge/v3/api',
   timeout: 30000, // Request timeout in ms
   headers: {      // Custom headers
@@ -64,17 +67,23 @@ const client = new SdkworkCustomClient({
 ### knowledge
 
 ```typescript
-// GET /knowledge/v3/api/documents
-const result = await client.knowledge.documents.list();
+// List knowledge documents
+const params = {
+  spaceId: 1,
+};
+const result = await client.knowledge.documents.list(params);
 ```
 
 ## Error Handling
 
 ```typescript
-import { SdkworkCustomClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-sdk';
+import { SdkworkKnowledgebaseOpenClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-sdk';
 
 try {
-  const result = await client.knowledge.documents.list();
+  const params = {
+    spaceId: 1,
+  };
+  const result = await client.knowledge.documents.list(params);
 } catch (error) {
   if (error instanceof AuthenticationError) {
     console.error('Authentication failed:', error.message);

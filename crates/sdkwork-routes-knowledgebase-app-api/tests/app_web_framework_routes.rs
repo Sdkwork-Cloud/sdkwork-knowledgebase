@@ -2,15 +2,13 @@ use async_trait::async_trait;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use sdkwork_iam_web_adapter::IamWebRequestContextResolver;
-use sdkwork_knowledgebase_contract::browser::{
-    KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
-};
+use sdkwork_knowledgebase_contract::browser::ListKnowledgeBrowserRequest;
 use sdkwork_routes_knowledgebase_app_api::{
-    app_route_manifest, build_router_with_browser, manifest, wrap_router_with_web_framework,
-    ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
+    app_route_manifest, build_router_with_browser, manifest, pagination::browser_list_page_data,
+    wrap_router_with_web_framework, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
 };
 use sdkwork_web_core::RouteAuth;
-use sdkwork_web_core::{access_token_jwt, auth_token_jwt};
+use sdkwork_web_core::{access_token_jwt, auth_token_jwt_with_permissions};
 use std::sync::{Arc, Mutex};
 use tower::util::ServiceExt;
 
@@ -64,7 +62,13 @@ async fn web_framework_accepts_dev_jwt_dual_tokens_before_handler() {
     );
     let auth = format!(
         "Bearer {}",
-        auth_token_jwt("100001", "30001", "session-1", "sdkwork-knowledgebase")
+        auth_token_jwt_with_permissions(
+            "100001",
+            "30001",
+            "session-1",
+            "sdkwork-knowledgebase",
+            "knowledge.spaces.read",
+        )
     );
     let access = access_token_jwt("100001", "30001", "session-1", "sdkwork-knowledgebase");
 
@@ -87,6 +91,56 @@ async fn web_framework_accepts_dev_jwt_dual_tokens_before_handler() {
     std::env::remove_var("SDKWORK_IAM_ALLOW_DEV_AUTH_FALLBACK");
 }
 
+#[tokio::test]
+async fn web_framework_allows_browser_origin_in_development() {
+    std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
+    let app = wrap_router_with_web_framework(
+        IamWebRequestContextResolver::new(None),
+        build_router_with_browser(EmptyBrowserApi),
+    );
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("origin", "http://127.0.0.1:5184")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"name":"Dev Space"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_ne!(response.status(), StatusCode::FORBIDDEN);
+    std::env::remove_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT");
+}
+
+#[tokio::test]
+async fn web_framework_rejects_unlisted_browser_origin_in_development() {
+    std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
+    let app = wrap_router_with_web_framework(
+        IamWebRequestContextResolver::new(None),
+        build_router_with_browser(EmptyBrowserApi),
+    );
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("origin", "http://evil.example")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"name":"Dev Space"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    std::env::remove_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT");
+}
+
 struct EmptyBrowserApi;
 
 #[async_trait]
@@ -95,7 +149,7 @@ impl KnowledgeBrowserApi for EmptyBrowserApi {
         &self,
         _context: KnowledgeAppRequestContext,
         _request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<KnowledgeBrowserPage> {
+    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>> {
         unreachable!("unauthenticated requests must not reach handlers")
     }
 }
@@ -117,16 +171,8 @@ impl KnowledgeBrowserApi for RecordingBrowserApi {
         &self,
         context: KnowledgeAppRequestContext,
         _request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<KnowledgeBrowserPage> {
+    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>> {
         self.tenant_ids.lock().unwrap().push(context.tenant_id);
-        Ok(KnowledgeBrowserPage {
-            space_id: 7,
-            drive_space_id: "drv-kb-001".to_string(),
-            parent_id: None,
-            view: KnowledgeBrowserView::Files,
-            page_size: 50,
-            items: vec![],
-            next_cursor: None,
-        })
+        Ok(browser_list_page_data(vec![], None, 50))
     }
 }

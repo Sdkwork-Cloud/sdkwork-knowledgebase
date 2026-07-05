@@ -153,7 +153,7 @@ async fn list_browser(
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
     let view = parse_view(query.view.as_deref())?;
-    ok_json(
+    ok_list_json(
         state
             .api
             .list_browser(
@@ -168,6 +168,20 @@ async fn list_browser(
             )
             .await,
     )
+}
+
+fn ok_list_json<T>(result: ApiResult<sdkwork_utils_rust::SdkWorkPageData<T>>) -> Result<Response, ApiProblem>
+where
+    T: Serialize,
+{
+    result
+        .map(|value| {
+            sdkwork_knowledgebase_observability::request_correlation::success_list_json_response(
+                StatusCode::OK,
+                value,
+            )
+        })
+        .map_err(ApiProblem::from)
 }
 
 fn ok_json<T>(result: ApiResult<T>) -> Result<Response, ApiProblem>

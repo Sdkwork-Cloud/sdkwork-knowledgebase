@@ -7,6 +7,11 @@ import {
   readKbNavIntent,
   useLocalStorage
 } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
+import {
+  assertKnowledgebasePreviewFeature,
+  getKnowledgebaseTenantId,
+  shouldUseKnowledgebaseDemoFallback,
+} from 'sdkwork-knowledgebase-pc-core';
 import { findDocInTree } from './utils/docTreeUtils';
 import { DocumentService, FolderNode, DocumentMeta, KnowledgeBase } from './services/document';
 import { TabCacheService } from './services/tabService';
@@ -24,6 +29,7 @@ import { CloudDriveModal } from './CloudDriveModal';
 import { useTranslation } from 'react-i18next';
 import { KnowledgeBaseMarketView } from './KnowledgeBaseMarketView';
 import { GitIntegrationModal } from './components/GitIntegrationModal';
+import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
 import { toast } from './components/ui/toast-manager';
 
 export * from './components/ui/toast-manager';
@@ -114,22 +120,49 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
   }, [isDraggingAi, isDraggingKbs, isDraggingDocs, kbsWidth]);
 
   useEffect(() => {
-    DocumentService.getKnowledgeBases().then(data => {
-      setKbs(data);
-      setLoadingKbs(false);
-      
-      const allKbs = [...(data.team || []), ...(data.personal || []), ...(data.public || [])];
-      
-      if (activeKb && allKbs.find(k => k.id === activeKb.id)) {
-        handleSelectKb(activeKb, true);
-      } else if (data.team && data.team.length > 0) {
-        handleSelectKb(data.team[0]);
-      } else if (data.personal && data.personal.length > 0) {
-        handleSelectKb(data.personal[0]);
-      } else if (data.public && data.public.length > 0) {
-        handleSelectKb(data.public[0]);
+    let cancelled = false;
+
+    const loadKnowledgeBases = async () => {
+      if (!getKnowledgebaseTenantId()) {
+        window.setTimeout(() => {
+          void loadKnowledgeBases();
+        }, 300);
+        return;
       }
-    });
+
+      try {
+        const data = await DocumentService.getKnowledgeBases();
+        if (cancelled) {
+          return;
+        }
+
+        setKbs(data);
+        setLoadingKbs(false);
+
+        const allKbs = [...(data.team || []), ...(data.personal || []), ...(data.public || [])];
+
+        if (activeKb && allKbs.find(k => k.id === activeKb.id)) {
+          handleSelectKb(activeKb, true);
+        } else if (data.team && data.team.length > 0) {
+          handleSelectKb(data.team[0]);
+        } else if (data.personal && data.personal.length > 0) {
+          handleSelectKb(data.personal[0]);
+        } else if (data.public && data.public.length > 0) {
+          handleSelectKb(data.public[0]);
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        toastKnowledgebaseError(error, t);
+        setLoadingKbs(false);
+      }
+    };
+
+    void loadKnowledgeBases();
+    return () => {
+      cancelled = true;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -353,7 +386,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
       setNewKbAvatar('');
       setIsCreateKbModalOpen(false);
     } catch (e) {
-      console.error(e);
+      toastKnowledgebaseError(e, t);
     }
   };
 
@@ -368,9 +401,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         setActiveKb(prev => prev ? { ...prev, ...updates } : null);
       }
     } catch (e) {
-      const detail = e instanceof Error ? e.message : String(e);
-      console.error(e);
-      toast.error(detail);
+      toastKnowledgebaseError(e, t);
     }
   };
 
@@ -395,6 +426,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
     try {
       let resultItem: any = null;
       if (actionType === 'batch_create' && Array.isArray(payload)) {
+        assertKnowledgebasePreviewFeature('offline-import-batch-create');
         for (const item of payload) {
           const created = await DocumentService.createDocument({
             title: item.title,
@@ -421,16 +453,25 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         let contentUrl = undefined;
         let initialContent = '';
 
-        if (actionType === 'audio') contentUrl = '/demo.mp3';
+        if (actionType === 'audio' && shouldUseKnowledgebaseDemoFallback()) {
+          contentUrl = '/demo.mp3';
+        }
         if (actionType === 'link' && payload && payload.url) contentUrl = payload.url;
 
-        // Mock rich content to simulate realistic import logic
-        if (actionType === 'notesApp') {
-          initialContent = '<h1>本周工作计划与总结</h1><p>这是一篇从备忘录同步过来的文件，已经自动转换为富文本格式，你可以继续编辑它。</p><ul><li>完成核心架构设计</li><li>重构前端交互细节</li></ul><p><br></p>';
-        } else if (actionType === 'chat' || actionType === 'chat_file' || actionType === 'chat_dialog') {
-          initialContent = '# 微信聊天记录同步\n\n**张三 (10:00)**: 大家都看一下这个文档，是明天的会议资料。\n\n**李四 (10:02)**: 收到！\n\n_系统提示：相关文件已经自动转存到知识库。_';
-        } else if (actionType === 'link') {
-          initialContent = `# [${payload?.url}](${payload?.url})\n\n> 正在抓取网页内容中，请稍候...`;
+        if (actionType === 'notesApp' || actionType === 'chat' || actionType === 'chat_file' || actionType === 'chat_dialog') {
+          assertKnowledgebasePreviewFeature(`offline-import-${actionType}`);
+        }
+
+        if (shouldUseKnowledgebaseDemoFallback()) {
+          if (actionType === 'notesApp') {
+            initialContent = '<h1>本周工作计划与总结</h1><p>这是一篇从备忘录同步过来的文件，已经自动转换为富文本格式，你可以继续编辑它。</p><ul><li>完成核心架构设计</li><li>重构前端交互细节</li></ul><p><br></p>';
+          } else if (actionType === 'chat' || actionType === 'chat_file' || actionType === 'chat_dialog') {
+            initialContent = '# 微信聊天记录同步\n\n**张三 (10:00)**: 大家都看一下这个文档，是明天的会议资料。\n\n**李四 (10:02)**: 收到！\n\n_系统提示：相关文件已经自动转存到知识库。_';
+          } else if (actionType === 'link') {
+            initialContent = `# [${payload?.url}](${payload?.url})\n\n> 正在抓取网页内容中，请稍候...`;
+          }
+        } else if (actionType === 'link' && payload?.url) {
+          initialContent = `# [${payload.url}](${payload.url})\n\n> 正在抓取网页内容中，请稍候...`;
         }
 
         const newDocParams: Partial<DocumentMeta> = {
@@ -453,7 +494,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
       setDocs(updatedDocs);
       return resultItem;
     } catch (e) {
-      console.error("Failed to create document", e);
+      toastKnowledgebaseError(e, t);
       return null;
     }
   };
@@ -486,8 +527,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
       setCloudDriveKb(null);
       toast.success(t('importSuccess', { defaultValue: '从网盘中导入成功！' }));
     } catch (e) {
-      console.error(e);
-      toast.error('导入失败，请重试');
+      toastKnowledgebaseError(e, t);
     }
   };
 
@@ -693,9 +733,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
               }
               setSettingsKb(null);
             } catch (e) {
-              const detail = e instanceof Error ? e.message : String(e);
-              console.error(e);
-              toast.error(detail);
+              toastKnowledgebaseError(e, t);
             }
           }}
         />

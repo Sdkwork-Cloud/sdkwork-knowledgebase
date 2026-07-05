@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
 import { useTranslation } from 'react-i18next';
 import { X, Shield, Settings, Sliders, Upload, UserPlus, Globe, Check, AlertCircle } from 'lucide-react';
-import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
+import { isKnowledgebaseApiAvailable, shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
 import { KnowledgeBase, DocumentService } from './services/document';
 import type { KnowledgeSpaceMemberUi } from './services/knowledgeSpaceMembersService';
+import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
 
 interface KnowledgeBaseSettingsModalProps {
   kb: KnowledgeBase;
@@ -31,30 +32,43 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
   const [publicPermission, setPublicPermission] = useState<'none' | 'read' | 'write' | 'admin'>(kb.publicPermission || 'none');
   const [guestLinkEnabled, setGuestLinkEnabled] = useState(kb.guestLinkEnabled !== undefined ? kb.guestLinkEnabled : false);
   const [members, setMembers] = useState<MemberMock[]>([]);
-  const initialMembersRef = useRef<MemberMock[]>([]);
+  const loadedMemberEmailsRef = useRef<Set<string>>(new Set());
+  const membersDirtyRef = useRef(false);
+  const [membersNextCursor, setMembersNextCursor] = useState<string | null>(null);
+  const [membersHasMore, setMembersHasMore] = useState(false);
+  const [membersLoadingMore, setMembersLoadingMore] = useState(false);
+  const [membersSaving, setMembersSaving] = useState(false);
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<'admin' | 'editor' | 'viewer'>('viewer');
 
   useEffect(() => {
     const spaceId = Number(kb.id);
     if (!isKnowledgebaseApiAvailable() || !Number.isFinite(spaceId) || spaceId <= 0) {
-      initialMembersRef.current = [];
+      loadedMemberEmailsRef.current = new Set();
+      membersDirtyRef.current = false;
       setMembers([]);
       return;
     }
     let cancelled = false;
-    DocumentService.loadKnowledgeSpaceMembers(spaceId)
-      .then((loaded) => {
+    membersDirtyRef.current = false;
+    loadedMemberEmailsRef.current = new Set();
+    DocumentService.loadKnowledgeSpaceMembersPage(spaceId, null, 20)
+      .then((page) => {
         if (cancelled) {
           return;
         }
-        initialMembersRef.current = loaded;
-        setMembers(loaded);
+        setMembers(page.items);
+        loadedMemberEmailsRef.current = new Set(page.items.map((member) => member.email.toLowerCase()));
+        setMembersNextCursor(page.nextCursor);
+        setMembersHasMore(page.hasMore);
       })
       .catch(() => {
         if (!cancelled) {
-          initialMembersRef.current = [];
+          loadedMemberEmailsRef.current = new Set();
+          membersDirtyRef.current = false;
           setMembers([]);
+          setMembersNextCursor(null);
+          setMembersHasMore(false);
         }
       });
     return () => {
@@ -92,37 +106,82 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
       name: capitalizedName,
       email: newMemberEmail,
       role: newMemberRole,
-      avatar: isKnowledgebaseApiAvailable()
-        ? ''
-        : `https://images.unsplash.com/photo-${Math.floor(Math.random() * 100000) + 1500000}?w=100&h=100&fit=crop`,
+      avatar: shouldUseKnowledgebaseDemoFallback()
+        ? `https://images.unsplash.com/photo-${Math.floor(Math.random() * 100000) + 1500000}?w=100&h=100&fit=crop`
+        : '',
     };
     setMembers([...members, newMember]);
+    loadedMemberEmailsRef.current.add(newMemberEmail.toLowerCase());
+    membersDirtyRef.current = true;
     setNewMemberEmail('');
   };
 
   const handleRemoveMember = (idx: number) => {
+    const removed = members[idx];
+    if (removed) {
+      loadedMemberEmailsRef.current.add(removed.email.toLowerCase());
+    }
+    membersDirtyRef.current = true;
     setMembers(members.filter((_, i) => i !== idx));
+  };
+
+  const handleLoadMoreMembers = async () => {
+    const spaceId = Number(kb.id);
+    if (!membersHasMore || membersLoadingMore || !Number.isFinite(spaceId) || spaceId <= 0) {
+      return;
+    }
+    setMembersLoadingMore(true);
+    try {
+      const page = await DocumentService.loadKnowledgeSpaceMembersPage(spaceId, membersNextCursor, 20);
+      setMembers((prev) => [...prev, ...page.items]);
+      for (const member of page.items) {
+        loadedMemberEmailsRef.current.add(member.email.toLowerCase());
+      }
+      setMembersNextCursor(page.nextCursor);
+      setMembersHasMore(page.hasMore);
+    } finally {
+      setMembersLoadingMore(false);
+    }
   };
 
   const handleSaveAll = async () => {
     const spaceId = Number(kb.id);
-    if (isKnowledgebaseApiAvailable() && Number.isFinite(spaceId) && spaceId > 0) {
-      await DocumentService.syncKnowledgeSpaceMembers(spaceId, members, initialMembersRef.current);
+    try {
+      if (
+        membersDirtyRef.current
+        && isKnowledgebaseApiAvailable()
+        && Number.isFinite(spaceId)
+        && spaceId > 0
+      ) {
+        setMembersSaving(true);
+        const baseline = await DocumentService.loadKnowledgeSpaceMembers(spaceId);
+        await DocumentService.syncKnowledgeSpaceMembersPartial(
+          spaceId,
+          members,
+          baseline,
+          loadedMemberEmailsRef.current,
+        );
+        membersDirtyRef.current = false;
+      }
+      onSave({
+        title,
+        icon,
+        avatar,
+        type,
+        publicPermission,
+        guestLinkEnabled,
+        provider,
+        modelName,
+        temperature,
+        maxTokens,
+        systemPrompt,
+      });
+      onClose();
+    } catch (error) {
+      toastKnowledgebaseError(error, t);
+    } finally {
+      setMembersSaving(false);
     }
-    onSave({
-      title,
-      icon,
-      avatar,
-      type,
-      publicPermission,
-      guestLinkEnabled,
-      provider,
-      modelName,
-      temperature,
-      maxTokens,
-      systemPrompt
-    });
-    onClose();
   };
 
   // Predefined models mapping based on provider
@@ -408,6 +467,7 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
                             onChange={(e) => {
                               const updated = [...members];
                               updated[idx].role = e.target.value as any;
+                              membersDirtyRef.current = true;
                               setMembers(updated);
                             }}
                             className="bg-zinc-50 dark:bg-transparent text-[12px] text-zinc-700 font-bold dark:text-[var(--color-kb-text-muted)] hover:text-zinc-900 dark:hover:text-[var(--color-kb-text-heading)] focus:outline-none border border-zinc-200/80 dark:border-zinc-700/50 rounded-lg px-2.5 py-1.5 cursor-pointer"
@@ -432,6 +492,20 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
                       </div>
                     ))}
                   </div>
+                  {membersHasMore ? (
+                    <div className="flex justify-center pt-4">
+                      <button
+                        type="button"
+                        disabled={membersLoadingMore}
+                        onClick={handleLoadMoreMembers}
+                        className="px-4 py-2 text-sm font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50"
+                      >
+                        {membersLoadingMore
+                          ? t('loading', { defaultValue: '加载中...' })
+                          : t('loadMoreMembers', { defaultValue: '加载更多成员' })}
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             )}
@@ -542,8 +616,9 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
             </button>
             <button 
               type="button"
+              disabled={membersSaving}
               onClick={handleSaveAll}
-              className="px-6 py-2.5 rounded-xl bg-[var(--color-kb-accent)] text-white hover:bg-[var(--color-kb-accent-hover)] text-[13.5px] font-extrabold transition-all shadow-md shadow-[var(--color-kb-accent)]/10 active:scale-95 flex items-center gap-2 focus:outline-none focus:ring-4 focus:ring-[var(--color-kb-accent)]/20"
+              className="px-6 py-2.5 rounded-xl bg-[var(--color-kb-accent)] text-white hover:bg-[var(--color-kb-accent-hover)] text-[13.5px] font-extrabold transition-all shadow-md shadow-[var(--color-kb-accent)]/10 active:scale-95 flex items-center gap-2 focus:outline-none focus:ring-4 focus:ring-[var(--color-kb-accent)]/20 disabled:opacity-50 disabled:pointer-events-none"
             >
               <Check size={16} strokeWidth={3} /> 保存并应用设置
             </button>

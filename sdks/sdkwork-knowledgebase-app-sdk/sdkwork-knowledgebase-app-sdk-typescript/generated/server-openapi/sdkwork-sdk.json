@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "name": "KnowledgebaseApp",
+  "name": "sdkwork-knowledgebase-app-sdk",
   "version": "0.1.0",
   "language": "typescript",
   "sdkType": "app",
-  "packageName": "@sdkwork/knowledgebase-app-sdk",
+  "packageName": "sdkwork-knowledgebase-app-sdk-generated-typescript",
   "generator": "@sdkwork/sdk-generator",
   "capabilities": {
     "supportsGeneratedTests": true,
@@ -26,5 +26,7 @@
     "stateRoots": [
       ".sdkwork/"
     ]
-  }
+  },
+  "transportPackageName": "sdkwork-knowledgebase-app-sdk-generated-typescript",
+  "consumerPackageName": "@sdkwork/knowledgebase-app-sdk"
 }

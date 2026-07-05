@@ -139,6 +139,41 @@ async fn space_provisioner_adapter_creates_dedicated_drive_knowledge_space_idemp
 }
 
 #[tokio::test]
+async fn space_provisioner_adapter_creates_distinct_drive_spaces_for_same_user_owner() {
+    let pool = sqlite_drive_pool().await;
+    let adapter = KnowledgebaseDriveSpaceProvisionerAdapter::new(pool.clone());
+
+    let first = adapter
+        .create_knowledge_drive_space(CreateKnowledgeDriveSpaceRequest {
+            tenant_id: "tenant-001".to_string(),
+            knowledge_space_id: 1,
+            knowledge_space_uuid: "space-uuid-a".to_string(),
+            display_name: "First Space".to_string(),
+            owner_subject_type: "app".to_string(),
+            owner_subject_id: "sdkwork-knowledgebase:space-uuid-a".to_string(),
+            operator_id: "42".to_string(),
+        })
+        .await
+        .unwrap();
+    let second = adapter
+        .create_knowledge_drive_space(CreateKnowledgeDriveSpaceRequest {
+            tenant_id: "tenant-001".to_string(),
+            knowledge_space_id: 2,
+            knowledge_space_uuid: "space-uuid-b".to_string(),
+            display_name: "Second Space".to_string(),
+            owner_subject_type: "app".to_string(),
+            owner_subject_id: "sdkwork-knowledgebase:space-uuid-b".to_string(),
+            operator_id: "42".to_string(),
+        })
+        .await
+        .unwrap();
+
+    assert_ne!(first.drive_space_id, second.drive_space_id);
+    assert_eq!(first.drive_space_id, "kb-space-uuid-a");
+    assert_eq!(second.drive_space_id, "kb-space-uuid-b");
+}
+
+#[tokio::test]
 async fn space_provisioner_adapter_deletes_only_matching_knowledge_space_idempotently() {
     let pool = sqlite_drive_pool().await;
     let adapter = KnowledgebaseDriveSpaceProvisionerAdapter::new(pool.clone());

@@ -5,7 +5,7 @@ import {
   SkipForward, SkipBack, Heart, ListMusic, Radio, 
   Headphones, Smartphone, FileText, AlignLeft
 } from 'lucide-react';
-import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
+import { isKnowledgebaseApiAvailable, shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
 import { DocumentMeta } from '../../services/document';
 import { AIService } from '../../services/ai';
 
@@ -13,9 +13,9 @@ function resolveTrackAudioUrl(url: string | undefined): string {
   if (url) {
     return url;
   }
-  return isKnowledgebaseApiAvailable()
-    ? ''
-    : 'https://cdn.pixabay.com/download/audio/2022/10/25/audio_220e8b15d9.mp3?filename=piano-moment-9835.mp3';
+  return shouldUseKnowledgebaseDemoFallback()
+    ? 'https://cdn.pixabay.com/download/audio/2022/10/25/audio_220e8b15d9.mp3?filename=piano-moment-9835.mp3'
+    : '';
 }
 
 const NEUTRAL_TRACK_COVER = `data:image/svg+xml,${encodeURIComponent(
@@ -23,7 +23,7 @@ const NEUTRAL_TRACK_COVER = `data:image/svg+xml,${encodeURIComponent(
 )}`;
 
 function resolveTrackCoverUrl(mockCoverUrl: string): string {
-  return isKnowledgebaseApiAvailable() ? NEUTRAL_TRACK_COVER : mockCoverUrl;
+  return shouldUseKnowledgebaseDemoFallback() ? mockCoverUrl : NEUTRAL_TRACK_COVER;
 }
 
 export interface MusicTrack {
@@ -124,7 +124,7 @@ export interface MusicPlayerProps {
 }
 
 export function MusicPlayer({ activeDoc, onToastMessage, isTranscribing, onTranscribeStart, onTranscribeComplete }: MusicPlayerProps) {
-  const demoPlaylist = isKnowledgebaseApiAvailable() ? [] : DEMO_PLAYLIST;
+  const demoPlaylist = shouldUseKnowledgebaseDemoFallback() ? DEMO_PLAYLIST : [];
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);

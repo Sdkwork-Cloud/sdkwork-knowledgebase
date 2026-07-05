@@ -47,9 +47,17 @@ pub fn database_config_from_url(database_url: &str) -> Result<DatabaseConfig, Po
             "unsupported knowledgebase database url: {normalized}"
         ))
     })?;
+    let url = if engine == DatabaseEngine::Postgres {
+        sdkwork_database_config::claw_database::postgres_url_with_search_path(
+            normalized,
+            "SDKWORK_KNOWLEDGEBASE",
+        )
+    } else {
+        normalized.to_string()
+    };
     Ok(DatabaseConfig {
         engine,
-        url: normalized.to_string(),
+        url,
         max_connections: resolve_max_connections(engine, normalized),
         ..DatabaseConfig::default()
     })

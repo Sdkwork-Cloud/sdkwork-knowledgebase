@@ -3,11 +3,11 @@ use axum::body::{to_bytes, Body};
 use axum::http::{header, Request, StatusCode};
 use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserNode, KnowledgeBrowserNodePermissions, KnowledgeBrowserNodeType,
-    KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
+    KnowledgeBrowserView, ListKnowledgeBrowserRequest,
 };
 use sdkwork_routes_knowledgebase_app_api::{
-    build_router_with_browser, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
-    ProblemDetails,
+    build_router_with_browser, pagination::browser_list_page_data, ApiResult,
+    KnowledgeAppRequestContext, KnowledgeBrowserApi, ProblemDetails,
 };
 use std::sync::Mutex;
 use tower::util::ServiceExt;
@@ -41,13 +41,14 @@ async fn app_router_exposes_browser_route_with_query_parameters() {
     let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
     let payload: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(0, payload["code"].as_i64().unwrap());
-    let page: KnowledgeBrowserPage =
-        serde_json::from_value(payload["data"]["item"].clone()).unwrap();
-    assert_eq!(page.space_id, 7);
-    assert_eq!(page.view, KnowledgeBrowserView::OkfBundle);
+    assert_eq!(1, payload["data"]["items"].as_array().unwrap().len());
     assert_eq!(
-        page.items[0].node_type,
-        KnowledgeBrowserNodeType::OkfConcept
+        "okf_concept",
+        payload["data"]["items"][0]["nodeType"].as_str().unwrap()
+    );
+    assert_eq!(
+        "cursor",
+        payload["data"]["pageInfo"]["mode"].as_str().unwrap()
     );
     assert_eq!(
         browser.last_request().unwrap(),
@@ -121,15 +122,10 @@ impl KnowledgeBrowserApi for RecordingBrowserApi {
         &self,
         _context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<KnowledgeBrowserPage> {
+    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<KnowledgeBrowserNode>> {
         *self.last_request.lock().unwrap() = Some(request.clone());
-        Ok(KnowledgeBrowserPage {
-            space_id: request.space_id,
-            drive_space_id: "drv-kb-001".to_string(),
-            parent_id: request.parent_id,
-            view: request.view,
-            page_size: request.page_size.unwrap_or(50),
-            items: vec![KnowledgeBrowserNode {
+        Ok(browser_list_page_data(
+            vec![KnowledgeBrowserNode {
                 id: "node-index".to_string(),
                 node_type: KnowledgeBrowserNodeType::OkfConcept,
                 name: "index.md".to_string(),
@@ -154,7 +150,8 @@ impl KnowledgeBrowserApi for RecordingBrowserApi {
                 drive_bucket: None,
                 drive_object_key: None,
             }],
-            next_cursor: None,
-        })
+            None,
+            request.page_size.unwrap_or(50),
+        ))
     }
 }

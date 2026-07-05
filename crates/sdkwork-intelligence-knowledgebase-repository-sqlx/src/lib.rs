@@ -77,4 +77,6 @@ pub use sqlite_import_stores::{
 pub use sqlite_markdown_index_metadata_store::SqliteMarkdownIndexMetadataStore;
 pub use sqlite_okf_concept_revision_metadata_store::SqliteOkfConceptRevisionMetadataStore;
 pub use sqlite_outbox_store::SqliteKnowledgeOutboxStore;
-pub use sqlite_space_stores::{SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeSpaceStore};
+pub use sqlite_space_stores::{
+    SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeSpaceStore, TenantKnowledgebaseSummary,
+};

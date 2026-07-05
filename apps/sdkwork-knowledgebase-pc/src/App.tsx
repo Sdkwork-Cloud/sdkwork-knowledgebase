@@ -25,6 +25,12 @@ const AppShell = React.lazy(() =>
   })),
 );
 
+const KnowledgebaseAdminConsole = React.lazy(() =>
+  import('@sdkwork/sdkwork-knowledgebase-pc-shell').then((module) => ({
+    default: module.KnowledgebaseAdminConsole,
+  })),
+);
+
 const WechatPublishPage = React.lazy(() =>
   import('@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/WechatPublishPage').then((module) => ({
     default: module.WechatPublishPage,
@@ -137,6 +143,7 @@ function KnowledgebaseAppRoutes({
       <Suspense fallback={<KnowledgebaseRouteFallback label="Loading Knowledgebase workspace" />}>
         <Routes>
           <Route path="/" element={<AppShell />} />
+          <Route path="/admin" element={<KnowledgebaseAdminConsole />} />
           <Route path="/wechat-publish" element={<WechatPublishPage />} />
         </Routes>
       </Suspense>

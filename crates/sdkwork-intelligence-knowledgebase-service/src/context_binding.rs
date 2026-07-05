@@ -138,6 +138,8 @@ impl<'a> KnowledgeContextBindingService<'a> {
         tenant_id: u64,
         space_id: u64,
         context_type: Option<KnowledgeContextType>,
+        cursor: Option<String>,
+        page_size: Option<u32>,
     ) -> Result<KnowledgeSpaceContextBindingList, KnowledgeContextBindingServiceError> {
         self.store
             .list_space_bindings(
@@ -145,8 +147,8 @@ impl<'a> KnowledgeContextBindingService<'a> {
                 ListKnowledgeSpaceContextBindingsRequest {
                     space_id,
                     context_type,
-                    cursor: None,
-                    page_size: None,
+                    cursor,
+                    page_size,
                 },
             )
             .await

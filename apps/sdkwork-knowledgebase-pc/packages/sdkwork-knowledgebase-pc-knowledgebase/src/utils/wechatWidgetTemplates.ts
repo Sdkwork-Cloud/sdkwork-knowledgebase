@@ -76,8 +76,7 @@ export const WechatWidgetTemplates = {
         <span style="font-weight: bold; font-size: 13px; color: var(--color-kb-text-heading); flex: 1;">${t('channelPrefix')}${title}</span>
         <span style="font-size: 11px; color: var(--color-kb-text-muted);">${t('watchOriginal')}</span>
       </div>
-      <div style="position: relative; height: 160px; background: #111; display: flex; align-items: center; justify-content: center;">
-        <img src="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=500&q=80" style="position: absolute; inset:0; width:100%; height:100%; object-fit: cover; opacity: 0.7;" />
+      <div style="position: relative; height: 160px; background: linear-gradient(135deg, #0f172a 0%, #334155 100%); display: flex; align-items: center; justify-content: center;">
         <div style="position: relative; width: 48px; height: 48px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="#111">
             <path d="M8 5v14l11-7z"/>
@@ -94,7 +93,7 @@ export const WechatWidgetTemplates = {
   `,
   ad: () => `
     <div style="border: 1px solid var(--color-kb-panel-border); border-radius: 12px; overflow: hidden; background: var(--color-kb-panel-hover); margin: 24px 0;">
-      <img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=500&q=80" style="width: 100%; height: 150px; object-fit: cover;" />
+      <div style="width: 100%; height: 150px; background: linear-gradient(135deg, #1e293b 0%, #475569 100%); display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 12px; letter-spacing: 0.08em;">${t('adTitle')}</div>
       <div style="padding: 12px; display: flex; justify-content: space-between; align-items: center;">
         <div>
           <div style="font-size: 13.5px; font-weight: bold; color: var(--color-kb-text-heading);">${t('adTitle')}</div>

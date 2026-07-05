@@ -226,4 +226,138 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(hostedWechat, /preview_articles/);
     assert.match(hostedWechat, /ensure_runtime_tenant/);
   });
+
+  it('enforces upload session space ACL in hosted upload service', () => {
+    const hostedUpload = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_upload.rs',
+    );
+    assert.match(hostedUpload, /require_space_access/);
+    assert.match(hostedUpload, /create_upload_session[\s\S]*context: KnowledgeAppRequestContext/u);
+    assert.match(hostedUpload, /complete_upload_session[\s\S]*require_space_access/u);
+  });
+
+  it('fail-closes space access when drive binding is missing', () => {
+    const spaceService = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-service/src/space.rs',
+    );
+    assert.match(
+      spaceService,
+      /access_control[\s\S]*drive_space_id[\s\S]*AccessDenied/,
+    );
+  });
+
+  it('sanitizes WeChat editor HTML before insertion', () => {
+    const wechatPage = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/WechatPublishPage.tsx',
+    );
+    assert.match(wechatPage, /sanitizeEditorHtml/);
+    assert.match(wechatPage, /insertHtmlToEditor[\s\S]*sanitizeEditorHtml\(html\)/);
+  });
+
+  it('gates synthetic search media behind demo fallback', () => {
+    const buildRelatedMedia = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-search/src/services/buildRelatedMedia.ts',
+    );
+    assert.match(buildRelatedMedia, /shouldUseKnowledgebaseDemoFallback/);
+    assert.match(buildRelatedMedia, /buildKbMediaItems\(docs, allowDemo\)/);
+  });
+
+  it('uses sdkwork_utils_rust is_blank in gateway bootstrap', () => {
+    const gatewayBootstrap = readRepoFile(
+      'crates/sdkwork-knowledgebase-gateway-assembly/src/bootstrap.rs',
+    );
+    assert.match(gatewayBootstrap, /sdkwork_utils_rust::is_blank/);
+    assert.doesNotMatch(gatewayBootstrap, /\.trim\(\)\.is_empty\(\)/);
+  });
+
+  it('gates asset library mock content behind demo fallback', () => {
+    const assetLibrary = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/components/AssetLibraryModal.tsx',
+    );
+    assert.match(assetLibrary, /shouldUseKnowledgebaseDemoFallback/);
+    assert.match(assetLibrary, /useMockAssets/);
+  });
+
+  it('blocks WeChat scan and AI cover demo flows without demo fallback', () => {
+    const wechatPage = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/WechatPublishPage.tsx',
+    );
+    assert.match(wechatPage, /triggerScanSimulation[\s\S]*shouldUseKnowledgebaseDemoFallback/u);
+    assert.match(wechatPage, /triggerAiCoverGeneration[\s\S]*shouldUseKnowledgebaseDemoFallback/u);
+    assert.match(wechatPage, /handleInsertConfirm[\s\S]*shouldUseKnowledgebaseDemoFallback/u);
+  });
+
+  it('wires tenant-scoped dynamic rate limit policy from web store', () => {
+    const webAuditStore = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-backend-api/src/web_audit_store.rs',
+    );
+    assert.match(webAuditStore, /shared_dynamic_policy_bundle/);
+    assert.match(webAuditStore, /with_dynamic_rate_limit_policy_source/);
+    assert.match(webAuditStore, /with_dynamic_tenant_runtime_profile_source/);
+  });
+
+  it('gates WeChat applet and settings demo assets behind demo fallback', () => {
+    const appletModal = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/components/WechatAppletModal.tsx',
+    );
+    assert.match(appletModal, /shouldUseKnowledgebaseDemoFallback/);
+    const settingsModal = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/KnowledgeBaseSettingsModal.tsx',
+    );
+    assert.match(settingsModal, /shouldUseKnowledgebaseDemoFallback/);
+    const musicPlayer = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/components/players/MusicPlayer.tsx',
+    );
+    assert.match(musicPlayer, /shouldUseKnowledgebaseDemoFallback/);
+    const widgetTemplates = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/utils/wechatWidgetTemplates.ts',
+    );
+    assert.doesNotMatch(widgetTemplates, /images\.unsplash\.com/);
+  });
+
+  it('wires PC admin console to generated backend SDK', () => {
+    const adminConsole = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-shell/src/KnowledgebaseAdminConsole.tsx',
+    );
+    assert.match(adminConsole, /getKnowledgebaseBackendSdkClient/);
+    assert.match(adminConsole, /canAccessKnowledgebaseAdminConsole/);
+    assert.match(adminConsole, /providerHealth\.retrieve/);
+    assert.match(adminConsole, /retrievalTraces\.list/);
+    assert.match(adminConsole, /spaces\.list/);
+    assert.match(adminConsole, /spaces\.members\.list/);
+    assert.match(adminConsole, /loadAdminSpaceMembers/);
+    const adminService = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/src/api/knowledgebaseBackendAdminService.ts',
+    );
+    assert.match(adminService, /getPath/);
+    const globalNav = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-shell/src/GlobalNav.tsx',
+    );
+    assert.match(globalNav, /knowledgebase-pc-nav-admin/);
+    const backendRegistry = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/src/api/knowledgebaseBackendApiRegistry.ts',
+    );
+    assert.match(backendRegistry, /knowledge\.platform\.manage/);
+    const appRoutes = readRepoFile('apps/sdkwork-knowledgebase-pc/src/App.tsx');
+    assert.match(appRoutes, /path="\/admin"/);
+  });
+
+  it('implements backend spaces admin APIs in hosted runtime', () => {
+    const hostedBackend = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_backend.rs',
+    );
+    assert.match(hostedBackend, /async fn list_spaces/);
+    assert.match(hostedBackend, /async fn list_space_members/);
+    assert.match(hostedBackend, /list_space_members_admin_with_runtime/);
+    assert.match(hostedBackend, /async fn list_indexes/);
+    const spaceStore = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_space_stores.rs',
+    );
+    assert.match(spaceStore, /list_active_spaces/);
+    const policyBootstrap = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-backend-api/src/web_policy_bootstrap.rs',
+    );
+    assert.match(policyBootstrap, /web_rate_limit_policy/);
+    assert.match(policyBootstrap, /web_tenant_runtime_profile/);
+  });
 });

@@ -193,7 +193,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
             SET drive_space_id = COALESCE(drive_space_id, $1),
                 drive_node_id = COALESCE(drive_node_id, $2),
                 logical_path = COALESCE(logical_path, $3),
-                updated_at = $4,
+                updated_at = CAST($4 AS TIMESTAMP),
                 version = version + 1
             WHERE tenant_id = $5 AND id = $6 AND status = $7
             RETURNING
@@ -262,6 +262,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
               AND logical_path LIKE $3 ESCAPE '\'
               AND status = $4
             ORDER BY logical_path ASC
+            LIMIT 200
             "#,
         )
         .bind(tenant_id)
@@ -381,6 +382,25 @@ impl SqliteKnowledgeDriveObjectRefStore {
             .map_err(sqlx_error)?;
 
         row.map(|row| object_ref_from_row(&row)).transpose()
+    }
+
+    pub async fn sum_active_storage_bytes(&self) -> Result<u64, KnowledgeDriveObjectRefStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let total: Option<i64> = sqlx::query_scalar(
+            r#"
+            SELECT COALESCE(SUM(size_bytes), 0)
+            FROM kb_drive_object_ref
+            WHERE tenant_id = $1
+              AND status = $2
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(sqlx_error)?;
+
+        Ok(u64::try_from(total.unwrap_or(0)).unwrap_or(0))
     }
 }
 

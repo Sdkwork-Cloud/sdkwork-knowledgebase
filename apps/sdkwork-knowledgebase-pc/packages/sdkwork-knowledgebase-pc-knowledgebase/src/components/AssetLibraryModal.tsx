@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, Image as ImageIcon, Music, Video, Plus, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
+import { isKnowledgebaseApiAvailable, shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
 
 import { DocumentService } from '../services/document';
+import { toastKnowledgebaseError } from './ui/toastKnowledgebaseError';
 
 export type AssetType = 'image' | 'audio' | 'video';
 
@@ -72,11 +73,17 @@ export function AssetLibraryModal({
   const [activeTab, setActiveTab] = useState<AssetType>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [apiItems, setApiItems] = useState<AssetListItem[]>([]);
+  const [assetsTruncated, setAssetsTruncated] = useState(false);
+  const [assetNextCursor, setAssetNextCursor] = useState<string | null>(null);
+  const [assetHasMore, setAssetHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const apiMode = isKnowledgebaseApiAvailable();
+  const demoMode = shouldUseKnowledgebaseDemoFallback();
   const useApiAssets = apiMode && !!kbId;
+  const useMockAssets = demoMode && !useApiAssets;
 
   useEffect(() => {
     if (isOpen) {
@@ -88,6 +95,8 @@ export function AssetLibraryModal({
   useEffect(() => {
     if (!isOpen || !useApiAssets || !kbId) {
       setApiItems([]);
+      setAssetNextCursor(null);
+      setAssetHasMore(false);
       setLoadError(null);
       return;
     }
@@ -96,15 +105,18 @@ export function AssetLibraryModal({
     setLoading(true);
     setLoadError(null);
 
-    DocumentService.listAssetLibraryItems(kbId, activeTab)
-      .then((items) => {
+    DocumentService.listAssetLibraryItemsPage(kbId, activeTab, null)
+      .then((page) => {
         if (!cancelled) {
-          setApiItems(items);
+          setApiItems(page.items);
+          setAssetsTruncated(page.truncated);
+          setAssetNextCursor(page.nextCursor);
+          setAssetHasMore(!!page.nextCursor);
         }
       })
       .catch((error) => {
         if (!cancelled) {
-          console.error('[AssetLibraryModal] failed to load assets', error);
+          toastKnowledgebaseError(error, t);
           setApiItems([]);
           setLoadError(error instanceof Error ? error.message : String(error));
         }
@@ -124,13 +136,31 @@ export function AssetLibraryModal({
     if (apiMode && !kbId) {
       return [];
     }
-    const source = useApiAssets ? apiItems : mockItemsForTab(activeTab);
+    const source = useApiAssets ? apiItems : (useMockAssets ? mockItemsForTab(activeTab) : []);
     const query = searchQuery.trim().toLowerCase();
     if (!query) {
       return source;
     }
     return source.filter((item) => item.title.toLowerCase().includes(query));
-  }, [apiMode, kbId, useApiAssets, apiItems, activeTab, searchQuery]);
+  }, [apiMode, kbId, useApiAssets, useMockAssets, apiItems, activeTab, searchQuery]);
+
+  const handleLoadMoreAssets = async () => {
+    if (!kbId || !assetHasMore || loadingMore || !assetNextCursor) {
+      return;
+    }
+    setLoadingMore(true);
+    try {
+      const page = await DocumentService.listAssetLibraryItemsPage(kbId, activeTab, assetNextCursor);
+      setApiItems((prev) => [...prev, ...page.items]);
+      setAssetsTruncated(page.truncated);
+      setAssetNextCursor(page.nextCursor);
+      setAssetHasMore(!!page.nextCursor);
+    } catch (error) {
+      toastKnowledgebaseError(error, t);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -187,6 +217,12 @@ export function AssetLibraryModal({
             </span>
           ) : null}
         </div>
+
+        {assetsTruncated ? (
+          <div className="px-6 py-2 text-xs text-amber-600 bg-amber-50 border-b border-amber-100">
+            {t('assetLibraryTruncated', { defaultValue: '素材过多，仅显示前 200 项。请缩小目录范围或使用搜索。' })}
+          </div>
+        ) : null}
 
         <div className="flex-1 overflow-y-auto p-6 bg-[var(--color-kb-panel)]">
           {loading ? (
@@ -294,6 +330,21 @@ export function AssetLibraryModal({
               ))}
             </div>
           )}
+
+          {useApiAssets && assetHasMore && !loading && !loadError ? (
+            <div className="flex justify-center pt-4">
+              <button
+                type="button"
+                disabled={loadingMore}
+                onClick={handleLoadMoreAssets}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-[var(--color-kb-panel-border)] bg-[var(--color-kb-editor)] hover:bg-[var(--color-kb-panel-hover)] disabled:opacity-50"
+              >
+                {loadingMore
+                  ? t('loading', { defaultValue: '加载中...' })
+                  : t('loadMoreAssets', { defaultValue: '加载更多素材' })}
+              </button>
+            </div>
+          ) : null}
 
           {!loading && !loadError && displayedItems.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 text-[var(--color-kb-text-muted)]">

@@ -30,6 +30,13 @@ fn normalize_space_members_page_size(page_size: Option<u32>) -> u32 {
         .clamp(1, MAX_SPACE_MEMBERS_PAGE_SIZE)
 }
 
+fn knowledge_drive_space_owner(knowledge_space_uuid: &str) -> (String, String) {
+    (
+        "app".to_string(),
+        format!("sdkwork-knowledgebase:{}", knowledge_space_uuid.trim()),
+    )
+}
+
 pub struct KnowledgeSpaceService<'a> {
     store: &'a dyn KnowledgeSpaceStore,
     okf_bundle_initializer: &'a OkfBundleInitializerService<'a>,
@@ -208,9 +215,12 @@ impl<'a> KnowledgeSpaceService<'a> {
             .await
             .map_err(KnowledgeSpaceServiceError::Store)?;
 
-        if let (Some(access), Some(drive_space_id)) =
-            (self.access_control, space.drive_space_id.as_ref())
-        {
+        if let Some(access) = self.access_control {
+            let drive_space_id = space.drive_space_id.as_ref().ok_or_else(|| {
+                KnowledgeSpaceServiceError::AccessDenied(format!(
+                    "space {space_id} is not bound to a drive space for access control"
+                ))
+            })?;
             let grant = access
                 .check_space_access(
                     crate::ports::knowledge_access_control::KnowledgeAccessCheckRequest {
@@ -369,6 +379,43 @@ impl<'a> KnowledgeSpaceService<'a> {
         Ok(members)
     }
 
+    pub async fn list_space_members_admin(
+        &self,
+        space_id: u64,
+        tenant_id: &str,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> Result<
+        crate::ports::knowledge_access_control::KnowledgeSpaceMemberList,
+        KnowledgeSpaceServiceError,
+    > {
+        let space = self
+            .store
+            .get_space(space_id)
+            .await
+            .map_err(KnowledgeSpaceServiceError::Store)?;
+
+        let drive_space_id = space.drive_space_id.as_ref().ok_or_else(|| {
+            KnowledgeSpaceServiceError::InvalidRequest(
+                "space is not bound to a drive space".to_string(),
+            )
+        })?;
+
+        let access = self.require_access_control()?;
+        access
+            .list_space_members(
+                crate::ports::knowledge_access_control::ListKnowledgeSpaceMembersRequest {
+                    tenant_id: tenant_id.to_string(),
+                    drive_space_id: drive_space_id.clone(),
+                    drive_node_id: None,
+                    cursor,
+                    page_size: Some(normalize_space_members_page_size(page_size)),
+                },
+            )
+            .await
+            .map_err(KnowledgeSpaceServiceError::AccessControl)
+    }
+
     async fn initialize_created_space(
         &self,
         mut space: KnowledgeSpace,
@@ -384,22 +431,24 @@ impl<'a> KnowledgeSpaceService<'a> {
                         .to_string(),
                 )
             })?;
+            let (drive_owner_subject_type, drive_owner_subject_id) =
+                knowledge_drive_space_owner(&space.uuid);
             let binding = provisioner
                 .create_knowledge_drive_space(CreateKnowledgeDriveSpaceRequest {
                     tenant_id: drive_context.tenant_id.clone(),
                     knowledge_space_id: space.id,
                     knowledge_space_uuid: space.uuid.clone(),
                     display_name: space.name.clone(),
-                    owner_subject_type: owner_subject_type.to_string(),
-                    owner_subject_id: owner_subject_id.to_string(),
+                    owner_subject_type: drive_owner_subject_type.clone(),
+                    owner_subject_id: drive_owner_subject_id.clone(),
                     operator_id: drive_context.operator_id.clone(),
                 })
                 .await?;
             drive_cleanup = Some(DeleteKnowledgeDriveSpaceRequest {
                 tenant_id: drive_context.tenant_id.clone(),
                 drive_space_id: binding.drive_space_id.clone(),
-                owner_subject_type: owner_subject_type.to_string(),
-                owner_subject_id: owner_subject_id.to_string(),
+                owner_subject_type: drive_owner_subject_type,
+                owner_subject_id: drive_owner_subject_id,
                 operator_id: drive_context.operator_id.clone(),
             });
 

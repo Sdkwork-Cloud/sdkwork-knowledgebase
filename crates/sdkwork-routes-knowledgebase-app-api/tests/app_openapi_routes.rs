@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
-use sdkwork_knowledgebase_contract::browser::{KnowledgeBrowserPage, ListKnowledgeBrowserRequest};
+use sdkwork_knowledgebase_contract::browser::{ListKnowledgeBrowserRequest};
 use sdkwork_routes_knowledgebase_app_api::{
-    build_router_with_browser, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
+    build_router_with_browser, pagination::browser_list_page_data, ApiResult,
+    KnowledgeAppRequestContext, KnowledgeBrowserApi,
 };
 use serde_json::Value;
 use tower::util::ServiceExt;
@@ -437,15 +438,7 @@ impl KnowledgeBrowserApi for EmptyBrowserApi {
         &self,
         _context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<KnowledgeBrowserPage> {
-        Ok(KnowledgeBrowserPage {
-            space_id: request.space_id,
-            drive_space_id: "drv-kb-001".to_string(),
-            parent_id: request.parent_id,
-            view: request.view,
-            page_size: request.page_size.unwrap_or(1),
-            items: vec![],
-            next_cursor: None,
-        })
+    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>> {
+        Ok(browser_list_page_data(vec![], None, request.page_size.unwrap_or(1)))
     }
 }

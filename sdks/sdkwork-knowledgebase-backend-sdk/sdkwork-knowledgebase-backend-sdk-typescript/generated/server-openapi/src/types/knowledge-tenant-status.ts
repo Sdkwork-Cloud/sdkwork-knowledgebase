@@ -1,4 +1,5 @@
 import type { KnowledgeTenantStatusEnum } from './knowledge-tenant-status-enum';
+import type { KnowledgeTenantQuotaStatus } from './knowledge-tenant-quota-status';
 
 export interface KnowledgeTenantStatus {
   tenantName?: string | null;
@@ -6,4 +7,5 @@ export interface KnowledgeTenantStatus {
   spaceCount: string;
   documentCount: string;
   createdAt?: string | null;
+  quota?: KnowledgeTenantQuotaStatus | null;
 }

@@ -1,5 +1,5 @@
 import type { DriveUploaderProfile } from 'sdkwork-knowledgebase-pc-core';
-import { isBlank } from '@sdkwork/utils';
+import { formatBytes, isBlank } from '@sdkwork/utils';
 import {
   getKnowledgebaseAppSdkClient,
   getKnowledgebaseTenantId,
@@ -51,16 +51,6 @@ export interface KnowledgeFileUploadFailure {
 
 function spaceIdFromKbId(kbId: string): number {
   return parseKnowledgeSpaceId(kbId);
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function inferDocumentType(

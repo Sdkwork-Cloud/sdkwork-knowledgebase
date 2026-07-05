@@ -111,7 +111,7 @@ pub(crate) async fn next_okf_revision_no_in_transaction(
         r#"
         UPDATE kb_okf_concept
         SET revision_counter = revision_counter + 1,
-            updated_at = $1,
+            updated_at = CAST($1 AS TIMESTAMP),
             version = version + 1
         WHERE tenant_id = $2 AND id = $3 AND status = $4
         RETURNING revision_counter

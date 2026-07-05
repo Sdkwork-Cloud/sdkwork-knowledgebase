@@ -233,23 +233,26 @@ export async function generateCitationsAndResults(
     responseText = await AIService.synthesizeSearchAnswer(query, sourcesText);
     return { sources, relatedMedia, responseText };
   } catch (e) {
-    console.warn('Search answer synthesis failed, applying structured fallback:', e);
-    await new Promise((r) => setTimeout(r, 600));
+    console.warn('Search answer synthesis failed:', e);
+    if (shouldUseKnowledgebaseDemoFallback()) {
+      await new Promise((r) => setTimeout(r, 600));
+      const isLocalSearch = localSources.some((s) => s.type === 'doc');
+      const localDocName = localSources.find((s) => s.type === 'doc')?.title || '产品路线图';
+      const lower = query.toLowerCase();
 
-    const isLocalSearch = localSources.some((s) => s.type === 'doc');
-    const localDocName = localSources.find((s) => s.type === 'doc')?.title || '产品路线图';
-    const lower = query.toLowerCase();
-
-    if (
-      lower.includes('desktop')
-      || lower.includes('桌面')
-      || lower.includes('组件')
-      || lower.includes('widget')
-      || lower.includes('设计')
-    ) {
-      responseText = buildDesktopFallback(isLocalSearch, localDocName);
+      if (
+        lower.includes('desktop')
+        || lower.includes('桌面')
+        || lower.includes('组件')
+        || lower.includes('widget')
+        || lower.includes('设计')
+      ) {
+        responseText = buildDesktopFallback(isLocalSearch, localDocName);
+      } else {
+        responseText = buildDefaultFallback(query, sources.length, isLocalSearch, localDocName);
+      }
     } else {
-      responseText = buildDefaultFallback(query, sources.length, isLocalSearch, localDocName);
+      responseText = `### 检索失败\n\n无法生成 AI 综合回答，请稍后重试。若问题持续，请联系管理员。`;
     }
   }
 

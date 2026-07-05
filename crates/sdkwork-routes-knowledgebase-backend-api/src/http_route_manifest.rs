@@ -114,6 +114,12 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "okf.evalRuns.create",
     ),
     HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/indexes",
+        "knowledge",
+        "indexes.list",
+    ),
+    HttpRoute::dual_token(
         HttpMethod::Post,
         "/backend/v3/api/knowledge/indexes",
         "knowledge",
@@ -172,6 +178,30 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "/backend/v3/api/knowledge/tenants/current",
         "knowledge",
         "tenants.current.retrieve",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/spaces",
+        "knowledge",
+        "spaces.list",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
+        "/backend/v3/api/knowledge/spaces/{spaceId}/members",
+        "knowledge",
+        "spaces.members.list",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/compliance/audit_events/export",
+        "knowledge",
+        "compliance.auditEvents.export",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Post,
+        "/backend/v3/api/knowledge/compliance/audit_events/anonymize_actor",
+        "knowledge",
+        "compliance.auditEvents.anonymizeActor",
     ),
 ];
 

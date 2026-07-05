@@ -2,7 +2,7 @@
 
 Status: active  
 Owner: SDKWork maintainers  
-Updated: 2026-06-29
+Updated: 2026-07-04
 
 ## Purpose
 
@@ -57,17 +57,24 @@ pnpm test
 - No local filesystem bundle discovery in production Rust libraries (test fixtures under `tests/support/` only).
 - Demo/offline UX is development-only via `shouldUseKnowledgebaseDemoFallback()`; production builds fail closed.
 
-## Verification Status (2026-06-29)
+## Verification Status (2026-07-04)
 
-All gates green on repository root:
+Re-run before release cutover:
 
 | Gate | Result |
 |------|--------|
-| `pnpm check` | pass |
-| `pnpm verify` | pass |
-| `verify-repo.mjs` | pass |
-| API envelope checker | pass |
-| Phase 1 launch readiness | pass |
-| Phase 2 commercial readiness | pass |
-
-Dead bootstrap re-export shims under `apps/sdkwork-knowledgebase-pc/src/bootstrap/` were removed; account/session helpers live in `sdkwork-knowledgebase-pc-core/session` and `account/accountViewModel.ts`.
+| `pnpm check` | required |
+| `pnpm verify` | required |
+| `verify-repo.mjs` | required |
+| API envelope checker | required |
+| Phase 1 launch readiness | required |
+| Phase 2 commercial readiness | required |
+| Upload session space ACL (`require_space_access`) | enforced |
+| Space ACL fail-closed without `drive_space_id` | enforced |
+| PC WeChat editor HTML sanitization | enforced |
+| Production demo/synthetic media gating | enforced (`shouldUseKnowledgebaseDemoFallback` across WeChat, search, asset library, music player) |
+| Tenant-scoped dynamic rate limit policy (`web_rate_limit_policy`) | wired on app/backend/open HTTP surfaces |
+| Backend `tenants.current.retrieve` implementation | wired in `HostedBackendApi` |
+| PC admin console (`/admin`) | tenant status, spaces, members, sources, indexes, retrieval traces, provider health via backend SDK |
+| Backend `spaces.list` / `spaces.members.list` | admin operator APIs on `/backend/v3/api/knowledge/spaces` |
+| Web policy bootstrap | idempotent `web_rate_limit_policy` + `web_tenant_runtime_profile` seeds on web store connect |

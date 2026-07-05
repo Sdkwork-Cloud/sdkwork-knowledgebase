@@ -23,7 +23,7 @@ pub async fn rebuild_bundle_index_for_space(
     space_id: u64,
 ) -> Result<(), OkfIndexRebuildError> {
     let space = space_store.get_space(space_id).await?;
-    let concepts = concept_store.list_concept_summaries(space_id).await?;
+    let concepts = concept_store.list_concept_summaries(space_id, None).await?;
     let logs = concept_store.list_log_entries(space_id).await?;
     standard_bundle_refresh::persist_dynamic_standard_bundle_files(
         drive,

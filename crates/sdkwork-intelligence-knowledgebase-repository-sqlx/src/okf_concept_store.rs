@@ -209,7 +209,7 @@ impl SqliteKnowledgeOkfConceptStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_okf_concept
-            SET publish_state = $1, updated_at = $2, version = version + 1
+            SET publish_state = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
             RETURNING
                 id,
@@ -341,7 +341,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
             UPDATE kb_okf_concept
             SET current_revision_id = $1,
                 publish_state = $2,
-                updated_at = $3,
+                updated_at = CAST($3 AS TIMESTAMP),
                 version = version + 1
             WHERE tenant_id = $4 AND id = $5 AND status = $6
             RETURNING
@@ -375,9 +375,15 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
     async fn list_concept_summaries(
         &self,
         space_id: u64,
+        limit: Option<u32>,
     ) -> Result<Vec<OkfConceptSummary>, KnowledgeOkfConceptStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", space_id)?;
+        let limit = i64::from(
+            limit
+                .unwrap_or(MAX_OKF_LIST_ROWS as u32)
+                .clamp(1, MAX_OKF_LIST_ROWS as u32),
+        );
         let rows = sqlx::query(
             r#"
             SELECT
@@ -399,12 +405,98 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         .bind(tenant_id)
         .bind(space_id)
         .bind(ACTIVE_STATUS)
-        .bind(MAX_OKF_LIST_ROWS)
+        .bind(limit)
         .fetch_all(&self.pool)
         .await
         .map_err(sqlx_error)?;
 
         rows.into_iter().map(description_from_row).collect()
+    }
+
+    async fn list_concept_summaries_page(
+        &self,
+        space_id: u64,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<OkfConceptSummary>, Option<String>, bool), KnowledgeOkfConceptStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let space_id = to_i64("space_id", space_id)?;
+        let page_size = i64::from(page_size.clamp(1, MAX_OKF_LIST_ROWS as u32));
+        let fetch_limit = page_size + 1;
+        let cursor_id = cursor
+            .map(|value| to_i64("cursor", value))
+            .transpose()?;
+
+        let rows = if let Some(after_id) = cursor_id {
+            sqlx::query(
+                r#"
+                SELECT
+                    id,
+                    title,
+                    concept_id,
+                    concept_type,
+                    logical_path,
+                    description,
+                    source_count,
+                    updated_at,
+                    tags
+                FROM kb_okf_concept
+                WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+                  AND publish_state = 'published' AND id > $4
+                ORDER BY id ASC
+                LIMIT $5
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(ACTIVE_STATUS)
+            .bind(after_id)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sqlx_error)?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT
+                    id,
+                    title,
+                    concept_id,
+                    concept_type,
+                    logical_path,
+                    description,
+                    source_count,
+                    updated_at,
+                    tags
+                FROM kb_okf_concept
+                WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+                  AND publish_state = 'published'
+                ORDER BY id ASC
+                LIMIT $4
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(ACTIVE_STATUS)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sqlx_error)?
+        };
+
+        let has_more = rows.len() > page_size as usize;
+        let mut items = Vec::new();
+        let mut last_id = None;
+        for row in rows.into_iter().take(page_size as usize) {
+            last_id = Some(from_i64("id", row.try_get("id").map_err(sqlx_error)?)?);
+            items.push(description_from_row(row)?);
+        }
+        let next_cursor = if has_more {
+            last_id.map(|value| value.to_string())
+        } else {
+            None
+        };
+        Ok((items, next_cursor, has_more))
     }
 
     async fn append_log_entry(
@@ -418,7 +510,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
             r#"
             UPDATE kb_space
             SET okf_log_sequence_counter = okf_log_sequence_counter + 1,
-                updated_at = $1,
+                updated_at = CAST($1 AS TIMESTAMP),
                 version = version + 1
             WHERE tenant_id = $2 AND id = $3 AND status = $4
             RETURNING okf_log_sequence_counter
@@ -566,7 +658,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_okf_concept
-            SET status = $1, updated_at = $2, version = version + 1
+            SET status = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $3 AND space_id = $4 AND id = $5 AND status = $6
             RETURNING
                 id,
@@ -601,7 +693,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         sqlx::query(
             r#"
             UPDATE kb_okf_concept_revision
-            SET status = $1, updated_at = $2, version = version + 1
+            SET status = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $3 AND concept_row_id = $4 AND status = $5
             "#,
         )

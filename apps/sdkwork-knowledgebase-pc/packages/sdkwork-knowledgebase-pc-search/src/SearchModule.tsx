@@ -507,7 +507,9 @@ export function SearchModule({ onGoToKb, onGoToFile, onOpenWebLink }: SearchModu
         showSearchToast(t('savedToKb', { title: kbGroup.title }), 'success');
       }
     } catch (e) {
-      console.error(e);
+      showSearchToast(
+        e instanceof Error ? e.message : t('saveToKbFailed', { defaultValue: '保存到知识库失败，请稍后重试。' }),
+      );
     }
   };
 

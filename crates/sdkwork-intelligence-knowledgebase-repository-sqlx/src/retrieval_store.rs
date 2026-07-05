@@ -21,6 +21,8 @@ use crate::keyword_search::KeywordSearchBackend;
 const ACTIVE_STATUS: i64 = 1;
 const SUCCEEDED_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
+/// Maximum hits returned per retrieval trace (bounded to avoid OOM).
+const MAX_RETRIEVAL_TRACE_HITS: i64 = 256;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeChunkRetrievalStore {
@@ -718,10 +720,12 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
              AND d.id = h.document_id
             WHERE h.tenant_id = $1 AND h.retrieval_trace_id = $2
             ORDER BY h.result_rank ASC, h.id ASC
+            LIMIT $3
             "#,
         )
         .bind(trace_to_i64("tenant_id", tenant_id)?)
         .bind(trace_to_i64("retrieval_trace_id", retrieval_trace_id)?)
+        .bind(MAX_RETRIEVAL_TRACE_HITS)
         .fetch_all(&self.pool)
         .await
         .map_err(trace_sqlx_error)?;

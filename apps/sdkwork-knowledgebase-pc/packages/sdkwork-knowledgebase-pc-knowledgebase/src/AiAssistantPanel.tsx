@@ -6,6 +6,12 @@ import { AiModelSelector } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 import { DocumentMeta, FolderNode } from './services/document';
 import { AIService } from './services/ai';
 import { McpAgentService, McpToolCall } from './services/mcpAgent';
+import {
+  isKnowledgebaseApiAvailable,
+  KnowledgebaseErrorCodes,
+  shouldUseKnowledgebaseDemoFallback,
+  throwKnowledgebaseError,
+} from 'sdkwork-knowledgebase-pc-core';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { AiAssistantInput } from './AiAssistantInput';
@@ -82,7 +88,69 @@ export function AiAssistantPanel({
     }
 
     try {
-      // Run local Client-Side MCP Agent query to match user intent directly
+      if (isKnowledgebaseApiAvailable()) {
+        const { result: responseText, toolCalls } = await AIService.generateChatResponse(
+          userMessage,
+          docContent,
+          currentRefs.map((r) => r.title).join(','),
+        );
+
+        if (toolCalls && toolCalls.length > 0) {
+          setMessages((prev) => [...prev, { role: 'assistant', content: '', toolCalls: toolCalls.map((tc) => ({ ...tc, status: 'running' as const })) }]);
+          for (let i = 0; i < toolCalls.length; i++) {
+            await new Promise((r) => setTimeout(r, 400));
+            setMessages((prev) => {
+              const newMsgs = [...prev];
+              const lastMsg = newMsgs[newMsgs.length - 1];
+              if (lastMsg && lastMsg.role === 'assistant' && lastMsg.toolCalls) {
+                lastMsg.toolCalls[i] = { ...toolCalls[i], status: 'success' };
+              }
+              return newMsgs;
+            });
+          }
+        } else {
+          setMessages((prev) => [...prev, { role: 'assistant', content: '', toolCalls: [] }]);
+        }
+
+        const insertMatch = responseText.match(/<insert_to_note>([\s\S]*?)<\/insert_to_note>/i);
+        let displayText = responseText;
+        if (insertMatch && onInsertHtml) {
+          const insertContent = insertMatch[1].trim();
+          onInsertHtml(insertContent);
+          displayText = responseText.replace(/<insert_to_note>[\s\S]*?<\/insert_to_note>/i, '').trim();
+          if (!displayText) {
+            displayText = '*(已自动执行插入文档操作)*';
+          }
+        }
+
+        const chars = Array.from(displayText);
+        let index = 0;
+        if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
+        const intervalId = setInterval(() => {
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            const lastMsgIndex = newMessages.length - 1;
+            if (lastMsgIndex >= 0 && newMessages[lastMsgIndex].role === 'assistant') {
+              newMessages[lastMsgIndex].content = chars.slice(0, index + 1).join('');
+            }
+            return newMessages;
+          });
+          index++;
+          if (index >= chars.length) {
+            clearInterval(intervalId);
+            typewriterIntervalRef.current = null;
+            setIsTyping(false);
+          }
+        }, 20);
+        typewriterIntervalRef.current = intervalId;
+        return;
+      }
+
+      if (!shouldUseKnowledgebaseDemoFallback()) {
+        throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_CHAT);
+      }
+
+      // Demo-only local MCP agent for offline preview UX.
       await new Promise(r => setTimeout(r, 650));
       const result = McpAgentService.processUserQuery(userMessage, selectedArticle);
       

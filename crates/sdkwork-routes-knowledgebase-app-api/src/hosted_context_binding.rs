@@ -4,9 +4,10 @@ use sdkwork_intelligence_knowledgebase_service::{
     ports::knowledge_space_store::KnowledgeSpaceStore,
 };
 use sdkwork_knowledgebase_contract::context_binding::{
-    CreateKnowledgeSpaceContextBindingRequest, KnowledgeSpaceContextBinding,
-    KnowledgeSpaceContextBindingList, UpdateKnowledgeSpaceContextBindingRequest,
+    CreateKnowledgeSpaceContextBindingRequest, KnowledgeContextType, KnowledgeSpaceContextBinding,
+    UpdateKnowledgeSpaceContextBindingRequest,
 };
+use sdkwork_utils_rust::SdkWorkPageData;
 
 use crate::{
     hosted_access::require_space_access, runtime::KnowledgebaseRuntime, ApiError, ApiResult,
@@ -52,13 +53,29 @@ impl KnowledgeContextBindingAppService for HostedContextBindingService {
         &self,
         context: KnowledgeAppRequestContext,
         space_id: u64,
-    ) -> ApiResult<KnowledgeSpaceContextBindingList> {
+        cursor: Option<String>,
+        page_size: Option<u32>,
+        context_type: Option<KnowledgeContextType>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSpaceContextBinding>> {
         require_space_access(&self.runtime, &context, space_id).await?;
+        let normalized_page_size = crate::pagination::normalize_page_size(page_size);
         let service = KnowledgeContextBindingService::new(self.runtime.context_binding_store());
-        service
-            .list_space_bindings(context.tenant_id, space_id, None)
+        let listed = service
+            .list_space_bindings(
+                context.tenant_id,
+                space_id,
+                context_type,
+                cursor,
+                Some(normalized_page_size),
+            )
             .await
-            .map_err(Into::into)
+            .map_err(ApiError::from)?;
+        Ok(crate::pagination::cursor_page_data(
+            listed.items,
+            listed.next_cursor.clone(),
+            listed.next_cursor.is_some(),
+            normalized_page_size,
+        ))
     }
 
     async fn create_space_context_binding(

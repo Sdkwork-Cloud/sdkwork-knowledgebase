@@ -8,6 +8,7 @@ export const sdkworkKnowledgebasePcSdkInventory = [
   'sdkwork-id',
   'sdkwork-kernel',
   'sdkwork-knowledgebase-app-sdk',
+  'sdkwork-knowledgebase-backend-sdk',
   'sdkwork-memory',
   'sdkwork-sdk-generator',
   'sdkwork-utils',

@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { CreateKbModal } from './CreateKbModal';
 import { PublishModal } from './PublishModal';
@@ -9,6 +10,7 @@ import { CloudDriveModal } from './CloudDriveModal';
 import { GitIntegrationModal } from './components/GitIntegrationModal';
 import { DocumentService, type DocumentMeta, type KnowledgeBase } from './services/document';
 import { toast } from './components/ui/toast-manager';
+import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
 
 export interface KnowledgeBaseAppModalsProps {
   isCreateKbModalOpen: boolean;
@@ -54,6 +56,7 @@ export interface KnowledgeBaseAppModalsProps {
 
 export function KnowledgeBaseAppModals(props: KnowledgeBaseAppModalsProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation(['kb', 'common', 'errors']);
   const {
     isCreateKbModalOpen,
     setIsCreateKbModalOpen,
@@ -151,9 +154,8 @@ export function KnowledgeBaseAppModals(props: KnowledgeBaseAppModalsProps) {
               }
               setSettingsKb(null);
             } catch (error) {
-              const detail = error instanceof Error ? error.message : String(error);
               console.error(error);
-              toast.error(detail);
+              toastKnowledgebaseError(error, t);
             }
           }}
         />

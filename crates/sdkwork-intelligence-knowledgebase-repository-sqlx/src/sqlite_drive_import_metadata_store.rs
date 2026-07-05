@@ -298,7 +298,7 @@ async fn attach_drive_import_linkage_in_transaction(
     let updated = sqlx::query(
         r#"
         UPDATE kb_ingestion_job
-        SET metadata = $1, updated_at = $2, version = version + 1
+        SET metadata = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
         WHERE tenant_id = $3 AND id = $4 AND status = $5
         "#,
     )

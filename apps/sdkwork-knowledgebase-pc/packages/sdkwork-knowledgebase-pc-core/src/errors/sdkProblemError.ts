@@ -21,7 +21,14 @@ function normalizeProblemDetails(value: unknown): SdkProblemDetails | null {
   const title = typeof value.title === 'string' ? value.title : undefined;
   const detail = typeof value.detail === 'string' ? value.detail : value.detail === null ? null : undefined;
   const type = typeof value.type === 'string' ? value.type : undefined;
-  const code = typeof value.code === 'string' ? value.code : value.code === null ? null : undefined;
+  const code =
+    typeof value.code === 'string'
+      ? value.code
+      : typeof value.code === 'number'
+        ? String(value.code)
+        : value.code === null
+          ? null
+          : undefined;
   const traceId =
     typeof value.traceId === 'string'
       ? value.traceId

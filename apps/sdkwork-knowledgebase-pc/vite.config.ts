@@ -14,6 +14,12 @@ const DEFAULT_PLATFORM_API_GATEWAY_TARGET = 'http://127.0.0.1:3900';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, __dirname, '');
+  const deploymentProfile = (
+    env.VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE
+    || process.env.VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE
+    || 'standalone'
+  ).toLowerCase();
+  const isStandaloneProfile = deploymentProfile === 'standalone';
 
   // Build-time guard: refuse to bundle dev-only auth credentials into production.
   // These env vars are dev-only auth form prefill and must never ship to production.
@@ -31,15 +37,67 @@ export default defineConfig(({mode}) => {
   }
 
   const platformApiGatewayTarget =
-    env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL
-    || process.env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL
-    || env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL
-    || process.env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL
-    || DEFAULT_PLATFORM_API_GATEWAY_TARGET;
+    isStandaloneProfile
+      ? (
+        env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL
+        || process.env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL
+        || env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL
+        || process.env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL
+        || DEFAULT_PLATFORM_API_GATEWAY_TARGET
+      )
+      : (
+        env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL
+        || process.env.VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL
+        || env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL
+        || process.env.VITE_SDKWORK_APPBASE_APP_API_BASE_URL
+        || DEFAULT_PLATFORM_API_GATEWAY_TARGET
+      );
   const appApiTarget =
     env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL
     || process.env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL
     || 'http://127.0.0.1:18081';
+  const openApiTarget =
+    env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL
+    || process.env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL
+    || appApiTarget;
+  const iamAppApiTarget =
+    env.VITE_SDKWORK_IAM_APP_API_BASE_URL
+    || process.env.VITE_SDKWORK_IAM_APP_API_BASE_URL
+    || platformApiGatewayTarget;
+
+  const appIngressTarget = isStandaloneProfile ? appApiTarget : platformApiGatewayTarget;
+  const standaloneProxy = {
+    '/app/v3/api': {
+      target: appIngressTarget,
+      changeOrigin: true,
+    },
+    '/knowledge/v3/api': {
+      target: openApiTarget,
+      changeOrigin: true,
+    },
+  };
+  const cloudProxy = {
+    '/app/v3/api/oauth': {
+      target: iamAppApiTarget,
+      changeOrigin: true,
+    },
+    '/app/v3/api/auth': {
+      target: iamAppApiTarget,
+      changeOrigin: true,
+    },
+    '/app/v3/api/knowledge': {
+      target: appApiTarget,
+      changeOrigin: true,
+    },
+    '/app/v3/api': {
+      target: platformApiGatewayTarget,
+      changeOrigin: true,
+    },
+    '/knowledge/v3/api': {
+      target: platformApiGatewayTarget,
+      changeOrigin: true,
+    },
+  };
 
   return {
     ...(mode === 'development'
@@ -168,7 +226,7 @@ export default defineConfig(({mode}) => {
           find: '@sdkwork/iam-app-sdk',
           replacement: path.resolve(
             iamRoot,
-            'sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/generated/server-openapi/src/index.ts',
+            'sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/src/index.ts',
           ),
         },
         {
@@ -237,20 +295,7 @@ export default defineConfig(({mode}) => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
-      proxy: {
-        '/app/v3/api/knowledge': {
-          target: appApiTarget,
-          changeOrigin: true,
-        },
-        '/app/v3/api': {
-          target: platformApiGatewayTarget,
-          changeOrigin: true,
-        },
-        '/knowledge/v3/api': {
-          target: platformApiGatewayTarget,
-          changeOrigin: true,
-        },
-      },
+      proxy: isStandaloneProfile ? standaloneProxy : cloudProxy,
     },
   };
 });

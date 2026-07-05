@@ -4,8 +4,7 @@ use sdkwork_drive_storage_contract::{
     DriveObjectStoreErrorKind, HeadObjectRequest, PutObjectRequest, ReadObjectRangeRequest,
 };
 use sdkwork_drive_workspace_service::application::space_service::{
-    CreateSpaceCommand, DeleteSpaceCommand, GetSpaceCommand, ListSpacesCommand,
-    SqlDriveSpaceService,
+    CreateSpaceCommand, DeleteSpaceCommand, GetSpaceCommand, SqlDriveSpaceService,
 };
 use sdkwork_drive_workspace_service::application::workspace_service::{
     DriveWorkspaceChildrenPage, DriveWorkspaceNode, DriveWorkspaceNodeKind,
@@ -150,21 +149,20 @@ impl KnowledgeDriveSpaceProvisioner for KnowledgebaseDriveSpaceProvisionerAdapte
         let operator_id = safe_drive_identifier(&request.operator_id, "operator_id")
             .map_err(KnowledgeDriveSpaceProvisionerError::InvalidRequest)?;
 
+        let drive_space_id = drive_space_id_for_knowledge_space(&request.knowledge_space_uuid)?;
         let service = self.space_service();
-        if let Some(existing) = find_existing_knowledge_space(
-            &service,
-            &tenant_id,
-            &owner_subject_type,
-            &owner_subject_id,
-        )
-        .await?
+        if let Ok(existing) = service
+            .get_space(GetSpaceCommand {
+                tenant_id: tenant_id.clone(),
+                space_id: drive_space_id.clone(),
+            })
+            .await
         {
             return Ok(KnowledgeDriveSpaceBinding {
-                drive_space_id: existing,
+                drive_space_id: existing.id,
             });
         }
 
-        let drive_space_id = drive_space_id_for_knowledge_space(&request.knowledge_space_uuid)?;
         match service
             .create_space(CreateSpaceCommand {
                 id: drive_space_id.clone(),
@@ -184,20 +182,15 @@ impl KnowledgeDriveSpaceProvisioner for KnowledgebaseDriveSpaceProvisionerAdapte
                 drive_space_id: space.id,
             }),
             Err(DriveServiceError::Conflict(_)) => {
-                let Some(existing) = find_existing_knowledge_space(
-                    &service,
-                    &tenant_id,
-                    &owner_subject_type,
-                    &owner_subject_id,
-                )
-                .await?
-                else {
-                    return Err(KnowledgeDriveSpaceProvisionerError::Upstream(
-                        "drive knowledge space conflict could not be resolved".to_string(),
-                    ));
-                };
+                let existing = service
+                    .get_space(GetSpaceCommand {
+                        tenant_id,
+                        space_id: drive_space_id,
+                    })
+                    .await
+                    .map_err(map_space_service_error)?;
                 Ok(KnowledgeDriveSpaceBinding {
-                    drive_space_id: existing,
+                    drive_space_id: existing.id,
                 })
             }
             Err(error) => Err(map_space_service_error(error)),
@@ -641,26 +634,6 @@ fn map_drive_error(error: DriveObjectStoreError) -> KnowledgeStorageError {
 
 fn safe_drive_id(value: &str, field_name: &str) -> Result<String, KnowledgeDriveWorkspaceError> {
     safe_drive_identifier(value, field_name).map_err(KnowledgeDriveWorkspaceError::InvalidRequest)
-}
-
-async fn find_existing_knowledge_space(
-    service: &SqlDriveSpaceService,
-    tenant_id: &str,
-    owner_subject_type: &str,
-    owner_subject_id: &str,
-) -> Result<Option<String>, KnowledgeDriveSpaceProvisionerError> {
-    let spaces = service
-        .list_spaces(ListSpacesCommand {
-            tenant_id: tenant_id.to_string(),
-            owner_subject_type: Some(owner_subject_type.to_string()),
-            owner_subject_id: Some(owner_subject_id.to_string()),
-        })
-        .await
-        .map_err(map_space_service_error)?;
-    Ok(spaces
-        .into_iter()
-        .find(|space| space.space_type == DriveSpaceType::KnowledgeBase)
-        .map(|space| space.id))
 }
 
 fn require_non_empty(

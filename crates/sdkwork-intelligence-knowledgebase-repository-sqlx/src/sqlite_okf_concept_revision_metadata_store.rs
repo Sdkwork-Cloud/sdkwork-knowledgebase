@@ -290,7 +290,7 @@ async fn mark_okf_current_revision_in_transaction(
         UPDATE kb_okf_concept
         SET current_revision_id = $1,
             publish_state = $2,
-            updated_at = $3,
+            updated_at = CAST($3 AS TIMESTAMP),
             version = version + 1
         WHERE tenant_id = $4 AND id = $5 AND status = $6
         RETURNING

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BookOpen, Store, Settings, Search } from 'lucide-react';
+import { BookOpen, Shield, Store, Settings, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { createRuntimeConfig, type KnowledgebaseAccountViewModel } from 'sdkwork-knowledgebase-pc-core';
 import { UserProfile, DEFAULT_USER_PROFILE } from './UserProfileModal';
@@ -12,6 +12,8 @@ export interface GlobalNavProps {
   onOpenSettings: () => void;
   onOpenProfile: () => void;
   onOpenAccountSettings?: () => void;
+  showAdminConsole?: boolean;
+  onOpenAdminConsole?: () => void;
 }
 
 export function GlobalNav({
@@ -22,6 +24,8 @@ export function GlobalNav({
   onOpenSettings,
   onOpenProfile,
   onOpenAccountSettings,
+  showAdminConsole = false,
+  onOpenAdminConsole,
 }: GlobalNavProps) {
   const { t } = useTranslation('shell');
 
@@ -91,6 +95,17 @@ export function GlobalNav({
       </div>
 
       <div className="w-full flex flex-col items-center pb-2 space-y-3 col-shrink-0">
+        {showAdminConsole && onOpenAdminConsole ? (
+          <button
+            type="button"
+            onClick={onOpenAdminConsole}
+            className="text-[var(--color-kb-nav-text)] hover:text-[var(--color-kb-nav-text-hover)] hover:bg-[var(--color-kb-panel-hover)] w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+            title={t('adminConsoleNav')}
+            data-testid="knowledgebase-pc-nav-admin"
+          >
+            <Shield size={22} strokeWidth={1.5} />
+          </button>
+        ) : null}
         <button 
           onClick={onOpenSettings}
           className="text-[var(--color-kb-nav-text)] hover:text-[var(--color-kb-nav-text-hover)] hover:bg-[var(--color-kb-panel-hover)] w-10 h-10 rounded-xl flex items-center justify-center transition-colors"

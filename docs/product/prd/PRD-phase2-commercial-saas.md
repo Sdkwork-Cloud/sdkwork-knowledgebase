@@ -3,9 +3,27 @@
 Status: **in progress** — Phase 2.0 foundations and Phase 2.1 RLS migration complete; Phase 2.2 connection checkout wired  
 Owner: SDKWork maintainers  
 Application: sdkwork-knowledgebase  
-Updated: 2026-06-25  
+Updated: 2026-07-05  
 Parent: [PRD.md](PRD.md)  
 Prerequisite: [PRD-mvp-launch.md](PRD-mvp-launch.md) Phase 1.0 complete
+
+## Pre-launch security hardening (2026-07-04)
+
+The following P0 items are implemented before first production cutover:
+
+- Upload session create/complete enforces `require_space_access`
+- Space ACL fail-closes when `drive_space_id` is missing
+- WeChat editor HTML sanitized via `sanitizeEditorHtml`
+- Production demo/synthetic media gated by `shouldUseKnowledgebaseDemoFallback()`
+- Backend admin scope narrowed to `knowledge.platform.manage`, `knowledge.admin`, and `knowledge.*`
+- Tenant-scoped dynamic rate limit / CORS / tenant profile policies wired from `web_rate_limit_policy` via `SqlxDynamicPolicyBundle` when `SDKWORK_WEB_STORE_DATABASE_URL` is configured
+
+Verification:
+
+```bash
+pnpm test:security
+pnpm test:multi-tenant-isolation
+```
 
 ## Purpose
 
@@ -30,16 +48,17 @@ Define commercial SaaS landing criteria beyond Phase 1.0 single-tenant productio
 - [x] Postgres RLS migration shipped — `database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql`
 - [x] Connection checkout sets `app.current_tenant_id` on every pooled Postgres connection (Phase 2.2)
 - [x] Usage metering exported for billing (Prometheus counters + structured `billing_event` JSON logs)
-- [x] Tenant status API: `GET /backend/v3/api/knowledge/tenants/current` (Phase 3)
+- [x] Tenant status API: `GET /backend/v3/api/knowledge/tenants/current` implemented in `HostedBackendApi`
 - [x] Tenant isolation spec documented — [specs/tenant-isolation.md](../../../specs/tenant-isolation.md)
-- [ ] Per-tenant quota: API rate tiers, storage, ingest concurrency, retrieval QPS
+- [x] Per-tenant quota: API rate tiers wired from `web_rate_limit_policy` + Redis counters; **business quotas enforced** for document count, ingest concurrency, retrieval rate per minute, and **storage bytes** (`SUM(kb_drive_object_ref.size_bytes)` vs `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_STORAGE_BYTES`, default 100 GiB) on markdown ingest, upload session complete, and drive import; quota status exposed on `GET /backend/v3/api/knowledge/tenants/current` (`KnowledgeTenantStatus.quota`) and in `/admin` console
 - [ ] Tenant self-service signup and subscription lifecycle
 
 ### Product
 
-- [ ] Admin console for tenant operators (sources, indexes, members) without raw backend API
+- [x] Admin console for tenant operators without raw backend API — **`/admin` console** (tenant status, spaces, members, sources, indexes, retrieval traces, provider health via backend SDK)
+- [x] Dev/staging bootstrap seeds default `web_rate_limit_policy` tiers and `web_tenant_runtime_profile` when web store DB is configured
 - [x] Audit retention policy documented ([audit-retention.md](../../runbooks/audit-retention.md))
-- [ ] GDPR export/delete workflows automated for `knowledge_audit_event`
+- [x] GDPR export/delete workflows automated for `kb_audit_event` via backend compliance API (`compliance.auditEvents.export`, `compliance.auditEvents.anonymizeActor`)
 - [ ] SLA dashboard: availability, P95 retrieval, error budget alerts
 
 ### Release
@@ -56,9 +75,11 @@ Phase 2 adds gates on top of Phase 1.0:
 pnpm verify
 pnpm test:launch-readiness
 pnpm test:phase2-readiness
-# Phase 2.1 additions (planned):
-# pnpm test:multi-tenant-isolation
-# pnpm test:billing-metering
+# Phase 2.1 additions:
+
+pnpm test:multi-tenant-isolation
+pnpm test:billing-metering
+pnpm test:tenant-quota
 ```
 
 ## References

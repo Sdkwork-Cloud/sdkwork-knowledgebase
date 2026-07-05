@@ -24,10 +24,12 @@ mod hosted_wechat;
 pub mod http_route_manifest;
 mod knowledge_engine_adapters;
 pub mod manifest;
-pub mod paths;
+pub mod pagination;
+mod paths;
 mod ports;
 mod routes;
 pub mod runtime;
+mod tenant_quota_enforcement;
 mod web_bootstrap;
 
 pub use error::{ApiError, ApiProblem, ApiResult};

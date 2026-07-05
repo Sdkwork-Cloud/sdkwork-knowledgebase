@@ -4,7 +4,8 @@ use axum::{
     Json,
 };
 use sdkwork_knowledgebase_contract::{
-    CreateKnowledgeSourceRequest, KnowledgeIndexRequest, KnowledgeOkfProfileRequest,
+    CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest,
+    AnonymizeKnowledgeAuditSubjectRequest, KnowledgeIndexRequest, KnowledgeOkfProfileRequest,
     KnowledgeRetrievalProfileRequest, OkfBundleExportRequest, OkfBundleImportRequest,
     OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest,
     OkfIndexRebuildRequest, OkfLogEntry, OkfQualityRunRequest,
@@ -14,7 +15,7 @@ use serde::Deserialize;
 use crate::{
     auth::{require_backend_context, require_backend_mutation_context, RequiredBackendContext},
     error::BackendApiProblem,
-    response::{created_json, ok_json},
+    response::{created_json, ok_json, ok_list_json},
     routes::BackendState,
 };
 
@@ -183,6 +184,10 @@ pub(crate) async fn create_okf_eval_run(
     created_json(state.api.create_okf_eval_run(request).await)
 }
 
+backend_handler!(list_indexes, |state: BackendState| async move {
+    ok_json(state.api.list_indexes().await)
+});
+
 pub(crate) async fn create_index(
     State(state): State<BackendState>,
     context: RequiredBackendContext,
@@ -282,3 +287,59 @@ backend_handler!(retrieve_provider_health, |state: BackendState| async move {
 backend_handler!(retrieve_current_tenant, |state: BackendState| async move {
     ok_json(state.api.retrieve_current_tenant().await)
 });
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ListSpaceMembersQuery {
+    pub cursor: Option<String>,
+    pub page_size: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ListSpacesQuery {
+    pub cursor: Option<String>,
+    pub page_size: Option<u32>,
+}
+
+pub(crate) async fn list_spaces(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Query(query): Query<ListSpacesQuery>,
+) -> Result<Response, BackendApiProblem> {
+    require_backend_context(&state, context)?;
+    ok_list_json(state.api.list_spaces(query.cursor, query.page_size).await)
+}
+
+pub(crate) async fn list_space_members(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path(space_id): Path<u64>,
+    Query(query): Query<ListSpaceMembersQuery>,
+) -> Result<Response, BackendApiProblem> {
+    require_backend_context(&state, context)?;
+    ok_json(
+        state
+            .api
+            .list_space_members(space_id, query.cursor, query.page_size)
+            .await,
+    )
+}
+
+pub(crate) async fn export_audit_events(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Json(request): Json<ExportKnowledgeAuditEventsRequest>,
+) -> Result<Response, BackendApiProblem> {
+    require_backend_mutation_context(&state, context, "compliance.auditEvents.export")?;
+    ok_json(state.api.export_audit_events(request).await)
+}
+
+pub(crate) async fn anonymize_audit_subject(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Json(request): Json<AnonymizeKnowledgeAuditSubjectRequest>,
+) -> Result<Response, BackendApiProblem> {
+    require_backend_mutation_context(&state, context, "compliance.auditEvents.anonymizeActor")?;
+    ok_json(state.api.anonymize_audit_subject(request).await)
+}

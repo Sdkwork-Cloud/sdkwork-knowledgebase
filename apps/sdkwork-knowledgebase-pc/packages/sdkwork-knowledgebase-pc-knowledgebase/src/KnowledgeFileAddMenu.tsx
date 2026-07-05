@@ -1,9 +1,9 @@
 import React from 'react';
 import { FileUp, FolderUp, MessageSquare, Lightbulb, Link, FileEdit, Cloud, Notebook, Mic, FolderPlus, Plus, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { createRuntimeConfig, isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
+import { createRuntimeConfig, isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuGroup, DropdownMenuLabel } from './components/ui/dropdown-menu';
-import { toast } from './components/ui/toast-manager';
+import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
 
 export interface KnowledgeFileAddMenuProps {
   isAddMenuOpen: boolean;
@@ -56,7 +56,11 @@ export function KnowledgeFileAddMenu({
     setIsAddMenuOpen(false);
     setTimeout(() => {
       if (!enabled) {
-        toast.error(`${featureLabel}当前不可用。`);
+        try {
+          throwKnowledgebaseError(KnowledgebaseErrorCodes.FEATURE_PREVIEW_ONLY, { cause: featureLabel });
+        } catch (error) {
+          toastKnowledgebaseError(error, t);
+        }
         return;
       }
       setter(true);

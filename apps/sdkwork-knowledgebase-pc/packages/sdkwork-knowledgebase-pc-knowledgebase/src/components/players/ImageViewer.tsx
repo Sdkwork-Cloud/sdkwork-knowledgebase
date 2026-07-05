@@ -7,6 +7,7 @@ import {
   Sliders, Wand2, Crop, Hammer, ShieldAlert, Cpu, FolderOutput
 } from 'lucide-react';
 import { DocumentMeta, KnowledgeBase, DocumentService } from '../../services/document';
+import { shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
 import { MoveCopyModal } from '../../MoveCopyModal';
 export interface ImageViewerProps {
   activeDoc: DocumentMeta;
@@ -108,6 +109,17 @@ export function ImageViewer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const pipelineIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const aiToolsEnabled = shouldUseKnowledgebaseDemoFallback();
+
+  useEffect(() => {
+    return () => {
+      if (pipelineIntervalRef.current) {
+        clearInterval(pipelineIntervalRef.current);
+        pipelineIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Resize listener
   useEffect(() => {
@@ -205,6 +217,7 @@ export function ImageViewer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
         }, 100);
       }
     }, 400);
+    pipelineIntervalRef.current = interval;
   };
 
   const rotateLeft = () => setRotation(prev => (prev - 90) % 360);
@@ -224,7 +237,7 @@ export function ImageViewer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
 
   // Launch simulated pipeline
   const runToolPipeline = () => {
-    if (isProcessing) return;
+    if (isProcessing || !aiToolsEnabled) return;
     setIsProcessing(true);
     setProcessProgress(0);
     setProcessSuccess(false);
@@ -263,6 +276,10 @@ export function ImageViewer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
     const currentLogs = logMessages[activeTool || 'compress'] || [];
     let logIndex = 0;
 
+    if (pipelineIntervalRef.current) {
+      clearInterval(pipelineIntervalRef.current);
+    }
+
     const interval = setInterval(() => {
       if (logIndex < currentLogs.length) {
         setProcessLogs(prev => [...prev, currentLogs[logIndex]]);
@@ -270,6 +287,7 @@ export function ImageViewer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
         logIndex++;
       } else {
         clearInterval(interval);
+        pipelineIntervalRef.current = null;
         // Pipeline success state setup
         setTimeout(() => {
           setIsProcessing(false);
@@ -308,6 +326,7 @@ export function ImageViewer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
         }, 300);
       }
     }, 900);
+    pipelineIntervalRef.current = interval;
   };
 
   const handleDownloadResult = () => {
@@ -524,7 +543,8 @@ export function ImageViewer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
         )}
       </div>
 
-      {/* 3. Bottom Professional AI & Local Tools Area - Ultra Clean Single-Line Version */}
+      {/* 3. Bottom AI tools — preview/demo only until media task APIs ship for image processing */}
+      {aiToolsEnabled ? (
       <div className="h-[48px] border-t border-zinc-200/80 dark:border-zinc-900/80 bg-white dark:bg-[#09090b] flex items-center justify-between px-4 z-20 shrink-0 text-xs font-medium">
         {/* Left Side: Tool Buttons */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
@@ -691,6 +711,11 @@ export function ImageViewer({ activeDoc, activeKb, onUpdateDocs, onToastMessage 
           )}
         </div>
       </div>
+      ) : (
+      <div className="h-[40px] border-t border-zinc-200/80 dark:border-zinc-900/80 bg-white dark:bg-[#09090b] flex items-center px-4 z-20 shrink-0 text-[11px] text-zinc-500">
+        AI 图像处理仅在离线预览模式可用；生产环境请使用 Drive 原图或后续媒体任务 API。
+      </div>
+      )}
 
       {/* Save As Modal Integration */}
       {showSaveAsModal && (

@@ -1,6 +1,10 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  createdResponse,
+  resourceEnvelope,
+} from "./lib/openapi-envelope.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(scriptDir, "..");
@@ -115,16 +119,9 @@ const newPaths = {
         },
       },
       responses: {
-        201: {
-          description: "Created",
-          content: {
-            "application/json": {
-              schema: {
-                $ref: "#/components/schemas/KnowledgeUploadSession",
-              },
-            },
-          },
-        },
+        201: createdResponse(
+          resourceEnvelope("#/components/schemas/KnowledgeUploadSession"),
+        ),
         400: problemResponse,
       },
       ...extensions,
@@ -148,14 +145,7 @@ const newPaths = {
         },
       },
       responses: {
-        201: {
-          description: "Created",
-          content: {
-            "application/json": {
-              schema: { $ref: "#/components/schemas/IngestionJob" },
-            },
-          },
-        },
+        201: createdResponse(resourceEnvelope("#/components/schemas/IngestionJob")),
         400: problemResponse,
         404: problemResponse,
       },

@@ -29,6 +29,20 @@ pub struct KnowledgeTenantStatus {
     pub document_count: u64,
     /// ISO 8601 creation timestamp (first space created)
     pub created_at: Option<String>,
+    /// Current usage versus configured tenant business quotas
+    pub quota: Option<KnowledgeTenantQuotaStatus>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeTenantQuotaStatus {
+    pub max_documents: u64,
+    pub document_count: u64,
+    pub max_concurrent_ingest_jobs: u32,
+    pub inflight_ingest_jobs: u32,
+    pub max_retrievals_per_minute: u32,
+    pub max_storage_bytes: u64,
+    pub storage_bytes_used: u64,
 }
 
 /// Tenant lifecycle status enum.

@@ -81,8 +81,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 | Phase | Focus | Exit criteria |
 |-------|-------|---------------|
-| **0.1 (current)** | Platform foundation, SDK, RAG, PC shell | P0 security/RBAC fixes, CI quality gates |
-| **1.0** | Production launch (single-tenant-per-process) | Postgres prod path, runbooks, PRD acceptance, E2E on real API |
+| **1.0 (current)** | Production launch (single-tenant-per-process) | Postgres prod path, runbooks, PRD acceptance, E2E on real API |
 | **2.0** | Commercial SaaS | Shared multi-tenant, billing, quotas, GDPR workflows |
 | **3.0** | Industry parity | Real-time collab, analytics, mobile |
 
@@ -93,8 +92,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - `../sdkwork-specs/SECURITY_SPEC.md`, `IAM_SPEC.md`, `APP_SDK_INTEGRATION_SPEC.md`
 - `deployments/README.md` — tenant isolation and observability
 
-## 9. Open Questions
+## 9. Resolved And Open Questions
 
-- Shared multi-tenant data model: Postgres RLS vs schema-per-tenant (decide before Phase 2)
-- Billing owner: SDKWork platform vs standalone Stripe integration
-- Minimum enterprise audit retention period for `kb_audit_event` table materialization
+- **Multi-tenant data model:** Postgres RLS — decided in [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md); migration shipped for Phase 2.1
+- **Billing owner:** SDKWork platform vs standalone Stripe — open; decide before Phase 2 commercial launch
+- **Minimum enterprise audit retention period:** documented in [audit-retention.md](../runbooks/audit-retention.md); automated purge/export jobs remain Phase 2.4

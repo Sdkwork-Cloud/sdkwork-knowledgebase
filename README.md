@@ -117,37 +117,39 @@ Acceptance criteria: [docs/product/prd/PRD-mvp-launch.md](docs/product/prd/PRD-m
 
 ## Runtime
 
-The workspace ships SQLx-backed HTTP runtimes with SQLite (local dev) or PostgreSQL (default `pnpm dev` and production):
+Default `pnpm dev` uses the topology profile `standalone.unified-process.development`:
 
-| Binary | Default listen | Surface | Operations |
-|--------|----------------|---------|------------|
-| `sdkwork-knowledgebase-app-api` | `127.0.0.1:18081` | App API | 68 |
-| `sdkwork-knowledgebase-backend-api` | `127.0.0.1:18082` | Backend API | 27 |
-| `sdkwork-knowledgebase-open-api` | `127.0.0.1:18083` | Open API | 8 |
-| `sdkwork-knowledgebase-worker` | health `127.0.0.1:18085` | Background worker | — |
+- one application ingress at `http://127.0.0.1:18081`
+- browser dev server at `http://127.0.0.1:5184` with same-origin API proxying
+- IAM app-api auth/oauth routes embedded through `sdkwork-iam-gateway-assembly`
+- platform gateway `http://127.0.0.1:3900` is **not** required for standalone dev
+
+| Process | Default listen | Surface |
+|--------|----------------|---------|
+| `sdkwork-knowledgebase-standalone-gateway` | `127.0.0.1:18081` | unified app/backend/open + embedded IAM app-api |
+| `sdkwork-knowledgebase-worker` | health `127.0.0.1:18085` | background worker |
+
+Cloud profiles use `configs/topology/cloud.*.development.env` and may autostart `sdkwork-api-cloud-gateway` on `3900`.
 
 Run from the repository root:
 
 ```powershell
 pnpm dev
-# or individual binaries:
-cargo run -p sdkwork-knowledgebase-standalone-gateway --bin sdkwork-knowledgebase-app-api
-cargo run -p sdkwork-knowledgebase-standalone-gateway --bin sdkwork-knowledgebase-backend-api
-cargo run -p sdkwork-knowledgebase-standalone-gateway --bin sdkwork-knowledgebase-open-api
-cargo run -p sdkwork-knowledgebase-worker --bin sdkwork-knowledgebase-worker
+# cloud split-services example:
+pnpm dev:browser:postgres:split-services:cloud
 ```
 
 Common environment variables:
 
-- `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` (PostgreSQL in default `pnpm dev`; SQLite via `pnpm dev:browser:sqlite`, e.g. `sqlite://data/knowledgebase.db?mode=rwc`)
-- `SDKWORK_KNOWLEDGEBASE_TENANT_ID` (default `1`)
-- `SDKWORK_KNOWLEDGEBASE_ACTOR_ID` / `SDKWORK_KNOWLEDGEBASE_OPERATOR_ID` (optional dev actor)
+- `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` (PostgreSQL in default `pnpm dev`; SQLite via `pnpm dev:browser:sqlite`)
+- `SDKWORK_KNOWLEDGEBASE_TENANT_ID` (must match IAM login tenant; development profiles use `100001` from `sdkwork.app.config.json`)
+- `SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND` / `SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL`
+- `SDKWORK_KNOWLEDGEBASE_DEV_ALLOWED_ORIGINS` (dev CORS allowlist for browser origins such as `http://127.0.0.1:5184`)
 - `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT` (default `data/drive-objects`)
-- `SDKWORK_KNOWLEDGEBASE_APP_LISTEN` / `SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN` / `SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN`
 
-Runtime authentication is owned by `sdkwork-iam` through the shared web framework and
-`sdkwork-iam-web-adapter`. Local and production deployments must provide standard IAM-backed
-request context instead of product-local auth bypass middleware.
+Runtime authentication is owned by `sdkwork-iam` through the shared web framework,
+`sdkwork-iam-web-adapter`, and embedded `sdkwork-iam-gateway-assembly` business routes in standalone mode.
+Local and production deployments must provide standard IAM-backed request context instead of product-local auth bypass middleware.
 
 ## Runtime ID Configuration
 

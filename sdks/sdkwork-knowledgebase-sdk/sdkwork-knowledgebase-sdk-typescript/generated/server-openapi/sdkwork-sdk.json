@@ -1,10 +1,12 @@
 {
   "schemaVersion": 1,
-  "name": "Knowledgebase",
+  "name": "sdkwork-knowledgebase-sdk",
   "version": "0.1.0",
   "language": "typescript",
   "sdkType": "custom",
-  "packageName": "@sdkwork/knowledgebase-sdk",
+  "packageName": "sdkwork-knowledgebase-sdk-generated-typescript",
+  "transportPackageName": "sdkwork-knowledgebase-sdk-generated-typescript",
+  "consumerPackageName": "@sdkwork/knowledgebase-sdk",
   "generator": "@sdkwork/sdk-generator",
   "capabilities": {
     "supportsGeneratedTests": true,

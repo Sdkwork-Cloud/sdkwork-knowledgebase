@@ -49,10 +49,10 @@ export function createKnowledgebaseSessionTokenManager(
       session.clearSession();
     },
     getAccessToken() {
-      return session.getSnapshot().accessToken;
+      return normalizeDualTokenValue(session.getSnapshot().accessToken);
     },
     getAuthToken() {
-      return session.getSnapshot().authToken;
+      return normalizeDualTokenValue(session.getSnapshot().authToken);
     },
     getRefreshToken() {
       return session.getSnapshot().refreshToken;
@@ -87,10 +87,10 @@ export function createKnowledgebaseSessionTokenManager(
       return Boolean(snapshot.authToken && snapshot.accessToken);
     },
     setAccessToken(token) {
-      mergeSession(session, { accessToken: token });
+      mergeSession(session, { accessToken: normalizeDualTokenValue(token) });
     },
     setAuthToken(token) {
-      mergeSession(session, { authToken: token });
+      mergeSession(session, { authToken: normalizeDualTokenValue(token) });
     },
     setRefreshToken(token) {
       mergeSession(session, { refreshToken: token });
@@ -98,8 +98,8 @@ export function createKnowledgebaseSessionTokenManager(
     setTokens(tokens) {
       replaceSession(session, {
         ...session.getSnapshot(),
-        accessToken: tokens.accessToken,
-        authToken: tokens.authToken,
+        accessToken: normalizeDualTokenValue(tokens.accessToken),
+        authToken: normalizeDualTokenValue(tokens.authToken),
         refreshToken: tokens.refreshToken,
       });
     },
@@ -190,4 +190,14 @@ function compactSessionPatch<T extends object>(value: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined),
   ) as Partial<T>;
+}
+
+function normalizeDualTokenValue(token: string | undefined): string | undefined {
+  if (isBlank(token)) {
+    return undefined;
+  }
+
+  const trimmed = token.trim();
+  const withoutBearer = trimmed.replace(/^Bearer\s+/i, '').trim();
+  return withoutBearer || undefined;
 }

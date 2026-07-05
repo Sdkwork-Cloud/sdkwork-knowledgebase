@@ -81,8 +81,13 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
     async fn list_concept_summaries(
         &self,
         space_id: u64,
+        limit: Option<u32>,
     ) -> Result<Vec<OkfConceptSummary>, KnowledgeOkfConceptStoreError> {
-        Ok(self.summaries.get(&space_id).cloned().unwrap_or_default())
+        let mut summaries = self.summaries.get(&space_id).cloned().unwrap_or_default();
+        if let Some(limit) = limit {
+            summaries.truncate(limit.max(1) as usize);
+        }
+        Ok(summaries)
     }
 
     async fn append_log_entry(

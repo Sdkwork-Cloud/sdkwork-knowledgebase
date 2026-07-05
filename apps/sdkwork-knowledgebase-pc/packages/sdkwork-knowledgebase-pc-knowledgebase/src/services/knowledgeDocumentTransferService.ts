@@ -102,7 +102,7 @@ async function transferDriveBackedDocument(
   return importTransferredDriveNode(targetKbId, copiedNode, sourceId, mode);
 }
 
-async function listAllDriveFileNodesUnder(
+async function collectDriveFileNodesForFolderTransfer(
   driveSpaceId: string,
   rootNodeId: string,
 ): Promise<DriveNode[]> {
@@ -179,7 +179,7 @@ async function transferDriveFolder(
     nodeName: titleSuffix ? `${sourceNode.name}${titleSuffix}` : undefined,
   });
 
-  const files = await listAllDriveFileNodesUnder(copiedRoot.spaceId, copiedRoot.id);
+  const files = await collectDriveFileNodesForFolderTransfer(copiedRoot.spaceId, copiedRoot.id);
   for (const file of files) {
     await importTransferredDriveNode(
       targetKbId,

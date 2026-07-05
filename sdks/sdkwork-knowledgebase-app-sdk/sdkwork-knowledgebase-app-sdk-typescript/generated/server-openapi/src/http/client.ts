@@ -12,6 +12,7 @@ type HttpRequestOptions = RequestOptions & {
 
 export class HttpClient extends BaseHttpClient {
   private static readonly ACCESS_TOKEN_HEADER: string = 'Access-Token';
+  private static readonly SDKWORK_V3_UNWRAP = true;
 
   constructor(config: SdkworkAppConfig) {
     super(config as any);
@@ -221,15 +222,47 @@ export class HttpClient extends BaseHttpClient {
     const authConfig = this.getInternalAuthConfig();
     const tokenManager = authConfig.tokenManager;
     const accessToken = tokenManager?.getAccessToken?.();
-    if (!accessToken) {
+    const authToken = tokenManager?.getAuthToken?.();
+    if (!accessToken && !authToken) {
       return headers;
     }
 
     return {
       ...(headers ?? {}),
-      [HttpClient.ACCESS_TOKEN_HEADER]: accessToken,
+      ...(accessToken ? { [HttpClient.ACCESS_TOKEN_HEADER]: accessToken } : {}),
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
     };
   }
+
+  private unwrapSdkworkV3Payload<T>(payload: unknown): T {
+    if (!HttpClient.SDKWORK_V3_UNWRAP || payload == null || typeof payload !== 'object') {
+      return payload as T;
+    }
+
+    const record = payload as Record<string, unknown>;
+    if (record.code !== 0 || !('data' in record)) {
+      return payload as T;
+    }
+
+    const data = record.data;
+    if (!data || typeof data !== 'object') {
+      return data as T;
+    }
+
+    const envelopeData = data as Record<string, unknown>;
+    if ('items' in envelopeData && 'pageInfo' in envelopeData) {
+      return data as T;
+    }
+    if ('accepted' in envelopeData) {
+      return data as T;
+    }
+    if ('item' in envelopeData) {
+      return envelopeData.item as T;
+    }
+
+    return data as T;
+  }
+
 
   async request<T>(path: string, options: HttpRequestOptions = {}): Promise<T> {
     const execute = (this as any).execute;
@@ -238,7 +271,7 @@ export class HttpClient extends BaseHttpClient {
     }
     const { body, headers, contentType, method = 'GET', skipAuth, ...rest } = options;
     const requestHeaders = skipAuth ? headers : this.applySdkworkAuthHeaders(headers);
-    return withRetry(
+    const payload = await withRetry(
       () => execute.call(this, {
         url: path,
         method,
@@ -249,6 +282,7 @@ export class HttpClient extends BaseHttpClient {
       }),
       { maxRetries: 3 }
     );
+    return this.unwrapSdkworkV3Payload<T>(payload);
   }
 
   async *streamJson<T>(path: string, options: HttpRequestOptions = {}): AsyncIterable<T> {

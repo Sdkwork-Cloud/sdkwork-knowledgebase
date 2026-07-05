@@ -113,7 +113,13 @@ fn platform_code_for_status(status: http::StatusCode, domain_code: &str) -> SdkW
         StatusCode::UNPROCESSABLE_ENTITY => SdkWorkResultCode::UnprocessableEntity,
         StatusCode::LOCKED => SdkWorkResultCode::Locked,
         StatusCode::PRECONDITION_REQUIRED => SdkWorkResultCode::PreconditionRequired,
-        StatusCode::TOO_MANY_REQUESTS => SdkWorkResultCode::RateLimitExceeded,
+        StatusCode::TOO_MANY_REQUESTS => {
+            if domain_code.contains("quota") {
+                SdkWorkResultCode::QuotaExceeded
+            } else {
+                SdkWorkResultCode::RateLimitExceeded
+            }
+        }
         StatusCode::INTERNAL_SERVER_ERROR => SdkWorkResultCode::InternalError,
         StatusCode::BAD_GATEWAY => SdkWorkResultCode::BadGateway,
         StatusCode::SERVICE_UNAVAILABLE => SdkWorkResultCode::ServiceUnavailable,
@@ -174,5 +180,16 @@ mod tests {
             "trace-conflict",
         );
         assert_eq!(problem.code, 40901);
+    }
+
+    #[test]
+    fn problem_details_quota_exceeded_maps_to_60002() {
+        let problem = ProblemDetails::from_status(
+            StatusCode::TOO_MANY_REQUESTS,
+            "knowledge_tenant_quota_exceeded",
+            "document quota exceeded",
+            "trace-quota",
+        );
+        assert_eq!(problem.code, 60002);
     }
 }

@@ -7,7 +7,9 @@ use axum::http::{header, HeaderName, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use sdkwork_knowledgebase_contract::ProblemDetails;
-use sdkwork_utils_rust::{SdkWorkApiResponse, SdkWorkResourceData, SDKWORK_TRACE_ID_HEADER};
+use sdkwork_utils_rust::{
+    SdkWorkApiResponse, SdkWorkPageData, SdkWorkResourceData, SDKWORK_TRACE_ID_HEADER,
+};
 use serde::Serialize;
 use std::future::Future;
 
@@ -53,6 +55,21 @@ pub fn problem_json_response(status: StatusCode, problem: ProblemDetails) -> Res
         header::CONTENT_TYPE,
         HeaderValue::from_static("application/problem+json"),
     );
+    attach_trace_header(&mut response, &trace_id);
+    response
+}
+
+/// Build a success list response wrapping `SdkWorkPageData` directly in
+/// `SdkWorkApiResponse.data` (`API_SPEC.md` §16).
+///
+/// Wire body: `{ "code": 0, "data": { "items": [...], "pageInfo": {...} }, "traceId": "..." }`.
+pub fn success_list_json_response<T: Serialize>(
+    status: StatusCode,
+    data: SdkWorkPageData<T>,
+) -> Response {
+    let trace_id = resolve_trace_id();
+    let envelope = SdkWorkApiResponse::success(data, trace_id.clone());
+    let mut response = (status, Json(envelope)).into_response();
     attach_trace_header(&mut response, &trace_id);
     response
 }
@@ -107,6 +124,34 @@ mod tests {
         .await;
 
         assert_eq!(enriched.trace_id, "corr-123");
+    }
+
+    #[tokio::test]
+    async fn success_list_json_response_wraps_page_data_directly() {
+        use sdkwork_utils_rust::{PageInfo, PageMode, SdkWorkPageData};
+
+        let page = SdkWorkPageData {
+            items: vec![serde_json::json!({ "id": 1 })],
+            page_info: PageInfo {
+                mode: PageMode::Cursor,
+                page: None,
+                page_size: Some(20),
+                total_items: None,
+                total_pages: None,
+                next_cursor: None,
+                has_more: Some(false),
+            },
+        };
+        let response = success_list_json_response(StatusCode::OK, page);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        let payload: serde_json::Value = serde_json::from_slice(&body).expect("json");
+        assert_eq!(0, payload["code"].as_i64().unwrap());
+        assert_eq!(1, payload["data"]["items"][0]["id"].as_i64().unwrap());
+        assert_eq!("cursor", payload["data"]["pageInfo"]["mode"].as_str().unwrap());
+        assert!(payload.get("data").unwrap().get("item").is_none());
+        assert!(payload["traceId"].as_str().is_some());
     }
 
     #[tokio::test]

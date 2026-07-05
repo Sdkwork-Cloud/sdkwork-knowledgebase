@@ -124,6 +124,31 @@ impl SqliteKnowledgeIndexStore {
         index_from_row(&row)
     }
 
+    pub async fn list_active_indexes(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<KnowledgeIndex>, KnowledgeIndexStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let limit = i64::from(limit.clamp(1, 500));
+        let rows = sqlx::query(
+            r#"
+            SELECT id, tenant_id, space_id, index_kind, status
+            FROM kb_index
+            WHERE tenant_id = $1 AND status = $2
+            ORDER BY id DESC
+            LIMIT $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_error)?;
+
+        rows.iter().map(index_from_row).collect()
+    }
+
     pub async fn get_or_create_active_vector_index(
         &self,
         space_id: u64,

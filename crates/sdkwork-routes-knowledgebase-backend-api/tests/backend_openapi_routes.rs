@@ -89,6 +89,11 @@ fn backend_openapi_exposes_standard_rag_admin_operations() {
 
     for (operation_id, method, path) in [
         (
+            "indexes.list",
+            "get",
+            "/backend/v3/api/knowledge/indexes",
+        ),
+        (
             "indexes.create",
             "post",
             "/backend/v3/api/knowledge/indexes",
@@ -133,6 +138,26 @@ fn backend_openapi_exposes_standard_rag_admin_operations() {
             "get",
             "/backend/v3/api/knowledge/provider_health",
         ),
+        (
+            "spaces.list",
+            "get",
+            "/backend/v3/api/knowledge/spaces",
+        ),
+        (
+            "spaces.members.list",
+            "get",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/members",
+        ),
+        (
+            "compliance.auditEvents.export",
+            "post",
+            "/backend/v3/api/knowledge/compliance/audit_events/export",
+        ),
+        (
+            "compliance.auditEvents.anonymizeActor",
+            "post",
+            "/backend/v3/api/knowledge/compliance/audit_events/anonymize_actor",
+        ),
     ] {
         assert_eq!(
             spec["paths"][path][method]["operationId"], operation_id,
@@ -156,6 +181,11 @@ fn backend_openapi_exposes_standard_rag_admin_operations() {
         "KnowledgeRetrievalTraceList",
         "KnowledgeMemoryContextFragment",
         "KnowledgeProviderHealth",
+        "KnowledgeTenantQuotaStatus",
+        "ExportKnowledgeAuditEventsRequest",
+        "KnowledgeAuditEventExport",
+        "AnonymizeKnowledgeAuditSubjectRequest",
+        "AnonymizeKnowledgeAuditSubjectResult",
     ] {
         assert!(
             spec["components"]["schemas"][schema_name].is_object(),
@@ -191,6 +221,29 @@ fn backend_openapi_keeps_memory_context_fragments_separate_from_knowledge_chunks
         spec["components"]["schemas"]["KnowledgeContextPack"]["properties"]["memoryFragments"]
             ["items"]["$ref"],
         "#/components/schemas/KnowledgeMemoryContextFragment"
+    );
+}
+
+#[test]
+fn backend_openapi_exposes_tenant_quota_on_status_schema() {
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
+    ))
+    .unwrap();
+
+    assert_schema_properties(&spec, "KnowledgeTenantStatus", &["quota"]);
+    assert_schema_properties(
+        &spec,
+        "KnowledgeTenantQuotaStatus",
+        &[
+            "maxDocuments",
+            "documentCount",
+            "maxConcurrentIngestJobs",
+            "inflightIngestJobs",
+            "maxRetrievalsPerMinute",
+            "maxStorageBytes",
+            "storageBytesUsed",
+        ],
     );
 }
 
@@ -256,7 +309,8 @@ fn concrete_uri(template_path: &str) -> String {
         .replace("{profileId}", "23")
         .replace("{exportId}", "29")
         .replace("{indexId}", "37")
-        .replace("{traceId}", "41");
+        .replace("{traceId}", "41")
+        .replace("{spaceId}", "7");
     if path.ends_with("/okf/candidates") {
         format!("{path}?spaceId=7")
     } else {
@@ -290,6 +344,9 @@ fn request_body(operation_id: &str) -> &'static str {
         "indexes.rebuild" => r#"{"spaceId":7}"#,
         "retrievalProfiles.create" | "retrievalProfiles.update" => {
             r#"{"tenantId":"100001","name":"Default Hybrid","strategy":"hybrid","topK":8,"minScore":0.4,"rerankEnabled":true,"contextBudgetTokens":2048,"status":"active"}"#
+        }
+        "compliance.auditEvents.export" | "compliance.auditEvents.anonymizeActor" => {
+            r#"{"actorId":"42"}"#
         }
         _ => "",
     }

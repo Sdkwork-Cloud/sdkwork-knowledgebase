@@ -140,7 +140,7 @@ async fn enrich_object_ref_drive_binding_in_transaction(
         SET drive_space_id = COALESCE(drive_space_id, $1),
             drive_node_id = COALESCE(drive_node_id, $2),
             logical_path = COALESCE(logical_path, $3),
-            updated_at = $4,
+            updated_at = CAST($4 AS TIMESTAMP),
             version = version + 1
         WHERE tenant_id = $5 AND id = $6 AND status = $7
         RETURNING
@@ -286,7 +286,7 @@ async fn enrich_document_drive_node_binding_in_transaction(
     let row = sqlx::query(
         r#"
         UPDATE kb_document
-        SET original_file_drive_node_id = $1, updated_at = $2, version = version + 1
+        SET original_file_drive_node_id = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
         WHERE tenant_id = $3 AND id = $4 AND status = $5
         RETURNING id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
                   current_version_id, visibility, content_state, index_state
@@ -390,7 +390,7 @@ pub(crate) async fn bind_document_current_version_in_transaction(
     sqlx::query(
         r#"
         UPDATE kb_document
-        SET current_version_id = $1, updated_at = $2, version = version + 1
+        SET current_version_id = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
         WHERE tenant_id = $3 AND id = $4 AND status = $5
           AND (current_version_id IS NULL OR current_version_id <= $1)
         "#,

@@ -1,5 +1,5 @@
 {
-  "name": "@sdkwork/knowledgebase-backend-sdk",
+  "name": "sdkwork-knowledgebase-backend-sdk-generated-typescript",
   "version": "0.1.0",
   "private": true,
   "description": "Generator-owned TypeScript transport SDK for sdkwork-knowledgebase-backend-sdk.",
@@ -37,5 +37,6 @@
     "api",
     "backend",
     "sdkwork"
-  ]
+  ],
+  "sdkworkRole": "transport"
 }

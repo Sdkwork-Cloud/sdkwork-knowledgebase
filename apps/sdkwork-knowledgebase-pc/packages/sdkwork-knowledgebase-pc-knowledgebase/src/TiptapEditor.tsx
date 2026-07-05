@@ -101,11 +101,13 @@ export function TiptapEditor({
     file: File,
     mediaType: 'image' | 'audio' | 'video',
   ): Promise<string | null> => {
-    const mediaLabel = mediaType === 'image' ? '图片' : mediaType === 'audio' ? '音频' : '视频';
-
     if (isKnowledgebaseApiAvailable()) {
       if (!kbId) {
-        toast.error(`请先选择知识库后再上传${mediaLabel}。`);
+        try {
+          throwKnowledgebaseError(KnowledgebaseErrorCodes.KB_ID_REQUIRED);
+        } catch (error) {
+          toastKnowledgebaseError(error, tErrors);
+        }
         return null;
       }
       try {
@@ -127,12 +129,15 @@ export function TiptapEditor({
     }
 
     if (!shouldUseKnowledgebaseDemoFallback()) {
-      toast.error(`请先登录 Knowledgebase API 后再上传${mediaLabel}。`);
+      try {
+        throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE);
+      } catch (error) {
+        toastKnowledgebaseError(error, tErrors);
+      }
       return null;
     }
 
-    toast.error(`请先登录 Knowledgebase API 后再上传${mediaLabel}。`);
-    return null;
+    return URL.createObjectURL(file);
   };
 
   const uploadImage = async (file: File): Promise<string | null> =>
@@ -298,8 +303,8 @@ export function TiptapEditor({
       const result = await AIService.handleAIAction(action, text, context, customPrompt);
       const safeResult = mode === 'markdown' ? result : sanitizeEditorHtml(result);
       editor.commands.insertContent(safeResult);
-    } catch (e: any) {
-      toast.error(e.message || 'AI generation failed');
+    } catch (e: unknown) {
+      toastKnowledgebaseError(e, tErrors);
     } finally {
       setAiLoading(false);
     }

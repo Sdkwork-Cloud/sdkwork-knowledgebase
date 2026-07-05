@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { DocumentMeta } from '../services/document';
 import { DocumentService } from '../services/document';
-import { toast } from '../components/ui/toast-manager';
+import { toastKnowledgebaseError } from '../components/ui/toastKnowledgebaseError';
 
 const SAVE_DEBOUNCE_MS = 800;
 
@@ -22,6 +23,7 @@ export function useKnowledgeBaseDocumentPersistence({
   setActiveDoc,
   setDocContent,
 }: UseKnowledgeBaseDocumentPersistenceOptions) {
+  const { t } = useTranslation(['kb', 'common', 'errors']);
   const pendingByDocRef = useRef<Map<string, string>>(new Map());
   const timersByDocRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const saveInFlightRef = useRef<Map<string, Promise<void>>>(new Map());
@@ -49,7 +51,7 @@ export function useKnowledgeBaseDocumentPersistence({
       try {
         await DocumentService.saveDocumentContent(docId, content);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to save document content.');
+        toastKnowledgebaseError(error, t);
         throw error;
       }
     })();
@@ -62,7 +64,7 @@ export function useKnowledgeBaseDocumentPersistence({
         saveInFlightRef.current.delete(docId);
       }
     }
-  }, []);
+  }, [t]);
 
   const scheduleDocumentSave = useCallback((docId: string, content: string) => {
     pendingByDocRef.current.set(docId, content);

@@ -2,6 +2,7 @@ import { isBlank, trim } from '@sdkwork/utils';
 import {
   getKnowledgebaseAppSdkClient,
   isKnowledgebaseApiAvailable,
+  shouldUseKnowledgebaseDemoFallback,
 } from '../api/knowledgebaseApiRegistry';
 import {
   getKnowledgebaseDriveAppSdkClient,
@@ -17,6 +18,15 @@ export function requireKnowledgebaseApiAvailable(
 ): void {
   if (!isKnowledgebaseApiAvailable()) {
     throwKnowledgebaseError(code);
+  }
+}
+
+/** Offline import / preview-only UI must not write synthetic data when API is live. */
+export function assertKnowledgebasePreviewFeature(featureLabel: string): void {
+  if (!shouldUseKnowledgebaseDemoFallback()) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.FEATURE_PREVIEW_ONLY, {
+      cause: featureLabel,
+    });
   }
 }
 

@@ -1,15 +1,19 @@
 import {
   createHostAdapter,
   createKnowledgebaseAppSdkClient,
+  createKnowledgebaseBackendSdkClient,
   createKnowledgebaseDriveAppSdkClient,
   createKnowledgebaseSessionTokenManager,
   createRuntimeConfig,
   createSessionStore,
   configureKnowledgebaseAppSdk,
+  configureKnowledgebaseBackendSdk,
   configureKnowledgebaseDriveAppSdk,
   bindKnowledgebaseSessionStore,
   setKnowledgebaseApiEnabled,
+  setKnowledgebaseBackendApiEnabled,
   isKnowledgebaseAppApiConfigured,
+  isKnowledgebaseBackendApiConfigured,
   type KnowledgebasePcRuntime,
   type SessionStorageLike,
 } from 'sdkwork-knowledgebase-pc-core';
@@ -24,23 +28,32 @@ export function createKnowledgebasePcRuntime(): KnowledgebasePcRuntime {
     config,
     tokenManager,
   });
+  const backendSdkClient = createKnowledgebaseBackendSdkClient({
+    config,
+    tokenManager,
+  });
   const driveSdkClient = createKnowledgebaseDriveAppSdkClient({
     config,
     tokenManager,
   });
   const iamRuntime = createKnowledgebaseIamRuntime({
     config,
-    sdkClients: [appSdkClient, driveSdkClient],
+    sdkClients: [appSdkClient, backendSdkClient, driveSdkClient],
     session,
     tokenManager,
   });
 
   bindKnowledgebaseSessionStore(session);
   configureKnowledgebaseAppSdk(appSdkClient);
+  configureKnowledgebaseBackendSdk(backendSdkClient);
   configureKnowledgebaseDriveAppSdk(driveSdkClient);
   setKnowledgebaseApiEnabled(
     config.auth.tokenManagerMode !== 'test'
     && isKnowledgebaseAppApiConfigured(config),
+  );
+  setKnowledgebaseBackendApiEnabled(
+    config.auth.tokenManagerMode !== 'test'
+    && isKnowledgebaseBackendApiConfigured(config),
   );
 
   return {
@@ -50,6 +63,7 @@ export function createKnowledgebasePcRuntime(): KnowledgebasePcRuntime {
     },
     sdk: {
       app: appSdkClient,
+      backend: backendSdkClient,
       drive: driveSdkClient,
     },
     session,

@@ -84,6 +84,7 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
     async fn list_concept_summaries(
         &self,
         _space_id: u64,
+        _limit: Option<u32>,
     ) -> Result<Vec<OkfConceptSummary>, KnowledgeOkfConceptStoreError> {
         Ok(Vec::new())
     }

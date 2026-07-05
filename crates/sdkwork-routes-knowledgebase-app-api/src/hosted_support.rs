@@ -283,7 +283,7 @@ pub(crate) async fn rebuild_okf_index_document(
 
     let concepts = runtime
         .okf_concept_store()
-        .list_concept_summaries(space_id)
+        .list_concept_summaries(space_id, None)
         .await
         .map_err(map_okf_concept_store)?;
     let markdown = sdkwork_intelligence_knowledgebase_service::okf::render_index_md(
@@ -300,7 +300,7 @@ pub(crate) async fn persist_okf_profile(
     let space = runtime.space_store().get_space(space_id).await?;
     let concepts = runtime
         .okf_concept_store()
-        .list_concept_summaries(space_id)
+        .list_concept_summaries(space_id, None)
         .await
         .map_err(map_okf_concept_store)?;
     let logs = runtime
@@ -537,6 +537,10 @@ where
         })
         .await
         .map_err(|error| ApiError::internal("okf_ingestion_job_failed", error.to_string()))?;
+
+    if result.created {
+        crate::tenant_quota_enforcement::verify_ingest_capacity_after_enqueue(runtime).await?;
+    }
 
     let mut job = result.job;
     if job.state != IngestionJobState::Queued {

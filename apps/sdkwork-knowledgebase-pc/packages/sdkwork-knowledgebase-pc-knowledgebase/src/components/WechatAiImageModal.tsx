@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
 import { X, Clock, FileText, ArrowUp, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
-import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
+import { isKnowledgebaseApiAvailable, shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
 import { AIService } from '../services/ai';
 import { useTranslation } from 'react-i18next';
 
@@ -63,7 +63,7 @@ export function WechatAiImageModal({ isOpen, onClose, onConfirm, kbId }: WechatA
   const { t } = useTranslation(['editor', 'common', 'officialAccount']);
   const [prompt, setPrompt] = useState('');
   const [messages, setMessages] = useState<Message[]>(() =>
-    isKnowledgebaseApiAvailable()
+    isKnowledgebaseApiAvailable() || !shouldUseKnowledgebaseDemoFallback()
       ? [
           {
             role: 'ai',

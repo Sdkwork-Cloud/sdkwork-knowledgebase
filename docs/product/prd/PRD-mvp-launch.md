@@ -3,7 +3,7 @@
 Status: active  
 Owner: SDKWork maintainers  
 Application: sdkwork-knowledgebase  
-Updated: 2026-06-24  
+Updated: 2026-07-05  
 Parent: [PRD.md](PRD.md)
 
 ## Purpose
@@ -16,6 +16,13 @@ Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Kn
 
 - [x] Public ingress does not expose `/metrics`; Prometheus scrapes via ServiceMonitor only
 - [x] Backend OpenAPI declares `x-sdkwork-permission: knowledge.admin` on all protected operations
+- [x] Upload session space ACL enforced (`require_space_access` on create/complete)
+- [x] Space ACL fail-closed when drive binding missing
+- [x] WeChat editor HTML sanitized before insertion
+- [x] Production demo/synthetic UI data gated by `shouldUseKnowledgebaseDemoFallback()` (WeChat insert, applet modal, settings avatars, music player, widget templates without external URLs)
+- [x] Tenant-scoped dynamic rate limit policy wired from web store (`SqlxDynamicPolicyBundle`) on all HTTP surfaces
+- [x] External/catalog adapter engines return `Unsupported` for `list_documents` instead of silent empty lists
+- [x] User-facing mutation errors surfaced via `toastKnowledgebaseError` in core KB flows
 - [x] `pnpm test:security` passes (tenant isolation, RBAC, audit, demo gating)
 - [x] Development secrets are not committed in topology profiles (use `.env.postgres`)
 
@@ -30,6 +37,9 @@ Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Kn
 
 - [x] Worker `/readyz` probes database connectivity (requires connection pool, not business queries)
 - [x] App API `/readyz` simplified to dependency connectivity checks only (see Phase 0.4)
+- [x] `list_browser` enforces `ensure_runtime_tenant` like other hosted app routes
+- [x] Repository hot paths bounded: chunk load cap, drive ref prefix limit, OKF link list limits
+- [x] Agent provider `block_on_async` reuses a dedicated bridge thread/runtime (no per-call OS thread spawn)
 - [x] Worker HPA, Service, and ServiceMonitor configured
 - [x] K8s manifests include PDB, NetworkPolicy, and `securityContext`
 - [x] Ingest pipelines log failures when `mark_failed` cannot persist state
@@ -39,6 +49,22 @@ Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Kn
 
 - [x] No `@packages/` deep imports; package boundary imports only
 - [x] Demo/mock fallbacks disabled in production builds (`import.meta.env.PROD`)
+- [x] Offline import modals (chat file/dialog, notes) gated by `assertKnowledgebasePreviewFeature` — no synthetic batch writes when API is live
+- [x] WeChat save-as-draft persists via `WechatService.publishArticles` (WeChat draft box API)
+- [x] AI assistant uses backend agent when `isKnowledgebaseApiAvailable()`; local MCP agent is demo-only
+- [x] Image viewer AI tools hidden outside `shouldUseKnowledgebaseDemoFallback()`
+- [x] Asset library scan capped (`MAX_ASSET_LIBRARY_ITEMS` / `MAX_ASSET_SCAN_NODES`) with truncation banner
+- [x] Asset library modal uses cursor pagination (`listAssetLibraryItemsPage`) with Load more
+- [x] Knowledge space members settings use paginated first page; full baseline fetched on save only when members changed
+- [x] Partial member sync preserves unloaded baseline members (`buildPartialMemberSyncPayload`); baseline fetched on save only when members changed
+- [x] Auto-save and editor uploads surface i18n errors via `toastKnowledgebaseError`; numeric ProblemDetail `60002` maps to tenant quota message
+- [x] Editor demo upload uses blob URLs only under `shouldUseKnowledgebaseDemoFallback()`
+- [x] Permissions modal uses paginated member count (`20+` when truncated)
+- [x] Cloud drive service enforces API availability + network online guards
+- [x] WeChat publish/upload/AI stream API failures use `toastKnowledgebaseError` (quota/offline/network aware)
+- [x] Network offline fail-closed: `AppShell` wires `setKnowledgebaseNetworkOnline`; mutations call `requireKnowledgebaseNetworkOnline`
+- [x] i18n keys for `network.offline` and `feature.previewOnly` error surfaces
+- [x] Unimplemented split-view menu removed (no false success toast)
 - [x] Document export path re-sanitizes HTML before `innerHTML` assignment
 - [x] `pnpm test:frontend` passes; `pnpm lint` (TypeScript) passes
 - [x] Ad-hoc root migration scripts removed; `pnpm check:pc-app-hygiene` passes

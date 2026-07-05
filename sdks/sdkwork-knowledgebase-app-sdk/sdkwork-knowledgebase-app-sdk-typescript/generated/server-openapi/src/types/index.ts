@@ -124,3 +124,5 @@ export type { KnowledgeSiteDeploymentPreview } from './knowledge-site-deployment
 export type { KnowledgeMediaTaskType } from './knowledge-media-task-type';
 export type { KnowledgeMediaTaskRequest } from './knowledge-media-task-request';
 export type { KnowledgeMediaTaskResult } from './knowledge-media-task-result';
+export type { PageInfo } from './page-info';
+export type { SdkWorkPageData } from './sdk-work-page-data';

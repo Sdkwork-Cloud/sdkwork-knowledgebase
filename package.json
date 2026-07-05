@@ -23,11 +23,14 @@
     "build:server": "cargo build --release -p sdkwork-knowledgebase-standalone-gateway",
     "test": "pnpm topology:validate && pnpm test:topology && pnpm test:frontend && pnpm test:rust && pnpm test:smoke && pnpm test:launch-readiness && pnpm test:e2e && pnpm test:observability && pnpm test:security && pnpm db:validate",
     "test:rust": "cargo test --workspace",
-    "test:security": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-security.test.mjs",
+    "test:security": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-security.test.mjs && node --test --experimental-test-isolation=none scripts/verify-knowledgebase-permission-bootstrap.test.mjs",
     "test:observability": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-observability.test.mjs",
     "test:smoke": "node --test --experimental-test-isolation=none scripts/smoke-knowledgebase-api.test.mjs",
     "test:launch-readiness": "node --test --experimental-test-isolation=none scripts/verify-launch-runbook.test.mjs && node --test --experimental-test-isolation=none scripts/smoke-knowledgebase-open-api.test.mjs && node --test --experimental-test-isolation=none scripts/smoke-knowledgebase-admin-ingest.test.mjs",
-    "test:phase2-readiness": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-phase2-readiness.test.mjs",
+    "test:phase2-readiness": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-phase2-readiness.test.mjs && node --test --experimental-test-isolation=none scripts/verify-knowledgebase-tenant-quota.test.mjs && pnpm test:multi-tenant-isolation && pnpm test:billing-metering",
+    "test:multi-tenant-isolation": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-multi-tenant-isolation.test.mjs",
+    "test:tenant-quota": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-tenant-quota.test.mjs",
+    "test:billing-metering": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-billing-metering.test.mjs",
     "test:e2e": "node --test --experimental-test-isolation=none scripts/e2e-knowledgebase-pc-bootstrap.test.mjs && node --test --experimental-test-isolation=none scripts/e2e-knowledgebase-pc-browser.test.mjs",
     "test:e2e:playwright": "pnpm --dir apps/sdkwork-knowledgebase-pc run test:e2e",
     "test:topology": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-topology.test.mjs",
@@ -73,5 +76,12 @@
     "gateway:assembly:validate": "node scripts/gateway/assembly-validate.mjs",
     "db:postgres:init": "node ../sdkwork-specs/tools/postgres/postgres-db-cli.mjs --mode init --config .env.postgres --app-root .",
     "db:postgres:plan": "node ../sdkwork-specs/tools/postgres/postgres-db-cli.mjs --mode plan --config .env.postgres --app-root . --dry-run"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
   }
 }

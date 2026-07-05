@@ -15,6 +15,8 @@ pub use environment::{
     deployment_tenant_id, is_development_environment, is_production_like_environment,
     knowledgebase_environment,
 };
+pub mod tenant_quota;
+pub use tenant_quota::KnowledgebaseTenantQuotaLimits;
 pub mod health;
 pub mod request_correlation;
 pub mod tracing_support;

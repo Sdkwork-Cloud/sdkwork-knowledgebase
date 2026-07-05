@@ -1,14 +1,18 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
-    CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest,
+    CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexList,
+    KnowledgeIndexRequest,
     KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList, KnowledgeOkfProfileRequest,
     KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
     KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList,
-    KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult,
+    KnowledgeSpace, KnowledgeSpaceMemberList, KnowledgeTenantStatus, AnonymizeKnowledgeAuditSubjectRequest,
+    AnonymizeKnowledgeAuditSubjectResult, ExportKnowledgeAuditEventsRequest, KnowledgeAuditEventExport,
+    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult,
     OkfCandidateResult, OkfCandidateResultList, OkfCandidateReviewRequest, OkfCompileJobRequest,
     OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfIndexRebuildRequest,
     OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
+use sdkwork_utils_rust::SdkWorkPageData;
 
 use crate::error::{BackendApiError, BackendApiResult};
 
@@ -138,6 +142,10 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
         Err(BackendApiError::not_implemented("okf.evalRuns.create"))
     }
 
+    async fn list_indexes(&self) -> BackendApiResult<KnowledgeIndexList> {
+        Err(BackendApiError::not_implemented("indexes.list"))
+    }
+
     async fn create_index(
         &self,
         _request: KnowledgeIndexRequest,
@@ -202,5 +210,38 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
     /// Returns space count, document count, and status for the current tenant.
     async fn retrieve_current_tenant(&self) -> BackendApiResult<KnowledgeTenantStatus> {
         Err(BackendApiError::not_implemented("tenants.current"))
+    }
+
+    async fn list_spaces(
+        &self,
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeSpace>> {
+        Err(BackendApiError::not_implemented("spaces.list"))
+    }
+
+    async fn list_space_members(
+        &self,
+        _space_id: u64,
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> BackendApiResult<KnowledgeSpaceMemberList> {
+        Err(BackendApiError::not_implemented("spaces.members.list"))
+    }
+
+    async fn export_audit_events(
+        &self,
+        _request: ExportKnowledgeAuditEventsRequest,
+    ) -> BackendApiResult<KnowledgeAuditEventExport> {
+        Err(BackendApiError::not_implemented("compliance.auditEvents.export"))
+    }
+
+    async fn anonymize_audit_subject(
+        &self,
+        _request: AnonymizeKnowledgeAuditSubjectRequest,
+    ) -> BackendApiResult<AnonymizeKnowledgeAuditSubjectResult> {
+        Err(BackendApiError::not_implemented(
+            "compliance.auditEvents.anonymizeActor",
+        ))
     }
 }

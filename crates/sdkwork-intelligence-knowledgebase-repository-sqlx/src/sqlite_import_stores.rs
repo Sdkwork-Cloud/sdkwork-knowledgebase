@@ -384,7 +384,18 @@ impl KnowledgeDocumentStore for SqliteKnowledgeDocumentStore {
         space_id: u64,
         limit: u32,
     ) -> Result<Vec<KnowledgeDocument>, KnowledgeDocumentStoreError> {
-        self.list_active_documents_for_space(space_id, limit).await
+        let (items, _, _) = self.list_documents_page(space_id, None, limit).await?;
+        Ok(items)
+    }
+
+    async fn list_documents_page(
+        &self,
+        space_id: u64,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeDocument>, Option<String>, bool), KnowledgeDocumentStoreError> {
+        self.list_documents_page_for_space(space_id, cursor, page_size)
+            .await
     }
 }
 
@@ -476,28 +487,77 @@ impl SqliteKnowledgeDocumentStore {
         space_id: u64,
         limit: u32,
     ) -> Result<Vec<KnowledgeDocument>, KnowledgeDocumentStoreError> {
+        let (items, _, _) = self
+            .list_documents_page_for_space(space_id, None, limit)
+            .await?;
+        Ok(items)
+    }
+
+    pub async fn list_documents_page_for_space(
+        &self,
+        space_id: u64,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeDocument>, Option<String>, bool), KnowledgeDocumentStoreError> {
         let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
         let space_id = document_to_i64("space_id", space_id)?;
-        let limit = i64::from(limit.clamp(1, 200));
-        let rows = sqlx::query(
-            r#"
-            SELECT id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
-                   current_version_id, visibility, content_state, index_state
-            FROM kb_document
-            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
-            ORDER BY id ASC
-            LIMIT $4
-            "#,
-        )
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(ACTIVE_STATUS)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(document_sqlx_error)?;
+        let page_size = i64::from(page_size.clamp(1, 200));
+        let fetch_limit = page_size + 1;
+        let cursor_id = cursor
+            .map(|value| document_to_i64("cursor", value))
+            .transpose()?;
 
-        rows.iter().map(document_from_row).collect()
+        let rows = if let Some(after_id) = cursor_id {
+            sqlx::query(
+                r#"
+                SELECT id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
+                       current_version_id, visibility, content_state, index_state
+                FROM kb_document
+                WHERE tenant_id = $1 AND space_id = $2 AND status = $3 AND id > $4
+                ORDER BY id ASC
+                LIMIT $5
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(ACTIVE_STATUS)
+            .bind(after_id)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(document_sqlx_error)?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
+                       current_version_id, visibility, content_state, index_state
+                FROM kb_document
+                WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+                ORDER BY id ASC
+                LIMIT $4
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(ACTIVE_STATUS)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(document_sqlx_error)?
+        };
+
+        let has_more = rows.len() > page_size as usize;
+        let mut items = Vec::new();
+        for row in rows.into_iter().take(page_size as usize) {
+            items.push(document_from_row(&row)?);
+        }
+        let next_cursor = if has_more {
+            items.last().map(|document| document.id.to_string())
+        } else {
+            None
+        };
+
+        Ok((items, next_cursor, has_more))
     }
 
     pub async fn get_document_by_id(
@@ -556,7 +616,7 @@ impl SqliteKnowledgeDocumentStore {
                 mime_type = $2,
                 language = $3,
                 visibility = COALESCE($4, visibility),
-                updated_at = $5,
+                updated_at = CAST($5 AS TIMESTAMP),
                 version = version + 1
             WHERE tenant_id = $6 AND id = $7 AND status = $8
             RETURNING id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
@@ -596,7 +656,7 @@ impl SqliteKnowledgeDocumentStore {
         let rows = sqlx::query(
             r#"
             UPDATE kb_document
-            SET status = 0, updated_at = $1, version = version + 1
+            SET status = 0, updated_at = CAST($1 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $2 AND id = $3 AND status = $4
             "#,
         )
@@ -635,7 +695,7 @@ impl SqliteKnowledgeDocumentStore {
             r#"
             UPDATE kb_document
             SET original_file_drive_node_id = COALESCE(original_file_drive_node_id, $1),
-                updated_at = $2,
+                updated_at = CAST($2 AS TIMESTAMP),
                 version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
             RETURNING
@@ -987,7 +1047,7 @@ impl SqliteKnowledgeDocumentVersionStore {
         sqlx::query(
             r#"
             UPDATE kb_document
-            SET current_version_id = $1, updated_at = $2, version = version + 1
+            SET current_version_id = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
               AND (
                   current_version_id IS NULL
@@ -1040,6 +1100,73 @@ impl SqliteKnowledgeDocumentVersionStore {
         .map_err(version_sqlx_error)?;
 
         rows.iter().map(document_version_from_row).collect()
+    }
+
+    pub async fn list_versions_page_for_document(
+        &self,
+        document_id: u64,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<
+        (Vec<KnowledgeDocumentVersion>, Option<String>, bool),
+        KnowledgeDocumentVersionStoreError,
+    > {
+        let tenant_id = version_to_i64("tenant_id", self.tenant_id)?;
+        let document_id = version_to_i64("document_id", document_id)?;
+        let page_size = i64::from(page_size.clamp(1, 200));
+        let fetch_limit = page_size + 1;
+        let cursor_id = cursor
+            .map(|value| version_to_i64("cursor", value))
+            .transpose()?;
+
+        let rows = if let Some(after_id) = cursor_id {
+            sqlx::query(
+                r#"
+                SELECT id, document_id, version_no, original_object_ref_id, checksum_sha256_hex, size_bytes, mime_type, parse_state, index_state
+                FROM kb_document_version
+                WHERE tenant_id = $1 AND document_id = $2 AND status = $3 AND id > $4
+                ORDER BY id ASC
+                LIMIT $5
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(document_id)
+            .bind(ACTIVE_STATUS)
+            .bind(after_id)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(version_sqlx_error)?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT id, document_id, version_no, original_object_ref_id, checksum_sha256_hex, size_bytes, mime_type, parse_state, index_state
+                FROM kb_document_version
+                WHERE tenant_id = $1 AND document_id = $2 AND status = $3
+                ORDER BY id ASC
+                LIMIT $4
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(document_id)
+            .bind(ACTIVE_STATUS)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(version_sqlx_error)?
+        };
+
+        let has_more = rows.len() > page_size as usize;
+        let mut items = Vec::new();
+        for row in rows.iter().take(page_size as usize) {
+            items.push(document_version_from_row(row)?);
+        }
+        let next_cursor = if has_more {
+            items.last().map(|version| version.id.to_string())
+        } else {
+            None
+        };
+        Ok((items, next_cursor, has_more))
     }
 }
 
@@ -1141,7 +1268,7 @@ impl SqliteIngestionJobStore {
         let updated_row = sqlx::query(
             r#"
             UPDATE kb_ingestion_job
-            SET state = $1, error_detail = NULL, updated_at = $2, version = version + 1
+            SET state = $1, error_detail = NULL, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5 AND state = $6
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
             "#,
@@ -1250,7 +1377,7 @@ impl SqliteIngestionJobStore {
         let updated_row = sqlx::query(
             r#"
             UPDATE kb_ingestion_job
-            SET state = $1, error_detail = NULL, updated_at = $2, version = version + 1
+            SET state = $1, error_detail = NULL, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5 AND state = $6
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
             "#,
@@ -1351,7 +1478,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let row = sqlx::query(
             r#"
             UPDATE kb_ingestion_job
-            SET state = $1, error_detail = $2, updated_at = $3, version = version + 1
+            SET state = $1, error_detail = $2, updated_at = CAST($3 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $4 AND id = $5 AND status = $6 AND state = $7
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
             "#,
@@ -1399,7 +1526,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let updated = sqlx::query(
             r#"
             UPDATE kb_ingestion_job
-            SET metadata = $1, updated_at = $2, version = version + 1
+            SET metadata = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
             "#,
         )
@@ -1490,6 +1617,28 @@ impl IngestionJobStore for SqliteIngestionJobStore {
 }
 
 impl SqliteIngestionJobStore {
+    pub async fn count_inflight_jobs(&self) -> Result<u32, IngestionJobStoreError> {
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let row: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)
+            FROM kb_ingestion_job
+            WHERE tenant_id = $1
+              AND status = $2
+              AND state IN ($3, $4)
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .bind(ingestion_state_code(IngestionJobState::Queued))
+        .bind(ingestion_state_code(IngestionJobState::Running))
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+        u32::try_from(row.0.max(0))
+            .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))
+    }
+
     async fn get_job_by_idempotency(
         &self,
         record: &CreateIngestionJobRecord,

@@ -30,7 +30,23 @@ pub trait KnowledgeOkfConceptStore: Send + Sync {
     async fn list_concept_summaries(
         &self,
         space_id: u64,
+        limit: Option<u32>,
     ) -> Result<Vec<OkfConceptSummary>, KnowledgeOkfConceptStoreError>;
+
+    async fn list_concept_summaries_page(
+        &self,
+        space_id: u64,
+        _cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<OkfConceptSummary>, Option<String>, bool), KnowledgeOkfConceptStoreError> {
+        let fetch_limit = page_size.saturating_add(1);
+        let items = self
+            .list_concept_summaries(space_id, Some(fetch_limit))
+            .await?;
+        let has_more = items.len() > page_size as usize;
+        let items = items.into_iter().take(page_size as usize).collect::<Vec<_>>();
+        Ok((items, None, has_more))
+    }
 
     async fn append_log_entry(
         &self,

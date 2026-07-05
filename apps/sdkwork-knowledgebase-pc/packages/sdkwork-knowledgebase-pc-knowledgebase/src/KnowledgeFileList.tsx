@@ -3,8 +3,9 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { isBlank, trim } from '@sdkwork/utils';
 import { Search, X, FileUp, Plus, FolderUp, MessageSquare, Lightbulb, Link, FileEdit, ChevronRight, FileText, Mic, FolderPlus, Trash2, Folder, Hash, Image as ImageIcon, Video, Music, ChevronDown, MoreHorizontal, Edit2, Cloud, Notebook, CheckSquare, BookOpen } from 'lucide-react';
 import { FolderNode, DocumentMeta, KnowledgeBase, DocumentService } from './services/document';
-import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
+import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, assertKnowledgebasePreviewFeature, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
 import { toast } from './components/ui/toast-manager';
+import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
 import { useTranslation } from 'react-i18next';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuPortal } from './components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from './components/ui/context-menu';
@@ -102,8 +103,7 @@ export function KnowledgeFileList({
         setActionModal({ action: 'toast', item: detail.item, text: newPinnedState ? t('pinned') : t('unpinned') });
         setTimeout(() => setActionModal(null), 2000);
       } else if (detail.action === 'split') {
-        setActionModal({ action: 'toast', item: detail.item, text: t('openedInSplitView') });
-        setTimeout(() => setActionModal(null), 2000);
+        // Split view is not implemented; ignore stale menu events.
       } else {
         setActionModal(detail);
       }
@@ -502,10 +502,15 @@ export function KnowledgeFileList({
         isOpen={isNotesAppOpen}
         onClose={() => setIsNotesAppOpen(false)}
         onConfirm={async (selectedItems) => {
-          if (selectedItems && selectedItems.length > 0) {
-            await handleMenuCreateWrapped('batch_create', currentFolderId ?? undefined, selectedItems);
-          } else {
-            await handleMenuCreateWrapped('notesApp', currentFolderId ?? undefined);
+          try {
+            if (selectedItems && selectedItems.length > 0) {
+              assertKnowledgebasePreviewFeature('notes-app-import');
+              await handleMenuCreateWrapped('batch_create', currentFolderId ?? undefined, selectedItems);
+            } else {
+              await handleMenuCreateWrapped('notesApp', currentFolderId ?? undefined);
+            }
+          } catch (error) {
+            toastKnowledgebaseError(error, t);
           }
           setIsNotesAppOpen(false);
         }}
@@ -517,12 +522,10 @@ export function KnowledgeFileList({
         onConfirm={async (selectedItems) => {
           if (selectedItems && selectedItems.length > 0) {
             if (isKnowledgebaseApiAvailable()) {
-              if (!activeKb?.id) {
-                toast.error('请先选择目标知识库后再导入。');
-                setIsPersonalKbOpen(false);
-                return;
-              }
               try {
+                if (!activeKb?.id) {
+                  throwKnowledgebaseError(KnowledgebaseErrorCodes.KB_ID_REQUIRED);
+                }
                 for (const item of selectedItems) {
                   if (!item.id) {
                     throwKnowledgebaseError(KnowledgebaseErrorCodes.IMPORT_DOCUMENT_ID_MISSING);
@@ -536,7 +539,7 @@ export function KnowledgeFileList({
                 onUpdateDocs?.();
                 toast.success(t('importSuccess', { defaultValue: '导入成功' }));
               } catch (error) {
-                toast.error(error instanceof Error ? error.message : '导入失败，请重试');
+                toastKnowledgebaseError(error, t);
               }
             } else {
               await handleMenuCreateWrapped('batch_create', currentFolderId ?? undefined, selectedItems);
@@ -552,10 +555,15 @@ export function KnowledgeFileList({
         isOpen={isChatFileOpen}
         onClose={() => setIsChatFileOpen(false)}
         onConfirm={async (selectedItems) => {
-          if (selectedItems && selectedItems.length > 0) {
-            await handleMenuCreateWrapped('batch_create', currentFolderId ?? undefined, selectedItems);
-          } else {
-            await handleMenuCreateWrapped('chat_file', currentFolderId ?? undefined);
+          try {
+            if (selectedItems && selectedItems.length > 0) {
+              assertKnowledgebasePreviewFeature('chat-file-import');
+              await handleMenuCreateWrapped('batch_create', currentFolderId ?? undefined, selectedItems);
+            } else {
+              await handleMenuCreateWrapped('chat_file', currentFolderId ?? undefined);
+            }
+          } catch (error) {
+            toastKnowledgebaseError(error, t);
           }
           setIsChatFileOpen(false);
         }}
@@ -565,10 +573,15 @@ export function KnowledgeFileList({
         isOpen={isChatDialogOpen}
         onClose={() => setIsChatDialogOpen(false)}
         onConfirm={async (selectedItems) => {
-          if (selectedItems && selectedItems.length > 0) {
-            await handleMenuCreateWrapped('batch_create', currentFolderId ?? undefined, selectedItems);
-          } else {
-            await handleMenuCreateWrapped('chat_dialog', currentFolderId ?? undefined);
+          try {
+            if (selectedItems && selectedItems.length > 0) {
+              assertKnowledgebasePreviewFeature('chat-dialog-import');
+              await handleMenuCreateWrapped('batch_create', currentFolderId ?? undefined, selectedItems);
+            } else {
+              await handleMenuCreateWrapped('chat_dialog', currentFolderId ?? undefined);
+            }
+          } catch (error) {
+            toastKnowledgebaseError(error, t);
           }
           setIsChatDialogOpen(false);
         }}
@@ -649,14 +662,12 @@ export function KnowledgeFileList({
               setMoveCopyConfig(null);
               onUpdateDocs?.();
             } catch (error) {
-              console.error(error);
-              toast.error(error instanceof Error ? error.message : String(error));
+              toastKnowledgebaseError(error, t);
             }
           }}
         />
       )}
 
-      {/* Mock Modals for Unimplemented Features */}
       {actionModal && actionModal.action === 'toast' && (
         <div className="fixed bottom-6 right-6 bg-[var(--color-kb-editor)] border border-[var(--color-kb-panel-border)] shadow-xl rounded-xl px-5 py-3.5 z-[1000] flex items-center animate-in slide-in-from-bottom-5 fade-in duration-300">
            <span className="text-[13px] text-white font-medium">{actionModal.text}</span>

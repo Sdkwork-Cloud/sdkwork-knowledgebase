@@ -1,8 +1,71 @@
 import { backendApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
+import type { AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult, ExportKnowledgeAuditEventsRequest, KnowledgeAuditEventExport } from '../types/knowledge-compliance';
 import type { CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, PageInfo } from '../types';
 
+
+export class KnowledgeComplianceAuditEventsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+/** Export knowledge audit events for a subject */
+  async export(body: ExportKnowledgeAuditEventsRequest): Promise<KnowledgeAuditEventExport> {
+    return this.client.post<KnowledgeAuditEventExport>(backendApiPath(`/knowledge/compliance/audit_events/export`), body, undefined, undefined, 'application/json');
+  }
+
+/** Anonymize audit events for a subject */
+  async anonymizeActor(body: AnonymizeKnowledgeAuditSubjectRequest): Promise<AnonymizeKnowledgeAuditSubjectResult> {
+    return this.client.post<AnonymizeKnowledgeAuditSubjectResult>(backendApiPath(`/knowledge/compliance/audit_events/anonymize_actor`), body, undefined, undefined, 'application/json');
+  }
+}
+
+export class KnowledgeComplianceApi {
+  private client: HttpClient;
+  public readonly auditEvents: KnowledgeComplianceAuditEventsApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.auditEvents = new KnowledgeComplianceAuditEventsApi(client);
+  }
+}
+
+export class KnowledgeSpacesMembersApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** List knowledge space members */
+  async list(spaceId: string, params?: { cursor?: string; pageSize?: number }): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'pageSize', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), query));
+  }
+}
+
+export class KnowledgeSpacesApi {
+  private client: HttpClient;
+  public readonly members: KnowledgeSpacesMembersApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.members = new KnowledgeSpacesMembersApi(client);
+  }
+
+
+/** List knowledge spaces */
+  async list(): Promise<Record<string, unknown>> {
+    return this.client.get<Record<string, unknown>>(backendApiPath(`/knowledge/spaces`));
+  }
+}
 
 export class KnowledgeTenantsCurrentApi {
   private client: HttpClient;
@@ -93,6 +156,11 @@ export class KnowledgeIndexesApi {
     this.client = client;
   }
 
+
+/** List knowledge indexes */
+  async list(): Promise<Record<string, unknown>> {
+    return this.client.get<Record<string, unknown>>(backendApiPath(`/knowledge/indexes`));
+  }
 
 /** Create a knowledge index */
   async create(body: KnowledgeIndexRequest): Promise<KnowledgeIndex> {
@@ -372,6 +440,8 @@ export class KnowledgeApi {
   public readonly retrievalTraces: KnowledgeRetrievalTracesApi;
   public readonly providerHealth: KnowledgeProviderHealthApi;
   public readonly tenants: KnowledgeTenantsApi;
+  public readonly spaces: KnowledgeSpacesApi;
+  public readonly compliance: KnowledgeComplianceApi;
 
   constructor(client: HttpClient) {
     this.client = client;
@@ -382,6 +452,8 @@ export class KnowledgeApi {
     this.retrievalTraces = new KnowledgeRetrievalTracesApi(client);
     this.providerHealth = new KnowledgeProviderHealthApi(client);
     this.tenants = new KnowledgeTenantsApi(client);
+    this.spaces = new KnowledgeSpacesApi(client);
+    this.compliance = new KnowledgeComplianceApi(client);
   }
 
 }

@@ -1,6 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  createdResponse,
+  jsonResponse,
+  listEnvelope,
+  listPaginationQueryParams,
+  resourceEnvelope,
+} from "./lib/openapi-envelope.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(scriptDir, "..");
@@ -128,17 +135,6 @@ const schemas = {
       accessLevel: { $ref: "#/components/schemas/KnowledgeAccessLevel" },
     },
   },
-  KnowledgeSpaceContextBindingList: {
-    type: "object",
-    required: ["items"],
-    properties: {
-      items: {
-        type: "array",
-        items: { $ref: "#/components/schemas/KnowledgeSpaceContextBinding" },
-      },
-      nextCursor: { type: ["string", "null"] },
-    },
-  },
 };
 
 const newPaths = {
@@ -147,19 +143,12 @@ const newPaths = {
       operationId: "spaces.contextBindings.list",
       tags: ["knowledge"],
       summary: "List knowledge space context bindings",
-      parameters: [int64PathParam("spaceId")],
+      parameters: [int64PathParam("spaceId"), ...listPaginationQueryParams],
       security,
       responses: {
-        200: {
-          description: "OK",
-          content: {
-            "application/json": {
-              schema: {
-                $ref: "#/components/schemas/KnowledgeSpaceContextBindingList",
-              },
-            },
-          },
-        },
+        200: jsonResponse(
+          listEnvelope("#/components/schemas/KnowledgeSpaceContextBinding"),
+        ),
         400: problemResponse,
         404: problemResponse,
       },
@@ -182,16 +171,9 @@ const newPaths = {
         },
       },
       responses: {
-        201: {
-          description: "Created",
-          content: {
-            "application/json": {
-              schema: {
-                $ref: "#/components/schemas/KnowledgeSpaceContextBinding",
-              },
-            },
-          },
-        },
+        201: createdResponse(
+          resourceEnvelope("#/components/schemas/KnowledgeSpaceContextBinding"),
+        ),
         400: problemResponse,
         404: problemResponse,
         409: problemResponse,
@@ -207,16 +189,9 @@ const newPaths = {
       parameters: [int64PathParam("bindingId")],
       security,
       responses: {
-        200: {
-          description: "OK",
-          content: {
-            "application/json": {
-              schema: {
-                $ref: "#/components/schemas/KnowledgeSpaceContextBinding",
-              },
-            },
-          },
-        },
+        200: jsonResponse(
+          resourceEnvelope("#/components/schemas/KnowledgeSpaceContextBinding"),
+        ),
         404: problemResponse,
       },
       ...extensions,
@@ -238,16 +213,9 @@ const newPaths = {
         },
       },
       responses: {
-        200: {
-          description: "OK",
-          content: {
-            "application/json": {
-              schema: {
-                $ref: "#/components/schemas/KnowledgeSpaceContextBinding",
-              },
-            },
-          },
-        },
+        200: jsonResponse(
+          resourceEnvelope("#/components/schemas/KnowledgeSpaceContextBinding"),
+        ),
         400: problemResponse,
         404: problemResponse,
       },

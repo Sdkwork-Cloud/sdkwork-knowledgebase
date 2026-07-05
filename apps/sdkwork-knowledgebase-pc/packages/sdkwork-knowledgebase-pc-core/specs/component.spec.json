@@ -88,6 +88,11 @@
         "credentialMode": "authenticated-app-api"
       },
       {
+        "workspace": "sdkwork-knowledgebase-backend-sdk",
+        "surface": "backend-api",
+        "credentialMode": "authenticated-backend-api"
+      },
+      {
         "workspace": "sdkwork-memory",
         "surface": "open-api",
         "credentialMode": "protected-open-api-flexible"
@@ -110,6 +115,7 @@
     ],
     "sdkClients": [
       "@sdkwork/knowledgebase-app-sdk",
+      "@sdkwork/knowledgebase-backend-sdk",
       "@sdkwork/iam-app-sdk",
       "@sdkwork/drive-app-sdk"
     ],

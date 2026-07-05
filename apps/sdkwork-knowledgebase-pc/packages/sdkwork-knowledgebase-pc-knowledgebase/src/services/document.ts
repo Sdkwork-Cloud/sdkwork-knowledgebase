@@ -2,6 +2,7 @@ import { isBlank } from '@sdkwork/utils';
 import {
   KnowledgebaseErrorCodes,
   requireKnowledgebaseApiAvailable,
+  requireKnowledgebaseNetworkOnline,
   requireNonEmptyString,
 } from 'sdkwork-knowledgebase-pc-core';
 import * as KnowledgebaseDocumentApiBridge from './knowledgebaseDocumentApiBridge';
@@ -13,8 +14,10 @@ import * as KnowledgeFileUploadService from './knowledgeFileUploadService';
 import { importWebLinkToKnowledgeBase } from './knowledgeWebLinkImportService';
 import {
   listKnowledgeAssetLibraryItems,
+  listKnowledgeAssetLibraryItemsPage,
   searchKnowledgeMediaDocuments,
   type KnowledgeAssetLibraryItem,
+  type KnowledgeAssetLibraryPage,
 } from './knowledgeAssetLibraryService';
 import { KnowledgeSpaceMembersService, type KnowledgeSpaceMemberUi } from './knowledgeSpaceMembersService';
 export type { KnowledgeSpaceMemberUi } from './knowledgeSpaceMembersService';
@@ -104,12 +107,9 @@ export interface DocumentAccessSummary {
   visibility: KnowledgeDocumentVisibility;
 }
 
-function requireKnowledgebaseApi(): void {
-  requireKnowledgebaseApiAvailable();
-}
-
 async function withKnowledgebaseApi<T>(apiCall: () => Promise<T>): Promise<T> {
-  requireKnowledgebaseApi();
+  requireKnowledgebaseApiAvailable();
+  requireKnowledgebaseNetworkOnline();
   return apiCall();
 }
 
@@ -185,12 +185,13 @@ export class DocumentService {
     parentId?: string,
     overrideType?: DocumentMeta['type'],
   ): Promise<DocumentMeta[]> {
-    requireKnowledgebaseApi();
-    return KnowledgeFileUploadService.uploadKnowledgebaseFiles(
-      files,
-      kbId,
-      overrideType,
-      parentId,
+    return withKnowledgebaseApi(() =>
+      KnowledgeFileUploadService.uploadKnowledgebaseFiles(
+        files,
+        kbId,
+        overrideType,
+        parentId,
+      ),
     );
   }
 
@@ -228,15 +229,16 @@ export class DocumentService {
       onProgress?: (progress: KnowledgeGitImportService.GitImportProgress) => void;
     },
   ): Promise<boolean> {
-    requireKnowledgebaseApi();
-    const result = await KnowledgeGitImportService.importGitRepository(
-      kbId,
-      repoUrl,
-      branch,
-      options?.accessToken,
-      options?.onProgress,
-    );
-    return result.importedCount > 0;
+    return withKnowledgebaseApi(async () => {
+      const result = await KnowledgeGitImportService.importGitRepository(
+        kbId,
+        repoUrl,
+        branch,
+        options?.accessToken,
+        options?.onProgress,
+      );
+      return result.importedCount > 0;
+    });
   }
 
   static async syncGitRepository(
@@ -325,6 +327,16 @@ export class DocumentService {
     return withKnowledgebaseApi(() => KnowledgeSpaceMembersService.loadMembers(spaceId));
   }
 
+  static async loadKnowledgeSpaceMembersPage(
+    spaceId: number,
+    cursor: string | null = null,
+    pageSize = 20,
+  ): Promise<import('./knowledgeSpaceMembersService').KnowledgeSpaceMembersPage> {
+    return withKnowledgebaseApi(() =>
+      KnowledgeSpaceMembersService.loadMembersPage(spaceId, cursor, pageSize),
+    );
+  }
+
   static async syncKnowledgeSpaceMembers(
     spaceId: number,
     desired: KnowledgeSpaceMemberUi[],
@@ -333,11 +345,33 @@ export class DocumentService {
     return withKnowledgebaseApi(() => KnowledgeSpaceMembersService.syncMembers(spaceId, desired, previous));
   }
 
+  static async syncKnowledgeSpaceMembersPartial(
+    spaceId: number,
+    uiMembers: KnowledgeSpaceMemberUi[],
+    baselineMembers: KnowledgeSpaceMemberUi[],
+    loadedEmails: ReadonlySet<string>,
+  ): Promise<void> {
+    return withKnowledgebaseApi(() =>
+      KnowledgeSpaceMembersService.syncMembersPartial(spaceId, uiMembers, baselineMembers, loadedEmails),
+    );
+  }
+
   static async listAssetLibraryItems(
     kbId: string,
     assetType: 'image' | 'audio' | 'video',
-  ): Promise<KnowledgeAssetLibraryItem[]> {
+  ): Promise<{ items: KnowledgeAssetLibraryItem[]; truncated: boolean }> {
     return withKnowledgebaseApi(() => listKnowledgeAssetLibraryItems(kbId, assetType));
+  }
+
+  static async listAssetLibraryItemsPage(
+    kbId: string,
+    assetType: 'image' | 'audio' | 'video',
+    cursor?: string | null,
+    pageSize?: number,
+  ): Promise<KnowledgeAssetLibraryPage> {
+    return withKnowledgebaseApi(() =>
+      listKnowledgeAssetLibraryItemsPage(kbId, assetType, cursor, pageSize),
+    );
   }
 
   static async searchMediaDocuments(query: string, limit: number = 8): Promise<DocumentMeta[]> {

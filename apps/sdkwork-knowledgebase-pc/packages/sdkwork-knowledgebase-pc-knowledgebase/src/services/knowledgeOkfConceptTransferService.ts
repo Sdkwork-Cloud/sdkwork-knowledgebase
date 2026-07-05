@@ -8,7 +8,7 @@ import {
 
 import type { DocumentMeta } from './document';
 import {
-  listAllKnowledgeBrowserNodes,
+  listKnowledgeBrowserNodesPage,
   invalidateKnowledgeBrowserNodeCacheForKbIds,
   invalidateKnowledgeBrowserNodeCacheForSpaceIds,
 } from './knowledgeBrowserListService';
@@ -69,37 +69,95 @@ function matchOkfConceptNode(
   return nodePath === expectedLogicalPath || nodePath.endsWith(`/${expectedLogicalPath}`);
 }
 
+function isFolderNode(node: KnowledgeBrowserNode): boolean {
+  return node.nodeType === 'folder' || node.nodeType === 'virtual_folder';
+}
+
+async function findOkfConceptRowIdInPaginatedBrowser(
+  spaceId: number,
+  conceptIdString: string,
+  logicalPath?: string,
+): Promise<number | null> {
+  const expectedLogicalPath = normalizeBrowserPath(
+    logicalPath ?? okfConceptLogicalPath(conceptIdString),
+  );
+  const folderQueue: Array<string | null> = [null];
+  const visitedParents = new Set<string>();
+
+  while (folderQueue.length > 0) {
+    const parentId = folderQueue.shift()!;
+    const parentKey = parentId ?? '__root__';
+    if (visitedParents.has(parentKey)) {
+      continue;
+    }
+    visitedParents.add(parentKey);
+
+    let cursor: string | null = null;
+    do {
+      const page = await listKnowledgeBrowserNodesPage(spaceId, parentId, { cursor });
+      for (const node of page.items) {
+        if (matchOkfConceptNode(node, expectedLogicalPath)) {
+          return node.conceptId;
+        }
+        if (isFolderNode(node)) {
+          folderQueue.push(node.id);
+        }
+      }
+      cursor = page.hasMore ? page.nextCursor : null;
+    } while (cursor);
+  }
+
+  return null;
+}
+
+async function findOkfConceptRowIdViaRootBrowserPages(
+  spaceId: number,
+  conceptIdString: string,
+): Promise<number | null> {
+  const client = requireSdkClient();
+  let cursor: string | null = null;
+
+  do {
+    const page = await listKnowledgeBrowserNodesPage(spaceId, null, { cursor });
+    for (const node of page.items) {
+      if (node.nodeType !== 'okf_concept' || !node.conceptId) {
+        continue;
+      }
+      const summary = await client.knowledge.okf.concepts.retrieve(node.conceptId);
+      if (summary.conceptId === conceptIdString) {
+        return node.conceptId;
+      }
+    }
+    cursor = page.hasMore ? page.nextCursor : null;
+  } while (cursor);
+
+  return null;
+}
+
 async function resolveOkfConceptRowIdByConceptId(
   spaceId: number,
   conceptIdString: string,
   logicalPath?: string,
 ): Promise<number> {
-  const expectedLogicalPath = normalizeBrowserPath(
-    logicalPath ?? okfConceptLogicalPath(conceptIdString),
-  );
-
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (attempt > 0) {
       await new Promise((resolve) => setTimeout(resolve, 250));
+      invalidateKnowledgeBrowserNodeCacheForSpaceIds(spaceId);
     }
 
-    const nodes = await listAllKnowledgeBrowserNodes(spaceId);
-    const matched = nodes.find((node) => matchOkfConceptNode(node, expectedLogicalPath));
-    if (matched?.conceptId) {
-      return matched.conceptId;
+    const matched = await findOkfConceptRowIdInPaginatedBrowser(
+      spaceId,
+      conceptIdString,
+      logicalPath,
+    );
+    if (matched) {
+      return matched;
     }
   }
 
-  const client = requireSdkClient();
-  const nodes = await listAllKnowledgeBrowserNodes(spaceId);
-  for (const node of nodes) {
-    if (node.nodeType !== 'okf_concept' || !node.conceptId) {
-      continue;
-    }
-    const summary = await client.knowledge.okf.concepts.retrieve(node.conceptId);
-    if (summary.conceptId === conceptIdString) {
-      return node.conceptId;
-    }
+  const fallback = await findOkfConceptRowIdViaRootBrowserPages(spaceId, conceptIdString);
+  if (fallback) {
+    return fallback;
   }
 
   throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_RESOLVE_FAILED, {

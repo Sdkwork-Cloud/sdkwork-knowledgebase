@@ -28,6 +28,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { marked } from 'marked';
 
 import { WechatWidgetTemplates } from './utils/wechatWidgetTemplates';
+import { sanitizeEditorHtml } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
 import { TiptapEditor } from './TiptapEditor';
 import { WechatArticleSettings } from './WechatArticleSettings';
 import { WechatPreviewModal } from './WechatPreviewModal';
@@ -52,6 +53,7 @@ import { WechatService, OfficialAccount, WechatArticle } from './services/wechat
 import { AIService } from './services/ai';
 
 import { toast } from './components/ui/toast-manager';
+import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
 import { useLocalStorage } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 
 export interface WechatPublishPageProps {
@@ -126,6 +128,7 @@ function processDocumentContent(doc: DocumentMeta): string {
 export function WechatPublishPage({ documents: defaultDocuments = [], onClose }: WechatPublishPageProps) {
   const location = useLocation();
   const { t } = useTranslation('editor');
+  const { t: tErrors } = useTranslation('errors');
   const navigate = useNavigate();
   const documents = location.state?.documents || defaultDocuments;
   const cloudDriveSpaceId = React.useMemo(() => {
@@ -344,17 +347,18 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   const [activeEditor, setActiveEditor] = useState<any>(null);
 
   const insertHtmlToEditor = (html: string) => {
+    const safeHtml = sanitizeEditorHtml(html);
     if (activeEditor && !activeEditor.isDestroyed && typeof activeEditor.chain === 'function') {
       try {
-        activeEditor.chain().focus().insertContent(html).run();
+        activeEditor.chain().focus().insertContent(safeHtml).run();
       } catch (e) {
         updateSelectedArticle({
-          content: (selectedArticle?.content || '') + html
+          content: (selectedArticle?.content || '') + safeHtml
         });
       }
     } else {
       updateSelectedArticle({
-        content: (selectedArticle?.content || '') + html
+        content: (selectedArticle?.content || '') + safeHtml
       });
     }
   };
@@ -384,7 +388,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
       );
     } catch (error) {
       console.error(error);
-      toast.error(t('uploadImageFailed', { defaultValue: '图片上传失败，请稍后重试。' }));
+      toastKnowledgebaseError(error, tErrors);
     } finally {
       e.target.value = '';
     }
@@ -425,6 +429,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   };
 
   const triggerScanSimulation = async () => {
+    if (!shouldUseKnowledgebaseDemoFallback()) {
+      toast.error(t('wechatDemoScanUnavailable', { defaultValue: '扫码配图需要连接 Knowledgebase API 或启用开发 Demo 模式。' }));
+      return;
+    }
     setScanStatus('scanning');
     await new Promise(r => setTimeout(r, 1200));
     const mobileCovers = [
@@ -445,6 +453,11 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   };
 
   const triggerAiCoverGeneration = async () => {
+    if (!shouldUseKnowledgebaseDemoFallback()) {
+      toast.error(t('wechatDemoAiCoverUnavailable', { defaultValue: 'AI 封面生成需要连接 Knowledgebase API 或启用开发 Demo 模式。' }));
+      setIsAiCoverOpen(false);
+      return;
+    }
     setAiGenerating(true);
     const steps = t('aiGenSteps', { returnObjects: true }) as string[];
     for (let i = 0; i < steps.length; i++) {
@@ -474,11 +487,23 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
     if (toolName === t('toolImage', { defaultValue: '图片' })) {
       setActiveInsertType('image');
     } else if (toolName === t('toolVideo', { defaultValue: '视频' })) {
-      const widgetUrl = 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4';
-      insertHtmlToEditor(`<video src="${widgetUrl}" controls></video>`);
+      if (shouldUseKnowledgebaseDemoFallback()) {
+        const widgetUrl = 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4';
+        insertHtmlToEditor(`<video src="${widgetUrl}" controls></video>`);
+      } else {
+        setImageActionTarget('editor');
+        setAssetLibraryTab('video');
+        setAssetLibraryOpen(true);
+      }
     } else if (toolName === t('toolAudio', { defaultValue: '音频' })) {
-      const widgetUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-      insertHtmlToEditor(`<audio src="${widgetUrl}" controls></audio>`);
+      if (shouldUseKnowledgebaseDemoFallback()) {
+        const widgetUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        insertHtmlToEditor(`<audio src="${widgetUrl}" controls></audio>`);
+      } else {
+        setImageActionTarget('editor');
+        setAssetLibraryTab('audio');
+        setAssetLibraryOpen(true);
+      }
     } else if (toolName === t('toolLink', { defaultValue: '超链接' })) {
       setWidgetTitle(t('widgetTitleLink'));
       setWidgetUrl('https://id.sdkwork.com');
@@ -535,6 +560,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   const handleInsertConfirm = () => {
     switch (activeInsertType) {
       case 'image': {
+        if (!shouldUseKnowledgebaseDemoFallback()) {
+          toast.error(t('wechatDemoImageUnavailable', { defaultValue: '图片插入需要连接 Knowledgebase API 或启用开发 Demo 模式。' }));
+          break;
+        }
         const pickedImage = 'https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&w=600&q=80';
         insertHtmlToEditor(`<p><img src="${pickedImage}" alt="Gallery Cover" style="border-radius: 12px; max-width: 100%; margin: 16px 0; border: 1px solid var(--color-kb-panel-border);" /></p>`);
         break;
@@ -764,6 +793,40 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
     setIsPublishModalOpen(true);
   };
 
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+
+  const handleSaveAsDraft = async () => {
+    if (!selectedOfficialAccountIds.length) {
+      toast.error(t('selectOfficialAccountFirst', { defaultValue: '请先选择公众号账号。' }));
+      return;
+    }
+    if (!articles.length) {
+      toast.error(t('noArticlesToSave', { defaultValue: '没有可保存的文章。' }));
+      return;
+    }
+    if (!isKnowledgebaseApiAvailable()) {
+      if (!shouldUseKnowledgebaseDemoFallback()) {
+        toast.error(t('wechatApiRequired', { defaultValue: '请先连接知识库 API 后再保存草稿。' }));
+        return;
+      }
+      toast.success(t('saveSuccess', { defaultValue: '保存成功' }));
+      return;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      const result = await WechatService.publishArticles(selectedOfficialAccountIds, articles, {
+        sendNotification: false,
+      });
+      toast.success(result.message || t('saveSuccess', { defaultValue: '保存成功' }));
+    } catch (error) {
+      console.error(error);
+      toastKnowledgebaseError(error, tErrors);
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
   const handleConfirmPublishWithOptions = async (options: {
     sendNotification: boolean;
     groupNotification: boolean;
@@ -785,7 +848,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
       }
     } catch (e) {
       console.error(e);
-      toast.error(t('publishErrorMsg'));
+      toastKnowledgebaseError(e, tErrors);
       throw e;
     } finally {
       setIsPublishing(false);
@@ -813,7 +876,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
       toast.success(t('rewriteSuccess'));
     } catch (e) {
       console.error(e);
-      toast.error(t('rewriteError'));
+      toastKnowledgebaseError(e, tErrors);
     } finally {
       setIsRewritingStreaming(false);
     }
@@ -824,6 +887,19 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
     setIsRewritingStreaming(true);
     try {
       const originalContent = selectedArticle.content || '';
+      if (isKnowledgebaseApiAvailable()) {
+        const targetContent = await AIService.handleAIAction('continue', originalContent, '');
+        updateSelectedArticle({ content: targetContent });
+        if (activeEditor) {
+          activeEditor.commands.setContent(targetContent);
+        }
+        toast.success(t('wechatStreamContinueSuccess'));
+        return;
+      }
+      if (!shouldUseKnowledgebaseDemoFallback()) {
+        toast.error(t('wechatApiRequired', { defaultValue: '请先连接知识库 API。' }));
+        return;
+      }
       const continuationChunks = [
         `<p><br></p>`,
         `<p><strong>💡 延伸洞察与行动路线 (AI 增补)：</strong></p>`,
@@ -851,7 +927,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
       toast.success(t('wechatStreamContinueSuccess'));
     } catch (e) {
       console.error(e);
-      toast.error(t('wechatStreamContinueError'));
+      toastKnowledgebaseError(e, tErrors);
     } finally {
       setIsRewritingStreaming(false);
     }
@@ -877,7 +953,32 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
     
     setIsRewritingStreaming(true);
     try {
-      await new Promise(r => setTimeout(r, 600)); // nice UX delay
+      if (isKnowledgebaseApiAvailable()) {
+        const prompt = promptTopic
+          ? `请撰写一篇微信公众号文章，标题为「${defaultTitle}」，主题：${promptTopic}。输出可直接粘贴到编辑器的 HTML 片段。`
+          : `请撰写一篇微信公众号文章，标题为「${defaultTitle}」。输出可直接粘贴到编辑器的 HTML 片段。`;
+        const draftedContent = await AIService.handleAIAction('custom', '', '', prompt);
+        updateSelectedArticle({ content: draftedContent });
+        setArticles((prev) => {
+          const copy = [...prev];
+          const idx = copy.findIndex((a) => a.id === newId);
+          if (idx !== -1) {
+            copy[idx] = { ...copy[idx], content: draftedContent };
+          }
+          return copy;
+        });
+        if (activeEditor) {
+          activeEditor.commands.setContent(draftedContent);
+        }
+        toast.success(t('wechatStreamDraftSuccess'));
+        return;
+      }
+      if (!shouldUseKnowledgebaseDemoFallback()) {
+        toast.error(t('wechatApiRequired', { defaultValue: '请先连接知识库 API。' }));
+        return;
+      }
+
+      await new Promise(r => setTimeout(r, 600)); // demo UX delay
       
       const contentParagraphs = [
         `<h1>🌐 ${defaultTitle}：AI 智能时代的生产力范式跃迁</h1>`,
@@ -919,7 +1020,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
       toast.success(t('wechatStreamDraftSuccess'));
     } catch (e) {
       console.error(e);
-      toast.error(t('wechatStreamDraftError'));
+      toastKnowledgebaseError(e, tErrors);
     } finally {
       setIsRewritingStreaming(false);
     }
@@ -948,7 +1049,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
       setIsCropperOpen(true);
     } catch (error) {
       console.error(error);
-      toast.error(t('uploadCoverFailed', { defaultValue: '封面上传失败，请稍后重试。' }));
+      toastKnowledgebaseError(error, tErrors);
     } finally {
       e.target.value = '';
     }
@@ -1242,7 +1343,13 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
                       setIsAiCoverOpen(true);
                     }}
                     onAudioInsert={() => {
-                      insertHtmlToEditor(`<audio src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" controls></audio>`);
+                      if (shouldUseKnowledgebaseDemoFallback()) {
+                        insertHtmlToEditor(`<audio src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" controls></audio>`);
+                        return;
+                      }
+                      setImageActionTarget('editor');
+                      setAssetLibraryTab('audio');
+                      setAssetLibraryOpen(true);
                     }}
                     onAudioGallery={() => {
                       setImageActionTarget('editor');
@@ -1373,13 +1480,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
               onTriggerStreamContinue={handleStreamingContinue}
               onTriggerCreateNewArticle={handleCreateNewArticleAndWrite}
               onInsertHtml={(html) => {
-                if (activeEditor && !activeEditor.isDestroyed && typeof activeEditor.chain === 'function') {
-                  try {
-                    activeEditor.chain().focus().insertContent(html).run();
-                  } catch (e) {
-                    console.error('Failed to insert HTML to editor:', e);
-                  }
-                }
+                insertHtmlToEditor(html);
               }}
             />
           </div>
@@ -1391,10 +1492,11 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
         <div className="text-[var(--color-kb-text-muted)] text-[13px]">{t('body')}{t('wordCount', { count: getWechatWordCount(selectedArticle?.content) })}</div>
         <div className="flex items-center gap-2.5">
             <button 
-              onClick={() => toast.success(t('saveSuccess', { defaultValue: '保存成功' }))} 
-              className="h-9 px-4 flex items-center justify-center text-[13px] font-semibold text-[var(--color-kb-text-heading)] bg-[var(--color-kb-editor)] border border-[var(--color-kb-panel-border)] hover:bg-[var(--color-kb-panel-hover)] rounded-lg shadow-sm transition-all focus:outline-none"
+              disabled={isSavingDraft}
+              onClick={handleSaveAsDraft} 
+              className="h-9 px-4 flex items-center justify-center text-[13px] font-semibold text-[var(--color-kb-text-heading)] bg-[var(--color-kb-editor)] border border-[var(--color-kb-panel-border)] hover:bg-[var(--color-kb-panel-hover)] rounded-lg shadow-sm transition-all focus:outline-none disabled:opacity-50"
             >
-              {t('saveAsDraft')}
+              {isSavingDraft ? t('savingDraft', { defaultValue: '保存中...' }) : t('saveAsDraft')}
             </button>
             <button 
               onClick={() => setIsSendPreviewOpen(true)} 
@@ -1524,10 +1626,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
           if (imageActionTarget === 'editor') {
             if (item.type === 'image') {
               insertHtmlToEditor(`<p><img src="${item.url}" alt="${item.title}" style="border-radius: 12px; max-width: 100%; margin: 16px 0; border: 1px solid var(--color-kb-panel-border);" /></p>`);
-            } else if (item.type === 'video') {
-              insertHtmlToEditor(`<video src="${item.url || 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4'}" controls></video>`);
-            } else if (item.type === 'audio') {
-              insertHtmlToEditor(`<audio src="${item.url || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'}" controls></audio>`);
+            } else if (item.type === 'video' && item.url) {
+              insertHtmlToEditor(`<video src="${item.url}" controls></video>`);
+            } else if (item.type === 'audio' && item.url) {
+              insertHtmlToEditor(`<audio src="${item.url}" controls></audio>`);
             }
             setAssetLibraryOpen(false);
           } else {

@@ -110,6 +110,7 @@ impl KnowledgeDrivePermissionProvider for KnowledgebaseDrivePermissionAdapter {
                 tenant_id: request.tenant_id,
                 node_id,
                 page_size: request.page_size,
+                page_token: request.page_token,
             })
             .await
             .map_err(map_drive_error)?;

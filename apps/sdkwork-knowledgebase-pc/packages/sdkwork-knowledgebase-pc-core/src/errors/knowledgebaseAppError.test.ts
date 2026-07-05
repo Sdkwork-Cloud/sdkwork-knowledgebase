@@ -40,6 +40,25 @@ describe('knowledgebase error utilities', () => {
     ).toBe(KnowledgebaseErrorCodes.HTTP_RATE_LIMITED);
   });
 
+  it('parses numeric SDK problem codes', () => {
+    const problem = parseSdkProblemDetails({
+      status: 429,
+      code: 60002,
+      traceId: 'trace-quota',
+    });
+
+    expect(problem?.code).toBe('60002');
+  });
+
+  it('maps platform quota code to tenant quota error key', () => {
+    expect(
+      resolveKnowledgebaseErrorCode({
+        status: 429,
+        code: 60002,
+      }),
+    ).toBe(KnowledgebaseErrorCodes.TENANT_QUOTA_EXCEEDED);
+  });
+
   it('resolves user-facing messages through translate function', () => {
     const message = resolveUserFacingErrorMessage(
       new KnowledgebaseAppError(KnowledgebaseErrorCodes.API_UNAVAILABLE),

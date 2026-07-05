@@ -47,6 +47,7 @@ export interface KnowledgebaseRuntimeConfig {
   runtimeTarget: SdkworkRuntimeTarget;
   appKey: 'sdkwork-knowledgebase-pc';
   appApiBaseUrl: string;
+  backendApiBaseUrl: string;
   openApiBaseUrl: string;
   platformApiGatewayBaseUrl: string;
   sdkBaseUrls: SdkworkSdkBaseUrlConfig;
@@ -61,6 +62,7 @@ export interface RuntimeEnv {
   VITE_SDKWORK_KNOWLEDGEBASE_BUILD_MODE?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL?: string;
+  VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL?: string;
   VITE_SDKWORK_APPBASE_APP_API_BASE_URL?: string;
@@ -335,6 +337,9 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
   const appApiBaseUrl =
     env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL
     || defaultAppApiBaseUrl(deploymentProfile, environment);
+  const backendApiBaseUrl =
+    env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL
+    || appApiBaseUrl;
   const openApiBaseUrl =
     env.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL
     || defaultOpenApiBaseUrl(deploymentProfile, environment);
@@ -362,6 +367,13 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
     environment,
     appApiBaseUrl,
   );
+  const resolvedBackendApiBaseUrl = applyDevSameOriginApiBaseUrl(
+    env,
+    deploymentProfile,
+    runtimeTarget,
+    environment,
+    backendApiBaseUrl,
+  );
   const resolvedOpenApiBaseUrl = applyDevSameOriginApiBaseUrl(
     env,
     deploymentProfile,
@@ -378,6 +390,7 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
     runtimeTarget,
     appKey: APP_KEY,
     appApiBaseUrl: resolvedAppApiBaseUrl,
+    backendApiBaseUrl: resolvedBackendApiBaseUrl,
     openApiBaseUrl: resolvedOpenApiBaseUrl,
     platformApiGatewayBaseUrl,
     sdkBaseUrls: {
@@ -386,6 +399,7 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
       openApiBaseUrl: resolvedOpenApiBaseUrl,
       dependencySdkBaseUrls: buildDependencySdkBaseUrls({
         appApiBaseUrl: resolvedAppApiBaseUrl,
+        backendApiBaseUrl: resolvedBackendApiBaseUrl,
         openApiBaseUrl: resolvedOpenApiBaseUrl,
         iamAppApiBaseUrl: appbaseAppApiBaseUrl,
         driveAppApiBaseUrl,

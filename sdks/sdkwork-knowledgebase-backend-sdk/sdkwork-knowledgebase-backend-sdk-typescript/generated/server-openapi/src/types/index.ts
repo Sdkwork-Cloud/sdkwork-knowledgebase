@@ -68,6 +68,14 @@ export type { KnowledgeRetrievalTraceList } from './knowledge-retrieval-trace-li
 export type { KnowledgeProviderHealth } from './knowledge-provider-health';
 export type { KnowledgeTenantStatusEnum } from './knowledge-tenant-status-enum';
 export type { KnowledgeTenantStatus } from './knowledge-tenant-status';
+export type { KnowledgeTenantQuotaStatus } from './knowledge-tenant-quota-status';
+export type {
+  ExportKnowledgeAuditEventsRequest,
+  KnowledgeAuditEventItem,
+  KnowledgeAuditEventExport,
+  AnonymizeKnowledgeAuditSubjectRequest,
+  AnonymizeKnowledgeAuditSubjectResult,
+} from './knowledge-compliance';
 export type { KnowledgeMemoryContextFragment } from './knowledge-memory-context-fragment';
 export type { OkfBundleImportRequest } from './okf-bundle-import-request';
 export type { OkfBundleImportResult } from './okf-bundle-import-result';

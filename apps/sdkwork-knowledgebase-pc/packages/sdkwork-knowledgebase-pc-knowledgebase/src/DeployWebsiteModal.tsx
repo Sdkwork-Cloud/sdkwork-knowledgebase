@@ -6,6 +6,12 @@ import {
   Trash2, Image as ImageIcon, Sparkles, RefreshCw, AlertCircle, Laptop
 } from 'lucide-react';
 import { toast } from './components/ui/toast-manager';
+import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
+import {
+  isKnowledgebaseApiAvailable,
+  KnowledgebaseErrorCodes,
+  throwKnowledgebaseError,
+} from 'sdkwork-knowledgebase-pc-core';
 import { KnowledgeBase, DocumentService } from './services/document';
 
 interface DeployWebsiteModalProps {
@@ -95,6 +101,14 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
   };
 
   const handleStartDeploy = async () => {
+    if (!isKnowledgebaseApiAvailable()) {
+      try {
+        throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE);
+      } catch (error) {
+        toastKnowledgebaseError(error, t);
+      }
+      return;
+    }
     setIsDeploying(true);
     setDeployStep('正在分析并序列化站点内容...');
     
@@ -132,7 +146,7 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
       console.error(e);
       setDeployStep(detail);
       setIsDeploying(false);
-      toast.error(detail);
+      toastKnowledgebaseError(e, t);
     }
   };
 

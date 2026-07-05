@@ -49,3 +49,18 @@ pub async fn run_polling_loop(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::MaintenanceTickResult;
+
+    #[test]
+    fn maintenance_tick_result_tracks_worker_outputs() {
+        let result = MaintenanceTickResult {
+            outbox_published: 2,
+            ingestion_jobs_processed: 3,
+        };
+        assert_eq!(result.outbox_published, 2);
+        assert_eq!(result.ingestion_jobs_processed, 3);
+    }
+}

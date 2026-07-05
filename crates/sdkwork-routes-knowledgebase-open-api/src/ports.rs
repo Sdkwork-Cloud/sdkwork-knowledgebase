@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
-    IngestionJob, KnowledgeBrowserPage, KnowledgeContextPack, KnowledgeContextPackRequest,
+    IngestionJob, KnowledgeBrowserNode, KnowledgeContextPack, KnowledgeContextPackRequest,
     KnowledgeDocument, KnowledgeDocumentList, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
     KnowledgeRetrievalResult, ListKnowledgeBrowserRequest,
 };
+use sdkwork_utils_rust::SdkWorkPageData;
 
 use crate::{ApiError, ApiResult};
 
@@ -77,7 +78,7 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         &self,
         _context: KnowledgeOpenApiRequestContext,
         _request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<KnowledgeBrowserPage> {
+    ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>> {
         Err(ApiError::not_implemented("spaces.browser.list"))
     }
 }

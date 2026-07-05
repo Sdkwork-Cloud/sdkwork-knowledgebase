@@ -1,4 +1,5 @@
 import type { DocumentMeta } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/document';
+import { shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
 import type { SearchMediaItem, SearchRelatedMedia } from '../types';
 import {
   buildDemoKbMeetingTranscript,
@@ -83,7 +84,7 @@ function buildVideoThumb(seed: string | number, width: number, height: number) {
   return buildCoverThumb(`v-${seed}`, width, height);
 }
 
-function buildKbMediaItems(docs: DocumentMeta[]): SearchRelatedMedia {
+function buildKbMediaItems(docs: DocumentMeta[], allowDemo: boolean): SearchRelatedMedia {
   const images: SearchMediaItem[] = [];
   const videos: SearchMediaItem[] = [];
   const audio: SearchMediaItem[] = [];
@@ -103,29 +104,37 @@ function buildKbMediaItems(docs: DocumentMeta[]): SearchRelatedMedia {
     };
 
     if (doc.type === 'image') {
+      const previewUrl = doc.url ?? (allowDemo
+        ? buildCoverThumb(`kb-img-${doc.id}`, IMAGE_SIZE_PRESETS[0].width, IMAGE_SIZE_PRESETS[0].height)
+        : undefined);
+      if (!previewUrl) continue;
       const preset = IMAGE_SIZE_PRESETS[hashSeed(doc.id) % IMAGE_SIZE_PRESETS.length];
       images.push({
         ...base,
         category: 'image',
-        thumbnailUrl: buildCoverThumb(`kb-img-${doc.id}`, preset.width, preset.height),
-        previewUrl: buildCoverThumb(`kb-img-${doc.id}`, preset.width, preset.height),
+        thumbnailUrl: previewUrl,
+        previewUrl,
         imageWidth: preset.width,
         imageHeight: preset.height,
         snippet: `${preset.shape} · 来自知识库 · ${doc.author || '未知作者'}`
       });
     } else if (doc.type === 'video') {
+      const previewUrl = doc.url ?? (allowDemo ? DEMO_VIDEO_MP4 : undefined);
+      if (!previewUrl) continue;
       const preset = pickVideoPreset(doc.id);
       videos.push({
         ...base,
         category: 'video',
         thumbnailUrl: buildVideoThumb(doc.id, preset.width, preset.height),
-        previewUrl: DEMO_VIDEO_MP4,
+        previewUrl,
         videoWidth: preset.width,
         videoHeight: preset.height,
-        duration: '03:24',
+        duration: allowDemo ? '03:24' : undefined,
         snippet: `${preset.shape} · 来自知识库 · ${doc.author || '未知作者'}`
       });
     } else if (doc.type === 'audio') {
+      const previewUrl = doc.url ?? (allowDemo ? DEMO_AUDIO_URL : undefined);
+      if (!previewUrl) continue;
       const preset = pickCoverPreset(doc.id);
       audio.push({
         ...base,
@@ -134,21 +143,25 @@ function buildKbMediaItems(docs: DocumentMeta[]): SearchRelatedMedia {
         thumbnailUrl: buildCoverThumb(`a-${doc.id}`, preset.width, preset.height),
         coverWidth: preset.width,
         coverHeight: preset.height,
-        previewUrl: DEMO_AUDIO_URL,
-        duration: '12:08',
-        transcript: buildDemoKbMeetingTranscript(doc.title),
+        previewUrl,
+        duration: allowDemo ? '12:08' : undefined,
+        transcript: allowDemo ? buildDemoKbMeetingTranscript(doc.title) : undefined,
         snippet: `${preset.shape} · 会议纪要 · 语音转写`
       });
     } else if (doc.type === 'music') {
+      const previewUrl = doc.url ?? (allowDemo ? DEMO_MUSIC_URL : undefined);
+      if (!previewUrl) continue;
       music.push({
         ...base,
         category: 'music',
         artist: doc.author || '未知艺术家',
-        thumbnailUrl: `https://picsum.photos/seed/m-${encodeURIComponent(doc.id)}/480/480`,
-        previewUrl: DEMO_MUSIC_URL,
-        duration: '04:12',
-        lyrics: buildDemoKbMusicLyrics(doc.title),
-        snippet: '含同步歌词'
+        thumbnailUrl: doc.url ?? (allowDemo
+          ? `https://picsum.photos/seed/m-${encodeURIComponent(doc.id)}/480/480`
+          : buildCoverThumb(`m-${doc.id}`, 320, 320)),
+        previewUrl,
+        duration: allowDemo ? '04:12' : undefined,
+        lyrics: allowDemo ? buildDemoKbMusicLyrics(doc.title) : undefined,
+        snippet: allowDemo ? '含同步歌词' : '来自知识库'
       });
     }
   }
@@ -402,13 +415,14 @@ export function buildRelatedMedia(
   webSearchEnabled: boolean
 ): SearchRelatedMedia {
   const lower = query.toLowerCase();
-  const kbMedia = buildKbMediaItems(docs);
+  const allowDemo = shouldUseKnowledgebaseDemoFallback();
+  const kbMedia = buildKbMediaItems(docs, allowDemo);
 
   if (!webSearchEnabled && countKbMedia(kbMedia) === 0) {
     return EMPTY_MEDIA;
   }
 
-  if (!webSearchEnabled) {
+  if (!webSearchEnabled || !allowDemo) {
     return kbMedia;
   }
 

@@ -12,6 +12,9 @@ use uuid::Uuid;
 
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
+/// Maximum inbound link targets scanned for orphan concept detection per space.
+pub const MAX_OKF_ORPHAN_LINK_TARGETS: i64 = 5000;
+
 const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
 
@@ -59,7 +62,7 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
         sqlx::query(
             r#"
             UPDATE kb_okf_concept_link
-            SET status = 0, updated_at = $1, version = version + 1
+            SET status = 0, updated_at = CAST($1 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $2 AND space_id = $3 AND from_concept_id = $4 AND status = $5
             "#,
         )
@@ -118,6 +121,7 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
             FROM kb_okf_concept_link
             WHERE tenant_id = $1 AND space_id = $2 AND to_concept_id = $3 AND status = $4
             ORDER BY from_concept_id ASC
+            LIMIT 200
             "#,
         )
         .bind(tenant_id)
@@ -142,11 +146,13 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
             SELECT DISTINCT to_concept_id
             FROM kb_okf_concept_link
             WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
         .bind(space_id)
         .bind(ACTIVE_STATUS)
+        .bind(MAX_OKF_ORPHAN_LINK_TARGETS)
         .fetch_all(&self.pool)
         .await
         .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
@@ -170,6 +176,7 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
             FROM kb_okf_concept_link
             WHERE tenant_id = $1 AND space_id = $2 AND status = $3
             ORDER BY from_concept_id ASC, to_concept_id ASC, anchor_text ASC
+            LIMIT 2000
             "#,
         )
         .bind(tenant_id)

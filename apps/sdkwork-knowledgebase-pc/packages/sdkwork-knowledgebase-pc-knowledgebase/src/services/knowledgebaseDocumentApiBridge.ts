@@ -27,7 +27,8 @@ import {
 import {
   ensureKnowledgeBrowserFolderLoaded,
   findKnowledgeBrowserNodeByDocumentId,
-  listAllKnowledgeBrowserNodes,
+  getLoadedKnowledgeBrowserNodes,
+  listKnowledgeBrowserNodesPage,
   listLoadedKnowledgeBrowserNodes,
   invalidateKnowledgeBrowserNodeCacheForKbIds,
   invalidateKnowledgeBrowserNodeCacheForSpaceIds,
@@ -257,6 +258,9 @@ export async function getKnowledgeBases(): Promise<{
   };
 
   for (const entry of registry) {
+    if (!Number.isFinite(entry.spaceId) || entry.spaceId <= 0) {
+      continue;
+    }
     try {
       const space = await client.knowledge.spaces.retrieve(entry.spaceId);
       grouped[entry.kbType].push(buildKnowledgeBase(entry, space.name));
@@ -503,11 +507,44 @@ async function resolveBrowserNodeInSpace(
 ): Promise<{ spaceId: number; node: KnowledgeBrowserNode } | null> {
   try {
     const kbId = String(spaceId);
-    const nodes = await listAllKnowledgeBrowserNodes(spaceId);
-    const node = findKnowledgeBrowserNodeByDocumentId(nodes, documentId, kbId);
-    if (node) {
-      return { spaceId, node };
+    const loaded = getLoadedKnowledgeBrowserNodes(spaceId);
+    const cached = findKnowledgeBrowserNodeByDocumentId(loaded, documentId, kbId);
+    if (cached) {
+      return { spaceId, node: cached };
     }
+
+    const numericDocumentId = Number(documentId);
+    if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+      try {
+        const document = await requireSdkClient().knowledge.documents.retrieve(numericDocumentId);
+        if (document.spaceId === spaceId && document.originalFileDriveNodeId) {
+          const byDriveNode = loaded.find(
+            (candidate) =>
+              candidate.driveNodeId === document.originalFileDriveNodeId
+              || candidate.id === document.originalFileDriveNodeId,
+          );
+          if (byDriveNode) {
+            return { spaceId, node: byDriveNode };
+          }
+        }
+      } catch {
+        // Continue with paginated browser search.
+      }
+    }
+
+    let cursor: string | null = null;
+    do {
+      const page = await listKnowledgeBrowserNodesPage(spaceId, null, { cursor });
+      const found =
+        findKnowledgeBrowserNodeByDocumentId(page.items, documentId, kbId)
+        ?? (Number.isFinite(numericDocumentId) && numericDocumentId > 0
+          ? page.items.find((candidate) => candidate.documentId === numericDocumentId) ?? null
+          : null);
+      if (found) {
+        return { spaceId, node: found };
+      }
+      cursor = page.hasMore ? page.nextCursor : null;
+    } while (cursor);
   } catch {
     // Skip spaces that fail to list.
   }
@@ -764,14 +801,21 @@ async function waitForDriveFolderBrowserNode(
     }
 
     try {
-      const nodes = await listAllKnowledgeBrowserNodes(spaceId);
-      const found = nodes.find(
-        (candidate) =>
-          candidate.driveNodeId === driveNodeId || candidate.id === driveNodeId,
-      );
-      if (found) {
-        return found;
-      }
+      let cursor: string | null = null;
+      do {
+        const page = await listKnowledgeBrowserNodesPage(spaceId, null, {
+          cursor,
+          fresh: attempt > 0 && !cursor,
+        });
+        const found = page.items.find(
+          (candidate) =>
+            candidate.driveNodeId === driveNodeId || candidate.id === driveNodeId,
+        );
+        if (found) {
+          return found;
+        }
+        cursor = page.hasMore ? page.nextCursor : null;
+      } while (cursor);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
     }
@@ -1070,8 +1114,8 @@ async function collectRecentDocumentsFromSpaces(limit: number): Promise<Document
 
   for (const entry of registry) {
     try {
-      const nodes = await listAllKnowledgeBrowserNodes(entry.spaceId);
-      for (const node of nodes) {
+      const page = await listKnowledgeBrowserNodesPage(entry.spaceId, null, { pageSize: limit });
+      for (const node of page.items) {
         if (node.nodeType === 'folder' || node.nodeType === 'virtual_folder') {
           continue;
         }

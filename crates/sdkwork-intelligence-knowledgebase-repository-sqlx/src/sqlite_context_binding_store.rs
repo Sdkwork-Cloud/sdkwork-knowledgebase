@@ -8,6 +8,7 @@ use sdkwork_knowledgebase_contract::context_binding::{
     ListContextBoundSpacesRequest, ListKnowledgeSpaceContextBindingsRequest,
     UpdateKnowledgeSpaceContextBindingRequest,
 };
+use sdkwork_utils_rust::{DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE};
 use sqlx::{AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -142,7 +143,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
             UPDATE kb_space_context_binding
             SET context_name = COALESCE($1, context_name),
                 access_level = COALESCE($2, access_level),
-                updated_at = $3,
+                updated_at = CAST($3 AS TIMESTAMP),
                 version = version + 1
             WHERE tenant_id = $4 AND id = $5 AND status = $6
             RETURNING id, tenant_id, space_id, context_type, context_id,
@@ -178,7 +179,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
         let result = sqlx::query(
             r#"
             UPDATE kb_space_context_binding
-            SET status = $1, updated_at = $2, version = version + 1
+            SET status = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
             "#,
         )
@@ -205,26 +206,76 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
     ) -> Result<KnowledgeSpaceContextBindingList, KnowledgeContextBindingStoreError> {
         let tenant_i64 = cb_to_i64("tenant_id", tenant_id)?;
         let space_i64 = cb_to_i64("space_id", request.space_id)?;
-        let page_size = request.page_size.unwrap_or(50).min(200) as i64;
+        let page_size = request
+            .page_size
+            .unwrap_or(DEFAULT_LIST_PAGE_SIZE as u32)
+            .clamp(1, MAX_LIST_PAGE_SIZE as u32) as i64;
+        let fetch_limit = page_size + 1;
+        let cursor_id = parse_binding_cursor_id(request.cursor.as_deref())?;
 
         let rows = if let Some(ref ctx_type) = request.context_type {
             let ctx_str = ctx_type.as_str();
+            if let Some(after_id) = cursor_id {
+                sqlx::query(
+                    r#"
+                    SELECT id, tenant_id, space_id, context_type, context_id,
+                           context_name, access_level, status, created_by,
+                           created_at, updated_at
+                    FROM kb_space_context_binding
+                    WHERE tenant_id = $1 AND space_id = $2 AND context_type = $3 AND status = $4
+                      AND id > $5
+                    ORDER BY id ASC
+                    LIMIT $6
+                    "#,
+                )
+                .bind(tenant_i64)
+                .bind(space_i64)
+                .bind(ctx_str)
+                .bind(ACTIVE_STATUS)
+                .bind(after_id)
+                .bind(fetch_limit)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?
+            } else {
+                sqlx::query(
+                    r#"
+                    SELECT id, tenant_id, space_id, context_type, context_id,
+                           context_name, access_level, status, created_by,
+                           created_at, updated_at
+                    FROM kb_space_context_binding
+                    WHERE tenant_id = $1 AND space_id = $2 AND context_type = $3 AND status = $4
+                    ORDER BY id ASC
+                    LIMIT $5
+                    "#,
+                )
+                .bind(tenant_i64)
+                .bind(space_i64)
+                .bind(ctx_str)
+                .bind(ACTIVE_STATUS)
+                .bind(fetch_limit)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?
+            }
+        } else if let Some(after_id) = cursor_id {
             sqlx::query(
                 r#"
                 SELECT id, tenant_id, space_id, context_type, context_id,
                        context_name, access_level, status, created_by,
                        created_at, updated_at
                 FROM kb_space_context_binding
-                WHERE tenant_id = $1 AND space_id = $2 AND context_type = $3 AND status = $4
-                ORDER BY created_at
+                WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+                  AND id > $4
+                ORDER BY id ASC
                 LIMIT $5
                 "#,
             )
             .bind(tenant_i64)
             .bind(space_i64)
-            .bind(ctx_str)
             .bind(ACTIVE_STATUS)
-            .bind(page_size + 1)
+            .bind(after_id)
+            .bind(fetch_limit)
             .fetch_all(&self.pool)
             .await
             .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?
@@ -236,14 +287,14 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                        created_at, updated_at
                 FROM kb_space_context_binding
                 WHERE tenant_id = $1 AND space_id = $2 AND status = $3
-                ORDER BY created_at
+                ORDER BY id ASC
                 LIMIT $4
                 "#,
             )
             .bind(tenant_i64)
             .bind(space_i64)
             .bind(ACTIVE_STATUS)
-            .bind(page_size + 1)
+            .bind(fetch_limit)
             .fetch_all(&self.pool)
             .await
             .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?
@@ -256,7 +307,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
         }
 
         let next_cursor = if has_more {
-            items.last().map(|b| b.id.to_string())
+            items.last().map(|binding| binding.id.to_string())
         } else {
             None
         };
@@ -373,4 +424,20 @@ fn cb_from_i64(field: &str, value: i64) -> Result<u64, KnowledgeContextBindingSt
 
 fn cb_id_error(error: crate::KnowledgeIdGeneratorError) -> KnowledgeContextBindingStoreError {
     KnowledgeContextBindingStoreError::Internal(error.to_string())
+}
+
+fn parse_binding_cursor_id(
+    cursor: Option<&str>,
+) -> Result<Option<i64>, KnowledgeContextBindingStoreError> {
+    let Some(cursor) = cursor.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    cursor
+        .parse::<i64>()
+        .map(Some)
+        .map_err(|_| {
+            KnowledgeContextBindingStoreError::InvalidRequest(
+                "cursor must be a valid binding id".to_string(),
+            )
+        })
 }

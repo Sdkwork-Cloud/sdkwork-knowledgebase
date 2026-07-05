@@ -15,7 +15,7 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeSpaceMember, KnowledgeSpaceMemberList, KnowledgeSpaceMemberRole,
     KnowledgeSpaceMemberSubjectType, UpdateKnowledgeSpaceRequest,
 };
-use sdkwork_utils_rust::is_blank;
+use sdkwork_utils_rust::{is_blank, SdkWorkPageData};
 use std::collections::HashSet;
 
 use crate::{
@@ -275,18 +275,50 @@ pub(crate) async fn list_space_members_with_context(
     space_id: u64,
     cursor: Option<String>,
     page_size: Option<u32>,
-) -> ApiResult<KnowledgeSpaceMemberList> {
+) -> ApiResult<SdkWorkPageData<KnowledgeSpaceMember>> {
     ensure_runtime_tenant(runtime, context)?;
     let actor_id = require_actor_id(context)?;
     let file_registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
     let okf_initializer = OkfBundleInitializerService::new(runtime.drive_storage())
         .with_registry(&file_registry)
         .with_drive_workspace(runtime.drive_workspace());
+    let normalized_page_size = crate::pagination::normalize_page_size(page_size);
     let members = space_service(runtime, &okf_initializer)
         .list_space_members(
             space_id,
             &context.tenant_id.to_string(),
             &actor_id,
+            cursor,
+            Some(normalized_page_size),
+        )
+        .await
+        .map_err(ApiError::from)?;
+    Ok(crate::pagination::cursor_page_data(
+        members
+            .members
+            .into_iter()
+            .map(map_contract_member)
+            .collect(),
+        members.next_cursor.clone(),
+        members.next_cursor.is_some(),
+        normalized_page_size,
+    ))
+}
+
+pub(crate) async fn list_space_members_admin_with_runtime(
+    runtime: &KnowledgebaseRuntime,
+    space_id: u64,
+    cursor: Option<String>,
+    page_size: Option<u32>,
+) -> ApiResult<KnowledgeSpaceMemberList> {
+    let file_registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
+    let okf_initializer = OkfBundleInitializerService::new(runtime.drive_storage())
+        .with_registry(&file_registry)
+        .with_drive_workspace(runtime.drive_workspace());
+    let members = space_service(runtime, &okf_initializer)
+        .list_space_members_admin(
+            space_id,
+            runtime.tenant_id_str(),
             cursor,
             page_size,
         )

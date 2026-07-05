@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
-    IngestionJob, KnowledgeBrowserPage, KnowledgeContextPack, KnowledgeContextPackRequest,
+    IngestionJob, KnowledgeContextPack, KnowledgeContextPackRequest,
     KnowledgeDocument, KnowledgeDocumentList, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
     KnowledgeRetrievalResult, ListKnowledgeBrowserRequest,
 };
@@ -146,11 +146,14 @@ impl KnowledgeOpenApi for HostedOpenApi {
         space_id: u64,
     ) -> OpenApiResult<KnowledgeDocumentList> {
         self.ensure_tenant(&context)?;
-        Self::map_error(
-            self.document
-                .list_documents(Self::app_context(&context), space_id)
-                .await,
-        )
+        let page = self
+            .document
+            .list_documents(Self::app_context(&context), space_id, None, None)
+            .await
+            .map_err(|error| error.to_open_api_error())?;
+        Ok(KnowledgeDocumentList {
+            items: page.items,
+        })
     }
 
     async fn retrieve_document(
@@ -170,7 +173,7 @@ impl KnowledgeOpenApi for HostedOpenApi {
         &self,
         context: KnowledgeOpenApiRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> OpenApiResult<KnowledgeBrowserPage> {
+    ) -> OpenApiResult<sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>> {
         self.ensure_tenant(&context)?;
         Self::map_error(
             self.browser

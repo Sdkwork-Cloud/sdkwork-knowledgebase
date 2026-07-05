@@ -12,6 +12,7 @@ import {
 
 import { invalidateKnowledgeBrowserNodeCacheForKbIds } from './knowledgeBrowserListService';
 import { placeDocumentInParentFolder } from './knowledgebaseDocumentApiBridge';
+import { normalizeSdkWorkListPage } from './sdkWorkListPage';
 
 export interface CloudDriveBrowserItem {
   id: string;
@@ -172,16 +173,18 @@ export async function listCloudDriveBrowserItems(
   let cursor: string | null | undefined;
 
   do {
-    const page = await client.knowledge.spaces.browser.list(numericSpaceId, {
-      view: 'files',
-      parentId: parentId ?? null,
-      cursor,
-      pageSize: 100,
-    });
+    const page = normalizeSdkWorkListPage(
+      await client.knowledge.spaces.browser.list(numericSpaceId, {
+        view: 'files',
+        parentId: parentId ?? null,
+        cursor,
+        pageSize: 100,
+      }),
+    );
     for (const node of page.items) {
       items.push(mapBrowserNode(node));
     }
-    cursor = page.nextCursor;
+    cursor = page.hasMore ? page.nextCursor : null;
   } while (cursor);
 
   return items;

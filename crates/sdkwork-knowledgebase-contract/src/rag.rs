@@ -463,6 +463,12 @@ pub struct KnowledgeIndex {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct KnowledgeIndexList {
+    pub items: Vec<KnowledgeIndex>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KnowledgeRetrievalProfile {
     #[serde(
         serialize_with = "serialize_u64_as_string",

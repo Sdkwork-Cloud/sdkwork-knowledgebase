@@ -176,9 +176,11 @@ impl KnowledgeAccessControl for KnowledgebaseKnowledgeAccessControlAdapter {
                 tenant_id: request.tenant_id,
                 node_id,
                 page_size: request.page_size,
+                page_token: request.cursor,
             })
             .await
             .map_err(map_drive_error)?;
+        // Drive permission pagination uses offset page_token; cursor is forwarded as-is.
 
         Ok(KnowledgeSpaceMemberList {
             members: list

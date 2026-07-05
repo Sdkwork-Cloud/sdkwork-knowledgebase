@@ -81,6 +81,14 @@ impl ApiError {
         Self::new(StatusCode::CONFLICT, code, detail)
     }
 
+    pub fn quota_exceeded(detail: impl Into<String>) -> Self {
+        Self::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            "knowledge_tenant_quota_exceeded",
+            detail,
+        )
+    }
+
     pub fn not_implemented(operation_id: &'static str) -> Self {
         Self::new(
             StatusCode::NOT_IMPLEMENTED,

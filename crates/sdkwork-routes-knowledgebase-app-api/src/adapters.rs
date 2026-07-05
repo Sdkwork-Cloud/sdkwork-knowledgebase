@@ -2,33 +2,33 @@ use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
     context_binding::{
         CreateKnowledgeSpaceContextBindingRequest, KnowledgeSpaceContextBinding,
-        KnowledgeSpaceContextBindingList, UpdateKnowledgeSpaceContextBindingRequest,
+        UpdateKnowledgeSpaceContextBindingRequest,
     },
     CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest,
     CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceRequest,
     CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile,
-    KnowledgeAgentProfileRequest, KnowledgeBrowserPage, KnowledgeContextPack,
-    KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent,
-    KnowledgeDocumentList, KnowledgeDocumentVersion, KnowledgeDocumentVersionList,
+    KnowledgeAgentProfileRequest, KnowledgeBrowserNode, KnowledgeContextPack,
+    KnowledgeContextPackRequest,     KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion,
     KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest,
     KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult,
     KnowledgeIngestRequest, KnowledgeMarketCatalogList, KnowledgeMarketSubscriptionRequest,
     KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult,
     KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest,
     KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest,
-    KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceMemberList,
+    KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceMember,
     KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, KnowledgeWechatAppletList,
     KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest,
     KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
     KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
     ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
-    OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest,
+    OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest,
     OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
     OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult,
     UpdateKnowledgeSpaceRequest,
 };
+use sdkwork_utils_rust::SdkWorkPageData;
 use std::sync::Arc;
 
 use crate::{
@@ -55,7 +55,7 @@ impl KnowledgeAppApi for BrowserOnlyAppApi {
         &self,
         context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<KnowledgeBrowserPage> {
+    ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>> {
         self.browser.list_browser(context, request).await
     }
 }
@@ -445,7 +445,7 @@ impl KnowledgeAppApi for FullAppApi {
         space_id: u64,
         cursor: Option<String>,
         page_size: Option<u32>,
-    ) -> ApiResult<KnowledgeSpaceMemberList> {
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSpaceMember>> {
         self.space
             .list_space_members(context, space_id, cursor, page_size)
             .await
@@ -520,8 +520,12 @@ impl KnowledgeAppApi for FullAppApi {
         &self,
         context: KnowledgeAppRequestContext,
         space_id: u64,
-    ) -> ApiResult<KnowledgeDocumentList> {
-        self.document.list_documents(context, space_id).await
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeDocument>> {
+        self.document
+            .list_documents(context, space_id, cursor, page_size)
+            .await
     }
 
     async fn create_document(
@@ -563,9 +567,11 @@ impl KnowledgeAppApi for FullAppApi {
         &self,
         context: KnowledgeAppRequestContext,
         document_id: u64,
-    ) -> ApiResult<KnowledgeDocumentVersionList> {
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeDocumentVersion>> {
         self.document
-            .list_document_versions(context, document_id)
+            .list_document_versions(context, document_id, cursor, page_size)
             .await
     }
 
@@ -594,8 +600,12 @@ impl KnowledgeAppApi for FullAppApi {
         &self,
         context: KnowledgeAppRequestContext,
         space_id: u64,
-    ) -> ApiResult<OkfConceptSummaryList> {
-        self.okf.list_okf_concepts(context, space_id).await
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<OkfConceptSummary>> {
+        self.okf
+            .list_okf_concepts(context, space_id, cursor, page_size)
+            .await
     }
 
     async fn retrieve_okf_concept(
@@ -719,7 +729,7 @@ impl KnowledgeAppApi for FullAppApi {
         &self,
         context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<KnowledgeBrowserPage> {
+    ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>> {
         self.browser.list_browser(context, request).await
     }
 
@@ -852,9 +862,14 @@ impl KnowledgeAppApi for FullAppApi {
         &self,
         context: KnowledgeAppRequestContext,
         space_id: u64,
-    ) -> ApiResult<KnowledgeSpaceContextBindingList> {
+        cursor: Option<String>,
+        page_size: Option<u32>,
+        context_type: Option<sdkwork_knowledgebase_contract::context_binding::KnowledgeContextType>,
+    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<
+        sdkwork_knowledgebase_contract::context_binding::KnowledgeSpaceContextBinding,
+    >> {
         self.context_binding
-            .list_space_context_bindings(context, space_id)
+            .list_space_context_bindings(context, space_id, cursor, page_size, context_type)
             .await
     }
 
@@ -902,18 +917,22 @@ impl KnowledgeAppApi for FullAppApi {
 
     async fn create_upload_session(
         &self,
+        context: KnowledgeAppRequestContext,
         request: CreateKnowledgeUploadSessionRequest,
     ) -> ApiResult<KnowledgeUploadSession> {
-        self.upload_session.create_upload_session(request).await
+        self.upload_session
+            .create_upload_session(context, request)
+            .await
     }
 
     async fn complete_upload_session(
         &self,
+        context: KnowledgeAppRequestContext,
         session_id: u64,
         request: CompleteKnowledgeUploadSessionRequest,
     ) -> ApiResult<IngestionJob> {
         self.upload_session
-            .complete_upload_session(session_id, request)
+            .complete_upload_session(context, session_id, request)
             .await
     }
 

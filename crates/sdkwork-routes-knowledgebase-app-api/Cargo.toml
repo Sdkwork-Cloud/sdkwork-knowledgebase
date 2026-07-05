@@ -21,7 +21,7 @@ sdkwork-routes-knowledgebase-open-api = { path = "../sdkwork-routes-knowledgebas
 sdkwork-drive-storage-local = { workspace = true }
 sdkwork-intelligence-knowledgebase-service.workspace = true
 sdkwork-intelligence-knowledgebase-repository-sqlx.workspace = true
-sdkwork_database_config.workspace = true
+sdkwork-database-config.workspace = true
 sdkwork-knowledgebase-agent-provider.workspace = true
 sdkwork-knowledgebase-engine-dify.workspace = true
 sdkwork-knowledgebase-engine-ragflow.workspace = true

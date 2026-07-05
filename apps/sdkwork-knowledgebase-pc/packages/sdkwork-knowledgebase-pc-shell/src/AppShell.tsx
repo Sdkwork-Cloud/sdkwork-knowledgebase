@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { KnowledgeBaseApp, ToastContainer, TabCacheService } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase';
 import { DocumentService } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/services/document';
 import { findDocInTree } from '@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/utils/docTreeUtils';
@@ -14,8 +16,10 @@ import {
   useLocalStorage
 } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 import {
+  canAccessKnowledgebaseAdminConsole,
   createKnowledgebaseAccountViewModel,
   KNOWLEDGEBASE_POST_AUTH_LANDING_FLAG,
+  setKnowledgebaseNetworkOnline,
   signOutKnowledgebaseSession,
   useHydrateKnowledgebaseAccount,
   useKnowledgebaseRuntime,
@@ -27,6 +31,7 @@ import { UserProfileModal, DEFAULT_USER_PROFILE, type UserProfile } from './User
 import { SETTINGS_STORAGE_KEYS, type StartupModule } from './settingsModalConstants';
 import { readStoredDesktopPreferences, syncDesktopPreferences } from './settingsDesktopBridge';
 import { useDesktopHostIntegration } from './useDesktopHostIntegration';
+import { useNetworkAvailability } from './useNetworkAvailability';
 
 const APP_ACTIVE_TAB_STORAGE_KEY = 'app-active-tab';
 const APP_SEARCH_VIEW_SESSION_KEY = 'app-search-view-active';
@@ -164,8 +169,14 @@ function useAppShellNavigation() {
 }
 
 export function AppShell() {
+  const { t } = useTranslation('shell');
+  const navigate = useNavigate();
   const runtime = useKnowledgebaseRuntime();
+  const networkOnline = useNetworkAvailability();
   const sessionSnapshot = useKnowledgebaseSessionSnapshot(runtime.session);
+  const canAccessAdminConsole = canAccessKnowledgebaseAdminConsole(
+    sessionSnapshot.context?.permissionScope,
+  );
   const account = useMemo(
     () => createKnowledgebaseAccountViewModel(sessionSnapshot),
     [sessionSnapshot],
@@ -187,6 +198,10 @@ export function AppShell() {
   const [profile, setProfile] = useLocalStorage<UserProfile>('app-user-profile', DEFAULT_USER_PROFILE);
 
   useHydrateKnowledgebaseAccount(runtime);
+
+  useEffect(() => {
+    setKnowledgebaseNetworkOnline(networkOnline);
+  }, [networkOnline]);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--theme-accent', activeColor);
@@ -358,6 +373,10 @@ export function AppShell() {
     dispatchOpenInAppBrowser({ url, title });
   }, []);
 
+  const handleOpenAdminConsole = useCallback(() => {
+    navigate('/admin');
+  }, [navigate]);
+
   return (
     <div
       className="flex h-screen w-screen overflow-hidden bg-[var(--color-kb-nav)] text-[var(--color-kb-text)] font-sans"
@@ -371,8 +390,20 @@ export function AppShell() {
         onOpenSettings={() => openSettings('appearance')}
         onOpenProfile={() => setIsProfileOpen(true)}
         onOpenAccountSettings={() => openSettings('account')}
+        showAdminConsole={canAccessAdminConsole}
+        onOpenAdminConsole={handleOpenAdminConsole}
       />
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {!networkOnline ? (
+          <div
+            className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-100"
+            data-testid="knowledgebase-offline-banner"
+            role="status"
+          >
+            {t('offlineBanner')}
+          </div>
+        ) : null}
+        <div className="flex-1 flex overflow-hidden">
         {activeTab === 'search' ? (
           <SearchModule
             onGoToKb={handleGoToKb}
@@ -385,6 +416,7 @@ export function AppShell() {
             onActiveTabChange={setActiveTab as (tab: string) => void}
           />
         )}
+        </div>
       </div>
 
       <InAppBrowserHost />

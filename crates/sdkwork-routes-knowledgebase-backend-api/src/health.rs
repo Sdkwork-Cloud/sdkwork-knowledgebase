@@ -43,9 +43,14 @@ impl ReadinessCheck for DbReadinessCheck {
 pub fn knowledgebase_service_router_config(
     readiness: Option<DbReadinessCheck>,
 ) -> ServiceRouterConfig {
+    // The knowledgebase observability layer (`wrap_router_with_metrics`) mounts a
+    // richer `/metrics` handler that includes OKF, audit, and billing metrics in
+    // addition to the generic HTTP metrics. Skip the generic `/metrics` route here
+    // so it does not overlap when `wrap_router_with_metrics` merges its own.
+    let base = ServiceRouterConfig::default().skip_metrics();
     match readiness {
-        Some(check) => ServiceRouterConfig::default().with_readiness_check(Arc::new(check)),
-        None => ServiceRouterConfig::default().with_always_ready(),
+        Some(check) => base.with_readiness_check(Arc::new(check)),
+        None => base.with_always_ready(),
     }
 }
 

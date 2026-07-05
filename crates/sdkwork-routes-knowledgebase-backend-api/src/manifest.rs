@@ -101,6 +101,11 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         operation_id: "okf.evalRuns.create",
     },
     RouteManifestEntry {
+        method: "GET",
+        path: "/backend/v3/api/knowledge/indexes",
+        operation_id: "indexes.list",
+    },
+    RouteManifestEntry {
         method: "POST",
         path: "/backend/v3/api/knowledge/indexes",
         operation_id: "indexes.create",
@@ -149,5 +154,25 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         method: "GET",
         path: "/backend/v3/api/knowledge/tenants/current",
         operation_id: "tenants.current.retrieve",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/backend/v3/api/knowledge/spaces",
+        operation_id: "spaces.list",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/members",
+        operation_id: "spaces.members.list",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/compliance/audit_events/export",
+        operation_id: "compliance.auditEvents.export",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/compliance/audit_events/anonymize_actor",
+        operation_id: "compliance.auditEvents.anonymizeActor",
     },
 ];

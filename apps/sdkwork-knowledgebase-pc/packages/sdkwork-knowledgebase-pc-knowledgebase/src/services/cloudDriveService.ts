@@ -1,11 +1,14 @@
-import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
+import {
+  requireKnowledgebaseApiAvailable,
+  requireKnowledgebaseNetworkOnline,
+} from 'sdkwork-knowledgebase-pc-core';
 
 import * as KnowledgeDriveImportService from './knowledgeDriveImportService';
 
-function requireKnowledgebaseApi(): void {
-  if (!isKnowledgebaseApiAvailable()) {
-    throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE);
-  }
+function withCloudDriveApi<T>(apiCall: () => Promise<T>): Promise<T> {
+  requireKnowledgebaseApiAvailable();
+  requireKnowledgebaseNetworkOnline();
+  return apiCall();
 }
 
 /**
@@ -16,29 +19,25 @@ export class CloudDriveService {
     kbId: string,
     folderId: string | null,
   ): Promise<KnowledgeDriveImportService.CloudDriveBrowserItem[]> {
-    requireKnowledgebaseApi();
-    return KnowledgeDriveImportService.listCloudDriveBrowserItems(kbId, folderId);
+    return withCloudDriveApi(() => KnowledgeDriveImportService.listCloudDriveBrowserItems(kbId, folderId));
   }
 
   static async listStarredItems(
     kbId: string,
   ): Promise<KnowledgeDriveImportService.CloudDriveBrowserItem[]> {
-    requireKnowledgebaseApi();
-    return KnowledgeDriveImportService.listStarredCloudDriveItems(kbId);
+    return withCloudDriveApi(() => KnowledgeDriveImportService.listStarredCloudDriveItems(kbId));
   }
 
   static async listRecentItems(
     kbId: string,
   ): Promise<KnowledgeDriveImportService.CloudDriveBrowserItem[]> {
-    requireKnowledgebaseApi();
-    return KnowledgeDriveImportService.listRecentCloudDriveItems(kbId);
+    return withCloudDriveApi(() => KnowledgeDriveImportService.listRecentCloudDriveItems(kbId));
   }
 
   static async listSharedItems(
     kbId: string,
   ): Promise<KnowledgeDriveImportService.CloudDriveBrowserItem[]> {
-    requireKnowledgebaseApi();
-    return KnowledgeDriveImportService.listSharedCloudDriveItems(kbId);
+    return withCloudDriveApi(() => KnowledgeDriveImportService.listSharedCloudDriveItems(kbId));
   }
 
   static async importItems(
@@ -46,8 +45,9 @@ export class CloudDriveService {
     items: KnowledgeDriveImportService.CloudDriveBrowserItem[],
     targetParentFolderId?: string | null,
   ): Promise<KnowledgeDriveImportService.CloudDriveImportResultItem[]> {
-    requireKnowledgebaseApi();
-    return KnowledgeDriveImportService.importCloudDriveItems(kbId, items, targetParentFolderId);
+    return withCloudDriveApi(() =>
+      KnowledgeDriveImportService.importCloudDriveItems(kbId, items, targetParentFolderId),
+    );
   }
 }
 

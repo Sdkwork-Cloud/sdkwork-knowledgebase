@@ -114,7 +114,7 @@ async fn sqlite_okf_concept_store_publishes_concepts_revisions_logs_and_projecti
     assert_eq!(log_entry.event_type, OkfLogEventType::Publish);
     assert_eq!(log_entry.actor, "system");
 
-    let summaries = concepts.list_concept_summaries(7).await.unwrap();
+    let summaries = concepts.list_concept_summaries(7, None).await.unwrap();
     assert_eq!(summaries.len(), 1);
     assert_eq!(summaries[0].logical_path, published.logical_path);
     assert_eq!(summaries[0].description, "Entity summary.");

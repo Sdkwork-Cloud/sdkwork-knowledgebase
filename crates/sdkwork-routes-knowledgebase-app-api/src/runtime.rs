@@ -115,6 +115,7 @@ pub struct KnowledgebaseRuntime {
     chunk_store: Arc<SqliteKnowledgeChunkStore>,
     context_binding_store: Arc<SqliteContextBindingStore>,
     browser_projection_store: Arc<SqliteKnowledgeBrowserProjectionStore>,
+    audit_event_store: Arc<SqliteKnowledgeAuditEventStore>,
     drive_storage: Arc<KnowledgebaseDriveStorageAdapter>,
     drive_space_provisioner: Arc<KnowledgebaseDriveSpaceProvisionerAdapter>,
     drive_tree: Arc<KnowledgebaseDriveNodeTreeAdapter>,
@@ -282,9 +283,12 @@ impl KnowledgebaseRuntime {
                 ),
         }));
 
-        let audit_store = Arc::new(SqliteKnowledgeAuditEventStore::new(pool.clone(), tenant_id));
+        let audit_event_store = Arc::new(SqliteKnowledgeAuditEventStore::new(pool.clone(), tenant_id));
+        let audit_hook_store = audit_event_store.clone();
         sdkwork_knowledgebase_observability::install_audit_persistence(Arc::new(move |event| {
-            audit_store.record(KnowledgeAuditEventRecord {
+            audit_hook_store.record(KnowledgeAuditEventRecord {
+                id: None,
+                uuid: None,
                 event_type: event.event_type,
                 actor_type: event.actor_type,
                 actor_id: event.actor_id,
@@ -294,6 +298,7 @@ impl KnowledgebaseRuntime {
                 request_id: None,
                 trace_id: None,
                 payload: event.payload,
+                created_at: None,
             });
         }));
 
@@ -354,6 +359,7 @@ impl KnowledgebaseRuntime {
                 pool.clone(),
                 tenant_id,
             )),
+            audit_event_store,
             pool: pool.clone(),
             drive_pool,
             tenant_id,
@@ -547,6 +553,10 @@ impl KnowledgebaseRuntime {
 
     pub(crate) fn ingestion_job_store(&self) -> &SqliteIngestionJobStore {
         &self.ingestion_job_store
+    }
+
+    pub(crate) fn audit_event_store(&self) -> &SqliteKnowledgeAuditEventStore {
+        &self.audit_event_store
     }
 
     pub(crate) fn drive_import_metadata_store(&self) -> &SqliteDriveImportMetadataStore {
@@ -969,6 +979,13 @@ impl HostedRetrievalService {
             .await
             .map_err(|error| ApiError::from(KnowledgeRetrievalServiceError::TraceStore(error)))?;
 
+        if trace.actor_id.is_none() {
+            return Err(ApiError::new(
+                axum::http::StatusCode::FORBIDDEN,
+                "retrieval_trace_access_denied",
+                "retrieval trace is not accessible without an owning actor",
+            ));
+        }
         if let Some(trace_actor_id) = trace.actor_id {
             if context.actor_id != Some(trace_actor_id) {
                 return Err(ApiError::new(
@@ -1005,6 +1022,11 @@ impl KnowledgeRetrievalAppService for HostedRetrievalService {
         mut request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
         self.authorize_retrieval_request(&context, &request).await?;
+        crate::tenant_quota_enforcement::ensure_tenant_retrieval_rate(
+            &self.runtime,
+            context.tenant_id,
+        )
+        .await?;
         request = request.with_actor_id(context.actor_id);
         self.service().retrieve(request).await.map_err(Into::into)
     }
@@ -1042,6 +1064,11 @@ impl KnowledgeRetrievalAppService for HostedRetrievalService {
         };
         self.authorize_retrieval_request(&context, &retrieval_request)
             .await?;
+        crate::tenant_quota_enforcement::ensure_tenant_retrieval_rate(
+            &self.runtime,
+            context.tenant_id,
+        )
+        .await?;
         request = request
             .with_tenant_id(context.tenant_id)
             .with_actor_id(context.actor_id);

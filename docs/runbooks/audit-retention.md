@@ -23,22 +23,45 @@ Configure via operator job; canonical SQL lives under `database/operations/` whe
 
 ## GDPR export (tenant data subject request)
 
-1. Identify `tenant_id` and subject `actor_id` from IAM.
-2. Export matching rows:
-   ```sql
-   SELECT * FROM kb_audit_event
-   WHERE tenant_id = $1 AND actor_id = $2
-   ORDER BY created_at;
-   ```
-3. Deliver encrypted archive to platform DPO workflow.
+Use the backend compliance API (requires `knowledge.platform.manage`, `knowledge.admin`, or `knowledge.*`):
+
+```http
+POST /backend/v3/api/knowledge/compliance/audit_events/export
+Content-Type: application/json
+
+{ "actorId": "<iam_subject_id>" }
+```
+
+- OpenAPI operation: `compliance.auditEvents.export`
+- Backend SDK: `client.knowledge.compliance.auditEvents.export({ actorId })`
+- Response envelope: `SdkWorkApiResponse` with `data.item.items[]` (`KnowledgeAuditEventItem`)
+- Tenant scope is derived from the authenticated principal; do not pass `tenant_id` in the body.
+
+Deliver the exported archive through the platform DPO workflow.
 
 ## GDPR delete (right to erasure)
 
+Use the backend compliance API to anonymize actor identifiers while retaining event type and timestamps:
+
+```http
+POST /backend/v3/api/knowledge/compliance/audit_events/anonymize_actor
+Content-Type: application/json
+
+{ "actorId": "<iam_subject_id>" }
+```
+
+- OpenAPI operation: `compliance.auditEvents.anonymizeActor`
+- Backend SDK: `client.knowledge.compliance.auditEvents.anonymizeActor({ actorId })`
+- Response envelope: `SdkWorkApiResponse` with `data.item.anonymizedCount`
+- Rows are updated to `actor_id = 'gdpr-redacted'`, `actor_type = 'system'`
+
+Before invoking anonymization:
+
 1. Verify legal basis and scope with platform legal.
-2. Anonymize actor identifiers in `kb_audit_event` for the subject (retain event type/timestamp for compliance).
-3. Do not delete aggregate billing counters; redact PII in structured logs per log retention policy.
+2. Do not delete aggregate billing counters; redact PII in structured logs per log retention policy.
 
 ## Verification
 
 - Security tests assert durable `kb_audit_event` persistence.
+- `pnpm test:tenant-quota` asserts OpenAPI, SDK, and runbook alignment for quota and GDPR compliance APIs.
 - Production topology uses `SDKWORK_KNOWLEDGEBASE_LOG_FORMAT=json` for log pipeline correlation with `x-request-id`.

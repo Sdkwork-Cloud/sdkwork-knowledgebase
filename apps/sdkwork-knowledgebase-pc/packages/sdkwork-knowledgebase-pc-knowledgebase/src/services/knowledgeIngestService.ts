@@ -4,6 +4,7 @@ import {
   requireKnowledgebaseAppSdkHttpClient,
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
+import { normalizeSdkWorkListPage } from './sdkWorkListPage';
 
 const INGEST_POLL_INTERVAL_MS = 250;
 const INGEST_POLL_TIMEOUT_MS = 30_000;
@@ -38,7 +39,9 @@ export async function resolveIngestedDocument(
   title: string,
 ): Promise<{ id: number; title: string }> {
   const client = requireKnowledgebaseAppSdkHttpClient();
-  const documents = await client.knowledge.documents.list({ spaceId });
+  const documents = normalizeSdkWorkListPage(
+    await client.knowledge.documents.list({ spaceId, pageSize: 200 }),
+  );
   const normalizedTitle = title.trim();
 
   const matches = documents.items.filter(
@@ -49,10 +52,12 @@ export async function resolveIngestedDocument(
     return { id: latest.id, title: latest.title };
   }
 
-  const browser = await client.knowledge.spaces.browser.list(spaceId, {
-    view: 'files',
-    pageSize: 100,
-  });
+  const browser = normalizeSdkWorkListPage(
+    await client.knowledge.spaces.browser.list(spaceId, {
+      view: 'files',
+      pageSize: 100,
+    }),
+  );
   const node = browser.items.find(
     (entry) => entry.name === normalizedTitle && entry.documentId,
   );

@@ -91,7 +91,7 @@ export async function ensureSpaceAgentProfile(spaceId: number): Promise<string> 
 
   const cached = readSpaceAgentProfileCache(tenantId, spaceId);
   const client = getKnowledgebaseAppSdkClient().client;
-  if (cached) {
+  if (cached && !isBlank(cached)) {
     try {
       await client.knowledge.agentProfiles.retrieve(cached);
       return cached;
@@ -118,15 +118,20 @@ export async function ensureSpaceAgentProfile(spaceId: number): Promise<string> 
     status: 'active',
   });
 
-  await client.knowledge.agentProfiles.bindings.create(profile.profileId, {
-    profileId: profile.profileId,
+  const profileId = String(profile.profileId ?? '').trim();
+  if (isBlank(profileId)) {
+    throw new Error('Agent profile create did not return profileId');
+  }
+
+  await client.knowledge.agentProfiles.bindings.create(profileId, {
+    profileId,
     spaceId: String(spaceId),
     priority: 0,
     enabled: true,
   });
 
-  writeSpaceAgentProfileCache(tenantId, spaceId, profile.profileId);
-  return profile.profileId;
+  writeSpaceAgentProfileCache(tenantId, spaceId, profileId);
+  return profileId;
 }
 
 export async function loadKnowledgeSpaceModelSettings(

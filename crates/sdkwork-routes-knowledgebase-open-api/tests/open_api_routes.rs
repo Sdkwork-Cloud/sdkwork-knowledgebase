@@ -4,7 +4,7 @@ use axum::http::{header, Request, StatusCode};
 use sdkwork_iam_web_adapter::IamWebRequestContextResolver;
 use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserNode, KnowledgeBrowserNodePermissions, KnowledgeBrowserNodeType,
-    KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
+    KnowledgeBrowserView, ListKnowledgeBrowserRequest,
 };
 use sdkwork_knowledgebase_contract::document::{
     KnowledgeDocument, KnowledgeDocumentList, KnowledgeDocumentState,
@@ -185,9 +185,9 @@ async fn open_browser_route_preserves_query_parameters() {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
-    let page: KnowledgeBrowserPage = response_item(response).await;
-    assert_eq!(page.space_id, 7);
-    assert_eq!(page.view, KnowledgeBrowserView::OkfBundle);
+    let body = response_json(response).await;
+    assert_eq!(body["data"]["items"].as_array().unwrap().len(), 1);
+    assert_eq!(body["data"]["pageInfo"]["mode"], "cursor");
     assert_eq!(
         service.last_browser_request().unwrap(),
         ListKnowledgeBrowserRequest {
@@ -465,14 +465,9 @@ impl KnowledgeOpenApi for RecordingOpenApi {
         &self,
         _context: KnowledgeOpenApiRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<KnowledgeBrowserPage> {
+    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<KnowledgeBrowserNode>> {
         *self.browser_request.lock().unwrap() = Some(request.clone());
-        Ok(KnowledgeBrowserPage {
-            space_id: request.space_id,
-            drive_space_id: "drv-kb-001".to_string(),
-            parent_id: request.parent_id,
-            view: request.view,
-            page_size: request.page_size.unwrap_or(50),
+        Ok(sdkwork_utils_rust::SdkWorkPageData {
             items: vec![KnowledgeBrowserNode {
                 id: "node-index".to_string(),
                 node_type: KnowledgeBrowserNodeType::OkfConcept,
@@ -498,7 +493,15 @@ impl KnowledgeOpenApi for RecordingOpenApi {
                 drive_bucket: None,
                 drive_object_key: None,
             }],
-            next_cursor: None,
+            page_info: sdkwork_utils_rust::PageInfo {
+                mode: sdkwork_utils_rust::PageMode::Cursor,
+                page: None,
+                page_size: Some(request.page_size.unwrap_or(50) as i32),
+                total_items: None,
+                total_pages: None,
+                next_cursor: None,
+                has_more: Some(false),
+            },
         })
     }
 }

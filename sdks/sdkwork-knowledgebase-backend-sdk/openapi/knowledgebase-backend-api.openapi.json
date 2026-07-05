@@ -173,7 +173,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "List knowledge sources",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -347,7 +347,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create a knowledge source",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -523,7 +523,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create an OKF compile job",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -708,7 +708,7 @@
         ],
         "summary": "List OKF candidates",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -895,7 +895,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Approve an OKF candidate",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1082,7 +1082,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Reject an OKF candidate",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1269,7 +1269,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Publish an OKF concept",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1445,7 +1445,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create an OKF profile",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1632,7 +1632,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Update an OKF profile",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1808,7 +1808,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Rebuild the OKF bundle index",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -1984,7 +1984,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create an OKF log entry",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -2161,7 +2161,7 @@
         "summary": "Create an OKF bundle export",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -2338,7 +2338,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve an OKF bundle export",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -2512,7 +2512,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "List OKF bundle files",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -2688,7 +2688,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create an OKF lint run",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -2864,7 +2864,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create an OKF eval run",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3040,7 +3040,179 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create a knowledge index",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      },
+      "get": {
+        "operationId": "indexes.list",
+        "tags": [
+          "knowledge"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "items",
+                            "pageInfo"
+                          ],
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/KnowledgeIndex"
+                              }
+                            },
+                            "pageInfo": {
+                              "$ref": "#/components/schemas/PageInfo"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "description": "List knowledge indexes",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
+        "summary": "List knowledge indexes",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3218,7 +3390,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve a knowledge index",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3406,7 +3578,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Rebuild a knowledge index",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3582,7 +3754,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Create a retrieval profile",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3760,7 +3932,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve a retrieval profile",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -3946,7 +4118,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Update a retrieval profile",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -4120,7 +4292,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "List retrieval traces",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -4298,7 +4470,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve a retrieval trace",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -4464,7 +4636,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve provider health status",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -4630,7 +4802,7 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
         "summary": "Retrieve current tenant knowledgebase status",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -4807,7 +4979,730 @@
         "summary": "Import an OKF bundle from drive staging",
         "x-sdkwork-rate-limit-tier": "write-heavy",
         "x-sdkwork-auth-mode": "dual-token",
-        "x-sdkwork-permission": "knowledge.platform.manage",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/spaces": {
+      "get": {
+        "operationId": "spaces.list",
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "List knowledge spaces",
+        "description": "List knowledge spaces",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "items",
+                            "pageInfo"
+                          ],
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/KnowledgeSpace"
+                              }
+                            },
+                            "pageInfo": {
+                              "$ref": "#/components/schemas/PageInfo"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/spaces/{spaceId}/members": {
+      "get": {
+        "operationId": "spaces.members.list",
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "List knowledge space members",
+        "description": "List knowledge space members for admin operators",
+        "parameters": [
+          {
+            "name": "spaceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "item"
+                          ],
+                          "properties": {
+                            "item": {
+                              "$ref": "#/components/schemas/KnowledgeSpaceMemberList"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/compliance/audit_events/export": {
+      "post": {
+        "operationId": "compliance.auditEvents.export",
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Export knowledge audit events for a subject",
+        "description": "Export tenant-scoped kb_audit_event rows for GDPR data subject requests",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportKnowledgeAuditEventsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "item"
+                          ],
+                          "properties": {
+                            "item": {
+                              "$ref": "#/components/schemas/KnowledgeAuditEventExport"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
+        "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
+        "x-sdkwork-tenant-scope": "tenant",
+        "x-sdkwork-data-scope": "organization"
+      }
+    },
+    "/backend/v3/api/knowledge/compliance/audit_events/anonymize_actor": {
+      "post": {
+        "operationId": "compliance.auditEvents.anonymizeActor",
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Anonymize audit events for a subject",
+        "description": "Redact actor identifiers in kb_audit_event for GDPR erasure requests",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnonymizeKnowledgeAuditSubjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "item"
+                          ],
+                          "properties": {
+                            "item": {
+                              "$ref": "#/components/schemas/AnonymizeKnowledgeAuditSubjectResult"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-backend-api",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "backend-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-backend-api",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
         "x-sdkwork-data-scope": "organization"
@@ -7241,6 +8136,16 @@
                 "type": "null"
               }
             ]
+          },
+          "quota": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KnowledgeTenantQuotaStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -7605,6 +8510,151 @@
             }
           }
         ]
+      },
+      "KnowledgeTenantQuotaStatus": {
+        "type": "object",
+        "required": [
+          "maxDocuments",
+          "documentCount",
+          "maxConcurrentIngestJobs",
+          "inflightIngestJobs",
+          "maxRetrievalsPerMinute",
+          "maxStorageBytes",
+          "storageBytesUsed"
+        ],
+        "properties": {
+          "maxDocuments": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "documentCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxConcurrentIngestJobs": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "inflightIngestJobs": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "maxRetrievalsPerMinute": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "maxStorageBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "storageBytesUsed": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ExportKnowledgeAuditEventsRequest": {
+        "type": "object",
+        "required": [
+          "actorId"
+        ],
+        "properties": {
+          "actorId": {
+            "type": "string"
+          }
+        }
+      },
+      "KnowledgeAuditEventItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "eventType",
+          "actorType",
+          "actorId",
+          "resourceType",
+          "result",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "actorType": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "result": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        }
+      },
+      "KnowledgeAuditEventExport": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeAuditEventItem"
+            }
+          }
+        }
+      },
+      "AnonymizeKnowledgeAuditSubjectRequest": {
+        "type": "object",
+        "required": [
+          "actorId"
+        ],
+        "properties": {
+          "actorId": {
+            "type": "string"
+          }
+        }
+      },
+      "AnonymizeKnowledgeAuditSubjectResult": {
+        "type": "object",
+        "required": [
+          "anonymizedCount"
+        ],
+        "properties": {
+          "anonymizedCount": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
       }
     },
     "securitySchemes": {

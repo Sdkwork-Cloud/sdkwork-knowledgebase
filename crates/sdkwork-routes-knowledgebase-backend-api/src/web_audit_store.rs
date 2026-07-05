@@ -1,4 +1,4 @@
-//! Framework HTTP audit persistence for Knowledgebase web surfaces.
+//! Framework HTTP audit persistence and dynamic policy sources for Knowledgebase web surfaces.
 
 use std::sync::Arc;
 
@@ -7,29 +7,50 @@ use sdkwork_web_axum::WebFrameworkLayer;
 use sdkwork_web_core::{AuditEmitter, WebRequestContextResolver};
 use sdkwork_web_store_sqlx::{
     connect_and_bootstrap_webstore_database_from_env, shared_audit_emitter, shared_audit_emitter_pg,
+    shared_dynamic_policy_bundle, shared_dynamic_policy_bundle_pg, SqlxDynamicPolicyBundle,
 };
 use tokio::sync::OnceCell;
 
-static SHARED_AUDIT_EMITTER: OnceCell<Option<Arc<dyn AuditEmitter>>> = OnceCell::const_new();
+struct KnowledgebaseWebStoreBundle {
+    audit_emitter: Arc<dyn AuditEmitter>,
+    policy_bundle: SqlxDynamicPolicyBundle,
+}
 
-async fn build_knowledgebase_audit_emitter() -> Option<Arc<dyn AuditEmitter>> {
+static SHARED_WEB_STORE: OnceCell<Option<Arc<KnowledgebaseWebStoreBundle>>> = OnceCell::const_new();
+
+async fn build_knowledgebase_web_store_bundle() -> Option<Arc<KnowledgebaseWebStoreBundle>> {
     let host = connect_and_bootstrap_webstore_database_from_env()
         .await
         .ok()?;
+    if let Err(error) = crate::web_policy_bootstrap::seed_default_tenant_web_policies(&host).await {
+        eprintln!("[knowledgebase] web policy bootstrap skipped: {error}");
+    }
     if let Some(sqlite) = host.pool().as_sqlite().cloned() {
-        return Some(shared_audit_emitter(sqlite));
+        return Some(Arc::new(KnowledgebaseWebStoreBundle {
+            audit_emitter: shared_audit_emitter(sqlite.clone()),
+            policy_bundle: shared_dynamic_policy_bundle(sqlite),
+        }));
     }
     if let Some(postgres) = host.pool().as_postgres().cloned() {
-        return Some(shared_audit_emitter_pg(postgres));
+        return Some(Arc::new(KnowledgebaseWebStoreBundle {
+            audit_emitter: shared_audit_emitter_pg(postgres.clone()),
+            policy_bundle: shared_dynamic_policy_bundle_pg(postgres),
+        }));
     }
     None
 }
 
-pub async fn shared_knowledgebase_audit_emitter() -> Option<Arc<dyn AuditEmitter>> {
-    SHARED_AUDIT_EMITTER
-        .get_or_init(|| async { build_knowledgebase_audit_emitter().await })
+async fn shared_knowledgebase_web_store_bundle() -> Option<Arc<KnowledgebaseWebStoreBundle>> {
+    SHARED_WEB_STORE
+        .get_or_init(|| async { build_knowledgebase_web_store_bundle().await })
         .await
         .clone()
+}
+
+pub async fn shared_knowledgebase_audit_emitter() -> Option<Arc<dyn AuditEmitter>> {
+    shared_knowledgebase_web_store_bundle()
+        .await
+        .map(|bundle| bundle.audit_emitter.clone())
 }
 
 pub async fn attach_knowledgebase_audit_emitter<R>(
@@ -38,8 +59,14 @@ pub async fn attach_knowledgebase_audit_emitter<R>(
 where
     R: WebRequestContextResolver + Clone,
 {
-    match shared_knowledgebase_audit_emitter().await {
-        Some(emitter) => layer.with_audit_emitter(emitter),
+    match shared_knowledgebase_web_store_bundle().await {
+        Some(bundle) => layer
+            .with_audit_emitter(bundle.audit_emitter.clone())
+            .with_dynamic_cors_policy_source(bundle.policy_bundle.cors_policy_source.clone())
+            .with_dynamic_rate_limit_policy_source(bundle.policy_bundle.rate_limit_policy_source.clone())
+            .with_dynamic_tenant_runtime_profile_source(
+                bundle.policy_bundle.tenant_runtime_profile_source.clone(),
+            ),
         None if is_production_like_environment() => {
             eprintln!(
                 "Web audit emitter is required for production-like environments; configure SDKWORK_WEB_STORE_DATABASE_URL and bootstrap web_audit_event migrations"

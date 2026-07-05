@@ -90,6 +90,141 @@
         "replacementCode": null
       },
       {
+        "code": "knowledge.okf.write",
+        "name": "Mutate OKF knowledge bundles",
+        "resource": "knowledge.okf",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.wechat.manage",
+        "name": "Manage WeChat official account integrations",
+        "resource": "knowledge.wechat",
+        "action": "manage",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.retrievals.read",
+        "name": "Read knowledge retrievals",
+        "resource": "knowledge.retrievals",
+        "action": "read",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.retrievals.write",
+        "name": "Run knowledge retrievals",
+        "resource": "knowledge.retrievals",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.context_packs.write",
+        "name": "Assemble knowledge context packs",
+        "resource": "knowledge.context_packs",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.agent_profiles.read",
+        "name": "Read knowledge agent profiles",
+        "resource": "knowledge.agent_profiles",
+        "action": "read",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.agent_profiles.write",
+        "name": "Manage knowledge agent profiles",
+        "resource": "knowledge.agent_profiles",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.context_bindings.read",
+        "name": "Read knowledge context bindings",
+        "resource": "knowledge.context_bindings",
+        "action": "read",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.context_bindings.write",
+        "name": "Manage knowledge context bindings",
+        "resource": "knowledge.context_bindings",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.uploads.write",
+        "name": "Upload knowledge files",
+        "resource": "knowledge.uploads",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.market.read",
+        "name": "Read knowledge market catalog",
+        "resource": "knowledge.market",
+        "action": "read",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.market.write",
+        "name": "Manage knowledge market listings",
+        "resource": "knowledge.market",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.deployments.read",
+        "name": "Read knowledge site deployments",
+        "resource": "knowledge.deployments",
+        "action": "read",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.deployments.write",
+        "name": "Manage knowledge site deployments",
+        "resource": "knowledge.deployments",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
+        "code": "knowledge.media.write",
+        "name": "Manage knowledge media tasks",
+        "resource": "knowledge.media",
+        "action": "write",
+        "status": "active",
+        "since": "1.0.0",
+        "replacementCode": null
+      },
+      {
         "code": "knowledge.platform.manage",
         "name": "Manage knowledge platform backend operations",
         "resource": "knowledge.platform",
@@ -99,16 +234,7 @@
         "replacementCode": "knowledge.admin"
       }
     ],
-    "openapiAuthorities": [
-      {
-        "authorityId": "sdkwork-knowledgebase-app-api",
-        "surface": "app-api"
-      },
-      {
-        "authorityId": "sdkwork-knowledgebase-backend-api",
-        "surface": "backend-api"
-      }
-    ]
+    "openapiAuthorities": []
   },
   "roles": {
     "domainStandardRoles": [],
@@ -116,15 +242,7 @@
       {
         "roleCode": "app_user",
         "patterns": [
-          "knowledge.spaces.read",
-          "knowledge.spaces.write",
-          "knowledge.documents.read",
-          "knowledge.documents.write",
-          "knowledge.ingests.read",
-          "knowledge.ingests.write",
-          "knowledge.imports.write",
-          "knowledge.okf.read",
-          "knowledge.okf.write"
+          "knowledge.*"
         ]
       },
       {

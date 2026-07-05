@@ -3,6 +3,7 @@
 pub mod agent_chat;
 pub mod agent_implementation;
 pub mod browser;
+pub mod compliance;
 pub mod context_binding;
 pub mod document;
 pub mod drive;
@@ -32,6 +33,7 @@ pub mod wechat;
 pub use agent_chat::*;
 pub use agent_implementation::*;
 pub use browser::*;
+pub use compliance::*;
 pub use context_binding::*;
 pub use document::*;
 pub use drive::*;

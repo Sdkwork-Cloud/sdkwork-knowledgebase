@@ -304,8 +304,9 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
     async fn list_concept_summaries(
         &self,
         space_id: u64,
+        limit: Option<u32>,
     ) -> Result<Vec<OkfConceptSummary>, KnowledgeOkfConceptStoreError> {
-        Ok(self
+        let mut summaries = self
             .concepts
             .lock()
             .unwrap()
@@ -322,7 +323,11 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
                 updated_at: concept.updated_at.clone(),
                 tags: concept.tags.clone(),
             })
-            .collect())
+            .collect::<Vec<_>>();
+        if let Some(limit) = limit {
+            summaries.truncate(limit.max(1) as usize);
+        }
+        Ok(summaries)
     }
 
     async fn append_log_entry(

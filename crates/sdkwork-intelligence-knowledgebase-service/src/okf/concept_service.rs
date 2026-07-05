@@ -625,7 +625,7 @@ impl<'a> OkfConceptService<'a> {
         space_id: u64,
         drive_space_id: Option<&str>,
     ) -> Result<(), OkfConceptServiceError> {
-        let summaries = self.concept_store.list_concept_summaries(space_id).await?;
+        let summaries = self.concept_store.list_concept_summaries(space_id, None).await?;
         let logs = self.concept_store.list_log_entries(space_id).await?;
         let dynamic = standard_bundle_refresh::persist_dynamic_standard_bundle_files(
             self.drive,
@@ -690,7 +690,7 @@ impl<'a> OkfConceptService<'a> {
         };
         let known = self
             .concept_store
-            .list_concept_summaries(space_id)
+            .list_concept_summaries(space_id, None)
             .await?
             .into_iter()
             .map(|summary| summary.concept_id)

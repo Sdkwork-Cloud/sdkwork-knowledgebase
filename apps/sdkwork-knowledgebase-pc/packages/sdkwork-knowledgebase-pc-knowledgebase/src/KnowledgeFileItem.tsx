@@ -386,7 +386,6 @@ export const KnowledgeFileItem = React.memo(function KnowledgeFileItem({
                       onEditTags={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); window.dispatchEvent(new CustomEvent('kb-action', { detail: { action: 'tags', item } })); }}
                       onPermissions={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); window.dispatchEvent(new CustomEvent('kb-action', { detail: { action: 'permissions', item } })); }}
                       onOpenNewTab={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); window.open(location.href, '_blank'); }}
-                      onOpenSplit={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); window.dispatchEvent(new CustomEvent('kb-action', { detail: { action: 'split', item } })); }}
                       onViewHistory={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); window.dispatchEvent(new CustomEvent('kb-action', { detail: { action: 'history', item } })); }}
                       t={t}
                     />
@@ -448,7 +447,6 @@ export const KnowledgeFileItem = React.memo(function KnowledgeFileItem({
                onEditTags={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); window.dispatchEvent(new CustomEvent('kb-action', { detail: { action: 'tags', item } })); }}
                onPermissions={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); window.dispatchEvent(new CustomEvent('kb-action', { detail: { action: 'permissions', item } })); }}
                onOpenNewTab={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); window.open(location.href, '_blank'); }}
-               onOpenSplit={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); window.dispatchEvent(new CustomEvent('kb-action', { detail: { action: 'split', item } })); }}
                onViewHistory={(e) => { if (e && e.preventDefault) e.preventDefault(); e.stopPropagation(); window.dispatchEvent(new CustomEvent('kb-action', { detail: { action: 'history', item } })); }}
                t={t}
              />

@@ -31,7 +31,7 @@ export function PermissionsModal({
 }: PermissionsModalProps) {
   const { t } = useTranslation(['kb', 'common']);
   const [visibility, setVisibility] = useState<KnowledgeDocumentVisibility>('space');
-  const [memberCount, setMemberCount] = useState(0);
+  const [memberCountLabel, setMemberCountLabel] = useState('0');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,14 +47,17 @@ export function PermissionsModal({
 
     Promise.all([
       DocumentService.getDocumentAccess(item.id),
-      item.kbId ? DocumentService.loadKnowledgeSpaceMembers(Number(item.kbId)) : Promise.resolve([]),
+      item.kbId
+        ? DocumentService.loadKnowledgeSpaceMembersPage(Number(item.kbId), null, 20)
+        : Promise.resolve({ items: [], nextCursor: null, hasMore: false }),
     ])
-      .then(([access, members]) => {
+      .then(([access, membersPage]) => {
         if (cancelled) {
           return;
         }
         setVisibility(access.visibility);
-        setMemberCount(members.length);
+        const count = membersPage.items.length;
+        setMemberCountLabel(membersPage.hasMore ? `${count}+` : String(count));
         setLoading(false);
       })
       .catch((loadError) => {
@@ -145,7 +148,7 @@ export function PermissionsModal({
 
               <p className="text-[12px] text-zinc-500 dark:text-[var(--color-kb-text-muted)] mb-2">
                 {t('spaceMemberCount', {
-                  count: memberCount,
+                  count: memberCountLabel,
                   defaultValue: 'This knowledge space has {{count}} members.',
                 })}
               </p>

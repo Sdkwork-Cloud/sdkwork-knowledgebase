@@ -293,7 +293,7 @@ async fn stackoverflow_bundle_imports_published_concepts_when_requested() {
         report.issues
     );
     let published = concepts
-        .list_concept_summaries(42)
+        .list_concept_summaries(42, None)
         .await
         .expect("list published concepts");
     assert_eq!(
@@ -439,7 +439,7 @@ async fn export_bundle_round_trips_through_drive_import_inbox() {
         .expect("publish source concept");
 
     let summaries = source_concepts
-        .list_concept_summaries(7)
+        .list_concept_summaries(7, None)
         .await
         .expect("list source concepts");
     OkfBundleStandardFileService::new(&drive)
@@ -1070,8 +1070,9 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
     async fn list_concept_summaries(
         &self,
         space_id: u64,
+        limit: Option<u32>,
     ) -> Result<Vec<OkfConceptSummary>, KnowledgeOkfConceptStoreError> {
-        Ok(self
+        let mut summaries = self
             .concepts
             .lock()
             .unwrap()
@@ -1091,7 +1092,11 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
                 updated_at: concept.updated_at.clone(),
                 tags: concept.tags.clone(),
             })
-            .collect())
+            .collect::<Vec<_>>();
+        if let Some(limit) = limit {
+            summaries.truncate(limit.max(1) as usize);
+        }
+        Ok(summaries)
     }
 
     async fn append_log_entry(

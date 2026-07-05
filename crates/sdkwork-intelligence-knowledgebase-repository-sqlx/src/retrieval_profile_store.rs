@@ -139,7 +139,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
             r#"
             UPDATE kb_retrieval_profile
             SET name = $1, strategy = $2, top_k = $3, min_score = $4, rerank_enabled = $5,
-                context_budget_tokens = $6, status = $7, updated_at = $8, version = version + 1
+                context_budget_tokens = $6, status = $7, updated_at = CAST($8 AS TIMESTAMP), version = version + 1
             WHERE tenant_id = $9 AND id = $10 AND status = $11
             RETURNING id, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                       context_budget_tokens, status

@@ -277,6 +277,23 @@ fn build_business_router(api: Arc<dyn KnowledgeAppApi>) -> Router {
 #[serde(rename_all = "camelCase")]
 struct ListDocumentsQuery {
     space_id: u64,
+    cursor: Option<String>,
+    page_size: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListDocumentVersionsQuery {
+    cursor: Option<String>,
+    page_size: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListContextBindingsQuery {
+    cursor: Option<String>,
+    page_size: Option<u32>,
+    context_type: Option<sdkwork_knowledgebase_contract::context_binding::KnowledgeContextType>,
 }
 
 async fn create_space(
@@ -335,7 +352,7 @@ async fn list_space_members(
     Query(query): Query<ListSpaceMembersQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ok_json(
+    ok_list_json(
         state
             .api
             .list_space_members(context, space_id, query.cursor, query.page_size)
@@ -544,7 +561,12 @@ async fn list_documents(
     Query(query): Query<ListDocumentsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ok_json(state.api.list_documents(context, query.space_id).await)
+    ok_list_json(
+        state
+            .api
+            .list_documents(context, query.space_id, query.cursor, query.page_size)
+            .await,
+    )
 }
 
 async fn create_document(
@@ -612,9 +634,15 @@ async fn list_document_versions(
     State(state): State<AppState>,
     context: RequiredAppContext,
     Path(document_id): Path<u64>,
+    Query(query): Query<ListDocumentVersionsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ok_json(state.api.list_document_versions(context, document_id).await)
+    ok_list_json(
+        state
+            .api
+            .list_document_versions(context, document_id, query.cursor, query.page_size)
+            .await,
+    )
 }
 
 async fn create_document_version(
@@ -645,7 +673,12 @@ async fn list_okf_concepts(
     Query(query): Query<ListOkfConceptsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ok_json(state.api.list_okf_concepts(context, query.space_id).await)
+    ok_list_json(
+        state
+            .api
+            .list_okf_concepts(context, query.space_id, query.cursor, query.page_size)
+            .await,
+    )
 }
 
 async fn upsert_okf_concept(
@@ -803,7 +836,7 @@ async fn list_browser(
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
     let view = parse_view(query.view.as_deref())?;
-    ok_json(
+    ok_list_json(
         state
             .api
             .list_browser(
@@ -1040,12 +1073,19 @@ async fn list_space_context_bindings(
     State(state): State<AppState>,
     context: RequiredAppContext,
     Path(space_id): Path<u64>,
+    Query(query): Query<ListContextBindingsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ok_json(
+    ok_list_json(
         state
             .api
-            .list_space_context_bindings(context, space_id)
+            .list_space_context_bindings(
+                context,
+                space_id,
+                query.cursor,
+                query.page_size,
+                query.context_type,
+            )
             .await,
     )
 }
@@ -1120,8 +1160,8 @@ async fn create_upload_session(
     context: RequiredAppContext,
     Json(request): Json<CreateKnowledgeUploadSessionRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.create_upload_session(request).await)
+    let context = require_app_context(context)?;
+    created_json(state.api.create_upload_session(context, request).await)
 }
 
 async fn complete_upload_session(
@@ -1130,8 +1170,27 @@ async fn complete_upload_session(
     Path(session_id): Path<u64>,
     Json(request): Json<CompleteKnowledgeUploadSessionRequest>,
 ) -> Result<Response, ApiProblem> {
-    require_app_context(context)?;
-    created_json(state.api.complete_upload_session(session_id, request).await)
+    let context = require_app_context(context)?;
+    created_json(
+        state
+            .api
+            .complete_upload_session(context, session_id, request)
+            .await,
+    )
+}
+
+fn ok_list_json<T>(result: ApiResult<sdkwork_utils_rust::SdkWorkPageData<T>>) -> Result<Response, ApiProblem>
+where
+    T: Serialize,
+{
+    result
+        .map(|value| {
+            sdkwork_knowledgebase_observability::request_correlation::success_list_json_response(
+                StatusCode::OK,
+                value,
+            )
+        })
+        .map_err(ApiProblem::from)
 }
 
 fn ok_json<T>(result: ApiResult<T>) -> Result<Response, ApiProblem>
