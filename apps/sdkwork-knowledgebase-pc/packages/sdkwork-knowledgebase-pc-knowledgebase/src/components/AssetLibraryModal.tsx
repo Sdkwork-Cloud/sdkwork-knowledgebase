@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, Image as ImageIcon, Music, Video, Plus, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { isKnowledgebaseApiAvailable, shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
+import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 
 import { DocumentService } from '../services/document';
 import { toastKnowledgebaseError } from './ui/toastKnowledgebaseError';
@@ -27,38 +27,6 @@ interface AssetListItem {
   size?: string;
 }
 
-const MOCK_IMAGES: AssetListItem[] = [
-  { title: '极光闪耀', url: 'https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&w=900&h=383&q=80', type: 'image' },
-  { title: '秋日私语', url: 'https://images.unsplash.com/photo-1506744626753-1fa28f621b56?auto=format&fit=crop&w=900&h=383&q=80', type: 'image' },
-  { title: '冰川冷调', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=900&h=383&q=80', type: 'image' },
-  { title: '城市灯火', url: 'https://images.unsplash.com/photo-1449844908441-8829872d2607?auto=format&fit=crop&w=900&h=383&q=80', type: 'image' },
-  { title: '晨木森林', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=900&h=383&q=80', type: 'image' },
-  { title: '静寂湖面', url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=900&h=383&q=80', type: 'image' },
-];
-
-const MOCK_AUDIOS: AssetListItem[] = [
-  { title: '深度思考 · 通用人工智能时代的生存指南', duration: '12:45', size: '14MB', author: 'AI小助手', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', type: 'audio' },
-  { title: '清晨冥想曲 · 放松心情', duration: '05:30', size: '6MB', author: '音乐库', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3', type: 'audio' },
-  { title: '新产品发布会预热解说', duration: '02:15', size: '2.5MB', author: '营销组', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3', type: 'audio' },
-  { title: '自然白噪音 - 淅沥春雨', duration: '30:00', size: '35MB', author: '内置素材', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3', type: 'audio' },
-];
-
-const MOCK_VIDEOS: AssetListItem[] = [
-  { title: '2026 AI全栈开发者成长体系白皮书', duration: '45:00', size: '450MB', cover: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=300&h=200&q=80', url: 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4', type: 'video' },
-  { title: '企业知识库平台 - 功能演示', duration: '03:20', size: '32MB', cover: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=300&h=200&q=80', url: 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4', type: 'video' },
-  { title: '团队建设 - 青岛之旅回顾', duration: '10:15', size: '150MB', cover: 'https://images.unsplash.com/photo-1506869640319-a1a5606089ce?auto=format&fit=crop&w=300&h=200&q=80', url: 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4', type: 'video' },
-];
-
-function mockItemsForTab(tab: AssetType): AssetListItem[] {
-  if (tab === 'image') {
-    return MOCK_IMAGES;
-  }
-  if (tab === 'audio') {
-    return MOCK_AUDIOS;
-  }
-  return MOCK_VIDEOS;
-}
-
 export function AssetLibraryModal({
   isOpen,
   onClose,
@@ -81,9 +49,7 @@ export function AssetLibraryModal({
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const apiMode = isKnowledgebaseApiAvailable();
-  const demoMode = shouldUseKnowledgebaseDemoFallback();
   const useApiAssets = apiMode && !!kbId;
-  const useMockAssets = demoMode && !useApiAssets;
 
   useEffect(() => {
     if (isOpen) {
@@ -136,13 +102,13 @@ export function AssetLibraryModal({
     if (apiMode && !kbId) {
       return [];
     }
-    const source = useApiAssets ? apiItems : (useMockAssets ? mockItemsForTab(activeTab) : []);
+    const source = useApiAssets ? apiItems : [];
     const query = searchQuery.trim().toLowerCase();
     if (!query) {
       return source;
     }
     return source.filter((item) => item.title.toLowerCase().includes(query));
-  }, [apiMode, kbId, useApiAssets, useMockAssets, apiItems, activeTab, searchQuery]);
+  }, [apiMode, kbId, useApiAssets, apiItems, searchQuery]);
 
   const handleLoadMoreAssets = async () => {
     if (!kbId || !assetHasMore || loadingMore || !assetNextCursor) {
