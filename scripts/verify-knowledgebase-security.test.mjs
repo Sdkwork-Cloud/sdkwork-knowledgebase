@@ -270,12 +270,14 @@ describe('knowledgebase security standard alignment', () => {
     assert.doesNotMatch(gatewayBootstrap, /\.trim\(\)\.is_empty\(\)/);
   });
 
-  it('gates asset library mock content behind demo fallback', () => {
+  it('does not ship synthetic third-party asset library demo content', () => {
     const assetLibrary = readRepoFile(
       'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/components/AssetLibraryModal.tsx',
     );
-    assert.match(assetLibrary, /shouldUseKnowledgebaseDemoFallback/);
-    assert.match(assetLibrary, /useMockAssets/);
+    assert.doesNotMatch(assetLibrary, /MOCK_IMAGES|MOCK_AUDIOS|MOCK_VIDEOS/);
+    assert.doesNotMatch(assetLibrary, /images\.unsplash\.com|soundhelix\.com|sample-videos\.com/);
+    assert.match(assetLibrary, /listAssetLibraryItemsPage/);
+    assert.match(assetLibrary, /useApiAssets/);
   });
 
   it('blocks WeChat scan and AI cover demo flows without demo fallback', () => {

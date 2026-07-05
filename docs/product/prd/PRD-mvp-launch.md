@@ -54,7 +54,7 @@ Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Kn
 - [x] AI assistant uses backend agent when `isKnowledgebaseApiAvailable()`; local MCP agent is demo-only
 - [x] Image viewer AI tools hidden outside `shouldUseKnowledgebaseDemoFallback()`
 - [x] Asset library scan capped (`MAX_ASSET_LIBRARY_ITEMS` / `MAX_ASSET_SCAN_NODES`) with truncation banner
-- [x] Asset library modal uses cursor pagination (`listAssetLibraryItemsPage`) with Load more
+- [x] Asset library modal uses cursor pagination (`listAssetLibraryItemsPage`) with Load more; no synthetic third-party demo assets (API-backed or empty state only)
 - [x] Knowledge space members settings use paginated first page; full baseline fetched on save only when members changed
 - [x] Partial member sync preserves unloaded baseline members (`buildPartialMemberSyncPayload`); baseline fetched on save only when members changed
 - [x] Auto-save and editor uploads surface i18n errors via `toastKnowledgebaseError`; numeric ProblemDetail `60002` maps to tenant quota message

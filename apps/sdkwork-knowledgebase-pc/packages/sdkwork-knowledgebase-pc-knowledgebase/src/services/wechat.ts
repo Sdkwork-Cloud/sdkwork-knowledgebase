@@ -135,8 +135,6 @@ function toArticle(article: WechatArticle): KnowledgeWechatArticle {
   };
 }
 
-const MOCK_SECRET_PLACEHOLDER = 'mock-only-not-a-real-secret';
-
 function wechatSdk() {
   return getKnowledgebaseAppSdkClient().client.knowledge.wechat;
 }
@@ -203,74 +201,11 @@ export interface WechatArticle {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-let mockOfficialAccounts: OfficialAccount[] = [
-  {
-    id: '1',
-    name: 'AI 人工智能基地',
-    type: 'subscription',
-    avatar: '🤖',
-    appId: 'wx57d8123abc456ef0',
-    appSecret: MOCK_SECRET_PLACEHOLDER,
-    serverUrl: 'https://api.ai-base.com/wechat/callback',
-    token: 'mock-token',
-    encodingAesKey: 'mock-encoding-aes-key',
-    encryptMode: 'safe',
-    domainVerifyFileName: 'MP_verify_ai_base.txt',
-    domainVerifyFileContent: 'ai-base-verification-code-12345',
-    group: '科技数码',
-  },
-  {
-    id: '2',
-    name: '独立开发者周刊',
-    type: 'subscription',
-    avatar: '💡',
-    appId: 'wx92f8713def456ba1',
-    appSecret: MOCK_SECRET_PLACEHOLDER,
-    serverUrl: 'https://api.indiedev.org/wechat/events',
-    token: 'mock-token',
-    encodingAesKey: 'mock-encoding-aes-key',
-    encryptMode: 'safe',
-    domainVerifyFileName: 'MP_verify_indiedev.txt',
-    domainVerifyFileContent: 'indie-developer-weekly-code-98765',
-    group: '科技数码',
-  },
-  {
-    id: '3',
-    name: '极客前线',
-    type: 'service',
-    avatar: '⚡',
-    appId: 'wx31d6248fed192ca5',
-    appSecret: MOCK_SECRET_PLACEHOLDER,
-    serverUrl: 'https://services.geekfront.cn/wx/msg',
-    token: 'mock-token',
-    encodingAesKey: 'mock-encoding-aes-key',
-    encryptMode: 'safe',
-    domainVerifyFileName: 'MP_verify_geekfront.txt',
-    domainVerifyFileContent: 'geek-frontline-verification-code-5555',
-    group: '企业矩阵',
-  },
-];
+/** In-memory demo store when API is unavailable and preview fallback is enabled. */
+let demoOfficialAccounts: OfficialAccount[] = [];
 
-let mockApplets: WechatAppletConfig[] = [
-  {
-    id: 'a1',
-    name: '文章助手',
-    appId: 'wx1234567890abcdef',
-    path: 'pages/index/index',
-    avatar: 'AS',
-    group: '工具',
-    description: '办公辅助',
-  },
-  {
-    id: 'a2',
-    name: 'AI绘图',
-    appId: 'wxabcdef1234567890',
-    path: 'pages/home/main',
-    avatar: '🎨',
-    group: 'AI工具',
-    description: '智能生成配图',
-  },
-];
+/** In-memory demo store when API is unavailable and preview fallback is enabled. */
+let demoApplets: WechatAppletConfig[] = [];
 
 export class WechatService {
   static async getOfficialAccounts(): Promise<OfficialAccount[]> {
@@ -284,7 +219,7 @@ export class WechatService {
     }
     assertWechatDemoFallbackAllowed();
     await delay(300);
-    return JSON.parse(JSON.stringify(mockOfficialAccounts));
+    return JSON.parse(JSON.stringify(demoOfficialAccounts));
   }
 
   static async saveOfficialAccounts(accounts: OfficialAccount[]): Promise<boolean> {
@@ -304,7 +239,7 @@ export class WechatService {
     }
     assertWechatDemoFallbackAllowed();
     await delay(500);
-    mockOfficialAccounts = JSON.parse(JSON.stringify(accounts));
+    demoOfficialAccounts = JSON.parse(JSON.stringify(accounts));
     return true;
   }
 
@@ -319,7 +254,7 @@ export class WechatService {
     }
     assertWechatDemoFallbackAllowed();
     await delay(300);
-    return JSON.parse(JSON.stringify(mockApplets));
+    return JSON.parse(JSON.stringify(demoApplets));
   }
 
   static async saveApplets(applets: WechatAppletConfig[]): Promise<boolean> {
@@ -339,7 +274,7 @@ export class WechatService {
     }
     assertWechatDemoFallbackAllowed();
     await delay(500);
-    mockApplets = JSON.parse(JSON.stringify(applets));
+    demoApplets = JSON.parse(JSON.stringify(applets));
     return true;
   }
 

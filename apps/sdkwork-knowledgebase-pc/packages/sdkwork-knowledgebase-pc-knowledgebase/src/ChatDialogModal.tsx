@@ -140,7 +140,14 @@ export function ChatDialogModal({ isOpen, onClose, onConfirm }: ChatDialogModalP
 
             {/* Scrolling Dialogue Threads list */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
-              {filteredDialogues.map(d => {
+              {filteredDialogues.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-zinc-400 dark:text-[var(--color-kb-text-muted)]">
+                  <MessageSquare size={40} className="mb-3 opacity-20" />
+                  <p className="text-[12px] font-medium text-center px-4">
+                    暂无可导入的聊天对话。接入 IM 服务后，此处将展示可选择的会话列表。
+                  </p>
+                </div>
+              ) : filteredDialogues.map(d => {
                 const isSelected = selectedIds.has(d.id);
                 const isActive = activeDialogueId === d.id;
                 return (
