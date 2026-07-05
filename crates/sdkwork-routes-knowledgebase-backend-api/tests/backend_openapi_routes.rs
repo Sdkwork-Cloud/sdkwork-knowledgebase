@@ -88,11 +88,7 @@ fn backend_openapi_exposes_standard_rag_admin_operations() {
     .unwrap();
 
     for (operation_id, method, path) in [
-        (
-            "indexes.list",
-            "get",
-            "/backend/v3/api/knowledge/indexes",
-        ),
+        ("indexes.list", "get", "/backend/v3/api/knowledge/indexes"),
         (
             "indexes.create",
             "post",
@@ -138,11 +134,7 @@ fn backend_openapi_exposes_standard_rag_admin_operations() {
             "get",
             "/backend/v3/api/knowledge/provider_health",
         ),
-        (
-            "spaces.list",
-            "get",
-            "/backend/v3/api/knowledge/spaces",
-        ),
+        ("spaces.list", "get", "/backend/v3/api/knowledge/spaces"),
         (
             "spaces.members.list",
             "get",

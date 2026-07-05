@@ -48,3 +48,4 @@ wiremock.workspace = true
 sdkwork-knowledgebase-observability.workspace = true
 sdkwork-knowledgebase-worker = { path = "../sdkwork-knowledgebase-worker" }
 sdkwork-knowledgebase-contract.workspace = true
+sdkwork-knowledgebase-test-support = { path = "../sdkwork-knowledgebase-test-support" }

@@ -12,86 +12,34 @@ interface ChatDialogModalProps {
   onConfirm: (selectedItems: Array<{ title: string; type: string; content?: string }>) => void;
 }
 
-// Full, rich mock dialogue files
-const MOCK_DIALOGUES = [
-  {
-    id: 'cd-1',
-    title: 'RAG 架构与双路召回技术讨论',
-    type: 'markdown',
-    source: '极客 API 研发群',
-    updatedAt: '今天 10:20',
-    messagesCount: 3,
-    avatar: '👨‍💻',
-    messages: [
-      { sender: '樵夫', time: '10:00', text: '大家觉得目前双路召回的召回率还有优化的空间吗？' },
-      { sender: '李四', time: '10:02', text: '建议通过 Denser Retriever 召回密集向量，同时联合本地 BM25 做稀疏检索，最后对结果做互反排名融合 (RRF)。' },
-      { sender: '王五', time: '10:05', text: '同意！如果有高频特定垂直术语，稀疏检索依然非常强大。' }
-    ],
-    markdownContent: `# RAG 架构与双路召回技术讨论\n\n**讨论源自：极客 API 研发群**\n**记录时间：12:00（今天）**\n\n- **樵夫 (10:00)**: 大家觉得目前双路召回的召回率还有优化的空间吗？\n- **李四 (10:02)**: 建议通过 Denser Retriever 召回密集向量，同时联合本地 BM25 做稀疏检索，最后对结果做互反排名融合 (RRF)。\n- **王五 (10:05)**: 同意！如果有高频特定垂直术语，稀疏检索依然非常强大。\n`
-  },
-  {
-    id: 'cd-2',
-    title: '2026年终总结与述职安排细则',
-    type: 'markdown',
-    source: '核心管理层规划会',
-    updatedAt: '昨天 16:45',
-    messagesCount: 3,
-    avatar: '📋',
-    messages: [
-      { sender: 'HR-小美', time: '14:30', text: '各位组长，2026年终总结和述职时间已经完全敲定了，将在下周五举行。' },
-      { sender: '老王', time: '14:35', text: '述职报告重点强调三个词：业务成长、架构优化、团队协同。' },
-      { sender: 'HR-小美', time: '14:36', text: '对！多用数据说话，把未来一年的高价值规划讲透彻。' }
-    ],
-    markdownContent: `# 2026年终总结与述职安排细则\n\n**讨论源自：核心管理层规划会**\n**记录时间：16:45（昨天）**\n\n- **HR-小美 (14:30)**: 各位组长，2026年终总结和述职时间已经完全敲定了，将在下周五举行。\n- **老王 (14:35)**: 述职报告重点强调三个词：业务成长、架构优化、团队协同。\n- **HR-小美 (14:36)**: 对！多用数据说话，把未来一年的高价值规划讲透彻。\n`
-  },
-  {
-    id: 'cd-3',
-    title: '云南大理国庆自驾出游灵感线路',
-    type: 'markdown',
-    source: '户外旅行爱好群',
-    updatedAt: '周一 11:21',
-    messagesCount: 3,
-    avatar: '🏔️',
-    messages: [
-      { sender: 'Lily', time: '11:15', text: '大理游建议租一辆吉普车或敞篷，环洱海开一天自驾。' },
-      { sender: '大王', time: '11:18', text: '洱海周边的喜洲古镇、双廊和磻溪村的S弯绝对不能错过，超级出片。' },
-      { sender: 'Me', time: '11:20', text: '非常赞，避开节假日高峰，冬季去洱海还可以看到远道而来的红嘴鸥。' }
-    ],
-    markdownContent: `# 云南大理国庆自驾出游灵感线路\n\n**讨论源自：户外旅行爱好群**\n**记录时间：11:21（周一）**\n\n- **Lily (11:15)**: 大理游建议租一辆吉普车或敞篷，环洱海开一天自驾。\n- **大王 (11:18)**: 洱海周边的喜洲古镇、双廊和磻溪村的S弯绝对不能错过，超级出片。\n- **Me (11:20)**: 非常赞，避开节假日高峰，冬季去洱海还可以看到远道而来的红嘴鸥。\n`
-  },
-  {
-    id: 'cd-4',
-    title: '精美实用智能桌面小组件 App 策划案',
-    type: 'markdown',
-    source: '初创合伙人灵感头脑风暴',
-    updatedAt: '4月20日',
-    messagesCount: 3,
-    avatar: '💡',
-    messages: [
-      { sender: '设计师-小敏', time: '09:02', text: '桌面端应用，小组件设计务必采用高对比度的极简黑白灰，以及低饱和的中性色调。' },
-      { sender: '产品经理-老张', time: '09:05', text: '功能要把 Gemini 交互直接整合到桌面面板上，支持记录每日的心情、账本和打卡。' },
-      { sender: '架构师-老谢', time: '09:10', text: '本地端可以做轻量级会话状态存储，多端做云端同步保持。' }
-    ],
-    markdownContent: `# 精美实用智能桌面小组件 App 策划案\n\n**讨论源自：初创合伙人灵感头脑风暴**\n**记录时间：09:10（4月20日）**\n\n- **设计师-小敏 (09:02)**: 桌面端应用，小组件设计务必采用高对比度的极简黑白灰，以及低饱和的中性色调。\n- **产品经理-老张 (09:05)**: 功能要把 Gemini 交互直接整合到桌面面板上，支持记录每日的心情、账本和打卡。\n- **架构师-老谢 (09:10)**: 本地端可以做轻量级会话状态存储，多端做云端同步保持。\n`
-  }
-];
+const CHAT_DIALOGUE_ITEMS: Array<{
+  id: string;
+  title: string;
+  type: string;
+  source: string;
+  updatedAt: string;
+  messagesCount: number;
+  avatar: string;
+  messages: Array<{ sender: string; time: string; text: string }>;
+  markdownContent: string;
+}> = [];
 
 export function ChatDialogModal({ isOpen, onClose, onConfirm }: ChatDialogModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(['cd-1'])); // Prefilled
-  const [activeDialogueId, setActiveDialogueId] = useState<string>('cd-1');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activeDialogueId, setActiveDialogueId] = useState<string | null>(null);
 
   const filteredDialogues = useMemo(() => {
-    if (isBlank(searchQuery)) return MOCK_DIALOGUES;
+    if (isBlank(searchQuery)) return CHAT_DIALOGUE_ITEMS;
     const query = searchQuery.toLowerCase();
-    return MOCK_DIALOGUES.filter(d => 
+    return CHAT_DIALOGUE_ITEMS.filter(d => 
       d.title.toLowerCase().includes(query) || d.source.toLowerCase().includes(query)
     );
   }, [searchQuery]);
 
   // Currently viewing dialogue details in the right section
   const currentDialogueDetails = useMemo(() => {
-    return MOCK_DIALOGUES.find(d => d.id === activeDialogueId) || MOCK_DIALOGUES[0];
+    return CHAT_DIALOGUE_ITEMS.find(d => d.id === activeDialogueId) ?? null;
   }, [activeDialogueId]);
 
   if (!isOpen) return null;
@@ -120,7 +68,7 @@ export function ChatDialogModal({ isOpen, onClose, onConfirm }: ChatDialogModalP
   };
 
   const handleImportSubmit = () => {
-    const selectedObjs = MOCK_DIALOGUES.filter(d => selectedIds.has(d.id));
+    const selectedObjs = CHAT_DIALOGUE_ITEMS.filter(d => selectedIds.has(d.id));
     if (selectedObjs.length === 0) return;
 
     const mapped = selectedObjs.map(d => ({

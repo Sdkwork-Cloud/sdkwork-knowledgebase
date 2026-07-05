@@ -432,12 +432,9 @@ fn parse_binding_cursor_id(
     let Some(cursor) = cursor.map(str::trim).filter(|value| !value.is_empty()) else {
         return Ok(None);
     };
-    cursor
-        .parse::<i64>()
-        .map(Some)
-        .map_err(|_| {
-            KnowledgeContextBindingStoreError::InvalidRequest(
-                "cursor must be a valid binding id".to_string(),
-            )
-        })
+    cursor.parse::<i64>().map(Some).map_err(|_| {
+        KnowledgeContextBindingStoreError::InvalidRequest(
+            "cursor must be a valid binding id".to_string(),
+        )
+    })
 }

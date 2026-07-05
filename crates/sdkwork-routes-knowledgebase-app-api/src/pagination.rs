@@ -2,8 +2,8 @@
 
 use sdkwork_knowledgebase_contract::KnowledgeBrowserNode;
 use sdkwork_utils_rust::{
-    DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE, PageInfo, PageMode, SdkWorkPageData,
-    SdkWorkResultCode,
+    PageInfo, PageMode, SdkWorkPageData, SdkWorkResultCode, DEFAULT_LIST_PAGE_SIZE,
+    MAX_LIST_PAGE_SIZE,
 };
 
 /// Normalize optional `page_size` to the canonical default (20) with max 200.
@@ -51,12 +51,7 @@ pub fn browser_list_page_data(
     next_cursor: Option<String>,
     page_size: u32,
 ) -> SdkWorkPageData<KnowledgeBrowserNode> {
-    cursor_page_data(
-        items,
-        next_cursor.clone(),
-        next_cursor.is_some(),
-        page_size,
-    )
+    cursor_page_data(items, next_cursor.clone(), next_cursor.is_some(), page_size)
 }
 
 #[cfg(test)]

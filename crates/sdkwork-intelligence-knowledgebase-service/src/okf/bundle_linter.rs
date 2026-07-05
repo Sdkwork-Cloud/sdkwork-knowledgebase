@@ -52,7 +52,10 @@ impl<'a> OkfBundleLinterService<'a> {
         space_id: u64,
         drive_space_id: Option<&str>,
     ) -> Result<OkfBundleLintReport, OkfBundleLinterError> {
-        let concepts = self.concept_store.list_concept_summaries(space_id, None).await?;
+        let concepts = self
+            .concept_store
+            .list_concept_summaries(space_id, None)
+            .await?;
         let known = concepts
             .iter()
             .map(|concept| concept.concept_id.clone())

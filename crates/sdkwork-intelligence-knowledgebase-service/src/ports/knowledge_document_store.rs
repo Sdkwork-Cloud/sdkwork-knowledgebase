@@ -31,9 +31,7 @@ pub trait KnowledgeDocumentStore: Send + Sync {
         space_id: u64,
         limit: u32,
     ) -> Result<Vec<KnowledgeDocument>, KnowledgeDocumentStoreError> {
-        let (items, _, _) = self
-            .list_documents_page(space_id, None, limit)
-            .await?;
+        let (items, _, _) = self.list_documents_page(space_id, None, limit).await?;
         Ok(items)
     }
 

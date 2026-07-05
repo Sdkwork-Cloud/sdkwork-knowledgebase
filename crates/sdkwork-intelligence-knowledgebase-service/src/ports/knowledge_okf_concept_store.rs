@@ -44,7 +44,10 @@ pub trait KnowledgeOkfConceptStore: Send + Sync {
             .list_concept_summaries(space_id, Some(fetch_limit))
             .await?;
         let has_more = items.len() > page_size as usize;
-        let items = items.into_iter().take(page_size as usize).collect::<Vec<_>>();
+        let items = items
+            .into_iter()
+            .take(page_size as usize)
+            .collect::<Vec<_>>();
         Ok((items, None, has_more))
     }
 

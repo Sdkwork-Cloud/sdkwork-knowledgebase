@@ -7,8 +7,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::
     HeadKnowledgeObjectRequest, KnowledgeDriveStorage,
 };
 use sdkwork_intelligence_knowledgebase_service::tenant_quota::{
-    build_quota_status, ensure_document_capacity, ensure_ingest_concurrency, ensure_storage_capacity,
-    TenantQuotaExceeded, TenantQuotaKind,
+    build_quota_status, ensure_document_capacity, ensure_ingest_concurrency,
+    ensure_storage_capacity, TenantQuotaExceeded, TenantQuotaKind,
 };
 use sdkwork_knowledgebase_contract::ingest::KnowledgeDriveImportRequest;
 use sdkwork_knowledgebase_contract::KnowledgeTenantQuotaStatus;

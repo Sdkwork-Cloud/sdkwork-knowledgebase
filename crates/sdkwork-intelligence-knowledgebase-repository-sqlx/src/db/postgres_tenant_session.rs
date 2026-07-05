@@ -24,9 +24,11 @@ pub fn require_postgres_rls_tenant_id() -> Result<u64, PoolError> {
     Ok(if tenant_id == 0 { 1 } else { tenant_id })
 }
 
-/// Sets `app.current_tenant_id` on the active Postgres connection (not transaction-local).
+/// Sets `app.current_tenant_id` on the active Postgres connection.
 ///
-/// Call after pool checkout before tenant-scoped queries when multiple tenants share one database.
+/// For deployment-dedicated processes, `after_connect` sets the deployment tenant.
+/// For shared Postgres pools, call this after every `acquire()` with the authenticated
+/// request tenant before running tenant-scoped queries.
 pub async fn set_postgres_session_tenant_id<'e, E>(
     executor: E,
     tenant_id: u64,

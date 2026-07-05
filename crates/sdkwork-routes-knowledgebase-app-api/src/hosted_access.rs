@@ -316,12 +316,7 @@ pub(crate) async fn list_space_members_admin_with_runtime(
         .with_registry(&file_registry)
         .with_drive_workspace(runtime.drive_workspace());
     let members = space_service(runtime, &okf_initializer)
-        .list_space_members_admin(
-            space_id,
-            runtime.tenant_id_str(),
-            cursor,
-            page_size,
-        )
+        .list_space_members_admin(space_id, runtime.tenant_id_str(), cursor, page_size)
         .await
         .map_err(ApiError::from)?;
     Ok(KnowledgeSpaceMemberList {

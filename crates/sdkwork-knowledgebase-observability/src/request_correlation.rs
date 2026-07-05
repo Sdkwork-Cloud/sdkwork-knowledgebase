@@ -149,7 +149,10 @@ mod tests {
         let payload: serde_json::Value = serde_json::from_slice(&body).expect("json");
         assert_eq!(0, payload["code"].as_i64().unwrap());
         assert_eq!(1, payload["data"]["items"][0]["id"].as_i64().unwrap());
-        assert_eq!("cursor", payload["data"]["pageInfo"]["mode"].as_str().unwrap());
+        assert_eq!(
+            "cursor",
+            payload["data"]["pageInfo"]["mode"].as_str().unwrap()
+        );
         assert!(payload.get("data").unwrap().get("item").is_none());
         assert!(payload["traceId"].as_str().is_some());
     }

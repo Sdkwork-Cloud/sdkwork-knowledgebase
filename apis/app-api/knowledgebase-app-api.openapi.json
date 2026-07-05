@@ -10453,22 +10453,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/SdkWorkApiResponse"
-                    },
-                    {
-                      "type": "object",
-                      "required": [
-                        "data"
-                      ],
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/KnowledgeGitSyncResult"
-                        }
-                      }
-                    }
-                  ]
+                  "$ref": "#/components/schemas/KnowledgeGitSyncResult"
                 }
               }
             }
@@ -10776,7 +10761,8 @@
         "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
-        "x-sdkwork-auth-mode": "dual-token"
+        "x-sdkwork-auth-mode": "dual-token",
+        "description": "List knowledge market catalog listings"
       }
     },
     "/app/v3/api/knowledge/market/subscriptions": {
@@ -10940,7 +10926,8 @@
         "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
-        "x-sdkwork-auth-mode": "dual-token"
+        "x-sdkwork-auth-mode": "dual-token",
+        "description": "Subscribe to a knowledge market listing"
       }
     },
     "/app/v3/api/knowledge/market/subscriptions/{listingId}": {
@@ -11105,7 +11092,8 @@
         "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
-        "x-sdkwork-auth-mode": "dual-token"
+        "x-sdkwork-auth-mode": "dual-token",
+        "description": "Unsubscribe from a knowledge market listing"
       }
     },
     "/app/v3/api/knowledge/site_deployments": {
@@ -11269,7 +11257,8 @@
         "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
-        "x-sdkwork-auth-mode": "dual-token"
+        "x-sdkwork-auth-mode": "dual-token",
+        "description": "Deploy a knowledge space as a static website"
       }
     },
     "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview": {
@@ -11442,7 +11431,8 @@
         "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
-        "x-sdkwork-auth-mode": "dual-token"
+        "x-sdkwork-auth-mode": "dual-token",
+        "description": "Retrieve site deployment preview HTML"
       }
     },
     "/app/v3/api/knowledge/media_tasks": {
@@ -11606,7 +11596,8 @@
         "x-sdkwork-api-surface": "app-api",
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-rate-limit-tier": "auth-critical",
-        "x-sdkwork-auth-mode": "dual-token"
+        "x-sdkwork-auth-mode": "dual-token",
+        "description": "Create a knowledge media task (image generation or speech-to-text)"
       }
     }
   },

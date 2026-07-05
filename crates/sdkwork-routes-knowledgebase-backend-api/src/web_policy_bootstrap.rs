@@ -1,8 +1,8 @@
 //! Idempotent dev/staging seeds for tenant-scoped web policy tables.
 
+use sdkwork_utils_rust::is_blank;
 use sdkwork_web_core::{limits_for_tier, rate_limit_tier_key, RateLimitTier};
 use sdkwork_web_store_sqlx::WebStoreDatabaseHost;
-use sdkwork_utils_rust::is_blank;
 
 const DEFAULT_TENANT_ID: &str = "100001";
 

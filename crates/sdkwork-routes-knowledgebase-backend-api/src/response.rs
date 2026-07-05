@@ -1,10 +1,12 @@
 use axum::{http::StatusCode, response::Response};
-use serde::Serialize;
 use sdkwork_utils_rust::SdkWorkPageData;
+use serde::Serialize;
 
 use crate::error::{BackendApiProblem, BackendApiResult};
 
-pub(crate) fn ok_list_json<T>(result: BackendApiResult<SdkWorkPageData<T>>) -> Result<Response, BackendApiProblem>
+pub(crate) fn ok_list_json<T>(
+    result: BackendApiResult<SdkWorkPageData<T>>,
+) -> Result<Response, BackendApiProblem>
 where
     T: Serialize,
 {

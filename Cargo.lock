@@ -2894,6 +2894,7 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-utils-rust",
+ "serde_json",
  "tokio",
 ]
 
@@ -3019,6 +3020,7 @@ dependencies = [
  "sdkwork-knowledgebase-engine-ragflow",
  "sdkwork-knowledgebase-engine-weaviate",
  "sdkwork-knowledgebase-observability",
+ "sdkwork-knowledgebase-test-support",
  "sdkwork-knowledgebase-worker",
  "sdkwork-routes-knowledgebase-backend-api",
  "sdkwork-routes-knowledgebase-open-api",

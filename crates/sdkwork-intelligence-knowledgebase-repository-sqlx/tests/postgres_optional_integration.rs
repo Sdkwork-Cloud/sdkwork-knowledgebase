@@ -134,9 +134,7 @@ async fn postgres_agent_profile_create_when_database_url_configured() {
 
     use sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeAgentProfileStore;
     use sdkwork_intelligence_knowledgebase_service::ports::knowledge_agent_profile_store::KnowledgeAgentProfileStore;
-    use sdkwork_knowledgebase_contract::rag::{
-        KnowledgeAgentProfileRequest, KnowledgeAgentStatus,
-    };
+    use sdkwork_knowledgebase_contract::rag::{KnowledgeAgentProfileRequest, KnowledgeAgentStatus};
 
     let pool = connect_postgres_and_install_schema(&database_url)
         .await
@@ -164,7 +162,8 @@ async fn postgres_agent_profile_create_when_database_url_configured() {
             answer_policy: None,
             status: KnowledgeAgentStatus::Active,
             knowledge_mode: Default::default(),
-            agent_implementation_id: sdkwork_knowledgebase_contract::default_agent_implementation_id(),
+            agent_implementation_id:
+                sdkwork_knowledgebase_contract::default_agent_implementation_id(),
         })
         .await
         .expect("create agent profile on postgres");

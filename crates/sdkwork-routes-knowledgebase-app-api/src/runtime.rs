@@ -283,7 +283,8 @@ impl KnowledgebaseRuntime {
                 ),
         }));
 
-        let audit_event_store = Arc::new(SqliteKnowledgeAuditEventStore::new(pool.clone(), tenant_id));
+        let audit_event_store =
+            Arc::new(SqliteKnowledgeAuditEventStore::new(pool.clone(), tenant_id));
         let audit_hook_store = audit_event_store.clone();
         sdkwork_knowledgebase_observability::install_audit_persistence(Arc::new(move |event| {
             audit_hook_store.record(KnowledgeAuditEventRecord {

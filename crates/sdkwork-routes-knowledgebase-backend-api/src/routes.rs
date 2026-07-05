@@ -111,10 +111,7 @@ pub fn build_business_router_with_shared_backend_api(
             get(handlers::retrieve_current_tenant),
         )
         .route(paths::SPACES, get(handlers::list_spaces))
-        .route(
-            paths::SPACE_MEMBERS,
-            get(handlers::list_space_members),
-        )
+        .route(paths::SPACE_MEMBERS, get(handlers::list_space_members))
         .route(
             paths::COMPLIANCE_AUDIT_EVENTS_EXPORT,
             post(handlers::export_audit_events),

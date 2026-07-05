@@ -12,9 +12,8 @@ use sdkwork_knowledgebase_contract::upload::{
 use sdkwork_utils_rust::is_blank;
 
 use crate::{
-    hosted_access::require_space_access,
-    runtime::KnowledgebaseRuntime,
-    ApiError, ApiResult, KnowledgeAppRequestContext, KnowledgeUploadSessionAppService,
+    hosted_access::require_space_access, runtime::KnowledgebaseRuntime, ApiError, ApiResult,
+    KnowledgeAppRequestContext, KnowledgeUploadSessionAppService,
 };
 
 #[derive(Clone)]

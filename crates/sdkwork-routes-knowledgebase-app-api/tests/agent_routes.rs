@@ -388,11 +388,7 @@ fn request(method: &str, uri: &str, body: impl Into<String>) -> Request<Body> {
 async fn response_json(response: axum::response::Response) -> Value {
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     let value: Value = serde_json::from_slice(&bytes).unwrap();
-    if value["code"].as_i64() == Some(0) {
-        value["data"]["item"].clone()
-    } else {
-        value
-    }
+    sdkwork_knowledgebase_test_support::api_envelope::unwrap_payload_or_envelope(&value)
 }
 
 fn profile_body(name: &str) -> String {

@@ -10,23 +10,23 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile,
     KnowledgeAgentProfileRequest, KnowledgeBrowserNode, KnowledgeContextPack,
-    KnowledgeContextPackRequest,     KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion,
-    KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest,
-    KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult,
-    KnowledgeIngestRequest, KnowledgeMarketCatalogList, KnowledgeMarketSubscriptionRequest,
-    KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult,
-    KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest,
-    KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest,
-    KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceMember,
-    KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, KnowledgeWechatAppletList,
-    KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest,
-    KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
-    KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
-    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
-    OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest,
-    OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
-    OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult,
-    UpdateKnowledgeSpaceRequest,
+    KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent,
+    KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult,
+    KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest,
+    KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem,
+    KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult,
+    KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile,
+    KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
+    KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
+    KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession,
+    KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
+    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatOfficialAccountList,
+    KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest,
+    KnowledgeWechatReplaceOfficialAccountsRequest, ListKnowledgeBrowserRequest,
+    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary,
+    OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument,
+    OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest,
+    OkfQueryResult, UpdateKnowledgeSpaceRequest,
 };
 use sdkwork_utils_rust::SdkWorkPageData;
 use std::sync::Arc;
@@ -865,9 +865,11 @@ impl KnowledgeAppApi for FullAppApi {
         cursor: Option<String>,
         page_size: Option<u32>,
         context_type: Option<sdkwork_knowledgebase_contract::context_binding::KnowledgeContextType>,
-    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<
-        sdkwork_knowledgebase_contract::context_binding::KnowledgeSpaceContextBinding,
-    >> {
+    ) -> ApiResult<
+        sdkwork_utils_rust::SdkWorkPageData<
+            sdkwork_knowledgebase_contract::context_binding::KnowledgeSpaceContextBinding,
+        >,
+    > {
         self.context_binding
             .list_space_context_bindings(context, space_id, cursor, page_size, context_type)
             .await
@@ -987,8 +989,12 @@ impl KnowledgeAppApi for FullAppApi {
     async fn list_market_listings(
         &self,
         context: KnowledgeAppRequestContext,
-    ) -> ApiResult<KnowledgeMarketCatalogList> {
-        self.commerce.list_market_listings(context).await
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<KnowledgeMarketCatalogItem>> {
+        self.commerce
+            .list_market_listings(context, cursor, page_size)
+            .await
     }
 
     async fn create_market_subscription(

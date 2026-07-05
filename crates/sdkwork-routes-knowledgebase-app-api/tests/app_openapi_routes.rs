@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
-use sdkwork_knowledgebase_contract::browser::{ListKnowledgeBrowserRequest};
+use sdkwork_knowledgebase_contract::browser::ListKnowledgeBrowserRequest;
 use sdkwork_routes_knowledgebase_app_api::{
     build_router_with_browser, pagination::browser_list_page_data, ApiResult,
     KnowledgeAppRequestContext, KnowledgeBrowserApi,
@@ -193,11 +193,22 @@ fn app_openapi_exposes_standard_rag_and_knowledge_agent_operations() {
 }
 
 #[test]
-fn app_openapi_exposes_commerce_git_sync_and_media_operations() {
+fn app_openapi_commerce_git_and_media_operations_use_envelopes() {
     let spec: Value = serde_json::from_str(include_str!(
         "../../../sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json"
     ))
     .unwrap();
+
+    assert_list_response_envelope(
+        &spec,
+        "market.listings.list",
+        "#/components/schemas/KnowledgeMarketCatalogItem",
+    );
+    assert_list_response_envelope(
+        &spec,
+        "spaces.contextBindings.list",
+        "#/components/schemas/KnowledgeSpaceContextBinding",
+    );
 
     for (operation_id, method, path) in [
         ("gitSyncs.create", "post", "/app/v3/api/knowledge/git_syncs"),
@@ -249,7 +260,7 @@ fn app_openapi_exposes_commerce_git_sync_and_media_operations() {
     for schema_name in [
         "KnowledgeGitSyncRequest",
         "KnowledgeGitSyncResult",
-        "KnowledgeMarketCatalogList",
+        "KnowledgeMarketCatalogItem",
         "KnowledgeMarketSubscriptionRequest",
         "KnowledgeMarketSubscriptionResult",
         "KnowledgeSiteDeploymentRequest",
@@ -438,7 +449,13 @@ impl KnowledgeBrowserApi for EmptyBrowserApi {
         &self,
         _context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>> {
-        Ok(browser_list_page_data(vec![], None, request.page_size.unwrap_or(1)))
+    ) -> ApiResult<
+        sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>,
+    > {
+        Ok(browser_list_page_data(
+            vec![],
+            None,
+            request.page_size.unwrap_or(1),
+        ))
     }
 }

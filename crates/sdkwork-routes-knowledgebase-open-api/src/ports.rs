@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
     IngestionJob, KnowledgeBrowserNode, KnowledgeContextPack, KnowledgeContextPackRequest,
-    KnowledgeDocument, KnowledgeDocumentList, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
-    KnowledgeRetrievalResult, ListKnowledgeBrowserRequest,
+    KnowledgeDocument, KnowledgeIngestRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
+    ListKnowledgeBrowserRequest,
 };
 use sdkwork_utils_rust::SdkWorkPageData;
 
@@ -62,7 +62,9 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         &self,
         _context: KnowledgeOpenApiRequestContext,
         _space_id: u64,
-    ) -> ApiResult<KnowledgeDocumentList> {
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeDocument>> {
         Err(ApiError::not_implemented("documents.list"))
     }
 

@@ -95,10 +95,7 @@ impl SqliteKnowledgeAuditEventStore {
             .map_err(|_| {
                 KnowledgeAuditEventStoreError::InvalidRequest("resource_id".to_string())
             })?;
-        let payload = event
-            .payload
-            .as_ref()
-            .map(ToString::to_string);
+        let payload = event.payload.as_ref().map(ToString::to_string);
         let now = utc_sql_timestamp_text()
             .map_err(|error| KnowledgeAuditEventStoreError::InvalidRequest(error))?;
 
@@ -172,15 +169,25 @@ impl SqliteKnowledgeAuditEventStore {
                 Ok(KnowledgeAuditEventRecord {
                     id: Some(id),
                     uuid: row.try_get("uuid").ok(),
-                    event_type: row.try_get("event_type").map_err(KnowledgeAuditEventStoreError::Database)?,
-                    actor_type: row.try_get("actor_type").map_err(KnowledgeAuditEventStoreError::Database)?,
-                    actor_id: row.try_get("actor_id").map_err(KnowledgeAuditEventStoreError::Database)?,
-                    resource_type: row.try_get("resource_type").map_err(KnowledgeAuditEventStoreError::Database)?,
+                    event_type: row
+                        .try_get("event_type")
+                        .map_err(KnowledgeAuditEventStoreError::Database)?,
+                    actor_type: row
+                        .try_get("actor_type")
+                        .map_err(KnowledgeAuditEventStoreError::Database)?,
+                    actor_id: row
+                        .try_get("actor_id")
+                        .map_err(KnowledgeAuditEventStoreError::Database)?,
+                    resource_type: row
+                        .try_get("resource_type")
+                        .map_err(KnowledgeAuditEventStoreError::Database)?,
                     resource_id: row
                         .try_get::<Option<i64>, _>("resource_id")
                         .map_err(KnowledgeAuditEventStoreError::Database)?
                         .map(|value| value as u64),
-                    result: row.try_get("result").map_err(KnowledgeAuditEventStoreError::Database)?,
+                    result: row
+                        .try_get("result")
+                        .map_err(KnowledgeAuditEventStoreError::Database)?,
                     request_id: row.try_get("request_id").ok(),
                     trace_id: row.try_get("trace_id").ok(),
                     payload: None,
@@ -293,10 +300,7 @@ mod tests {
                 .expect("append");
         }
 
-        let events = store
-            .list_events_by_actor("42", 100)
-            .await
-            .expect("list");
+        let events = store.list_events_by_actor("42", 100).await.expect("list");
         assert_eq!(events.len(), 2);
         assert!(events.iter().all(|event| event.actor_id == "42"));
     }

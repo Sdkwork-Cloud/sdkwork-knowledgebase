@@ -69,7 +69,7 @@ describe('knowledgebase permission bootstrap alignment', () => {
     assert.match(bootstrap, /sdkwork_iam_gateway_assembly::assemble_application_business_router/);
     assert.match(bootstrap, /SDKWORK_IAM_APP_API_HOST_MOUNTED/);
     assert.doesNotMatch(cargoToml, /sdkwork-routes-iam-app-api/);
-    assert.match(cargoToml, /sdkwork-iam-gateway-assembly/);
+    assert.match(cargoToml, /sdkwork_iam_gateway_assembly/);
   });
 
   it('pc surface declares permissionComposition inheritance', () => {

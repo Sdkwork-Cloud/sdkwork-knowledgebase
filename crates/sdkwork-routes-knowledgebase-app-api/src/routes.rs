@@ -296,6 +296,13 @@ struct ListContextBindingsQuery {
     context_type: Option<sdkwork_knowledgebase_contract::context_binding::KnowledgeContextType>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListMarketListingsQuery {
+    cursor: Option<String>,
+    page_size: Option<u32>,
+}
+
 async fn create_space(
     State(state): State<AppState>,
     context: RequiredAppContext,
@@ -477,9 +484,15 @@ async fn preview_wechat_articles(
 async fn list_market_listings(
     State(state): State<AppState>,
     context: RequiredAppContext,
+    Query(query): Query<ListMarketListingsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ok_json(state.api.list_market_listings(context).await)
+    ok_list_json(
+        state
+            .api
+            .list_market_listings(context, query.cursor, query.page_size)
+            .await,
+    )
 }
 
 async fn create_market_subscription(
@@ -1179,7 +1192,9 @@ async fn complete_upload_session(
     )
 }
 
-fn ok_list_json<T>(result: ApiResult<sdkwork_utils_rust::SdkWorkPageData<T>>) -> Result<Response, ApiProblem>
+fn ok_list_json<T>(
+    result: ApiResult<sdkwork_utils_rust::SdkWorkPageData<T>>,
+) -> Result<Response, ApiProblem>
 where
     T: Serialize,
 {

@@ -12,25 +12,24 @@ use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile,
-    KnowledgeAgentProfileRequest,     KnowledgeBrowserNode, KnowledgeContextPack,
+    KnowledgeAgentProfileRequest, KnowledgeBrowserNode, KnowledgeContextPack,
     KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent,
-    KnowledgeDocumentVersion,
-    KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest,
-    KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult,
-    KnowledgeIngestRequest, KnowledgeMarketCatalogList, KnowledgeMarketSubscriptionRequest,
-    KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult,
-    KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest,
-    KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest,
-    KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceMember,
-    KnowledgeSpaceMemberSubjectType, KnowledgeWechatAppletList,
-    KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest,
-    KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
-    KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
-    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
-    OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest,
-    OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
-    OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult,
-    UpdateKnowledgeSpaceRequest,
+    KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult,
+    KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest,
+    KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem,
+    KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult,
+    KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile,
+    KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
+    KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
+    KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType,
+    KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
+    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatOfficialAccountList,
+    KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest,
+    KnowledgeWechatReplaceOfficialAccountsRequest, ListKnowledgeBrowserRequest,
+    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary,
+    OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument,
+    OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest,
+    OkfQueryResult, UpdateKnowledgeSpaceRequest,
 };
 use sdkwork_utils_rust::SdkWorkPageData;
 
@@ -161,7 +160,9 @@ pub trait KnowledgeCommerceAppService: Send + Sync + 'static {
     async fn list_market_listings(
         &self,
         context: KnowledgeAppRequestContext,
-    ) -> ApiResult<KnowledgeMarketCatalogList>;
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<KnowledgeMarketCatalogItem>>;
 
     async fn create_market_subscription(
         &self,
@@ -1045,7 +1046,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
     async fn list_market_listings(
         &self,
         _context: KnowledgeAppRequestContext,
-    ) -> ApiResult<KnowledgeMarketCatalogList> {
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<KnowledgeMarketCatalogItem>> {
         Err(ApiError::not_implemented("market.listings.list"))
     }
 

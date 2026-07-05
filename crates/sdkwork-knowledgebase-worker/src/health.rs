@@ -60,6 +60,7 @@ mod tests {
 
     #[tokio::test]
     async fn livez_returns_ok_without_readiness_dependency() {
+        sqlx::any::install_default_drivers();
         let pool = sqlx::AnyPool::connect("sqlite::memory:")
             .await
             .expect("sqlite memory pool");

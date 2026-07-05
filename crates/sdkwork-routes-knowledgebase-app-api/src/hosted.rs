@@ -27,28 +27,26 @@ use sdkwork_intelligence_knowledgebase_service::{
 };
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
-    CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
-    KnowledgeDocument, KnowledgeDocumentContent,
-    KnowledgeDocumentVersion, KnowledgeDocumentVisibility,
+    CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob, KnowledgeDocument,
+    KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDocumentVisibility,
     KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest,
     KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult,
     KnowledgeIngestRequest, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList,
     KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType,
     ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleFileKind, OkfBundleImportRequest,
-    OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest,
-    OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument,
-    OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult,
-    PublishKnowledgeOkfConceptRequest, UpdateKnowledgeSpaceRequest,
+    OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest, OkfContextPackRequest,
+    OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun,
+    OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PublishKnowledgeOkfConceptRequest,
+    UpdateKnowledgeSpaceRequest,
 };
 use sdkwork_utils_rust::{is_blank, SdkWorkPageData};
 
 use crate::{
     hosted_access::{
         create_space_with_context, delete_space_with_context, ensure_runtime_tenant,
-        grant_space_member_with_context,
-        list_space_members_with_context, require_document_access, require_ingest_access,
-        require_okf_concept_space_access, require_space_access, revoke_space_member_with_context,
-        update_space_with_context,
+        grant_space_member_with_context, list_space_members_with_context, require_document_access,
+        require_ingest_access, require_okf_concept_space_access, require_space_access,
+        revoke_space_member_with_context, update_space_with_context,
     },
     hosted_support::{
         build_okf_context_pack_from_engine, concept_to_summary, create_okf_bundle_export,
@@ -172,7 +170,7 @@ impl KnowledgeIngestAppService for HostedIngestService {
         request: KnowledgeIngestRequest,
     ) -> ApiResult<IngestionJob> {
         let space_id = request.space_id;
-        let space =         require_space_access(&self.runtime, &context, space_id).await?;
+        let space = require_space_access(&self.runtime, &context, space_id).await?;
         crate::tenant_quota_enforcement::ensure_tenant_can_start_ingest(&self.runtime).await?;
         crate::tenant_quota_enforcement::ensure_tenant_can_add_storage(
             &self.runtime,

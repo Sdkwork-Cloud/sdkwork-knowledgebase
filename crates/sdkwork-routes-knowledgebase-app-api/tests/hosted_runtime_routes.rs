@@ -4200,11 +4200,7 @@ async fn response_body_json(response: axum::response::Response) -> Value {
         .await
         .expect("read response body");
     let value: Value = serde_json::from_slice(&bytes).expect("parse response json");
-    if value["code"].as_i64() == Some(0) {
-        value["data"]["item"].clone()
-    } else {
-        value
-    }
+    sdkwork_knowledgebase_test_support::api_envelope::unwrap_payload_or_envelope(&value)
 }
 
 fn json_u64_field(body: &Value, field: &str) -> Option<u64> {

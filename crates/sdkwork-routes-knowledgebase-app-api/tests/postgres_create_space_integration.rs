@@ -154,7 +154,8 @@ async fn postgres_runtime_creates_space_through_app_router() {
         .as_str()
         .expect("second drive space id");
     assert_ne!(
-        second_drive_space_id, first_drive_space_id.as_str(),
+        second_drive_space_id,
+        first_drive_space_id.as_str(),
         "each knowledge space must bind a dedicated drive space"
     );
 }

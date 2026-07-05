@@ -1,7 +1,5 @@
 use async_trait::async_trait;
-use sdkwork_knowledgebase_contract::market::{
-    KnowledgeMarketCatalogItem, KnowledgeMarketCatalogList,
-};
+use sdkwork_knowledgebase_contract::market::KnowledgeMarketCatalogItem;
 use sdkwork_knowledgebase_contract::site_deployment::{
     KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
 };
@@ -30,11 +28,13 @@ pub enum KnowledgeSiteDeploymentStoreError {
 
 #[async_trait]
 pub trait KnowledgeMarketStore: Send + Sync {
-    async fn list_catalog(
+    async fn list_catalog_page(
         &self,
         tenant_id: u64,
         subscriber_actor_id: Option<u64>,
-    ) -> Result<KnowledgeMarketCatalogList, KnowledgeMarketStoreError>;
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeMarketCatalogItem>, Option<String>, bool), KnowledgeMarketStoreError>;
 
     async fn subscribe(
         &self,

@@ -103,19 +103,8 @@ async function listDriveCollectionItems(
   ) => Promise<{ items: DriveNode[]; nextPageToken?: string }>,
 ): Promise<CloudDriveBrowserItem[]> {
   const driveSpaceId = await resolveDriveSpaceId(kbId);
-  const drive = requireDriveClient();
-  const items: CloudDriveBrowserItem[] = [];
-  let pageToken: string | undefined;
-
-  do {
-    const page = await listPage(driveSpaceId, pageToken);
-    for (const node of page.items ?? []) {
-      items.push(mapDriveNode(node));
-    }
-    pageToken = page.nextPageToken;
-  } while (pageToken);
-
-  return items;
+  const page = await listPage(driveSpaceId, undefined);
+  return (page.items ?? []).map(mapDriveNode);
 }
 
 function mapBrowserNode(node: KnowledgeBrowserNode): CloudDriveBrowserItem {
@@ -163,31 +152,34 @@ function mapMimeToLegacyType(name: string, mimeType?: string | null): string {
   return 'file';
 }
 
+export async function listCloudDriveBrowserItemsPage(
+  spaceId: string,
+  parentId?: string | null,
+  cursor?: string | null,
+): Promise<{ items: CloudDriveBrowserItem[]; nextCursor: string | null; hasMore: boolean }> {
+  const client = requireSdkClient();
+  const numericSpaceId = spaceIdFromKbId(spaceId);
+  const page = normalizeSdkWorkListPage(
+    await client.knowledge.spaces.browser.list(numericSpaceId, {
+      view: 'files',
+      parentId: parentId ?? null,
+      cursor,
+      pageSize: 100,
+    }),
+  );
+  return {
+    items: page.items.map(mapBrowserNode),
+    nextCursor: page.nextCursor,
+    hasMore: page.hasMore,
+  };
+}
+
 export async function listCloudDriveBrowserItems(
   spaceId: string,
   parentId?: string | null,
 ): Promise<CloudDriveBrowserItem[]> {
-  const client = requireSdkClient();
-  const numericSpaceId = spaceIdFromKbId(spaceId);
-  const items: CloudDriveBrowserItem[] = [];
-  let cursor: string | null | undefined;
-
-  do {
-    const page = normalizeSdkWorkListPage(
-      await client.knowledge.spaces.browser.list(numericSpaceId, {
-        view: 'files',
-        parentId: parentId ?? null,
-        cursor,
-        pageSize: 100,
-      }),
-    );
-    for (const node of page.items) {
-      items.push(mapBrowserNode(node));
-    }
-    cursor = page.hasMore ? page.nextCursor : null;
-  } while (cursor);
-
-  return items;
+  const page = await listCloudDriveBrowserItemsPage(spaceId, parentId);
+  return page.items;
 }
 
 export async function listStarredCloudDriveItems(kbId: string): Promise<CloudDriveBrowserItem[]> {

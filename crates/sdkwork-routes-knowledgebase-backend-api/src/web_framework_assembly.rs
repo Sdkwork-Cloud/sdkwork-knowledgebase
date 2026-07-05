@@ -8,10 +8,7 @@ use sdkwork_web_core::{
     CorsPolicy, EnforcePrincipalTenantIsolationPolicy, SecurityPolicy, WebRequestContextResolver,
 };
 
-const DEFAULT_DEV_ALLOWED_ORIGINS: &[&str] = &[
-    "http://127.0.0.1:5184",
-    "http://localhost:5184",
-];
+const DEFAULT_DEV_ALLOWED_ORIGINS: &[&str] = &["http://127.0.0.1:5184", "http://localhost:5184"];
 
 fn resolve_dev_allowed_origins() -> Vec<String> {
     let configured = std::env::var("SDKWORK_KNOWLEDGEBASE_DEV_ALLOWED_ORIGINS")

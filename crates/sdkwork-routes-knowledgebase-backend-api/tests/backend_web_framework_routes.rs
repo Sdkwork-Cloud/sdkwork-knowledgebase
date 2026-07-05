@@ -17,7 +17,11 @@ use tower::util::ServiceExt;
 #[test]
 fn backend_route_manifest_declares_dual_token_auth_for_all_operations() {
     let manifest = backend_route_manifest();
-    assert_eq!(manifest::ROUTES.len(), 27);
+    assert_eq!(
+        manifest::ROUTES.len(),
+        manifest.routes().len(),
+        "manifest::ROUTES must stay aligned with backend HTTP route manifest"
+    );
     for entry in manifest::ROUTES {
         let matched = manifest
             .match_route(entry.method, entry.path)

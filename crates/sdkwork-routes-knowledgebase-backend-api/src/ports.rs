@@ -1,16 +1,15 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
-    CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexList,
-    KnowledgeIndexRequest,
+    AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult,
+    CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, IngestionJob,
+    KnowledgeAuditEventExport, KnowledgeIndex, KnowledgeIndexList, KnowledgeIndexRequest,
     KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList, KnowledgeOkfProfileRequest,
     KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
     KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList,
-    KnowledgeSpace, KnowledgeSpaceMemberList, KnowledgeTenantStatus, AnonymizeKnowledgeAuditSubjectRequest,
-    AnonymizeKnowledgeAuditSubjectResult, ExportKnowledgeAuditEventsRequest, KnowledgeAuditEventExport,
-    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult,
-    OkfCandidateResult, OkfCandidateResultList, OkfCandidateReviewRequest, OkfCompileJobRequest,
-    OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfIndexRebuildRequest,
-    OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
+    KnowledgeSpace, KnowledgeSpaceMemberList, KnowledgeTenantStatus, OkfBundleExportRequest,
+    OkfBundleImportRequest, OkfBundleImportResult, OkfCandidateResult, OkfCandidateResultList,
+    OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary,
+    OkfIndexDocument, OkfIndexRebuildRequest, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
 use sdkwork_utils_rust::SdkWorkPageData;
 
@@ -233,7 +232,9 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
         &self,
         _request: ExportKnowledgeAuditEventsRequest,
     ) -> BackendApiResult<KnowledgeAuditEventExport> {
-        Err(BackendApiError::not_implemented("compliance.auditEvents.export"))
+        Err(BackendApiError::not_implemented(
+            "compliance.auditEvents.export",
+        ))
     }
 
     async fn anonymize_audit_subject(

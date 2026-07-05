@@ -133,7 +133,12 @@ async fn list_documents(
     Query(query): Query<ListDocumentsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
-    ok_json(state.api.list_documents(context, query.space_id).await)
+    ok_list_json(
+        state
+            .api
+            .list_documents(context, query.space_id, query.cursor, query.page_size)
+            .await,
+    )
 }
 
 async fn retrieve_document(
@@ -170,7 +175,9 @@ async fn list_browser(
     )
 }
 
-fn ok_list_json<T>(result: ApiResult<sdkwork_utils_rust::SdkWorkPageData<T>>) -> Result<Response, ApiProblem>
+fn ok_list_json<T>(
+    result: ApiResult<sdkwork_utils_rust::SdkWorkPageData<T>>,
+) -> Result<Response, ApiProblem>
 where
     T: Serialize,
 {
@@ -216,6 +223,8 @@ where
 #[serde(rename_all = "camelCase")]
 struct ListDocumentsQuery {
     space_id: u64,
+    cursor: Option<String>,
+    page_size: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]

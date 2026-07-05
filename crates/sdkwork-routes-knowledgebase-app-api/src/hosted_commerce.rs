@@ -13,7 +13,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_chunk_store::Kn
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
 use sdkwork_knowledgebase_contract::agent_chat::KnowledgeAgentChatRequest;
 use sdkwork_knowledgebase_contract::market::{
-    KnowledgeMarketCatalogList, KnowledgeMarketSubscriptionRequest,
+    KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest,
     KnowledgeMarketSubscriptionResult,
 };
 use sdkwork_knowledgebase_contract::media_task::{
@@ -22,7 +22,7 @@ use sdkwork_knowledgebase_contract::media_task::{
 use sdkwork_knowledgebase_contract::site_deployment::{
     KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
 };
-use sdkwork_utils_rust::is_blank;
+use sdkwork_utils_rust::{is_blank, SdkWorkPageData};
 
 use crate::{
     agent_chat_runtime::{
@@ -124,14 +124,31 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
     async fn list_market_listings(
         &self,
         context: KnowledgeAppRequestContext,
-    ) -> ApiResult<KnowledgeMarketCatalogList> {
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeMarketCatalogItem>> {
         ensure_runtime_tenant(&self.runtime, &context)?;
-        let actor_id = context.actor_id;
-        self.runtime
+        let normalized_page_size = crate::pagination::normalize_page_size(page_size);
+        let cursor_id = crate::pagination::parse_u64_cursor(cursor.as_deref()).map_err(|_| {
+            ApiError::invalid_request("invalid_parameter", "cursor must be a valid listing id")
+        })?;
+        let (items, next_cursor, has_more) = self
+            .runtime
             .commerce_store()
-            .list_catalog(context.tenant_id, actor_id)
+            .list_catalog_page(
+                context.tenant_id,
+                context.actor_id,
+                cursor_id,
+                normalized_page_size,
+            )
             .await
-            .map_err(map_market_error)
+            .map_err(map_market_error)?;
+        Ok(crate::pagination::cursor_page_data(
+            items,
+            next_cursor,
+            has_more,
+            normalized_page_size,
+        ))
     }
 
     async fn create_market_subscription(

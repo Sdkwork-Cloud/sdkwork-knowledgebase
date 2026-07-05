@@ -7,8 +7,8 @@ use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserView, ListKnowledgeBrowserRequest,
 };
 use sdkwork_knowledgebase_contract::document::{
-    KnowledgeDocument, KnowledgeDocumentList, KnowledgeDocumentState,
-    KnowledgeDocumentVersionState, KnowledgeDocumentVisibility,
+    KnowledgeDocument, KnowledgeDocumentState, KnowledgeDocumentVersionState,
+    KnowledgeDocumentVisibility,
 };
 use sdkwork_knowledgebase_contract::ingest::{
     IngestionJob, IngestionJobState, KnowledgeIngestRequest,
@@ -217,7 +217,7 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
         .unwrap();
     assert_eq!(list_response.status(), StatusCode::OK);
     assert_eq!(
-        response_json(list_response).await["data"]["item"]["items"][0]["id"],
+        response_json(list_response).await["data"]["items"][0]["id"],
         901
     );
 
@@ -447,9 +447,20 @@ impl KnowledgeOpenApi for RecordingOpenApi {
         &self,
         _context: KnowledgeOpenApiRequestContext,
         _space_id: u64,
-    ) -> ApiResult<KnowledgeDocumentList> {
-        Ok(KnowledgeDocumentList {
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<KnowledgeDocument>> {
+        Ok(sdkwork_utils_rust::SdkWorkPageData {
             items: vec![document(901)],
+            page_info: sdkwork_utils_rust::PageInfo {
+                mode: sdkwork_utils_rust::PageMode::Cursor,
+                page: None,
+                page_size: Some(20),
+                total_items: None,
+                total_pages: None,
+                next_cursor: None,
+                has_more: Some(false),
+            },
         })
     }
 

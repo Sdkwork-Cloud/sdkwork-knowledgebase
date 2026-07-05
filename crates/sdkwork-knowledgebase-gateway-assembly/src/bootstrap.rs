@@ -2,19 +2,15 @@
 //! Multi-surface merges mount shared infrastructure routes once at the assembly layer.
 
 use axum::Router;
+use sdkwork_iam_gateway_assembly::assemble_application_business_router as assemble_iam_application_business_router;
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 use sdkwork_routes_knowledgebase_backend_api::{health, DbReadinessCheck};
-use sdkwork_iam_gateway_assembly::assemble_application_business_router as assemble_iam_application_business_router;
 use sdkwork_utils_rust::is_blank;
 use sdkwork_web_bootstrap::assemble_multi_surface_router;
 use std::sync::Arc;
 
 fn bridge_embedded_iam_database_env_from_knowledgebase() {
-    if !is_blank(
-        std::env::var("SDKWORK_IAM_DATABASE_URL")
-            .ok()
-            .as_deref(),
-    ) {
+    if !is_blank(std::env::var("SDKWORK_IAM_DATABASE_URL").ok().as_deref()) {
         return;
     }
 
@@ -74,9 +70,7 @@ pub async fn assemble_application_business_router(
     // the platform assembly layer and must set `SDKWORK_IAM_APP_API_HOST_MOUNTED=true`.
     let mut router = Router::new();
     if !host_mounts_iam_app_api_routes() {
-        let iam_router = assemble_iam_application_business_router()
-            .await
-            .router;
+        let iam_router = assemble_iam_application_business_router().await.router;
         router = router.merge(iam_router);
     }
     let router = router

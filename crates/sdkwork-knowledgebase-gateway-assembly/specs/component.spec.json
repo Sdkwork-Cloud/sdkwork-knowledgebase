@@ -6,7 +6,7 @@
     "displayName": "SDKWork Knowledgebase Gateway Assembly",
     "version": "0.1.0",
     "type": "gateway-assembly",
-    "root": "crates/sdkwork-knowledgebase-gateway-assembly",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-gateway-assembly",
     "domain": "intelligence",
     "capability": "knowledgebase",
     "surface": "gateway/assembly",

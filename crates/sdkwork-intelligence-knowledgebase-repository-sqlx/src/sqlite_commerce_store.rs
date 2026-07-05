@@ -3,7 +3,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::commerce_store::{
     map_catalog_item, CreateSiteDeploymentRecord, KnowledgeMarketStore, KnowledgeMarketStoreError,
     KnowledgeSiteDeploymentStore, KnowledgeSiteDeploymentStoreError, SiteDeploymentRecord,
 };
-use sdkwork_knowledgebase_contract::market::KnowledgeMarketCatalogList;
+use sdkwork_knowledgebase_contract::market::KnowledgeMarketCatalogItem;
 use sdkwork_utils_rust::is_blank;
 use sqlx::{AnyPool, Row};
 use std::sync::Arc;
@@ -125,112 +125,108 @@ fn now_rfc3339() -> Result<String, KnowledgeMarketStoreError> {
         .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))
 }
 
+fn map_catalog_row(row: &sqlx::any::AnyRow) -> KnowledgeMarketCatalogItem {
+    map_catalog_item(
+        row.get::<i64, _>("id") as u64,
+        row.get("title"),
+        row.try_get("icon").ok(),
+        row.try_get("description").ok(),
+        row.try_get("author").ok(),
+        row.get("tags_json"),
+        row.try_get("provider").ok(),
+        row.try_get("model_name").ok(),
+        row.get::<i64, _>("subscribers_count") as u32,
+        row.get::<i64, _>("documents_count") as u32,
+        row.get::<i64, _>("is_subscribed") == 1,
+    )
+}
+
+async fn fetch_catalog_rows(
+    pool: &AnyPool,
+    tenant_id: u64,
+    subscriber_actor_id: Option<u64>,
+    cursor: Option<u64>,
+    fetch_limit: i64,
+) -> Result<Vec<sqlx::any::AnyRow>, KnowledgeMarketStoreError> {
+    sqlx::query(
+        r#"
+        SELECT
+            l.id, l.title, l.icon, l.description, l.author, l.tags_json,
+            l.provider, l.model_name, l.subscribers_count, l.documents_count,
+            CASE
+                WHEN $2 IS NULL THEN 0
+                WHEN EXISTS (
+                    SELECT 1 FROM kb_market_subscription s
+                    WHERE s.tenant_id = l.tenant_id
+                      AND s.listing_id = l.id
+                      AND s.subscriber_actor_id = $2
+                      AND s.status = 1
+                ) THEN 1
+                ELSE 0
+            END AS is_subscribed
+        FROM kb_market_listing l
+        WHERE l.tenant_id = $1
+          AND l.status = 1
+          AND ($3::bigint IS NULL OR l.id < $3)
+        ORDER BY l.id DESC
+        LIMIT $4
+        "#,
+    )
+    .bind(tenant_id as i64)
+    .bind(subscriber_actor_id.map(|value| value as i64))
+    .bind(cursor.map(|value| value as i64))
+    .bind(fetch_limit)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))
+}
+
 #[async_trait]
 impl KnowledgeMarketStore for SqliteCommerceStore {
-    async fn list_catalog(
+    async fn list_catalog_page(
         &self,
         tenant_id: u64,
         subscriber_actor_id: Option<u64>,
-    ) -> Result<KnowledgeMarketCatalogList, KnowledgeMarketStoreError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT
-                l.id, l.title, l.icon, l.description, l.author, l.tags_json,
-                l.provider, l.model_name, l.subscribers_count, l.documents_count,
-                CASE
-                    WHEN $2 IS NULL THEN 0
-                    WHEN EXISTS (
-                        SELECT 1 FROM kb_market_subscription s
-                        WHERE s.tenant_id = l.tenant_id
-                          AND s.listing_id = l.id
-                          AND s.subscriber_actor_id = $2
-                          AND s.status = 1
-                    ) THEN 1
-                    ELSE 0
-                END AS is_subscribed
-            FROM kb_market_listing l
-            WHERE l.tenant_id = $1 AND l.status = 1
-            ORDER BY l.updated_at DESC
-            LIMIT 200
-            "#,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeMarketCatalogItem>, Option<String>, bool), KnowledgeMarketStoreError>
+    {
+        let page_size = page_size.clamp(1, 200);
+        let fetch_limit = i64::from(page_size.saturating_add(1));
+        let mut rows = fetch_catalog_rows(
+            &self.pool,
+            tenant_id,
+            subscriber_actor_id,
+            cursor,
+            fetch_limit,
         )
-        .bind(tenant_id as i64)
-        .bind(subscriber_actor_id.map(|value| value as i64))
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
+        .await?;
 
-        let mut items = rows
-            .into_iter()
-            .map(|row| {
-                map_catalog_item(
-                    row.get::<i64, _>("id") as u64,
-                    row.get("title"),
-                    row.try_get("icon").ok(),
-                    row.try_get("description").ok(),
-                    row.try_get("author").ok(),
-                    row.get("tags_json"),
-                    row.try_get("provider").ok(),
-                    row.try_get("model_name").ok(),
-                    row.get::<i64, _>("subscribers_count") as u32,
-                    row.get::<i64, _>("documents_count") as u32,
-                    row.get::<i64, _>("is_subscribed") == 1,
-                )
-            })
-            .collect::<Vec<_>>();
-
-        if items.is_empty() {
+        if rows.is_empty() && cursor.is_none() {
             self.bootstrap_market_listings_from_spaces(tenant_id)
                 .await?;
-            let rows = sqlx::query(
-                r#"
-                SELECT
-                    l.id, l.title, l.icon, l.description, l.author, l.tags_json,
-                    l.provider, l.model_name, l.subscribers_count, l.documents_count,
-                    CASE
-                        WHEN $2 IS NULL THEN 0
-                        WHEN EXISTS (
-                            SELECT 1 FROM kb_market_subscription s
-                            WHERE s.tenant_id = l.tenant_id
-                              AND s.listing_id = l.id
-                              AND s.subscriber_actor_id = $2
-                              AND s.status = 1
-                        ) THEN 1
-                        ELSE 0
-                    END AS is_subscribed
-                FROM kb_market_listing l
-                WHERE l.tenant_id = $1 AND l.status = 1
-                ORDER BY l.updated_at DESC
-                LIMIT 200
-                "#,
+            rows = fetch_catalog_rows(
+                &self.pool,
+                tenant_id,
+                subscriber_actor_id,
+                cursor,
+                fetch_limit,
             )
-            .bind(tenant_id as i64)
-            .bind(subscriber_actor_id.map(|value| value as i64))
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
-
-            items = rows
-                .into_iter()
-                .map(|row| {
-                    map_catalog_item(
-                        row.get::<i64, _>("id") as u64,
-                        row.get("title"),
-                        row.try_get("icon").ok(),
-                        row.try_get("description").ok(),
-                        row.try_get("author").ok(),
-                        row.get("tags_json"),
-                        row.try_get("provider").ok(),
-                        row.try_get("model_name").ok(),
-                        row.get::<i64, _>("subscribers_count") as u32,
-                        row.get::<i64, _>("documents_count") as u32,
-                        row.get::<i64, _>("is_subscribed") == 1,
-                    )
-                })
-                .collect();
+            .await?;
         }
 
-        Ok(KnowledgeMarketCatalogList { items })
+        let has_more = rows.len() > page_size as usize;
+        let rows = rows
+            .into_iter()
+            .take(page_size as usize)
+            .collect::<Vec<_>>();
+        let next_cursor = if has_more {
+            rows.last().map(|row| row.get::<i64, _>("id").to_string())
+        } else {
+            None
+        };
+        let items = rows.iter().map(map_catalog_row).collect();
+        Ok((items, next_cursor, has_more))
     }
 
     async fn subscribe(

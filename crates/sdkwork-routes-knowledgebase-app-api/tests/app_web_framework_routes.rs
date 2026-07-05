@@ -149,7 +149,9 @@ impl KnowledgeBrowserApi for EmptyBrowserApi {
         &self,
         _context: KnowledgeAppRequestContext,
         _request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>> {
+    ) -> ApiResult<
+        sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>,
+    > {
         unreachable!("unauthenticated requests must not reach handlers")
     }
 }
@@ -171,7 +173,9 @@ impl KnowledgeBrowserApi for RecordingBrowserApi {
         &self,
         context: KnowledgeAppRequestContext,
         _request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>> {
+    ) -> ApiResult<
+        sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>,
+    > {
         self.tenant_ids.lock().unwrap().push(context.tenant_id);
         Ok(browser_list_page_data(vec![], None, 50))
     }

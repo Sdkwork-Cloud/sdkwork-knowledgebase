@@ -51,6 +51,7 @@
     "lint": "pnpm --dir apps/sdkwork-knowledgebase-pc run lint",
     "lint:strict:pc-core": "pnpm --dir apps/sdkwork-knowledgebase-pc run lint:strict:core",
     "api:materialize": "node tools/apply-knowledgebase-openapi-auth-mode.mjs && node tools/apply-knowledgebase-openapi-permissions.mjs && node tools/materialize-apis-authority.mjs",
+    "api:align-envelope": "node tools/align-knowledgebase-app-api-envelope.mjs && node tools/patch-commerce-app-openapi.mjs",
     "api:materialize:check": "node tools/apply-knowledgebase-openapi-auth-mode.mjs --check && node tools/apply-knowledgebase-openapi-permissions.mjs --check && node tools/materialize-apis-authority.mjs --check",
     "api:auth-mode": "node tools/apply-knowledgebase-openapi-auth-mode.mjs",
     "api:auth-mode:check": "node tools/apply-knowledgebase-openapi-auth-mode.mjs --check",

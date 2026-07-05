@@ -423,9 +423,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         let space_id = to_i64("space_id", space_id)?;
         let page_size = i64::from(page_size.clamp(1, MAX_OKF_LIST_ROWS as u32));
         let fetch_limit = page_size + 1;
-        let cursor_id = cursor
-            .map(|value| to_i64("cursor", value))
-            .transpose()?;
+        let cursor_id = cursor.map(|value| to_i64("cursor", value)).transpose()?;
 
         let rows = if let Some(after_id) = cursor_id {
             sqlx::query(

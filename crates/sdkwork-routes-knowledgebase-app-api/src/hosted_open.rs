@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
-    IngestionJob, KnowledgeContextPack, KnowledgeContextPackRequest,
-    KnowledgeDocument, KnowledgeDocumentList, KnowledgeIngestRequest, KnowledgeRetrievalRequest,
-    KnowledgeRetrievalResult, ListKnowledgeBrowserRequest,
+    IngestionJob, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument,
+    KnowledgeIngestRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
+    ListKnowledgeBrowserRequest,
 };
 use sdkwork_routes_knowledgebase_open_api::{
     ApiError as OpenApiError, ApiResult as OpenApiResult, KnowledgeOpenApi,
@@ -144,16 +144,14 @@ impl KnowledgeOpenApi for HostedOpenApi {
         &self,
         context: KnowledgeOpenApiRequestContext,
         space_id: u64,
-    ) -> OpenApiResult<KnowledgeDocumentList> {
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> OpenApiResult<sdkwork_utils_rust::SdkWorkPageData<KnowledgeDocument>> {
         self.ensure_tenant(&context)?;
-        let page = self
-            .document
-            .list_documents(Self::app_context(&context), space_id, None, None)
+        self.document
+            .list_documents(Self::app_context(&context), space_id, cursor, page_size)
             .await
-            .map_err(|error| error.to_open_api_error())?;
-        Ok(KnowledgeDocumentList {
-            items: page.items,
-        })
+            .map_err(|error| error.to_open_api_error())
     }
 
     async fn retrieve_document(
@@ -173,7 +171,9 @@ impl KnowledgeOpenApi for HostedOpenApi {
         &self,
         context: KnowledgeOpenApiRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> OpenApiResult<sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>> {
+    ) -> OpenApiResult<
+        sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>,
+    > {
         self.ensure_tenant(&context)?;
         Self::map_error(
             self.browser

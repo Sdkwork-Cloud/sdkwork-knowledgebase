@@ -38,10 +38,26 @@ function mapCatalogItem(item: {
   };
 }
 
-export async function listMarketKnowledgeBases(): Promise<MarketKnowledgeBase[]> {
+import { normalizeSdkWorkListPage } from './sdkWorkListPage';
+
+export async function listMarketKnowledgeBasesPage(
+  cursor?: string | null,
+  pageSize = 20,
+): Promise<ReturnType<typeof normalizeSdkWorkListPage<MarketKnowledgeBase>>> {
   const client = requireKnowledgebaseAppSdkHttpClient();
-  const catalog = await client.knowledge.market.listings.list();
-  return catalog.items.map(mapCatalogItem);
+  const page = normalizeSdkWorkListPage(
+    await client.knowledge.market.listings.list({ cursor, pageSize }),
+  );
+  return {
+    items: page.items.map(mapCatalogItem),
+    nextCursor: page.nextCursor,
+    hasMore: page.hasMore,
+  };
+}
+
+export async function listMarketKnowledgeBases(): Promise<MarketKnowledgeBase[]> {
+  const firstPage = await listMarketKnowledgeBasesPage();
+  return firstPage.items;
 }
 
 export async function subscribeMarketListing(id: string): Promise<boolean> {

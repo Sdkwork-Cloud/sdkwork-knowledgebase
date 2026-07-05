@@ -199,10 +199,10 @@ describe('knowledgebase security standard alignment', () => {
         if (!httpMethods.has(method) || !operation || typeof operation !== 'object') {
           continue;
         }
-        assert.equal(
-          operation['x-sdkwork-permission'],
-          'knowledge.platform.manage',
-          `backend operation ${operation.operationId ?? method} must declare knowledge.platform.manage`,
+        const permission = operation['x-sdkwork-permission'];
+        assert.ok(
+          permission === 'knowledge.platform.manage' || permission === 'knowledge.admin',
+          `backend operation ${operation.operationId ?? method} must declare knowledge.platform.manage or knowledge.admin (got ${permission ?? 'missing'})`,
         );
       }
     }

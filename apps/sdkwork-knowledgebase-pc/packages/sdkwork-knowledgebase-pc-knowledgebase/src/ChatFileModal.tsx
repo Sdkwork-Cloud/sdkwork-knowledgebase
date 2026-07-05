@@ -14,121 +14,17 @@ interface ChatFileModalProps {
   onConfirm: (selectedItems: Array<{ title: string; type: string; content?: string }>) => void;
 }
 
-// Full, realistic chat files modeled after the attachment
-const MOCK_CHAT_FILES = [
-  {
-    id: 'cf-1',
-    title: 'sub2api-account-20260609034237.txt',
-    type: 'file',
-    fileType: 'document',
-    author: '樵夫',
-    date: '昨天',
-    size: '512.6K',
-    content: 'sub2api integration config file contents.'
-  },
-  {
-    id: 'cf-2',
-    title: 'fff.zip',
-    type: 'zip',
-    fileType: 'archive',
-    author: '樵夫',
-    date: '昨天',
-    size: '668.2K',
-    content: 'FFF Project archive contents'
-  },
-  {
-    id: 'cf-3',
-    title: 'config - 副本.toml',
-    type: 'toml',
-    fileType: 'document',
-    author: '慌伴',
-    date: '5/10',
-    size: '275B',
-    content: '[server]\nport = 3000\nhost = "0.0.0.0"'
-  },
-  {
-    id: 'cf-4',
-    title: 'config - 副本.toml',
-    type: 'toml',
-    fileType: 'document',
-    author: '慌伴',
-    date: '5/9',
-    size: '275B',
-    content: '[server]\nport = 3000\nhost = "0.0.0.0"'
-  },
-  {
-    id: 'cf-5',
-    title: 'imagegen (1).rar',
-    type: 'rar',
-    fileType: 'archive',
-    author: '天一生水',
-    date: '5/7',
-    size: '192.5K',
-    content: 'Compressed images assets'
-  },
-  {
-    id: 'cf-6',
-    title: 'sjiikkkkkss@wd199884.xyz_sub2api(1).json',
-    type: 'json',
-    fileType: 'document',
-    author: '樵夫',
-    date: '5/7',
-    size: '2.4K',
-    content: '{"user": "樵夫", "status": "active"}'
-  },
-  {
-    id: 'cf-7',
-    title: 'model-catalog.gpt-5.5.json.7z',
-    type: '7z',
-    fileType: 'archive',
-    author: '炯',
-    date: '4/24',
-    size: '22.5K',
-    content: 'GPT 5.5 parameters schema archive'
-  },
-  {
-    id: 'cf-8',
-    title: 'model-catalog.gpt-5.5.json',
-    type: 'json',
-    fileType: 'document',
-    author: 'zmjjkk',
-    date: '4/24',
-    size: '225.7K',
-    content: '{ "models": [ "gpt-5.5-preview", "gpt-5.5-pro" ] }'
-  },
-  // Under pictures and videos
-  {
-    id: 'cf-img-1',
-    title: 'architecture_flow_v3.png',
-    type: 'image',
-    fileType: 'media',
-    author: 'Design Team',
-    date: '4/20',
-    size: '1.2M',
-    content: 'High-res structural framework flow'
-  },
-  {
-    id: 'cf-img-2',
-    title: 'product_demo_screencast.mp4',
-    type: 'video',
-    fileType: 'media',
-    author: 'Product Owner',
-    date: '4/18',
-    size: '24.5M',
-    content: 'Screencast tutorial'
-  },
-  // Under links
-  {
-    id: 'cf-link-1',
-    title: 'RAG 架构的双路召回细节部署文档',
-    type: 'link',
-    fileType: 'link',
-    author: '樵夫',
-    date: '4/15',
-    size: '精选链接',
-    content: '# RAG 架构的双路召回\n- 密集嵌入检索器\n- 稀疏文本匹配融合\nWeb: https://example.com/rag-retriever'
-  }
-];
+// Chat file import requires IM connector integration; no synthetic items are shown.
+const CHAT_FILE_ITEMS: Array<{
+  id: string;
+  title: string;
+  type: string;
+  fileType: string;
+  author: string;
+  date: string;
+  size: string;
+  content?: string;
+}> = [];
 
 type CategoryType = 'all' | 'document' | 'media' | 'link' | 'music' | 'other';
 
@@ -140,7 +36,7 @@ export function ChatFileModal({ isOpen, onClose, onConfirm }: ChatFileModalProps
 
   // Filter based on selected tabs and search queries
   const filteredFiles = useMemo(() => {
-    return MOCK_CHAT_FILES.filter(file => {
+    return CHAT_FILE_ITEMS.filter(file => {
       // Tab filter
       if (activeTab === 'document' && file.fileType !== 'document' && file.fileType !== 'archive') {
         return false;
@@ -190,7 +86,7 @@ export function ChatFileModal({ isOpen, onClose, onConfirm }: ChatFileModalProps
   };
 
   const handleImportSubmit = () => {
-    const selectedObjs = MOCK_CHAT_FILES.filter(f => selectedIds.has(f.id));
+    const selectedObjs = CHAT_FILE_ITEMS.filter(f => selectedIds.has(f.id));
     if (selectedObjs.length === 0) return;
 
     // Map to acceptable batch creation format
@@ -210,7 +106,7 @@ export function ChatFileModal({ isOpen, onClose, onConfirm }: ChatFileModalProps
     onConfirm(mapped);
   };
 
-  const renderFileIcon = (file: typeof MOCK_CHAT_FILES[0]) => {
+  const renderFileIcon = (file: (typeof CHAT_FILE_ITEMS)[number]) => {
     const baseClass = "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 shadow-sm font-sans ";
     
     if (file.fileType === 'archive') {

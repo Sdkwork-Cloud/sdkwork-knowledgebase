@@ -25,7 +25,7 @@ pub mod http_route_manifest;
 mod knowledge_engine_adapters;
 pub mod manifest;
 pub mod pagination;
-mod paths;
+pub mod paths;
 mod ports;
 mod routes;
 pub mod runtime;

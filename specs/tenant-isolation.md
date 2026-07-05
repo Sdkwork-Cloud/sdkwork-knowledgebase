@@ -82,9 +82,15 @@ Additional guard functions enforce scope at the handler level:
 
 ### 3.4 Postgres RLS (Layer 4, Phase 2+)
 
-When using Postgres in shared SaaS mode:
-- Every pooled connection sets `SET app.current_tenant_id = <tenant_id>` after checkout
-- RLS policy `tenant_isolation` on all tenant-scoped tables:
+**Phase 1 (deployment-dedicated):** each API/worker process binds one tenant via
+`SDKWORK_KNOWLEDGEBASE_TENANT_ID`. Postgres pool `after_connect` sets
+`app.current_tenant_id` to that deployment tenant.
+
+**Phase 2 (shared SaaS):** authenticated request tenant must be applied on **every**
+connection `acquire()` via `set_postgres_session_tenant_id` before tenant-scoped SQL.
+Deployment env tenant remains the fail-closed fallback for worker-only processes.
+
+RLS policy `tenant_isolation` on all tenant-scoped tables:
   ```sql
   USING (tenant_id = current_setting('app.current_tenant_id', true)::bigint)
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::bigint)
