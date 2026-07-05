@@ -2,8 +2,6 @@ export * from './auth/authGate';
 export * from './types';
 export * from './api/knowledgebaseApiRegistry';
 export * from './api/knowledgebaseConnectivity';
-export * from './api/knowledgebaseBackendApiRegistry';
-export * from './api/knowledgebaseBackendAdminService';
 export * from './api/knowledgebaseDriveApiRegistry';
 export * from './api/knowledgebaseSpaceRegistry';
 export * from './api/knowledgebaseDocumentContentCache';
@@ -19,7 +17,6 @@ export {
 export { resolveKnowledgebaseFeatureFlags } from './config/knowledgebaseFeatureFlags';
 export type { KnowledgebaseFeatureFlags } from './config/knowledgebaseFeatureFlags';
 export * from './sdk/knowledgebaseAppSdkClient';
-export * from './sdk/knowledgebaseBackendSdkClient';
 export * from './sdk/driveAppSdkClient';
 export * from './sdk/sdkContractTypes';
 export * from './session/sessionStore';

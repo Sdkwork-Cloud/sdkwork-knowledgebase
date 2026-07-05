@@ -12,9 +12,10 @@ packages:
   - "../sdkwork-iam/apps/sdkwork-iam-pc/packages/sdkwork-auth-pc-react"
   - "../sdkwork-iam/apps/sdkwork-iam-pc/packages/sdkwork-auth-runtime-pc-react"
   - "../sdkwork-iam/apps/sdkwork-iam-pc/packages/sdkwork-iam-react"
-  - "../sdkwork-iam/apps/sdkwork-iam-common/packages/sdkwork-iam-credential-entry"
   - "../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript"
   - "../sdkwork-iam/sdks/sdkwork-iam-backend-sdk/sdkwork-iam-backend-sdk-typescript"
+  - "../sdkwork-iam/sdks/sdkwork-iam-open-sdk/sdkwork-iam-open-sdk-typescript"
+  - "../sdkwork-iam/apps/sdkwork-iam-common/packages/sdkwork-iam-credential-entry"
   - "../sdkwork-appbase/packages/common/foundation/sdkwork-runtime-bootstrap"
   - "../sdkwork-appbase/packages/pc-react/foundation/sdkwork-appbase-pc-react"
   - "../sdkwork-appbase/packages/pc-react/foundation/sdkwork-i18n-pc-react"
@@ -22,10 +23,19 @@ packages:
   - "../sdkwork-ui/sdkwork-ui-pc-react"
   - "../sdkwork-sdk-commons/sdkwork-sdk-common-typescript"
   - "../sdkwork-utils/packages/sdkwork-utils-typescript"
+  - "../sdkwork-iam/sdks/sdkwork-iam-app-sdk/sdkwork-iam-app-sdk-typescript/src/index.ts"
+  - "../sdkwork-iam/sdks/sdkwork-iam-backend-sdk/sdkwork-iam-backend-sdk-typescript/src/index.ts"
+  - "../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript/src/index.ts"
   - "../sdkwork-drive/sdks/sdkwork-drive-app-sdk/sdkwork-drive-app-sdk-typescript"
   - "../sdkwork-app-topology"
 
 catalog:
+  react: "^19.0.1"
+  react-dom: "^19.0.1"
+  typescript: "~5.8.2"
+  vite: "^6.2.3"
+  "@types/react": "^19.0.0"
+  "@types/react-dom": "^19.0.0"
   "@monaco-editor/react": ^4.7.0
   "@playwright/test": ^1.52.0
   "@radix-ui/react-avatar": ^1.1.11
@@ -88,9 +98,7 @@ catalog:
   "@types/markdown-it": ^14.1.2
   "@types/node": ^25.9.2
   "@types/qrcode": ^1.5.6
-  "@types/react": ^19.2.14
-  "@types/react-dom": ^19.2.3
-  "@vitejs/plugin-react": ^6.0.1
+  "@vitejs/plugin-react": "^5.0.4"
   "@xterm/addon-fit": ^0.11.0
   "@xterm/addon-image": ^0.9.0
   "@xterm/addon-ligatures": ^0.10.0
@@ -106,19 +114,17 @@ catalog:
   cmdk: ^1.1.1
   emoji-picker-react: ^4.18.0
   framer-motion: ^12.23.24
-  i18next: ^26.1.0
+  i18next: "^26.3.1"
   immer: ^11.1.4
   jsdom: ^29.1.1
-  lucide-react: ^1.7.0
+  lucide-react: "^0.546.0"
   markdown-it: ^14.1.1
   marked: ^18.0.5
   motion: ^12.23.24
   postcss: ^8.5.8
-  qrcode: ^1.5.4
-  react: ^19.2.4
-  react-dom: ^19.2.4
-  react-hook-form: ^7.72.1
-  react-i18next: ^17.0.7
+  qrcode: "^1.5.4"
+  react-hook-form: "^7.72.1"
+  react-i18next: "^17.0.8"
   react-markdown: ^10.1.0
   react-router: ^7.15.0
   react-router-dom: ^7.15.0
@@ -128,8 +134,6 @@ catalog:
   tailwindcss-animate: ^1.0.7
   tsup: ^8.5.0
   tsx: ^4.21.0
-  typescript: ~6.0.2
-  vite: ^8.0.3
-  vite-plugin-dts: ^4.5.4
+  vite-plugin-dts: "^4.5.4"
   vitest: ^4.1.8
   zustand: ^5.0.12

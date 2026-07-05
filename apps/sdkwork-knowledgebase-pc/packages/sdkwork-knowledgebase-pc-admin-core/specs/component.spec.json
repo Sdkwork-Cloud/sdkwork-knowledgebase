@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-pc-admin-core",
+    "displayName": "SDKWork Knowledgebase PC Admin Core",
+    "version": "0.1.0",
+    "type": "node-package",
+    "root": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-admin-core",
+    "domain": "intelligence",
+    "capability": "pc-admin-core",
+    "surface": "backend-admin",
+    "languages": [
+      "typescript"
+    ],
+    "generated": false,
+    "manifests": [
+      "package.json"
+    ]
+  },
+  "contracts": {
+    "sdkDependencies": [
+      {
+        "workspace": "sdkwork-knowledgebase-backend-sdk",
+        "surface": "backend-api",
+        "credentialMode": "authenticated-backend-admin"
+      },
+      {
+        "workspace": "sdkwork-utils",
+        "surface": "open-api",
+        "credentialMode": "protected-open-api-flexible"
+      }
+    ],
+    "sdkClients": [
+      "@sdkwork/knowledgebase-backend-sdk"
+    ],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": []
+  }
+}

@@ -4,7 +4,6 @@ import { Activity, ArrowLeft, Database, FileStack, Layers, ShieldAlert, Users } 
 import { useNavigate } from 'react-router-dom';
 import { formatBytes } from '@sdkwork/utils';
 import {
-  canAccessKnowledgebaseAdminConsole,
   extractSdkWorkListItems,
   getKnowledgebaseBackendSdkClient,
   isKnowledgebaseBackendApiAvailable,
@@ -12,11 +11,14 @@ import {
   readNumberField,
   readOptionalStringField,
   readStringField,
+  canAccessKnowledgebaseAdminConsole,
+  type AdminSpaceMemberRow,
+  type AdminSpaceRow,
+} from 'sdkwork-knowledgebase-pc-admin-core';
+import {
   resolveUserFacingErrorMessage,
   useKnowledgebaseRuntime,
   useKnowledgebaseSessionSnapshot,
-  type AdminSpaceMemberRow,
-  type AdminSpaceRow,
 } from 'sdkwork-knowledgebase-pc-core';
 
 interface TenantStatusView {

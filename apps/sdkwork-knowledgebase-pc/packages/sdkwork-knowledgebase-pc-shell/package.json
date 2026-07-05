@@ -16,7 +16,8 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-i18next": "^17.0.8",
-    "sdkwork-knowledgebase-pc-core": "workspace:*"
+    "sdkwork-knowledgebase-pc-core": "workspace:*",
+    "sdkwork-knowledgebase-pc-admin-core": "workspace:*"
   },
   "peerDependencies": {
     "react": "^19.0.0",

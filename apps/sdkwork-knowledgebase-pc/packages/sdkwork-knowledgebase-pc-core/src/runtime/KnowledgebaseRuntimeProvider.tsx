@@ -5,7 +5,6 @@ import type { KnowledgebaseRuntimeConfig } from '../config/runtimeConfig';
 import { throwKnowledgebaseError } from '../errors/knowledgebaseAppError';
 import { KnowledgebaseErrorCodes } from '../errors/knowledgebaseErrorCodes';
 import type { KnowledgebaseAppSdkClient } from '../sdk/knowledgebaseAppSdkClient';
-import type { KnowledgebaseBackendSdkClient } from '../sdk/knowledgebaseBackendSdkClient';
 import type { KnowledgebaseDriveAppSdkClient } from '../sdk/driveAppSdkClient';
 import type { SessionStore } from '../session/sessionStore';
 
@@ -16,7 +15,6 @@ export interface KnowledgebaseCoreRuntime {
   };
   sdk: {
     app: KnowledgebaseAppSdkClient;
-    backend: KnowledgebaseBackendSdkClient;
     drive: KnowledgebaseDriveAppSdkClient;
   };
   session: SessionStore;

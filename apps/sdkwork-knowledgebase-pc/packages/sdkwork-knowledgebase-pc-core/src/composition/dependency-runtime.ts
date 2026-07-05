@@ -27,10 +27,6 @@ export function buildDependencySdkBaseUrls(input: {
       result[workspace] = { appApiBaseUrl: input.appApiBaseUrl };
       continue;
     }
-    if (workspace === 'sdkwork-knowledgebase-backend-sdk') {
-      result[workspace] = { appApiBaseUrl: input.backendApiBaseUrl };
-      continue;
-    }
     result[workspace] = { openApiBaseUrl: input.openApiBaseUrl };
   }
 

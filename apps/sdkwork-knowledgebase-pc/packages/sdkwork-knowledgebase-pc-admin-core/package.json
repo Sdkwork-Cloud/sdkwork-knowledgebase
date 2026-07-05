@@ -1,5 +1,5 @@
 {
-  "name": "sdkwork-knowledgebase-pc-core",
+  "name": "sdkwork-knowledgebase-pc-admin-core",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,14 +17,10 @@
     "./session": "./src/session/index.ts",
     "./composition": "./src/composition/index.ts"
   },
-  "peerDependencies": {
-    "react": "^19.0.0"
-  },
   "dependencies": {
-    "@sdkwork/drive-app-sdk": "workspace:*",
-    "@sdkwork/knowledgebase-app-sdk": "workspace:*",
-    "@sdkwork/sdkwork-knowledgebase-pc-commons": "workspace:*",
-    "@sdkwork/utils": "workspace:*"
+    "@sdkwork/knowledgebase-backend-sdk": "workspace:*",
+    "@sdkwork/utils": "workspace:*",
+    "sdkwork-knowledgebase-pc-core": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^3.2.4"

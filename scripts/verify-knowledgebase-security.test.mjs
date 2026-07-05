@@ -319,7 +319,7 @@ describe('knowledgebase security standard alignment', () => {
     const adminConsole = readRepoFile(
       'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-shell/src/KnowledgebaseAdminConsole.tsx',
     );
-    assert.match(adminConsole, /getKnowledgebaseBackendSdkClient/);
+    assert.match(adminConsole, /sdkwork-knowledgebase-pc-admin-core/);
     assert.match(adminConsole, /canAccessKnowledgebaseAdminConsole/);
     assert.match(adminConsole, /providerHealth\.retrieve/);
     assert.match(adminConsole, /retrievalTraces\.list/);
@@ -327,7 +327,7 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(adminConsole, /spaces\.members\.list/);
     assert.match(adminConsole, /loadAdminSpaceMembers/);
     const adminService = readRepoFile(
-      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/src/api/knowledgebaseBackendAdminService.ts',
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-admin-core/src/api/knowledgebaseBackendAdminService.ts',
     );
     assert.match(adminService, /getPath/);
     const globalNav = readRepoFile(
@@ -335,7 +335,7 @@ describe('knowledgebase security standard alignment', () => {
     );
     assert.match(globalNav, /knowledgebase-pc-nav-admin/);
     const backendRegistry = readRepoFile(
-      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/src/api/knowledgebaseBackendApiRegistry.ts',
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-admin-core/src/api/knowledgebaseBackendApiRegistry.ts',
     );
     assert.match(backendRegistry, /knowledge\.platform\.manage/);
     const appRoutes = readRepoFile('apps/sdkwork-knowledgebase-pc/src/App.tsx');

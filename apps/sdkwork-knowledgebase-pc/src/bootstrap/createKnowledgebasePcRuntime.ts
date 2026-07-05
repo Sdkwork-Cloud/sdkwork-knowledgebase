@@ -1,22 +1,24 @@
 import {
   createHostAdapter,
   createKnowledgebaseAppSdkClient,
-  createKnowledgebaseBackendSdkClient,
   createKnowledgebaseDriveAppSdkClient,
   createKnowledgebaseSessionTokenManager,
   createRuntimeConfig,
   createSessionStore,
   configureKnowledgebaseAppSdk,
-  configureKnowledgebaseBackendSdk,
   configureKnowledgebaseDriveAppSdk,
   bindKnowledgebaseSessionStore,
   setKnowledgebaseApiEnabled,
-  setKnowledgebaseBackendApiEnabled,
   isKnowledgebaseAppApiConfigured,
-  isKnowledgebaseBackendApiConfigured,
   type KnowledgebasePcRuntime,
   type SessionStorageLike,
 } from 'sdkwork-knowledgebase-pc-core';
+import {
+  configureKnowledgebaseBackendSdk,
+  createKnowledgebaseBackendSdkClient,
+  isKnowledgebaseBackendApiConfigured,
+  setKnowledgebaseBackendApiEnabled,
+} from 'sdkwork-knowledgebase-pc-admin-core';
 
 import { createKnowledgebaseIamRuntime } from './knowledgebaseIamRuntime';
 
@@ -63,7 +65,6 @@ export function createKnowledgebasePcRuntime(): KnowledgebasePcRuntime {
     },
     sdk: {
       app: appSdkClient,
-      backend: backendSdkClient,
       drive: driveSdkClient,
     },
     session,

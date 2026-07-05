@@ -1,8 +1,10 @@
+import {
+  isDevSameOriginApiEnabled,
+  KnowledgebaseErrorCodes,
+  throwKnowledgebaseError,
+  type KnowledgebaseRuntimeConfig,
+} from 'sdkwork-knowledgebase-pc-core';
 import type { KnowledgebaseBackendSdkClient } from '../sdk/knowledgebaseBackendSdkClient';
-import { KnowledgebaseErrorCodes } from '../errors/knowledgebaseErrorCodes';
-import { throwKnowledgebaseError } from '../errors/knowledgebaseAppError';
-import type { KnowledgebaseRuntimeConfig } from '../config/runtimeConfig';
-import { isDevSameOriginApiEnabled } from '../config/runtimeConfig';
 
 let backendSdkClient: KnowledgebaseBackendSdkClient | null = null;
 let backendApiEnabled = false;

@@ -16,7 +16,6 @@ import {
   useLocalStorage
 } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 import {
-  canAccessKnowledgebaseAdminConsole,
   createKnowledgebaseAccountViewModel,
   KNOWLEDGEBASE_POST_AUTH_LANDING_FLAG,
   setKnowledgebaseNetworkOnline,
@@ -25,6 +24,7 @@ import {
   useKnowledgebaseRuntime,
   useKnowledgebaseSessionSnapshot,
 } from 'sdkwork-knowledgebase-pc-core';
+import { canAccessKnowledgebaseAdminConsole } from 'sdkwork-knowledgebase-pc-admin-core';
 import { SettingsModal } from './SettingsModal';
 import { GlobalNav } from './GlobalNav';
 import { UserProfileModal, DEFAULT_USER_PROFILE, type UserProfile } from './UserProfileModal';

@@ -1,6 +1,6 @@
 import { createClient, type SdkworkBackendClient } from '@sdkwork/knowledgebase-backend-sdk';
-import type { KnowledgebaseRuntimeConfig } from '../config/runtimeConfig';
-import type { KnowledgebaseSessionTokenManager } from '../session/sessionTokenManager';
+import type { KnowledgebaseRuntimeConfig } from 'sdkwork-knowledgebase-pc-core';
+import type { KnowledgebaseSessionTokenManager } from 'sdkwork-knowledgebase-pc-core';
 
 const BACKEND_API_PREFIX = '/backend/v3/api';
 const KNOWLEDGEBASE_BACKEND_SDK_FAMILY_ID = 'sdkwork-knowledgebase-backend-sdk';
