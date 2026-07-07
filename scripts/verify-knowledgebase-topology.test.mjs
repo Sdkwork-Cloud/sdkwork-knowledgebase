@@ -108,7 +108,9 @@ test('declares SDKWork v3 deployment topology spec and profile env files for sdk
 
 test('root package.json wires @sdkwork/app-topology and standard dev scripts', async () => {
   const packageJson = await readJson('package.json');
-  assert.equal(packageJson.dependencies['@sdkwork/app-topology'], 'file:../sdkwork-app-topology');
+  assert.equal(packageJson.dependencies['@sdkwork/app-topology'], 'workspace:*');
+  const workspaceYaml = await read('pnpm-workspace.yaml');
+  assert.match(workspaceYaml, /["']\.\.\/sdkwork-app-topology["']/);
   assert.match(packageJson.scripts['dev:browser'], /dev:browser:postgres:unified-process:standalone/);
   assert.match(packageJson.scripts['dev:desktop'], /dev:desktop:postgres:unified-process:standalone/);
   assert.match(packageJson.scripts['dev:browser:postgres:unified-process:standalone'], /--database postgres/);
@@ -149,18 +151,19 @@ test('knowledgebase topology adapter exports IAM application bootstrap env alias
 
 test('default PostgreSQL development path is not blocked by SQLite-only runtime wiring', async () => {
   const runtimeSource = await read('crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs');
-  const appMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/app_main.rs');
-  const backendMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/backend_main.rs');
-  const openMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/open_main.rs');
+  const gatewayMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/app_main.rs');
+  const gatewayAssembly = await read('crates/sdkwork-knowledgebase-gateway-assembly/src/bootstrap.rs');
 
   assert.doesNotMatch(
     runtimeSource,
     /postgresql SDKWORK_KNOWLEDGEBASE_DATABASE_URL is not wired to HTTP handlers yet|use sqlite/i,
   );
   assert.doesNotMatch(
-    `${appMain}\n${backendMain}\n${openMain}`,
+    `${gatewayMain}\n${gatewayAssembly}`,
     /KnowledgebaseSqliteRuntime::connect|initialize knowledgebase sqlite runtime/,
   );
+  assert.match(gatewayAssembly, /build_backend_business_router_with_web_framework/);
+  assert.match(gatewayAssembly, /build_open_business_router_with_web_framework/);
 });
 
 test('pc runtime config does not expose retired application deployment fields', async () => {
@@ -168,8 +171,9 @@ test('pc runtime config does not expose retired application deployment fields', 
     'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core/src/config/runtimeConfig.ts',
     'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-shell/src/SettingsModal.tsx',
     'apps/sdkwork-knowledgebase-pc/src/bootstrap/knowledgebaseIamRuntime.ts',
-    'apps/sdkwork-knowledgebase-pc/src/i18n/locales/en/shell.json',
-    'apps/sdkwork-knowledgebase-pc/src/i18n/locales/zh/shell.json',
+    'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledge/src/runtime/locale.ts',
+    'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledge/src/i18n/en-US/intelligence/knowledge/shell.json',
+    'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledge/src/i18n/zh-CN/intelligence/knowledge/shell.json',
   ];
 
   for (const relativePath of runtimeFiles) {
@@ -262,10 +266,16 @@ test('production cloud topology orchestrates background worker and health probes
   assert.ok(productionProfile, 'cloud.split-services.production orchestration profile must exist');
 
   const processIds = productionProfile.processes.map((process) => process.id);
+  assert.equal(new Set(processIds).size, processIds.length, 'process ids must be unique');
+  assert.ok(processIds.includes('platform.api-gateway'));
   assert.ok(processIds.includes('application.background-worker'));
   assert.ok(processIds.includes('application.public-ingress'));
-  assert.ok(processIds.includes('application.backend-http'));
-  assert.ok(processIds.includes('application.open-http'));
+  assert.equal(processIds.includes('application.backend-http'), false);
+  assert.equal(processIds.includes('application.open-http'), false);
+  assert.deepEqual(productionProfile.healthSurfaces, [
+    'platform.api-gateway',
+    'application.public-ingress',
+  ]);
 
   const bootstrapSource = await read('crates/sdkwork-routes-knowledgebase-app-api/src/bootstrap.rs');
   assert.match(bootstrapSource, /validate_snowflake_node_id_for_production/);
@@ -293,17 +303,16 @@ test('production cloud topology orchestrates background worker and health probes
   assert.match(workerManifest, /SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID/);
 });
 
-test('route binaries read topology bind env keys', async () => {
+test('standalone gateway reads the single application ingress bind env key', async () => {
+  const gatewayCargo = await read('crates/sdkwork-knowledgebase-standalone-gateway/Cargo.toml');
   const appMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/app_main.rs');
-  const backendMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/backend_main.rs');
-  const openMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/open_main.rs');
+  const gatewayAssembly = await read('crates/sdkwork-knowledgebase-gateway-assembly/src/bootstrap.rs');
 
+  assert.match(gatewayCargo, /name = "sdkwork-knowledgebase-standalone-gateway"/);
+  assert.match(gatewayCargo, /path = "src\/bin\/app_main\.rs"/);
+  assert.doesNotMatch(gatewayCargo, /backend_main\.rs|open_main\.rs/);
   assert.match(appMain, /SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND/);
   assert.doesNotMatch(appMain, /SDKWORK_KNOWLEDGEBASE_APP_LISTEN/);
-
-  assert.match(backendMain, /SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_BIND/);
-  assert.doesNotMatch(backendMain, /SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN/);
-
-  assert.match(openMain, /SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_BIND/);
-  assert.doesNotMatch(openMain, /SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN/);
+  assert.doesNotMatch(appMain, /SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN|SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN/);
+  assert.match(gatewayAssembly, /assemble_multi_surface_router/);
 });
