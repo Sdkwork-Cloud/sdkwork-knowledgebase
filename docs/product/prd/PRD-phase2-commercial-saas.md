@@ -36,7 +36,7 @@ Define commercial SaaS landing criteria beyond Phase 1.0 single-tenant productio
 | Deployment model | One tenant per API/worker process | Shared multi-tenant platform |
 | Billing | Platform-level or manual | Seat/usage metering (Stripe or SDKWork platform) |
 | Auth | IAM dual-token + backend `knowledge.admin` | + SSO/SCIM (platform IAM) |
-| Data isolation | App-layer `tenant_id` filters | Postgres RLS ([ADR decided](../../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md); migration Phase 2.1) |
+| Data isolation | App-layer `tenant_id` filters | Postgres RLS ([ADR decided](../../architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md); migration Phase 2.1) |
 | Desktop | Prelaunch-disabled | Enabled with CI packaging |
 | Legal | AGPL review for redistribution | Commercial license or SaaS exception |
 
@@ -44,7 +44,7 @@ Define commercial SaaS landing criteria beyond Phase 1.0 single-tenant productio
 
 ### Platform
 
-- [x] Multi-tenant isolation **decision** documented — [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md)
+- [x] Multi-tenant isolation **decision** documented — [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../../architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md)
 - [x] Postgres RLS migration shipped — `database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql`
 - [x] Connection checkout sets `app.current_tenant_id` on every pooled Postgres connection (Phase 2.2)
 - [x] Usage metering exported for billing (Prometheus counters + structured `billing_event` JSON logs)
@@ -84,7 +84,7 @@ pnpm test:tenant-quota
 
 ## References
 
-- [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md)
+- [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../../architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md)
 - [PRD.md](PRD.md) §7 Phases
 - [docs/runbooks/tenant-isolation.md](../../runbooks/tenant-isolation.md)
 - [specs/tenant-isolation.md](../../../specs/tenant-isolation.md) — Tenant isolation architecture specification

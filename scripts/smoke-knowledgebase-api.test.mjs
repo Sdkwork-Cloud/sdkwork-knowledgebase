@@ -80,6 +80,32 @@ describe('knowledgebase API smoke helpers', () => {
     assert.deepEqual(requestedPaths, ['/livez', '/readyz']);
   });
 
+  it('resolves explicit internal metrics smoke URLs without enabling public metrics', () => {
+    const originalMetricsUrl = process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URL;
+    const originalMetricsUrls = process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS;
+    process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URL = 'http://sdkwork-knowledgebase-app-api';
+    process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS = ' http://sdkwork-knowledgebase-backend-api , http://sdkwork-knowledgebase-worker:18085 ';
+
+    try {
+      assert.deepEqual(resolveSmokeMetricsUrls(), [
+        'http://sdkwork-knowledgebase-backend-api',
+        'http://sdkwork-knowledgebase-worker:18085',
+      ]);
+      assert.deepEqual(DEFAULT_PROBE_PATHS, ['/livez', '/readyz']);
+    } finally {
+      if (originalMetricsUrl === undefined) {
+        delete process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URL;
+      } else {
+        process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URL = originalMetricsUrl;
+      }
+      if (originalMetricsUrls === undefined) {
+        delete process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS;
+      } else {
+        process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS = originalMetricsUrls;
+      }
+    }
+  });
+
   it('probes livez and readyz when a smoke base URL is configured', async (t) => {
     const baseUrl = resolveSmokeBaseUrl();
     if (!baseUrl) {

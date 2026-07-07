@@ -207,7 +207,7 @@ Context bindings (`kb_space_context_binding`) associate agent profiles with spac
 
 ## 9. References
 
-- ADR: `docs/adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md`
+- ADR: `docs/architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md`
 - Runbook: `docs/runbooks/tenant-isolation.md`
 - RLS Migration: `database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql`
 - Contract: `crates/sdkwork-knowledgebase-contract/src/tenant.rs`

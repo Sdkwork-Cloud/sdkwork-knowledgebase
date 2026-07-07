@@ -103,10 +103,10 @@ export function GeneralPanel({
           control={
             <SegmentedControl
               options={[
-                { value: 'zh', label: t('zh') },
-                { value: 'en', label: t('en') },
+                { value: 'zh-CN', label: t('zh') },
+                { value: 'en-US', label: t('en') },
               ]}
-              value={i18n.language.startsWith('zh') ? 'zh' : 'en'}
+              value={i18n.language.startsWith('zh') ? 'zh-CN' : 'en-US'}
               onChange={handleLanguageChange}
             />
           }

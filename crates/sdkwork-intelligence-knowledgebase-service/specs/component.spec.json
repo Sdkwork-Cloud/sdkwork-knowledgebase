@@ -71,6 +71,7 @@
                            }
                        ],
     "contracts":  {
+                      "layerRole":  "backend-service",
                       "publicExports":  [
                                             "."
                                         ],

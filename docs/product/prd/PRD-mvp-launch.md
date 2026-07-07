@@ -107,7 +107,7 @@ pnpm lint
 
 - [x] PostgreSQL lifecycle path covered by CI/database gates; release-environment PostgreSQL verification with the target service remains a cutover blocker above.
 - [x] Backup/restore runbook documented (`deployments/runbooks/backup-restore.md`) and referenced by launch runbook
-- [x] Split-services deployment smoke script: `SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL=... pnpm test:smoke` (optional CI `staging-smoke` job)
+- [x] Split-services deployment smoke script: public `SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL=... pnpm test:smoke` probes `/livez` and `/readyz`; optional internal `SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS=... pnpm test:smoke` probes `/metrics` through in-cluster Service URLs only.
 - [x] JSON logging enabled in production topology; OTEL documented when collector is available (`SDKWORK_KNOWLEDGEBASE_LOG_FORMAT=json`)
 
 ### Release
@@ -116,7 +116,7 @@ pnpm lint
 - [x] Three TypeScript SDK families indexed for release consumption (`specs/component.spec.json`)
 - [x] Desktop packaging workflow explicitly prelaunch-disabled until desktop CI targets ship (`sdkwork.app.config.json` metadata)
 
-Launch orchestration runbook: [deployments/runbooks/production-launch.md](../../deployments/runbooks/production-launch.md)
+Launch orchestration runbook: [deployments/runbooks/production-launch.md](../../../deployments/runbooks/production-launch.md)
 
 Automated launch gate:
 

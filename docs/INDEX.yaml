@@ -28,6 +28,9 @@ entries:
   - id: agent-rag-design
     path: docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md
     kind: architecture
+  - id: adr-20260624-phase2-postgres-rls-multi-tenant
+    path: docs/architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md
+    kind: architecture-decision
 domains:
   - id: product
     path: docs/product
@@ -35,5 +38,5 @@ domains:
     path: docs/architecture
   - id: runbooks
     path: docs/runbooks
-  - id: adr
-    path: docs/adr
+  - id: architecture-decisions
+    path: docs/architecture/decisions

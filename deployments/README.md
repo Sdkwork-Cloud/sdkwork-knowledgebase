@@ -51,10 +51,16 @@ Structured audit events (for example `knowledge.document.visibility_changed`, `k
 
 Billable usage counters (`knowledge_retrievals_total`, `knowledge_context_packs_total`, `knowledge_ingest_jobs_succeeded_total`, `knowledge_ingest_jobs_failed_total`) and structured `billing_event` JSON log lines support commercial metering pipelines.
 
-Post-deploy smoke check (optional):
+Post-deploy public health smoke check (optional). Public smoke checks only probe `/livez` and `/readyz`; `/metrics` must stay off public ingress:
 
 ```bash
 SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL=https://knowledgebase.sdkwork.com pnpm test:smoke
+```
+
+Internal metrics smoke (optional, run from an in-cluster network path only):
+
+```bash
+SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS=http://sdkwork-knowledgebase-app-api,http://sdkwork-knowledgebase-backend-api,http://sdkwork-knowledgebase-open-api,http://sdkwork-knowledgebase-worker:18085 pnpm test:smoke
 ```
 
 Optional PC renderer shell probe (requires a running Vite preview or dev server):

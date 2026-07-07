@@ -20,6 +20,21 @@
   },
   "canonicalSpecs": [
     {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored code organization, public exports, generated-code boundaries, and verification."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../../../../../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Component, package, domain, capability, and surface naming."
+    },
+    {
+      "file": "MODULE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/MODULE_SPEC.md",
+      "purpose": "Reusable module public contract and dependency direction."
+    },
+    {
       "file": "APP_PC_ARCHITECTURE_SPEC.md",
       "path": "../../../../../sdkwork-specs/APP_PC_ARCHITECTURE_SPEC.md",
       "purpose": "PC browser/desktop package taxonomy and runtime boundaries."
@@ -46,6 +61,45 @@
     }
   ],
   "contracts": {
+    "layerRole": "frontend-core",
+    "publicExports": [
+      ".",
+      "./sdk",
+      "./modules",
+      "./host",
+      "./session",
+      "./composition"
+    ],
+    "providedPorts": [
+      {
+        "name": "knowledgebasePcCoreRuntime",
+        "export": "."
+      },
+      {
+        "name": "knowledgebasePcSdkRuntime",
+        "export": "./sdk"
+      },
+      {
+        "name": "knowledgebasePcModuleRegistry",
+        "export": "./modules"
+      },
+      {
+        "name": "knowledgebasePcHostRuntime",
+        "export": "./host"
+      },
+      {
+        "name": "knowledgebasePcSessionRuntime",
+        "export": "./session"
+      },
+      {
+        "name": "knowledgebasePcComposition",
+        "export": "./composition"
+      }
+    ],
+    "requiredPorts": [],
+    "runtimeEntrypoints": [
+      "package.json#scripts.test"
+    ],
     "sdkDependencies": [
       {
         "workspace": "sdkwork-appbase",
@@ -158,6 +212,14 @@
       "@sdkwork/drive-app-sdk"
     ],
     "dependencyApiExports": [],
-    "dependencyApiSurfaces": []
+    "dependencyApiSurfaces": [],
+    "events": [],
+    "configKeys": []
+  },
+  "verification": {
+    "commands": [
+      "pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core test",
+      "pnpm --dir apps/sdkwork-knowledgebase-pc lint"
+    ]
   }
 }

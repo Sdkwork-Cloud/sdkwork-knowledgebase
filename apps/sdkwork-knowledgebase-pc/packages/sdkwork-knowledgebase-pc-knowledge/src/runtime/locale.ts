@@ -1,21 +1,21 @@
 export const APP_LANGUAGE_STORAGE_KEY = 'app-language';
 
-const SUPPORTED_LANGUAGES = ['zh', 'en'] as const;
+const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US'] as const;
 
 export type AppLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export function normalizeAppLanguage(value: string | null | undefined): AppLanguage {
   const raw = (value ?? '').trim().toLowerCase();
   if (!raw) {
-    return 'zh';
+    return 'zh-CN';
   }
   if (raw === 'en' || raw.startsWith('en-')) {
-    return 'en';
+    return 'en-US';
   }
   if (raw === 'zh' || raw.startsWith('zh-')) {
-    return 'zh';
+    return 'zh-CN';
   }
-  return 'zh';
+  return 'zh-CN';
 }
 
 export function readStoredAppLanguage(): AppLanguage | null {
@@ -55,7 +55,7 @@ export function persistAppLanguage(language: string): void {
 
 export function resolveInitialAppLanguage(): AppLanguage {
   return readStoredAppLanguage() ?? normalizeAppLanguage(
-    typeof navigator !== 'undefined' ? navigator.language : 'zh',
+    typeof navigator !== 'undefined' ? navigator.language : 'zh-CN',
   );
 }
 
@@ -63,5 +63,5 @@ export function resolveKnowledgebaseAuthLocaleFromAppLanguage(
   language: string | null | undefined,
 ): string | null {
   const normalized = normalizeAppLanguage(language);
-  return normalized === 'en' ? 'en-US' : 'zh-CN';
+  return normalized;
 }

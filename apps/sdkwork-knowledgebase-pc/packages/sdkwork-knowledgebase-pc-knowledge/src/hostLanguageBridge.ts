@@ -1,5 +1,5 @@
 import i18n from './i18n';
-import { normalizeAppLanguage } from './i18n/locale';
+import { normalizeAppLanguage } from './runtime/locale';
 import { getKnowledgebasePcSdkPorts } from './sdkPorts';
 
 export function syncKnowledgebaseHostLanguage(): void {

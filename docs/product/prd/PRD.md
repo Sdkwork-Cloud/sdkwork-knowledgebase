@@ -94,6 +94,6 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 ## 9. Resolved And Open Questions
 
-- **Multi-tenant data model:** Postgres RLS — decided in [ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](../adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md); migration shipped for Phase 2.1
+- **Multi-tenant data model:** Postgres RLS — decided in [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../../architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md); migration shipped for Phase 2.1
 - **Billing owner:** SDKWork platform vs standalone Stripe — open; decide before Phase 2 commercial launch
 - **Minimum enterprise audit retention period:** documented in [audit-retention.md](../runbooks/audit-retention.md); automated purge/export jobs remain Phase 2.4

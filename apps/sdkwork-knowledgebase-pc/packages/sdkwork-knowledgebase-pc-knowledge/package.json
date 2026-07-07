@@ -15,9 +15,9 @@
       "default": "./src/i18n/index.ts"
     },
     "./i18n/locale": {
-      "types": "./src/i18n/locale.ts",
-      "import": "./src/i18n/locale.ts",
-      "default": "./src/i18n/locale.ts"
+      "types": "./src/runtime/locale.ts",
+      "import": "./src/runtime/locale.ts",
+      "default": "./src/runtime/locale.ts"
     }
   },
   "scripts": {

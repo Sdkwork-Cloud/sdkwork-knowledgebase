@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-pc-desktop",
+    "displayName": "SDKWork Knowledgebase PC Desktop Host",
+    "version": "0.1.0",
+    "type": "tauri-host",
+    "root": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-desktop",
+    "domain": "intelligence",
+    "capability": "pc-desktop",
+    "surface": "pc-desktop",
+    "languages": [
+      "typescript",
+      "rust"
+    ],
+    "generated": false,
+    "manifests": [
+      "package.json",
+      "src-tauri/Cargo.toml",
+      "src-tauri/tauri.conf.json"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored code organization, public exports, generated-code boundaries, and verification."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../../../../../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Component, package, domain, capability, and surface naming."
+    },
+    {
+      "file": "MODULE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/MODULE_SPEC.md",
+      "purpose": "Reusable module public contract and dependency direction."
+    },
+    {
+      "file": "APP_PC_ARCHITECTURE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/APP_PC_ARCHITECTURE_SPEC.md",
+      "purpose": "PC desktop host package role and renderer reuse boundary."
+    },
+    {
+      "file": "DESKTOP_APP_ARCHITECTURE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/DESKTOP_APP_ARCHITECTURE_SPEC.md",
+      "purpose": "Tauri/native host, local capability, config, and release boundaries."
+    },
+    {
+      "file": "TYPESCRIPT_CODE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/TYPESCRIPT_CODE_SPEC.md",
+      "purpose": "TypeScript package exports and source layout."
+    },
+    {
+      "file": "RUST_CODE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/RUST_CODE_SPEC.md",
+      "purpose": "Tauri Rust host source organization and native-host boundaries."
+    }
+  ],
+  "contracts": {
+    "layerRole": "runtime-native-host",
+    "publicExports": [
+      "."
+    ],
+    "providedPorts": [
+      {
+        "name": "knowledgebasePcDesktopHostMetadata",
+        "export": "."
+      }
+    ],
+    "requiredPorts": [],
+    "runtimeEntrypoints": [
+      "package.json#scripts.dev:desktop",
+      "package.json#scripts.build:desktop"
+    ],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": [],
+    "configKeys": [
+      "src-tauri/tauri.conf.json",
+      "src-tauri/capabilities/default.json"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "pnpm --dir apps/sdkwork-knowledgebase-pc lint"
+    ]
+  }
+}

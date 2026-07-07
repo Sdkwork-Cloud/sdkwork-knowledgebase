@@ -1,35 +1,35 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-import zhCommon from './locales/zh/common.json';
-import zhKb from './locales/zh/kb.json';
-import zhEditor from './locales/zh/editor.json';
-import zhShell from './locales/zh/shell.json';
-import zhApplet from './locales/zh/applet.json';
-import zhOfficialAccount from './locales/zh/officialAccount.json';
-import zhWidget from './locales/zh/widget.json';
-import zhCloudDrive from './locales/zh/cloudDrive.json';
-import zhMcp from './locales/zh/mcp.json';
-import zhSearch from './locales/zh/search.json';
-import zhErrors from './locales/zh/errors.json';
+import zhCommon from './zh-CN/intelligence/knowledge/common.json';
+import zhKb from './zh-CN/intelligence/knowledge/kb.json';
+import zhEditor from './zh-CN/intelligence/knowledge/editor.json';
+import zhShell from './zh-CN/intelligence/knowledge/shell.json';
+import zhApplet from './zh-CN/intelligence/knowledge/applet.json';
+import zhOfficialAccount from './zh-CN/intelligence/knowledge/officialAccount.json';
+import zhWidget from './zh-CN/intelligence/knowledge/widget.json';
+import zhCloudDrive from './zh-CN/intelligence/knowledge/cloudDrive.json';
+import zhMcp from './zh-CN/intelligence/knowledge/mcp.json';
+import zhSearch from './zh-CN/intelligence/knowledge/search.json';
+import zhErrors from './zh-CN/intelligence/knowledge/errors.json';
 
-import enCommon from './locales/en/common.json';
-import enKb from './locales/en/kb.json';
-import enEditor from './locales/en/editor.json';
-import enShell from './locales/en/shell.json';
-import enApplet from './locales/en/applet.json';
-import enOfficialAccount from './locales/en/officialAccount.json';
-import enWidget from './locales/en/widget.json';
-import enCloudDrive from './locales/en/cloudDrive.json';
-import enMcp from './locales/en/mcp.json';
-import enSearch from './locales/en/search.json';
-import enErrors from './locales/en/errors.json';
+import enCommon from './en-US/intelligence/knowledge/common.json';
+import enKb from './en-US/intelligence/knowledge/kb.json';
+import enEditor from './en-US/intelligence/knowledge/editor.json';
+import enShell from './en-US/intelligence/knowledge/shell.json';
+import enApplet from './en-US/intelligence/knowledge/applet.json';
+import enOfficialAccount from './en-US/intelligence/knowledge/officialAccount.json';
+import enWidget from './en-US/intelligence/knowledge/widget.json';
+import enCloudDrive from './en-US/intelligence/knowledge/cloudDrive.json';
+import enMcp from './en-US/intelligence/knowledge/mcp.json';
+import enSearch from './en-US/intelligence/knowledge/search.json';
+import enErrors from './en-US/intelligence/knowledge/errors.json';
 
 import {
   normalizeAppLanguage,
   persistAppLanguage,
   resolveInitialAppLanguage,
-} from './locale';
+} from '../runtime/locale';
 
 const initialLanguage = resolveInitialAppLanguage();
 
@@ -37,7 +37,7 @@ void i18n
   .use(initReactI18next)
   .init({
     resources: {
-      zh: {
+      'zh-CN': {
         common: zhCommon,
         kb: zhKb,
         knowledgebase: zhKb,
@@ -51,7 +51,7 @@ void i18n
         search: zhSearch,
         errors: zhErrors,
       },
-      en: {
+      'en-US': {
         common: enCommon,
         kb: enKb,
         knowledgebase: enKb,
@@ -67,8 +67,8 @@ void i18n
       },
     },
     lng: initialLanguage,
-    fallbackLng: 'en',
-    supportedLngs: ['zh', 'en'],
+    fallbackLng: 'en-US',
+    supportedLngs: ['zh-CN', 'en-US'],
     nonExplicitSupportedLngs: true,
     ns: [
       'common',

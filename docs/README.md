@@ -23,7 +23,7 @@ SDKWork Knowledgebase maintainers.
 | Agent RAG design | [architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md](architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md) |
 | Tenant isolation | [runbooks/tenant-isolation.md](runbooks/tenant-isolation.md) |
 | Audit retention | [runbooks/audit-retention.md](runbooks/audit-retention.md) |
-| Phase 2 RLS ADR | [adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md](adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md) |
+| Phase 2 RLS ADR | [architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md](architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md) |
 
 ## Operator runbooks (repository root)
 
@@ -34,7 +34,7 @@ Production launch and backup procedures live under `deployments/runbooks/`:
 
 ## Allowed content
 
-- Architecture decision records under `docs/adr/`
+- Architecture decision records under `docs/architecture/decisions/`
 - Active product and architecture docs under `docs/product/` and `docs/architecture/`
 - Operator runbooks under `docs/runbooks/`
 
@@ -45,6 +45,7 @@ Production launch and backup procedures live under `deployments/runbooks/`:
 - Secrets, tokens, or customer data
 - Active API contracts (use `apis/` and `sdks/`)
 - Duplicate historical design copies (canonical architecture lives under `docs/architecture/tech/`; `docs/superpowers/` is redirect-only)
+- Active ADR content under retired `docs/adr/`; that directory may contain compatibility redirects only
 
 ## Related specs
 

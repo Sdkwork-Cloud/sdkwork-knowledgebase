@@ -13,9 +13,36 @@ function readRepoFile(relativePath) {
 
 describe('knowledgebase Phase 2 commercial readiness alignment', () => {
   it('documents Postgres RLS multi-tenant isolation decision', () => {
-    const adr = readRepoFile('docs/adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md');
+    const adr = readRepoFile(
+      'docs/architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md',
+    );
     assert.match(adr, /Row Level Security \(RLS\)/);
     assert.match(adr, /app\.current_tenant_id/);
+  });
+
+  it('indexes the RLS ADR through the standard architecture decisions directory', () => {
+    const activeDocuments = [
+      'docs/README.md',
+      'docs/INDEX.yaml',
+      'docs/runbooks/tenant-isolation.md',
+      'docs/product/prd/PRD.md',
+      'docs/product/prd/PRD-phase2-commercial-saas.md',
+      'specs/tenant-isolation.md',
+    ];
+
+    for (const relativePath of activeDocuments) {
+      const source = readRepoFile(relativePath);
+      assert.match(
+        source,
+        /docs\/architecture\/decisions\/ADR-20260624-phase2-postgres-rls-multi-tenant\.md|architecture\/decisions\/ADR-20260624-phase2-postgres-rls-multi-tenant\.md|decisions\/ADR-20260624-phase2-postgres-rls-multi-tenant\.md|\.\.\/architecture\/decisions\/ADR-20260624-phase2-postgres-rls-multi-tenant\.md/,
+        `${relativePath} must point to the standard ADR path`,
+      );
+      assert.doesNotMatch(
+        source,
+        /docs\/adr\/ADR-2026-06-24-phase2-postgres-rls-multi-tenant\.md|\.\.?\/adr\/ADR-2026-06-24-phase2-postgres-rls-multi-tenant\.md/,
+        `${relativePath} must not point to retired docs/adr layout`,
+      );
+    }
   });
 
   it('ships Postgres RLS migration for tenant-scoped kb_* tables', () => {
@@ -82,6 +109,6 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
     const phase2 = readRepoFile('docs/product/prd/PRD-phase2-commercial-saas.md');
     assert.match(prd, /PRD-phase2-commercial-saas\.md/);
     assert.match(phase2, /Usage metering exported for billing/);
-    assert.match(phase2, /ADR-2026-06-24-phase2-postgres-rls-multi-tenant/);
+    assert.match(phase2, /ADR-20260624-phase2-postgres-rls-multi-tenant/);
   });
 });

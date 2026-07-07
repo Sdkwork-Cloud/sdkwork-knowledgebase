@@ -43,6 +43,7 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
    ```bash
    SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL=https://knowledgebase.example.com pnpm test:smoke
    ```
+   Public smoke checks only probe `/livez` and `/readyz`; `/metrics` remains in-cluster only.
    For split-services deployments, probe each process independently:
    ```bash
    SDKWORK_KNOWLEDGEBASE_SMOKE_APP_URL=https://knowledgebase.example.com \
@@ -51,19 +52,24 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
    SDKWORK_KNOWLEDGEBASE_SMOKE_WORKER_URL=https://knowledgebase-worker.example.com \
    pnpm test:smoke
    ```
-3. Optional authenticated admin probe:
+3. Optional internal metrics smoke, run only from an in-cluster network path:
+   ```bash
+   SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS=http://sdkwork-knowledgebase-app-api,http://sdkwork-knowledgebase-backend-api,http://sdkwork-knowledgebase-open-api,http://sdkwork-knowledgebase-worker:18085 \
+   pnpm test:smoke
+   ```
+4. Optional authenticated admin probe:
    ```bash
    SDKWORK_KNOWLEDGEBASE_SMOKE_BACKEND_URL=https://knowledgebase-admin.example.com \
    SDKWORK_KNOWLEDGEBASE_SMOKE_ACCESS_TOKEN=... \
    pnpm test:launch-readiness
    ```
-4. Optional integrator open API probe:
+5. Optional integrator open API probe:
    ```bash
    SDKWORK_KNOWLEDGEBASE_SMOKE_OPEN_URL=https://knowledge.example.com \
    SDKWORK_KNOWLEDGEBASE_SMOKE_API_KEY=... \
    pnpm test:launch-readiness
    ```
-5. Confirm worker `/readyz` returns 200 and queued ingestion jobs drain after a test ingest.
+6. Confirm worker `/readyz` returns 200 and queued ingestion jobs drain after a test ingest.
 
 ## Observability
 

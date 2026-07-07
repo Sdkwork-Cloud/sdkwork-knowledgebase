@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "kind": "sdkwork.component.spec",
   "component": {
-    "name": "@sdkwork/knowledgebase-pc-knowledge",
-    "displayName": "SDKWork Knowledgebase PC Host Embed",
-    "version": "0.1.0",
+    "name": "@sdkwork/knowledgebase-pc-search",
+    "displayName": "SDKWork Knowledgebase PC Search",
+    "version": "1.0.0",
     "type": "react-package",
-    "root": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledge",
+    "root": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-search",
     "domain": "intelligence",
-    "capability": "knowledge",
-    "surface": "pc-embed",
+    "capability": "search",
+    "surface": "pc-app",
     "languages": [
       "typescript"
     ],
@@ -37,17 +37,7 @@
     {
       "file": "APP_PC_ARCHITECTURE_SPEC.md",
       "path": "../../../../../sdkwork-specs/APP_PC_ARCHITECTURE_SPEC.md",
-      "purpose": "Host-managed PC capability embedding boundaries."
-    },
-    {
-      "file": "APP_SDK_INTEGRATION_SPEC.md",
-      "path": "../../../../../sdkwork-specs/APP_SDK_INTEGRATION_SPEC.md",
-      "purpose": "Host sdkPorts wiring and generated SDK consumption."
-    },
-    {
-      "file": "TYPESCRIPT_CODE_SPEC.md",
-      "path": "../../../../../sdkwork-specs/TYPESCRIPT_CODE_SPEC.md",
-      "purpose": "TypeScript package exports and dependency direction."
+      "purpose": "PC app package taxonomy, route ownership, and dependency direction."
     },
     {
       "file": "FRONTEND_CODE_SPEC.md",
@@ -65,60 +55,37 @@
       "purpose": "PC React package split, user-facing UI layering, and app SDK rules."
     },
     {
-      "file": "I18N_SPEC.md",
-      "path": "../../../../../sdkwork-specs/I18N_SPEC.md",
-      "purpose": "Package-local user-facing message catalog ownership."
+      "file": "TYPESCRIPT_CODE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/TYPESCRIPT_CODE_SPEC.md",
+      "purpose": "TypeScript package exports, source layout, and tests."
     }
   ],
   "contracts": {
     "layerRole": "frontend-feature",
     "publicExports": [
-      "KnowledgeView",
-      "KnowledgebaseModal",
-      "KnowledgebaseHostSurface",
-      "configureKnowledgebasePcRuntime",
-      "openKnowledgebaseDesktopWindow",
-      "resolveKnowledgebaseHostEmbedUrl"
+      "."
     ],
     "providedPorts": [
       {
-        "name": "knowledgebasePcEmbedView",
-        "export": "KnowledgeView"
-      },
-      {
-        "name": "knowledgebasePcEmbedRuntime",
-        "export": "configureKnowledgebasePcRuntime"
+        "name": "knowledgebasePcSearchFeature",
+        "export": "."
       }
     ],
     "requiredPorts": [],
     "runtimeEntrypoints": [
-      "package.json#exports.."
+      "package.json#scripts.test"
     ],
     "routeManifest": null,
     "sdkClients": [],
-    "sdkDependencies": [
-      {
-        "workspace": "sdkwork-knowledgebase-app-sdk",
-        "surface": "app-api",
-        "credentialMode": "authenticated-app-api"
-      },
-      {
-        "workspace": "sdkwork-drive-app-sdk",
-        "surface": "app-api",
-        "credentialMode": "authenticated-app-api"
-      }
-    ],
-    "events": [],
-    "configKeys": [
-      "VITE_SDKWORK_KNOWLEDGEBASE_HOST_EMBED_URL",
-      "VITE_SDKWORK_KNOWLEDGEBASE_HOST_PRESENTATION_MODE",
-      "VITE_SDKWORK_KNOWLEDGEBASE_HOST_RUNTIME_TARGET"
-    ],
+    "sdkDependencies": [],
     "dependencyApiExports": [],
-    "dependencyApiSurfaces": []
+    "dependencyApiSurfaces": [],
+    "events": [],
+    "configKeys": []
   },
   "verification": {
     "commands": [
+      "pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-search test",
       "pnpm --dir apps/sdkwork-knowledgebase-pc lint"
     ]
   }

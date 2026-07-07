@@ -1,11 +1,7 @@
-# Architecture Decision Records
+# Retired ADR Directory
 
-Purpose: architecture decision records (ADRs) for SDKWork Knowledgebase.
+Status: redirected
 
-Owner: SDKWork Knowledgebase maintainers.
+`docs/adr/` is retained only for historical compatibility redirects. Active architecture decision records live under [docs/architecture/decisions/](../architecture/decisions/).
 
-Allowed content: ADR documents following `../sdkwork-specs/ARCHITECTURE_DECISION_SPEC.md`.
-
-Forbidden content: implementation code, generated SDK output, secrets, and runtime state.
-
-Related specs: `../sdkwork-specs/ARCHITECTURE_DECISION_SPEC.md`, `../sdkwork-specs/DOCUMENTATION_SPEC.md`.
+Do not add new ADRs in this directory.

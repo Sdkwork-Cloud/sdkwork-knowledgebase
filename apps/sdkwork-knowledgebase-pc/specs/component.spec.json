@@ -48,6 +48,13 @@
     }
   ],
   "contracts": {
+    "layerRole": "frontend-shell",
+    "publicExports": [
+      "src/main.tsx",
+      "src/App.tsx"
+    ],
+    "providedPorts": [],
+    "requiredPorts": [],
     "sdkClients": [
       "@sdkwork/knowledgebase-app-sdk",
       "@sdkwork/drive-app-sdk",

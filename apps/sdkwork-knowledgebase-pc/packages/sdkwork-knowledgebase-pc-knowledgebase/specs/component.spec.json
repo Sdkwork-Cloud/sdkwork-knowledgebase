@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "kind": "sdkwork.component.spec",
   "component": {
-    "name": "@sdkwork/knowledgebase-pc-knowledge",
-    "displayName": "SDKWork Knowledgebase PC Host Embed",
-    "version": "0.1.0",
+    "name": "@sdkwork/sdkwork-knowledgebase-pc-knowledgebase",
+    "displayName": "SDKWork Knowledgebase PC Knowledgebase",
+    "version": "1.0.0",
     "type": "react-package",
-    "root": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledge",
+    "root": "apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase",
     "domain": "intelligence",
-    "capability": "knowledge",
-    "surface": "pc-embed",
+    "capability": "knowledgebase",
+    "surface": "pc-app",
     "languages": [
       "typescript"
     ],
@@ -37,17 +37,7 @@
     {
       "file": "APP_PC_ARCHITECTURE_SPEC.md",
       "path": "../../../../../sdkwork-specs/APP_PC_ARCHITECTURE_SPEC.md",
-      "purpose": "Host-managed PC capability embedding boundaries."
-    },
-    {
-      "file": "APP_SDK_INTEGRATION_SPEC.md",
-      "path": "../../../../../sdkwork-specs/APP_SDK_INTEGRATION_SPEC.md",
-      "purpose": "Host sdkPorts wiring and generated SDK consumption."
-    },
-    {
-      "file": "TYPESCRIPT_CODE_SPEC.md",
-      "path": "../../../../../sdkwork-specs/TYPESCRIPT_CODE_SPEC.md",
-      "purpose": "TypeScript package exports and dependency direction."
+      "purpose": "PC app package taxonomy, route ownership, and dependency direction."
     },
     {
       "file": "FRONTEND_CODE_SPEC.md",
@@ -68,31 +58,32 @@
       "file": "I18N_SPEC.md",
       "path": "../../../../../sdkwork-specs/I18N_SPEC.md",
       "purpose": "Package-local user-facing message catalog ownership."
+    },
+    {
+      "file": "TYPESCRIPT_CODE_SPEC.md",
+      "path": "../../../../../sdkwork-specs/TYPESCRIPT_CODE_SPEC.md",
+      "purpose": "TypeScript package exports, source layout, and tests."
     }
   ],
   "contracts": {
     "layerRole": "frontend-feature",
     "publicExports": [
-      "KnowledgeView",
-      "KnowledgebaseModal",
-      "KnowledgebaseHostSurface",
-      "configureKnowledgebasePcRuntime",
-      "openKnowledgebaseDesktopWindow",
-      "resolveKnowledgebaseHostEmbedUrl"
+      ".",
+      "./WechatPublishPage"
     ],
     "providedPorts": [
       {
-        "name": "knowledgebasePcEmbedView",
-        "export": "KnowledgeView"
+        "name": "knowledgebasePcFeature",
+        "export": "."
       },
       {
-        "name": "knowledgebasePcEmbedRuntime",
-        "export": "configureKnowledgebasePcRuntime"
+        "name": "knowledgebaseWechatPublishPage",
+        "export": "./WechatPublishPage"
       }
     ],
     "requiredPorts": [],
     "runtimeEntrypoints": [
-      "package.json#exports.."
+      "package.json#scripts.test"
     ],
     "routeManifest": null,
     "sdkClients": [],
@@ -108,17 +99,14 @@
         "credentialMode": "authenticated-app-api"
       }
     ],
-    "events": [],
-    "configKeys": [
-      "VITE_SDKWORK_KNOWLEDGEBASE_HOST_EMBED_URL",
-      "VITE_SDKWORK_KNOWLEDGEBASE_HOST_PRESENTATION_MODE",
-      "VITE_SDKWORK_KNOWLEDGEBASE_HOST_RUNTIME_TARGET"
-    ],
     "dependencyApiExports": [],
-    "dependencyApiSurfaces": []
+    "dependencyApiSurfaces": [],
+    "events": [],
+    "configKeys": []
   },
   "verification": {
     "commands": [
+      "pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase test",
       "pnpm --dir apps/sdkwork-knowledgebase-pc lint"
     ]
   }

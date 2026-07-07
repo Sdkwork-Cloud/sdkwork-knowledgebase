@@ -21,6 +21,7 @@ Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 - [TECH-2026-06-12-knowledgebase-open-api-implementation.md](TECH-2026-06-12-knowledgebase-open-api-implementation.md)
 - [TECH-topology-standard.md](TECH-topology-standard.md)
 - [PRD-mvp-launch.md](../../product/prd/PRD-mvp-launch.md)
+- [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md)
 
 ## 1. Architecture Overview
 

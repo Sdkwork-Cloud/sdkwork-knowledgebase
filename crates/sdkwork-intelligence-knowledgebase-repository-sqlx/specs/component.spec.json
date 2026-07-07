@@ -76,6 +76,7 @@
                            }
                        ],
     "contracts":  {
+                      "layerRole":  "backend-repository",
                       "publicExports":  [
                                             "."
                                         ],
