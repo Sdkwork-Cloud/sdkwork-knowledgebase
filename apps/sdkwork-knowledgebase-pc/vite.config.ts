@@ -12,6 +12,53 @@ const appbaseRoot = path.resolve(repoRoot, '../sdkwork-appbase');
 const iamRoot = path.resolve(repoRoot, '../sdkwork-iam');
 const DEFAULT_PLATFORM_API_GATEWAY_TARGET = 'http://127.0.0.1:3900';
 
+const APP_SOURCE_CHUNKS = [
+  ['packages/sdkwork-knowledgebase-pc-knowledgebase/src/', 'feature-knowledgebase'],
+  ['packages/sdkwork-knowledgebase-pc-knowledge/src/', 'feature-knowledge'],
+  ['packages/sdkwork-knowledgebase-pc-search/src/', 'feature-search'],
+  ['packages/sdkwork-knowledgebase-pc-shell/src/', 'feature-shell'],
+  ['packages/sdkwork-knowledgebase-pc-core/src/', 'feature-core'],
+  ['packages/sdkwork-knowledgebase-pc-commons/src/', 'feature-commons'],
+] as const;
+
+const VENDOR_CHUNKS = [
+  [
+    'vendor-react',
+    [
+      '/node_modules/react/',
+      '/node_modules/react-dom/',
+      '/node_modules/react-router',
+      '/node_modules/scheduler/',
+    ],
+  ],
+  ['vendor-monaco', ['@monaco-editor', 'monaco-editor']],
+  ['vendor-editor', ['@tiptap', 'prosemirror', '@codemirror', '/codemirror/', 'orderedmap', 'w3c-keyname']],
+  ['vendor-pdf', ['pdfjs', 'react-pdf']],
+  ['vendor-export', ['html2canvas', 'jspdf', 'canvg', 'rgbcolor']],
+  [
+    'vendor-markdown',
+    ['@uiw/react-md-editor', 'marked', 'highlight.js', 'rehype', 'remark', 'mdast', 'hast', 'unist', 'dompurify'],
+  ],
+  ['vendor-ui', ['@radix-ui', '@dnd-kit', 'lucide-react', '/motion/', 'framer-motion']],
+  ['vendor-i18n', ['i18next', 'react-i18next']],
+  ['vendor-virtualization', ['@tanstack/react-virtual']],
+] as const;
+
+function resolveManualChunk(id: string): string | undefined {
+  const normalizedId = id.replace(/\\/g, '/');
+  const appSourceChunk = APP_SOURCE_CHUNKS.find(([fragment]) => normalizedId.includes(fragment));
+  if (appSourceChunk) {
+    return appSourceChunk[1];
+  }
+  if (!normalizedId.includes('/node_modules/')) {
+    return undefined;
+  }
+  const vendorChunk = VENDOR_CHUNKS.find(([, fragments]) =>
+    fragments.some((fragment) => normalizedId.includes(fragment)),
+  );
+  return vendorChunk?.[0] ?? 'vendor';
+}
+
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, __dirname, '');
   const deploymentProfile = (
@@ -114,30 +161,7 @@ export default defineConfig(({mode}) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (!id.includes('node_modules')) {
-              return undefined;
-            }
-            if (
-              id.includes('/node_modules/react/')
-              || id.includes('/node_modules/react-dom/')
-              || id.includes('/node_modules/react-router')
-              || id.includes('/node_modules/scheduler/')
-            ) {
-              return 'vendor-react';
-            }
-            if (id.includes('@monaco-editor') || id.includes('monaco-editor')) {
-              return 'vendor-monaco';
-            }
-            if (id.includes('@tiptap') || id.includes('prosemirror')) {
-              return 'vendor-editor';
-            }
-            if (id.includes('pdfjs') || id.includes('react-pdf')) {
-              return 'vendor-pdf';
-            }
-            if (id.includes('html2canvas')) {
-              return 'vendor-export';
-            }
-            return 'vendor';
+            return resolveManualChunk(id);
           },
         },
       },
