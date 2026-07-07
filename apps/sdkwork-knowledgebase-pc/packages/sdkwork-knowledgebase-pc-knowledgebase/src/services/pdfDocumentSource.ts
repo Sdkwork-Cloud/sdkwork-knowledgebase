@@ -1,4 +1,3 @@
-import { isBlank, trim } from '@sdkwork/utils';
 import {
   KnowledgebaseErrorCodes,
   throwKnowledgebaseError,
@@ -85,19 +84,6 @@ export function resolveInitialPdfSource(source: string | undefined): PdfDocument
   return { kind: 'url', url: normalizePdfUrl(trimmed) };
 }
 
-async function fetchViaBrowser(url: string): Promise<Uint8Array> {
-  const parsed = new URL(url, window.location.origin);
-  const sameOrigin = parsed.origin === window.location.origin;
-  const response = await fetch(url, { credentials: sameOrigin ? 'include' : 'omit' });
-  if (!response.ok) {
-    throwKnowledgebaseError(KnowledgebaseErrorCodes.PDF_FETCH_FAILED, {
-      cause: response.status,
-    });
-  }
-  const buffer = await response.arrayBuffer();
-  return new Uint8Array(buffer);
-}
-
 async function fetchViaNativeHost(url: string, host: HostAdapter): Promise<Uint8Array> {
   const payload = await host.fetchBinaryResource(url);
   return decodeBinaryResourcePayload(payload);
@@ -146,7 +132,7 @@ export async function loadPdfSourceFallback(
     }
   }
 
-  return { kind: 'bytes', data: await fetchViaBrowser(url) };
+  throwKnowledgebaseError(KnowledgebaseErrorCodes.DESKTOP_ONLY);
 }
 
 export function toReactPdfFile(source: PdfDocumentSource): string | Uint8Array {

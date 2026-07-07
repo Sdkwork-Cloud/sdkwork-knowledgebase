@@ -1,5 +1,5 @@
 import type { DocumentExportContent, DocumentExportContentProvider, DocumentExportSourceKind } from './types';
-import { isBlank, trim } from '@sdkwork/utils';
+import { isBlank } from '@sdkwork/utils';
 
 export const DEFAULT_EXPORT_TITLE = '无标题';
 
@@ -82,13 +82,56 @@ export function createEditorExportContentProvider(
   };
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
+const MAX_INLINE_IMAGE_PIXELS = 16_000_000;
+
+function imageElementToDataUrl(image: HTMLImageElement): string | null {
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  if (!width || !height || width * height > MAX_INLINE_IMAGE_PIXELS) {
+    return null;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return null;
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL('image/png');
+}
+
+function loadImageElement(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read blob.'));
-    reader.readAsDataURL(blob);
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Failed to load image for export.'));
+    image.src = src;
   });
+}
+
+async function blobImageSourceToDataUrl(src: string): Promise<string | null> {
+  try {
+    const image = await loadImageElement(src);
+    return imageElementToDataUrl(image);
+  } catch {
+    return null;
+  }
+}
+
+async function inlineBlobImageElement(image: HTMLImageElement): Promise<void> {
+  const src = image.getAttribute('src');
+  if (!src?.startsWith('blob:')) {
+    return;
+  }
+
+  const existingDataUrl = imageElementToDataUrl(image);
+  const dataUrl = existingDataUrl ?? await blobImageSourceToDataUrl(src);
+  if (dataUrl) {
+    image.setAttribute('src', dataUrl);
+  }
 }
 
 export async function inlineBlobImagesInHtml(html: string): Promise<string> {
@@ -103,21 +146,9 @@ export async function inlineBlobImagesInHtml(html: string): Promise<string> {
   }
 
   const images = Array.from(root.querySelectorAll('img'));
-  await Promise.all(
-    images.map(async (image) => {
-      const src = image.getAttribute('src');
-      if (!src?.startsWith('blob:')) {
-        return;
-      }
-      try {
-        const response = await fetch(src);
-        const blob = await response.blob();
-        image.setAttribute('src', await blobToDataUrl(blob));
-      } catch {
-        // Keep original src; export may still succeed for other images.
-      }
-    }),
-  );
+  for (const image of images) {
+    await inlineBlobImageElement(image);
+  }
 
   return root.innerHTML;
 }
@@ -134,21 +165,9 @@ export async function prepareExportImages(container: HTMLElement): Promise<numbe
     return 0;
   }
 
-  await Promise.all(
-    images.map(async (image) => {
-      const src = image.getAttribute('src');
-      if (!src?.startsWith('blob:')) {
-        return;
-      }
-      try {
-        const response = await fetch(src);
-        const blob = await response.blob();
-        image.setAttribute('src', await blobToDataUrl(blob));
-      } catch {
-        // Keep original src; load listener below will count as failure.
-      }
-    }),
-  );
+  for (const image of images) {
+    await inlineBlobImageElement(image);
+  }
 
   let failedCount = 0;
   await Promise.all(
