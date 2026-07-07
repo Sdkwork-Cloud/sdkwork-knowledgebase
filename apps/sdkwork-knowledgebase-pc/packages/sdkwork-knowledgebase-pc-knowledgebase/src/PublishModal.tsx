@@ -48,7 +48,7 @@ export function PublishModal({ documents, onClose, onWechatFlow }: PublishModalP
         selectedPlatform,
         documents[0]?.kbId || documents[0]?.id || '',
       );
-      if (!res.success) {
+      if (!res.accepted) {
         setPublishStatus({ [selectedPlatform]: 'error' });
         setIsPublishing(false);
         return;

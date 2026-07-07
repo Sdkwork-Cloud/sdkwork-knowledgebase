@@ -69,7 +69,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         HttpMethod::Post,
         "/backend/v3/api/knowledge/okf/index/rebuild",
         "knowledge",
-        "okf.bundle.index.rebuild",
+        "okf.bundle.index.create",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,
@@ -171,13 +171,13 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         HttpMethod::Get,
         "/backend/v3/api/knowledge/provider_health",
         "knowledge",
-        "providerHealth.retrieve",
+        "providerHealth.list",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
         "/backend/v3/api/knowledge/tenants/current",
         "knowledge",
-        "tenants.current.retrieve",
+        "tenants.current.list",
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
@@ -195,13 +195,13 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         HttpMethod::Post,
         "/backend/v3/api/knowledge/compliance/audit_events/export",
         "knowledge",
-        "compliance.auditEvents.export",
+        "compliance.auditEvents.export.create",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,
         "/backend/v3/api/knowledge/compliance/audit_events/anonymize_actor",
         "knowledge",
-        "compliance.auditEvents.anonymizeActor",
+        "compliance.auditEvents.anonymizeActor.create",
     ),
 ];
 

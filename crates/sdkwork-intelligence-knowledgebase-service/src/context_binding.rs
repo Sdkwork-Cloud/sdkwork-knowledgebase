@@ -66,7 +66,15 @@ impl<'a> KnowledgeContextBindingService<'a> {
             };
 
             if let Err(error) = drive_perms.grant_space_access(grant).await {
-                let _ = self.store.delete_binding(tenant_id, binding.id).await;
+                if let Err(rollback_error) = self.store.delete_binding(tenant_id, binding.id).await
+                {
+                    tracing::error!(
+                        tenant_id,
+                        binding_id = binding.id,
+                        ?rollback_error,
+                        "failed to roll back context binding after drive permission grant failure"
+                    );
+                }
                 return Err(KnowledgeContextBindingServiceError::DrivePermission(error));
             }
         }

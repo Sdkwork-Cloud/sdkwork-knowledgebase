@@ -1,5 +1,5 @@
 export interface KnowledgeGitImportRequest {
-  spaceId: number;
+  spaceId: string;
   repoUrl: string;
   branch?: string | null;
   idempotencyKey: string;

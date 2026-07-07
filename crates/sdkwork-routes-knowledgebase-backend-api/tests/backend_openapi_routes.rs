@@ -130,7 +130,7 @@ fn backend_openapi_exposes_standard_rag_admin_operations() {
             "/backend/v3/api/knowledge/retrieval_traces/{traceId}",
         ),
         (
-            "providerHealth.retrieve",
+            "providerHealth.list",
             "get",
             "/backend/v3/api/knowledge/provider_health",
         ),
@@ -141,12 +141,12 @@ fn backend_openapi_exposes_standard_rag_admin_operations() {
             "/backend/v3/api/knowledge/spaces/{spaceId}/members",
         ),
         (
-            "compliance.auditEvents.export",
+            "compliance.auditEvents.export.create",
             "post",
             "/backend/v3/api/knowledge/compliance/audit_events/export",
         ),
         (
-            "compliance.auditEvents.anonymizeActor",
+            "compliance.auditEvents.anonymizeActor.create",
             "post",
             "/backend/v3/api/knowledge/compliance/audit_events/anonymize_actor",
         ),
@@ -321,7 +321,7 @@ fn request_body(operation_id: &str) -> &'static str {
         "okf.profile.create" | "okf.profile.update" => {
             r#"{"spaceId":7,"profileVersion":"2026-06-05"}"#
         }
-        "okf.bundle.index.rebuild" => r#"{"spaceId":7}"#,
+        "okf.bundle.index.create" => r#"{"spaceId":7}"#,
         "okf.log.entries.create" => {
             r#"{"occurredAt":"2026-06-05T00:00:00Z","eventType":"publish","title":"Published","actor":"system","affectedConcepts":[],"warnings":[]}"#
         }
@@ -337,7 +337,7 @@ fn request_body(operation_id: &str) -> &'static str {
         "retrievalProfiles.create" | "retrievalProfiles.update" => {
             r#"{"tenantId":"100001","name":"Default Hybrid","strategy":"hybrid","topK":8,"minScore":0.4,"rerankEnabled":true,"contextBudgetTokens":2048,"status":"active"}"#
         }
-        "compliance.auditEvents.export" | "compliance.auditEvents.anonymizeActor" => {
+        "compliance.auditEvents.export.create" | "compliance.auditEvents.anonymizeActor.create" => {
             r#"{"actorId":"42"}"#
         }
         _ => "",

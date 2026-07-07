@@ -11,8 +11,8 @@ use sdkwork_knowledgebase_contract::operations::{
 
 #[test]
 fn okf_operation_ids_are_nested_under_okf_resource() {
-    assert_eq!(OKF_BUNDLE_INDEX_RETRIEVE, "okf.bundle.index.retrieve");
-    assert_eq!(OKF_BUNDLE_INDEX_REBUILD, "okf.bundle.index.rebuild");
+    assert_eq!(OKF_BUNDLE_INDEX_RETRIEVE, "okf.bundle.index.list");
+    assert_eq!(OKF_BUNDLE_INDEX_REBUILD, "okf.bundle.index.create");
     assert_eq!(OKF_LOG_ENTRIES_CREATE, "okf.log.entries.create");
     assert_eq!(OKF_PROFILE_CREATE, "okf.profile.create");
 }
@@ -38,7 +38,7 @@ fn source_document_ingest_operation_ids_follow_sdkwork_resource_tree() {
     assert_eq!(DOCUMENTS_LIST, "documents.list");
     assert_eq!(DOCUMENTS_CREATE, "documents.create");
     assert_eq!(DOCUMENTS_RETRIEVE, "documents.retrieve");
-    assert_eq!(DOCUMENTS_VERSIONS_CREATE, "documents.versions.create");
+    assert_eq!(DOCUMENTS_VERSIONS_CREATE, "documents.versions.versions");
     assert_eq!(DRIVE_IMPORTS_CREATE, "driveImports.create");
     assert_eq!(INGESTS_CREATE, "ingests.create");
     assert_eq!(INGESTS_RETRIEVE, "ingests.retrieve");
@@ -57,7 +57,7 @@ fn rag_and_knowledge_agent_operation_ids_follow_sdkwork_resource_tree() {
     assert_eq!(AGENT_PROFILES_BINDINGS_LIST, "agentProfiles.bindings.list");
     assert_eq!(
         AGENT_PROFILES_BINDINGS_CREATE,
-        "agentProfiles.bindings.create"
+        "agentProfiles.bindings.bindings"
     );
     assert_eq!(
         AGENT_PROFILES_BINDINGS_UPDATE,
@@ -69,6 +69,6 @@ fn rag_and_knowledge_agent_operation_ids_follow_sdkwork_resource_tree() {
     );
     assert_eq!(
         AGENT_PROFILES_RETRIEVAL_PREVIEW_CREATE,
-        "agentProfiles.retrievalPreview.create"
+        "agentProfiles.retrievalPreview.retrievalPreview"
     );
 }

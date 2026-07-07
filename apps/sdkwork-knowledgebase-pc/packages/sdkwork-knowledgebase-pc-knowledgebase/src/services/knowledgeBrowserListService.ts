@@ -1,5 +1,9 @@
 import type { KnowledgeBrowserNode } from 'sdkwork-knowledgebase-pc-core';
-import { requireKnowledgebaseAppSdkHttpClient } from 'sdkwork-knowledgebase-pc-core';
+import {
+  isKnowledgebaseAppError,
+  parseKnowledgeSpaceId,
+  requireKnowledgebaseAppSdkHttpClient,
+} from 'sdkwork-knowledgebase-pc-core';
 import { normalizeSdkWorkListPage } from './sdkWorkListPage';
 
 const BROWSER_NODE_CACHE_TTL_MS = 30_000;
@@ -14,11 +18,11 @@ interface BrowserNodeCacheEntry {
   hasMore: boolean;
 }
 
-function parentCacheKey(spaceId: number, parentId: string | null): string {
+function parentCacheKey(spaceId: string, parentId: string | null): string {
   return `${spaceId}:${parentId ?? '__root__'}`;
 }
 
-export function getLoadedKnowledgeBrowserNodes(spaceId: number): KnowledgeBrowserNode[] {
+export function getLoadedKnowledgeBrowserNodes(spaceId: string): KnowledgeBrowserNode[] {
   const prefix = `${spaceId}:`;
   const merged = new Map<string, KnowledgeBrowserNode>();
   for (const [key, entry] of browserParentCache.entries()) {
@@ -70,7 +74,7 @@ function rememberBrowserParentCacheEntry(
   trimBrowserCacheMaps();
 }
 
-function invalidateBrowserCachesForSpaceId(spaceId: number): void {
+function invalidateBrowserCachesForSpaceId(spaceId: string): void {
   const prefix = `${spaceId}:`;
   for (const key of browserParentCache.keys()) {
     if (key.startsWith(prefix)) {
@@ -79,7 +83,7 @@ function invalidateBrowserCachesForSpaceId(spaceId: number): void {
   }
 }
 
-export function invalidateKnowledgeBrowserNodeCache(spaceId?: number): void {
+export function invalidateKnowledgeBrowserNodeCache(spaceId?: string): void {
   if (spaceId === undefined) {
     browserParentCache.clear();
     return;
@@ -88,10 +92,10 @@ export function invalidateKnowledgeBrowserNodeCache(spaceId?: number): void {
 }
 
 export function invalidateKnowledgeBrowserNodeCacheForSpaceIds(
-  ...spaceIds: Array<number | null | undefined>
+  ...spaceIds: Array<string | null | undefined>
 ): void {
   for (const spaceId of spaceIds) {
-    if (spaceId !== null && spaceId !== undefined && Number.isFinite(spaceId) && spaceId > 0) {
+    if (spaceId !== null && spaceId !== undefined && spaceId !== '' && spaceId !== '0') {
       invalidateBrowserCachesForSpaceId(spaceId);
     }
   }
@@ -104,9 +108,12 @@ export function invalidateKnowledgeBrowserNodeCacheForKbIds(
     if (kbId === null || kbId === undefined) {
       continue;
     }
-    const spaceId = Number(kbId);
-    if (Number.isFinite(spaceId) && spaceId > 0) {
-      invalidateBrowserCachesForSpaceId(spaceId);
+    try {
+      invalidateBrowserCachesForSpaceId(parseKnowledgeSpaceId(kbId));
+    } catch (error) {
+      if (!isKnowledgebaseAppError(error)) {
+        throw error;
+      }
     }
   }
 }
@@ -118,7 +125,7 @@ export interface KnowledgeBrowserNodesPageResult {
 }
 
 export async function listKnowledgeBrowserNodesPage(
-  spaceId: number,
+  spaceId: string,
   parentId: string | null,
   options?: { cursor?: string | null; pageSize?: number; fresh?: boolean },
 ): Promise<KnowledgeBrowserNodesPageResult> {
@@ -147,7 +154,7 @@ export async function listKnowledgeBrowserNodesPage(
     cursor,
     pageSize,
   });
-  const normalized = normalizeSdkWorkListPage(page);
+  const normalized = normalizeSdkWorkListPage<KnowledgeBrowserNode>(page);
   const nextCursor = normalized.nextCursor;
   const hasMore = normalized.hasMore;
 
@@ -163,7 +170,7 @@ export async function listKnowledgeBrowserNodesPage(
 }
 
 export async function listKnowledgeBrowserNodesForParent(
-  spaceId: number,
+  spaceId: string,
   parentId: string | null,
   options?: { fresh?: boolean; pageSize?: number },
 ): Promise<KnowledgeBrowserNode[]> {
@@ -175,14 +182,14 @@ export async function listKnowledgeBrowserNodesForParent(
 }
 
 export async function ensureKnowledgeBrowserFolderLoaded(
-  spaceId: number,
+  spaceId: string,
   folderId: string | null,
 ): Promise<KnowledgeBrowserNode[]> {
   return listKnowledgeBrowserNodesForParent(spaceId, folderId);
 }
 
 export async function listLoadedKnowledgeBrowserNodes(
-  spaceId: number,
+  spaceId: string,
   options?: { includeRoot?: boolean },
 ): Promise<KnowledgeBrowserNode[]> {
   if (options?.includeRoot !== false) {

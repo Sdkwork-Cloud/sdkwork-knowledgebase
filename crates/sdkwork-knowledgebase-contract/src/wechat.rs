@@ -143,6 +143,20 @@ pub struct KnowledgeWechatArticlesPreviewRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeWechatOperationResult {
-    pub success: bool,
-    pub message: String,
+    pub accepted: bool,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeWechatFanTag {
+    pub id: String,
+    pub name: String,
+    pub fan_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeWechatFanTagList {
+    pub tags: Vec<KnowledgeWechatFanTag>,
 }

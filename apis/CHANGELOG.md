@@ -14,8 +14,8 @@ Initial API surface for the SDKWork Knowledgebase App API.
 
 **Space Members**
 - `GET /app/v3/api/knowledge/spaces/{spaceId}/members` — `spaces.members.list`
-- `POST /app/v3/api/knowledge/spaces/{spaceId}/members` — `spaces.members.grant`
-- `DELETE /app/v3/api/knowledge/spaces/{spaceId}/members` — `spaces.members.revoke`
+- `POST /app/v3/api/knowledge/spaces/{spaceId}/members` — `spaces.members.members`
+- `DELETE /app/v3/api/knowledge/spaces/{spaceId}/members` — `spaces.members.delete`
 
 **Documents**
 - `GET /app/v3/api/knowledge/documents?spaceId={spaceId}` — `documents.list`
@@ -23,9 +23,9 @@ Initial API surface for the SDKWork Knowledgebase App API.
 - `GET /app/v3/api/knowledge/documents/{documentId}` — `documents.retrieve`
 - `PATCH /app/v3/api/knowledge/documents/{documentId}` — `documents.update`
 - `DELETE /app/v3/api/knowledge/documents/{documentId}` — `documents.delete`
-- `GET /app/v3/api/knowledge/documents/{documentId}/content` — `documents.content.retrieve`
+- `GET /app/v3/api/knowledge/documents/{documentId}/content` — `documents.content.list`
 - `GET /app/v3/api/knowledge/documents/{documentId}/versions` — `documents.versions.list`
-- `POST /app/v3/api/knowledge/documents/{documentId}/versions` — `documents.versions.create`
+- `POST /app/v3/api/knowledge/documents/{documentId}/versions` — `documents.versions.versions`
 
 **Ingestion**
 - `POST /app/v3/api/knowledge/ingests` — `ingests.create`
@@ -36,13 +36,13 @@ Initial API surface for the SDKWork Knowledgebase App API.
 
 **OKF (Open Knowledge Format)**
 - `GET /app/v3/api/knowledge/okf/concepts?spaceId={spaceId}` — `okf.concepts.list`
-- `PUT /app/v3/api/knowledge/okf/concepts/upsert` — `okf.concepts.upsert`
+- `PUT /app/v3/api/knowledge/okf/concepts/upsert` — `okf.concepts.update`
 - `GET /app/v3/api/knowledge/okf/concepts/{conceptId}` — `okf.concepts.retrieve`
 - `DELETE /app/v3/api/knowledge/okf/concepts/{conceptId}` — `okf.concepts.delete`
 - `GET /app/v3/api/knowledge/okf/concepts/{conceptId}/revisions` — `okf.concepts.revisions.list`
-- `GET /app/v3/api/knowledge/okf/index?spaceId={spaceId}` — `okf.bundle.index.retrieve`
-- `GET /app/v3/api/knowledge/okf/log?spaceId={spaceId}` — `okf.bundle.log.retrieve`
-- `GET /app/v3/api/knowledge/okf/profile?spaceId={spaceId}` — `okf.bundle.profile.retrieve`
+- `GET /app/v3/api/knowledge/okf/index?spaceId={spaceId}` — `okf.bundle.index.list`
+- `GET /app/v3/api/knowledge/okf/log?spaceId={spaceId}` — `okf.bundle.log.list`
+- `GET /app/v3/api/knowledge/okf/profile?spaceId={spaceId}` — `okf.bundle.profile.list`
 - `POST /app/v3/api/knowledge/okf/queries` — `okf.queries.create`
 - `POST /app/v3/api/knowledge/okf/queries/{queryId}/file_answer` — `okf.queries.fileAnswer`
 - `POST /app/v3/api/knowledge/okf/context_packs` — `okf.contextPacks.create`
@@ -65,15 +65,15 @@ Initial API surface for the SDKWork Knowledgebase App API.
 - `PATCH /app/v3/api/knowledge/agent_profiles/{profileId}` — `agentProfiles.update`
 - `DELETE /app/v3/api/knowledge/agent_profiles/{profileId}` — `agentProfiles.delete`
 - `GET /app/v3/api/knowledge/agent_profiles/{profileId}/bindings` — `agentProfiles.bindings.list`
-- `POST /app/v3/api/knowledge/agent_profiles/{profileId}/bindings` — `agentProfiles.bindings.create`
+- `POST /app/v3/api/knowledge/agent_profiles/{profileId}/bindings` — `agentProfiles.bindings.bindings`
 - `PATCH /app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}` — `agentProfiles.bindings.update`
 - `DELETE /app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}` — `agentProfiles.bindings.delete`
-- `POST /app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview` — `agentProfiles.retrievalPreview.create`
-- `POST /app/v3/api/knowledge/agent_profiles/{profileId}/chat` — `agentProfiles.chat.create`
+- `POST /app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview` — `agentProfiles.retrievalPreview.retrievalPreview`
+- `POST /app/v3/api/knowledge/agent_profiles/{profileId}/chat` — `agentProfiles.chat.chat`
 
 **Context Bindings**
 - `GET /app/v3/api/knowledge/spaces/{spaceId}/context_bindings` — `spaces.contextBindings.list`
-- `POST /app/v3/api/knowledge/spaces/{spaceId}/context_bindings` — `spaces.contextBindings.create`
+- `POST /app/v3/api/knowledge/spaces/{spaceId}/context_bindings` — `spaces.contextBindings.contextBindings`
 - `GET /app/v3/api/knowledge/context_bindings/{bindingId}` — `contextBindings.retrieve`
 - `PATCH /app/v3/api/knowledge/context_bindings/{bindingId}` — `contextBindings.update`
 - `DELETE /app/v3/api/knowledge/context_bindings/{bindingId}` — `contextBindings.delete`
@@ -84,9 +84,9 @@ Initial API surface for the SDKWork Knowledgebase App API.
 
 **WeChat Integration**
 - `GET /app/v3/api/knowledge/wechat/official_accounts` — `wechat.officialAccounts.list`
-- `PUT /app/v3/api/knowledge/wechat/official_accounts` — `wechat.officialAccounts.replace`
+- `PUT /app/v3/api/knowledge/wechat/official_accounts` — `wechat.officialAccounts.update`
 - `GET /app/v3/api/knowledge/wechat/applets` — `wechat.applets.list`
-- `PUT /app/v3/api/knowledge/wechat/applets` — `wechat.applets.replace`
+- `PUT /app/v3/api/knowledge/wechat/applets` — `wechat.applets.update`
 - `POST /app/v3/api/knowledge/wechat/articles/publish` — `wechat.articles.publish`
 - `POST /app/v3/api/knowledge/wechat/articles/preview` — `wechat.articles.preview`
 
@@ -97,7 +97,7 @@ Initial API surface for the SDKWork Knowledgebase App API.
 
 **Site Deployment**
 - `POST /app/v3/api/knowledge/site_deployments` — `siteDeployments.create`
-- `GET /app/v3/api/knowledge/site_deployments/{deploymentId}/preview` — `siteDeployments.preview.retrieve`
+- `GET /app/v3/api/knowledge/site_deployments/{deploymentId}/preview` — `siteDeployments.preview.list`
 
 **Media Tasks**
 - `POST /app/v3/api/knowledge/media_tasks` — `mediaTasks.create`
@@ -113,7 +113,7 @@ Initial backend admin API surface.
 Tenant status endpoint for multi-tenant architecture.
 
 **Tenant Status**
-- `GET /backend/v3/api/knowledge/tenants/current` — `tenants.current.retrieve`
+- `GET /backend/v3/api/knowledge/tenants/current` — `tenants.current.list`
   - Retrieves the caller's own tenant knowledgebase status.
   - **Security**: Tenant identity is derived from the authenticated principal's
     access token claims (`WebRequestPrincipal.tenant_id()`). No `tenant_id`

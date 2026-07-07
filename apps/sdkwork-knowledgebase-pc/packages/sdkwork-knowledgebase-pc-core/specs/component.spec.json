@@ -49,65 +49,109 @@
     "sdkDependencies": [
       {
         "workspace": "sdkwork-appbase",
-        "surface": "open-api",
-        "credentialMode": "protected-open-api-flexible"
+        "surface": "local-native",
+        "credentialMode": "local-native"
       },
       {
         "workspace": "sdkwork-database",
-        "surface": "open-api",
-        "credentialMode": "protected-open-api-flexible"
+        "surface": "local-native",
+        "credentialMode": "local-native"
       },
       {
         "workspace": "sdkwork-drive",
-        "surface": "open-api",
-        "credentialMode": "protected-open-api-flexible"
+        "surface": "local-native",
+        "credentialMode": "local-native"
       },
       {
         "workspace": "sdkwork-drive-app-sdk",
+        "permissionModuleId": "drive",
         "surface": "app-api",
         "credentialMode": "authenticated-app-api"
       },
       {
         "workspace": "sdkwork-iam-app-sdk",
+        "permissionModuleId": "iam-kernel",
         "surface": "app-api",
         "credentialMode": "authenticated-app-api"
       },
       {
         "workspace": "sdkwork-id",
-        "surface": "open-api",
-        "credentialMode": "protected-open-api-flexible"
+        "surface": "local-native",
+        "credentialMode": "local-native"
       },
       {
         "workspace": "sdkwork-kernel",
-        "surface": "open-api",
-        "credentialMode": "protected-open-api-flexible"
+        "surface": "local-native",
+        "credentialMode": "local-native"
       },
       {
         "workspace": "sdkwork-knowledgebase-app-sdk",
+        "permissionModuleId": "knowledge",
         "surface": "app-api",
         "credentialMode": "authenticated-app-api"
       },
       {
         "workspace": "sdkwork-memory",
-        "surface": "open-api",
-        "credentialMode": "protected-open-api-flexible"
+        "surface": "local-native",
+        "credentialMode": "local-native"
       },
       {
         "workspace": "sdkwork-sdk-generator",
-        "surface": "open-api",
-        "credentialMode": "protected-open-api-flexible"
+        "surface": "local-native",
+        "credentialMode": "local-native"
       },
       {
         "workspace": "sdkwork-utils",
-        "surface": "open-api",
-        "credentialMode": "protected-open-api-flexible"
+        "surface": "local-native",
+        "credentialMode": "local-native"
       },
       {
         "workspace": "sdkwork-web-framework",
-        "surface": "open-api",
-        "credentialMode": "protected-open-api-flexible"
+        "surface": "local-native",
+        "credentialMode": "local-native"
       }
     ],
+    "permissionComposition": {
+      "inheritanceMode": "module-catalog-with-overrides",
+      "applicationModule": {
+        "manifestRef": "../../../../../specs/iam.module.manifest.json"
+      },
+      "moduleCatalogRefs": [
+        {
+          "moduleId": "knowledge",
+          "manifestRef": "../../../../../specs/iam.module.manifest.json",
+          "inheritPermissions": true,
+          "inheritRoles": true
+        },
+        {
+          "moduleId": "iam-kernel",
+          "manifestRef": "../../../../../../sdkwork-iam/iam/modules/iam-kernel/iam.module.manifest.json",
+          "inheritPermissions": true,
+          "inheritRoles": true
+        },
+        {
+          "moduleId": "drive",
+          "manifestRef": "../../../../../../sdkwork-iam/iam/modules/drive/iam.module.manifest.json",
+          "inheritPermissions": true,
+          "inheritRoles": true
+        }
+      ],
+      "bootstrapAccessTokenScope": {
+        "inheritFrom": "sdkwork.app.config.json#backend.accessTokenPermissionScope",
+        "supplement": [],
+        "overrideReplace": false
+      },
+      "routePermissionHints": {
+        "inheritFromOpenApi": true,
+        "inheritFromModuleManifests": true,
+        "overrides": []
+      },
+      "consumerPolicy": {
+        "forbidLocalPermissionCatalogForDependencyDomains": true,
+        "allowExplicitOverridesOnly": true,
+        "allowFrontendHintsWithoutServerDuplication": true
+      }
+    },
     "sdkClients": [
       "@sdkwork/knowledgebase-app-sdk",
       "@sdkwork/iam-app-sdk",

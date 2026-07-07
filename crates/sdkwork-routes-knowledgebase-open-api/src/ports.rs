@@ -23,7 +23,7 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         _context: KnowledgeOpenApiRequestContext,
         _request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        Err(ApiError::not_implemented("retrievals.create"))
+        Err(ApiError::unsupported_operation("retrievals.create"))
     }
 
     async fn retrieve_retrieval(
@@ -31,7 +31,7 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         _context: KnowledgeOpenApiRequestContext,
         _retrieval_id: u64,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        Err(ApiError::not_implemented("retrievals.retrieve"))
+        Err(ApiError::unsupported_operation("retrievals.retrieve"))
     }
 
     async fn create_context_pack(
@@ -39,7 +39,7 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         _context: KnowledgeOpenApiRequestContext,
         _request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack> {
-        Err(ApiError::not_implemented("contextPacks.create"))
+        Err(ApiError::unsupported_operation("contextPacks.create"))
     }
 
     async fn create_ingest(
@@ -47,7 +47,7 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         _context: KnowledgeOpenApiRequestContext,
         _request: KnowledgeIngestRequest,
     ) -> ApiResult<IngestionJob> {
-        Err(ApiError::not_implemented("ingests.create"))
+        Err(ApiError::unsupported_operation("ingests.create"))
     }
 
     async fn retrieve_ingest(
@@ -55,7 +55,7 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         _context: KnowledgeOpenApiRequestContext,
         _ingest_id: u64,
     ) -> ApiResult<IngestionJob> {
-        Err(ApiError::not_implemented("ingests.retrieve"))
+        Err(ApiError::unsupported_operation("ingests.retrieve"))
     }
 
     async fn list_documents(
@@ -65,7 +65,7 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         _cursor: Option<String>,
         _page_size: Option<u32>,
     ) -> ApiResult<SdkWorkPageData<KnowledgeDocument>> {
-        Err(ApiError::not_implemented("documents.list"))
+        Err(ApiError::unsupported_operation("documents.list"))
     }
 
     async fn retrieve_document(
@@ -73,7 +73,7 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         _context: KnowledgeOpenApiRequestContext,
         _document_id: u64,
     ) -> ApiResult<KnowledgeDocument> {
-        Err(ApiError::not_implemented("documents.retrieve"))
+        Err(ApiError::unsupported_operation("documents.retrieve"))
     }
 
     async fn list_browser(
@@ -81,6 +81,6 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         _context: KnowledgeOpenApiRequestContext,
         _request: ListKnowledgeBrowserRequest,
     ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>> {
-        Err(ApiError::not_implemented("spaces.browser.list"))
+        Err(ApiError::unsupported_operation("spaces.browser.list"))
     }
 }

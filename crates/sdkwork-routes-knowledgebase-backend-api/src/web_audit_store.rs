@@ -48,12 +48,6 @@ async fn shared_knowledgebase_web_store_bundle() -> Option<Arc<KnowledgebaseWebS
         .clone()
 }
 
-pub async fn shared_knowledgebase_audit_emitter() -> Option<Arc<dyn AuditEmitter>> {
-    shared_knowledgebase_web_store_bundle()
-        .await
-        .map(|bundle| bundle.audit_emitter.clone())
-}
-
 pub async fn attach_knowledgebase_audit_emitter<R>(
     layer: WebFrameworkLayer<R>,
 ) -> WebFrameworkLayer<R>

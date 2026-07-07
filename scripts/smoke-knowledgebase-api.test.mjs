@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-const DEFAULT_PROBE_PATHS = ['/livez', '/readyz', '/metrics'];
+const DEFAULT_PROBE_PATHS = ['/livez', '/readyz'];
+const METRICS_PROBE_PATHS = ['/metrics'];
 
 export function resolveSmokeBaseUrl() {
   return (
@@ -18,6 +19,18 @@ export function resolveSplitServiceSmokeUrls() {
     open: process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_OPEN_URL?.trim() || '',
     worker: process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_WORKER_URL?.trim() || '',
   };
+}
+
+export function resolveSmokeMetricsUrls() {
+  const rawValue = (
+    process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS?.trim()
+    || process.env.SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URL?.trim()
+    || ''
+  );
+  if (!rawValue) {
+    return [];
+  }
+  return rawValue.split(',').map((value) => value.trim()).filter(Boolean);
 }
 
 export async function probeKnowledgebaseHttpSurface(baseUrl, paths = DEFAULT_PROBE_PATHS) {
@@ -42,11 +55,32 @@ export async function probeKnowledgebaseHttpSurface(baseUrl, paths = DEFAULT_PRO
 }
 
 describe('knowledgebase API smoke helpers', () => {
-  it('defines default probe paths for production health surfaces', () => {
-    assert.deepEqual(DEFAULT_PROBE_PATHS, ['/livez', '/readyz', '/metrics']);
+  it('defines default probe paths for public production health surfaces', () => {
+    assert.deepEqual(DEFAULT_PROBE_PATHS, ['/livez', '/readyz']);
+    assert.deepEqual(METRICS_PROBE_PATHS, ['/metrics']);
   });
 
-  it('probes livez, readyz, and metrics when a smoke base URL is configured', async (t) => {
+  it('keeps default public health smoke off the metrics endpoint', async () => {
+    const requestedPaths = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      requestedPaths.push(new URL(url).pathname);
+      return new Response(
+        'knowledge_api_requests_total 1\nknowledgebase_health_status 1\nknowledge_api_auth_failures_total 0\n',
+        { status: 200 },
+      );
+    };
+
+    try {
+      await probeKnowledgebaseHttpSurface('https://knowledgebase.example.com');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    assert.deepEqual(requestedPaths, ['/livez', '/readyz']);
+  });
+
+  it('probes livez and readyz when a smoke base URL is configured', async (t) => {
     const baseUrl = resolveSmokeBaseUrl();
     if (!baseUrl) {
       t.skip('Set SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL to run live API smoke checks.');
@@ -93,6 +127,25 @@ describe('knowledgebase API smoke helpers', () => {
         assert.ok(
           result.status >= 200 && result.status < 400,
           `${service}${result.path} returned ${result.status}`,
+        );
+      }
+    }
+  });
+
+  it('probes metrics only when an internal metrics smoke URL is explicitly configured', async (t) => {
+    const metricsUrls = resolveSmokeMetricsUrls();
+    if (metricsUrls.length === 0) {
+      t.skip('Set SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URL or _METRICS_URLS to run internal metrics smoke checks.');
+      return;
+    }
+
+    for (const metricsUrl of metricsUrls) {
+      const results = await probeKnowledgebaseHttpSurface(metricsUrl, METRICS_PROBE_PATHS);
+      assert.deepEqual(results.map((result) => result.path), METRICS_PROBE_PATHS);
+      for (const result of results) {
+        assert.ok(
+          result.status >= 200 && result.status < 400,
+          `${metricsUrl}${result.path} returned ${result.status}`,
         );
       }
     }

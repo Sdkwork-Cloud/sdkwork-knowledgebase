@@ -172,7 +172,7 @@
     {
       "method": "DELETE",
       "path": "/app/v3/api/knowledge/spaces/{spaceId}/members",
-      "operationId": "spaces.members.revoke",
+      "operationId": "spaces.members.delete",
       "tags": [
         "knowledge"
       ],
@@ -304,7 +304,7 @@
     {
       "method": "GET",
       "path": "/app/v3/api/knowledge/documents/{documentId}/content",
-      "operationId": "documents.content.retrieve",
+      "operationId": "documents.content.list",
       "tags": [
         "knowledge"
       ],
@@ -480,7 +480,7 @@
     {
       "method": "GET",
       "path": "/app/v3/api/knowledge/okf/index",
-      "operationId": "okf.bundle.index.retrieve",
+      "operationId": "okf.bundle.index.list",
       "tags": [
         "knowledge"
       ],
@@ -502,7 +502,7 @@
     {
       "method": "GET",
       "path": "/app/v3/api/knowledge/okf/log",
-      "operationId": "okf.bundle.log.retrieve",
+      "operationId": "okf.bundle.log.list",
       "tags": [
         "knowledge"
       ],
@@ -524,7 +524,7 @@
     {
       "method": "GET",
       "path": "/app/v3/api/knowledge/okf/profile",
-      "operationId": "okf.bundle.profile.retrieve",
+      "operationId": "okf.bundle.profile.list",
       "tags": [
         "knowledge"
       ],
@@ -568,7 +568,7 @@
     {
       "method": "GET",
       "path": "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
-      "operationId": "siteDeployments.preview.retrieve",
+      "operationId": "siteDeployments.preview.list",
       "tags": [
         "knowledge"
       ],
@@ -701,6 +701,28 @@
       "method": "GET",
       "path": "/app/v3/api/knowledge/wechat/official_accounts",
       "operationId": "wechat.officialAccounts.list",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/wechat/official_accounts/{account_id}/fan_tags",
+      "operationId": "wechat.officialAccounts.fanTags.list",
       "tags": [
         "knowledge"
       ],
@@ -854,7 +876,7 @@
     {
       "method": "POST",
       "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
-      "operationId": "agentProfiles.bindings.create",
+      "operationId": "agentProfiles.bindings.bindings",
       "tags": [
         "knowledge"
       ],
@@ -876,7 +898,7 @@
     {
       "method": "POST",
       "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
-      "operationId": "agentProfiles.chat.create",
+      "operationId": "agentProfiles.chat.chat",
       "tags": [
         "knowledge"
       ],
@@ -898,7 +920,7 @@
     {
       "method": "POST",
       "path": "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
-      "operationId": "agentProfiles.retrievalPreview.create",
+      "operationId": "agentProfiles.retrievalPreview.retrievalPreview",
       "tags": [
         "knowledge"
       ],
@@ -964,7 +986,7 @@
     {
       "method": "POST",
       "path": "/app/v3/api/knowledge/documents/{documentId}/versions",
-      "operationId": "documents.versions.create",
+      "operationId": "documents.versions.versions",
       "tags": [
         "knowledge"
       ],
@@ -1316,7 +1338,7 @@
     {
       "method": "POST",
       "path": "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
-      "operationId": "spaces.contextBindings.create",
+      "operationId": "spaces.contextBindings.contextBindings",
       "tags": [
         "knowledge"
       ],
@@ -1338,7 +1360,7 @@
     {
       "method": "POST",
       "path": "/app/v3/api/knowledge/spaces/{spaceId}/members",
-      "operationId": "spaces.members.grant",
+      "operationId": "spaces.members.members",
       "tags": [
         "knowledge"
       ],
@@ -1448,7 +1470,7 @@
     {
       "method": "PUT",
       "path": "/app/v3/api/knowledge/okf/concepts/upsert",
-      "operationId": "okf.concepts.upsert",
+      "operationId": "okf.concepts.update",
       "tags": [
         "knowledge"
       ],
@@ -1470,7 +1492,7 @@
     {
       "method": "PUT",
       "path": "/app/v3/api/knowledge/wechat/applets",
-      "operationId": "wechat.applets.replace",
+      "operationId": "wechat.applets.update",
       "tags": [
         "knowledge"
       ],
@@ -1492,7 +1514,7 @@
     {
       "method": "PUT",
       "path": "/app/v3/api/knowledge/wechat/official_accounts",
-      "operationId": "wechat.officialAccounts.replace",
+      "operationId": "wechat.officialAccounts.update",
       "tags": [
         "knowledge"
       ],

@@ -38,7 +38,7 @@ async fn hosted_app_router_lists_documents() {
     assert_ne!(
         response.status(),
         StatusCode::NOT_IMPLEMENTED,
-        "hosted app api must not return operation_not_implemented for documents.list"
+        "hosted app api must not return operation_unsupported for documents.list"
     );
 
     let body = response_body_json(response).await;
@@ -65,7 +65,7 @@ async fn hosted_backend_router_serves_provider_health() {
     assert_ne!(
         response.status(),
         StatusCode::NOT_IMPLEMENTED,
-        "hosted backend must not return operation_not_implemented for providerHealth.retrieve"
+        "hosted backend must not return operation_unsupported for providerHealth.list"
     );
 
     let body = response_body_json(response).await;
@@ -131,7 +131,7 @@ async fn hosted_app_router_upserts_okf_concept() {
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
     let space = response_body_json(space_response).await;
-    let space_id = space["id"].as_u64().expect("created space id");
+    let space_id = json_u64_field(&space, "id").expect("created space id");
 
     let response = app
         .oneshot(
@@ -151,7 +151,7 @@ async fn hosted_app_router_upserts_okf_concept() {
     assert_ne!(
         response.status(),
         StatusCode::NOT_IMPLEMENTED,
-        "hosted app api must not return operation_not_implemented for okf.concepts.upsert"
+        "hosted app api must not return operation_unsupported for okf.concepts.update"
     );
 
     let body = response_body_json(response).await;
@@ -261,7 +261,7 @@ async fn hosted_backend_registers_okf_profile_and_rebuilds_index() {
         )
         .await
         .unwrap();
-    assert_eq!(rebuild_response.status(), StatusCode::OK);
+    assert_eq!(rebuild_response.status(), StatusCode::CREATED);
     let rebuild_body = response_body_json(rebuild_response).await;
     assert!(rebuild_body["markdown"]
         .as_str()
@@ -547,7 +547,7 @@ async fn hosted_backend_approves_okf_candidate() {
         )
         .await
         .unwrap();
-    assert_eq!(approve_response.status(), StatusCode::CREATED);
+    assert_eq!(approve_response.status(), StatusCode::OK);
     let approve_body = response_body_json(approve_response).await;
     assert_eq!(approve_body["state"], "published");
 }
@@ -602,7 +602,7 @@ async fn hosted_backend_rejects_okf_candidate() {
         )
         .await
         .unwrap();
-    assert_eq!(reject_response.status(), StatusCode::CREATED);
+    assert_eq!(reject_response.status(), StatusCode::OK);
     let reject_body = response_body_json(reject_response).await;
     assert_eq!(reject_body["state"], "rejected");
 }
@@ -628,9 +628,7 @@ async fn hosted_backend_resolves_external_space_to_catalog_engine() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -679,9 +677,7 @@ async fn hosted_backend_resolves_external_space_to_ragflow_engine() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -730,9 +726,7 @@ async fn hosted_backend_resolves_external_space_to_onyx_engine() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -778,9 +772,7 @@ async fn hosted_backend_resolves_external_space_to_anythingllm_engine() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -826,9 +818,7 @@ async fn hosted_backend_resolves_external_space_to_open_webui_engine() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -874,9 +864,7 @@ async fn hosted_backend_resolves_external_space_to_flowise_engine() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -922,9 +910,7 @@ async fn hosted_backend_resolves_external_space_to_chroma_engine() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -970,9 +956,7 @@ async fn hosted_backend_resolves_external_space_to_qdrant_engine() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -1018,9 +1002,7 @@ async fn hosted_backend_resolves_external_space_to_weaviate_engine() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -1066,9 +1048,7 @@ async fn hosted_backend_resolves_external_space_to_haystack_engine() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -1125,9 +1105,7 @@ async fn hosted_external_agent_chat_rejects_unconfigured_external_adapter() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -1179,7 +1157,7 @@ async fn hosted_external_agent_chat_rejects_unconfigured_external_adapter() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -1264,9 +1242,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -1318,7 +1294,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -1338,7 +1314,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "configured external engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -1414,9 +1390,7 @@ async fn hosted_external_read_resolves_configured_dify_citation_document() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -1468,7 +1442,7 @@ async fn hosted_external_read_resolves_configured_dify_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -1485,7 +1459,7 @@ async fn hosted_external_read_resolves_configured_dify_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    assert_eq!(chat_response.status(), StatusCode::OK);
     let chat_body = response_body_json(chat_response).await;
     let logical_path = chat_body["citations"][0]["logicalPath"]
         .as_str()
@@ -1569,9 +1543,7 @@ async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -1623,7 +1595,7 @@ async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -1640,7 +1612,7 @@ async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    assert_eq!(chat_response.status(), StatusCode::OK);
     let chat_body = response_body_json(chat_response).await;
     let logical_path = chat_body["citations"][0]["logicalPath"]
         .as_str()
@@ -1710,9 +1682,7 @@ async fn hosted_external_read_resolves_configured_open_webui_citation_document()
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -1764,7 +1734,7 @@ async fn hosted_external_read_resolves_configured_open_webui_citation_document()
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -1781,7 +1751,7 @@ async fn hosted_external_read_resolves_configured_open_webui_citation_document()
         )
         .await
         .unwrap();
-    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    assert_eq!(chat_response.status(), StatusCode::OK);
     let chat_body = response_body_json(chat_response).await;
     let logical_path = chat_body["citations"][0]["logicalPath"]
         .as_str()
@@ -1857,9 +1827,7 @@ async fn hosted_external_read_resolves_configured_flowise_citation_document() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -1911,7 +1879,7 @@ async fn hosted_external_read_resolves_configured_flowise_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -1928,7 +1896,7 @@ async fn hosted_external_read_resolves_configured_flowise_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    assert_eq!(chat_response.status(), StatusCode::OK);
     let chat_body = response_body_json(chat_response).await;
     let logical_path = chat_body["citations"][0]["logicalPath"]
         .as_str()
@@ -2026,9 +1994,7 @@ async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -2080,7 +2046,7 @@ async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -2097,7 +2063,7 @@ async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    assert_eq!(chat_response.status(), StatusCode::OK);
     let chat_body = response_body_json(chat_response).await;
     let logical_path = chat_body["citations"][0]["logicalPath"]
         .as_str()
@@ -2166,9 +2132,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -2220,7 +2184,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -2240,7 +2204,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "configured RAGFlow engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -2299,9 +2263,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -2353,7 +2315,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -2373,7 +2335,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "configured Onyx engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -2439,9 +2401,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -2493,7 +2453,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -2513,7 +2473,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "configured AnythingLLM engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -2576,9 +2536,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter(
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -2630,7 +2588,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter(
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -2650,7 +2608,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter(
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "configured Open WebUI engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -2715,9 +2673,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -2769,7 +2725,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -2789,7 +2745,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "configured Flowise engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -2850,9 +2806,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_chroma_adapter() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -2904,7 +2858,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_chroma_adapter() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -2924,7 +2878,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_chroma_adapter() {
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "configured Chroma engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -3002,9 +2956,7 @@ async fn hosted_external_read_resolves_configured_chroma_citation_document() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -3056,7 +3008,7 @@ async fn hosted_external_read_resolves_configured_chroma_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -3073,7 +3025,7 @@ async fn hosted_external_read_resolves_configured_chroma_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    assert_eq!(chat_response.status(), StatusCode::OK);
     let chat_body = response_body_json(chat_response).await;
     let logical_path = chat_body["citations"][0]["logicalPath"]
         .as_str()
@@ -3147,9 +3099,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -3201,7 +3151,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -3221,7 +3171,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter() {
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "configured Qdrant engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -3285,9 +3235,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter() 
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -3339,7 +3287,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter() 
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -3359,7 +3307,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter() 
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "configured Weaviate engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -3439,9 +3387,7 @@ async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -3493,7 +3439,7 @@ async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -3510,7 +3456,7 @@ async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    assert_eq!(chat_response.status(), StatusCode::OK);
     let chat_body = response_body_json(chat_response).await;
     let logical_path = chat_body["citations"][0]["logicalPath"]
         .as_str()
@@ -3577,9 +3523,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_haystack_adapter() 
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -3631,7 +3575,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_haystack_adapter() 
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -3651,7 +3595,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_haystack_adapter() 
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "configured Haystack engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -3715,9 +3659,7 @@ async fn hosted_external_read_resolves_configured_haystack_citation_document() {
         .await
         .unwrap();
     assert_eq!(space_response.status(), StatusCode::CREATED);
-    let space_id = response_body_json(space_response).await["id"]
-        .as_u64()
-        .expect("external space id");
+    let space_id = response_id_field(space_response, "external space id").await;
 
     let source_response = backend
         .clone()
@@ -3769,7 +3711,7 @@ async fn hosted_external_read_resolves_configured_haystack_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -3786,7 +3728,7 @@ async fn hosted_external_read_resolves_configured_haystack_citation_document() {
         )
         .await
         .unwrap();
-    assert_eq!(chat_response.status(), StatusCode::CREATED);
+    assert_eq!(chat_response.status(), StatusCode::OK);
     let chat_body = response_body_json(chat_response).await;
     let logical_path = chat_body["citations"][0]["logicalPath"]
         .as_str()
@@ -3852,7 +3794,7 @@ async fn hosted_okf_agent_chat_succeeds_with_published_concept_citations() {
         )
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
 
     let chat_response = app
         .oneshot(
@@ -3872,7 +3814,7 @@ async fn hosted_okf_agent_chat_succeeds_with_published_concept_citations() {
 
     assert_eq!(
         chat_response.status(),
-        StatusCode::CREATED,
+        StatusCode::OK,
         "OKF native engine must complete agent chat"
     );
     let chat_body = response_body_json(chat_response).await;
@@ -3961,9 +3903,7 @@ async fn create_space(app: &axum::Router, name: &str) -> u64 {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::CREATED);
-    response_body_json(response).await["id"]
-        .as_u64()
-        .expect("created space id")
+    response_id_field(response, "created space id").await
 }
 
 async fn publish_okf_concept(app: &axum::Router, space_id: u64, concept_id: &str, markdown: &str) {
@@ -4024,7 +3964,7 @@ async fn hosted_open_router_lists_documents() {
     assert_ne!(
         response.status(),
         StatusCode::NOT_IMPLEMENTED,
-        "hosted open api must not return operation_not_implemented for documents.list"
+        "hosted open api must not return operation_unsupported for documents.list"
     );
 
     let body = response_body_json(response).await;
@@ -4201,6 +4141,11 @@ async fn response_body_json(response: axum::response::Response) -> Value {
         .expect("read response body");
     let value: Value = serde_json::from_slice(&bytes).expect("parse response json");
     sdkwork_knowledgebase_test_support::api_envelope::unwrap_payload_or_envelope(&value)
+}
+
+async fn response_id_field(response: axum::response::Response, expectation: &str) -> u64 {
+    let body = response_body_json(response).await;
+    json_u64_field(&body, "id").unwrap_or_else(|| panic!("{expectation}: {body}"))
 }
 
 fn json_u64_field(body: &Value, field: &str) -> Option<u64> {

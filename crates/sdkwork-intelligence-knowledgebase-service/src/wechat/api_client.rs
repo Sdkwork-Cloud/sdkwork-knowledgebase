@@ -41,6 +41,35 @@ struct PreviewResponse {
     errmsg: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct MassSendResponse {
+    msg_id: Option<i64>,
+    msg_data_id: Option<i64>,
+    errcode: Option<i64>,
+    errmsg: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TagsResponse {
+    tags: Option<Vec<TagEntry>>,
+    errcode: Option<i64>,
+    errmsg: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TagEntry {
+    id: Option<i64>,
+    name: Option<String>,
+    count: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WechatUserTag {
+    pub id: i64,
+    pub name: String,
+    pub count: u64,
+}
+
 pub struct WechatApiClient {
     http: Client,
 }
@@ -165,6 +194,79 @@ impl WechatApiClient {
         }
         Err(WechatApiClientError::Api(body.errmsg.unwrap_or_else(
             || format!("wechat preview failed with code {:?}", body.errcode),
+        )))
+    }
+
+    pub async fn list_user_tags(
+        &self,
+        access_token: &str,
+    ) -> Result<Vec<WechatUserTag>, WechatApiClientError> {
+        let url = build_wechat_url(&format!(
+            "/cgi-bin/tags/get?access_token={}",
+            urlencoding::encode(access_token),
+        ))?;
+        let response = self.http.get(url).send().await?;
+        let body: TagsResponse = response.json().await?;
+        if let Some(errcode) = body.errcode.filter(|code| *code != 0) {
+            return Err(WechatApiClientError::Api(body.errmsg.unwrap_or_else(
+                || format!("wechat tag list failed with code {errcode}"),
+            )));
+        }
+        Ok(body
+            .tags
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|entry| {
+                let id = entry.id?;
+                let name = entry.name.filter(|value| !value.is_empty())?;
+                Some(WechatUserTag {
+                    id,
+                    name,
+                    count: entry.count.unwrap_or(0),
+                })
+            })
+            .collect())
+    }
+
+    pub async fn mass_send_mpnews(
+        &self,
+        access_token: &str,
+        media_id: &str,
+        send_to_all: bool,
+        tag_id: Option<i64>,
+    ) -> Result<(), WechatApiClientError> {
+        let url = build_wechat_url(&format!(
+            "/cgi-bin/message/mass/sendall?access_token={}",
+            urlencoding::encode(access_token),
+        ))?;
+        let filter = if send_to_all {
+            serde_json::json!({ "is_to_all": true })
+        } else {
+            serde_json::json!({
+                "is_to_all": false,
+                "tag_id": tag_id.ok_or_else(|| {
+                    WechatApiClientError::InvalidRequest(
+                        "tag_id is required when send_to_all is false".to_string(),
+                    )
+                })?,
+            })
+        };
+        let payload = serde_json::json!({
+            "filter": filter,
+            "msgtype": "mpnews",
+            "mpnews": {
+                "media_id": media_id
+            },
+            "send_ignore_reprint": 0
+        });
+        let response = self.http.post(url).json(&payload).send().await?;
+        let body: MassSendResponse = response.json().await?;
+        if body.errcode.unwrap_or(0) == 0 {
+            let _message_ids = (&body.msg_id, &body.msg_data_id);
+            return Ok(());
+        }
+        Err(WechatApiClientError::Api(body.errmsg.unwrap_or_else(
+            || format!("wechat mass send failed with code {:?}", body.errcode),
         )))
     }
 }

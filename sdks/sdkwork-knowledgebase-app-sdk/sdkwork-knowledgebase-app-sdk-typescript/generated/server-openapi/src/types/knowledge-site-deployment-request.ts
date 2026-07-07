@@ -1,5 +1,5 @@
 export interface KnowledgeSiteDeploymentRequest {
-  spaceId: number;
+  spaceId: string;
   platform: string;
   siteName?: string | null;
   customDomain?: string | null;

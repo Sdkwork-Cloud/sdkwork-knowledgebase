@@ -14,10 +14,9 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::Externa
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, parse_compound_document_ref, KnowledgeEngineDescriptor,
-    KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineDocumentRef,
-    KnowledgeEngineError, KnowledgeEngineHealth, KnowledgeEngineHealthStatus,
-    KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
-    KnowledgeEngineSearchResult,
+    KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineError,
+    KnowledgeEngineHealth, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
+    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
 };
 use std::sync::Arc;
 
@@ -211,7 +210,7 @@ impl KnowledgeEngine for DifyKnowledgeEngine {
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
-            "adapter-tier list_documents is not implemented; use search hits or native ingestion"
+            "adapter-tier list_documents is unsupported; use search hits or native ingestion"
                 .to_string(),
         ))
     }
@@ -225,7 +224,7 @@ impl ExternalKnowledgeEngine for DifyKnowledgeEngine {
 
     async fn sync_sources(&self, _space_id: u64) -> Result<u32, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
-            "Dify sync_sources is not implemented at adapter tier; use Dify console ingestion"
+            "Dify sync_sources is unsupported at adapter tier; use Dify console ingestion"
                 .to_string(),
         ))
     }

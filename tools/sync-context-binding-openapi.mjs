@@ -2,7 +2,6 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  createdResponse,
   jsonResponse,
   listEnvelope,
   listPaginationQueryParams,
@@ -155,7 +154,7 @@ const newPaths = {
       ...extensions,
     },
     post: {
-      operationId: "spaces.contextBindings.create",
+      operationId: "spaces.contextBindings.contextBindings",
       tags: ["knowledge"],
       summary: "Create a knowledge space context binding",
       parameters: [int64PathParam("spaceId")],
@@ -171,7 +170,7 @@ const newPaths = {
         },
       },
       responses: {
-        201: createdResponse(
+        200: jsonResponse(
           resourceEnvelope("#/components/schemas/KnowledgeSpaceContextBinding"),
         ),
         400: problemResponse,
@@ -245,7 +244,7 @@ const newRoutes = [
   {
     method: "POST",
     path: "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
-    operationId: "spaces.contextBindings.create",
+    operationId: "spaces.contextBindings.contextBindings",
   },
   {
     method: "GET",

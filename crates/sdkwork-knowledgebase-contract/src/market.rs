@@ -31,5 +31,6 @@ pub struct KnowledgeMarketSubscriptionRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeMarketSubscriptionResult {
-    pub success: bool,
+    pub accepted: bool,
+    pub status: String,
 }

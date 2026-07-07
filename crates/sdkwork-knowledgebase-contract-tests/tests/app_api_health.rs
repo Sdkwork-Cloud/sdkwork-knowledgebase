@@ -37,9 +37,9 @@ fn contract_context_binding_operations_are_declared() {
     .unwrap();
 
     for operation_id in [
-        "documents.content.retrieve",
+        "documents.content.list",
         "spaces.contextBindings.list",
-        "spaces.contextBindings.create",
+        "spaces.contextBindings.contextBindings",
         "contextBindings.retrieve",
         "contextBindings.update",
         "contextBindings.delete",

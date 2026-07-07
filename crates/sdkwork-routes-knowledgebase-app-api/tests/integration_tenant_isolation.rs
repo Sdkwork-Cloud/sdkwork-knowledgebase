@@ -168,7 +168,17 @@ async fn create_space(runtime: &KnowledgebaseRuntime, context: KnowledgeAppReque
         String::from_utf8_lossy(&bytes)
     );
     let body: Value = serde_json::from_slice(&bytes).expect("parse create space response");
-    body["data"]["item"]["id"].as_u64().expect("space id")
+    json_item_u64_field(&body, "id").expect("space id")
+}
+
+fn json_item_u64_field(body: &Value, field: &str) -> Option<u64> {
+    body.pointer("/data/item")
+        .and_then(|item| json_u64_field(item, field))
+}
+
+fn json_u64_field(body: &Value, field: &str) -> Option<u64> {
+    body.get(field)
+        .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse().ok()))
 }
 
 async fn test_runtime() -> KnowledgebaseRuntime {

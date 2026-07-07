@@ -11,6 +11,7 @@ const checkOnly = process.argv.includes("--check");
 const pendingChanges = [];
 
 const httpMethods = new Set(["get", "put", "post", "delete", "options", "head", "patch", "trace"]);
+const forbiddenPaginationQueryAliases = new Set(["limit", "page_no", "pageNo", "per_page", "size"]);
 const currentTenantRequestSchemas = new Set([
   "KnowledgeRetrievalRequest",
   "KnowledgeContextPackRequest",
@@ -120,7 +121,7 @@ const families = [
     composedFactory: "createKnowledgebaseAppClient",
     generatedPath: "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
     generatedWorkspace: "sdkwork-knowledgebase-app-sdk-typescript",
-    primaryClient: "SdkworkAppClient",
+    primaryClient: "SdkworkKnowledgebaseAppClient",
     dependencies: [
       dependency("sdkwork-iam-app-sdk", "appbase-identity-and-session-capability", "/app/v3/api", "sdkwork-iam-app-api", appbasePackages),
       dependency("sdkwork-drive-app-sdk", "drive-file-and-media-capability", "/app/v3/api", "sdkwork-drive.app", driveAppPackages),
@@ -148,7 +149,7 @@ const families = [
     packageName: "@sdkwork/knowledgebase-backend-sdk",
     generatedPath: "sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi",
     generatedWorkspace: "sdkwork-knowledgebase-backend-sdk-typescript",
-    primaryClient: "SdkworkBackendClient",
+    primaryClient: "SdkworkKnowledgebaseBackendClient",
     dependencies: [
       dependency("sdkwork-iam-backend-sdk", "appbase-backend-management-capability", "/backend/v3/api", "sdkwork-iam-backend-api", appbaseBackendPackages),
       dependency("sdkwork-drive-backend-sdk", "drive-backend-management-capability", "/backend/v3/api", "sdkwork-drive.backend", driveBackendPackages),
@@ -264,6 +265,111 @@ function operationEntries(openapi) {
   return entries;
 }
 
+function containsPropertyName(value, propertyName) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  if (
+    value.properties &&
+    typeof value.properties === "object" &&
+    Object.hasOwn(value.properties, propertyName)
+  ) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => containsPropertyName(item, propertyName));
+  }
+  return Object.values(value).some((item) => containsPropertyName(item, propertyName));
+}
+
+function successResponseSchemas(operation) {
+  const schemas = [];
+  for (const [status, response] of Object.entries(operation.responses ?? {})) {
+    if (!/^2[0-9][0-9]$/u.test(status)) {
+      continue;
+    }
+    for (const mediaType of Object.values(response.content ?? {})) {
+      if (mediaType?.schema && typeof mediaType.schema === "object") {
+        schemas.push(mediaType.schema);
+      }
+    }
+  }
+  return schemas;
+}
+
+function hasPageInfoSuccessSchema(operation) {
+  return successResponseSchemas(operation).some((schema) => containsPropertyName(schema, "pageInfo"));
+}
+
+function cursorQueryParameter() {
+  return {
+    name: "cursor",
+    in: "query",
+    required: false,
+    schema: {
+      type: "string",
+      maxLength: 512,
+    },
+  };
+}
+
+function pageSizeQueryParameter() {
+  return {
+    name: "page_size",
+    in: "query",
+    required: false,
+    schema: {
+      type: "integer",
+      format: "int32",
+      minimum: 1,
+      maximum: 200,
+      default: 20,
+    },
+  };
+}
+
+function ensurePaginatedGetQueryInputs(openapi) {
+  for (const { method, operation } of operationEntries(openapi)) {
+    if (method !== "get" || !hasPageInfoSuccessSchema(operation)) {
+      continue;
+    }
+
+    const parameters = Array.isArray(operation.parameters) ? operation.parameters : [];
+    const normalizedParameters = [];
+    const queryParameterNames = new Set();
+
+    for (const parameter of parameters) {
+      if (!parameter || typeof parameter !== "object" || parameter.in !== "query") {
+        normalizedParameters.push(parameter);
+        continue;
+      }
+
+      const normalizedParameter = parameter.name === "pageSize"
+        ? { ...parameter, name: "page_size" }
+        : parameter;
+      if (forbiddenPaginationQueryAliases.has(normalizedParameter.name)) {
+        continue;
+      }
+      if (normalizedParameter.name === "cursor" || normalizedParameter.name === "page_size") {
+        if (queryParameterNames.has(normalizedParameter.name)) {
+          continue;
+        }
+        queryParameterNames.add(normalizedParameter.name);
+      }
+      normalizedParameters.push(normalizedParameter);
+    }
+
+    if (!queryParameterNames.has("cursor")) {
+      normalizedParameters.push(cursorQueryParameter());
+    }
+    if (!queryParameterNames.has("page_size")) {
+      normalizedParameters.push(pageSizeQueryParameter());
+    }
+
+    operation.parameters = normalizedParameters;
+  }
+}
+
 function removeDependencyOwnedOperations(openapi, family) {
   const removed = [];
   for (const [pathKey, pathItem] of Object.entries(openapi.paths || {})) {
@@ -304,6 +410,7 @@ async function standardizeOpenApi(family) {
   const openapi = await readJson(filePath);
   const removedOperations = removeDependencyOwnedOperations(openapi, family);
   removeCurrentTenantRequestInputs(openapi);
+  ensurePaginatedGetQueryInputs(openapi);
 
   openapi["x-sdkwork-owner"] = owner;
   openapi["x-sdkwork-api-authority"] = family.authority;
@@ -656,18 +763,16 @@ async function alignGeneratedTransportPackageName(family) {
 function composedAppSdkIndexSource(family) {
   return `import {
   createClient as createGeneratedKnowledgebaseAppClient,
-  SdkworkAppClient,
+  SdkworkKnowledgebaseAppClient,
 } from '../generated/server-openapi/src/index';
 import type { SdkworkAppConfig } from '../generated/server-openapi/src/types/common';
 
-export { SdkworkAppClient, createGeneratedKnowledgebaseAppClient };
+export { SdkworkKnowledgebaseAppClient, createGeneratedKnowledgebaseAppClient };
 export type { SdkworkAppConfig };
 export * from '../generated/server-openapi/src/types';
 export * from '../generated/server-openapi/src/api';
 export * from '../generated/server-openapi/src/http';
 export * from '../generated/server-openapi/src/auth';
-
-export type SdkworkKnowledgebaseAppClient = SdkworkAppClient;
 
 export function ${family.composedFactory}(config: SdkworkAppConfig): SdkworkKnowledgebaseAppClient {
   return createGeneratedKnowledgebaseAppClient(config);

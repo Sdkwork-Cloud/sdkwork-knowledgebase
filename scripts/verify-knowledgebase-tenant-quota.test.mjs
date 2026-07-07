@@ -26,7 +26,10 @@ describe('knowledgebase tenant quota and GDPR compliance alignment', () => {
 
   it('exposes GDPR compliance audit export and anonymize operations in backend OpenAPI', () => {
     const spec = readOpenApi();
-    for (const operationId of ['compliance.auditEvents.export', 'compliance.auditEvents.anonymizeActor']) {
+    for (const operationId of [
+      'compliance.auditEvents.export.create',
+      'compliance.auditEvents.anonymizeActor.create',
+    ]) {
       assert.ok(
         Object.values(spec.paths).some((methods) =>
           Object.values(methods).some((operation) => operation.operationId === operationId),

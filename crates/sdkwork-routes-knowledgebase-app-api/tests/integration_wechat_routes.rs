@@ -3,13 +3,14 @@ use axum::http::{Method, Request, StatusCode};
 use sdkwork_routes_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
 use serde_json::json;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
 
 #[tokio::test]
 async fn integration_wechat_official_accounts_replace_redacts_secrets_on_list() {
-    let runtime = test_runtime().await;
+    let env_guard = WechatIntegrationEnvGuard::with_test_secret_key();
+    let runtime = test_runtime(&env_guard).await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
     let replace_response = app
@@ -64,7 +65,8 @@ async fn integration_wechat_official_accounts_replace_redacts_secrets_on_list() 
 
 #[tokio::test]
 async fn integration_wechat_publish_rejects_missing_app_secret() {
-    let runtime = test_runtime().await;
+    let env_guard = WechatIntegrationEnvGuard::with_test_secret_key();
+    let runtime = test_runtime(&env_guard).await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
     let replace_response = app
@@ -124,10 +126,72 @@ async fn integration_wechat_publish_rejects_missing_app_secret() {
 
 static WECHAT_INTEGRATION_ENV_LOCK: Mutex<()> = Mutex::new(());
 
-async fn test_runtime() -> KnowledgebaseRuntime {
-    let _env_guard = WECHAT_INTEGRATION_ENV_LOCK
-        .lock()
-        .expect("wechat integration env lock");
+struct WechatIntegrationEnvGuard {
+    _lock: MutexGuard<'static, ()>,
+    previous_secret_key: Option<String>,
+    previous_secret_key_file: Option<String>,
+    previous_drive_storage_root: Option<String>,
+}
+
+impl WechatIntegrationEnvGuard {
+    fn with_test_secret_key() -> Self {
+        let lock = WECHAT_INTEGRATION_ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let previous_secret_key =
+            std::env::var("SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY").ok();
+        let previous_secret_key_file =
+            std::env::var("SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY_FILE").ok();
+        let previous_drive_storage_root =
+            std::env::var("SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT").ok();
+
+        std::env::set_var(
+            "SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY",
+            "sdkwork-knowledgebase-wechat-integration-test-secret-key",
+        );
+        std::env::remove_var("SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY_FILE");
+
+        Self {
+            _lock: lock,
+            previous_secret_key,
+            previous_secret_key_file,
+            previous_drive_storage_root,
+        }
+    }
+
+    fn set_drive_storage_root(&self, drive_root: &std::path::Path) {
+        std::env::set_var(
+            "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
+            drive_root.to_string_lossy().as_ref(),
+        );
+    }
+}
+
+impl Drop for WechatIntegrationEnvGuard {
+    fn drop(&mut self) {
+        restore_env_var(
+            "SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY",
+            self.previous_secret_key.as_deref(),
+        );
+        restore_env_var(
+            "SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY_FILE",
+            self.previous_secret_key_file.as_deref(),
+        );
+        restore_env_var(
+            "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
+            self.previous_drive_storage_root.as_deref(),
+        );
+    }
+}
+
+fn restore_env_var(key: &str, value: Option<&str>) {
+    match value {
+        Some(value) => std::env::set_var(key, value),
+        None => std::env::remove_var(key),
+    }
+}
+
+async fn test_runtime(env_guard: &WechatIntegrationEnvGuard) -> KnowledgebaseRuntime {
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -142,10 +206,7 @@ async fn test_runtime() -> KnowledgebaseRuntime {
     std::fs::create_dir_all(&test_root).expect("create integration wechat test directory");
     let drive_root = test_root.join("drive-objects");
     std::fs::create_dir_all(&drive_root).expect("create drive storage root");
-    std::env::set_var(
-        "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
-        drive_root.to_string_lossy().as_ref(),
-    );
+    env_guard.set_drive_storage_root(&drive_root);
 
     let database_path = test_root.join("knowledgebase.db");
     let relative_database_path = database_path

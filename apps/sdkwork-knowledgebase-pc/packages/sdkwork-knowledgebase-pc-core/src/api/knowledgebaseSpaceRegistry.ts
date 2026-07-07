@@ -2,8 +2,10 @@ import type { SessionStore } from '../session/sessionStore';
 
 export type KnowledgebaseSpaceKbType = 'team' | 'personal' | 'public';
 
+export type KnowledgebaseSpaceId = string;
+
 export interface RegisteredKnowledgebaseSpace {
-  spaceId: number;
+  spaceId: KnowledgebaseSpaceId;
   kbType: KnowledgebaseSpaceKbType;
   icon?: string;
   avatar?: string;
@@ -31,6 +33,22 @@ function registryStorageKey(tenantId: string): string {
   return `${REGISTRY_KEY_PREFIX}.${tenantId}`;
 }
 
+function normalizeRegisteredSpaceId(value: unknown): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^[0-9]+$/.test(trimmed)) {
+      return trimmed;
+    }
+  }
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    if (!Number.isSafeInteger(value)) {
+      return '';
+    }
+    return String(Math.trunc(value));
+  }
+  return '';
+}
+
 export function readRegisteredSpaces(tenantId: string): RegisteredKnowledgebaseSpace[] {
   if (typeof window === 'undefined') {
     return [];
@@ -42,7 +60,13 @@ export function readRegisteredSpaces(tenantId: string): RegisteredKnowledgebaseS
       return [];
     }
     const parsed = JSON.parse(raw) as RegisteredKnowledgebaseSpace[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.map((space) => ({
+      ...space,
+      spaceId: normalizeRegisteredSpaceId(space.spaceId),
+    }));
   } catch {
     return [];
   }
@@ -70,7 +94,7 @@ export function upsertRegisteredSpace(
   return next;
 }
 
-export function removeRegisteredSpace(tenantId: string, spaceId: number): RegisteredKnowledgebaseSpace[] {
+export function removeRegisteredSpace(tenantId: string, spaceId: string): RegisteredKnowledgebaseSpace[] {
   const next = readRegisteredSpaces(tenantId).filter((space) => space.spaceId !== spaceId);
   writeRegisteredSpaces(tenantId, next);
   return next;
@@ -78,7 +102,7 @@ export function removeRegisteredSpace(tenantId: string, spaceId: number): Regist
 
 export function updateRegisteredSpace(
   tenantId: string,
-  spaceId: number,
+  spaceId: string,
   patch: Partial<
     Pick<
       RegisteredKnowledgebaseSpace,

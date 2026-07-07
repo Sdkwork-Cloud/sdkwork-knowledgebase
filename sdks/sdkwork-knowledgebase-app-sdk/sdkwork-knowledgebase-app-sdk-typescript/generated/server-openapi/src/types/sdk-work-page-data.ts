@@ -1,6 +1,6 @@
 import type { PageInfo } from './page-info';
 
-export interface SdkWorkPageData<T> {
-  items: T[];
+export interface SdkWorkPageData {
+  items: Record<string, unknown>[];
   pageInfo: PageInfo;
 }

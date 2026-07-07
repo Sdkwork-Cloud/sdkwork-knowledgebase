@@ -1,6 +1,6 @@
-import type { OkfCandidateResult } from './okf-candidate-result';
+import type { KnowledgeDocument } from './knowledge-document';
 
-export interface OkfCandidatesApproveResponse201 {
+export interface DocumentsCreateResponse201 {
   code: 0;
   data: unknown & Record<string, unknown>;
   /** Server-owned request correlation id. */

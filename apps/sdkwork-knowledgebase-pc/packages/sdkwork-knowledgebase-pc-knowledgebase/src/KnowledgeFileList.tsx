@@ -103,7 +103,7 @@ export function KnowledgeFileList({
         setActionModal({ action: 'toast', item: detail.item, text: newPinnedState ? t('pinned') : t('unpinned') });
         setTimeout(() => setActionModal(null), 2000);
       } else if (detail.action === 'split') {
-        // Split view is not implemented; ignore stale menu events.
+        // Split view is unsupported for stale menu events; ignore them.
       } else {
         setActionModal(detail);
       }

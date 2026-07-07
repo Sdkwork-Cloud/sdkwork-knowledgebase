@@ -1,7 +1,7 @@
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use sdkwork_routes_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
@@ -87,10 +87,9 @@ async fn integration_market_subscription_round_trip() {
         "subscribe failed: {}",
         response_body_string(subscribe_response).await
     );
-    assert_eq!(
-        response_body_json(subscribe_response).await["success"],
-        true
-    );
+    let subscribe_body = response_body_json(subscribe_response).await;
+    assert_eq!(subscribe_body["accepted"], true);
+    assert_eq!(subscribe_body["status"], "completed");
 
     let subscribed_list = app
         .clone()
@@ -127,11 +126,8 @@ async fn integration_market_subscription_round_trip() {
         )
         .await
         .unwrap();
-    assert_eq!(unsubscribe_response.status(), StatusCode::OK);
-    assert_eq!(
-        response_body_json(unsubscribe_response).await["success"],
-        true
-    );
+    assert_eq!(unsubscribe_response.status(), StatusCode::NO_CONTENT);
+    assert_eq!(response_body_string(unsubscribe_response).await, "");
 }
 
 #[tokio::test]
@@ -193,11 +189,14 @@ async fn integration_site_deployment_publishes_ingested_documents() {
         response_body_string(deploy_response).await
     );
     let deploy_body = response_body_json(deploy_response).await;
-    assert_eq!(deploy_body["success"], true);
+    assert_eq!(deploy_body["accepted"], true);
+    assert_eq!(deploy_body["status"], "completed");
     assert!(deploy_body["url"]
         .as_str()
         .is_some_and(|url| url.starts_with("https://")));
-    let deployment_id = deploy_body["deploymentId"].as_u64().expect("deployment id");
+    let deployment_id = deploy_body["deploymentId"]
+        .as_str()
+        .expect("deployment id must be serialized as an int64 string");
 
     let preview_response = app
         .oneshot(
@@ -314,9 +313,13 @@ async fn create_space(runtime: &KnowledgebaseRuntime, name: &str) -> u64 {
         "create space failed: {}",
         response_body_string(response).await
     );
-    response_body_json(response).await["id"]
-        .as_u64()
-        .expect("space id")
+    let body = response_body_json(response).await;
+    json_u64_field(&body, "id").expect("space id")
+}
+
+fn json_u64_field(body: &Value, field: &str) -> Option<u64> {
+    body.get(field)
+        .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse().ok()))
 }
 
 async fn test_runtime() -> KnowledgebaseRuntime {

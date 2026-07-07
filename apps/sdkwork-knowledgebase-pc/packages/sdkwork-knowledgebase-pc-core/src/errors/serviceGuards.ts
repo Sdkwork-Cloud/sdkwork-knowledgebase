@@ -38,12 +38,26 @@ export function requireKnowledgebaseAppSdkHttpClient() {
   return requireKnowledgebaseAppSdkClient().client;
 }
 
-export function parseKnowledgeSpaceId(kbId: string): number {
-  const spaceId = Number(kbId);
-  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+export function parseKnowledgeSpaceId(kbId: string): string {
+  const normalized = trim(kbId);
+  if (!/^[0-9]+$/.test(normalized) || normalized === '0') {
     throwKnowledgebaseError(KnowledgebaseErrorCodes.INVALID_SPACE_ID);
   }
-  return spaceId;
+  return normalized;
+}
+
+/** Normalize SDK/local values without losing snowflake precision. */
+export function normalizeKnowledgeSpaceId(value: string | number): string {
+  if (typeof value === 'string') {
+    return parseKnowledgeSpaceId(value);
+  }
+  if (!Number.isFinite(value) || value <= 0) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.INVALID_SPACE_ID);
+  }
+  if (!Number.isSafeInteger(value)) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.INVALID_SPACE_ID);
+  }
+  return String(Math.trunc(value));
 }
 
 export function requireDriveApiClient() {
@@ -99,7 +113,7 @@ export function requireKnowledgebaseTenantId(): string {
   return tenantId.trim();
 }
 
-export function requirePrimaryRegisteredSpaceId(): number {
+export function requirePrimaryRegisteredSpaceId(): string {
   const tenantId = requireKnowledgebaseTenantId();
   const registry = readRegisteredSpaces(tenantId);
   const firstSpace = registry[0];
@@ -127,4 +141,15 @@ export function requireDriveNodeId(
     throwKnowledgebaseError(KnowledgebaseErrorCodes.DRIVE_NODE_ID_MISSING);
   }
   return normalized;
+}
+
+/** Ensure kbId refers to a space registered for the current tenant. */
+export function requireRegisteredSpaceId(kbId: string): string {
+  const spaceId = parseKnowledgeSpaceId(kbId);
+  const tenantId = requireKnowledgebaseTenantId();
+  const registry = readRegisteredSpaces(tenantId);
+  if (!registry.some((entry) => entry.spaceId === spaceId)) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.INVALID_SPACE_ID);
+  }
+  return spaceId;
 }

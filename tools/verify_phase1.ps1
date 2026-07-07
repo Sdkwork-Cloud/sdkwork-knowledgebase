@@ -131,6 +131,7 @@ Invoke-Checked node tools/patch-knowledgebase-app-api-extensions.mjs
 Invoke-Checked node tools/sync-route-manifest-json.mjs
 Invoke-Checked node tools/sync-context-binding-openapi.mjs
 Invoke-Checked node tools/sync-upload-session-openapi.mjs
+Invoke-Checked node scripts/align-app-api-int64-string-fields.mjs
 Invoke-Checked node tools/sync-openapi-operation-metadata.mjs
 Invoke-Checked node tools/apply-knowledgebase-openapi-auth-mode.mjs
 Invoke-Checked node tools/apply-knowledgebase-openapi-permissions.mjs
@@ -230,7 +231,7 @@ foreach ($package in $packages) {
     Invoke-Checked cargo fmt -p $package --check
 }
 
-Invoke-Checked cargo test --workspace
+Invoke-Checked cargo test --workspace -- --quiet
 Invoke-Checked node tools/check_okf_knowledge_bundle_standard.mjs
 Invoke-Checked powershell -ExecutionPolicy Bypass -File tools/verify_openapi_operation_ids.ps1
 

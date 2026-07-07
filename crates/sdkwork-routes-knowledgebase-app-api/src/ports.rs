@@ -23,13 +23,13 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
     KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType,
     KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
-    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatOfficialAccountList,
-    KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest,
-    KnowledgeWechatReplaceOfficialAccountsRequest, ListKnowledgeBrowserRequest,
-    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary,
-    OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument,
-    OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest,
-    OkfQueryResult, UpdateKnowledgeSpaceRequest,
+    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList,
+    KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
+    KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
+    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
+    OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest, OkfContextPackRequest,
+    OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun,
+    OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, UpdateKnowledgeSpaceRequest,
 };
 use sdkwork_utils_rust::SdkWorkPageData;
 
@@ -130,6 +130,12 @@ pub trait KnowledgeWechatAppService: Send + Sync + 'static {
         context: KnowledgeAppRequestContext,
         request: KnowledgeWechatReplaceOfficialAccountsRequest,
     ) -> ApiResult<KnowledgeWechatOfficialAccountList>;
+
+    async fn list_official_account_fan_tags(
+        &self,
+        context: KnowledgeAppRequestContext,
+        account_id: String,
+    ) -> ApiResult<KnowledgeWechatFanTagList>;
 
     async fn list_applets(
         &self,
@@ -524,7 +530,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: CreateKnowledgeSpaceRequest,
     ) -> ApiResult<KnowledgeSpace> {
-        Err(ApiError::not_implemented("spaces.create"))
+        Err(ApiError::unsupported_operation("spaces.create"))
     }
 
     async fn retrieve_space(
@@ -532,7 +538,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _space_id: u64,
     ) -> ApiResult<KnowledgeSpace> {
-        Err(ApiError::not_implemented("spaces.retrieve"))
+        Err(ApiError::unsupported_operation("spaces.retrieve"))
     }
 
     async fn update_space(
@@ -541,7 +547,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _space_id: u64,
         _request: UpdateKnowledgeSpaceRequest,
     ) -> ApiResult<KnowledgeSpace> {
-        Err(ApiError::not_implemented("spaces.update"))
+        Err(ApiError::unsupported_operation("spaces.update"))
     }
 
     async fn delete_space(
@@ -549,7 +555,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _space_id: u64,
     ) -> ApiResult<()> {
-        Err(ApiError::not_implemented("spaces.delete"))
+        Err(ApiError::unsupported_operation("spaces.delete"))
     }
 
     async fn list_space_members(
@@ -559,7 +565,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _cursor: Option<String>,
         _page_size: Option<u32>,
     ) -> ApiResult<SdkWorkPageData<KnowledgeSpaceMember>> {
-        Err(ApiError::not_implemented("spaces.members.list"))
+        Err(ApiError::unsupported_operation("spaces.members.list"))
     }
 
     async fn grant_space_member(
@@ -568,7 +574,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _space_id: u64,
         _request: GrantKnowledgeSpaceMemberRequest,
     ) -> ApiResult<()> {
-        Err(ApiError::not_implemented("spaces.members.grant"))
+        Err(ApiError::unsupported_operation("spaces.members.members"))
     }
 
     async fn revoke_space_member(
@@ -578,7 +584,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _subject_type: KnowledgeSpaceMemberSubjectType,
         _subject_id: String,
     ) -> ApiResult<()> {
-        Err(ApiError::not_implemented("spaces.members.revoke"))
+        Err(ApiError::unsupported_operation("spaces.members.delete"))
     }
 
     async fn create_drive_import(
@@ -586,7 +592,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeDriveImportRequest,
     ) -> ApiResult<KnowledgeDriveImportResult> {
-        Err(ApiError::not_implemented("driveImports.create"))
+        Err(ApiError::unsupported_operation("driveImports.create"))
     }
 
     async fn create_git_import(
@@ -594,7 +600,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeGitImportRequest,
     ) -> ApiResult<KnowledgeGitImportResult> {
-        Err(ApiError::not_implemented("gitImports.create"))
+        Err(ApiError::unsupported_operation("gitImports.create"))
     }
 
     async fn create_git_sync(
@@ -602,7 +608,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeGitSyncRequest,
     ) -> ApiResult<KnowledgeGitSyncResult> {
-        Err(ApiError::not_implemented("gitSyncs.create"))
+        Err(ApiError::unsupported_operation("gitSyncs.create"))
     }
 
     async fn create_ingest(
@@ -610,7 +616,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeIngestRequest,
     ) -> ApiResult<IngestionJob> {
-        Err(ApiError::not_implemented("ingests.create"))
+        Err(ApiError::unsupported_operation("ingests.create"))
     }
 
     async fn retrieve_ingest(
@@ -618,7 +624,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _ingest_id: u64,
     ) -> ApiResult<IngestionJob> {
-        Err(ApiError::not_implemented("ingests.retrieve"))
+        Err(ApiError::unsupported_operation("ingests.retrieve"))
     }
 
     async fn list_documents(
@@ -628,7 +634,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _cursor: Option<String>,
         _page_size: Option<u32>,
     ) -> ApiResult<SdkWorkPageData<KnowledgeDocument>> {
-        Err(ApiError::not_implemented("documents.list"))
+        Err(ApiError::unsupported_operation("documents.list"))
     }
 
     async fn create_document(
@@ -636,7 +642,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
-        Err(ApiError::not_implemented("documents.create"))
+        Err(ApiError::unsupported_operation("documents.create"))
     }
 
     async fn retrieve_document(
@@ -644,7 +650,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _document_id: u64,
     ) -> ApiResult<KnowledgeDocument> {
-        Err(ApiError::not_implemented("documents.retrieve"))
+        Err(ApiError::unsupported_operation("documents.retrieve"))
     }
 
     async fn update_document(
@@ -653,7 +659,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _document_id: u64,
         _request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
-        Err(ApiError::not_implemented("documents.update"))
+        Err(ApiError::unsupported_operation("documents.update"))
     }
 
     async fn delete_document(
@@ -661,7 +667,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _document_id: u64,
     ) -> ApiResult<()> {
-        Err(ApiError::not_implemented("documents.delete"))
+        Err(ApiError::unsupported_operation("documents.delete"))
     }
 
     async fn list_document_versions(
@@ -671,7 +677,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _cursor: Option<String>,
         _page_size: Option<u32>,
     ) -> ApiResult<SdkWorkPageData<KnowledgeDocumentVersion>> {
-        Err(ApiError::not_implemented("documents.versions.list"))
+        Err(ApiError::unsupported_operation("documents.versions.list"))
     }
 
     async fn create_document_version(
@@ -680,7 +686,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _document_id: u64,
         _request: CreateKnowledgeDocumentVersionRequest,
     ) -> ApiResult<KnowledgeDocumentVersion> {
-        Err(ApiError::not_implemented("documents.versions.create"))
+        Err(ApiError::unsupported_operation(
+            "documents.versions.versions",
+        ))
     }
 
     async fn retrieve_document_content(
@@ -688,7 +696,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _document_id: u64,
     ) -> ApiResult<KnowledgeDocumentContent> {
-        Err(ApiError::not_implemented("documents.content.retrieve"))
+        Err(ApiError::unsupported_operation("documents.content.list"))
     }
 
     async fn list_okf_concepts(
@@ -698,7 +706,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _cursor: Option<String>,
         _page_size: Option<u32>,
     ) -> ApiResult<SdkWorkPageData<OkfConceptSummary>> {
-        Err(ApiError::not_implemented("okf.concepts.list"))
+        Err(ApiError::unsupported_operation("okf.concepts.list"))
     }
 
     async fn retrieve_okf_concept(
@@ -706,7 +714,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _concept_row_id: u64,
     ) -> ApiResult<OkfConceptSummary> {
-        Err(ApiError::not_implemented("okf.concepts.retrieve"))
+        Err(ApiError::unsupported_operation("okf.concepts.retrieve"))
     }
 
     async fn list_okf_concept_revisions(
@@ -714,7 +722,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _concept_row_id: u64,
     ) -> ApiResult<KnowledgeOkfConceptRevisionList> {
-        Err(ApiError::not_implemented("okf.concepts.revisions.list"))
+        Err(ApiError::unsupported_operation(
+            "okf.concepts.revisions.list",
+        ))
     }
 
     async fn upsert_okf_concept(
@@ -722,7 +732,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: OkfConceptUpsertRequest,
     ) -> ApiResult<OkfConceptSummary> {
-        Err(ApiError::not_implemented("okf.concepts.upsert"))
+        Err(ApiError::unsupported_operation("okf.concepts.update"))
     }
 
     async fn delete_okf_concept(
@@ -730,7 +740,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _concept_row_id: u64,
     ) -> ApiResult<()> {
-        Err(ApiError::not_implemented("okf.concepts.delete"))
+        Err(ApiError::unsupported_operation("okf.concepts.delete"))
     }
 
     async fn retrieve_okf_index(
@@ -738,7 +748,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _space_id: u64,
     ) -> ApiResult<OkfIndexDocument> {
-        Err(ApiError::not_implemented("okf.bundle.index.retrieve"))
+        Err(ApiError::unsupported_operation("okf.bundle.index.list"))
     }
 
     async fn retrieve_okf_log(
@@ -746,7 +756,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _space_id: u64,
     ) -> ApiResult<OkfLogDocument> {
-        Err(ApiError::not_implemented("okf.bundle.log.retrieve"))
+        Err(ApiError::unsupported_operation("okf.bundle.log.list"))
     }
 
     async fn retrieve_okf_schema(
@@ -754,7 +764,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _space_id: u64,
     ) -> ApiResult<OkfProfileDocument> {
-        Err(ApiError::not_implemented("okf.bundle.profile.retrieve"))
+        Err(ApiError::unsupported_operation("okf.bundle.profile.list"))
     }
 
     async fn create_okf_query(
@@ -762,7 +772,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: OkfQueryRequest,
     ) -> ApiResult<OkfQueryResult> {
-        Err(ApiError::not_implemented("okf.queries.create"))
+        Err(ApiError::unsupported_operation("okf.queries.create"))
     }
 
     async fn file_okf_query_answer(
@@ -771,7 +781,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _query_id: u64,
         _request: OkfFileAnswerRequest,
     ) -> ApiResult<OkfQueryResult> {
-        Err(ApiError::not_implemented("okf.queries.fileAnswer"))
+        Err(ApiError::unsupported_operation("okf.queries.fileAnswer"))
     }
 
     async fn create_okf_context_pack(
@@ -779,7 +789,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: OkfContextPackRequest,
     ) -> ApiResult<KnowledgeOkfBundleFile> {
-        Err(ApiError::not_implemented("okf.contextPacks.create"))
+        Err(ApiError::unsupported_operation("okf.contextPacks.create"))
     }
 
     async fn create_okf_export(
@@ -787,7 +797,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: OkfBundleExportRequest,
     ) -> ApiResult<KnowledgeOkfBundleFile> {
-        Err(ApiError::not_implemented("okf.bundle.export.create"))
+        Err(ApiError::unsupported_operation("okf.bundle.export.create"))
     }
 
     async fn retrieve_okf_export(
@@ -795,7 +805,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _export_id: u64,
     ) -> ApiResult<KnowledgeOkfBundleFile> {
-        Err(ApiError::not_implemented("okf.bundle.export.retrieve"))
+        Err(ApiError::unsupported_operation(
+            "okf.bundle.export.retrieve",
+        ))
     }
 
     async fn create_okf_import(
@@ -803,7 +815,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: OkfBundleImportRequest,
     ) -> ApiResult<OkfBundleImportResult> {
-        Err(ApiError::not_implemented("okf.bundle.import.create"))
+        Err(ApiError::unsupported_operation("okf.bundle.import.create"))
     }
 
     async fn create_okf_lint_run(
@@ -811,7 +823,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: OkfQualityRunRequest,
     ) -> ApiResult<OkfQualityRun> {
-        Err(ApiError::not_implemented("okf.lintRuns.create"))
+        Err(ApiError::unsupported_operation("okf.lintRuns.create"))
     }
 
     async fn list_browser(
@@ -819,7 +831,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: ListKnowledgeBrowserRequest,
     ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>> {
-        Err(ApiError::not_implemented("spaces.browser.list"))
+        Err(ApiError::unsupported_operation("spaces.browser.list"))
     }
 
     async fn create_retrieval(
@@ -827,7 +839,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        Err(ApiError::not_implemented("retrievals.create"))
+        Err(ApiError::unsupported_operation("retrievals.create"))
     }
 
     async fn retrieve_retrieval(
@@ -835,7 +847,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _retrieval_id: u64,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        Err(ApiError::not_implemented("retrievals.retrieve"))
+        Err(ApiError::unsupported_operation("retrievals.retrieve"))
     }
 
     async fn create_context_pack(
@@ -843,7 +855,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeContextPackRequest,
     ) -> ApiResult<KnowledgeContextPack> {
-        Err(ApiError::not_implemented("contextPacks.create"))
+        Err(ApiError::unsupported_operation("contextPacks.create"))
     }
 
     async fn create_agent_profile(
@@ -851,7 +863,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        Err(ApiError::not_implemented("agentProfiles.create"))
+        Err(ApiError::unsupported_operation("agentProfiles.create"))
     }
 
     async fn retrieve_agent_profile(
@@ -859,7 +871,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _profile_id: u64,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        Err(ApiError::not_implemented("agentProfiles.retrieve"))
+        Err(ApiError::unsupported_operation("agentProfiles.retrieve"))
     }
 
     async fn update_agent_profile(
@@ -868,7 +880,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _profile_id: u64,
         _request: KnowledgeAgentProfileRequest,
     ) -> ApiResult<KnowledgeAgentProfile> {
-        Err(ApiError::not_implemented("agentProfiles.update"))
+        Err(ApiError::unsupported_operation("agentProfiles.update"))
     }
 
     async fn delete_agent_profile(
@@ -876,7 +888,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _profile_id: u64,
     ) -> ApiResult<()> {
-        Err(ApiError::not_implemented("agentProfiles.delete"))
+        Err(ApiError::unsupported_operation("agentProfiles.delete"))
     }
 
     async fn list_agent_profile_bindings(
@@ -884,7 +896,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _profile_id: u64,
     ) -> ApiResult<KnowledgeAgentBindingList> {
-        Err(ApiError::not_implemented("agentProfiles.bindings.list"))
+        Err(ApiError::unsupported_operation(
+            "agentProfiles.bindings.list",
+        ))
     }
 
     async fn create_agent_profile_binding(
@@ -893,7 +907,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _profile_id: u64,
         _request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
-        Err(ApiError::not_implemented("agentProfiles.bindings.create"))
+        Err(ApiError::unsupported_operation(
+            "agentProfiles.bindings.bindings",
+        ))
     }
 
     async fn update_agent_profile_binding(
@@ -903,7 +919,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _binding_id: u64,
         _request: KnowledgeAgentBindingRequest,
     ) -> ApiResult<KnowledgeAgentBinding> {
-        Err(ApiError::not_implemented("agentProfiles.bindings.update"))
+        Err(ApiError::unsupported_operation(
+            "agentProfiles.bindings.update",
+        ))
     }
 
     async fn delete_agent_profile_binding(
@@ -912,7 +930,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _profile_id: u64,
         _binding_id: u64,
     ) -> ApiResult<()> {
-        Err(ApiError::not_implemented("agentProfiles.bindings.delete"))
+        Err(ApiError::unsupported_operation(
+            "agentProfiles.bindings.delete",
+        ))
     }
 
     async fn create_agent_profile_retrieval_preview(
@@ -921,8 +941,8 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _profile_id: u64,
         _request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
-        Err(ApiError::not_implemented(
-            "agentProfiles.retrievalPreview.create",
+        Err(ApiError::unsupported_operation(
+            "agentProfiles.retrievalPreview.retrievalPreview",
         ))
     }
 
@@ -932,7 +952,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _profile_id: u64,
         _request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
-        Err(ApiError::not_implemented("agentProfiles.chat.create"))
+        Err(ApiError::unsupported_operation("agentProfiles.chat.chat"))
     }
 
     async fn list_space_context_bindings(
@@ -943,7 +963,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _page_size: Option<u32>,
         _context_type: Option<KnowledgeContextType>,
     ) -> ApiResult<SdkWorkPageData<KnowledgeSpaceContextBinding>> {
-        Err(ApiError::not_implemented("spaces.contextBindings.list"))
+        Err(ApiError::unsupported_operation(
+            "spaces.contextBindings.list",
+        ))
     }
 
     async fn create_space_context_binding(
@@ -952,7 +974,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _space_id: u64,
         _request: CreateKnowledgeSpaceContextBindingRequest,
     ) -> ApiResult<KnowledgeSpaceContextBinding> {
-        Err(ApiError::not_implemented("spaces.contextBindings.create"))
+        Err(ApiError::unsupported_operation(
+            "spaces.contextBindings.contextBindings",
+        ))
     }
 
     async fn retrieve_context_binding(
@@ -960,7 +984,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _binding_id: u64,
     ) -> ApiResult<KnowledgeSpaceContextBinding> {
-        Err(ApiError::not_implemented("contextBindings.retrieve"))
+        Err(ApiError::unsupported_operation("contextBindings.retrieve"))
     }
 
     async fn update_context_binding(
@@ -969,7 +993,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _binding_id: u64,
         _request: UpdateKnowledgeSpaceContextBindingRequest,
     ) -> ApiResult<KnowledgeSpaceContextBinding> {
-        Err(ApiError::not_implemented("contextBindings.update"))
+        Err(ApiError::unsupported_operation("contextBindings.update"))
     }
 
     async fn delete_context_binding(
@@ -977,7 +1001,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _binding_id: u64,
     ) -> ApiResult<()> {
-        Err(ApiError::not_implemented("contextBindings.delete"))
+        Err(ApiError::unsupported_operation("contextBindings.delete"))
     }
 
     async fn create_upload_session(
@@ -985,7 +1009,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: CreateKnowledgeUploadSessionRequest,
     ) -> ApiResult<KnowledgeUploadSession> {
-        Err(ApiError::not_implemented("uploadSessions.create"))
+        Err(ApiError::unsupported_operation("uploadSessions.create"))
     }
 
     async fn complete_upload_session(
@@ -994,14 +1018,16 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _session_id: u64,
         _request: CompleteKnowledgeUploadSessionRequest,
     ) -> ApiResult<IngestionJob> {
-        Err(ApiError::not_implemented("uploadSessions.complete"))
+        Err(ApiError::unsupported_operation("uploadSessions.complete"))
     }
 
     async fn list_wechat_official_accounts(
         &self,
         _context: KnowledgeAppRequestContext,
     ) -> ApiResult<KnowledgeWechatOfficialAccountList> {
-        Err(ApiError::not_implemented("wechat.officialAccounts.list"))
+        Err(ApiError::unsupported_operation(
+            "wechat.officialAccounts.list",
+        ))
     }
 
     async fn replace_wechat_official_accounts(
@@ -1009,14 +1035,26 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeWechatReplaceOfficialAccountsRequest,
     ) -> ApiResult<KnowledgeWechatOfficialAccountList> {
-        Err(ApiError::not_implemented("wechat.officialAccounts.replace"))
+        Err(ApiError::unsupported_operation(
+            "wechat.officialAccounts.update",
+        ))
+    }
+
+    async fn list_official_account_fan_tags(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _account_id: String,
+    ) -> ApiResult<KnowledgeWechatFanTagList> {
+        Err(ApiError::unsupported_operation(
+            "wechat.officialAccounts.fanTags.list",
+        ))
     }
 
     async fn list_wechat_applets(
         &self,
         _context: KnowledgeAppRequestContext,
     ) -> ApiResult<KnowledgeWechatAppletList> {
-        Err(ApiError::not_implemented("wechat.applets.list"))
+        Err(ApiError::unsupported_operation("wechat.applets.list"))
     }
 
     async fn replace_wechat_applets(
@@ -1024,7 +1062,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeWechatReplaceAppletsRequest,
     ) -> ApiResult<KnowledgeWechatAppletList> {
-        Err(ApiError::not_implemented("wechat.applets.replace"))
+        Err(ApiError::unsupported_operation("wechat.applets.update"))
     }
 
     async fn publish_wechat_articles(
@@ -1032,7 +1070,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeWechatArticlesPublishRequest,
     ) -> ApiResult<KnowledgeWechatOperationResult> {
-        Err(ApiError::not_implemented("wechat.articles.publish"))
+        Err(ApiError::unsupported_operation("wechat.articles.publish"))
     }
 
     async fn preview_wechat_articles(
@@ -1040,7 +1078,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeWechatArticlesPreviewRequest,
     ) -> ApiResult<KnowledgeWechatOperationResult> {
-        Err(ApiError::not_implemented("wechat.articles.preview"))
+        Err(ApiError::unsupported_operation("wechat.articles.preview"))
     }
 
     async fn list_market_listings(
@@ -1049,7 +1087,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _cursor: Option<String>,
         _page_size: Option<u32>,
     ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<KnowledgeMarketCatalogItem>> {
-        Err(ApiError::not_implemented("market.listings.list"))
+        Err(ApiError::unsupported_operation("market.listings.list"))
     }
 
     async fn create_market_subscription(
@@ -1057,7 +1095,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeMarketSubscriptionRequest,
     ) -> ApiResult<KnowledgeMarketSubscriptionResult> {
-        Err(ApiError::not_implemented("market.subscriptions.create"))
+        Err(ApiError::unsupported_operation(
+            "market.subscriptions.create",
+        ))
     }
 
     async fn delete_market_subscription(
@@ -1065,7 +1105,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _listing_id: u64,
     ) -> ApiResult<KnowledgeMarketSubscriptionResult> {
-        Err(ApiError::not_implemented("market.subscriptions.delete"))
+        Err(ApiError::unsupported_operation(
+            "market.subscriptions.delete",
+        ))
     }
 
     async fn create_site_deployment(
@@ -1073,7 +1115,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeSiteDeploymentRequest,
     ) -> ApiResult<KnowledgeSiteDeploymentResult> {
-        Err(ApiError::not_implemented("siteDeployments.create"))
+        Err(ApiError::unsupported_operation("siteDeployments.create"))
     }
 
     async fn retrieve_site_deployment_preview(
@@ -1081,8 +1123,8 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _deployment_id: u64,
     ) -> ApiResult<KnowledgeSiteDeploymentPreview> {
-        Err(ApiError::not_implemented(
-            "siteDeployments.preview.retrieve",
+        Err(ApiError::unsupported_operation(
+            "siteDeployments.preview.list",
         ))
     }
 
@@ -1091,6 +1133,6 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _context: KnowledgeAppRequestContext,
         _request: KnowledgeMediaTaskRequest,
     ) -> ApiResult<KnowledgeMediaTaskResult> {
-        Err(ApiError::not_implemented("mediaTasks.create"))
+        Err(ApiError::unsupported_operation("mediaTasks.create"))
     }
 }

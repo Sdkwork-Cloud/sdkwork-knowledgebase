@@ -1,5 +1,6 @@
 export interface KnowledgeMediaTaskResult {
-  success: boolean;
+  accepted: true;
+  status: 'completed';
   url?: string | null;
   resolution?: string | null;
   text?: string | null;

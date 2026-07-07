@@ -41,11 +41,11 @@ impl ApiError {
         )
     }
 
-    pub fn not_implemented(operation_id: &'static str) -> Self {
+    pub fn unsupported_operation(operation_id: &'static str) -> Self {
         Self::new(
             StatusCode::NOT_IMPLEMENTED,
-            "operation_not_implemented",
-            format!("operation is not implemented: {operation_id}"),
+            "operation_unsupported",
+            format!("operation is unsupported by this runtime: {operation_id}"),
         )
     }
 }

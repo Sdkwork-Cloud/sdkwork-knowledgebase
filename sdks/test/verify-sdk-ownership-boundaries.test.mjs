@@ -98,6 +98,48 @@ function operationEntries(openapi) {
   return entries;
 }
 
+function containsPropertyName(value, propertyName) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  if (
+    value.properties &&
+    typeof value.properties === "object" &&
+    Object.hasOwn(value.properties, propertyName)
+  ) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => containsPropertyName(item, propertyName));
+  }
+  return Object.values(value).some((item) => containsPropertyName(item, propertyName));
+}
+
+function successResponseSchemas(operation) {
+  const schemas = [];
+  for (const [status, response] of Object.entries(operation.responses ?? {})) {
+    if (!/^2[0-9][0-9]$/u.test(status)) {
+      continue;
+    }
+    for (const mediaType of Object.values(response.content ?? {})) {
+      if (mediaType?.schema && typeof mediaType.schema === "object") {
+        schemas.push(mediaType.schema);
+      }
+    }
+  }
+  return schemas;
+}
+
+function hasPageInfoSuccessSchema(operation) {
+  return successResponseSchemas(operation).some((schema) => containsPropertyName(schema, "pageInfo"));
+}
+
+function queryParameterNames(operation) {
+  return (operation.parameters ?? [])
+    .filter((parameter) => parameter?.in === "query")
+    .map((parameter) => parameter.name);
+}
+
 test("knowledgebase SDK family assemblies declare owner-only authority metadata", () => {
   for (const family of families) {
     const assemblyPath = path.join("sdks", family.root, ".sdkwork-assembly.json");
@@ -289,6 +331,36 @@ test("knowledgebase generated OpenAPI inputs contain only sdkwork-knowledgebase 
       assert(
         !family.forbiddenPathPrefixes.some((prefix) => pathKey.startsWith(prefix)),
         `${family.root} must not copy dependency-owned route ${method.toUpperCase()} ${pathKey}`,
+      );
+    }
+  }
+});
+
+test("knowledgebase paginated GET operations declare standard SDKWork pagination query inputs", () => {
+  const forbiddenAliases = new Set(["pageSize", "limit", "page_no", "pageNo", "per_page", "size"]);
+
+  for (const family of families) {
+    const openapi = readJson(path.join("sdks", family.root, family.input));
+    for (const { pathKey, method, operation } of operationEntries(openapi)) {
+      if (method !== "get" || !hasPageInfoSuccessSchema(operation)) {
+        continue;
+      }
+
+      const parameterNames = queryParameterNames(operation);
+      const operationLabel = `${family.root} ${method.toUpperCase()} ${pathKey} (${operation.operationId})`;
+
+      assert(
+        parameterNames.includes("page_size"),
+        `${operationLabel} must declare canonical page_size query input`,
+      );
+      assert(
+        parameterNames.includes("cursor") || parameterNames.includes("page"),
+        `${operationLabel} must declare cursor or page query input`,
+      );
+      assert.equal(
+        parameterNames.some((name) => forbiddenAliases.has(name)),
+        false,
+        `${operationLabel} must not declare legacy pagination aliases`,
       );
     }
   }

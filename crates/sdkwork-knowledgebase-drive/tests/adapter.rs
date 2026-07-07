@@ -725,6 +725,7 @@ impl DriveObjectStore for FakeDriveObjectStore {
             bucket: request.bucket,
             prefix: request.prefix,
             items,
+            prefixes: Vec::new(),
             next_continuation_token: None,
             is_truncated: false,
         })
@@ -960,6 +961,7 @@ impl DriveObjectStore for VersionlessDriveObjectStore {
             bucket: request.bucket,
             prefix: request.prefix,
             items,
+            prefixes: Vec::new(),
             next_continuation_token: None,
             is_truncated: false,
         })
@@ -1176,6 +1178,7 @@ impl DriveObjectStore for BlankVersionDriveObjectStore {
             bucket: request.bucket,
             prefix: request.prefix,
             items,
+            prefixes: Vec::new(),
             next_continuation_token: None,
             is_truncated: false,
         })

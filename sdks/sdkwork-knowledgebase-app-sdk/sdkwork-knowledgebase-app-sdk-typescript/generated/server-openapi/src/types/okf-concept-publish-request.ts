@@ -1,4 +1,4 @@
 export interface OkfConceptPublishRequest {
-  publisherId?: number | null;
+  publisherId?: string | null;
   note?: string | null;
 }

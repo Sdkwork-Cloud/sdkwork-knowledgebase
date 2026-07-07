@@ -72,7 +72,7 @@ export const listPaginationQueryParams = [
     schema: { type: 'string' },
   },
   {
-    name: 'pageSize',
+    name: 'page_size',
     in: 'query',
     required: false,
     schema: {

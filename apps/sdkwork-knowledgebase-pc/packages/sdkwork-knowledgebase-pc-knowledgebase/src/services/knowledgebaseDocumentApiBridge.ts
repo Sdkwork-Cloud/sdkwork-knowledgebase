@@ -50,6 +50,7 @@ import {
   removeRegisteredSpace,
   requireKnowledgebaseAppSdkHttpClient,
   requireKnowledgebaseTenantId,
+  requireRegisteredSpaceId,
   throwKnowledgebaseError,
   touchRecentDocument,
   type KnowledgebaseSpaceKbType,
@@ -60,6 +61,7 @@ import {
 } from 'sdkwork-knowledgebase-pc-core';
 
 import type { DocumentMeta, FolderNode, KnowledgeBase } from './document';
+import { normalizeSdkWorkListPage } from './sdkWorkListPage';
 
 function requireTenantId(): string {
   return requireKnowledgebaseTenantId();
@@ -69,37 +71,43 @@ function requireSdkClient() {
   return requireKnowledgebaseAppSdkHttpClient();
 }
 
-function spaceIdFromKbId(kbId: string): number {
+function spaceIdFromKbId(kbId: string): string {
   return parseKnowledgeSpaceId(kbId);
 }
 
-function formatBytes(bytes: number | null | undefined): string | undefined {
-  if (!bytes || bytes <= 0) {
+function formatBytes(bytes: string | number | null | undefined): string | undefined {
+  const value = toSafeNumber(bytes);
+  if (!value || value <= 0) {
     return undefined;
   }
-  if (bytes < 1024) {
-    return `${bytes} B`;
+  if (value < 1024) {
+    return `${value} B`;
   }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
   }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function parseOkfDocumentId(id: string): { spaceId: number; conceptRowId: number } | null {
+function toSafeNumber(value: string | number | null | undefined): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseOkfDocumentId(id: string): { spaceId: string; conceptRowId: string } | null {
   const match = /^okf:(\d+):(\d+)$/.exec(id);
   if (!match) {
     return null;
   }
-  const spaceId = Number(match[1]);
-  const conceptRowId = Number(match[2]);
-  if (!Number.isFinite(spaceId) || spaceId <= 0 || !Number.isFinite(conceptRowId) || conceptRowId <= 0) {
+  const spaceId = match[1];
+  const conceptRowId = match[2];
+  if (!spaceId || /^0+$/u.test(spaceId) || !conceptRowId || /^0+$/u.test(conceptRowId)) {
     return null;
   }
   return { spaceId, conceptRowId };
 }
 
-async function readOkfConceptMarkdown(spaceId: number, conceptRowId: number): Promise<string> {
+async function readOkfConceptMarkdown(spaceId: string, conceptRowId: string): Promise<string> {
   const client = requireSdkClient();
   const concept = await client.knowledge.okf.concepts.retrieve(conceptRowId);
   const result = await client.knowledge.retrievals.create({
@@ -258,7 +266,7 @@ export async function getKnowledgeBases(): Promise<{
   };
 
   for (const entry of registry) {
-    if (!Number.isFinite(entry.spaceId) || entry.spaceId <= 0) {
+    if (!entry.spaceId || entry.spaceId === '0') {
       continue;
     }
     try {
@@ -425,7 +433,7 @@ export async function ensureFolderChildrenLoaded(
 }
 
 async function readIndexedDocumentContent(
-  spaceId: number,
+  spaceId: string,
   documentId: string,
   title: string,
 ): Promise<string | null> {
@@ -447,7 +455,7 @@ async function readIndexedDocumentContent(
 
 async function readBrowserNodeContent(
   node: KnowledgeBrowserNode,
-  spaceId: number,
+  spaceId: string,
 ): Promise<string | null> {
   if (node.conceptId) {
     return readOkfConceptMarkdown(spaceId, node.conceptId);
@@ -467,7 +475,7 @@ async function readBrowserNodeContent(
 
 async function resolveBrowserNodeByDocumentId(
   documentId: string,
-): Promise<{ spaceId: number; node: KnowledgeBrowserNode } | null> {
+): Promise<{ spaceId: string; node: KnowledgeBrowserNode } | null> {
   const tenantId = getKnowledgebaseTenantId();
   if (!tenantId) {
     return null;
@@ -478,10 +486,10 @@ async function resolveBrowserNodeByDocumentId(
     return resolveBrowserNodeInSpace(okfRef.spaceId, documentId);
   }
 
-  const numericDocumentId = Number(documentId);
-  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+  const documentIdForSdk = parseSafeNumericDocumentId(documentId);
+  if (documentIdForSdk) {
     try {
-      const document = await requireSdkClient().knowledge.documents.retrieve(numericDocumentId);
+      const document = await requireSdkClient().knowledge.documents.retrieve(documentIdForSdk);
       const resolved = await resolveBrowserNodeInSpace(document.spaceId, documentId);
       if (resolved) {
         return resolved;
@@ -502,9 +510,9 @@ async function resolveBrowserNodeByDocumentId(
 }
 
 async function resolveBrowserNodeInSpace(
-  spaceId: number,
+  spaceId: string,
   documentId: string,
-): Promise<{ spaceId: number; node: KnowledgeBrowserNode } | null> {
+): Promise<{ spaceId: string; node: KnowledgeBrowserNode } | null> {
   try {
     const kbId = String(spaceId);
     const loaded = getLoadedKnowledgeBrowserNodes(spaceId);
@@ -513,10 +521,10 @@ async function resolveBrowserNodeInSpace(
       return { spaceId, node: cached };
     }
 
-    const numericDocumentId = Number(documentId);
-    if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+    const documentIdForSdk = parseSafeNumericDocumentId(documentId);
+    if (documentIdForSdk) {
       try {
-        const document = await requireSdkClient().knowledge.documents.retrieve(numericDocumentId);
+        const document = await requireSdkClient().knowledge.documents.retrieve(documentIdForSdk);
         if (document.spaceId === spaceId && document.originalFileDriveNodeId) {
           const byDriveNode = loaded.find(
             (candidate) =>
@@ -537,8 +545,8 @@ async function resolveBrowserNodeInSpace(
       const page = await listKnowledgeBrowserNodesPage(spaceId, null, { cursor });
       const found =
         findKnowledgeBrowserNodeByDocumentId(page.items, documentId, kbId)
-        ?? (Number.isFinite(numericDocumentId) && numericDocumentId > 0
-          ? page.items.find((candidate) => candidate.documentId === numericDocumentId) ?? null
+        ?? (documentIdForSdk
+          ? page.items.find((candidate) => candidate.documentId === documentIdForSdk) ?? null
           : null);
       if (found) {
         return { spaceId, node: found };
@@ -553,9 +561,9 @@ async function resolveBrowserNodeInSpace(
 
 export async function getDocumentContent(id: string): Promise<string> {
   const tenantId = requireTenantId();
-  const numericDocumentId = Number(id);
+  const numericDocumentId = parseSafeNumericDocumentId(id);
 
-  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+  if (numericDocumentId !== null) {
     const authoritative = await fetchKnowledgeDocumentContent(numericDocumentId);
     if (authoritative?.contentMarkdown !== undefined) {
       const contentVersion = authoritative.contentVersion?.trim()
@@ -593,9 +601,9 @@ export async function getDocumentContent(id: string): Promise<string> {
   }
 
   const client = requireSdkClient();
-  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+  if (numericDocumentId !== null) {
     try {
-      const document = await client.knowledge.documents.retrieve(numericDocumentId);
+      const document = await client.knowledge.documents.retrieve(String(numericDocumentId));
       trackRecentDocument({
         id: String(document.id),
         title: document.title,
@@ -631,7 +639,18 @@ export async function getDocumentContent(id: string): Promise<string> {
     }
   }
 
-  return `# ${id}\n\nDocument content is managed by the Knowledgebase backend.`;
+  throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_RESOLVE_FAILED);
+}
+
+function parseSafeNumericDocumentId(id: string): string | null {
+  if (!/^[0-9]+$/.test(id.trim())) {
+    return null;
+  }
+  const documentId = id.trim();
+  if (/^0+$/u.test(documentId)) {
+    return null;
+  }
+  return documentId;
 }
 
 export async function saveDocumentContent(id: string, content: string): Promise<boolean> {
@@ -641,8 +660,8 @@ export async function saveDocumentContent(id: string, content: string): Promise<
   const okfRef = parseOkfDocumentId(id);
   if (okfRef) {
     const client = requireSdkClient();
-    const concept = await client.knowledge.okf.concepts.retrieve(okfRef.conceptRowId);
-    await client.knowledge.okf.concepts.upsert({
+    const concept = await client.knowledge.okf.concepts.retrieve(String(okfRef.conceptRowId));
+    await client.knowledge.okf.concepts.update({
       spaceId: okfRef.spaceId,
       conceptId: concept.conceptId,
       markdown: content,
@@ -660,7 +679,7 @@ export async function saveDocumentContent(id: string, content: string): Promise<
 
   try {
     const client = requireSdkClient();
-    const document = await client.knowledge.documents.retrieve(numericDocumentId);
+    const document = await client.knowledge.documents.retrieve(String(numericDocumentId));
     const job = await client.knowledge.ingests.create({
       spaceId: document.spaceId,
       title: document.title,
@@ -688,10 +707,10 @@ export async function saveDocumentContent(id: string, content: string): Promise<
   return true;
 }
 
-async function resolveNumericDocumentId(id: string): Promise<number | null> {
-  const numericDocumentId = Number(id);
-  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
-    return numericDocumentId;
+async function resolveNumericDocumentId(id: string): Promise<string | null> {
+  const safeId = parseSafeNumericDocumentId(id);
+  if (safeId !== null) {
+    return safeId;
   }
 
   const browserMatch = await resolveBrowserNodeByDocumentId(id);
@@ -703,8 +722,8 @@ async function resolveNumericDocumentId(id: string): Promise<number | null> {
 }
 
 export interface DocumentVersionSummary {
-  id: number;
-  documentId: number;
+  id: string;
+  documentId: string;
   versionNo: number;
   sizeBytes: number;
   mimeType?: string | null;
@@ -719,8 +738,8 @@ export type KnowledgeDocumentVisibility =
   | 'public';
 
 export interface DocumentAccessSummary {
-  documentId: number;
-  spaceId: number;
+  documentId: string;
+  spaceId: string;
   title: string;
   visibility: KnowledgeDocumentVisibility;
 }
@@ -732,7 +751,7 @@ export async function getDocumentAccess(documentId: string): Promise<DocumentAcc
   }
 
   const client = requireSdkClient();
-  const document = await client.knowledge.documents.retrieve(numericDocumentId);
+  const document = await client.knowledge.documents.retrieve(String(numericDocumentId));
   return {
     documentId: document.id,
     spaceId: document.spaceId,
@@ -751,8 +770,8 @@ export async function updateDocumentVisibility(
   }
 
   const client = requireSdkClient();
-  const existing = await client.knowledge.documents.retrieve(numericDocumentId);
-  const updated = await client.knowledge.documents.update(numericDocumentId, {
+  const existing = await client.knowledge.documents.retrieve(String(numericDocumentId));
+  const updated = await client.knowledge.documents.update(String(numericDocumentId), {
     spaceId: existing.spaceId,
     title: existing.title,
     mimeType: existing.mimeType,
@@ -775,12 +794,21 @@ export async function listDocumentVersions(documentId: string): Promise<Document
   }
 
   const client = requireSdkClient();
-  const response = await client.knowledge.documents.versions.list(numericDocumentId);
-  return (response.items ?? []).map((version) => ({
+  const response = await client.knowledge.documents.versions.list(String(numericDocumentId));
+  const page = normalizeSdkWorkListPage<{
+    id: string;
+    documentId: string;
+    versionNo: string | number;
+    sizeBytes: string | number;
+    mimeType?: string | null;
+    parseState: string;
+    indexState: string;
+  }>(response);
+  return page.items.map((version) => ({
     id: version.id,
     documentId: version.documentId,
-    versionNo: version.versionNo,
-    sizeBytes: version.sizeBytes,
+    versionNo: toSafeNumber(version.versionNo),
+    sizeBytes: toSafeNumber(version.sizeBytes),
     mimeType: version.mimeType,
     parseState: version.parseState,
     indexState: version.indexState,
@@ -788,7 +816,7 @@ export async function listDocumentVersions(documentId: string): Promise<Document
 }
 
 async function waitForDriveFolderBrowserNode(
-  spaceId: number,
+  spaceId: string,
   kbId: string,
   driveNodeId: string,
 ): Promise<KnowledgeBrowserNode> {
@@ -865,29 +893,33 @@ export async function updateDocument(id: string, updates: Partial<DocumentMeta>)
   if (updates.kbId !== undefined) {
     const sourceKbId = await resolveDocumentKbId(id);
     if (sourceKbId && updates.kbId !== sourceKbId) {
+      let moved: DocumentMeta | null = null;
       if (parseOkfDocumentId(id)) {
         const okfRef = parseOkfDocumentId(id)!;
-        await moveOkfConcept(
+        moved = await moveOkfConcept(
           okfRef.spaceId,
           okfRef.conceptRowId,
           updates.kbId,
           readOkfConceptMarkdown,
         );
-        return true;
+      } else {
+        const browserMatch = await resolveBrowserNodeByDocumentId(id);
+        moved = await transferDocumentAcrossKnowledgeBases(
+          id,
+          sourceKbId,
+          updates.kbId,
+          updates.parentId ?? null,
+          'move',
+          {
+            sourceNode: browserMatch?.node ?? null,
+            ingestTextDocument: ingestTextDocumentAcrossKnowledgeBases,
+            deleteSourceDocument: deleteDocument,
+          },
+        );
       }
-      const browserMatch = await resolveBrowserNodeByDocumentId(id);
-      await transferDocumentAcrossKnowledgeBases(
-        id,
-        sourceKbId,
-        updates.kbId,
-        updates.parentId ?? null,
-        'move',
-        {
-          sourceNode: browserMatch?.node ?? null,
-          ingestTextDocument: ingestTextDocumentAcrossKnowledgeBases,
-          deleteSourceDocument: deleteDocument,
-        },
-      );
+      if (updates.parentId?.trim() && moved) {
+        await placeDocumentInParentFolder(moved.id, updates.kbId, updates.parentId);
+      }
       return true;
     }
   }
@@ -952,8 +984,8 @@ export async function updateDocument(id: string, updates: Partial<DocumentMeta>)
 
   if (numericDocumentId && updates.title && !browserMatch) {
     const client = requireSdkClient();
-    const existing = await client.knowledge.documents.retrieve(numericDocumentId);
-    await client.knowledge.documents.update(numericDocumentId, {
+    const existing = await client.knowledge.documents.retrieve(String(numericDocumentId));
+    await client.knowledge.documents.update(String(numericDocumentId), {
       spaceId: existing.spaceId,
       title: updates.title ?? existing.title,
       mimeType: updates.type === 'markdown'
@@ -962,8 +994,8 @@ export async function updateDocument(id: string, updates: Partial<DocumentMeta>)
     });
   } else if (numericDocumentId && updates.type) {
     const client = requireSdkClient();
-    const existing = await client.knowledge.documents.retrieve(numericDocumentId);
-    await client.knowledge.documents.update(numericDocumentId, {
+    const existing = await client.knowledge.documents.retrieve(String(numericDocumentId));
+    await client.knowledge.documents.update(String(numericDocumentId), {
       spaceId: existing.spaceId,
       title: existing.title,
       mimeType: updates.type === 'markdown'
@@ -1076,7 +1108,7 @@ async function searchOkfConceptDocs(
       }
       docs.push({
         id: `okf:${entry.spaceId}:query-${docs.length}`,
-        title: `OKF · ${query}`,
+        title: `OKF ? ${query}`,
         type: 'markdown',
         kbId: String(entry.spaceId),
         updatedAt: new Date().toISOString(),
@@ -1111,10 +1143,13 @@ async function collectRecentDocumentsFromSpaces(limit: number): Promise<Document
   const tenantId = requireTenantId();
   const registry = readRegisteredSpaces(tenantId);
   const collected: DocumentMeta[] = [];
+  const perSpacePageSize = Math.min(Math.max(limit, 1), 20);
 
   for (const entry of registry) {
     try {
-      const page = await listKnowledgeBrowserNodesPage(entry.spaceId, null, { pageSize: limit });
+      const page = await listKnowledgeBrowserNodesPage(entry.spaceId, null, {
+        pageSize: perSpacePageSize,
+      });
       for (const node of page.items) {
         if (node.nodeType === 'folder' || node.nodeType === 'virtual_folder') {
           continue;
@@ -1181,7 +1216,7 @@ export async function touchDocument(id: string): Promise<boolean> {
   if (okfRef) {
     try {
       const client = requireSdkClient();
-      const concept = await client.knowledge.okf.concepts.retrieve(okfRef.conceptRowId);
+      const concept = await client.knowledge.okf.concepts.retrieve(String(okfRef.conceptRowId));
       trackRecentDocument({
         id,
         title: concept.title,
@@ -1195,14 +1230,14 @@ export async function touchDocument(id: string): Promise<boolean> {
     }
   }
 
-  const numericDocumentId = Number(id);
-  if (!Number.isFinite(numericDocumentId) || numericDocumentId <= 0) {
+  const documentIdForSdk = parseSafeNumericDocumentId(id);
+  if (!documentIdForSdk) {
     return false;
   }
 
   try {
     const client = requireSdkClient();
-    const document = await client.knowledge.documents.retrieve(numericDocumentId);
+    const document = await client.knowledge.documents.retrieve(documentIdForSdk);
     trackRecentDocument({
       id: String(document.id),
       title: document.title,
@@ -1222,6 +1257,7 @@ export async function createDocument(doc: Partial<DocumentMeta>): Promise<Docume
   if (!doc.kbId) {
     throwKnowledgebaseError(KnowledgebaseErrorCodes.KB_ID_REQUIRED);
   }
+  requireRegisteredSpaceId(doc.kbId);
 
   if (doc.type === 'folder') {
     if (!isKnowledgebaseDriveApiAvailable()) {
@@ -1310,10 +1346,10 @@ async function resolveDocumentKbId(id: string): Promise<string | null> {
     return String(browserMatch.spaceId);
   }
 
-  const numericDocumentId = Number(id);
-  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+  const documentIdForSdk = parseSafeNumericDocumentId(id);
+  if (documentIdForSdk) {
     try {
-      const document = await requireSdkClient().knowledge.documents.retrieve(numericDocumentId);
+      const document = await requireSdkClient().knowledge.documents.retrieve(documentIdForSdk);
       return String(document.spaceId);
     } catch {
       return null;
@@ -1339,10 +1375,10 @@ async function ingestTextDocumentAcrossKnowledgeBases(
   let sourceTitle = browserMatch?.node.name ?? 'Untitled';
   let sourceType: DocumentMeta['type'] = browserMatch ? mapNodeType(browserMatch.node) : 'markdown';
 
-  const numericDocumentId = Number(sourceId);
-  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+  const documentIdForSdk = parseSafeNumericDocumentId(sourceId);
+  if (documentIdForSdk) {
     try {
-      const document = await requireSdkClient().knowledge.documents.retrieve(numericDocumentId);
+      const document = await requireSdkClient().knowledge.documents.retrieve(documentIdForSdk);
       sourceTitle = document.title;
     } catch {
       // Keep browser-derived title when available.
@@ -1371,6 +1407,7 @@ export async function copyDocument(
   targetParentId: string | null,
   options?: { titleSuffix?: string },
 ): Promise<DocumentMeta> {
+  requireRegisteredSpaceId(targetKbId);
   const okfRef = parseOkfDocumentId(sourceId);
   if (okfRef) {
     const created = await copyOkfConcept(
@@ -1449,10 +1486,10 @@ export async function copyDocument(
   let sourceTitle = browserMatch?.node.name ?? 'Untitled';
   let sourceType: DocumentMeta['type'] = browserMatch ? mapNodeType(browserMatch.node) : 'markdown';
 
-  const numericDocumentId = Number(sourceId);
-  if (Number.isFinite(numericDocumentId) && numericDocumentId > 0) {
+  const documentIdForSdk = parseSafeNumericDocumentId(sourceId);
+  if (documentIdForSdk) {
     try {
-      const document = await requireSdkClient().knowledge.documents.retrieve(numericDocumentId);
+      const document = await requireSdkClient().knowledge.documents.retrieve(documentIdForSdk);
       sourceTitle = document.title;
     } catch {
       // Keep browser-derived title when available.
@@ -1478,7 +1515,7 @@ export async function deleteDocument(id: string): Promise<boolean> {
   if (parseOkfDocumentId(id)) {
     const okfRef = parseOkfDocumentId(id)!;
     const client = requireSdkClient();
-    await client.knowledge.okf.concepts.delete(okfRef.conceptRowId);
+    await client.knowledge.okf.concepts.delete(String(okfRef.conceptRowId));
     invalidateKnowledgeBrowserNodeCacheForSpaceIds(okfRef.spaceId);
     return true;
   }
@@ -1486,12 +1523,7 @@ export async function deleteDocument(id: string): Promise<boolean> {
   const browserMatch = await resolveBrowserNodeByDocumentId(id);
   const numericDocumentId = await resolveNumericDocumentId(id);
   let deleted = false;
-
-  if (numericDocumentId) {
-    const client = requireSdkClient();
-    await client.knowledge.documents.delete(numericDocumentId);
-    deleted = true;
-  }
+  let driveDeleteError: unknown;
 
   if (browserMatch && isKnowledgebaseDriveApiAvailable()) {
     const isFolder =
@@ -1502,9 +1534,22 @@ export async function deleteDocument(id: string): Promise<boolean> {
       || browserMatch.node.driveNodeId
       || !numericDocumentId;
     if (canDeleteDriveNode) {
-      await deleteDriveBrowserNode(browserMatch.node);
-      deleted = true;
+      try {
+        await deleteDriveBrowserNode(browserMatch.node);
+        deleted = true;
+      } catch (error) {
+        driveDeleteError = error;
+      }
     }
+  }
+
+  if (numericDocumentId) {
+    const client = requireSdkClient();
+    await client.knowledge.documents.delete(String(numericDocumentId));
+    deleted = true;
+  } else if (driveDeleteError) {
+    const detail = driveDeleteError instanceof Error ? driveDeleteError.message : String(driveDeleteError);
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED, { cause: detail });
   }
 
   if (!deleted) {

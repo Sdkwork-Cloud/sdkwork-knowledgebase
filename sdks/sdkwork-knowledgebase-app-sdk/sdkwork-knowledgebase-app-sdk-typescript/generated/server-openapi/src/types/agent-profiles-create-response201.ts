@@ -1,6 +1,6 @@
-import type { KnowledgeTenantStatus } from './knowledge-tenant-status';
+import type { KnowledgeAgentProfile } from './knowledge-agent-profile';
 
-export interface TenantsCurrentRetrieveResponse {
+export interface AgentProfilesCreateResponse201 {
   code: 0;
   data: unknown & Record<string, unknown>;
   /** Server-owned request correlation id. */

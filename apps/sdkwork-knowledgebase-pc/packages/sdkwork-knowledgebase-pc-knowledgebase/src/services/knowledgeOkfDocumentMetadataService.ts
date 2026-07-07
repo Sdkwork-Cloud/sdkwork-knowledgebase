@@ -4,7 +4,7 @@ function requireSdkClient() {
   return getKnowledgebaseAppSdkClient().client;
 }
 
-export async function readOkfConceptTags(conceptRowId: number): Promise<string[]> {
+export async function readOkfConceptTags(conceptRowId: string): Promise<string[]> {
   const concept = await requireSdkClient().knowledge.okf.concepts.retrieve(conceptRowId);
   return concept.tags ?? [];
 }
@@ -41,10 +41,10 @@ export function patchOkfMarkdownTags(markdown: string, tags: string[]): string {
 }
 
 export async function updateOkfConceptTags(
-  spaceId: number,
-  conceptRowId: number,
+  spaceId: string,
+  conceptRowId: string,
   tags: string[],
-  readMarkdown: (spaceId: number, conceptRowId: number) => Promise<string>,
+  readMarkdown: (spaceId: string, conceptRowId: string) => Promise<string>,
 ): Promise<void> {
   const client = requireSdkClient();
   const concept = await client.knowledge.okf.concepts.retrieve(conceptRowId);
@@ -53,7 +53,7 @@ export async function updateOkfConceptTags(
     tags,
   );
 
-  await client.knowledge.okf.concepts.upsert({
+  await client.knowledge.okf.concepts.update({
     spaceId,
     conceptId: concept.conceptId,
     markdown,

@@ -49,11 +49,12 @@
       "DIRECT_DOWNLOAD"
     ],
     "defaultPlatform": "WEB",
-    "defaultArchitecture": "x64",
+    "defaultArchitecture": "universal",
     "supportedDeploymentProfiles": [
       "standalone",
       "cloud"
-    ]
+    ],
+    "defaultDeploymentProfile": "cloud"
   },
   "media": {
     "icons": {
@@ -70,9 +71,11 @@
         "fileSizeBytes": 524288,
         "alphaChannel": false,
         "sortOrder": 0,
-        "enabled": true,
+        "enabled": false,
         "metadata": {
-          "generatedPlaceholder": true
+          "generatedPlaceholder": true,
+          "releaseStatus": "prelaunch-placeholder",
+          "reason": "Placeholder media is retained only as a disabled prelaunch catalog draft. Replace with Drive-backed product media before publication."
         }
       },
       "platform": [],
@@ -97,9 +100,11 @@
         "alphaChannel": false,
         "caption": "SDKWork Knowledgebase product screenshot.",
         "sortOrder": 0,
-        "enabled": true,
+        "enabled": false,
         "metadata": {
           "generatedPlaceholder": true,
+          "releaseStatus": "prelaunch-placeholder",
+          "reason": "Placeholder screenshot is disabled until a real product screenshot is captured from the release candidate.",
           "altText": "SDKWork Knowledgebase app screenshot."
         }
       }
@@ -119,9 +124,11 @@
         "alphaChannel": false,
         "caption": "SDKWork Knowledgebase preview.",
         "sortOrder": 0,
-        "enabled": true,
+        "enabled": false,
         "metadata": {
           "generatedPlaceholder": true,
+          "releaseStatus": "prelaunch-placeholder",
+          "reason": "Placeholder preview is disabled until a real catalog preview asset is approved.",
           "altText": "SDKWork Knowledgebase preview cover."
         }
       }
@@ -132,7 +139,7 @@
     }
   },
   "publish": {
-    "status": "ACTIVE",
+    "status": "INACTIVE",
     "installSkill": {
       "name": "sdkwork-skills-app"
     },
@@ -142,13 +149,17 @@
     "installPlatforms": [
       "WEB"
     ],
-    "defaultPackageId": "web-production",
+    "defaultPackageId": "web-universal-cloud-browser-zip",
     "storeUrl": "https://sdkwork.com/apps/sdkwork-knowledgebase",
     "stores": [],
     "config": {
       "workspaceRoot": ".",
       "framework": "web",
       "managedBy": "apps/scripts/initialize-sdkwork-app-standard-v3.mjs"
+    },
+    "metadata": {
+      "releaseStatus": "prelaunch-gated",
+      "reason": "The application has not launched. Publication remains disabled until release artifact, media, live smoke, rollout, rollback, and production database evidence are attached."
     }
   },
   "environments": {
@@ -170,56 +181,76 @@
   },
   "artifacts": {
     "installConfig": {
-      "defaultPackageId": "web-production",
+      "defaultPackageId": "web-universal-cloud-browser-zip",
       "installCommand": "sdkwork install sdkwork-knowledgebase",
       "launchCommand": "sdkwork open sdkwork-knowledgebase",
       "uninstallCommand": "sdkwork uninstall sdkwork-knowledgebase",
       "packages": [
         {
-          "id": "web-production",
+          "id": "web-universal-cloud-browser-zip",
           "name": "SDKWork Knowledgebase Web Bundle",
-          "sourceType": "WEB_URL",
+          "sourceType": "BINARY_URL",
           "packageFormat": "ZIP",
           "platform": "WEB",
-          "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/STABLE/0.1.0/web.zip",
-          "enabled": true,
-          "metadata": {}
+          "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/DEV/0.1.0/web.zip",
+          "enabled": false,
+          "metadata": {
+            "releaseStatus": "prelaunch-artifact-pending",
+            "reason": "Web artifact distribution is disabled until checksum, signature, SBOM, provenance, attestation, workflow run, rollout, rollback, and live smoke evidence exist.",
+            "requiredEvidence": [
+              "checksum",
+              "signature",
+              "sbom",
+              "provenance",
+              "attestation",
+              "workflow-run",
+              "rollout-rollback",
+              "live-smoke"
+            ]
+          },
+          "architecture": "universal",
+          "deploymentProfile": "cloud",
+          "runtimeTarget": "browser"
         },
         {
-          "id": "desktop-windows",
+          "id": "windows-x64-standalone-desktop-zip",
           "name": "SDKWork Knowledgebase Windows Bundle",
           "sourceType": "BINARY_URL",
           "packageFormat": "ZIP",
           "platform": "DESKTOP_WINDOWS",
-          "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/STABLE/0.1.0/windows/x64/app.zip",
+          "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/DEV/0.1.0/windows/x64/app.zip",
           "enabled": false,
           "metadata": {
             "releaseStatus": "prelaunch-disabled",
             "reason": "Desktop packaging workflow not wired for Phase 0.1; enable when desktop CI targets ship."
           },
-          "architecture": "x64"
+          "architecture": "x64",
+          "deploymentProfile": "standalone",
+          "runtimeTarget": "desktop"
         },
         {
-          "id": "desktop-macos",
+          "id": "macos-universal-standalone-desktop-dmg",
           "name": "SDKWork Knowledgebase macOS Bundle",
           "sourceType": "BINARY_URL",
           "packageFormat": "DMG",
           "platform": "DESKTOP_MACOS",
-          "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/STABLE/0.1.0/macos/universal/app.dmg",
+          "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/DEV/0.1.0/macos/universal/app.dmg",
           "enabled": false,
           "metadata": {
             "releaseStatus": "prelaunch-disabled",
             "reason": "Desktop packaging workflow not wired for Phase 0.1; enable when desktop CI targets ship."
           },
-          "architecture": "universal"
+          "architecture": "universal",
+          "deploymentProfile": "standalone",
+          "runtimeTarget": "desktop"
         },
         {
-          "id": "desktop-linux",
+          "id": "linux-x64-standalone-desktop-appimage",
           "name": "SDKWork Knowledgebase Linux Bundle",
           "sourceType": "BINARY_URL",
           "packageFormat": "APPIMAGE",
           "platform": "DESKTOP_LINUX",
-          "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/STABLE/0.1.0/linux/generic/x64/app.AppImage",
+          "url": "https://cdn.sdkwork.com/apps/sdkwork-knowledgebase/DEV/0.1.0/linux/generic/x64/app.AppImage",
           "enabled": false,
           "metadata": {
             "releaseStatus": "prelaunch-disabled",
@@ -228,7 +259,9 @@
               "distro": "generic"
             }
           },
-          "architecture": "x64"
+          "architecture": "x64",
+          "deploymentProfile": "standalone",
+          "runtimeTarget": "desktop"
         }
       ],
       "metadata": {
@@ -241,30 +274,44 @@
   },
   "release": {
     "currentVersion": "0.1.0",
-    "defaultChannel": "STABLE",
+    "defaultChannel": "DEV",
     "latest": {
-      "STABLE": "0.1.0"
+      "DEV": "0.1.0"
     },
     "notes": [
       {
         "version": "0.1.0",
-        "releaseChannel": "STABLE",
-        "title": "SDKWork Knowledgebase 0.1.0",
-        "summary": "SDKWork Knowledgebase initialized standard release.",
-        "content": "Initial SDKWork App Standard v3 manifest for SDKWork Knowledgebase.",
+        "releaseChannel": "DEV",
+        "title": "SDKWork Knowledgebase 0.1.0 Prelaunch Candidate",
+        "summary": "SDKWork Knowledgebase remains prelaunch-gated and is not published for commercial production use.",
+        "content": "Prelaunch candidate manifest aligned with SDKWork App Standard v3. Publication remains disabled until release evidence is attached.",
         "highlights": [
           "SDKWork App Standard v3 configuration initialized",
           "platform_app projection metadata standardized",
-          "Download package matrix normalized"
+          "Download package matrix normalized",
+          "Prelaunch release gates block commercial publication"
         ],
         "packageIds": [
-          "web-production"
+          "web-universal-cloud-browser-zip"
         ],
-        "publishedAt": "2026-05-07T00:00:00Z",
         "current": true,
         "forceUpdate": false,
         "minSupportedVersion": "0.1.0",
-        "metadata": {}
+        "metadata": {
+          "releaseStatus": "prelaunch-gated",
+          "releaseEvidenceStatus": "missing",
+          "requiredEvidence": [
+            "release-artifact-checksum",
+            "signature",
+            "sbom",
+            "provenance",
+            "attestation",
+            "rollout-plan",
+            "rollback-plan",
+            "live-smoke",
+            "release-environment-postgresql"
+          ]
+        }
       }
     ]
   },

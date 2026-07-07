@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{OriginalUri, Path, Query, State},
     http::StatusCode,
     response::Response,
     routing::{delete, get, patch, post, put},
@@ -243,6 +243,10 @@ fn build_business_router(api: Arc<dyn KnowledgeAppApi>) -> Router {
             get(list_wechat_official_accounts).put(replace_wechat_official_accounts),
         )
         .route(
+            paths::WECHAT_OFFICIAL_ACCOUNT_FAN_TAGS,
+            get(list_wechat_official_account_fan_tags),
+        )
+        .route(
             paths::WECHAT_APPLETS,
             get(list_wechat_applets).put(replace_wechat_applets),
         )
@@ -278,6 +282,7 @@ fn build_business_router(api: Arc<dyn KnowledgeAppApi>) -> Router {
 struct ListDocumentsQuery {
     space_id: u64,
     cursor: Option<String>,
+    #[serde(rename = "page_size")]
     page_size: Option<u32>,
 }
 
@@ -285,6 +290,7 @@ struct ListDocumentsQuery {
 #[serde(rename_all = "camelCase")]
 struct ListDocumentVersionsQuery {
     cursor: Option<String>,
+    #[serde(rename = "page_size")]
     page_size: Option<u32>,
 }
 
@@ -292,6 +298,7 @@ struct ListDocumentVersionsQuery {
 #[serde(rename_all = "camelCase")]
 struct ListContextBindingsQuery {
     cursor: Option<String>,
+    #[serde(rename = "page_size")]
     page_size: Option<u32>,
     context_type: Option<sdkwork_knowledgebase_contract::context_binding::KnowledgeContextType>,
 }
@@ -300,6 +307,7 @@ struct ListContextBindingsQuery {
 #[serde(rename_all = "camelCase")]
 struct ListMarketListingsQuery {
     cursor: Option<String>,
+    #[serde(rename = "page_size")]
     page_size: Option<u32>,
 }
 
@@ -356,9 +364,11 @@ async fn list_space_members(
     State(state): State<AppState>,
     context: RequiredAppContext,
     Path(space_id): Path<u64>,
+    OriginalUri(uri): OriginalUri,
     Query(query): Query<ListSpaceMembersQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
     ok_list_json(
         state
             .api
@@ -379,7 +389,7 @@ async fn grant_space_member(
         .grant_space_member(context, space_id, request)
         .await
         .map_err(ApiProblem::from)?;
-    Ok(sdkwork_knowledgebase_observability::request_correlation::no_content_response())
+    command_json()
 }
 
 async fn revoke_space_member(
@@ -446,6 +456,20 @@ async fn replace_wechat_official_accounts(
     )
 }
 
+async fn list_wechat_official_account_fan_tags(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path(account_id): Path<String>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .list_official_account_fan_tags(context, account_id)
+            .await,
+    )
+}
+
 async fn list_wechat_applets(
     State(state): State<AppState>,
     context: RequiredAppContext,
@@ -484,9 +508,11 @@ async fn preview_wechat_articles(
 async fn list_market_listings(
     State(state): State<AppState>,
     context: RequiredAppContext,
+    OriginalUri(uri): OriginalUri,
     Query(query): Query<ListMarketListingsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
     ok_list_json(
         state
             .api
@@ -510,12 +536,12 @@ async fn delete_market_subscription(
     Path(listing_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ok_json(
-        state
-            .api
-            .delete_market_subscription(context, listing_id)
-            .await,
-    )
+    state
+        .api
+        .delete_market_subscription(context, listing_id)
+        .await
+        .map_err(ApiProblem::from)?;
+    Ok(sdkwork_knowledgebase_observability::request_correlation::no_content_response())
 }
 
 async fn create_site_deployment(
@@ -571,9 +597,11 @@ async fn retrieve_ingest(
 async fn list_documents(
     State(state): State<AppState>,
     context: RequiredAppContext,
+    OriginalUri(uri): OriginalUri,
     Query(query): Query<ListDocumentsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
     ok_list_json(
         state
             .api
@@ -647,9 +675,11 @@ async fn list_document_versions(
     State(state): State<AppState>,
     context: RequiredAppContext,
     Path(document_id): Path<u64>,
+    OriginalUri(uri): OriginalUri,
     Query(query): Query<ListDocumentVersionsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
     ok_list_json(
         state
             .api
@@ -672,7 +702,7 @@ async fn create_document_version(
             "documentId in body must match documentId in path",
         ));
     }
-    created_json(
+    ok_json(
         state
             .api
             .create_document_version(context, document_id, request)
@@ -683,9 +713,11 @@ async fn create_document_version(
 async fn list_okf_concepts(
     State(state): State<AppState>,
     context: RequiredAppContext,
+    OriginalUri(uri): OriginalUri,
     Query(query): Query<ListOkfConceptsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
     ok_list_json(
         state
             .api
@@ -788,7 +820,7 @@ async fn file_okf_query_answer(
     Json(request): Json<OkfFileAnswerRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    created_json(
+    ok_json(
         state
             .api
             .file_okf_query_answer(context, query_id, request)
@@ -845,9 +877,11 @@ async fn list_browser(
     State(state): State<AppState>,
     context: RequiredAppContext,
     Path(space_id): Path<u64>,
+    OriginalUri(uri): OriginalUri,
     Query(query): Query<ListBrowserQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
     let view = parse_view(query.view.as_deref())?;
     ok_list_json(
         state
@@ -996,7 +1030,7 @@ async fn create_agent_profile_binding(
             "profileId in body must match profileId in path",
         ));
     }
-    created_json(
+    ok_json(
         state
             .api
             .create_agent_profile_binding(context, profile_id, request.with_tenant_id(tenant_id))
@@ -1054,7 +1088,7 @@ async fn create_agent_profile_retrieval_preview(
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
     let tenant_id = context.tenant_id;
-    created_json(
+    ok_json(
         state
             .api
             .create_agent_profile_retrieval_preview(
@@ -1074,7 +1108,7 @@ async fn create_agent_profile_chat(
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
     let tenant_id = context.tenant_id;
-    created_json(
+    ok_json(
         state
             .api
             .create_agent_chat(context, profile_id, request.with_tenant_id(tenant_id))
@@ -1086,9 +1120,11 @@ async fn list_space_context_bindings(
     State(state): State<AppState>,
     context: RequiredAppContext,
     Path(space_id): Path<u64>,
+    OriginalUri(uri): OriginalUri,
     Query(query): Query<ListContextBindingsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
     ok_list_json(
         state
             .api
@@ -1117,7 +1153,7 @@ async fn create_space_context_binding(
             "spaceId in body must match spaceId in path",
         ));
     }
-    created_json(
+    ok_json(
         state
             .api
             .create_space_context_binding(context, space_id, request)
@@ -1184,7 +1220,7 @@ async fn complete_upload_session(
     Json(request): Json<CompleteKnowledgeUploadSessionRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    created_json(
+    ok_json(
         state
             .api
             .complete_upload_session(context, session_id, request)
@@ -1236,10 +1272,49 @@ where
         .map_err(ApiProblem::from)
 }
 
+fn command_json() -> Result<Response, ApiProblem> {
+    Ok(
+        sdkwork_knowledgebase_observability::request_correlation::success_command_json_response(
+            StatusCode::OK,
+            sdkwork_utils_rust::SdkWorkCommandData::accepted(),
+        ),
+    )
+}
+
+const FORBIDDEN_PAGINATION_QUERY_ALIASES: &[(&str, &str)] = &[
+    ("pageSize", "page_size"),
+    ("limit", "page_size"),
+    ("page_no", "page"),
+    ("pageNo", "page"),
+    ("per_page", "page_size"),
+    ("size", "page_size"),
+];
+
+fn reject_forbidden_pagination_aliases(query: Option<&str>) -> Result<(), ApiProblem> {
+    let Some(query) = query else {
+        return Ok(());
+    };
+    for pair in query.split('&') {
+        let key = pair.split_once('=').map_or(pair, |(key, _)| key);
+        if let Some((alias, canonical)) = FORBIDDEN_PAGINATION_QUERY_ALIASES
+            .iter()
+            .find(|(alias, _)| key == *alias)
+        {
+            return Err(ApiProblem::new(
+                StatusCode::BAD_REQUEST,
+                "pagination_parameter_alias_forbidden",
+                format!("HTTP query parameter {alias} is forbidden; use {canonical}"),
+            ));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ListSpaceMembersQuery {
     cursor: Option<String>,
+    #[serde(rename = "page_size")]
     page_size: Option<u32>,
 }
 
@@ -1249,6 +1324,7 @@ struct ListBrowserQuery {
     view: Option<String>,
     parent_id: Option<String>,
     cursor: Option<String>,
+    #[serde(rename = "page_size")]
     page_size: Option<u32>,
 }
 

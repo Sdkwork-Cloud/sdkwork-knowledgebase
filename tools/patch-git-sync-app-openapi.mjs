@@ -2,6 +2,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  commandEnvelope,
+  createdResponse,
+} from './lib/openapi-envelope.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const targets = [
@@ -20,6 +24,13 @@ const errorResponses = {
   500: { description: 'Error', content: { 'application/json': { schema: problemRef }, 'application/problem+json': { schema: problemRef } } },
 };
 
+const int64StringSchema = {
+  type: 'string',
+  format: 'uint64',
+  pattern: '^[0-9]+$',
+  'x-sdkwork-int64-string': true,
+};
+
 const gitSyncPath = {
   post: {
     operationId: 'gitSyncs.create',
@@ -36,14 +47,7 @@ const gitSyncPath = {
     },
     responses: {
       ...errorResponses,
-      201: {
-        description: 'Created',
-        content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/KnowledgeGitSyncResult' },
-          },
-        },
-      },
+      201: createdResponse(commandEnvelope('#/components/schemas/KnowledgeGitSyncResult')),
     },
     'x-sdkwork-owner': 'sdkwork-knowledgebase',
     'x-sdkwork-api-authority': 'sdkwork-knowledgebase-app-api',
@@ -60,7 +64,7 @@ const gitSyncSchemas = {
     type: 'object',
     required: ['spaceId', 'repoUrl', 'commitMessage', 'idempotencyKey'],
     properties: {
-      spaceId: { type: 'integer', format: 'uint64' },
+      spaceId: int64StringSchema,
       repoUrl: { type: 'string', minLength: 1 },
       branch: { type: ['string', 'null'] },
       commitMessage: { type: 'string', minLength: 1 },
@@ -70,9 +74,10 @@ const gitSyncSchemas = {
   },
   KnowledgeGitSyncResult: {
     type: 'object',
-    required: ['success', 'hash', 'syncedCount'],
+    required: ['accepted', 'status', 'hash', 'syncedCount'],
     properties: {
-      success: { type: 'boolean' },
+      accepted: { type: 'boolean', const: true },
+      status: { type: 'string', enum: ['completed'] },
       hash: { type: 'string', minLength: 1 },
       syncedCount: { type: 'integer', format: 'uint32', minimum: 0 },
     },

@@ -1,4 +1,4 @@
-# KnowledgebaseBackend
+# sdkwork-knowledgebase-backend-sdk
 
 Generated SDKWork v3 dual-token transport SDK.
 
@@ -15,9 +15,9 @@ pnpm add @sdkwork/knowledgebase-backend-sdk
 ## Quick Start
 
 ```typescript
-import { SdkworkBackendClient } from '@sdkwork/knowledgebase-backend-sdk';
+import { SdkworkKnowledgebaseBackendClient } from '@sdkwork/knowledgebase-backend-sdk';
 
-const client = new SdkworkBackendClient({
+const client = new SdkworkKnowledgebaseBackendClient({
   baseUrl: '/backend/v3/api',
   timeout: 30000,
 });
@@ -27,7 +27,7 @@ client.setAuthToken('your-auth-token');
 client.setAccessToken('your-access-token');
 
 // Use the SDK
-const result = await client.knowledge.sources.list();
+const result = await client.knowledge.providerHealth.list();
 ```
 
 ## Authentication
@@ -41,9 +41,9 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```typescript
-import { SdkworkBackendClient } from '@sdkwork/knowledgebase-backend-sdk';
+import { SdkworkKnowledgebaseBackendClient } from '@sdkwork/knowledgebase-backend-sdk';
 
-const client = new SdkworkBackendClient({
+const client = new SdkworkKnowledgebaseBackendClient({
   baseUrl: '/backend/v3/api',
   timeout: 30000, // Request timeout in ms
   headers: {      // Custom headers
@@ -61,17 +61,17 @@ const client = new SdkworkBackendClient({
 ### knowledge
 
 ```typescript
-// List knowledge sources
-const result = await client.knowledge.sources.list();
+// Retrieve provider health status
+const result = await client.knowledge.providerHealth.list();
 ```
 
 ## Error Handling
 
 ```typescript
-import { SdkworkBackendClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-backend-sdk';
+import { SdkworkKnowledgebaseBackendClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-backend-sdk';
 
 try {
-  const result = await client.knowledge.sources.list();
+  const result = await client.knowledge.providerHealth.list();
 } catch (error) {
   if (error instanceof AuthenticationError) {
     console.error('Authentication failed:', error.message);

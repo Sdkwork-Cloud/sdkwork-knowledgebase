@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, HelpCircle, Info, Calendar, Users, Radio, CheckCircle2, ChevronDown, ChevronUp, RefreshCw, AlertCircle } from 'lucide-react';
 import { toast } from './ui/toast-manager';
 import { useTranslation } from 'react-i18next';
+import { WechatService } from '../services/wechat';
 
 export interface WechatPublishModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ export interface WechatPublishModalProps {
     selectedGroupId: string;
     scheduleTime: string | null;
   }) => Promise<void>;
+  officialAccountId?: string;
   officialAccountName?: string;
   officialAccountType?: 'subscription' | 'service'; // 公众号类型
 }
@@ -23,18 +25,57 @@ export function WechatPublishModal({
   onClose,
   isPublishing,
   onConfirmPublish,
-  officialAccountName = 'AI人工智能基地',
+  officialAccountId,
+  officialAccountName,
   officialAccountType = 'subscription'
 }: WechatPublishModalProps) {
   const { t } = useTranslation(['editor', 'common', 'officialAccount']);
-  
-  const WECHAT_TAGS_MOCK = [
+
+  const [fanGroupOptions, setFanGroupOptions] = useState([
     { id: 'all', name: t('tags_all', { defaultValue: '所有人 (全粉丝)' }) },
-    { id: '100', name: t('tags_star', { defaultValue: '星标组 (活跃用户)' }) },
-    { id: '101', name: t('tags_beijing', { defaultValue: '北京地区粉丝' }) },
-    { id: '102', name: t('tags_bayarea', { defaultValue: '大湾区科技先锋群' }) },
-    { id: '103', name: t('tags_special', { defaultValue: '星标特别关注' }) },
-  ];
+  ]);
+  const [loadingFanTags, setLoadingFanTags] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !officialAccountId) {
+      setFanGroupOptions([
+        { id: 'all', name: t('tags_all', { defaultValue: '所有人 (全粉丝)' }) },
+      ]);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingFanTags(true);
+    void WechatService.listFanTags(officialAccountId)
+      .then((tags) => {
+        if (cancelled) {
+          return;
+        }
+        setFanGroupOptions([
+          { id: 'all', name: t('tags_all', { defaultValue: '所有人 (全粉丝)' }) },
+          ...tags.map((tag) => ({
+            id: tag.id,
+            name: `${tag.name} (${tag.fanCount})`,
+          })),
+        ]);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFanGroupOptions([
+            { id: 'all', name: t('tags_all', { defaultValue: '所有人 (全粉丝)' }) },
+          ]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingFanTags(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, officialAccountId, t]);
 
   // States matching the screenshot UI
   const [sendNotification, setSendNotification] = useState(true);
@@ -43,8 +84,16 @@ export function WechatPublishModal({
   
   // Custom interactive params
   const [selectedGroupId, setSelectedGroupId] = useState('all');
-  const [scheduleDate, setScheduleDate] = useState('2026-06-16');
+  const [scheduleDate, setScheduleDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [scheduleTime, setScheduleTime] = useState('18:00');
+
+  const scheduleDateBounds = useMemo(() => {
+    const today = new Date();
+    const min = today.toISOString().slice(0, 10);
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + 7);
+    return { min, max: maxDate.toISOString().slice(0, 10) };
+  }, []);
   
   // API description collapsible panel state
   const [isApiDetailsOpen, setIsApiDetailsOpen] = useState(true);
@@ -127,7 +176,9 @@ export function WechatPublishModal({
             </div>
             
             <p className="text-[12px] text-[var(--color-kb-text-muted)] font-medium">
-              {t('remainingMassTurns', { defaultValue: '今天还有' })}<span className="text-[#07c160] font-bold mx-0.5">1</span>{t('remainingMassTurnsCount', { defaultValue: '次群发下发机会' })}
+              {t('massQuotaFromWechat', {
+                defaultValue: '群发配额与剩余次数以微信公众平台接口返回为准。',
+              })}
             </p>
           </div>
 
@@ -172,7 +223,7 @@ export function WechatPublishModal({
                       onChange={(e) => setSelectedGroupId(e.target.value)}
                       className="w-full border border-[var(--color-kb-panel-border)] rounded-xl px-3 py-2 text-xs bg-[var(--color-kb-input-bg)] text-[var(--color-kb-text)] outline-none focus:border-[#07c160] focus:ring-1 focus:ring-[#07c160] transition-all cursor-pointer"
                     >
-                      {WECHAT_TAGS_MOCK.map((tag) => (
+                      {fanGroupOptions.map((tag) => (
                         <option key={tag.id} value={tag.id} className="bg-[var(--color-kb-panel)]">
                           {tag.name}
                         </option>
@@ -228,8 +279,8 @@ export function WechatPublishModal({
                       type="date" 
                       value={scheduleDate}
                       onChange={(e) => setScheduleDate(e.target.value)}
-                      min="2026-06-16"
-                      max="2026-06-23"
+                      min={scheduleDateBounds.min}
+                      max={scheduleDateBounds.max}
                       className="border border-[var(--color-kb-panel-border)] rounded-xl px-3 py-2 text-xs bg-[var(--color-kb-input-bg)] text-[var(--color-kb-text)] outline-none focus:border-[#07c160] transition-all"
                     />
                     <input 
@@ -284,7 +335,7 @@ export function WechatPublishModal({
                     <strong className="text-[var(--color-kb-text-heading)]">
                       {t('diagGroupMassApi', { defaultValue: '分组通知 (Group mass API): ' })}
                     </strong> 
-                    {t('diagGroupMassApiDesc', { defaultValue: '当启用时，API中' })} <code className="bg-[var(--color-kb-panel-hover)] border border-[var(--color-kb-panel-border)] px-1 py-0.5 rounded text-[var(--color-kb-text)] font-mono text-[9.5px]">"filter": {"{"} "is_to_all": false, "tag_id": "{selectedGroupId === 'all' ? '0' : selectedGroupId}" {"}"}</code>。{t('diagGroupMassApiSuccess', { defaultValue: '系统通过智能检查确保参数对已同步的微信标签百分百有效。' })}
+                    {t('diagGroupMassApiDesc', { defaultValue: '当启用时，API中' })} <code className="bg-[var(--color-kb-panel-hover)] border border-[var(--color-kb-panel-border)] px-1 py-0.5 rounded text-[var(--color-kb-text)] font-mono text-[9.5px]">"filter": {"{"} "is_to_all": false, "tag_id": "{selectedGroupId === 'all' ? '0' : selectedGroupId}" {"}"}</code>。{t('diagGroupMassApiPending', { defaultValue: '粉丝标签列表需对接微信公众平台标签 API 后在此展示。' })}
                   </div>
                 </div>
 

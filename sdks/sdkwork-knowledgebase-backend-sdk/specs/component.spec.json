@@ -103,7 +103,7 @@
       }
     ],
     "sdkClients": [
-      "SdkworkBackendClient"
+      "SdkworkKnowledgebaseBackendClient"
     ],
     "events": [],
     "configKeys": [

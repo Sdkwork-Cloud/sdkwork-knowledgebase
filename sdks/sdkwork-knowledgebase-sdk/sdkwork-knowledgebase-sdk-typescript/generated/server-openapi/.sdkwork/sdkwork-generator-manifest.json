@@ -44,7 +44,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "ab6fe12c4ea0f90d7fa7c3c64113242105499b2de684b925836eb60c8aca5cce"
+      "sha256": "e4fa722431c41a1c7828ff8d37c1e036b9b24a43d43183b671966c1868b65dc8"
     },
     {
       "path": "sdkwork-sdk.json",
@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "4fe21bc1920387a7d2dc98574be8d1ebcf1e4fbc1c9257745c73a7e0700ffad9"
+      "sha256": "e2ef932c00bbbc6c3338456ef6ee2cc2640c14f1ea901505ba94431356950237"
     },
     {
       "path": "src/api/paths.ts",
@@ -116,7 +116,7 @@
     },
     {
       "path": "src/types/ingestion-job.ts",
-      "sha256": "2c7027f4016196eab3c8f35828d592e84ca81bdb4ceaaf37e32da2d2c172133c"
+      "sha256": "a11e96e37d81b84f2d00023649c148a7b20d265f976e413c2e0f8f2a5ae33e8b"
     },
     {
       "path": "src/types/ingests-create-response201.ts",
@@ -136,7 +136,7 @@
     },
     {
       "path": "src/types/knowledge-browser-node.ts",
-      "sha256": "a4e9d1df75ddedbb6b9b6364549ea5284e560441c2d4a6836c91cc19871e6994"
+      "sha256": "57026c9cd56ea41e49bb56d53eaf18dce733219a83fa2e21944c523b11b83fed"
     },
     {
       "path": "src/types/knowledge-browser-view.ts",
@@ -172,7 +172,7 @@
     },
     {
       "path": "src/types/knowledge-document.ts",
-      "sha256": "032303246cf04edde57c5663bc405b8dce09b234b7d85e5babc93d22f300342d"
+      "sha256": "87974db7ddda0e5a0501636d9e04c71fd1c02c53985699d4b2081c4331352af3"
     },
     {
       "path": "src/types/knowledge-filter.ts",
@@ -180,7 +180,7 @@
     },
     {
       "path": "src/types/knowledge-ingest-request.ts",
-      "sha256": "c40f39c370b9f984786d87df7760ebef050840fad7e38a3c4dd2f0892c64df27"
+      "sha256": "af92e87f3be26b4a33cb6182c3df5c53914585d7efa3cda1e8c489dd7de7fa88"
     },
     {
       "path": "src/types/knowledge-memory-context-fragment.ts",
@@ -204,7 +204,7 @@
     },
     {
       "path": "src/types/knowledge-retrieval-trace.ts",
-      "sha256": "0c096bd3ad48b2e1e7bd1a789c72a81a85b0098e13d5645fa607a00760ce10bb"
+      "sha256": "56cd366ec7c15688fbb4fc20a4e526ce018c761428fa30190af469a8b303c4f5"
     },
     {
       "path": "src/types/page-info.ts",

@@ -1,10 +1,9 @@
 schemaVersion: 1
 kind: sdkwork.database.drift-policy
 rules:
-  ignoreTables:
-    - "kb_*"
+  ignoreTables: []
   ignoreColumns: []
   severityOverrides:
     prefix_mismatch:
-      kb_: "info"
-      knowledge_: "error"
+      kb_: "error"
+      web_: "error"

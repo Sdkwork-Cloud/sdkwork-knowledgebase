@@ -29,7 +29,7 @@ pub fn encryption_key_configured() -> bool {
     resolve_key_material().is_some()
 }
 
-/// Encrypts a secret for at-rest storage. When no master key is configured, returns plaintext.
+/// Encrypts a secret for at-rest storage. Requires a configured master key.
 pub fn encrypt_secret(plaintext: &str) -> Result<String, SecretCipherError> {
     if is_blank(Some(plaintext)) {
         return Ok(String::new());
@@ -38,7 +38,7 @@ pub fn encrypt_secret(plaintext: &str) -> Result<String, SecretCipherError> {
         return Ok(plaintext.to_string());
     }
     let Some(key_material) = resolve_key_material() else {
-        return Ok(plaintext.to_string());
+        return Err(SecretCipherError::MissingKey);
     };
 
     let cipher = Aes256Gcm::new(GenericArray::from_slice(&derive_aes256_key(&key_material)));
@@ -174,7 +174,14 @@ mod tests {
     }
 
     #[test]
-    fn plaintext_legacy_values_pass_through() {
+    fn encrypt_requires_master_key() {
+        let _guard = TestEncryptionKeyGuard::without_key();
+        let error = encrypt_secret("super-secret").expect_err("encrypt without key");
+        assert!(matches!(error, SecretCipherError::MissingKey));
+    }
+
+    #[test]
+    fn plaintext_legacy_values_pass_through_on_decrypt() {
         let _guard = TestEncryptionKeyGuard::without_key();
         let value = "legacy-plain-secret";
         assert_eq!(decrypt_secret(value).expect("legacy decrypt"), value);

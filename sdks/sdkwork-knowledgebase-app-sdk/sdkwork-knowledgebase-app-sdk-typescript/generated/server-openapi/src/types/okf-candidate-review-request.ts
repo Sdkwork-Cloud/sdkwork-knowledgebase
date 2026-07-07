@@ -1,4 +1,4 @@
 export interface OkfCandidateReviewRequest {
-  reviewerId?: number | null;
+  reviewerId?: string | null;
   note?: string | null;
 }

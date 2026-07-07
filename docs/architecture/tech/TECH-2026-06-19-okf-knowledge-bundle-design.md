@@ -417,17 +417,17 @@ import_okf_bundle(tarball | drive_import)
 
 | operationId | Method | Path |
 |-------------|--------|------|
-| `okf.concepts.list` | GET | `/app/v3/api/knowledge/spaces/{spaceId}/concepts` |
-| `okf.concepts.get` | GET | `/app/v3/api/knowledge/spaces/{spaceId}/concepts/{conceptId}` |
-| `okf.concepts.upsert` | PUT | `/app/v3/api/knowledge/spaces/{spaceId}/concepts/{conceptId}` |
-| `okf.concepts.publish` | POST | `/app/v3/api/knowledge/spaces/{spaceId}/concepts/{conceptId}/publish` |
-| `okf.concepts.revisions.list` | GET | `…/concepts/{conceptId}/revisions` |
-| `okf.bundle.index.get` | GET | `/app/v3/api/knowledge/spaces/{spaceId}/okf/index` |
-| `okf.bundle.log.get` | GET | `…/okf/log` |
-| `okf.bundle.profile.get` | GET | `…/okf/profile` |
-| `okf.bundle.lint` | POST | `…/okf/lint` |
-| `okf.bundle.export` | POST | `…/okf/export` |
-| `okf.bundle.import` | POST | `…/okf/import` |
+| `okf.concepts.list` | GET | `/app/v3/api/knowledge/okf/concepts?spaceId={spaceId}` |
+| `okf.concepts.retrieve` | GET | `/app/v3/api/knowledge/okf/concepts/{conceptId}` |
+| `okf.concepts.update` | PUT | `/app/v3/api/knowledge/okf/concepts/upsert` |
+| `okf.concepts.publish` | POST | `/backend/v3/api/knowledge/okf/concepts/{conceptId}/publish` |
+| `okf.concepts.revisions.list` | GET | `/app/v3/api/knowledge/okf/concepts/{conceptId}/revisions` |
+| `okf.bundle.index.list` | GET | `/app/v3/api/knowledge/okf/index?spaceId={spaceId}` |
+| `okf.bundle.log.list` | GET | `/app/v3/api/knowledge/okf/log?spaceId={spaceId}` |
+| `okf.bundle.profile.list` | GET | `/app/v3/api/knowledge/okf/profile?spaceId={spaceId}` |
+| `okf.lintRuns.create` | POST | `/app/v3/api/knowledge/okf/lint_runs` |
+| `okf.bundle.export.create` | POST | `/app/v3/api/knowledge/okf/exports` |
+| `okf.bundle.import.create` | POST | `/app/v3/api/knowledge/okf/imports` |
 | `okf.candidates.list` | GET | `…/okf/candidates` |
 | `okf.candidates.approve` | POST | `…/okf/candidates/{candidateId}/approve` |
 | `okf.candidates.reject` | POST | `…/okf/candidates/{candidateId}/reject` |
@@ -727,4 +727,3 @@ pnpm verify
 ---
 
 *End of specification.*
-

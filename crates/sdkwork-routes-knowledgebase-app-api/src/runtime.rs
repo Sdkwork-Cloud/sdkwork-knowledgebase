@@ -1023,11 +1023,7 @@ impl KnowledgeRetrievalAppService for HostedRetrievalService {
         mut request: KnowledgeRetrievalRequest,
     ) -> ApiResult<KnowledgeRetrievalResult> {
         self.authorize_retrieval_request(&context, &request).await?;
-        crate::tenant_quota_enforcement::ensure_tenant_retrieval_rate(
-            &self.runtime,
-            context.tenant_id,
-        )
-        .await?;
+        crate::tenant_quota_enforcement::ensure_tenant_retrieval_rate(context.tenant_id).await?;
         request = request.with_actor_id(context.actor_id);
         self.service().retrieve(request).await.map_err(Into::into)
     }
@@ -1065,11 +1061,7 @@ impl KnowledgeRetrievalAppService for HostedRetrievalService {
         };
         self.authorize_retrieval_request(&context, &retrieval_request)
             .await?;
-        crate::tenant_quota_enforcement::ensure_tenant_retrieval_rate(
-            &self.runtime,
-            context.tenant_id,
-        )
-        .await?;
+        crate::tenant_quota_enforcement::ensure_tenant_retrieval_rate(context.tenant_id).await?;
         request = request
             .with_tenant_id(context.tenant_id)
             .with_actor_id(context.actor_id);

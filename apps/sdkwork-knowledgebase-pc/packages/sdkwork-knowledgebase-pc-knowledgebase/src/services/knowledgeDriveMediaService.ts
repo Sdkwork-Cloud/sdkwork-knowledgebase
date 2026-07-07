@@ -5,6 +5,7 @@ import {
 } from 'sdkwork-knowledgebase-pc-core';
 
 import type { DocumentMeta } from './document';
+import { readDriveDownloadUrlResponse } from './knowledgeDriveSdkResponse';
 import { resolveDriveNodeId } from './knowledgeDriveDocumentMetadataService';
 
 const MEDIA_TYPES = new Set<DocumentMeta['type']>([
@@ -33,9 +34,11 @@ export async function resolveDriveNodeDownloadUrl(driveNodeId: string): Promise<
     return undefined;
   }
 
-  const response = await drive.drive.nodes.downloadUrls.create(driveNodeId, {
-    requestedTtlSeconds: 3600,
-  });
+  const response = readDriveDownloadUrlResponse(
+    await drive.drive.nodes.downloadUrls.retrieve(driveNodeId, {
+      requestedTtlSeconds: 3600,
+    }),
+  );
   return response.downloadUrl?.trim() || response.signedSourceUrl?.trim() || undefined;
 }
 

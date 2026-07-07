@@ -1,8 +1,8 @@
 import {
   KnowledgebaseErrorCodes,
-  parseKnowledgeSpaceId,
   requireHttpUrl,
   requireKnowledgebaseAppSdkHttpClient,
+  requireRegisteredSpaceId,
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 
@@ -15,7 +15,7 @@ export function validateWebLinkUrl(raw: string): URL {
   return requireHttpUrl(raw);
 }
 
-function buildIdempotencyKey(spaceId: number, url: URL): string {
+function buildIdempotencyKey(spaceId: string, url: URL): string {
   return `pc-weblink-${spaceId}-${url.hostname}-${url.pathname}`.slice(0, 128);
 }
 
@@ -26,7 +26,7 @@ export async function importWebLinkToKnowledgeBase(params: {
   title?: string;
 }): Promise<DocumentMeta> {
   const validatedUrl = validateWebLinkUrl(params.url);
-  const spaceId = parseKnowledgeSpaceId(params.kbId);
+  const spaceId = requireRegisteredSpaceId(params.kbId);
   const title = params.title?.trim() || validatedUrl.hostname;
 
   const client = requireKnowledgebaseAppSdkHttpClient();

@@ -49,7 +49,7 @@ export interface KnowledgeFileUploadFailure {
   message: string;
 }
 
-function spaceIdFromKbId(kbId: string): number {
+function spaceIdFromKbId(kbId: string): string {
   return parseKnowledgeSpaceId(kbId);
 }
 
@@ -112,7 +112,7 @@ function inferUploaderProfile(file: File): DriveUploaderProfile {
   return 'attachment';
 }
 
-function buildIdempotencyKey(spaceId: number, file: File, index: number): string {
+function buildIdempotencyKey(spaceId: string, file: File, index: number): string {
   const raw = `pc-upload-${spaceId}-${file.name}-${file.size}-${file.lastModified}-${index}`;
   return raw.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 128);
 }
@@ -125,7 +125,7 @@ function resolveUploadTitle(file: File): string {
   return file.name;
 }
 
-async function resolveDriveSpaceId(spaceId: number): Promise<string> {
+async function resolveDriveSpaceId(spaceId: string): Promise<string> {
   const client = getKnowledgebaseAppSdkClient();
   const space = await client.client.knowledge.spaces.retrieve(spaceId);
   const driveSpaceId = space.driveSpaceId?.trim();
@@ -156,7 +156,7 @@ function toDocumentMeta(
 }
 
 async function ingestTextFile(
-  spaceId: number,
+  spaceId: string,
   kbId: string,
   file: File,
   type: DocumentMeta['type'],
@@ -235,7 +235,7 @@ async function resolveUploadParentNodeId(
 }
 
 async function uploadBinaryThroughDrive(
-  spaceId: number,
+  spaceId: string,
   kbId: string,
   file: File,
   type: DocumentMeta['type'],
@@ -307,7 +307,7 @@ async function uploadBinaryThroughDrive(
 }
 
 async function uploadSingleFile(
-  spaceId: number,
+  spaceId: string,
   kbId: string,
   file: File,
   index: number,

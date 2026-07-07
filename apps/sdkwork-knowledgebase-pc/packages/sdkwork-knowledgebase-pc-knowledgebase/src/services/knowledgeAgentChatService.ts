@@ -5,7 +5,6 @@ import {
   requireKnowledgebaseTenantId,
   requireNonEmptyString,
   requirePrimaryRegisteredSpaceId,
-  throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 
 import { ensureSpaceAgentProfile } from './knowledgeSpaceSettingsService';
@@ -14,19 +13,19 @@ const DEFAULT_MODEL_PROVIDER_ID = 'provider.model.knowledgebase-contract';
 const DEFAULT_MODEL_ID = 'contract';
 const DEFAULT_AGENT_IMPLEMENTATION_ID = 'plugin.intelligence.knowledgebase-contract';
 
-function resolvePrimarySpaceId(): number {
+function resolvePrimarySpaceId(): string {
   requireKnowledgebaseTenantId();
   return requirePrimaryRegisteredSpaceId();
 }
 
-async function ensureDefaultAgentProfile(spaceId: number): Promise<string> {
+async function ensureDefaultAgentProfile(spaceId: string): Promise<string> {
   return ensureSpaceAgentProfile(spaceId);
 }
 
 export async function sendKnowledgeAgentMessage(
   message: string,
   options?: {
-    spaceId?: number;
+    spaceId?: string;
     sessionId?: string;
     mode?: 'okf_bundle' | 'rag';
   },
@@ -38,7 +37,7 @@ export async function sendKnowledgeAgentMessage(
   const client = requireKnowledgebaseAppSdkHttpClient();
   const profile = await client.knowledge.agentProfiles.retrieve(profileId);
 
-  const response = await client.knowledge.agentProfiles.chat.create(profileId, {
+  const response = await client.knowledge.agentProfiles.chat.chat(profileId, {
     message: message.trim(),
     mode: options?.mode ?? profile.knowledgeMode ?? 'okf_bundle',
     sessionId: options?.sessionId ?? null,
@@ -51,7 +50,7 @@ export async function sendKnowledgeAgentMessage(
 }
 
 export async function queryKnowledgeSpace(
-  spaceId: number,
+  spaceId: string,
   query: string,
 ): Promise<string> {
   if (isBlank(query)) {

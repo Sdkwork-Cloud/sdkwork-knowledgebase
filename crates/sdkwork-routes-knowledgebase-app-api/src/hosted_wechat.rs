@@ -3,9 +3,9 @@ use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::wechat::KnowledgeWechatService;
 use sdkwork_knowledgebase_contract::wechat::{
     KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
-    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatOfficialAccountList,
-    KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest,
-    KnowledgeWechatReplaceOfficialAccountsRequest,
+    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList,
+    KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
+    KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
 };
 
 use crate::{
@@ -55,6 +55,18 @@ impl KnowledgeWechatAppService for HostedWechatService {
             .await
             .map_err(ApiError::from)?;
         Ok(KnowledgeWechatOfficialAccountList { accounts })
+    }
+
+    async fn list_official_account_fan_tags(
+        &self,
+        context: KnowledgeAppRequestContext,
+        account_id: String,
+    ) -> ApiResult<KnowledgeWechatFanTagList> {
+        ensure_runtime_tenant(&self.runtime, &context)?;
+        self.service()
+            .list_fan_tags(&account_id)
+            .await
+            .map_err(ApiError::from)
     }
 
     async fn list_applets(

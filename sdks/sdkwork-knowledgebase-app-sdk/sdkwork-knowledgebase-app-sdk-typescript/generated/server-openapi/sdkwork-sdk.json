@@ -5,6 +5,8 @@
   "language": "typescript",
   "sdkType": "app",
   "packageName": "sdkwork-knowledgebase-app-sdk-generated-typescript",
+  "transportPackageName": "sdkwork-knowledgebase-app-sdk-generated-typescript",
+  "consumerPackageName": "@sdkwork/knowledgebase-app-sdk",
   "generator": "@sdkwork/sdk-generator",
   "capabilities": {
     "supportsGeneratedTests": true,
@@ -26,7 +28,5 @@
     "stateRoots": [
       ".sdkwork/"
     ]
-  },
-  "transportPackageName": "sdkwork-knowledgebase-app-sdk-generated-typescript",
-  "consumerPackageName": "@sdkwork/knowledgebase-app-sdk"
+  }
 }

@@ -117,6 +117,31 @@ async fn web_framework_allows_browser_origin_in_development() {
 }
 
 #[tokio::test]
+async fn web_framework_allows_im_host_browser_origin_in_development() {
+    std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
+    let app = wrap_router_with_web_framework(
+        IamWebRequestContextResolver::new(None),
+        build_router_with_browser(EmptyBrowserApi),
+    );
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("origin", "http://localhost:4176")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"name":"Dev Space"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_ne!(response.status(), StatusCode::FORBIDDEN);
+    std::env::remove_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT");
+}
+
+#[tokio::test]
 async fn web_framework_rejects_unlisted_browser_origin_in_development() {
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
     let app = wrap_router_with_web_framework(

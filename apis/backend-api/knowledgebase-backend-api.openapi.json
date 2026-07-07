@@ -176,7 +176,30 @@
         "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
-        "x-sdkwork-data-scope": "organization"
+        "x-sdkwork-data-scope": "organization",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
+            }
+          }
+        ]
       },
       "post": {
         "operationId": "sources.create",
@@ -704,6 +727,27 @@
               "type": "integer",
               "format": "uint64"
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
+            }
           }
         ],
         "summary": "List OKF candidates",
@@ -732,8 +776,8 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -919,8 +963,8 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -1106,8 +1150,8 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -1640,7 +1684,7 @@
     },
     "/backend/v3/api/knowledge/okf/index/rebuild": {
       "post": {
-        "operationId": "okf.bundle.index.rebuild",
+        "operationId": "okf.bundle.index.create",
         "tags": [
           "knowledge"
         ],
@@ -2515,7 +2559,30 @@
         "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
-        "x-sdkwork-data-scope": "organization"
+        "x-sdkwork-data-scope": "organization",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
+            }
+          }
+        ]
       }
     },
     "/backend/v3/api/knowledge/okf/lint_runs": {
@@ -3215,7 +3282,30 @@
         "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
-        "x-sdkwork-data-scope": "organization"
+        "x-sdkwork-data-scope": "organization",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
+            }
+          }
+        ]
       }
     },
     "/backend/v3/api/knowledge/indexes/{indexId}": {
@@ -4295,7 +4385,30 @@
         "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
-        "x-sdkwork-data-scope": "organization"
+        "x-sdkwork-data-scope": "organization",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
+            }
+          }
+        ]
       }
     },
     "/backend/v3/api/knowledge/retrieval_traces/{traceId}": {
@@ -4478,7 +4591,7 @@
     },
     "/backend/v3/api/knowledge/provider_health": {
       "get": {
-        "operationId": "providerHealth.retrieve",
+        "operationId": "providerHealth.list",
         "tags": [
           "knowledge"
         ],
@@ -4644,7 +4757,7 @@
     },
     "/backend/v3/api/knowledge/tenants/current": {
       "get": {
-        "operationId": "tenants.current.retrieve",
+        "operationId": "tenants.current.list",
         "tags": [
           "knowledge"
         ],
@@ -5156,7 +5269,30 @@
         "x-sdkwork-permission": "knowledge.admin",
         "x-sdkwork-audit-event": "knowledge.backend.admin_operation",
         "x-sdkwork-tenant-scope": "tenant",
-        "x-sdkwork-data-scope": "organization"
+        "x-sdkwork-data-scope": "organization",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
+            }
+          }
+        ]
       }
     },
     "/backend/v3/api/knowledge/spaces/{spaceId}/members": {
@@ -5187,7 +5323,7 @@
             }
           },
           {
-            "name": "pageSize",
+            "name": "page_size",
             "in": "query",
             "required": false,
             "schema": {
@@ -5358,7 +5494,7 @@
     },
     "/backend/v3/api/knowledge/compliance/audit_events/export": {
       "post": {
-        "operationId": "compliance.auditEvents.export",
+        "operationId": "compliance.auditEvents.export.create",
         "tags": [
           "knowledge"
         ],
@@ -5375,8 +5511,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Created",
             "content": {
               "application/json": {
                 "schema": {
@@ -5534,7 +5670,7 @@
     },
     "/backend/v3/api/knowledge/compliance/audit_events/anonymize_actor": {
       "post": {
-        "operationId": "compliance.auditEvents.anonymizeActor",
+        "operationId": "compliance.auditEvents.anonymizeActor.create",
         "tags": [
           "knowledge"
         ],
@@ -5551,8 +5687,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Created",
             "content": {
               "application/json": {
                 "schema": {

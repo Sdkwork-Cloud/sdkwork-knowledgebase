@@ -1,5 +1,6 @@
 export interface KnowledgeGitSyncResult {
-  success: boolean;
+  accepted: true;
+  status: 'completed';
   hash: string;
   syncedCount: number;
 }

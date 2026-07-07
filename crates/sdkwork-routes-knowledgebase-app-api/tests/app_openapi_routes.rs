@@ -137,7 +137,7 @@ fn app_openapi_exposes_standard_rag_and_knowledge_agent_operations() {
             "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
         ),
         (
-            "agentProfiles.bindings.create",
+            "agentProfiles.bindings.bindings",
             "post",
             "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
         ),
@@ -152,12 +152,12 @@ fn app_openapi_exposes_standard_rag_and_knowledge_agent_operations() {
             "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}",
         ),
         (
-            "agentProfiles.retrievalPreview.create",
+            "agentProfiles.retrievalPreview.retrievalPreview",
             "post",
             "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
         ),
         (
-            "agentProfiles.chat.create",
+            "agentProfiles.chat.chat",
             "post",
             "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
         ),
@@ -233,7 +233,7 @@ fn app_openapi_commerce_git_and_media_operations_use_envelopes() {
             "/app/v3/api/knowledge/site_deployments",
         ),
         (
-            "siteDeployments.preview.retrieve",
+            "siteDeployments.preview.list",
             "get",
             "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
         ),
@@ -274,6 +274,37 @@ fn app_openapi_commerce_git_and_media_operations_use_envelopes() {
             "OpenAPI must define {schema_name}"
         );
     }
+
+    for schema_name in [
+        "KnowledgeGitSyncResult",
+        "KnowledgeMarketSubscriptionResult",
+        "KnowledgeSiteDeploymentResult",
+        "KnowledgeMediaTaskResult",
+        "KnowledgeWechatOperationResult",
+    ] {
+        let properties = spec["components"]["schemas"][schema_name]["properties"]
+            .as_object()
+            .unwrap_or_else(|| panic!("OpenAPI schema {schema_name} must define properties"));
+        assert!(
+            !properties.contains_key("success"),
+            "command result schema {schema_name} must use accepted/status instead of success"
+        );
+        assert!(
+            properties.contains_key("accepted"),
+            "command result schema {schema_name} must expose accepted"
+        );
+    }
+
+    let deployment_id_schema = &spec["components"]["schemas"]["KnowledgeSiteDeploymentResult"]
+        ["properties"]["deploymentId"];
+    assert_eq!(
+        deployment_id_schema["type"], "string",
+        "site deployment command result deploymentId must use int64-string wire type"
+    );
+    assert_eq!(
+        deployment_id_schema["x-sdkwork-int64-string"], true,
+        "site deployment command result deploymentId must declare SDKWork int64-string metadata"
+    );
 }
 
 #[test]
@@ -377,7 +408,7 @@ fn concrete_uri(template_path: &str) -> String {
         .replace("{spaceId}", "7");
 
     if path.ends_with("/browser") {
-        format!("{path}?view=files&pageSize=1")
+        format!("{path}?view=files&page_size=1")
     } else if path.ends_with("/okf/concepts") {
         format!("{path}?spaceId=7")
     } else {
@@ -398,11 +429,11 @@ fn request_body(operation_id: &str) -> &'static str {
         "documents.create" | "documents.update" => {
             r#"{"spaceId":7,"collectionId":0,"title":"Document","mimeType":"text/markdown"}"#
         }
-        "documents.versions.create" => {
+        "documents.versions.versions" => {
             r#"{"documentId":13,"originalObjectRefId":23,"sizeBytes":128,"mimeType":"text/markdown"}"#
         }
         "okf.queries.create" => r#"{"spaceId":7,"query":"What changed?"}"#,
-        "okf.concepts.upsert" => {
+        "okf.concepts.update" => {
             r##"{"spaceId":7,"conceptId":"tables/users","markdown":"---\ntype: Entity\ntitle: Users\n---\n# Users\n","actor":"author","publish":false}"##
         }
         "okf.queries.fileAnswer" => {
@@ -421,19 +452,19 @@ fn request_body(operation_id: &str) -> &'static str {
         "agentProfiles.create" | "agentProfiles.update" => {
             r#"{"tenantId":"100001","name":"Support Agent","systemInstruction":"Answer with citations.","modelProviderId":"provider.model.openai","modelId":"gpt-4.1","status":"active"}"#
         }
-        "agentProfiles.bindings.create" | "agentProfiles.bindings.update" => {
+        "agentProfiles.bindings.bindings" | "agentProfiles.bindings.update" => {
             r#"{"tenantId":"100001","profileId":"41","spaceId":"7","priority":10,"enabled":true}"#
         }
-        "agentProfiles.retrievalPreview.create" => {
+        "agentProfiles.retrievalPreview.retrievalPreview" => {
             r#"{"tenantId":"100001","query":"Quarterly report","bindings":[{"spaceId":"7","priority":10}],"methods":["hybrid"],"includeCitations":true,"includeTrace":true}"#
         }
-        "agentProfiles.chat.create" => {
+        "agentProfiles.chat.chat" => {
             r#"{"tenantId":"100001","message":"What changed in the quarterly report?","mode":"okf_bundle"}"#
         }
-        "spaces.contextBindings.create" => {
+        "spaces.contextBindings.contextBindings" => {
             r#"{"spaceId":"7","contextType":"chat_group","contextId":"grp-ops","accessLevel":"reader"}"#
         }
-        "spaces.members.grant" => {
+        "spaces.members.members" => {
             r#"{"subjectType":"user","subjectId":"editor@company.com","role":"writer"}"#
         }
         "contextBindings.update" => r#"{"accessLevel":"writer"}"#,

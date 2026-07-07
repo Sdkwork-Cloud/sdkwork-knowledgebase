@@ -1,11 +1,11 @@
 import type { KnowledgeMediaTaskType } from './knowledge-media-task-type';
 
 export interface KnowledgeMediaTaskRequest {
-  spaceId: number;
+  spaceId: string;
   taskType: KnowledgeMediaTaskType;
   prompt?: string | null;
   aspectMode?: string | null;
   styleMode?: string | null;
   sourceUrl?: string | null;
-  documentId?: number | null;
+  documentId?: string | null;
 }

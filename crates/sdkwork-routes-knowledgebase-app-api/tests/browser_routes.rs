@@ -29,7 +29,7 @@ async fn app_router_exposes_browser_route_with_query_parameters() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/app/v3/api/knowledge/spaces/7/browser?view=okf_bundle&pageSize=25&parentId=node-okf&cursor=c1")
+                .uri("/app/v3/api/knowledge/spaces/7/browser?view=okf_bundle&page_size=25&parentId=node-okf&cursor=c1")
                 .extension(app_request_context())
                 .body(Body::empty())
                 .unwrap(),
@@ -59,6 +59,34 @@ async fn app_router_exposes_browser_route_with_query_parameters() {
             cursor: Some("c1".to_string()),
             page_size: Some(25),
         }
+    );
+}
+
+#[tokio::test]
+async fn app_router_rejects_forbidden_page_size_alias() {
+    let app = sdkwork_knowledgebase_observability::wrap_router_with_metrics(
+        build_router_with_browser(RecordingBrowserApi::default()),
+    );
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/app/v3/api/knowledge/spaces/7/browser?view=okf_bundle&pageSize=25")
+                .extension(app_request_context())
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    let problem: ProblemDetails = serde_json::from_slice(&body).unwrap();
+    assert_eq!(problem.status, 400);
+    assert_eq!(problem.code, 40003);
+    assert_eq!(
+        problem.detail.as_deref(),
+        Some("HTTP query parameter pageSize is forbidden; use page_size")
     );
 }
 

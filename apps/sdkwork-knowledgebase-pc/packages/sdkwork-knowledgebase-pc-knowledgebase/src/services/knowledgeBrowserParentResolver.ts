@@ -15,7 +15,7 @@ import {
 } from './knowledgeBrowserListService';
 import { resolveDriveNodeId } from './knowledgeDriveDocumentMetadataService';
 
-function spaceIdFromKbId(kbId: string): number {
+function spaceIdFromKbId(kbId: string): string {
   return parseKnowledgeSpaceId(kbId);
 }
 
@@ -92,7 +92,7 @@ function throwParentFolderNotFound(parentReference: string): never {
 
 async function resolveDriveNodeIdFromNumericDocument(documentId: number): Promise<string | null> {
   try {
-    const document = await requireSdkClient().knowledge.documents.retrieve(documentId);
+    const document = await requireSdkClient().knowledge.documents.retrieve(String(documentId));
     return trim(document.originalFileDriveNodeId) || null;
   } catch {
     return null;

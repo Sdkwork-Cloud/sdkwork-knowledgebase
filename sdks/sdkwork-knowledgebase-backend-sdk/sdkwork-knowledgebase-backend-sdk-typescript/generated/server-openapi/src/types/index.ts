@@ -68,14 +68,6 @@ export type { KnowledgeRetrievalTraceList } from './knowledge-retrieval-trace-li
 export type { KnowledgeProviderHealth } from './knowledge-provider-health';
 export type { KnowledgeTenantStatusEnum } from './knowledge-tenant-status-enum';
 export type { KnowledgeTenantStatus } from './knowledge-tenant-status';
-export type { KnowledgeTenantQuotaStatus } from './knowledge-tenant-quota-status';
-export type {
-  ExportKnowledgeAuditEventsRequest,
-  KnowledgeAuditEventItem,
-  KnowledgeAuditEventExport,
-  AnonymizeKnowledgeAuditSubjectRequest,
-  AnonymizeKnowledgeAuditSubjectResult,
-} from './knowledge-compliance';
 export type { KnowledgeMemoryContextFragment } from './knowledge-memory-context-fragment';
 export type { OkfBundleImportRequest } from './okf-bundle-import-request';
 export type { OkfBundleImportResult } from './okf-bundle-import-result';
@@ -90,16 +82,22 @@ export type { FieldError } from './field-error';
 export type { SdkWorkResourceResponse } from './sdk-work-resource-response';
 export type { SdkWorkListResponse } from './sdk-work-list-response';
 export type { SdkWorkCommandResponse } from './sdk-work-command-response';
+export type { KnowledgeTenantQuotaStatus } from './knowledge-tenant-quota-status';
+export type { ExportKnowledgeAuditEventsRequest } from './export-knowledge-audit-events-request';
+export type { KnowledgeAuditEventItem } from './knowledge-audit-event-item';
+export type { KnowledgeAuditEventExport } from './knowledge-audit-event-export';
+export type { AnonymizeKnowledgeAuditSubjectRequest } from './anonymize-knowledge-audit-subject-request';
+export type { AnonymizeKnowledgeAuditSubjectResult } from './anonymize-knowledge-audit-subject-result';
 export type { SourcesListResponse } from './sources-list-response';
 export type { SourcesCreateResponse201 } from './sources-create-response201';
 export type { OkfCompileJobsCreateResponse201 } from './okf-compile-jobs-create-response201';
 export type { OkfCandidatesListResponse } from './okf-candidates-list-response';
-export type { OkfCandidatesApproveResponse201 } from './okf-candidates-approve-response201';
-export type { OkfCandidatesRejectResponse201 } from './okf-candidates-reject-response201';
-export type { OkfConceptsPublishResponse201 } from './okf-concepts-publish-response201';
+export type { OkfCandidatesApproveResponse } from './okf-candidates-approve-response';
+export type { OkfCandidatesRejectResponse } from './okf-candidates-reject-response';
+export type { OkfConceptsPublishResponse } from './okf-concepts-publish-response';
 export type { OkfProfileCreateResponse201 } from './okf-profile-create-response201';
 export type { OkfProfileUpdateResponse } from './okf-profile-update-response';
-export type { OkfBundleIndexRebuildResponse201 } from './okf-bundle-index-rebuild-response201';
+export type { OkfBundleIndexCreateResponse201 } from './okf-bundle-index-create-response201';
 export type { OkfLogEntriesCreateResponse201 } from './okf-log-entries-create-response201';
 export type { OkfBundleExportCreateResponse201 } from './okf-bundle-export-create-response201';
 export type { OkfBundleExportRetrieveResponse } from './okf-bundle-export-retrieve-response';
@@ -107,6 +105,7 @@ export type { OkfBundleFilesListResponse } from './okf-bundle-files-list-respons
 export type { OkfLintRunsCreateResponse201 } from './okf-lint-runs-create-response201';
 export type { OkfEvalRunsCreateResponse201 } from './okf-eval-runs-create-response201';
 export type { IndexesCreateResponse201 } from './indexes-create-response201';
+export type { IndexesListResponse } from './indexes-list-response';
 export type { IndexesRetrieveResponse } from './indexes-retrieve-response';
 export type { IndexesRebuildResponse } from './indexes-rebuild-response';
 export type { RetrievalProfilesCreateResponse201 } from './retrieval-profiles-create-response201';
@@ -114,6 +113,10 @@ export type { RetrievalProfilesRetrieveResponse } from './retrieval-profiles-ret
 export type { RetrievalProfilesUpdateResponse } from './retrieval-profiles-update-response';
 export type { RetrievalTracesListResponse } from './retrieval-traces-list-response';
 export type { RetrievalTracesRetrieveResponse } from './retrieval-traces-retrieve-response';
-export type { ProviderHealthRetrieveResponse } from './provider-health-retrieve-response';
-export type { TenantsCurrentRetrieveResponse } from './tenants-current-retrieve-response';
+export type { ProviderHealthListResponse } from './provider-health-list-response';
+export type { TenantsCurrentListResponse } from './tenants-current-list-response';
 export type { OkfBundleImportCreateResponse201 } from './okf-bundle-import-create-response201';
+export type { SpacesListResponse } from './spaces-list-response';
+export type { SpacesMembersListResponse } from './spaces-members-list-response';
+export type { ComplianceAuditEventsExportCreateResponse201 } from './compliance-audit-events-export-create-response201';
+export type { ComplianceAuditEventsAnonymizeActorCreateResponse201 } from './compliance-audit-events-anonymize-actor-create-response201';

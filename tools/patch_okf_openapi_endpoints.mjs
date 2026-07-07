@@ -69,7 +69,7 @@ const backendImportOperation = {
 const appUpsertPath = "/app/v3/api/knowledge/okf/concepts/upsert";
 const appUpsertOperation = {
   put: {
-    operationId: "okf.concepts.upsert",
+    operationId: "okf.concepts.update",
     tags: ["knowledge"],
     requestBody: {
       required: true,

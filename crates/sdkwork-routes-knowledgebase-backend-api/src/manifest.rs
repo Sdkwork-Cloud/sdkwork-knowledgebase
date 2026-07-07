@@ -63,7 +63,7 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "POST",
         path: "/backend/v3/api/knowledge/okf/index/rebuild",
-        operation_id: "okf.bundle.index.rebuild",
+        operation_id: "okf.bundle.index.create",
     },
     RouteManifestEntry {
         method: "POST",
@@ -148,12 +148,12 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "GET",
         path: "/backend/v3/api/knowledge/provider_health",
-        operation_id: "providerHealth.retrieve",
+        operation_id: "providerHealth.list",
     },
     RouteManifestEntry {
         method: "GET",
         path: "/backend/v3/api/knowledge/tenants/current",
-        operation_id: "tenants.current.retrieve",
+        operation_id: "tenants.current.list",
     },
     RouteManifestEntry {
         method: "GET",
@@ -168,11 +168,11 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "POST",
         path: "/backend/v3/api/knowledge/compliance/audit_events/export",
-        operation_id: "compliance.auditEvents.export",
+        operation_id: "compliance.auditEvents.export.create",
     },
     RouteManifestEntry {
         method: "POST",
         path: "/backend/v3/api/knowledge/compliance/audit_events/anonymize_actor",
-        operation_id: "compliance.auditEvents.anonymizeActor",
+        operation_id: "compliance.auditEvents.anonymizeActor.create",
     },
 ];

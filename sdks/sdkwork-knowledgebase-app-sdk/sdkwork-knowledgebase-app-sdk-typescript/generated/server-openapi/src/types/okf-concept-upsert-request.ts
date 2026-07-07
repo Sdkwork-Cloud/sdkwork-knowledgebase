@@ -1,5 +1,5 @@
 export interface OkfConceptUpsertRequest {
-  spaceId: number;
+  spaceId: string;
   conceptId: string;
   markdown: string;
   actor: string;

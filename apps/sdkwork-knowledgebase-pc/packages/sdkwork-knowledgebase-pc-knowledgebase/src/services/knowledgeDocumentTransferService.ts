@@ -14,6 +14,7 @@ import type { DocumentMeta } from './document';
 import { invalidateKnowledgeBrowserNodeCacheForKbIds } from './knowledgeBrowserListService';
 import { resolveKnowledgeBrowserParentDriveNodeId } from './knowledgeBrowserParentResolver';
 import { resolveDriveNodeId } from './knowledgeDriveDocumentMetadataService';
+import { normalizeDriveNodePage, readDriveNode } from './knowledgeDriveSdkResponse';
 
 type TransferMode = 'move' | 'copy';
 
@@ -25,7 +26,7 @@ function requireDriveClient() {
   return requireDriveApiClient();
 }
 
-function spaceIdFromKbId(kbId: string): number {
+function spaceIdFromKbId(kbId: string): string {
   return parseKnowledgeSpaceId(kbId);
 }
 
@@ -39,7 +40,7 @@ function isFolderNode(node: KnowledgeBrowserNode): boolean {
 }
 
 function buildTransferIdempotencyKey(
-  targetSpaceId: number,
+  targetSpaceId: string,
   sourceId: string,
   driveNodeId: string,
   mode: TransferMode,
@@ -92,12 +93,14 @@ async function transferDriveBackedDocument(
     targetKbId,
     targetParentId,
   );
-  const copiedNode = await drive.drive.nodes.copy(driveNodeId, {
-    id: driveNodeId,
-    targetSpaceId: targetDriveSpaceId,
-    targetParentNodeId: targetDriveParentId,
-    nodeName: titleSuffix ? `${sourceNode.name}${titleSuffix}` : undefined,
-  });
+  const copiedNode = readDriveNode(
+    await drive.drive.nodes.copy(driveNodeId, {
+      id: driveNodeId,
+      targetSpaceId: targetDriveSpaceId,
+      targetParentNodeId: targetDriveParentId,
+      nodeName: titleSuffix ? `${sourceNode.name}${titleSuffix}` : undefined,
+    }),
+  );
 
   return importTransferredDriveNode(targetKbId, copiedNode, sourceId, mode);
 }
@@ -118,22 +121,22 @@ async function collectDriveFileNodesForFolderTransfer(
     }
     visited.add(parentId);
 
-    let pageToken: string | undefined;
+    let cursor: string | null = null;
     do {
-      const page = await drive.drive.nodes.list(driveSpaceId, {
+      const page = normalizeDriveNodePage(await drive.drive.nodes.list(driveSpaceId, {
         parentNodeId: parentId,
         pageSize: '100',
-        pageToken,
-      });
-      for (const node of page.items ?? []) {
+        cursor: cursor ?? undefined,
+      }));
+      for (const node of page.items) {
         if (node.nodeType === 'folder') {
           queue.push(node.id);
         } else if (node.nodeType === 'file') {
           files.push(node);
         }
       }
-      pageToken = page.nextPageToken;
-    } while (pageToken);
+      cursor = page.hasMore ? page.nextCursor : null;
+    } while (cursor);
   }
 
   return files;
@@ -172,12 +175,14 @@ async function transferDriveFolder(
     targetKbId,
     targetParentId,
   );
-  const copiedRoot = await drive.drive.nodes.copy(driveNodeId, {
-    id: driveNodeId,
-    targetSpaceId: sourceKbId === targetKbId ? undefined : targetDriveSpaceId,
-    targetParentNodeId: targetDriveParentId,
-    nodeName: titleSuffix ? `${sourceNode.name}${titleSuffix}` : undefined,
-  });
+  const copiedRoot = readDriveNode(
+    await drive.drive.nodes.copy(driveNodeId, {
+      id: driveNodeId,
+      targetSpaceId: sourceKbId === targetKbId ? undefined : targetDriveSpaceId,
+      targetParentNodeId: targetDriveParentId,
+      nodeName: titleSuffix ? `${sourceNode.name}${titleSuffix}` : undefined,
+    }),
+  );
 
   const files = await collectDriveFileNodesForFolderTransfer(copiedRoot.spaceId, copiedRoot.id);
   for (const file of files) {

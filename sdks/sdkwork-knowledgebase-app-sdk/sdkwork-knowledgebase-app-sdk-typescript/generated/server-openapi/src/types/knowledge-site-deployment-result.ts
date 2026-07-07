@@ -1,5 +1,6 @@
 export interface KnowledgeSiteDeploymentResult {
-  success: boolean;
-  deploymentId: number;
+  accepted: true;
+  status: 'completed';
+  deploymentId: string;
   url: string;
 }

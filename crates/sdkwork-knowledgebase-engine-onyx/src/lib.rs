@@ -11,9 +11,9 @@ use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngin
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, KnowledgeEngineDescriptor, KnowledgeEngineDocument,
-    KnowledgeEngineDocumentList, KnowledgeEngineDocumentRef, KnowledgeEngineError,
-    KnowledgeEngineHealth, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
-    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
+    KnowledgeEngineDocumentList, KnowledgeEngineError, KnowledgeEngineHealth,
+    KnowledgeEngineHealthStatus, KnowledgeEngineListRequest, KnowledgeEngineReadRequest,
+    KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
 };
 
 pub use client::{decode_url_document_id, encode_url_document_id, OnyxApiClient};
@@ -134,7 +134,7 @@ impl KnowledgeEngine for OnyxKnowledgeEngine {
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
-            "adapter-tier list_documents is not implemented; use search hits or native ingestion"
+            "adapter-tier list_documents is unsupported; use search hits or native ingestion"
                 .to_string(),
         ))
     }

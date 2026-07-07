@@ -9,9 +9,8 @@ name = "sdkwork-knowledgebase-standalone-gateway"
 path = "src/bin/app_main.rs"
 
 [dependencies]
-sdkwork_knowledgebase_gateway_assembly = { package = "sdkwork-knowledgebase-gateway-assembly", path = "../sdkwork-knowledgebase-gateway-assembly" }
+sdkwork-knowledgebase-gateway-assembly.workspace = true
 axum.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal"] }
 tracing = "0.1"
-sdkwork-knowledgebase-observability = { path = "../sdkwork-knowledgebase-observability", features = ["otel"] }
-
+sdkwork-knowledgebase-observability = { workspace = true, features = ["otel"] }

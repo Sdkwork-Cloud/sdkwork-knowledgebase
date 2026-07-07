@@ -121,15 +121,16 @@ pub fn map_catalog_item(
 
 pub fn deployment_result(record: &SiteDeploymentRecord) -> KnowledgeSiteDeploymentResult {
     KnowledgeSiteDeploymentResult {
-        success: true,
-        deployment_id: record.id,
+        accepted: true,
+        status: "completed".to_string(),
+        deployment_id: record.id.to_string(),
         url: record.deployed_url.clone(),
     }
 }
 
 pub fn deployment_preview(html: String, deployment_id: u64) -> KnowledgeSiteDeploymentPreview {
     KnowledgeSiteDeploymentPreview {
-        deployment_id,
+        deployment_id: deployment_id.to_string(),
         content_type: "text/html; charset=utf-8".to_string(),
         html,
     }

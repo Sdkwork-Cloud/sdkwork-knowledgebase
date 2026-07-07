@@ -1,5 +1,5 @@
 export interface OkfFileAnswerRequest {
-  spaceId: number;
+  spaceId: string;
   title: string;
   answerMarkdown: string;
 }

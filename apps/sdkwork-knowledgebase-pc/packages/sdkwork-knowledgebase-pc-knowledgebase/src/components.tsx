@@ -25,6 +25,7 @@ import { DeployWebsiteModal } from './DeployWebsiteModal';
 import { KnowledgeBaseSettingsModal } from './KnowledgeBaseSettingsModal';
 import { KnowledgeBaseMarketModal } from './KnowledgeBaseMarketModal';
 import { CloudDriveModal } from './CloudDriveModal';
+import type { CloudDriveImportResultItem } from './services/cloudDriveService';
 // Removed WechatPublishModal
 import { useTranslation } from 'react-i18next';
 import { KnowledgeBaseMarketView } from './KnowledgeBaseMarketView';
@@ -510,7 +511,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
     setSelectedDocIds(newKeys);
   };
 
-  const handleImportCloudDrive = async (selectedItems: Array<{ title: string; type: string; content?: string; documentId?: number }>) => {
+  const handleImportCloudDrive = async (selectedItems: CloudDriveImportResultItem[]) => {
     if (!cloudDriveKb) return;
     try {
       if (!selectedItems || selectedItems.length === 0) {

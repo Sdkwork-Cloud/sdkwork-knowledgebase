@@ -1,4 +1,4 @@
-# KnowledgebaseApp
+# sdkwork-knowledgebase-app-sdk
 
 Generated SDKWork v3 dual-token transport SDK.
 
@@ -15,9 +15,9 @@ pnpm add @sdkwork/knowledgebase-app-sdk
 ## Quick Start
 
 ```typescript
-import { SdkworkAppClient } from '@sdkwork/knowledgebase-app-sdk';
+import { SdkworkKnowledgebaseAppClient } from '@sdkwork/knowledgebase-app-sdk';
 
-const client = new SdkworkAppClient({
+const client = new SdkworkKnowledgebaseAppClient({
   baseUrl: '/app/v3/api',
   timeout: 30000,
 });
@@ -27,7 +27,7 @@ client.setAuthToken('your-auth-token');
 client.setAccessToken('your-access-token');
 
 // Use the SDK
-const result = await client.knowledge.okf.bundle.index.retrieve();
+const result = await client.knowledge.okf.bundle.index.list();
 ```
 
 ## Authentication
@@ -41,9 +41,9 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```typescript
-import { SdkworkAppClient } from '@sdkwork/knowledgebase-app-sdk';
+import { SdkworkKnowledgebaseAppClient } from '@sdkwork/knowledgebase-app-sdk';
 
-const client = new SdkworkAppClient({
+const client = new SdkworkKnowledgebaseAppClient({
   baseUrl: '/app/v3/api',
   timeout: 30000, // Request timeout in ms
   headers: {      // Custom headers
@@ -62,16 +62,16 @@ const client = new SdkworkAppClient({
 
 ```typescript
 // Retrieve the OKF bundle index
-const result = await client.knowledge.okf.bundle.index.retrieve();
+const result = await client.knowledge.okf.bundle.index.list();
 ```
 
 ## Error Handling
 
 ```typescript
-import { SdkworkAppClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-app-sdk';
+import { SdkworkKnowledgebaseAppClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-app-sdk';
 
 try {
-  const result = await client.knowledge.okf.bundle.index.retrieve();
+  const result = await client.knowledge.okf.bundle.index.list();
 } catch (error) {
   if (error instanceof AuthenticationError) {
     console.error('Authentication failed:', error.message);

@@ -2,7 +2,7 @@ import type { KnowledgeBrowserNode } from './knowledge-browser-node';
 import type { KnowledgeBrowserView } from './knowledge-browser-view';
 
 export interface KnowledgeBrowserPage {
-  spaceId: number;
+  spaceId: string;
   driveSpaceId: string;
   parentId?: string | null;
   view: KnowledgeBrowserView;

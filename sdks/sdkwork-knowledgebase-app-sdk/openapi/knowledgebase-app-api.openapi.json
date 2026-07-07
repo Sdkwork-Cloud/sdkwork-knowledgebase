@@ -189,8 +189,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -360,8 +362,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -541,8 +545,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -1204,8 +1210,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -1377,8 +1385,31 @@
             "in": "query",
             "required": true,
             "schema": {
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
               "type": "integer",
-              "format": "uint64"
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
             }
           }
         ],
@@ -1728,8 +1759,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -1899,8 +1932,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -2080,8 +2115,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -2214,7 +2251,7 @@
     },
     "/app/v3/api/knowledge/documents/{documentId}/content": {
       "get": {
-        "operationId": "documents.content.retrieve",
+        "operationId": "documents.content.list",
         "tags": [
           "knowledge"
         ],
@@ -2224,8 +2261,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -2397,8 +2436,31 @@
             "in": "path",
             "required": true,
             "schema": {
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
               "type": "integer",
-              "format": "uint64"
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
             }
           }
         ],
@@ -2566,7 +2628,7 @@
         "x-sdkwork-auth-mode": "dual-token"
       },
       "post": {
-        "operationId": "documents.versions.create",
+        "operationId": "documents.versions.versions",
         "tags": [
           "knowledge"
         ],
@@ -2576,8 +2638,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -2592,8 +2656,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -2919,8 +2983,31 @@
             "in": "query",
             "required": true,
             "schema": {
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
               "type": "integer",
-              "format": "uint64"
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
             }
           }
         ],
@@ -2940,8 +3027,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -3112,8 +3201,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -3254,8 +3345,31 @@
             "in": "path",
             "required": true,
             "schema": {
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
               "type": "integer",
-              "format": "uint64"
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
             }
           }
         ],
@@ -3425,7 +3539,7 @@
     },
     "/app/v3/api/knowledge/okf/index": {
       "get": {
-        "operationId": "okf.bundle.index.retrieve",
+        "operationId": "okf.bundle.index.list",
         "tags": [
           "knowledge"
         ],
@@ -3587,7 +3701,7 @@
     },
     "/app/v3/api/knowledge/okf/log": {
       "get": {
-        "operationId": "okf.bundle.log.retrieve",
+        "operationId": "okf.bundle.log.list",
         "tags": [
           "knowledge"
         ],
@@ -3749,7 +3863,7 @@
     },
     "/app/v3/api/knowledge/okf/profile": {
       "get": {
-        "operationId": "okf.bundle.profile.retrieve",
+        "operationId": "okf.bundle.profile.list",
         "tags": [
           "knowledge"
         ],
@@ -4093,8 +4207,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -4109,8 +4225,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -4448,8 +4564,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           },
           {
@@ -4485,7 +4603,7 @@
             }
           },
           {
-            "name": "pageSize",
+            "name": "page_size",
             "in": "query",
             "required": false,
             "schema": {
@@ -5884,7 +6002,30 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SdkWorkListResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "item"
+                          ],
+                          "properties": {
+                            "item": {
+                              "$ref": "#/components/schemas/KnowledgeAgentBindingList"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -6023,13 +6164,13 @@
         "x-sdkwork-auth-mode": "dual-token"
       },
       "post": {
-        "operationId": "agentProfiles.bindings.create",
+        "operationId": "agentProfiles.bindings.bindings",
         "tags": [
           "knowledge"
         ],
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -6553,13 +6694,13 @@
     },
     "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview": {
       "post": {
-        "operationId": "agentProfiles.retrievalPreview.create",
+        "operationId": "agentProfiles.retrievalPreview.retrievalPreview",
         "tags": [
           "knowledge"
         ],
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -6738,13 +6879,13 @@
     },
     "/app/v3/api/knowledge/agent_profiles/{profileId}/chat": {
       "post": {
-        "operationId": "agentProfiles.chat.create",
+        "operationId": "agentProfiles.chat.chat",
         "tags": [
           "knowledge"
         ],
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -6948,7 +7089,7 @@
             }
           },
           {
-            "name": "pageSize",
+            "name": "page_size",
             "in": "query",
             "required": false,
             "schema": {
@@ -7121,7 +7262,7 @@
         "x-sdkwork-auth-mode": "dual-token"
       },
       "post": {
-        "operationId": "spaces.contextBindings.create",
+        "operationId": "spaces.contextBindings.contextBindings",
         "tags": [
           "knowledge"
         ],
@@ -7155,8 +7296,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -7330,7 +7471,7 @@
             }
           },
           {
-            "name": "pageSize",
+            "name": "page_size",
             "in": "query",
             "required": false,
             "schema": {
@@ -7353,7 +7494,37 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SdkWorkListResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "items",
+                            "pageInfo"
+                          ],
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/KnowledgeSpaceMember"
+                              }
+                            },
+                            "pageInfo": {
+                              "$ref": "#/components/schemas/PageInfo"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -7473,7 +7644,7 @@
         "x-sdkwork-auth-mode": "dual-token"
       },
       "post": {
-        "operationId": "spaces.members.grant",
+        "operationId": "spaces.members.members",
         "tags": [
           "knowledge"
         ],
@@ -7507,8 +7678,30 @@
           }
         },
         "responses": {
-          "204": {
-            "description": "No Content"
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SdkWorkCommandData"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           },
           "400": {
             "description": "Error",
@@ -7625,7 +7818,7 @@
         "x-sdkwork-auth-mode": "dual-token"
       },
       "delete": {
-        "operationId": "spaces.members.revoke",
+        "operationId": "spaces.members.delete",
         "tags": [
           "knowledge"
         ],
@@ -8490,8 +8683,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -8641,7 +8834,7 @@
     },
     "/app/v3/api/knowledge/okf/concepts/upsert": {
       "put": {
-        "operationId": "okf.concepts.upsert",
+        "operationId": "okf.concepts.update",
         "tags": [
           "knowledge"
         ],
@@ -9008,8 +9201,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -9521,7 +9716,30 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SdkWorkListResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "item"
+                          ],
+                          "properties": {
+                            "item": {
+                              "$ref": "#/components/schemas/KnowledgeWechatOfficialAccountList"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -9642,7 +9860,7 @@
         "description": "List WeChat official accounts"
       },
       "put": {
-        "operationId": "wechat.officialAccounts.replace",
+        "operationId": "wechat.officialAccounts.update",
         "tags": [
           "knowledge"
         ],
@@ -9659,7 +9877,30 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SdkWorkListResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "item"
+                          ],
+                          "properties": {
+                            "item": {
+                              "$ref": "#/components/schemas/KnowledgeWechatOfficialAccountList"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -9790,6 +10031,159 @@
         "description": "Replace WeChat official accounts"
       }
     },
+    "/app/v3/api/knowledge/wechat/official_accounts/{accountId}/fan_tags": {
+      "get": {
+        "operationId": "wechat.officialAccounts.fanTags.list",
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "List WeChat official account fan tags",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "item"
+                          ],
+                          "properties": {
+                            "item": {
+                              "$ref": "#/components/schemas/KnowledgeWechatFanTagList"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
+        "x-sdkwork-rate-limit-tier": "read",
+        "x-sdkwork-auth-mode": "dual-token",
+        "description": "List WeChat official account fan tags"
+      }
+    },
     "/app/v3/api/knowledge/wechat/applets": {
       "get": {
         "operationId": "wechat.applets.list",
@@ -9809,7 +10203,30 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SdkWorkListResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "item"
+                          ],
+                          "properties": {
+                            "item": {
+                              "$ref": "#/components/schemas/KnowledgeWechatAppletList"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -9930,7 +10347,7 @@
         "description": "List WeChat applets"
       },
       "put": {
-        "operationId": "wechat.applets.replace",
+        "operationId": "wechat.applets.update",
         "tags": [
           "knowledge"
         ],
@@ -9947,7 +10364,30 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SdkWorkListResponse"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "item"
+                          ],
+                          "properties": {
+                            "item": {
+                              "$ref": "#/components/schemas/KnowledgeWechatAppletList"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -10108,15 +10548,7 @@
                       ],
                       "properties": {
                         "data": {
-                          "type": "object",
-                          "required": [
-                            "item"
-                          ],
-                          "properties": {
-                            "item": {
-                              "$ref": "#/components/schemas/KnowledgeWechatOperationResult"
-                            }
-                          }
+                          "$ref": "#/components/schemas/KnowledgeWechatOperationResult"
                         }
                       }
                     }
@@ -10281,15 +10713,7 @@
                       ],
                       "properties": {
                         "data": {
-                          "type": "object",
-                          "required": [
-                            "item"
-                          ],
-                          "properties": {
-                            "item": {
-                              "$ref": "#/components/schemas/KnowledgeWechatOperationResult"
-                            }
-                          }
+                          "$ref": "#/components/schemas/KnowledgeWechatOperationResult"
                         }
                       }
                     }
@@ -10453,7 +10877,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/KnowledgeGitSyncResult"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/KnowledgeGitSyncResult"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -10597,7 +11036,7 @@
             }
           },
           {
-            "name": "pageSize",
+            "name": "page_size",
             "in": "query",
             "required": false,
             "schema": {
@@ -10949,36 +11388,16 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/SdkWorkApiResponse"
-                    },
-                    {
-                      "type": "object",
-                      "required": [
-                        "data"
-                      ],
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/KnowledgeMarketSubscriptionResult"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
+          "204": {
+            "description": "No Content"
           },
           "400": {
             "description": "Error",
@@ -11263,7 +11682,7 @@
     },
     "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview": {
       "get": {
-        "operationId": "siteDeployments.preview.retrieve",
+        "operationId": "siteDeployments.preview.list",
         "tags": [
           "knowledge"
         ],
@@ -11280,8 +11699,10 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "uint64"
+              "type": "string",
+              "format": "uint64",
+              "pattern": "^[0-9]+$",
+              "x-sdkwork-int64-string": true
             }
           }
         ],
@@ -11653,8 +12074,10 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "uuid": {
             "type": "string"
@@ -11702,8 +12125,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "title": {
             "type": "string",
@@ -11734,12 +12159,16 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "sourceType": {
             "type": "string"
@@ -11780,8 +12209,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "title": {
             "type": "string",
@@ -11836,8 +12267,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "repoUrl": {
             "type": "string",
@@ -11890,12 +12323,16 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "sourceType": {
             "$ref": "#/components/schemas/KnowledgeSourceType"
@@ -11944,23 +12381,31 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "collectionId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "sourceId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "originalFileDriveNodeId": {
             "type": [
@@ -11985,10 +12430,12 @@
           },
           "currentVersionId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "visibility": {
             "$ref": "#/components/schemas/KnowledgeDocumentVisibility"
@@ -12011,8 +12458,10 @@
         ],
         "properties": {
           "documentId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "contentMarkdown": {
             "type": "string"
@@ -12038,20 +12487,28 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "documentId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "versionNo": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "originalObjectRefId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "checksumSha256Hex": {
             "type": [
@@ -12060,8 +12517,10 @@
             ]
           },
           "sizeBytes": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "mimeType": {
             "type": [
@@ -12118,12 +12577,16 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "logicalPath": {
             "type": "string"
@@ -12254,12 +12717,16 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "driveSpaceId": {
             "type": [
@@ -12307,8 +12774,10 @@
             ]
           },
           "sizeBytes": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "checksumSha256Hex": {
             "type": [
@@ -12391,8 +12860,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "sourceType": {
             "$ref": "#/components/schemas/KnowledgeSourceType"
@@ -12425,19 +12896,25 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "collectionId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "sourceId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "title": {
             "type": "string"
@@ -12468,12 +12945,16 @@
         ],
         "properties": {
           "documentId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "originalObjectRefId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "checksumSha256Hex": {
             "type": [
@@ -12482,8 +12963,10 @@
             ]
           },
           "sizeBytes": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "mimeType": {
             "type": [
@@ -12607,20 +13090,28 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "conceptRowId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "revisionNo": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "markdownObjectRefId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "contentHash": {
             "type": "string"
@@ -12655,8 +13146,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "query": {
             "type": "string"
@@ -12689,8 +13182,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "title": {
             "type": "string"
@@ -12708,8 +13203,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "profileVersion": {
             "type": "string"
@@ -12767,8 +13264,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "exportType": {
             "type": "string"
@@ -12789,15 +13288,19 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "sourceId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           }
         }
       },
@@ -12808,8 +13311,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "query": {
             "type": [
@@ -12827,8 +13332,10 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "state": {
             "type": "string"
@@ -12843,8 +13350,10 @@
         ],
         "properties": {
           "id": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "state": {
             "type": "string"
@@ -12856,10 +13365,12 @@
         "properties": {
           "reviewerId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "note": {
             "type": [
@@ -12874,10 +13385,12 @@
         "properties": {
           "publisherId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "note": {
             "type": [
@@ -12894,8 +13407,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           }
         }
       },
@@ -12906,8 +13421,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "profile": {
             "type": [
@@ -12945,8 +13462,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "parentId": {
             "type": [
@@ -12987,8 +13506,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "driveSpaceId": {
             "type": "string"
@@ -13068,31 +13589,39 @@
           },
           "documentId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "documentVersionId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "conceptId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "conceptRevisionId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "mimeType": {
             "type": [
@@ -13102,10 +13631,12 @@
           },
           "sizeBytes": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "ingestState": {
             "type": [
@@ -13133,10 +13664,12 @@
           },
           "childrenCount": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "updatedAt": {
             "type": "string"
@@ -13423,8 +13956,10 @@
           "latencyMs": {
             "anyOf": [
               {
-                "type": "integer",
-                "format": "uint64"
+                "type": "string",
+                "format": "uint64",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
               },
               {
                 "type": "null"
@@ -15036,8 +15571,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "conceptId": {
             "type": "string"
@@ -15061,8 +15598,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "importType": {
             "type": "string"
@@ -15173,6 +15712,42 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/KnowledgeWechatOfficialAccount"
+            }
+          }
+        }
+      },
+      "KnowledgeWechatFanTag": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "fanCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fanCount": {
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          }
+        }
+      },
+      "KnowledgeWechatFanTagList": {
+        "type": "object",
+        "required": [
+          "tags"
+        ],
+        "properties": {
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeWechatFanTag"
             }
           }
         }
@@ -15407,15 +15982,19 @@
       "KnowledgeWechatOperationResult": {
         "type": "object",
         "required": [
-          "success",
-          "message"
+          "accepted",
+          "status"
         ],
         "properties": {
-          "success": {
-            "type": "boolean"
+          "accepted": {
+            "type": "boolean",
+            "const": true
           },
-          "message": {
-            "type": "string"
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
           }
         }
       },
@@ -15429,8 +16008,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "repoUrl": {
             "type": "string",
@@ -15462,13 +16043,21 @@
       "KnowledgeGitSyncResult": {
         "type": "object",
         "required": [
-          "success",
+          "accepted",
+          "status",
           "hash",
           "syncedCount"
         ],
         "properties": {
-          "success": {
-            "type": "boolean"
+          "accepted": {
+            "type": "boolean",
+            "const": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
           },
           "hash": {
             "type": "string",
@@ -15566,19 +16155,29 @@
         ],
         "properties": {
           "listingId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           }
         }
       },
       "KnowledgeMarketSubscriptionResult": {
         "type": "object",
         "required": [
-          "success"
+          "accepted",
+          "status"
         ],
         "properties": {
-          "success": {
-            "type": "boolean"
+          "accepted": {
+            "type": "boolean",
+            "const": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
           }
         }
       },
@@ -15590,8 +16189,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "platform": {
             "type": "string",
@@ -15620,17 +16221,27 @@
       "KnowledgeSiteDeploymentResult": {
         "type": "object",
         "required": [
-          "success",
+          "accepted",
+          "status",
           "deploymentId",
           "url"
         ],
         "properties": {
-          "success": {
-            "type": "boolean"
+          "accepted": {
+            "type": "boolean",
+            "const": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
           },
           "deploymentId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "url": {
             "type": "string",
@@ -15647,8 +16258,10 @@
         ],
         "properties": {
           "deploymentId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "contentType": {
             "type": "string",
@@ -15674,8 +16287,10 @@
         ],
         "properties": {
           "spaceId": {
-            "type": "integer",
-            "format": "uint64"
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           },
           "taskType": {
             "$ref": "#/components/schemas/KnowledgeMediaTaskType"
@@ -15706,23 +16321,33 @@
           },
           "documentId": {
             "type": [
-              "integer",
+              "string",
               "null"
             ],
-            "format": "uint64"
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
           }
         }
       },
       "KnowledgeMediaTaskResult": {
         "type": "object",
         "required": [
-          "success",
+          "accepted",
+          "status",
           "suggestions",
           "similars"
         ],
         "properties": {
-          "success": {
-            "type": "boolean"
+          "accepted": {
+            "type": "boolean",
+            "const": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
           },
           "url": {
             "type": [

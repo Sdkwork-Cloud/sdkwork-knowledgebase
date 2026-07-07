@@ -26,7 +26,7 @@ impl KnowledgeSourceStore for MockSourceStore {
         _record: CreateKnowledgeSourceRecord,
     ) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
         Err(KnowledgeSourceStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 

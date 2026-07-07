@@ -117,12 +117,12 @@
     "sdkClients": [
       {
         "family": "sdkwork-knowledgebase-app-sdk",
-        "client": "SdkworkAppClient",
+        "client": "SdkworkKnowledgebaseAppClient",
         "surface": "app-api"
       },
       {
         "family": "sdkwork-knowledgebase-backend-sdk",
-        "client": "SdkworkBackendClient",
+        "client": "SdkworkKnowledgebaseBackendClient",
         "surface": "backend-api"
       },
       {

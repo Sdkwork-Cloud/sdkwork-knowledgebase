@@ -4,7 +4,7 @@ import type { AuthTokenManager } from '@sdkwork/sdk-common';
 
 import { KnowledgeApi, createKnowledgeApi } from './api/knowledge';
 
-export class SdkworkBackendClient {
+export class SdkworkKnowledgebaseBackendClient {
   private httpClient: HttpClient;
 
   public readonly knowledge: KnowledgeApi;
@@ -33,8 +33,8 @@ export class SdkworkBackendClient {
   }
 }
 
-export function createClient(config: SdkworkBackendConfig): SdkworkBackendClient {
-  return new SdkworkBackendClient(config);
+export function createClient(config: SdkworkBackendConfig): SdkworkKnowledgebaseBackendClient {
+  return new SdkworkKnowledgebaseBackendClient(config);
 }
 
-export default SdkworkBackendClient;
+export default SdkworkKnowledgebaseBackendClient;

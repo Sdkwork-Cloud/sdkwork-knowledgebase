@@ -505,13 +505,20 @@ impl<'a> KnowledgeSpaceService<'a> {
             }
         }
 
-        self.grant_created_space_owner_access(
-            &space,
-            drive_context,
-            owner_subject_type,
-            owner_subject_id,
-        )
-        .await?;
+        if let Err(error) = self
+            .grant_created_space_owner_access(
+                &space,
+                drive_context,
+                owner_subject_type,
+                owner_subject_id,
+            )
+            .await
+        {
+            let error = self
+                .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
+                .await;
+            return Err(self.cleanup_created_space(space.id, error).await);
+        }
 
         Ok(space)
     }

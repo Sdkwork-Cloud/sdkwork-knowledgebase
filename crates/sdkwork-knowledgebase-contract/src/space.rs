@@ -1,4 +1,5 @@
 use crate::rag::KnowledgeAgentKnowledgeMode;
+use crate::serde_int64::{deserialize_u64_from_string_or_number, serialize_u64_as_string};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,6 +23,10 @@ pub struct UpdateKnowledgeSpaceRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeSpace {
+    #[serde(
+        serialize_with = "serialize_u64_as_string",
+        deserialize_with = "deserialize_u64_from_string_or_number"
+    )]
     pub id: u64,
     pub uuid: String,
     pub name: String,

@@ -1,4 +1,4 @@
-import { createKnowledgebaseAppClient, type SdkworkAppClient } from '@sdkwork/knowledgebase-app-sdk';
+import { createKnowledgebaseAppClient, type SdkworkKnowledgebaseAppClient } from '@sdkwork/knowledgebase-app-sdk';
 import type { KnowledgebaseRuntimeConfig } from '../config/runtimeConfig';
 import type { KnowledgebaseSessionTokenManager } from '../session/sessionTokenManager';
 
@@ -6,13 +6,13 @@ const APP_API_PREFIX = '/app/v3/api';
 const KNOWLEDGEBASE_APP_SDK_FAMILY_ID = 'sdkwork-knowledgebase-app-sdk';
 
 export interface KnowledgebaseAppSdkClient {
-  client: SdkworkAppClient;
+  client: SdkworkKnowledgebaseAppClient;
   setTokenManager(manager: KnowledgebaseSessionTokenManager): void;
 }
 
 export interface KnowledgebaseAppSdkClientOptions {
   config: KnowledgebaseRuntimeConfig;
-  sdkClient?: SdkworkAppClient;
+  sdkClient?: SdkworkKnowledgebaseAppClient;
   tokenManager: KnowledgebaseSessionTokenManager;
 }
 

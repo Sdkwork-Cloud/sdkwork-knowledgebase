@@ -1,4 +1,4 @@
-import type { KnowledgeAccessLevel } from 'sdkwork-knowledgebase-pc-core';
+import type { KnowledgeAccessLevel, KnowledgeSpaceContextBinding } from 'sdkwork-knowledgebase-pc-core';
 import { isBlank } from '@sdkwork/utils';
 import {
   getKnowledgebaseAppSdkClient,
@@ -7,6 +7,7 @@ import {
 } from 'sdkwork-knowledgebase-pc-core';
 
 import type { KnowledgeBase } from './document';
+import { normalizeSdkWorkListPage } from './sdkWorkListPage';
 
 const SPACE_AGENT_PROFILE_PREFIX = 'sdkwork.knowledgebase.spaceAgentProfile.v1';
 const DEFAULT_MODEL_PROVIDER_ID = 'provider.model.knowledgebase-contract';
@@ -21,14 +22,14 @@ interface ParsedModelParameters {
   uiModelName?: string;
 }
 
-function readSpaceAgentProfileCache(tenantId: string, spaceId: number): string | null {
+function readSpaceAgentProfileCache(tenantId: string, spaceId: string): string | null {
   if (typeof window === 'undefined') {
     return null;
   }
   return window.localStorage.getItem(`${SPACE_AGENT_PROFILE_PREFIX}.${tenantId}.${spaceId}`);
 }
 
-function writeSpaceAgentProfileCache(tenantId: string, spaceId: number, profileId: string): void {
+function writeSpaceAgentProfileCache(tenantId: string, spaceId: string, profileId: string): void {
   if (typeof window === 'undefined') {
     return;
   }
@@ -86,7 +87,7 @@ function resolveGuestContextId(): string {
   return `tenant-${tenantId}`;
 }
 
-export async function ensureSpaceAgentProfile(spaceId: number): Promise<string> {
+export async function ensureSpaceAgentProfile(spaceId: string): Promise<string> {
   const tenantId = requireKnowledgebaseTenantId();
 
   const cached = readSpaceAgentProfileCache(tenantId, spaceId);
@@ -123,7 +124,7 @@ export async function ensureSpaceAgentProfile(spaceId: number): Promise<string> 
     throw new Error('Agent profile create did not return profileId');
   }
 
-  await client.knowledge.agentProfiles.bindings.create(profileId, {
+  await client.knowledge.agentProfiles.bindings.bindings(profileId, {
     profileId,
     spaceId: String(spaceId),
     priority: 0,
@@ -135,7 +136,7 @@ export async function ensureSpaceAgentProfile(spaceId: number): Promise<string> 
 }
 
 export async function loadKnowledgeSpaceModelSettings(
-  spaceId: number,
+  spaceId: string,
 ): Promise<Partial<KnowledgeBase>> {
   const profileId = await ensureSpaceAgentProfile(spaceId);
   const profile = await getKnowledgebaseAppSdkClient().client.knowledge.agentProfiles.retrieve(profileId);
@@ -151,7 +152,7 @@ export async function loadKnowledgeSpaceModelSettings(
 }
 
 export async function applyKnowledgeSpaceModelSettings(
-  spaceId: number,
+  spaceId: string,
   updates: Partial<KnowledgeBase>,
 ): Promise<void> {
   const profileId = await ensureSpaceAgentProfile(spaceId);
@@ -180,16 +181,18 @@ export async function applyKnowledgeSpaceModelSettings(
   });
 }
 
-async function findGuestContextBinding(spaceId: number) {
+async function findGuestContextBinding(spaceId: string) {
   const client = getKnowledgebaseAppSdkClient().client;
-  const bindings = await client.knowledge.spaces.contextBindings.list(String(spaceId));
+  const bindings = normalizeSdkWorkListPage<KnowledgeSpaceContextBinding>(
+    await client.knowledge.spaces.contextBindings.list(String(spaceId)),
+  );
   return bindings.items.find(
     (binding) => binding.contextId === GUEST_CONTEXT_BINDING_ID,
   );
 }
 
 export async function loadKnowledgeSpacePermissionSettings(
-  spaceId: number,
+  spaceId: string,
 ): Promise<Pick<KnowledgeBase, 'publicPermission' | 'guestLinkEnabled'>> {
   const binding = await findGuestContextBinding(spaceId);
   if (!binding) {
@@ -205,7 +208,7 @@ export async function loadKnowledgeSpacePermissionSettings(
 }
 
 export async function applyKnowledgeSpacePermissionSettings(
-  spaceId: number,
+  spaceId: string,
   updates: Partial<KnowledgeBase>,
 ): Promise<void> {
   const shouldEnable =
@@ -231,7 +234,7 @@ export async function applyKnowledgeSpacePermissionSettings(
     return;
   }
 
-  await client.knowledge.spaces.contextBindings.create(String(spaceId), {
+  await client.knowledge.spaces.contextBindings.contextBindings(String(spaceId), {
     spaceId: String(spaceId),
     contextType: 'team',
     contextId: GUEST_CONTEXT_BINDING_ID,
@@ -241,7 +244,7 @@ export async function applyKnowledgeSpacePermissionSettings(
 }
 
 export async function applyKnowledgeSpaceSettings(
-  spaceId: number,
+  spaceId: string,
   updates: Partial<KnowledgeBase>,
 ): Promise<void> {
   const hasModelUpdates =
@@ -263,8 +266,9 @@ export async function applyKnowledgeSpaceSettings(
 export async function hydrateKnowledgeBaseFromApi(
   kb: KnowledgeBase,
 ): Promise<KnowledgeBase> {
-  const spaceId = Number(kb.id);
-  if (!Number.isFinite(spaceId) || spaceId <= 0) {
+  const spaceId = String(kb.id);
+  const numericSpaceId = Number(spaceId);
+  if (!Number.isFinite(numericSpaceId) || numericSpaceId <= 0) {
     return kb;
   }
 

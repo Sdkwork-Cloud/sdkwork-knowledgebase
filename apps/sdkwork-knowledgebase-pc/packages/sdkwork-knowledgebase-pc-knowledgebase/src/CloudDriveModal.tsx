@@ -12,6 +12,7 @@ import {
 import {
   CloudDriveService,
   type CloudDriveBrowserItem,
+  type CloudDriveImportResultItem,
 } from './services/cloudDriveService';
 
 interface BreadcrumbItem {
@@ -24,7 +25,7 @@ interface CloudDriveModalProps {
   onClose: () => void;
   spaceId?: string | null;
   targetParentFolderId?: string | null;
-  onConfirm: (selectedItems: Array<{ title: string; type: string; content?: string; documentId?: number }>) => void;
+  onConfirm: (selectedItems: CloudDriveImportResultItem[]) => void;
 }
 
 const renderFileIcon = (item: CloudDriveBrowserItem) => {
@@ -119,6 +120,9 @@ export function CloudDriveModal({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [browserNextCursor, setBrowserNextCursor] = useState<string | null>(null);
+  const [browserHasMore, setBrowserHasMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
@@ -143,16 +147,25 @@ export function CloudDriveModal({
         case 'shared':
           nextItems = await CloudDriveService.listSharedItems(spaceId);
           break;
-        default:
-          nextItems = await CloudDriveService.listBrowserItems(spaceId, currentFolderId);
+        default: {
+          const page = await CloudDriveService.listBrowserItemsPage(spaceId, currentFolderId);
+          nextItems = page.items;
+          setBrowserNextCursor(page.nextCursor);
+          setBrowserHasMore(page.hasMore);
+          break;
+        }
+      }
+      if (activeTab !== 'my-drive') {
+        setBrowserNextCursor(null);
+        setBrowserHasMore(false);
       }
       setItems(nextItems);
-      setItemIndex((previous) => {
-        const merged = new Map(previous);
+      setItemIndex(() => {
+        const nextIndex = new Map<string, CloudDriveBrowserItem>();
         for (const item of nextItems) {
-          merged.set(item.id, item);
+          nextIndex.set(item.id, item);
         }
-        return merged;
+        return nextIndex;
       });
     } catch (error) {
       console.error('[CloudDriveModal] failed to list drive browser items', error);
@@ -187,6 +200,9 @@ export function CloudDriveModal({
         setLoadError(null);
         setItems([]);
         setItemIndex(new Map());
+        setBrowserNextCursor(null);
+        setBrowserHasMore(false);
+        setLoadingMore(false);
       }, 200);
       return () => window.clearTimeout(timer);
     }
@@ -264,6 +280,39 @@ export function CloudDriveModal({
       console.error('[CloudDriveModal] drive import failed', error);
       setFeedbackMsg(t('importFailed', { defaultValue: 'Drive import failed. Please retry.' }));
       setIsSyncing(false);
+    }
+  };
+
+  const handleLoadMore = async () => {
+    if (
+      !spaceId
+      || activeTab !== 'my-drive'
+      || !browserHasMore
+      || loadingMore
+      || !browserNextCursor
+      || isBlank(spaceId)
+    ) {
+      return;
+    }
+
+    setLoadingMore(true);
+    try {
+      const page = await CloudDriveService.listBrowserItemsPage(spaceId, currentFolderId, browserNextCursor);
+      setItems((previous) => [...previous, ...page.items]);
+      setBrowserNextCursor(page.nextCursor);
+      setBrowserHasMore(page.hasMore);
+      setItemIndex((previous) => {
+        const merged = new Map(previous);
+        for (const item of page.items) {
+          merged.set(item.id, item);
+        }
+        return merged;
+      });
+    } catch (error) {
+      console.error('[CloudDriveModal] failed to load more drive browser items', error);
+      setLoadError(t('loadFailed', { defaultValue: 'Failed to load enterprise drive files.' }));
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -538,6 +587,19 @@ export function CloudDriveModal({
                 </div>
               </div>
             )}
+            {activeTab === 'my-drive' && browserHasMore && !isLoading && !loadError ? (
+              <div className="shrink-0 border-t border-[var(--color-kb-panel-border)]/50 px-6 py-3 flex justify-center bg-[var(--color-kb-editor)]">
+                <button
+                  type="button"
+                  onClick={() => { void handleLoadMore(); }}
+                  disabled={loadingMore}
+                  className="px-5 py-2 text-[12px] font-semibold text-[var(--color-kb-accent)] hover:bg-[var(--color-kb-accent)]/10 border border-[var(--color-kb-panel-border)] rounded-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {loadingMore ? <RefreshCw size={14} className="animate-spin" /> : null}
+                  <span>{t('loadMore', { defaultValue: '加载更多' })}</span>
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 

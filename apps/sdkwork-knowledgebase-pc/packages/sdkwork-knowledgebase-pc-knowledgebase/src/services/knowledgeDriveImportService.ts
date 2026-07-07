@@ -1,17 +1,18 @@
 import type { DriveNode, KnowledgeBrowserNode } from 'sdkwork-knowledgebase-pc-core';
 import { isBlank } from '@sdkwork/utils';
 import {
-  getKnowledgebaseDriveAppSdkClient,
   isKnowledgebaseDriveApiAvailable,
   KnowledgebaseErrorCodes,
   parseKnowledgeSpaceId,
   requireDriveApiClient,
   requireKnowledgebaseAppSdkHttpClient,
+  requireRegisteredSpaceId,
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 
 import { invalidateKnowledgeBrowserNodeCacheForKbIds } from './knowledgeBrowserListService';
 import { placeDocumentInParentFolder } from './knowledgebaseDocumentApiBridge';
+import { normalizeDriveNodePage } from './knowledgeDriveSdkResponse';
 import { normalizeSdkWorkListPage } from './sdkWorkListPage';
 
 export interface CloudDriveBrowserItem {
@@ -26,13 +27,13 @@ export interface CloudDriveBrowserItem {
   driveStorageProviderId?: string | null;
   driveBucket?: string | null;
   driveObjectKey?: string | null;
-  documentId?: number | null;
+  documentId?: string | null;
 }
 
 export interface CloudDriveImportResultItem {
   title: string;
   type: string;
-  documentId?: number;
+  documentId?: string;
   content?: string;
 }
 
@@ -45,21 +46,22 @@ function requireSdkClient() {
   return requireKnowledgebaseAppSdkHttpClient();
 }
 
-function spaceIdFromKbId(kbId: string): number {
+function spaceIdFromKbId(kbId: string): string {
   return parseKnowledgeSpaceId(kbId);
 }
 
-function formatBytes(bytes: number | null | undefined): string | undefined {
-  if (!bytes || bytes <= 0) {
+function formatBytes(bytes: string | number | null | undefined): string | undefined {
+  const value = typeof bytes === 'number' ? bytes : Number(bytes);
+  if (!Number.isFinite(value) || value <= 0) {
     return undefined;
   }
-  if (bytes < 1024) {
-    return `${bytes} B`;
+  if (value < 1024) {
+    return `${value} B`;
   }
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
   }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function requireDriveClient() {
@@ -95,16 +97,30 @@ function mapDriveNode(node: DriveNode): CloudDriveBrowserItem {
   };
 }
 
+const DRIVE_COLLECTION_PAGE_SIZE = 100;
+const MAX_DRIVE_COLLECTION_ITEMS = 500;
+
 async function listDriveCollectionItems(
   kbId: string,
   listPage: (
     driveSpaceId: string,
-    pageToken?: string,
-  ) => Promise<{ items: DriveNode[]; nextPageToken?: string }>,
+    cursor?: string,
+  ) => Promise<unknown>,
 ): Promise<CloudDriveBrowserItem[]> {
   const driveSpaceId = await resolveDriveSpaceId(kbId);
-  const page = await listPage(driveSpaceId, undefined);
-  return (page.items ?? []).map(mapDriveNode);
+  const collected: CloudDriveBrowserItem[] = [];
+  let cursor: string | null = null;
+
+  do {
+    const page = normalizeDriveNodePage(await listPage(driveSpaceId, cursor ?? undefined));
+    collected.push(...page.items.map(mapDriveNode));
+    if (collected.length >= MAX_DRIVE_COLLECTION_ITEMS) {
+      break;
+    }
+    cursor = page.hasMore ? page.nextCursor : null;
+  } while (!isBlank(cursor));
+
+  return collected.slice(0, MAX_DRIVE_COLLECTION_ITEMS);
 }
 
 function mapBrowserNode(node: KnowledgeBrowserNode): CloudDriveBrowserItem {
@@ -121,7 +137,7 @@ function mapBrowserNode(node: KnowledgeBrowserNode): CloudDriveBrowserItem {
     driveStorageProviderId: node.driveStorageProviderId,
     driveBucket: node.driveBucket,
     driveObjectKey: node.driveObjectKey,
-    documentId: node.documentId,
+    documentId: node.documentId ? String(node.documentId) : null,
   };
 }
 
@@ -159,7 +175,7 @@ export async function listCloudDriveBrowserItemsPage(
 ): Promise<{ items: CloudDriveBrowserItem[]; nextCursor: string | null; hasMore: boolean }> {
   const client = requireSdkClient();
   const numericSpaceId = spaceIdFromKbId(spaceId);
-  const page = normalizeSdkWorkListPage(
+  const page = normalizeSdkWorkListPage<KnowledgeBrowserNode>(
     await client.knowledge.spaces.browser.list(numericSpaceId, {
       view: 'files',
       parentId: parentId ?? null,
@@ -184,41 +200,41 @@ export async function listCloudDriveBrowserItems(
 
 export async function listStarredCloudDriveItems(kbId: string): Promise<CloudDriveBrowserItem[]> {
   const drive = requireDriveClient();
-  return listDriveCollectionItems(kbId, (driveSpaceId, pageToken) =>
+  return listDriveCollectionItems(kbId, (driveSpaceId, cursor) =>
     drive.drive.favorites.list({
       spaceId: driveSpaceId,
-      pageSize: '100',
-      pageToken,
+      pageSize: String(DRIVE_COLLECTION_PAGE_SIZE),
+      cursor,
     }));
 }
 
 export async function listRecentCloudDriveItems(kbId: string): Promise<CloudDriveBrowserItem[]> {
   const drive = requireDriveClient();
-  return listDriveCollectionItems(kbId, (driveSpaceId, pageToken) =>
+  return listDriveCollectionItems(kbId, (driveSpaceId, cursor) =>
     drive.drive.recent.list({
       spaceId: driveSpaceId,
-      pageSize: '100',
-      pageToken,
+      pageSize: String(DRIVE_COLLECTION_PAGE_SIZE),
+      cursor,
     }));
 }
 
 export async function listSharedCloudDriveItems(kbId: string): Promise<CloudDriveBrowserItem[]> {
   const drive = requireDriveClient();
-  return listDriveCollectionItems(kbId, (driveSpaceId, pageToken) =>
+  return listDriveCollectionItems(kbId, (driveSpaceId, cursor) =>
     drive.drive.sharedWithMe.list({
       spaceId: driveSpaceId,
-      pageSize: '100',
-      pageToken,
+      pageSize: String(DRIVE_COLLECTION_PAGE_SIZE),
+      cursor,
     }));
 }
 
-function buildIdempotencyKey(spaceId: number, item: CloudDriveBrowserItem): string {
+function buildIdempotencyKey(spaceId: string, item: CloudDriveBrowserItem): string {
   const nodeId = item.driveNodeId ?? item.id;
   return `pc-drive-import-${spaceId}-${nodeId}`.slice(0, 128);
 }
 
 async function importDriveFile(
-  numericSpaceId: number,
+  numericSpaceId: string,
   item: CloudDriveBrowserItem,
 ): Promise<CloudDriveImportResultItem> {
   const client = requireSdkClient();
@@ -252,7 +268,7 @@ export async function importCloudDriveItems(
   items: CloudDriveBrowserItem[],
   targetParentFolderId?: string | null,
 ): Promise<CloudDriveImportResultItem[]> {
-  const numericSpaceId = spaceIdFromKbId(spaceId);
+  const numericSpaceId = requireRegisteredSpaceId(spaceId);
   const imported: CloudDriveImportResultItem[] = [];
   const failures: CloudDriveImportFailure[] = [];
 

@@ -1,3 +1,3 @@
 export interface KnowledgeMarketSubscriptionRequest {
-  listingId: number;
+  listingId: string;
 }

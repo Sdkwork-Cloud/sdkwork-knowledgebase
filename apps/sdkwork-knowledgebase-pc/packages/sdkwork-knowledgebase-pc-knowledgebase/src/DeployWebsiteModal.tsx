@@ -120,7 +120,7 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
         siteLogo: logoBase64 || undefined,
       });
 
-      if (!res.success) {
+      if (!res.accepted) {
         setDeployStep('网站部署失败，请检查知识库内容后重试。');
         setIsDeploying(false);
         toast.error('网站部署失败，请检查知识库内容后重试。');

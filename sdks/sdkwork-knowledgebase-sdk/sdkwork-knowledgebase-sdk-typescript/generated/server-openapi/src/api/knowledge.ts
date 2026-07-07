@@ -20,12 +20,12 @@ export class KnowledgeSpacesBrowserApi {
 
 
 /** List browser view of a knowledge space */
-  async list(spaceId: number, params: KnowledgeSpacesBrowserListParams): Promise<Record<string, unknown>> {
+  async list(spaceId: string, params: KnowledgeSpacesBrowserListParams): Promise<Record<string, unknown>> {
     const query = buildQueryString([
       { name: 'view', value: params.view, style: 'form', explode: true, allowReserved: false },
       { name: 'parentId', value: params.parentId, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'pageSize', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
     return this.client.get<Record<string, unknown>>(appendQueryString(customApiPath(`/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/browser`), query));
   }
@@ -43,7 +43,9 @@ export class KnowledgeSpacesApi {
 }
 
 export interface KnowledgeDocumentsListParams {
-  spaceId: number;
+  spaceId: string;
+  cursor?: string;
+  pageSize?: number;
 }
 
 export class KnowledgeDocumentsApi {
@@ -58,12 +60,14 @@ export class KnowledgeDocumentsApi {
   async list(params: KnowledgeDocumentsListParams): Promise<Record<string, unknown>> {
     const query = buildQueryString([
       { name: 'spaceId', value: params.spaceId, style: 'form', explode: true, allowReserved: false },
+      { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
     return this.client.get<Record<string, unknown>>(appendQueryString(customApiPath(`/documents`), query));
   }
 
 /** Retrieve a knowledge document */
-  async retrieve(documentId: number): Promise<KnowledgeDocument> {
+  async retrieve(documentId: string): Promise<KnowledgeDocument> {
     return this.client.get<KnowledgeDocument>(customApiPath(`/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`));
   }
 }
@@ -82,7 +86,7 @@ export class KnowledgeIngestsApi {
   }
 
 /** Retrieve an ingestion job */
-  async retrieve(ingestId: number): Promise<IngestionJob> {
+  async retrieve(ingestId: string): Promise<IngestionJob> {
     return this.client.get<IngestionJob>(customApiPath(`/ingests/${serializePathParameter(ingestId, { name: 'ingestId', style: 'simple', explode: false })}`));
   }
 }

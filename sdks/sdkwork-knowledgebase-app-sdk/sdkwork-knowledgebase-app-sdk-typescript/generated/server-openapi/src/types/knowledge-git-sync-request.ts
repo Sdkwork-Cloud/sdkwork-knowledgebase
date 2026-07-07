@@ -1,5 +1,5 @@
 export interface KnowledgeGitSyncRequest {
-  spaceId: number;
+  spaceId: string;
   repoUrl: string;
   branch?: string | null;
   commitMessage: string;

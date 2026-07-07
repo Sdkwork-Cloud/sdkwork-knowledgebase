@@ -1,6 +1,6 @@
 use crate::ingest::{
-    ingest_success_outbox_record, split_markdown_chunks, KnowledgeIngestionService,
-    MarkdownIndexResult,
+    ingest_success_outbox_record, split_markdown_chunks, validate_markdown_payload,
+    KnowledgeIngestionService, MarkdownIndexResult, PayloadLimitError,
 };
 use crate::ports::knowledge_drive_storage::{KnowledgeDriveStorage, KnowledgeObjectRef};
 use crate::ports::knowledge_ingestion_job_store::{
@@ -41,12 +41,33 @@ impl<'a> KnowledgeDriveImportPipelineService<'a> {
         let payload = match self.drive.get_object_text(&object_ref).await {
             Ok(payload) => payload,
             Err(error) => {
-                let _ = ingestion
+                if let Err(mark_error) = ingestion
                     .mark_failed(job.id, format!("drive storage read failed: {error:?}"))
-                    .await;
+                    .await
+                {
+                    tracing::error!(
+                        job_id = job.id,
+                        ?mark_error,
+                        "failed to mark ingestion job as failed after drive storage read error"
+                    );
+                }
                 return Err(KnowledgeDriveImportPipelineServiceError::Storage(error));
             }
         };
+
+        if let Err(limit_error) = validate_markdown_payload(&payload) {
+            let failure_message = format!("drive import payload rejected: {limit_error}");
+            if let Err(mark_error) = ingestion.mark_failed(job.id, failure_message.clone()).await {
+                tracing::error!(
+                    job_id = job.id,
+                    ?mark_error,
+                    "failed to mark ingestion job as failed after drive import payload limit violation"
+                );
+            }
+            return Err(KnowledgeDriveImportPipelineServiceError::PayloadLimit(
+                limit_error,
+            ));
+        }
 
         let chunk_records = split_markdown_chunks(
             import.document.space_id,
@@ -119,4 +140,6 @@ pub enum KnowledgeDriveImportPipelineServiceError {
     Ingestion(#[from] crate::ingest::KnowledgeIngestionServiceError),
     #[error(transparent)]
     Storage(#[from] crate::ports::knowledge_drive_storage::KnowledgeStorageError),
+    #[error(transparent)]
+    PayloadLimit(#[from] PayloadLimitError),
 }

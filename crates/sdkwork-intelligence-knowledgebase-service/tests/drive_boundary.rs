@@ -15,21 +15,21 @@ fn service_exposes_drive_storage_port() {
             &self,
             _request: PutKnowledgeObjectRequest,
         ) -> Result<KnowledgeObjectRef, KnowledgeStorageError> {
-            Err(KnowledgeStorageError::internal("not implemented"))
+            Err(KnowledgeStorageError::internal("unsupported in test fake"))
         }
 
         async fn head_object(
             &self,
             _request: HeadKnowledgeObjectRequest,
         ) -> Result<KnowledgeObjectRef, KnowledgeStorageError> {
-            Err(KnowledgeStorageError::internal("not implemented"))
+            Err(KnowledgeStorageError::internal("unsupported in test fake"))
         }
 
         async fn get_object_text(
             &self,
             _object_ref: &KnowledgeObjectRef,
         ) -> Result<String, KnowledgeStorageError> {
-            Err(KnowledgeStorageError::internal("not implemented"))
+            Err(KnowledgeStorageError::internal("unsupported in test fake"))
         }
     }
 

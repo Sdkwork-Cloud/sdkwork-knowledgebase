@@ -110,7 +110,7 @@ export function GitIntegrationModal({ mode, kb, onClose, onSuccess }: GitIntegra
               }
             : undefined,
         });
-        if (!synced.success) {
+        if (!synced.accepted) {
           throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED);
         }
       }

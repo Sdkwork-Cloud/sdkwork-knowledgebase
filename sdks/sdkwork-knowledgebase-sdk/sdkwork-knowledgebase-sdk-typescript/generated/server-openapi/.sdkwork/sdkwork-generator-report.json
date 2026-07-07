@@ -11,90 +11,33 @@
   "status": "ok",
   "mode": "apply",
   "hasChanges": true,
-  "hasDestructiveChanges": true,
-  "changeFingerprint": "ddfa6d844ece94dd0d2750f642e65a539d7310e49846738b80053fdd95df0710",
+  "hasDestructiveChanges": false,
+  "changeFingerprint": "e732d55255e28505f9674df25ef3890f2771b41afd694f1f12f5ff701e3d616b",
   "changeImpact": {
     "schemaVersion": 1,
     "areas": [
-      "api-surface",
-      "models",
-      "runtime",
-      "build-metadata",
-      "documentation",
-      "unknown"
+      "models"
     ],
     "details": [
       {
-        "area": "api-surface",
-        "paths": [
-          "src/api/knowledge.ts",
-          "src/http/client.ts",
-          "src/sdk.ts"
-        ]
-      },
-      {
         "area": "models",
         "paths": [
-          "src/types/context-packs-create-response201.ts",
-          "src/types/documents-list-response.ts",
-          "src/types/documents-retrieve-response.ts",
-          "src/types/field-error.ts",
-          "src/types/index.ts",
-          "src/types/ingests-create-response201.ts",
-          "src/types/ingests-retrieve-response.ts",
-          "src/types/knowledge-browser-page.ts",
-          "src/types/knowledge-document-list.ts",
-          "src/types/page-info.ts",
-          "src/types/problem-detail.ts",
-          "src/types/problem-details.ts",
-          "src/types/retrievals-create-response201.ts",
-          "src/types/retrievals-retrieve-response.ts",
-          "src/types/sdk-work-api-response.ts",
-          "src/types/sdk-work-platform-error-code.ts",
-          "src/types/spaces-browser-list-response.ts"
-        ]
-      },
-      {
-        "area": "runtime",
-        "paths": [
-          "src/http/client.ts"
-        ]
-      },
-      {
-        "area": "build-metadata",
-        "paths": [
-          "package.json",
-          "sdkwork-sdk.json"
-        ]
-      },
-      {
-        "area": "documentation",
-        "paths": [
-          "README.md"
-        ]
-      },
-      {
-        "area": "unknown",
-        "paths": [
-          "src/index.ts"
+          "src/types/knowledge-browser-node.ts",
+          "src/types/knowledge-document.ts"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: api-surface, models, runtime, build-metadata, documentation, unknown. Verification is required."
+    "summary": "Detected impact areas: models. Verification is required."
   },
   "executionDecision": {
     "schemaVersion": 1,
-    "riskLevel": "high",
+    "riskLevel": "medium",
     "nextAction": "verify",
     "requiresManualReview": false,
     "applyRequiresExpectedFingerprint": false,
     "summary": "Changes have been applied. Run the required verification plan now.",
     "reasons": [
-      "backed-up-generated-files",
-      "deleted-generated-files",
-      "manual-review-required",
-      "unknown-impact",
       "verification-required"
     ]
   },
@@ -106,7 +49,7 @@
         "id": "verify-check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, runtime, build-metadata, documentation, unknown.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -124,7 +67,7 @@
         "id": "verify-build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, runtime, build-metadata, documentation, unknown.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -143,13 +86,13 @@
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: api-surface, models, runtime, build-metadata, documentation, unknown. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: models. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, runtime, build-metadata, documentation, unknown.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -167,7 +110,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, runtime, build-metadata, documentation, unknown.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -206,38 +149,17 @@
   "syncSummary": {
     "dryRun": false,
     "controlPlaneEnabled": true,
-    "writtenFiles": 22,
+    "writtenFiles": 2,
     "skippedScaffoldFiles": 2,
-    "skippedUnchangedGeneratedFiles": 36,
-    "deletedGeneratedFiles": 2,
+    "skippedUnchangedGeneratedFiles": 56,
+    "deletedGeneratedFiles": 0,
     "changeSummaryPath": ".sdkwork/sdkwork-generator-changes.json",
-    "changeFingerprint": "ddfa6d844ece94dd0d2750f642e65a539d7310e49846738b80053fdd95df0710",
+    "changeFingerprint": "e732d55255e28505f9674df25ef3890f2771b41afd694f1f12f5ff701e3d616b",
     "changes": {
-      "createdGeneratedFiles": [
-        "src/types/context-packs-create-response201.ts",
-        "src/types/documents-list-response.ts",
-        "src/types/documents-retrieve-response.ts",
-        "src/types/field-error.ts",
-        "src/types/ingests-create-response201.ts",
-        "src/types/ingests-retrieve-response.ts",
-        "src/types/page-info.ts",
-        "src/types/problem-detail.ts",
-        "src/types/retrievals-create-response201.ts",
-        "src/types/retrievals-retrieve-response.ts",
-        "src/types/sdk-work-api-response.ts",
-        "src/types/sdk-work-platform-error-code.ts",
-        "src/types/spaces-browser-list-response.ts"
-      ],
+      "createdGeneratedFiles": [],
       "updatedGeneratedFiles": [
-        "package.json",
-        "README.md",
-        "sdkwork-sdk.json",
-        "src/api/knowledge.ts",
-        "src/http/client.ts",
-        "src/index.ts",
-        "src/sdk.ts",
-        "src/types/index.ts",
-        "src/types/problem-details.ts"
+        "src/types/knowledge-browser-node.ts",
+        "src/types/knowledge-document.ts"
       ],
       "unchangedGeneratedFiles": [
         "bin/publish-core.mjs",
@@ -247,17 +169,30 @@
         "bin/sdk-gen.sh",
         "CHANGELOG.md",
         "LICENSE",
+        "package.json",
+        "README.md",
+        "sdkwork-sdk.json",
         "src/api/base.ts",
         "src/api/index.ts",
+        "src/api/knowledge.ts",
         "src/api/paths.ts",
         "src/auth/index.ts",
+        "src/http/client.ts",
         "src/http/index.ts",
+        "src/index.ts",
+        "src/sdk.ts",
         "src/types/common.ts",
+        "src/types/context-packs-create-response201.ts",
+        "src/types/documents-list-response.ts",
+        "src/types/documents-retrieve-response.ts",
+        "src/types/field-error.ts",
+        "src/types/index.ts",
         "src/types/ingestion-job-state.ts",
         "src/types/ingestion-job.ts",
+        "src/types/ingests-create-response201.ts",
+        "src/types/ingests-retrieve-response.ts",
         "src/types/knowledge-browser-node-permissions.ts",
         "src/types/knowledge-browser-node-type.ts",
-        "src/types/knowledge-browser-node.ts",
         "src/types/knowledge-browser-view.ts",
         "src/types/knowledge-citation.ts",
         "src/types/knowledge-context-fragment.ts",
@@ -266,7 +201,6 @@
         "src/types/knowledge-document-state.ts",
         "src/types/knowledge-document-version-state.ts",
         "src/types/knowledge-document-visibility.ts",
-        "src/types/knowledge-document.ts",
         "src/types/knowledge-filter.ts",
         "src/types/knowledge-ingest-request.ts",
         "src/types/knowledge-memory-context-fragment.ts",
@@ -275,102 +209,51 @@
         "src/types/knowledge-retrieval-request.ts",
         "src/types/knowledge-retrieval-result.ts",
         "src/types/knowledge-retrieval-trace.ts",
+        "src/types/page-info.ts",
+        "src/types/problem-detail.ts",
+        "src/types/problem-details.ts",
+        "src/types/retrievals-create-response201.ts",
+        "src/types/retrievals-retrieve-response.ts",
+        "src/types/sdk-work-api-response.ts",
+        "src/types/sdk-work-platform-error-code.ts",
+        "src/types/spaces-browser-list-response.ts",
         "tsconfig.json"
       ],
-      "deletedGeneratedFiles": [
-        "src/types/knowledge-browser-page.ts",
-        "src/types/knowledge-document-list.ts"
-      ],
+      "deletedGeneratedFiles": [],
       "scaffoldedFiles": [],
       "preservedScaffoldFiles": [
         "custom/build-runtime.mjs",
         "custom/README.md"
       ],
-      "backedUpFiles": [
-        "package.json",
-        "sdkwork-sdk.json"
-      ]
+      "backedUpFiles": []
     },
     "impact": {
       "schemaVersion": 1,
       "areas": [
-        "api-surface",
-        "models",
-        "runtime",
-        "build-metadata",
-        "documentation",
-        "unknown"
+        "models"
       ],
       "details": [
         {
-          "area": "api-surface",
-          "paths": [
-            "src/api/knowledge.ts",
-            "src/http/client.ts",
-            "src/sdk.ts"
-          ]
-        },
-        {
           "area": "models",
           "paths": [
-            "src/types/context-packs-create-response201.ts",
-            "src/types/documents-list-response.ts",
-            "src/types/documents-retrieve-response.ts",
-            "src/types/field-error.ts",
-            "src/types/index.ts",
-            "src/types/ingests-create-response201.ts",
-            "src/types/ingests-retrieve-response.ts",
-            "src/types/knowledge-browser-page.ts",
-            "src/types/knowledge-document-list.ts",
-            "src/types/page-info.ts",
-            "src/types/problem-detail.ts",
-            "src/types/problem-details.ts",
-            "src/types/retrievals-create-response201.ts",
-            "src/types/retrievals-retrieve-response.ts",
-            "src/types/sdk-work-api-response.ts",
-            "src/types/sdk-work-platform-error-code.ts",
-            "src/types/spaces-browser-list-response.ts"
-          ]
-        },
-        {
-          "area": "runtime",
-          "paths": [
-            "src/http/client.ts"
-          ]
-        },
-        {
-          "area": "build-metadata",
-          "paths": [
-            "package.json",
-            "sdkwork-sdk.json"
-          ]
-        },
-        {
-          "area": "documentation",
-          "paths": [
-            "README.md"
-          ]
-        },
-        {
-          "area": "unknown",
-          "paths": [
-            "src/index.ts"
+            "src/types/knowledge-browser-node.ts",
+            "src/types/knowledge-document.ts"
           ]
         }
       ],
       "requiresVerification": true,
-      "summary": "Detected impact areas: api-surface, models, runtime, build-metadata, documentation, unknown. Verification is required."
+      "summary": "Detected impact areas: models. Verification is required."
     },
     "verificationPlan": {
       "shouldRun": true,
       "runPhase": "now",
-      "summary": "Detected impact areas: api-surface, models, runtime, build-metadata, documentation, unknown. Verification is required. Run the required verification commands now against the generated SDK output.",
+      "summary": "Detected impact areas: models. Verification is required. Run the required verification commands now against the generated SDK output.",
       "steps": [
         {
           "id": "check",
           "title": "Unified package check",
           "required": true,
-          "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models, runtime, build-metadata, documentation, unknown.",
+          "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
           "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
           "command": "node",
           "args": [
@@ -388,7 +271,7 @@
           "id": "build",
           "title": "Unified package build",
           "required": true,
-          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models, runtime, build-metadata, documentation, unknown.",
+          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
           "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-sdk\\sdkwork-knowledgebase-sdk-typescript\\generated\\server-openapi",
           "command": "node",
           "args": [
@@ -406,23 +289,16 @@
     },
     "executionDecision": {
       "schemaVersion": 1,
-      "riskLevel": "high",
+      "riskLevel": "medium",
       "nextAction": "verify",
       "requiresManualReview": false,
       "applyRequiresExpectedFingerprint": false,
       "summary": "Changes have been applied. Run the required verification plan now.",
       "reasons": [
-        "backed-up-generated-files",
-        "deleted-generated-files",
-        "manual-review-required",
-        "unknown-impact",
         "verification-required"
       ]
     },
-    "backedUpFiles": [
-      "package.json",
-      "sdkwork-sdk.json"
-    ],
+    "backedUpFiles": [],
     "preservedLegacyFiles": false
   }
 }

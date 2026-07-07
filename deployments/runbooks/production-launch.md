@@ -78,13 +78,17 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
 
 ## Release artifacts
 
-1. Publish the browser bundle (`web-production`) with checksum, signature, and SBOM per `sdkwork.app.config.json`.
-2. Publish or approve private-registry consumption for all three SDK families:
+1. Keep the browser bundle package (`web-universal-cloud-browser-zip`) disabled while its manifest
+   package metadata remains `releaseStatus: prelaunch-artifact-pending`.
+2. Do not publish or enable `web-universal-cloud-browser-zip` until release evidence has been
+   recorded for checksum, signature, SBOM, provenance, attestation, workflow run, rollout,
+   rollback, and live smoke results per `sdkwork.app.config.json`.
+3. Publish or approve private-registry consumption for all three SDK families:
    - `sdkwork-knowledgebase-app-sdk`
    - `sdkwork-knowledgebase-backend-sdk`
    - `sdkwork-knowledgebase-sdk`
-3. Keep desktop bundles disabled until desktop CI packaging targets ship (`releaseStatus: prelaunch-disabled`).
-4. Run Playwright launch flows in CI:
+4. Keep desktop bundles disabled until desktop CI packaging targets ship (`releaseStatus: prelaunch-disabled`).
+5. Run Playwright launch flows in CI:
    ```bash
    pnpm test:e2e:playwright
    ```
@@ -112,4 +116,4 @@ Before traffic cutover, exercise `deployments/runbooks/backup-restore.md` in sta
 | DB bootstrap/drift | DBA | `pnpm db:status` output |
 | API smoke | SRE | `pnpm test:smoke` output |
 | PC author/search E2E | Frontend | Playwright CI job |
-| Release artifacts | Release | CDN checksum + SBOM record |
+| Release artifacts | Release | Workflow run + checksum + signature + SBOM + provenance + attestation + rollout/rollback + live smoke record |

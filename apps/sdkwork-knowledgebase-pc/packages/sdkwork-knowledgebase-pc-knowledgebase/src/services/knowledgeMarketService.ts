@@ -6,8 +6,8 @@ import {
 
 import type { MarketKnowledgeBase } from './document';
 
-function parseListingId(id: string): number {
-  return requirePositiveNumber(Number(id), KnowledgebaseErrorCodes.INVALID_MARKET_LISTING);
+function parseListingId(id: string): string {
+  return String(requirePositiveNumber(Number(id), KnowledgebaseErrorCodes.INVALID_MARKET_LISTING));
 }
 
 function mapCatalogItem(item: {
@@ -65,11 +65,11 @@ export async function subscribeMarketListing(id: string): Promise<boolean> {
   const result = await client.knowledge.market.subscriptions.create({
     listingId: parseListingId(id),
   });
-  return result.success;
+  return result.accepted === true;
 }
 
 export async function unsubscribeMarketListing(id: string): Promise<boolean> {
   const client = requireKnowledgebaseAppSdkHttpClient();
-  const result = await client.knowledge.market.subscriptions.delete(parseListingId(id));
-  return result.success;
+  await client.knowledge.market.subscriptions.delete(parseListingId(id));
+  return true;
 }

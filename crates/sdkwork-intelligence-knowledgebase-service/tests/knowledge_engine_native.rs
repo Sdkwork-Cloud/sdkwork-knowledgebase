@@ -47,7 +47,7 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
         _record: UpsertKnowledgeOkfConceptRecord,
     ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -56,7 +56,7 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
         _record: CreateKnowledgeOkfConceptRevisionRecord,
     ) -> Result<KnowledgeOkfConceptRevision, KnowledgeOkfConceptStoreError> {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -65,7 +65,7 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
         _concept_row_id: u64,
     ) -> Result<u64, KnowledgeOkfConceptStoreError> {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -74,7 +74,7 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
         _record: MarkKnowledgeOkfConceptCurrentRevisionRecord,
     ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -95,7 +95,7 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
         _record: AppendKnowledgeOkfLogEntryRecord,
     ) -> Result<OkfLogEntry, KnowledgeOkfConceptStoreError> {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -120,7 +120,7 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
         _concept_row_id: u64,
     ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 }
@@ -210,7 +210,7 @@ impl KnowledgeRetrievalTraceStore for MockRetrievalTraceStore {
         _retrieval_trace_id: u64,
     ) -> Result<KnowledgeRetrievalTraceRecord, KnowledgeRetrievalTraceStoreError> {
         Err(KnowledgeRetrievalTraceStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -236,7 +236,7 @@ impl KnowledgeDocumentStore for MockDocumentStore {
         _record: CreateKnowledgeDocumentRecord,
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
         Err(KnowledgeDocumentStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 

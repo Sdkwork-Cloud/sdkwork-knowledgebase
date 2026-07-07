@@ -67,6 +67,7 @@ export class HttpClient extends BaseHttpClient {
     ].forEach((key) => {
       delete headers[key];
     });
+    this.applyCredentialEntryBootstrapAccessToken(headers);
     return headers;
   }
 
@@ -218,19 +219,26 @@ export class HttpClient extends BaseHttpClient {
     this.getInternalAuthConfig().tokenManager = manager;
   }
 
+  private applyCredentialEntryBootstrapAccessToken(headers: Record<string, string>): void {
+    const authConfig = this.getInternalAuthConfig();
+    const tokenManager = authConfig.tokenManager;
+    const accessToken = tokenManager?.getAccessToken?.();
+    if (typeof accessToken === 'string' && accessToken.length > 0) {
+      headers[HttpClient.ACCESS_TOKEN_HEADER] = accessToken;
+    }
+  }
+
   private applySdkworkAuthHeaders(headers?: Record<string, string>): Record<string, string> | undefined {
     const authConfig = this.getInternalAuthConfig();
     const tokenManager = authConfig.tokenManager;
     const accessToken = tokenManager?.getAccessToken?.();
-    const authToken = tokenManager?.getAuthToken?.();
-    if (!accessToken && !authToken) {
+    if (!accessToken) {
       return headers;
     }
 
     return {
       ...(headers ?? {}),
-      ...(accessToken ? { [HttpClient.ACCESS_TOKEN_HEADER]: accessToken } : {}),
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      [HttpClient.ACCESS_TOKEN_HEADER]: accessToken,
     };
   }
 
@@ -262,7 +270,6 @@ export class HttpClient extends BaseHttpClient {
 
     return data as T;
   }
-
 
   async request<T>(path: string, options: HttpRequestOptions = {}): Promise<T> {
     const execute = (this as any).execute;

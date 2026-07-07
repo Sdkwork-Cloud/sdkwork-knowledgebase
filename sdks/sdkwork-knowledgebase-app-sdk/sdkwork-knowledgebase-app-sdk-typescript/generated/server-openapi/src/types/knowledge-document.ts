@@ -3,15 +3,15 @@ import type { KnowledgeDocumentVersionState } from './knowledge-document-version
 import type { KnowledgeDocumentVisibility } from './knowledge-document-visibility';
 
 export interface KnowledgeDocument {
-  id: number;
-  spaceId: number;
-  collectionId: number;
-  sourceId?: number | null;
+  id: string;
+  spaceId: string;
+  collectionId: string;
+  sourceId?: string | null;
   originalFileDriveNodeId?: string | null;
   title: string;
   mimeType?: string | null;
   language?: string | null;
-  currentVersionId?: number | null;
+  currentVersionId?: string | null;
   visibility: KnowledgeDocumentVisibility;
   contentState: KnowledgeDocumentState;
   indexState: KnowledgeDocumentVersionState;

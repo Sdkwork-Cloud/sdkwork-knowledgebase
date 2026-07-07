@@ -82,10 +82,10 @@ App API adds:
 - `PATCH /app/v3/api/knowledge/agent_profiles/{profileId}` -> `agentProfiles.update`
 - `DELETE /app/v3/api/knowledge/agent_profiles/{profileId}` -> `agentProfiles.delete`
 - `GET /app/v3/api/knowledge/agent_profiles/{profileId}/bindings` -> `agentProfiles.bindings.list`
-- `POST /app/v3/api/knowledge/agent_profiles/{profileId}/bindings` -> `agentProfiles.bindings.create`
+- `POST /app/v3/api/knowledge/agent_profiles/{profileId}/bindings` -> `agentProfiles.bindings.bindings`
 - `PATCH /app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}` -> `agentProfiles.bindings.update`
 - `DELETE /app/v3/api/knowledge/agent_profiles/{profileId}/bindings/{bindingId}` -> `agentProfiles.bindings.delete`
-- `POST /app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview` -> `agentProfiles.retrievalPreview.create`
+- `POST /app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview` -> `agentProfiles.retrievalPreview.retrievalPreview`
 
 Backend API adds:
 
@@ -97,7 +97,7 @@ Backend API adds:
 - `PATCH /backend/v3/api/knowledge/retrieval_profiles/{profileId}` -> `retrievalProfiles.update`
 - `GET /backend/v3/api/knowledge/retrieval_traces` -> `retrievalTraces.list`
 - `GET /backend/v3/api/knowledge/retrieval_traces/{traceId}` -> `retrievalTraces.retrieve`
-- `GET /backend/v3/api/knowledge/provider_health` -> `providerHealth.retrieve`
+- `GET /backend/v3/api/knowledge/provider_health` -> `providerHealth.list`
 
 The OpenAPI authority remains owner-only:
 
@@ -146,4 +146,3 @@ Required checks:
 - `cargo fmt --all --check`.
 - `cargo test --workspace`.
 - `powershell -ExecutionPolicy Bypass -File tools/verify_phase1.ps1`.
-

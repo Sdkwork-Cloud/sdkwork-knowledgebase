@@ -14,10 +14,9 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::Externa
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, parse_compound_document_ref, KnowledgeEngineDescriptor,
-    KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineDocumentRef,
-    KnowledgeEngineError, KnowledgeEngineHealth, KnowledgeEngineHealthStatus,
-    KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
-    KnowledgeEngineSearchResult,
+    KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineError,
+    KnowledgeEngineHealth, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
+    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
 };
 use std::sync::Arc;
 
@@ -211,7 +210,7 @@ impl KnowledgeEngine for FlowiseKnowledgeEngine {
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
-            "adapter-tier list_documents is not implemented; use search hits or native ingestion"
+            "adapter-tier list_documents is unsupported; use search hits or native ingestion"
                 .to_string(),
         ))
     }

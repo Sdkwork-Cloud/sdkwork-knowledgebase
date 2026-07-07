@@ -281,7 +281,7 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
         _record: CreateKnowledgeOkfConceptRevisionRecord,
     ) -> Result<KnowledgeOkfConceptRevision, KnowledgeOkfConceptStoreError> {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -297,7 +297,7 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
         _record: MarkKnowledgeOkfConceptCurrentRevisionRecord,
     ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -335,7 +335,7 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
         _record: AppendKnowledgeOkfLogEntryRecord,
     ) -> Result<OkfLogEntry, KnowledgeOkfConceptStoreError> {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 

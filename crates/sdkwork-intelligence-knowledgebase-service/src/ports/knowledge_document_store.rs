@@ -21,8 +21,8 @@ pub trait KnowledgeDocumentStore: Send + Sync {
         document_id: u64,
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
         let _ = document_id;
-        Err(KnowledgeDocumentStoreError::Internal(
-            "get_document_by_id is not implemented for this knowledge document store".to_string(),
+        Err(KnowledgeDocumentStoreError::Unsupported(
+            "get_document_by_id is unsupported by this knowledge document store".to_string(),
         ))
     }
 
@@ -42,7 +42,9 @@ pub trait KnowledgeDocumentStore: Send + Sync {
         page_size: u32,
     ) -> Result<(Vec<KnowledgeDocument>, Option<String>, bool), KnowledgeDocumentStoreError> {
         let _ = (space_id, cursor, page_size);
-        Ok((Vec::new(), None, false))
+        Err(KnowledgeDocumentStoreError::Unsupported(
+            "list_documents_page is unsupported by this knowledge document store".to_string(),
+        ))
     }
 }
 
@@ -77,6 +79,59 @@ impl KnowledgeDocumentIdentityScope {
 pub enum KnowledgeDocumentStoreError {
     #[error("knowledge document store invalid record: {0}")]
     InvalidRecord(String),
+    #[error("knowledge document store unsupported operation: {0}")]
+    Unsupported(String),
     #[error("knowledge document store internal error: {0}")]
     Internal(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MinimalDocumentStore;
+
+    #[async_trait]
+    impl KnowledgeDocumentStore for MinimalDocumentStore {
+        async fn create_document(
+            &self,
+            _record: CreateKnowledgeDocumentRecord,
+        ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+            Err(KnowledgeDocumentStoreError::Unsupported(
+                "document creation is unsupported by this store".to_string(),
+            ))
+        }
+    }
+
+    #[tokio::test]
+    async fn default_document_lookup_reports_unsupported_instead_of_internal_placeholder() {
+        let error = MinimalDocumentStore
+            .get_document_by_id(42)
+            .await
+            .expect_err("default document lookup should be unsupported");
+
+        match error {
+            KnowledgeDocumentStoreError::Unsupported(detail) => {
+                assert!(detail.contains("get_document_by_id"));
+                assert!(detail.contains("unsupported"));
+            }
+            other => panic!("expected unsupported default document lookup error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn default_document_page_reports_unsupported_instead_of_internal_placeholder() {
+        let error = MinimalDocumentStore
+            .list_documents_page(7, None, 20)
+            .await
+            .expect_err("default document paging should be unsupported");
+
+        match error {
+            KnowledgeDocumentStoreError::Unsupported(detail) => {
+                assert!(detail.contains("list_documents_page"));
+                assert!(detail.contains("unsupported"));
+            }
+            other => panic!("expected unsupported default document page error, got {other:?}"),
+        }
+    }
 }

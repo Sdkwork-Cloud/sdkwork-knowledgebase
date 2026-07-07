@@ -13,7 +13,7 @@ This README is the SDKWork module entrypoint for `sdkwork-knowledgebase-backend-
 
 ## Required SDK Surface
 
-- `SdkworkBackendClient`
+- `SdkworkKnowledgebaseBackendClient`
 
 ## Configuration
 

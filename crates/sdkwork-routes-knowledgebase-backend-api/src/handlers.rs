@@ -75,7 +75,7 @@ pub(crate) async fn approve_okf_candidate(
     Json(request): Json<OkfCandidateReviewRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.candidates.approve")?;
-    created_json(state.api.approve_okf_candidate(candidate_id, request).await)
+    ok_json(state.api.approve_okf_candidate(candidate_id, request).await)
 }
 
 pub(crate) async fn reject_okf_candidate(
@@ -85,7 +85,7 @@ pub(crate) async fn reject_okf_candidate(
     Json(request): Json<OkfCandidateReviewRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.candidates.reject")?;
-    created_json(state.api.reject_okf_candidate(candidate_id, request).await)
+    ok_json(state.api.reject_okf_candidate(candidate_id, request).await)
 }
 
 pub(crate) async fn publish_okf_concept(
@@ -95,7 +95,7 @@ pub(crate) async fn publish_okf_concept(
     Json(request): Json<OkfConceptPublishRequest>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_mutation_context(&state, context, "okf.concepts.publish")?;
-    created_json(state.api.publish_okf_concept(concept_id, request).await)
+    ok_json(state.api.publish_okf_concept(concept_id, request).await)
 }
 
 pub(crate) async fn create_okf_profile(
@@ -122,8 +122,8 @@ pub(crate) async fn rebuild_okf_index(
     context: RequiredBackendContext,
     Json(request): Json<OkfIndexRebuildRequest>,
 ) -> Result<Response, BackendApiProblem> {
-    require_backend_mutation_context(&state, context, "okf.bundle.index.rebuild")?;
-    ok_json(state.api.rebuild_okf_index(request).await)
+    require_backend_mutation_context(&state, context, "okf.bundle.index.create")?;
+    created_json(state.api.rebuild_okf_index(request).await)
 }
 
 pub(crate) async fn create_okf_log_entry(
@@ -292,6 +292,7 @@ backend_handler!(retrieve_current_tenant, |state: BackendState| async move {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ListSpaceMembersQuery {
     pub cursor: Option<String>,
+    #[serde(rename = "page_size")]
     pub page_size: Option<u32>,
 }
 
@@ -299,6 +300,7 @@ pub(crate) struct ListSpaceMembersQuery {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ListSpacesQuery {
     pub cursor: Option<String>,
+    #[serde(rename = "page_size")]
     pub page_size: Option<u32>,
 }
 
@@ -331,8 +333,8 @@ pub(crate) async fn export_audit_events(
     context: RequiredBackendContext,
     Json(request): Json<ExportKnowledgeAuditEventsRequest>,
 ) -> Result<Response, BackendApiProblem> {
-    require_backend_mutation_context(&state, context, "compliance.auditEvents.export")?;
-    ok_json(state.api.export_audit_events(request).await)
+    require_backend_mutation_context(&state, context, "compliance.auditEvents.export.create")?;
+    created_json(state.api.export_audit_events(request).await)
 }
 
 pub(crate) async fn anonymize_audit_subject(
@@ -340,6 +342,10 @@ pub(crate) async fn anonymize_audit_subject(
     context: RequiredBackendContext,
     Json(request): Json<AnonymizeKnowledgeAuditSubjectRequest>,
 ) -> Result<Response, BackendApiProblem> {
-    require_backend_mutation_context(&state, context, "compliance.auditEvents.anonymizeActor")?;
-    ok_json(state.api.anonymize_audit_subject(request).await)
+    require_backend_mutation_context(
+        &state,
+        context,
+        "compliance.auditEvents.anonymizeActor.create",
+    )?;
+    created_json(state.api.anonymize_audit_subject(request).await)
 }

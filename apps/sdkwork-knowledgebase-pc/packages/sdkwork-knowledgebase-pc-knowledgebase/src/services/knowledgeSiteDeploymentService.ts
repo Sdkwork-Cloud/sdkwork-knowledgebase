@@ -12,8 +12,9 @@ export interface SiteDeploymentOptions {
 }
 
 export interface SiteDeploymentResult {
-  success: boolean;
-  deploymentId: number;
+  accepted: boolean;
+  status: string;
+  deploymentId: string;
   url: string;
 }
 
@@ -37,7 +38,8 @@ export async function publishKnowledgeSite(
   });
 
   return {
-    success: result.success,
+    accepted: result.accepted === true,
+    status: result.status,
     deploymentId: result.deploymentId,
     url: result.url,
   };

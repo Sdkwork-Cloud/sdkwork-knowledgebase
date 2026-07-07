@@ -6,18 +6,17 @@
       "prefix": "kb_",
       "owner": "knowledgebase-platform",
       "domain": "knowledgebase",
-      "status": "LEGACY_COMPATIBLE",
-      "compatibilityLevel": "L0",
-      "notes": "Legacy prefix from Phase 0.1. All new tables MUST use 'knowledge_' prefix.",
-      "migrationPlan": "Existing kb_ tables are L0 legacy; new migrations should use knowledge_ prefix. Full physical rename deferred to Phase 3."
+      "status": "ACTIVE",
+      "compatibilityLevel": "L2",
+      "notes": "Canonical physical table prefix for SDKWork Knowledgebase-owned tables."
     },
     {
-      "prefix": "knowledge_",
-      "owner": "knowledgebase-platform",
-      "domain": "knowledgebase",
-      "status": "ACTIVE",
-      "compatibilityLevel": "L1",
-      "notes": "Standard prefix for all new knowledgebase tables from Phase 1.2+."
+      "prefix": "web_",
+      "owner": "sdkwork-web-framework",
+      "domain": "web-framework",
+      "status": "EMBEDDED",
+      "compatibilityLevel": "L2",
+      "notes": "Embedded SDKWork Web Framework audit tables bootstrapped by the Knowledgebase database lifecycle."
     }
   ]
 }

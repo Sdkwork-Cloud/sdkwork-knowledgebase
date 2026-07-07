@@ -176,7 +176,7 @@ async fn open_browser_route_preserves_query_parameters() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/knowledge/v3/api/spaces/7/browser?view=okf_bundle&pageSize=25&parentId=node-okf&cursor=c1")
+                .uri("/knowledge/v3/api/spaces/7/browser?view=okf_bundle&page_size=25&parentId=node-okf&cursor=c1")
                 .extension(open_context())
                 .body(Body::empty())
                 .unwrap(),
@@ -201,6 +201,32 @@ async fn open_browser_route_preserves_query_parameters() {
 }
 
 #[tokio::test]
+async fn open_browser_route_rejects_forbidden_page_size_alias() {
+    let app = build_router_with_open_api(RecordingOpenApi::default());
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/knowledge/v3/api/spaces/7/browser?view=okf_bundle&pageSize=25")
+                .extension(open_context())
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    let problem: ProblemDetails = serde_json::from_slice(&body).unwrap();
+    assert_eq!(problem.status, 400);
+    assert_eq!(problem.code, 40003);
+    assert_eq!(
+        problem.detail.as_deref(),
+        Some("HTTP query parameter pageSize is forbidden; use page_size")
+    );
+}
+
+#[tokio::test]
 async fn open_router_exposes_document_and_ingest_read_routes() {
     let app = build_router_with_open_api(RecordingOpenApi::default());
 
@@ -218,7 +244,7 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
     assert_eq!(list_response.status(), StatusCode::OK);
     assert_eq!(
         response_json(list_response).await["data"]["items"][0]["id"],
-        901
+        "901"
     );
 
     let retrieve_response = app
@@ -235,7 +261,7 @@ async fn open_router_exposes_document_and_ingest_read_routes() {
     assert_eq!(retrieve_response.status(), StatusCode::OK);
     assert_eq!(
         response_json(retrieve_response).await["data"]["item"]["id"],
-        901
+        "901"
     );
 
     let ingest_response = app
@@ -574,13 +600,4 @@ where
 {
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     serde_json::from_slice(&bytes).unwrap()
-}
-
-/// Unwrap the `SdkWorkApiResponse` envelope and return `data.item`.
-async fn response_item<T>(response: axum::response::Response) -> T
-where
-    T: serde::de::DeserializeOwned,
-{
-    let value: Value = response_json(response).await;
-    serde_json::from_value(value["data"]["item"].clone()).unwrap()
 }

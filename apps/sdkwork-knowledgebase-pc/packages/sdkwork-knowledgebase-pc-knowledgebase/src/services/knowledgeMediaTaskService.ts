@@ -23,18 +23,18 @@ export interface ImageGenerationResult {
   similars: string[];
 }
 
-function parseDocumentId(documentId?: string): number | undefined {
+function parseDocumentId(documentId?: string): string | undefined {
   if (isBlank(documentId)) {
     return undefined;
   }
-  const parsed = Number(documentId);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  const trimmed = trim(documentId);
+  if (!/^[0-9]+$/u.test(trimmed) || /^0+$/u.test(trimmed)) {
     return undefined;
   }
-  return parsed;
+  return trimmed;
 }
 
-function resolveSpaceId(context?: MediaTaskContext): number {
+function resolveSpaceId(context?: MediaTaskContext): string {
   const spaceId = context?.spaceId;
   if (!isBlank(spaceId)) {
     return parseKnowledgeSpaceId(spaceId);
@@ -56,7 +56,7 @@ export async function runSpeechToTextTask(
     documentId: parseDocumentId(context?.documentId),
   });
 
-  if (!result.success || isBlank(result.text)) {
+  if (result.accepted !== true || isBlank(result.text)) {
     throwKnowledgebaseError(KnowledgebaseErrorCodes.SPEECH_NO_RESULT);
   }
 
@@ -80,7 +80,7 @@ export async function runImageGenerationTask(
     styleMode: trim(styleMode) || 'default',
   });
 
-  if (!result.success || isBlank(result.url)) {
+  if (result.accepted !== true || isBlank(result.url)) {
     throwKnowledgebaseError(KnowledgebaseErrorCodes.IMAGE_URL_MISSING);
   }
 

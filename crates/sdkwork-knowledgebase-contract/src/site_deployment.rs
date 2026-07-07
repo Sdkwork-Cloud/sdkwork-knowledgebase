@@ -16,15 +16,16 @@ pub struct KnowledgeSiteDeploymentRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeSiteDeploymentResult {
-    pub success: bool,
-    pub deployment_id: u64,
+    pub accepted: bool,
+    pub status: String,
+    pub deployment_id: String,
     pub url: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeSiteDeploymentPreview {
-    pub deployment_id: u64,
+    pub deployment_id: String,
     pub content_type: String,
     pub html: String,
 }

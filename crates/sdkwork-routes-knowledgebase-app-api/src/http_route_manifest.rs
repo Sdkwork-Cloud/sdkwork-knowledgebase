@@ -72,7 +72,13 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_abuse_route(
         HttpMethod::Put,
         "/app/v3/api/knowledge/wechat/official_accounts",
-        "wechat.officialAccounts.replace",
+        "wechat.officialAccounts.update",
+        "knowledge.wechat.manage",
+    ),
+    knowledge_route(
+        HttpMethod::Get,
+        "/app/v3/api/knowledge/wechat/official_accounts/{account_id}/fan_tags",
+        "wechat.officialAccounts.fanTags.list",
         "knowledge.wechat.manage",
     ),
     knowledge_route(
@@ -84,7 +90,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_abuse_route(
         HttpMethod::Put,
         "/app/v3/api/knowledge/wechat/applets",
-        "wechat.applets.replace",
+        "wechat.applets.update",
         "knowledge.wechat.manage",
     ),
     knowledge_abuse_route(
@@ -144,7 +150,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/documents/{documentId}/content",
-        "documents.content.retrieve",
+        "documents.content.list",
         "knowledge.documents.read",
     ),
     knowledge_route(
@@ -156,7 +162,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/documents/{documentId}/versions",
-        "documents.versions.create",
+        "documents.versions.versions",
         "knowledge.documents.write",
     ),
     knowledge_route(
@@ -168,7 +174,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_route(
         HttpMethod::Put,
         "/app/v3/api/knowledge/okf/concepts/upsert",
-        "okf.concepts.upsert",
+        "okf.concepts.update",
         "knowledge.okf.write",
     ),
     knowledge_route(
@@ -192,19 +198,19 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/index",
-        "okf.bundle.index.retrieve",
+        "okf.bundle.index.list",
         "knowledge.okf.read",
     ),
     knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/log",
-        "okf.bundle.log.retrieve",
+        "okf.bundle.log.list",
         "knowledge.okf.read",
     ),
     knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/okf/profile",
-        "okf.bundle.profile.retrieve",
+        "okf.bundle.profile.list",
         "knowledge.okf.read",
     ),
     knowledge_route(
@@ -306,7 +312,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
-        "agentProfiles.bindings.create",
+        "agentProfiles.bindings.bindings",
         "knowledge.agent_profiles.write",
     ),
     knowledge_route(
@@ -324,13 +330,13 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
-        "agentProfiles.retrievalPreview.create",
+        "agentProfiles.retrievalPreview.retrievalPreview",
         "knowledge.agent_profiles.write",
     ),
     knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
-        "agentProfiles.chat.create",
+        "agentProfiles.chat.chat",
         "knowledge.agent_profiles.write",
     ),
     knowledge_route(
@@ -342,7 +348,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
-        "spaces.contextBindings.create",
+        "spaces.contextBindings.contextBindings",
         "knowledge.spaces.write",
     ),
     knowledge_route(
@@ -354,13 +360,13 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/spaces/{spaceId}/members",
-        "spaces.members.grant",
+        "spaces.members.members",
         "knowledge.spaces.write",
     ),
     knowledge_route(
         HttpMethod::Delete,
         "/app/v3/api/knowledge/spaces/{spaceId}/members",
-        "spaces.members.revoke",
+        "spaces.members.delete",
         "knowledge.spaces.write",
     ),
     knowledge_route(
@@ -420,7 +426,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     knowledge_route(
         HttpMethod::Get,
         "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
-        "siteDeployments.preview.retrieve",
+        "siteDeployments.preview.list",
         "knowledge.deployments.read",
     ),
     knowledge_abuse_route(

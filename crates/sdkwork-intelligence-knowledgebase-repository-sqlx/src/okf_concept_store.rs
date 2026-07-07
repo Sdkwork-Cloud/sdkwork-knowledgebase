@@ -9,7 +9,7 @@ use sdkwork_knowledgebase_contract::okf::{
     OkfLogEntry, OkfLogEventType, OkfRevisionReviewState,
 };
 use sdkwork_utils_rust::is_blank;
-use sqlx::{any::AnyRow, AnyPool, QueryBuilder, Row};
+use sqlx::{any::AnyRow, Any, AnyPool, QueryBuilder, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -616,7 +616,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
 
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", space_id)?;
-        let mut builder = QueryBuilder::new(
+        let mut builder = QueryBuilder::<Any>::new(
             r#"
             SELECT logical_path, id, current_revision_id, publish_state
             FROM kb_okf_concept

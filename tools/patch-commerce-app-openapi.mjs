@@ -37,6 +37,19 @@ const sdkworkExtensions = {
   'x-sdkwork-auth-mode': 'dual-token',
 };
 
+const int64StringSchema = {
+  type: 'string',
+  format: 'uint64',
+  pattern: '^[0-9]+$',
+  'x-sdkwork-int64-string': true,
+};
+const nullableInt64StringSchema = {
+  type: ['string', 'null'],
+  format: 'uint64',
+  pattern: '^[0-9]+$',
+  'x-sdkwork-int64-string': true,
+};
+
 const commercePaths = {
   '/app/v3/api/knowledge/market/listings': {
     get: {
@@ -84,12 +97,12 @@ const commercePaths = {
           name: 'listingId',
           in: 'path',
           required: true,
-          schema: { type: 'integer', format: 'uint64' },
+          schema: int64StringSchema,
         },
       ],
       responses: {
         ...errorResponses,
-        200: jsonResponse(commandEnvelope('#/components/schemas/KnowledgeMarketSubscriptionResult')),
+        204: { description: 'No Content' },
       },
       ...sdkworkExtensions,
     },
@@ -117,7 +130,7 @@ const commercePaths = {
   },
   '/app/v3/api/knowledge/site_deployments/{deploymentId}/preview': {
     get: {
-      operationId: 'siteDeployments.preview.retrieve',
+      operationId: 'siteDeployments.preview.list',
       tags: ['knowledge'],
       summary: 'Retrieve site deployment preview HTML',
       security: [{ AuthToken: [], AccessToken: [] }],
@@ -126,7 +139,7 @@ const commercePaths = {
           name: 'deploymentId',
           in: 'path',
           required: true,
-          schema: { type: 'integer', format: 'uint64' },
+          schema: int64StringSchema,
         },
       ],
       responses: {
@@ -193,21 +206,22 @@ const commerceSchemas = {
     type: 'object',
     required: ['listingId'],
     properties: {
-      listingId: { type: 'integer', format: 'uint64' },
+      listingId: int64StringSchema,
     },
   },
   KnowledgeMarketSubscriptionResult: {
     type: 'object',
-    required: ['success'],
+    required: ['accepted', 'status'],
     properties: {
-      success: { type: 'boolean' },
+      accepted: { type: 'boolean', const: true },
+      status: { type: 'string', enum: ['completed'] },
     },
   },
   KnowledgeSiteDeploymentRequest: {
     type: 'object',
     required: ['spaceId', 'platform'],
     properties: {
-      spaceId: { type: 'integer', format: 'uint64' },
+      spaceId: int64StringSchema,
       platform: { type: 'string', minLength: 1 },
       siteName: { type: ['string', 'null'] },
       customDomain: { type: ['string', 'null'] },
@@ -216,10 +230,11 @@ const commerceSchemas = {
   },
   KnowledgeSiteDeploymentResult: {
     type: 'object',
-    required: ['success', 'deploymentId', 'url'],
+    required: ['accepted', 'status', 'deploymentId', 'url'],
     properties: {
-      success: { type: 'boolean' },
-      deploymentId: { type: 'integer', format: 'uint64' },
+      accepted: { type: 'boolean', const: true },
+      status: { type: 'string', enum: ['completed'] },
+      deploymentId: int64StringSchema,
       url: { type: 'string', minLength: 1 },
     },
   },
@@ -227,7 +242,7 @@ const commerceSchemas = {
     type: 'object',
     required: ['deploymentId', 'contentType', 'html'],
     properties: {
-      deploymentId: { type: 'integer', format: 'uint64' },
+      deploymentId: int64StringSchema,
       contentType: { type: 'string', minLength: 1 },
       html: { type: 'string' },
     },
@@ -240,20 +255,21 @@ const commerceSchemas = {
     type: 'object',
     required: ['spaceId', 'taskType'],
     properties: {
-      spaceId: { type: 'integer', format: 'uint64' },
+      spaceId: int64StringSchema,
       taskType: { $ref: '#/components/schemas/KnowledgeMediaTaskType' },
       prompt: { type: ['string', 'null'] },
       aspectMode: { type: ['string', 'null'] },
       styleMode: { type: ['string', 'null'] },
       sourceUrl: { type: ['string', 'null'] },
-      documentId: { type: ['integer', 'null'], format: 'uint64' },
+      documentId: nullableInt64StringSchema,
     },
   },
   KnowledgeMediaTaskResult: {
     type: 'object',
-    required: ['success', 'suggestions', 'similars'],
+    required: ['accepted', 'status', 'suggestions', 'similars'],
     properties: {
-      success: { type: 'boolean' },
+      accepted: { type: 'boolean', const: true },
+      status: { type: 'string', enum: ['completed'] },
       url: { type: ['string', 'null'] },
       resolution: { type: ['string', 'null'] },
       text: { type: ['string', 'null'] },

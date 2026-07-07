@@ -7,6 +7,11 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
 };
 use std::collections::BTreeSet;
 
+const APP_ROOT_POSTGRES_BASELINE: &str =
+    include_str!("../../../database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql");
+const APP_ROOT_SQLITE_BASELINE: &str =
+    include_str!("../../../database/ddl/baseline/sqlite/0001_knowledgebase_baseline.sql");
+
 const REQUIRED_CORE_TABLES: [&str; 22] = [
     "kb_space",
     "kb_collection",
@@ -543,6 +548,44 @@ fn outbox_claim_migrations_add_claimed_at_column() {
     }
 }
 
+#[test]
+fn app_root_database_baselines_are_engine_specific_single_snapshots() {
+    for (needle, expected_count) in [
+        ("CREATE TABLE IF NOT EXISTS kb_market_listing", 1),
+        ("CREATE TABLE IF NOT EXISTS kb_market_subscription", 1),
+        ("CREATE TABLE IF NOT EXISTS kb_site_deployment", 1),
+        (
+            "ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS claimed_at",
+            1,
+        ),
+        ("CREATE INDEX IF NOT EXISTS idx_kb_outbox_stale_claim", 1),
+    ] {
+        assert_eq!(
+            count_occurrences(APP_ROOT_POSTGRES_BASELINE, needle),
+            expected_count,
+            "postgres baseline must contain {needle} exactly {expected_count} time(s)"
+        );
+    }
+
+    assert!(APP_ROOT_POSTGRES_BASELINE.contains("expires_at BIGINT"));
+    assert!(APP_ROOT_POSTGRES_BASELINE.contains("idx_web_audit_expires"));
+    assert!(APP_ROOT_SQLITE_BASELINE.contains("expires_at INTEGER"));
+    assert!(APP_ROOT_SQLITE_BASELINE.contains("idx_web_audit_expires"));
+
+    for forbidden in [
+        "ADD COLUMN IF NOT EXISTS",
+        "USING GIN",
+        "to_tsvector",
+        "JSONB",
+        "DOUBLE PRECISION",
+    ] {
+        assert!(
+            !APP_ROOT_SQLITE_BASELINE.contains(forbidden),
+            "sqlite baseline must not contain postgres-only syntax: {forbidden}"
+        );
+    }
+}
+
 fn defined_database_objects(migration: &'static str, prefix: &str) -> BTreeSet<&'static str> {
     migration
         .lines()
@@ -550,4 +593,8 @@ fn defined_database_objects(migration: &'static str, prefix: &str) -> BTreeSet<&
         .filter_map(|tail| tail.split_whitespace().next())
         .map(|object_name| object_name.trim_matches('"'))
         .collect()
+}
+
+fn count_occurrences(haystack: &str, needle: &str) -> usize {
+    haystack.matches(needle).count()
 }

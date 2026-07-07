@@ -253,13 +253,23 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
                 let metadata_score = *metadata_score;
                 let concept = concept.clone();
                 handles.push(tokio::spawn(async move {
-                    let body = read_managed_markdown(
+                    let body = match read_managed_markdown(
                         drive.as_ref(),
                         &logical_path,
                         drive_space_id.as_deref(),
                     )
                     .await
-                    .ok();
+                    {
+                        Ok(content) => Some(content),
+                        Err(error) => {
+                            tracing::warn!(
+                                logical_path = %logical_path,
+                                ?error,
+                                "okf native search skipped drive body read; using metadata-only ranking"
+                            );
+                            None
+                        }
+                    };
                     (metadata_score, concept, body)
                 }));
             }

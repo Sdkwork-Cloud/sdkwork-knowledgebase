@@ -47,7 +47,7 @@ async fn agent_profile_routes_call_injected_service() {
         ))
         .await
         .unwrap();
-    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    assert_eq!(binding_response.status(), StatusCode::OK);
     assert_eq!(response_json(binding_response).await["spaceId"], "7");
 
     let list_response = app
@@ -91,7 +91,7 @@ async fn agent_retrieval_preview_route_calls_injected_service() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::CREATED);
+    assert_eq!(response.status(), StatusCode::OK);
     let body = response_json(response).await;
     assert_eq!(body["retrievalId"], "701");
     assert_eq!(body["hits"][0]["chunkId"], "11");
@@ -111,7 +111,7 @@ async fn agent_chat_route_calls_injected_service() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::CREATED);
+    assert_eq!(response.status(), StatusCode::OK);
     let body = response_json(response).await;
     assert_eq!(body["mode"], "okf_bundle");
     assert_eq!(body["citations"][0]["title"], "Support Playbook");
@@ -147,7 +147,7 @@ async fn combined_router_serves_retrieval_and_agent_routes_together() {
         ))
         .await
         .unwrap();
-    assert_eq!(preview_response.status(), StatusCode::CREATED);
+    assert_eq!(preview_response.status(), StatusCode::OK);
     assert_eq!(response_json(preview_response).await["retrievalId"], "701");
 }
 

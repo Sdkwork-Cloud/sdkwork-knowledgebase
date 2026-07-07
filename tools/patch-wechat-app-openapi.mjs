@@ -2,6 +2,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  commandEnvelope,
+  jsonResponse,
+} from './lib/openapi-envelope.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const openapiPath = path.join(
@@ -64,7 +68,7 @@ spec.paths['/app/v3/api/knowledge/wechat/official_accounts'] = {
       },
     },
   }),
-  put: op('wechat.officialAccounts.replace', 'Replace WeChat official accounts', {
+  put: op('wechat.officialAccounts.update', 'Replace WeChat official accounts', {
     rateLimit: 'write-heavy',
     body: 'KnowledgeWechatReplaceOfficialAccountsRequest',
     responses: {
@@ -94,7 +98,7 @@ spec.paths['/app/v3/api/knowledge/wechat/applets'] = {
       },
     },
   }),
-  put: op('wechat.applets.replace', 'Replace WeChat applets', {
+  put: op('wechat.applets.update', 'Replace WeChat applets', {
     rateLimit: 'write-heavy',
     body: 'KnowledgeWechatReplaceAppletsRequest',
     responses: {
@@ -114,15 +118,8 @@ spec.paths['/app/v3/api/knowledge/wechat/articles/publish'] = {
   post: op('wechat.articles.publish', 'Publish WeChat articles', {
     rateLimit: 'write-heavy',
     body: 'KnowledgeWechatArticlesPublishRequest',
-    responses: {
-      200: {
-        description: 'OK',
-        content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/KnowledgeWechatOperationResult' },
-          },
-        },
-      },
+      responses: {
+      200: jsonResponse(commandEnvelope('#/components/schemas/KnowledgeWechatOperationResult')),
     },
   }),
 };
@@ -132,14 +129,7 @@ spec.paths['/app/v3/api/knowledge/wechat/articles/preview'] = {
     rateLimit: 'write-heavy',
     body: 'KnowledgeWechatArticlesPreviewRequest',
     responses: {
-      200: {
-        description: 'OK',
-        content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/KnowledgeWechatOperationResult' },
-          },
-        },
-      },
+      200: jsonResponse(commandEnvelope('#/components/schemas/KnowledgeWechatOperationResult')),
     },
   }),
 };
@@ -277,10 +267,10 @@ Object.assign(spec.components.schemas, {
   },
   KnowledgeWechatOperationResult: {
     type: 'object',
-    required: ['success', 'message'],
+    required: ['accepted', 'status'],
     properties: {
-      success: { type: 'boolean' },
-      message: { type: 'string' },
+      accepted: { type: 'boolean', const: true },
+      status: { type: 'string', enum: ['completed'] },
     },
   },
 });

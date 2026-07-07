@@ -1,4 +1,4 @@
 export interface OkfCompileJobRequest {
-  spaceId: number;
-  sourceId?: number | null;
+  spaceId: string;
+  sourceId?: string | null;
 }

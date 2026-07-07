@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createdResponse,
+  jsonResponse,
   resourceEnvelope,
 } from "./lib/openapi-envelope.mjs";
 
@@ -145,7 +146,7 @@ const newPaths = {
         },
       },
       responses: {
-        201: createdResponse(resourceEnvelope("#/components/schemas/IngestionJob")),
+        200: jsonResponse(resourceEnvelope("#/components/schemas/IngestionJob")),
         400: problemResponse,
         404: problemResponse,
       },

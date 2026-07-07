@@ -20,13 +20,13 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
     KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession,
     KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
-    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatOfficialAccountList,
-    KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest,
-    KnowledgeWechatReplaceOfficialAccountsRequest, ListKnowledgeBrowserRequest,
-    OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary,
-    OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument,
-    OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest,
-    OkfQueryResult, UpdateKnowledgeSpaceRequest,
+    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList,
+    KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
+    KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
+    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
+    OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest, OkfContextPackRequest,
+    OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun,
+    OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, UpdateKnowledgeSpaceRequest,
 };
 use sdkwork_utils_rust::SdkWorkPageData;
 use std::sync::Arc;
@@ -952,6 +952,16 @@ impl KnowledgeAppApi for FullAppApi {
     ) -> ApiResult<KnowledgeWechatOfficialAccountList> {
         self.wechat
             .replace_official_accounts(context, request)
+            .await
+    }
+
+    async fn list_official_account_fan_tags(
+        &self,
+        context: KnowledgeAppRequestContext,
+        account_id: String,
+    ) -> ApiResult<KnowledgeWechatFanTagList> {
+        self.wechat
+            .list_official_account_fan_tags(context, account_id)
             .await
     }
 

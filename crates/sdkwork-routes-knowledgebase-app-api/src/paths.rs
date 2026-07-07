@@ -47,6 +47,8 @@ pub const UPLOAD_SESSIONS: &str = "/app/v3/api/knowledge/upload_sessions";
 pub const UPLOAD_SESSION_COMPLETE: &str =
     "/app/v3/api/knowledge/upload_sessions/{session_id}/complete";
 pub const WECHAT_OFFICIAL_ACCOUNTS: &str = "/app/v3/api/knowledge/wechat/official_accounts";
+pub const WECHAT_OFFICIAL_ACCOUNT_FAN_TAGS: &str =
+    "/app/v3/api/knowledge/wechat/official_accounts/{account_id}/fan_tags";
 pub const WECHAT_APPLETS: &str = "/app/v3/api/knowledge/wechat/applets";
 pub const WECHAT_ARTICLES_PUBLISH: &str = "/app/v3/api/knowledge/wechat/articles/publish";
 pub const WECHAT_ARTICLES_PREVIEW: &str = "/app/v3/api/knowledge/wechat/articles/preview";

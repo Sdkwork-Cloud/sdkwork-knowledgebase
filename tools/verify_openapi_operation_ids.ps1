@@ -33,22 +33,22 @@ $required = @(
     "agentProfiles.update",
     "agentProfiles.delete",
     "agentProfiles.bindings.list",
-    "agentProfiles.bindings.create",
+    "agentProfiles.bindings.bindings",
     "agentProfiles.bindings.update",
     "agentProfiles.bindings.delete",
-    "agentProfiles.retrievalPreview.create",
+    "agentProfiles.retrievalPreview.retrievalPreview",
     "sources.list",
     "sources.create",
     "documents.list",
     "documents.create",
     "documents.retrieve",
-    "documents.content.retrieve",
-    "documents.versions.create",
+    "documents.content.list",
+    "documents.versions.versions",
     "documents.versions.list",
-    "okf.bundle.index.retrieve",
-    "okf.bundle.log.retrieve",
+    "okf.bundle.index.list",
+    "okf.bundle.log.list",
     "okf.log.entries.create",
-    "okf.bundle.profile.retrieve",
+    "okf.bundle.profile.list",
     "okf.profile.create",
     "okf.queries.fileAnswer",
     "indexes.create",
@@ -59,7 +59,7 @@ $required = @(
     "retrievalProfiles.update",
     "retrievalTraces.list",
     "retrievalTraces.retrieve",
-    "providerHealth.retrieve"
+    "providerHealth.list"
 )
 
 $operationIds = New-Object System.Collections.Generic.List[string]

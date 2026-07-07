@@ -10,7 +10,6 @@
     "sqlite"
   ],
   "defaultEngine": "postgres",
-  "tablePrefix": "knowledge_",
   "contractVersion": "1.0.0",
   "baselineStrategy": "baseline-plus-migrations",
   "modules": [],
@@ -42,5 +41,10 @@
   "spi": {
     "provider": "default",
     "hooks": []
-  }
+  },
+  "tablePrefixes": [
+    "kb_",
+    "web_"
+  ],
+  "baselineAnchorTable": "kb_space"
 }

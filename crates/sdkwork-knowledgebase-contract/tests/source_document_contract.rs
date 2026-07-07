@@ -1,6 +1,6 @@
 use sdkwork_knowledgebase_contract::document::{
-    KnowledgeDocument, KnowledgeDocumentState, KnowledgeDocumentVersion,
-    KnowledgeDocumentVersionState, KnowledgeDocumentVisibility,
+    CreateKnowledgeDocumentRequest, KnowledgeDocument, KnowledgeDocumentState,
+    KnowledgeDocumentVersion, KnowledgeDocumentVersionState, KnowledgeDocumentVisibility,
 };
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 
@@ -59,12 +59,28 @@ fn document_contract_keeps_metadata_and_drive_references_out_of_payload_bytes() 
     let document_json = serde_json::to_value(document).unwrap();
     let version_json = serde_json::to_value(version).unwrap();
 
+    assert_eq!(document_json["id"], "2");
+    assert_eq!(document_json["spaceId"], "7");
     assert_eq!(document_json["currentVersionId"], serde_json::Value::Null);
     assert_eq!(document_json["originalFileDriveNodeId"], "node-api-payload");
     assert_eq!(document_json["visibility"], "space");
     assert_eq!(document_json["contentState"], "ready");
-    assert_eq!(version_json["originalObjectRefId"], 42);
+    assert_eq!(version_json["originalObjectRefId"], "42");
     assert_eq!(version_json["parseState"], "pending");
     assert!(document_json.get("payloadMarkdown").is_none());
     assert!(version_json.get("payloadBytes").is_none());
+}
+
+#[test]
+fn create_document_request_accepts_missing_optional_int64_fields() {
+    let request: CreateKnowledgeDocumentRequest = serde_json::from_value(serde_json::json!({
+        "spaceId": "332872288108019712",
+        "title": "Visibility update",
+        "visibility": "public"
+    }))
+    .expect("deserialize create document request without optional ids");
+
+    assert_eq!(request.space_id, 332_872_288_108_019_712);
+    assert_eq!(request.collection_id, None);
+    assert_eq!(request.source_id, None);
 }

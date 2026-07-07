@@ -111,6 +111,8 @@ pnpm lint
 
 `pnpm verify` includes Phase 1 contract checks, security/observability alignment, launch-readiness gates, and cloud gateway validation.
 
+Current commercialization status: prelaunch-gated. The app manifest now blocks publication with `publish.status=INACTIVE`, `release.defaultChannel=DEV`, disabled prelaunch packages, and disabled placeholder media projection. Production/commercial publication still requires the unresolved release evidence listed in [docs/product/prd/PRD-mvp-launch.md](docs/product/prd/PRD-mvp-launch.md), including real product media assets, artifact checksum/signature/SBOM/provenance evidence, release-environment PostgreSQL validation, rollout/rollback evidence, and live smoke records.
+
 Launch runbook: [deployments/runbooks/production-launch.md](deployments/runbooks/production-launch.md)
 
 Acceptance criteria: [docs/product/prd/PRD-mvp-launch.md](docs/product/prd/PRD-mvp-launch.md)
@@ -179,10 +181,10 @@ Valid values are `0` through `1023`. Local and test runs may omit the variable a
 - SQLite SQLx repositories persist knowledge spaces and OKF bundle file entries, so space creation can initialize `okf/schema/AGENTS.md`, `okf/schema/okf_profile.yaml`, `okf/index.md`, and `okf/log.md` through the drive port and then mark the space as `okf_bundle_initialized`.
 - OKF concept revision numbers and `okf/log.md` sequence numbers are reserved with database-backed counters to avoid `MAX + 1` races under concurrent writes.
 - Local mirror snapshot and delta manifest services create OKF-compatible export artifacts, compute SHA-256 checksums, reject unsafe path segments, and persist those manifests only through `KnowledgeDriveStorage`.
-- App and Backend OpenAPI authority files use SDKWork dotted operation IDs, including `okf.bundle.index.retrieve`, `okf.log.entries.create`, `driveImports.create`, `documents.versions.create`, and `sources.create`.
+- App and Backend OpenAPI authority files use SDKWork dotted operation IDs, including `okf.bundle.index.list`, `okf.bundle.log.list`, `driveImports.create`, `documents.versions.versions`, and `sources.create`.
 - Generated App and Backend TypeScript SDKs are produced with the canonical `sdkwork-sdk-generator` using the SDKWork v3 standard profile.
 - App and Backend SDK families declare Appbase, Drive, and Memory dependency SDKs; dependency-owned Appbase, Drive, and Memory APIs are not generated into knowledgebase transports.
-- App and Backend Rust API crates mount every generated OpenAPI operation path. The hosted SQLx runtime (`KnowledgebaseRuntime`) wires all **102** HTTP operations (68 app + 26 backend + 8 open) to concrete service implementations; trait default stubs in route crates remain only for library-only injection tests.
+- App and Backend Rust API crates mount every generated OpenAPI operation path. The hosted SQLx runtime (`KnowledgebaseRuntime`) wires all **109** HTTP operations (69 app + 32 backend + 8 open) to concrete service implementations; trait default stubs in route crates remain only for library-only injection tests.
 - The agent provider crate exposes `provider.knowledge.sdkwork-knowledgebase` as a typed `sdkwork-agent-kernel::KnowledgeProvider` adapter backed by an injected retrieval client.
 
 ## SDKWork Documentation Contract

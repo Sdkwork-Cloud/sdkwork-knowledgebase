@@ -22,6 +22,16 @@ export class CloudDriveService {
     return withCloudDriveApi(() => KnowledgeDriveImportService.listCloudDriveBrowserItems(kbId, folderId));
   }
 
+  static async listBrowserItemsPage(
+    kbId: string,
+    folderId: string | null,
+    cursor?: string | null,
+  ): Promise<{ items: KnowledgeDriveImportService.CloudDriveBrowserItem[]; nextCursor: string | null; hasMore: boolean }> {
+    return withCloudDriveApi(() =>
+      KnowledgeDriveImportService.listCloudDriveBrowserItemsPage(kbId, folderId, cursor),
+    );
+  }
+
   static async listStarredItems(
     kbId: string,
   ): Promise<KnowledgeDriveImportService.CloudDriveBrowserItem[]> {

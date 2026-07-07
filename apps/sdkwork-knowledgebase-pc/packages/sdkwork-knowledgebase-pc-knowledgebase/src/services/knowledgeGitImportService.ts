@@ -1,8 +1,8 @@
 import {
   KnowledgebaseErrorCodes,
-  parseKnowledgeSpaceId,
   requireKnowledgebaseAppSdkHttpClient,
   requireNonEmptyString,
+  requireRegisteredSpaceId,
 } from 'sdkwork-knowledgebase-pc-core';
 
 import { invalidateKnowledgeBrowserNodeCacheForSpaceIds } from './knowledgeBrowserListService';
@@ -24,16 +24,12 @@ function requireSdkClient() {
   return requireKnowledgebaseAppSdkHttpClient();
 }
 
-function spaceIdFromKbId(kbId: string): number {
-  return parseKnowledgeSpaceId(kbId);
-}
-
 function normalizeBranch(branch: string): string {
   const trimmed = branch.trim();
   return trimmed || 'main';
 }
 
-function buildImportIdempotencyKey(spaceId: number, repoUrl: string, branch: string): string {
+function buildImportIdempotencyKey(spaceId: string, repoUrl: string, branch: string): string {
   const raw = `git-import-${spaceId}-${repoUrl.trim()}-${branch}`;
   return raw.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 128);
 }
@@ -48,19 +44,19 @@ export async function importGitRepository(
   const trimmedRepoUrl = requireNonEmptyString(repoUrl, KnowledgebaseErrorCodes.REPO_URL_REQUIRED);
 
   const normalizedBranch = normalizeBranch(branch);
-  const spaceId = spaceIdFromKbId(kbId);
+  const spaceId = requireRegisteredSpaceId(kbId);
   const client = requireSdkClient();
   const idempotencyKey = buildImportIdempotencyKey(spaceId, trimmedRepoUrl, normalizedBranch);
   const trimmedAccessToken = accessToken?.trim();
 
   onProgress?.({
     phase: 'resolve',
-    message: `Resolving repository on branch "${normalizedBranch}"…`,
+    message: `Resolving repository on branch "${normalizedBranch}"\u2026`,
   });
 
   onProgress?.({
     phase: 'ingest',
-    message: 'Importing repository files on the server…',
+    message: 'Importing repository files on the server\u2026',
   });
 
   const result = await client.knowledge.gitImports.create({

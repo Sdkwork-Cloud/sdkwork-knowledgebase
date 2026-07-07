@@ -85,8 +85,8 @@ export interface MarketKnowledgeBase {
 }
 
 export interface DocumentVersionSummary {
-  id: number;
-  documentId: number;
+  id: string;
+  documentId: string;
   versionNo: number;
   sizeBytes: number;
   mimeType?: string | null;
@@ -101,8 +101,8 @@ export type KnowledgeDocumentVisibility =
   | 'public';
 
 export interface DocumentAccessSummary {
-  documentId: number;
-  spaceId: number;
+  documentId: string;
+  spaceId: string;
   title: string;
   visibility: KnowledgeDocumentVisibility;
 }
@@ -250,7 +250,7 @@ export class DocumentService {
       accessToken?: string;
       onProgress?: (progress: KnowledgeGitSyncService.GitSyncProgress) => void;
     },
-  ): Promise<{ success: boolean; hash: string }> {
+  ): Promise<{ accepted: boolean; hash: string }> {
     if (isBlank(options?.repoUrl)) {
       requireNonEmptyString('', KnowledgebaseErrorCodes.REPO_URL_REQUIRED);
     }
@@ -264,7 +264,7 @@ export class DocumentService {
         options.accessToken,
         options.onProgress,
       );
-      return { success: result.success, hash: result.hash };
+      return { accepted: result.accepted, hash: result.hash };
     });
   }
 
@@ -276,7 +276,7 @@ export class DocumentService {
       customDomain?: string;
       siteLogo?: string;
     },
-  ): Promise<{ success: boolean; url?: string }> {
+  ): Promise<{ accepted: boolean; url?: string }> {
     return withKnowledgebaseApi(async () => {
       const result = await KnowledgeSiteDeploymentService.publishKnowledgeSite(
         targetId,
@@ -287,7 +287,7 @@ export class DocumentService {
           siteLogoDataUrl: options?.siteLogo,
         },
       );
-      return { success: result.success, url: result.url };
+      return { accepted: result.accepted, url: result.url };
     });
   }
 
@@ -323,36 +323,43 @@ export class DocumentService {
     );
   }
 
-  static async loadKnowledgeSpaceMembers(spaceId: number): Promise<KnowledgeSpaceMemberUi[]> {
-    return withKnowledgebaseApi(() => KnowledgeSpaceMembersService.loadMembers(spaceId));
+  static async loadKnowledgeSpaceMembers(spaceId: string | number): Promise<KnowledgeSpaceMemberUi[]> {
+    return withKnowledgebaseApi(() => KnowledgeSpaceMembersService.loadMembers(String(spaceId)));
   }
 
   static async loadKnowledgeSpaceMembersPage(
-    spaceId: number,
+    spaceId: string | number,
     cursor: string | null = null,
     pageSize = 20,
   ): Promise<import('./knowledgeSpaceMembersService').KnowledgeSpaceMembersPage> {
     return withKnowledgebaseApi(() =>
-      KnowledgeSpaceMembersService.loadMembersPage(spaceId, cursor, pageSize),
+      KnowledgeSpaceMembersService.loadMembersPage(String(spaceId), cursor, pageSize),
     );
   }
 
   static async syncKnowledgeSpaceMembers(
-    spaceId: number,
+    spaceId: string | number,
     desired: KnowledgeSpaceMemberUi[],
     previous: KnowledgeSpaceMemberUi[],
   ): Promise<void> {
-    return withKnowledgebaseApi(() => KnowledgeSpaceMembersService.syncMembers(spaceId, desired, previous));
+    return withKnowledgebaseApi(() =>
+      KnowledgeSpaceMembersService.syncMembers(String(spaceId), desired, previous),
+    );
   }
 
   static async syncKnowledgeSpaceMembersPartial(
-    spaceId: number,
+    spaceId: string | number,
     uiMembers: KnowledgeSpaceMemberUi[],
     baselineMembers: KnowledgeSpaceMemberUi[],
     loadedEmails: ReadonlySet<string>,
   ): Promise<void> {
     return withKnowledgebaseApi(() =>
-      KnowledgeSpaceMembersService.syncMembersPartial(spaceId, uiMembers, baselineMembers, loadedEmails),
+      KnowledgeSpaceMembersService.syncMembersPartial(
+        String(spaceId),
+        uiMembers,
+        baselineMembers,
+        loadedEmails,
+      ),
     );
   }
 

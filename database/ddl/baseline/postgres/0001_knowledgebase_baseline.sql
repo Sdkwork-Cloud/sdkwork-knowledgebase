@@ -864,87 +864,6 @@ CREATE TABLE IF NOT EXISTS kb_site_deployment (
 CREATE INDEX IF NOT EXISTS idx_kb_site_deployment_space
     ON kb_site_deployment (tenant_id, space_id, status, updated_at);
 
--- folded migration: migrations/postgres/0002_knowledgebase_outbox_claim.up.sql
--- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606220003__knowledgebase_outbox_claim.sql
--- Outbox worker claim timestamp for stale-claim release.
-
-ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS claimed_at VARCHAR(64);
-
--- folded migration: migrations/postgres/0003_knowledgebase_performance_indexes.up.sql
--- Performance indexes for ingestion job polling and outbox stale-claim release.
-
-CREATE INDEX IF NOT EXISTS idx_kb_ingestion_job_tenant_state_status
-    ON kb_ingestion_job (tenant_id, state, status);
-
-CREATE INDEX IF NOT EXISTS idx_kb_outbox_stale_claim
-    ON kb_outbox_event (tenant_id, status, claimed_at);
-
--- folded migration: migrations/postgres/0004_knowledge_market_and_site_deployment.up.sql
--- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606240001__knowledge_market_and_site_deployment.sql
-
-CREATE TABLE IF NOT EXISTS kb_market_listing (
-    id BIGINT NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    space_id BIGINT NOT NULL,
-    title VARCHAR(256) NOT NULL,
-    icon VARCHAR(64),
-    description TEXT,
-    author VARCHAR(128),
-    tags_json TEXT NOT NULL DEFAULT '[]',
-    provider VARCHAR(128),
-    model_name VARCHAR(128),
-    subscribers_count INTEGER NOT NULL DEFAULT 0,
-    documents_count INTEGER NOT NULL DEFAULT 0,
-    status INTEGER NOT NULL DEFAULT 1,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    version INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    FOREIGN KEY (space_id) REFERENCES kb_space(id)
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_market_listing_space
-    ON kb_market_listing (tenant_id, space_id)
-    WHERE status = 1;
-
-CREATE INDEX IF NOT EXISTS idx_kb_market_listing_status
-    ON kb_market_listing (tenant_id, status, updated_at);
-
-CREATE TABLE IF NOT EXISTS kb_market_subscription (
-    id BIGINT NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    subscriber_actor_id BIGINT NOT NULL,
-    listing_id BIGINT NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    status INTEGER NOT NULL DEFAULT 1,
-    PRIMARY KEY (id),
-    FOREIGN KEY (listing_id) REFERENCES kb_market_listing(id)
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_market_subscription_actor_listing
-    ON kb_market_subscription (tenant_id, subscriber_actor_id, listing_id)
-    WHERE status = 1;
-
-CREATE TABLE IF NOT EXISTS kb_site_deployment (
-    id BIGINT NOT NULL,
-    tenant_id BIGINT NOT NULL,
-    space_id BIGINT NOT NULL,
-    platform VARCHAR(64) NOT NULL,
-    site_name VARCHAR(256),
-    custom_domain VARCHAR(256),
-    site_logo_data_url TEXT,
-    deployed_url TEXT NOT NULL,
-    preview_object_key TEXT NOT NULL,
-    status INTEGER NOT NULL DEFAULT 1,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    version INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (id),
-    FOREIGN KEY (space_id) REFERENCES kb_space(id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_kb_site_deployment_space
-    ON kb_site_deployment (tenant_id, space_id, status, updated_at);
 
 -- folded migration: migrations/postgres/0005_knowledgebase_audit_event.up.sql
 -- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606250001__knowledgebase_audit_event.sql
@@ -983,6 +902,7 @@ CREATE INDEX IF NOT EXISTS idx_kb_audit_event_event_type
 -- folded migration: migrations/postgres/0006_web_audit_event.up.sql
 -- source: sdkwork-web-framework/crates/sdkwork-web-store-sqlx/migrations/003_web_audit_event.sql
 -- source: sdkwork-web-framework/crates/sdkwork-web-store-sqlx/migrations/009_web_audit_outcome.sql
+-- source: sdkwork-web-framework/crates/sdkwork-web-store-sqlx/migrations/013_web_event_expires_at.sql
 
 CREATE TABLE IF NOT EXISTS web_audit_event (
     id BIGSERIAL PRIMARY KEY,
@@ -995,6 +915,7 @@ CREATE TABLE IF NOT EXISTS web_audit_event (
     operation_id VARCHAR(128),
     status_code INTEGER,
     duration_ms INTEGER,
+    expires_at BIGINT,
     created_at BIGINT NOT NULL
 );
 
@@ -1006,6 +927,9 @@ CREATE INDEX IF NOT EXISTS idx_web_audit_event_request
 
 CREATE INDEX IF NOT EXISTS idx_web_audit_event_tenant
     ON web_audit_event (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_web_audit_expires
+    ON web_audit_event (expires_at);
 
 -- folded migration: migrations/postgres/0007_knowledgebase_postgres_rls.up.sql
 -- Phase 2.1: Postgres RLS tenant isolation (ADR-2026-06-24-phase2-postgres-rls-multi-tenant)

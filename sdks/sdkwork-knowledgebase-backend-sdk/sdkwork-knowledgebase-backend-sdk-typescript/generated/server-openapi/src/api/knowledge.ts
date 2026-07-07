@@ -1,26 +1,48 @@
 import { backendApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult, ExportKnowledgeAuditEventsRequest, KnowledgeAuditEventExport } from '../types/knowledge-compliance';
-import type { CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, PageInfo } from '../types';
+import type { AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult, CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, IngestionJob, KnowledgeAuditEventExport, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeSpace, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, PageInfo } from '../types';
 
 
-export class KnowledgeComplianceAuditEventsApi {
+export class KnowledgeComplianceAuditEventsAnonymizeActorApi {
   private client: HttpClient;
 
   constructor(client: HttpClient) {
     this.client = client;
   }
 
-/** Export knowledge audit events for a subject */
-  async export(body: ExportKnowledgeAuditEventsRequest): Promise<KnowledgeAuditEventExport> {
-    return this.client.post<KnowledgeAuditEventExport>(backendApiPath(`/knowledge/compliance/audit_events/export`), body, undefined, undefined, 'application/json');
-  }
 
 /** Anonymize audit events for a subject */
-  async anonymizeActor(body: AnonymizeKnowledgeAuditSubjectRequest): Promise<AnonymizeKnowledgeAuditSubjectResult> {
+  async create(body: AnonymizeKnowledgeAuditSubjectRequest): Promise<AnonymizeKnowledgeAuditSubjectResult> {
     return this.client.post<AnonymizeKnowledgeAuditSubjectResult>(backendApiPath(`/knowledge/compliance/audit_events/anonymize_actor`), body, undefined, undefined, 'application/json');
   }
+}
+
+export class KnowledgeComplianceAuditEventsExportApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Export knowledge audit events for a subject */
+  async create(body: ExportKnowledgeAuditEventsRequest): Promise<KnowledgeAuditEventExport> {
+    return this.client.post<KnowledgeAuditEventExport>(backendApiPath(`/knowledge/compliance/audit_events/export`), body, undefined, undefined, 'application/json');
+  }
+}
+
+export class KnowledgeComplianceAuditEventsApi {
+  private client: HttpClient;
+  public readonly export: KnowledgeComplianceAuditEventsExportApi;
+  public readonly anonymizeActor: KnowledgeComplianceAuditEventsAnonymizeActorApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.export = new KnowledgeComplianceAuditEventsExportApi(client);
+    this.anonymizeActor = new KnowledgeComplianceAuditEventsAnonymizeActorApi(client);
+  }
+
 }
 
 export class KnowledgeComplianceApi {
@@ -31,6 +53,12 @@ export class KnowledgeComplianceApi {
     this.client = client;
     this.auditEvents = new KnowledgeComplianceAuditEventsApi(client);
   }
+
+}
+
+export interface KnowledgeSpacesMembersListParams {
+  cursor?: string;
+  pageSize?: number;
 }
 
 export class KnowledgeSpacesMembersApi {
@@ -42,13 +70,18 @@ export class KnowledgeSpacesMembersApi {
 
 
 /** List knowledge space members */
-  async list(spaceId: string, params?: { cursor?: string; pageSize?: number }): Promise<Record<string, unknown>> {
+  async list(spaceId: string, params?: KnowledgeSpacesMembersListParams): Promise<unknown> {
     const query = buildQueryString([
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'pageSize', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<Record<string, unknown>>(appendQueryString(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), query));
+    return this.client.get<unknown>(appendQueryString(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), query));
   }
+}
+
+export interface KnowledgeSpacesListParams {
+  cursor?: string;
+  pageSize?: number;
 }
 
 export class KnowledgeSpacesApi {
@@ -62,8 +95,12 @@ export class KnowledgeSpacesApi {
 
 
 /** List knowledge spaces */
-  async list(): Promise<Record<string, unknown>> {
-    return this.client.get<Record<string, unknown>>(backendApiPath(`/knowledge/spaces`));
+  async list(params?: KnowledgeSpacesListParams): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(backendApiPath(`/knowledge/spaces`), query));
   }
 }
 
@@ -76,7 +113,7 @@ export class KnowledgeTenantsCurrentApi {
 
 
 /** Retrieve current tenant knowledgebase status */
-  async retrieve(): Promise<KnowledgeTenantStatus> {
+  async list(): Promise<KnowledgeTenantStatus> {
     return this.client.get<KnowledgeTenantStatus>(backendApiPath(`/knowledge/tenants/current`));
   }
 }
@@ -101,9 +138,14 @@ export class KnowledgeProviderHealthApi {
 
 
 /** Retrieve provider health status */
-  async retrieve(): Promise<KnowledgeProviderHealth> {
+  async list(): Promise<KnowledgeProviderHealth> {
     return this.client.get<KnowledgeProviderHealth>(backendApiPath(`/knowledge/provider_health`));
   }
+}
+
+export interface KnowledgeRetrievalTracesListParams {
+  cursor?: string;
+  pageSize?: number;
 }
 
 export class KnowledgeRetrievalTracesApi {
@@ -115,8 +157,12 @@ export class KnowledgeRetrievalTracesApi {
 
 
 /** List retrieval traces */
-  async list(): Promise<Record<string, unknown>> {
-    return this.client.get<Record<string, unknown>>(backendApiPath(`/knowledge/retrieval_traces`));
+  async list(params?: KnowledgeRetrievalTracesListParams): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(backendApiPath(`/knowledge/retrieval_traces`), query));
   }
 
 /** Retrieve a retrieval trace */
@@ -149,6 +195,11 @@ export class KnowledgeRetrievalProfilesApi {
   }
 }
 
+export interface KnowledgeIndexesListParams {
+  cursor?: string;
+  pageSize?: number;
+}
+
 export class KnowledgeIndexesApi {
   private client: HttpClient;
 
@@ -157,14 +208,18 @@ export class KnowledgeIndexesApi {
   }
 
 
-/** List knowledge indexes */
-  async list(): Promise<Record<string, unknown>> {
-    return this.client.get<Record<string, unknown>>(backendApiPath(`/knowledge/indexes`));
-  }
-
 /** Create a knowledge index */
   async create(body: KnowledgeIndexRequest): Promise<KnowledgeIndex> {
     return this.client.post<KnowledgeIndex>(backendApiPath(`/knowledge/indexes`), body, undefined, undefined, 'application/json');
+  }
+
+/** List knowledge indexes */
+  async list(params?: KnowledgeIndexesListParams): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(backendApiPath(`/knowledge/indexes`), query));
   }
 
 /** Retrieve a knowledge index */
@@ -245,6 +300,11 @@ export class KnowledgeOkfBundleImportApi {
   }
 }
 
+export interface KnowledgeOkfBundleFilesListParams {
+  cursor?: string;
+  pageSize?: number;
+}
+
 export class KnowledgeOkfBundleFilesApi {
   private client: HttpClient;
 
@@ -254,8 +314,12 @@ export class KnowledgeOkfBundleFilesApi {
 
 
 /** List OKF bundle files */
-  async list(): Promise<Record<string, unknown>> {
-    return this.client.get<Record<string, unknown>>(backendApiPath(`/knowledge/okf/bundle/files`));
+  async list(params?: KnowledgeOkfBundleFilesListParams): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(backendApiPath(`/knowledge/okf/bundle/files`), query));
   }
 }
 
@@ -287,7 +351,7 @@ export class KnowledgeOkfBundleIndexApi {
 
 
 /** Rebuild the OKF bundle index */
-  async rebuild(body: OkfBundleIndexRebuildRequest): Promise<OkfIndexDocument> {
+  async create(body: OkfBundleIndexRebuildRequest): Promise<OkfIndexDocument> {
     return this.client.post<OkfIndexDocument>(backendApiPath(`/knowledge/okf/index/rebuild`), body, undefined, undefined, 'application/json');
   }
 }
@@ -344,6 +408,8 @@ export class KnowledgeOkfConceptsApi {
 
 export interface KnowledgeOkfCandidatesListParams {
   spaceId: number;
+  cursor?: string;
+  pageSize?: number;
 }
 
 export class KnowledgeOkfCandidatesApi {
@@ -358,6 +424,8 @@ export class KnowledgeOkfCandidatesApi {
   async list(params: KnowledgeOkfCandidatesListParams): Promise<Record<string, unknown>> {
     const query = buildQueryString([
       { name: 'spaceId', value: params.spaceId, style: 'form', explode: true, allowReserved: false },
+      { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
     return this.client.get<Record<string, unknown>>(appendQueryString(backendApiPath(`/knowledge/okf/candidates`), query));
   }
@@ -412,6 +480,11 @@ export class KnowledgeOkfApi {
 
 }
 
+export interface KnowledgeSourcesListParams {
+  cursor?: string;
+  pageSize?: number;
+}
+
 export class KnowledgeSourcesApi {
   private client: HttpClient;
 
@@ -421,8 +494,12 @@ export class KnowledgeSourcesApi {
 
 
 /** List knowledge sources */
-  async list(): Promise<Record<string, unknown>> {
-    return this.client.get<Record<string, unknown>>(backendApiPath(`/knowledge/sources`));
+  async list(params?: KnowledgeSourcesListParams): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(backendApiPath(`/knowledge/sources`), query));
   }
 
 /** Create a knowledge source */

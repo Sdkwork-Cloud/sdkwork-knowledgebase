@@ -7,33 +7,32 @@ compliance_level: L2
 engines:
   - postgres
   - sqlite
-table_prefix: knowledge_
+table_prefix: kb_
 tables:
   - name: kb_space
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L0
-    migrationNotes: "Legacy kb_ prefix. New tables use knowledge_ prefix."
+    compatibilityLevel: L2
   - name: kb_collection
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L0
+    compatibilityLevel: L2
   - name: kb_source
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L0
+    compatibilityLevel: L2
   - name: kb_drive_object_ref
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L0
+    compatibilityLevel: L2
   - name: kb_document
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L0
+    compatibilityLevel: L2
   - name: kb_document_version
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L0
+    compatibilityLevel: L2
   - name: kb_chunk
     lifecycle_status: active
     owner: knowledgebase-platform
@@ -103,3 +102,7 @@ tables:
   - name: kb_site_deployment
     lifecycle_status: active
     owner: knowledgebase-platform
+  - name: web_audit_event
+    lifecycle_status: active
+    owner: sdkwork-web-framework
+    compatibilityLevel: L2

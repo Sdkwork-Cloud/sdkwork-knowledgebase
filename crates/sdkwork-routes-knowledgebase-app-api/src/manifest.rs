@@ -58,7 +58,12 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "PUT",
         path: "/app/v3/api/knowledge/wechat/official_accounts",
-        operation_id: "wechat.officialAccounts.replace",
+        operation_id: "wechat.officialAccounts.update",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/wechat/official_accounts/{account_id}/fan_tags",
+        operation_id: "wechat.officialAccounts.fanTags.list",
     },
     RouteManifestEntry {
         method: "GET",
@@ -68,7 +73,7 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "PUT",
         path: "/app/v3/api/knowledge/wechat/applets",
-        operation_id: "wechat.applets.replace",
+        operation_id: "wechat.applets.update",
     },
     RouteManifestEntry {
         method: "POST",
@@ -118,7 +123,7 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "GET",
         path: "/app/v3/api/knowledge/documents/{documentId}/content",
-        operation_id: "documents.content.retrieve",
+        operation_id: "documents.content.list",
     },
     RouteManifestEntry {
         method: "GET",
@@ -128,7 +133,7 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "POST",
         path: "/app/v3/api/knowledge/documents/{documentId}/versions",
-        operation_id: "documents.versions.create",
+        operation_id: "documents.versions.versions",
     },
     RouteManifestEntry {
         method: "GET",
@@ -138,7 +143,7 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "PUT",
         path: "/app/v3/api/knowledge/okf/concepts/upsert",
-        operation_id: "okf.concepts.upsert",
+        operation_id: "okf.concepts.update",
     },
     RouteManifestEntry {
         method: "GET",
@@ -158,17 +163,17 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "GET",
         path: "/app/v3/api/knowledge/okf/index",
-        operation_id: "okf.bundle.index.retrieve",
+        operation_id: "okf.bundle.index.list",
     },
     RouteManifestEntry {
         method: "GET",
         path: "/app/v3/api/knowledge/okf/log",
-        operation_id: "okf.bundle.log.retrieve",
+        operation_id: "okf.bundle.log.list",
     },
     RouteManifestEntry {
         method: "GET",
         path: "/app/v3/api/knowledge/okf/profile",
-        operation_id: "okf.bundle.profile.retrieve",
+        operation_id: "okf.bundle.profile.list",
     },
     RouteManifestEntry {
         method: "POST",
@@ -253,7 +258,7 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "POST",
         path: "/app/v3/api/knowledge/agent_profiles/{profileId}/bindings",
-        operation_id: "agentProfiles.bindings.create",
+        operation_id: "agentProfiles.bindings.bindings",
     },
     RouteManifestEntry {
         method: "PATCH",
@@ -268,12 +273,12 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "POST",
         path: "/app/v3/api/knowledge/agent_profiles/{profileId}/retrieval_preview",
-        operation_id: "agentProfiles.retrievalPreview.create",
+        operation_id: "agentProfiles.retrievalPreview.retrievalPreview",
     },
     RouteManifestEntry {
         method: "POST",
         path: "/app/v3/api/knowledge/agent_profiles/{profileId}/chat",
-        operation_id: "agentProfiles.chat.create",
+        operation_id: "agentProfiles.chat.chat",
     },
     RouteManifestEntry {
         method: "GET",
@@ -283,7 +288,7 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "POST",
         path: "/app/v3/api/knowledge/spaces/{spaceId}/context_bindings",
-        operation_id: "spaces.contextBindings.create",
+        operation_id: "spaces.contextBindings.contextBindings",
     },
     RouteManifestEntry {
         method: "GET",
@@ -293,12 +298,12 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "POST",
         path: "/app/v3/api/knowledge/spaces/{spaceId}/members",
-        operation_id: "spaces.members.grant",
+        operation_id: "spaces.members.members",
     },
     RouteManifestEntry {
         method: "DELETE",
         path: "/app/v3/api/knowledge/spaces/{spaceId}/members",
-        operation_id: "spaces.members.revoke",
+        operation_id: "spaces.members.delete",
     },
     RouteManifestEntry {
         method: "GET",
@@ -348,7 +353,7 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "GET",
         path: "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
-        operation_id: "siteDeployments.preview.retrieve",
+        operation_id: "siteDeployments.preview.list",
     },
     RouteManifestEntry {
         method: "POST",

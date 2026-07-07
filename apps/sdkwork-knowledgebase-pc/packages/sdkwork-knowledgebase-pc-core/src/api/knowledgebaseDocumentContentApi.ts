@@ -7,7 +7,7 @@ import type { KnowledgeDocumentContent } from '../sdk/sdkContractTypes.js';
 export type KnowledgeDocumentContentPayload = KnowledgeDocumentContent;
 
 export async function fetchKnowledgeDocumentContent(
-  documentId: number,
+  documentId: string | number,
 ): Promise<KnowledgeDocumentContentPayload | null> {
   if (!isKnowledgebaseApiAvailable()) {
     return null;
@@ -15,7 +15,7 @@ export async function fetchKnowledgeDocumentContent(
 
   try {
     const sdk = getKnowledgebaseAppSdkClient();
-    return await sdk.client.knowledge.documents.content.retrieve(documentId);
+    return await sdk.client.knowledge.documents.content.list(String(documentId));
   } catch {
     return null;
   }

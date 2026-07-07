@@ -96,7 +96,7 @@ async fn postgres_runtime_creates_space_through_app_router() {
     assert_eq!(payload["code"], 0, "unexpected envelope code: {body}");
     let item = &payload["data"]["item"];
     assert!(
-        item["id"].as_u64().is_some_and(|id| id > 0),
+        json_u64_field(item, "id").is_some_and(|id| id > 0),
         "missing created space id: {body}"
     );
     assert!(
@@ -158,4 +158,9 @@ async fn postgres_runtime_creates_space_through_app_router() {
         first_drive_space_id.as_str(),
         "each knowledge space must bind a dedicated drive space"
     );
+}
+
+fn json_u64_field(body: &serde_json::Value, field: &str) -> Option<u64> {
+    body.get(field)
+        .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse().ok()))
 }

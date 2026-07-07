@@ -1,14 +1,25 @@
 # SDKWork Knowledgebase — MVP Launch Acceptance
 
-Status: active  
-Owner: SDKWork maintainers  
-Application: sdkwork-knowledgebase  
-Updated: 2026-07-05  
+Status: prelaunch-gated
+Owner: SDKWork maintainers
+Application: sdkwork-knowledgebase
+Updated: 2026-07-07
 Parent: [PRD.md](PRD.md)
 
 ## Purpose
 
-Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Knowledgebase.
+Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Knowledgebase. This document records repository readiness gates and remaining release blockers; it is not a production release evidence record.
+
+## Commercialization Readiness Decision
+
+Decision: SDKWork Knowledgebase remains prelaunch and must not be treated as a production/commercial release until release-governance evidence is attached. The app manifest now blocks publication through `publish.status=INACTIVE`, `release.defaultChannel=DEV`, disabled prelaunch packages, and disabled placeholder media projection.
+
+- [x] Align manifest launch state: `sdkwork.app.config.json` now projects `publish.status=INACTIVE`, `release.defaultChannel=DEV`, `release.latest.DEV=0.1.0`, and `metadata.releaseStatus=prelaunch-gated`.
+- [ ] Replace placeholder catalog media: icon, screenshot, and preview entries are disabled with `generatedPlaceholder=true` and `releaseStatus=prelaunch-placeholder`; production listing requires Drive-backed, real product media assets.
+- [ ] Attach `web-universal-cloud-browser-zip` artifact evidence: checksum value, signing evidence, SBOM, provenance/attestation, immutable artifact URL or digest, and build workflow run.
+- [ ] Record rollout, rollback, monitoring, and smoke-test evidence for each runtime target and deployment profile.
+- [ ] Run and record release-environment PostgreSQL verification with `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` pointing at the target PostgreSQL service; local SQLite and contract gates are not enough for a commercial cutover claim.
+- [ ] Run and archive final launch gates on the release candidate artifact: `pnpm verify`, `pnpm test`, `pnpm test:e2e:playwright`, and live smoke probes with configured app/backend/open API URLs.
 
 ## Phase 0.1 Exit Criteria
 
@@ -24,7 +35,7 @@ Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Kn
 - [x] External/catalog adapter engines return `Unsupported` for `list_documents` instead of silent empty lists
 - [x] User-facing mutation errors surfaced via `toastKnowledgebaseError` in core KB flows
 - [x] `pnpm test:security` passes (tenant isolation, RBAC, audit, demo gating)
-- [x] Development secrets are not committed in topology profiles (use `.env.postgres`)
+- [x] WeChat credentials encrypted at rest; `encrypt_secret` fails closed when `SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY` is unset (no plaintext fallback)
 
 ### API & SDK
 
@@ -49,7 +60,7 @@ Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Kn
 
 - [x] No `@packages/` deep imports; package boundary imports only
 - [x] Demo/mock fallbacks disabled in production builds (`import.meta.env.PROD`)
-- [x] Offline import modals (chat file/dialog, notes) gated by `assertKnowledgebasePreviewFeature` — no synthetic batch writes when API is live
+- [x] Offline import modals (chat file/dialog, notes) show honest empty states when IM connector is not wired; batch import remains gated by `assertKnowledgebasePreviewFeature`
 - [x] WeChat save-as-draft persists via `WechatService.publishArticles` (WeChat draft box API)
 - [x] AI assistant uses backend agent when `isKnowledgebaseApiAvailable()`; local MCP agent is demo-only
 - [x] Image viewer AI tools hidden outside `shouldUseKnowledgebaseDemoFallback()`
@@ -60,7 +71,10 @@ Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Kn
 - [x] Auto-save and editor uploads surface i18n errors via `toastKnowledgebaseError`; numeric ProblemDetail `60002` maps to tenant quota message
 - [x] Editor demo upload uses blob URLs only under `shouldUseKnowledgebaseDemoFallback()`
 - [x] Permissions modal uses paginated member count (`20+` when truncated)
-- [x] Cloud drive service enforces API availability + network online guards
+- [x] Cloud drive import modal uses cursor pagination (`listBrowserItemsPage`) with Load more on my-drive browse
+- [x] Cloud drive starred/recent/shared collections paginate through Drive `pageToken` (capped at 500 items)
+- [x] Drive import pipeline enforces `MAX_MARKDOWN_PAYLOAD_BYTES` before chunking
+- [x] WeChat typography preview uses article author and current date instead of hardcoded demo metadata
 - [x] WeChat publish/upload/AI stream API failures use `toastKnowledgebaseError` (quota/offline/network aware)
 - [x] Network offline fail-closed: `AppShell` wires `setKnowledgebaseNetworkOnline`; mutations call `requireKnowledgebaseNetworkOnline`
 - [x] i18n keys for `network.offline` and `feature.previewOnly` error surfaces
@@ -86,18 +100,19 @@ pnpm lint
 - [x] Search scenario: RAG answer with citations navigates to source document (`e2e/search.flow.spec.ts`, Playwright CI)
 - [x] Admin scenario contract: backend source listing requires `knowledge.admin` (`scripts/smoke-knowledgebase-admin-ingest.test.mjs`; live probe optional via `SDKWORK_KNOWLEDGEBASE_SMOKE_BACKEND_URL`)
 - [x] Open API scenario contract: api-key `context_packs` and `retrievals` (`scripts/smoke-knowledgebase-open-api.test.mjs`; live probe optional via `SDKWORK_KNOWLEDGEBASE_SMOKE_OPEN_URL`)
+- [x] WeChat publish modal uses API-backed account selection; fan tag groups load from WeChat `tags/get` API via `wechat.officialAccounts.fanTags.list`; mass send uses `message/mass/sendall` when `sendNotification` is enabled
 - [x] WeChat publish path blocks demo fallback in production builds (`shouldUseKnowledgebaseDemoFallback`; hosted API smoke optional before cutover)
 
 ### Operations
 
-- [x] Postgres production path validated with `pnpm db:bootstrap`, `pnpm db:drift:check` (CI `database-postgres` job)
+- [x] PostgreSQL lifecycle path covered by CI/database gates; release-environment PostgreSQL verification with the target service remains a cutover blocker above.
 - [x] Backup/restore runbook documented (`deployments/runbooks/backup-restore.md`) and referenced by launch runbook
 - [x] Split-services deployment smoke script: `SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL=... pnpm test:smoke` (optional CI `staging-smoke` job)
 - [x] JSON logging enabled in production topology; OTEL documented when collector is available (`SDKWORK_KNOWLEDGEBASE_LOG_FORMAT=json`)
 
 ### Release
 
-- [x] Web bundle `web-production` manifest requires checksum/signature/SBOM per `sdkwork.app.config.json`
+- [ ] Web bundle `web-universal-cloud-browser-zip` release evidence attached: checksum, signature, SBOM, provenance/attestation, immutable artifact reference, and workflow run. The manifest declares these controls as required and keeps the package disabled until evidence exists.
 - [x] Three TypeScript SDK families indexed for release consumption (`specs/component.spec.json`)
 - [x] Desktop packaging workflow explicitly prelaunch-disabled until desktop CI targets ship (`sdkwork.app.config.json` metadata)
 

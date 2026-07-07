@@ -26,7 +26,9 @@ client.setApiKey('your-api-key');
 
 // Use the SDK
 const params = {
-  spaceId: 1,
+  spaceId: 'spaceId',
+  cursor: 'cursor',
+  page_size: 3,
 };
 const result = await client.knowledge.documents.list(params);
 ```
@@ -69,7 +71,9 @@ const client = new SdkworkKnowledgebaseOpenClient({
 ```typescript
 // List knowledge documents
 const params = {
-  spaceId: 1,
+  spaceId: 'spaceId',
+  cursor: 'cursor',
+  page_size: 3,
 };
 const result = await client.knowledge.documents.list(params);
 ```
@@ -81,7 +85,9 @@ import { SdkworkKnowledgebaseOpenClient, NetworkError, TimeoutError, Authenticat
 
 try {
   const params = {
-    spaceId: 1,
+    spaceId: 'spaceId',
+    cursor: 'cursor',
+    page_size: 3,
   };
   const result = await client.knowledge.documents.list(params);
 } catch (error) {

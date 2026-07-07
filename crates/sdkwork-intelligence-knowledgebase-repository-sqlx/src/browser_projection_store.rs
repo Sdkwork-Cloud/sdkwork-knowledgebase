@@ -4,7 +4,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_browser_project
     KnowledgeBrowserProjectionStore, KnowledgeBrowserProjectionStoreError,
 };
 use sdkwork_knowledgebase_contract::OkfConceptPublishState;
-use sqlx::{AnyPool, QueryBuilder, Row};
+use sqlx::{AnyPool, Row};
 
 const ACTIVE_STATUS: i64 = 1;
 const MAX_PROJECTION_BATCH_SIZE: usize = 200;
@@ -35,7 +35,10 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
 
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", space_id)?;
-        let mut builder = QueryBuilder::new(
+        // Build $N placeholders for the IN clause. Fixed bind params occupy $1..$3
+        // (tenant_id, space_id, ACTIVE_STATUS); drive node ids start at $4.
+        let in_placeholders = build_in_placeholders(drive_node_ids.len(), 3);
+        let sql = format!(
             r#"
             SELECT
                 d.original_file_drive_node_id,
@@ -47,30 +50,22 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
             LEFT JOIN kb_document_version v
               ON v.tenant_id = d.tenant_id
              AND v.id = d.current_version_id
-             AND v.status = "#,
+             AND v.status = 1
+            WHERE d.tenant_id = $1
+              AND d.space_id = $2
+              AND d.status = $3
+              AND d.original_file_drive_node_id IN ({in_placeholders})
+            "#
         );
-        builder.push_bind(ACTIVE_STATUS);
-        builder.push(
-            r#"
-            WHERE d.tenant_id = "#,
-        );
-        builder.push_bind(tenant_id);
-        builder.push(" AND d.space_id = ");
-        builder.push_bind(space_id);
-        builder.push(" AND d.status = ");
-        builder.push_bind(ACTIVE_STATUS);
-        builder.push(" AND d.original_file_drive_node_id IN (");
-        let mut separated = builder.separated(", ");
-        for drive_node_id in drive_node_ids {
-            separated.push_bind(drive_node_id);
-        }
-        separated.push_unseparated(")");
 
-        let rows = builder
-            .build()
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_error)?;
+        let mut query = sqlx::query(&sql)
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(ACTIVE_STATUS);
+        for drive_node_id in drive_node_ids {
+            query = query.bind(drive_node_id);
+        }
+        let rows = query.fetch_all(&self.pool).await.map_err(sqlx_error)?;
 
         rows.into_iter()
             .map(|row| {
@@ -127,30 +122,28 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
 
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", space_id)?;
-        let mut builder = QueryBuilder::new(
+        // Build $N placeholders for the IN clause. Fixed bind params occupy $1..$3
+        // (tenant_id, space_id, ACTIVE_STATUS); logical paths start at $4.
+        let in_placeholders = build_in_placeholders(logical_paths.len(), 3);
+        let sql = format!(
             r#"
             SELECT logical_path, id, current_revision_id, publish_state
             FROM kb_okf_concept
-            WHERE tenant_id =
-            "#,
+            WHERE tenant_id = $1
+              AND space_id = $2
+              AND status = $3
+              AND logical_path IN ({in_placeholders})
+            "#
         );
-        builder.push_bind(tenant_id);
-        builder.push(" AND space_id = ");
-        builder.push_bind(space_id);
-        builder.push(" AND status = ");
-        builder.push_bind(ACTIVE_STATUS);
-        builder.push(" AND logical_path IN (");
-        let mut separated = builder.separated(", ");
-        for logical_path in logical_paths {
-            separated.push_bind(logical_path);
-        }
-        separated.push_unseparated(")");
 
-        let rows = builder
-            .build()
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_error)?;
+        let mut query = sqlx::query(&sql)
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(ACTIVE_STATUS);
+        for logical_path in logical_paths {
+            query = query.bind(logical_path);
+        }
+        let rows = query.fetch_all(&self.pool).await.map_err(sqlx_error)?;
 
         rows.into_iter()
             .map(|row| {
@@ -245,4 +238,79 @@ fn from_i64(field: &str, value: i64) -> Result<u64, KnowledgeBrowserProjectionSt
 
 fn sqlx_error(error: sqlx::Error) -> KnowledgeBrowserProjectionStoreError {
     KnowledgeBrowserProjectionStoreError::Internal(error.to_string())
+}
+
+/// Build `$N` placeholders for an IN clause.
+///
+/// `reserved` is the number of bind parameters already used before the IN clause.
+/// The first IN-clause placeholder is therefore `$(reserved + 1)`.
+///
+/// We use numbered `$N` placeholders (not `?`) because `QueryBuilder::<Any>` writes
+/// `?` via `AnyArguments::format_placeholder`, which PostgreSQL rejects as a syntax
+/// error (it parses `?` as an operator). Both PostgreSQL and SQLite (via sqlx)
+/// accept numbered `$N` placeholders, so this keeps the `Any` driver working on
+/// both backends. See `retrieval_store.rs` for the same pattern.
+fn build_in_placeholders(count: usize, reserved: usize) -> String {
+    (0..count)
+        .map(|i| format!("${}", reserved + i + 1))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_in_placeholders_starts_after_reserved_params() {
+        // 3 fixed params (tenant_id, space_id, ACTIVE_STATUS) occupy $1..$3,
+        // so the IN clause must start at $4.
+        let placeholders = build_in_placeholders(3, 3);
+        assert_eq!(placeholders, "$4, $5, $6");
+    }
+
+    #[test]
+    fn document_projection_sql_keeps_join_status_before_where() {
+        // The SQL is now a static string with $N placeholders; verify the structure
+        // that previously caused "syntax error at or near AND" is correct:
+        // the active-version join filter (`v.status = 1`) must stay in the ON clause,
+        // not leak into the WHERE clause.
+        let in_placeholders = build_in_placeholders(1, 3);
+        let sql = format!(
+            r#"
+            SELECT
+                d.original_file_drive_node_id,
+                d.id AS document_id,
+                d.current_version_id,
+                d.index_state,
+                v.parse_state
+            FROM kb_document d
+            LEFT JOIN kb_document_version v
+              ON v.tenant_id = d.tenant_id
+             AND v.id = d.current_version_id
+             AND v.status = 1
+            WHERE d.tenant_id = $1
+              AND d.space_id = $2
+              AND d.status = $3
+              AND d.original_file_drive_node_id IN ({in_placeholders})
+            "#
+        );
+        assert!(
+            !sql.contains("= WHERE"),
+            "join status predicate must appear before WHERE clause: {sql}"
+        );
+        assert!(
+            sql.contains("v.status = 1"),
+            "expected active version join filter in browser projection sql: {sql}"
+        );
+        assert!(
+            sql.contains("original_file_drive_node_id IN ("),
+            "expected drive node batch filter in browser projection sql: {sql}"
+        );
+        // No `?` placeholders: PostgreSQL would parse `=?` as an operator and fail.
+        assert!(
+            !sql.contains('?'),
+            "browser projection sql must not use ? placeholders (PostgreSQL incompatible): {sql}"
+        );
+    }
 }

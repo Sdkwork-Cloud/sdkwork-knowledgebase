@@ -164,8 +164,12 @@ export function ChatFileModal({ isOpen, onClose, onConfirm }: ChatFileModalProps
               <MessageSquare size={16} strokeWidth={2.5} />
             </div>
             <div>
-              <h3 className="text-[14px] font-extrabold text-zinc-900 dark:text-[var(--color-kb-text-heading)]">“Geek API” 的聊天记录(244)</h3>
-              <p className="text-[11px] font-medium text-zinc-500 dark:text-[var(--color-kb-text-muted)]">勾选需要导入的文件到当前团队空间</p>
+              <h3 className="text-[14px] font-extrabold text-zinc-900 dark:text-[var(--color-kb-text-heading)]">
+                {t('chatFileImportTitle', { defaultValue: '从聊天文件导入' })}
+              </h3>
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-[var(--color-kb-text-muted)]">
+                {t('chatFileImportSubtitle', { defaultValue: '接入 IM 服务后，此处将展示可选择的聊天文件' })}
+              </p>
             </div>
           </div>
           <button 
@@ -256,7 +260,9 @@ export function ChatFileModal({ isOpen, onClose, onConfirm }: ChatFileModalProps
               <div className="w-16 h-16 bg-[#fafafa] dark:bg-transparent rounded-full flex items-center justify-center mb-3">
                 <FileText size={32} className="text-zinc-300 dark:text-[var(--color-kb-text-muted)]" strokeWidth={1.5} />
               </div>
-              <p className="text-[13px] font-bold text-zinc-500 dark:text-[var(--color-kb-text-muted)]">此聊天分类下暂无文件记录</p>
+              <p className="text-[13px] font-bold text-zinc-500 dark:text-[var(--color-kb-text-muted)]">
+                {t('chatFileImportEmpty', { defaultValue: '暂无可导入的聊天文件。接入 IM 服务后，此处将展示可选择的文件列表。' })}
+              </p>
             </div>
           ) : (
             filteredFiles.map(file => {

@@ -123,7 +123,8 @@ impl<'a> KnowledgeGitSyncService<'a> {
         .await?;
 
         Ok(KnowledgeGitSyncResult {
-            success: true,
+            accepted: true,
+            status: "completed".to_string(),
             hash: commit_sha,
             synced_count: files.len() as u32,
         })

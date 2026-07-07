@@ -10,12 +10,13 @@ import {
 
 import type { DocumentMeta } from './document';
 import { resolveKnowledgeBrowserParentDriveNodeId } from './knowledgeBrowserParentResolver';
+import { readDriveNode } from './knowledgeDriveSdkResponse';
 
 function resolveDriveNodeId(node: KnowledgeBrowserNode): string | null {
   return node.driveNodeId?.trim() || node.id?.trim() || null;
 }
 
-function spaceIdFromKbId(kbId: string): number {
+function spaceIdFromKbId(kbId: string): string {
   return parseKnowledgeSpaceId(kbId);
 }
 
@@ -31,11 +32,13 @@ export async function createKnowledgeDriveFolder(input: {
   parentDriveNodeId?: string | null;
 }): Promise<{ driveNodeId: string; nodeName: string }> {
   const driveSpaceId = await resolveKnowledgeDriveSpaceId(input.kbId);
-  const folder = await requireDriveApiClient().drive.nodes.folders.create({
-    spaceId: driveSpaceId,
-    parentNodeId: input.parentDriveNodeId?.trim() || undefined,
-    nodeName: input.nodeName.trim(),
-  });
+  const folder = readDriveNode(
+    await requireDriveApiClient().drive.nodes.folders.create({
+      spaceId: driveSpaceId,
+      parentNodeId: input.parentDriveNodeId?.trim() || undefined,
+      nodeName: input.nodeName.trim(),
+    }),
+  );
   return {
     driveNodeId: folder.id,
     nodeName: folder.nodeName?.trim() || input.nodeName.trim(),
@@ -72,7 +75,7 @@ export async function applyDriveBrowserNodeUpdates(
 
   if (updates.isPinned !== undefined) {
     if (updates.isPinned) {
-      await drive.drive.favorites.set(driveNodeId, {});
+      await drive.drive.favorites.update(driveNodeId, {});
     } else {
       await drive.drive.favorites.delete(driveNodeId);
     }
@@ -111,11 +114,13 @@ export async function ensureDriveFolderPath(
       continue;
     }
 
-    const folder = await requireDriveApiClient().drive.nodes.folders.create({
-      spaceId: driveSpaceId,
-      parentNodeId: currentParent,
-      nodeName: folderName,
-    });
+    const folder = readDriveNode(
+      await requireDriveApiClient().drive.nodes.folders.create({
+        spaceId: driveSpaceId,
+        parentNodeId: currentParent,
+        nodeName: folderName,
+      }),
+    );
     folderCache.set(pathAccumulator, folder.id);
     currentParent = folder.id;
   }

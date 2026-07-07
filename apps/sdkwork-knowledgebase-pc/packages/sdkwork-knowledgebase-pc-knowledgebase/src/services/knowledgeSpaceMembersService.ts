@@ -1,4 +1,4 @@
-import type { KnowledgeSpaceMemberRole } from 'sdkwork-knowledgebase-pc-core';
+import type { KnowledgeSpaceMember, KnowledgeSpaceMemberRole } from 'sdkwork-knowledgebase-pc-core';
 import { getKnowledgebaseAppSdkClient } from 'sdkwork-knowledgebase-pc-core';
 import { normalizeSdkWorkListPage } from './sdkWorkListPage';
 
@@ -44,12 +44,12 @@ function avatarFromEmail(email: string): string {
  * Frontend service facade for knowledge space member management.
  */
 export class KnowledgeSpaceMembersService {
-  static loadMembers(spaceId: number): Promise<KnowledgeSpaceMemberUi[]> {
+  static loadMembers(spaceId: string): Promise<KnowledgeSpaceMemberUi[]> {
     return loadKnowledgeSpaceMembers(spaceId);
   }
 
   static loadMembersPage(
-    spaceId: number,
+    spaceId: string,
     cursor: string | null = null,
     pageSize = 20,
   ): Promise<KnowledgeSpaceMembersPage> {
@@ -57,7 +57,7 @@ export class KnowledgeSpaceMembersService {
   }
 
   static syncMembers(
-    spaceId: number,
+    spaceId: string,
     desired: KnowledgeSpaceMemberUi[],
     previous: KnowledgeSpaceMemberUi[],
   ): Promise<void> {
@@ -65,7 +65,7 @@ export class KnowledgeSpaceMembersService {
   }
 
   static syncMembersPartial(
-    spaceId: number,
+    spaceId: string,
     uiMembers: KnowledgeSpaceMemberUi[],
     baselineMembers: KnowledgeSpaceMemberUi[],
     loadedEmails: ReadonlySet<string>,
@@ -80,7 +80,7 @@ export class KnowledgeSpaceMembersService {
 }
 
 export async function loadKnowledgeSpaceMembers(
-  spaceId: number,
+  spaceId: string,
 ): Promise<KnowledgeSpaceMemberUi[]> {
   const members: KnowledgeSpaceMemberUi[] = [];
   let cursor: string | null = null;
@@ -140,13 +140,13 @@ export function buildPartialMemberSyncPayload(
 }
 
 export async function loadKnowledgeSpaceMembersPage(
-  spaceId: number,
+  spaceId: string,
   cursor: string | null = null,
   pageSize = 20,
 ): Promise<KnowledgeSpaceMembersPage> {
   const spaceKey = String(spaceId);
   const client = getKnowledgebaseAppSdkClient().client;
-  const page = normalizeSdkWorkListPage(
+  const page = normalizeSdkWorkListPage<KnowledgeSpaceMember>(
     await client.knowledge.spaces.members.list(spaceKey, { cursor, pageSize }),
   );
   const items: KnowledgeSpaceMemberUi[] = [];
@@ -170,7 +170,7 @@ export async function loadKnowledgeSpaceMembersPage(
 }
 
 export async function syncKnowledgeSpaceMembers(
-  spaceId: number,
+  spaceId: string,
   desired: KnowledgeSpaceMemberUi[],
   previous: KnowledgeSpaceMemberUi[],
 ): Promise<void> {
@@ -182,7 +182,7 @@ export async function syncKnowledgeSpaceMembers(
   for (const [email, member] of desiredByEmail) {
     const existing = previousByEmail.get(email);
     if (!existing || existing.role !== member.role) {
-      await client.knowledge.spaces.members.grant(spaceKey, {
+      await client.knowledge.spaces.members.members(spaceKey, {
         subjectType: 'user',
         subjectId: member.email,
         role: toApiRole(member.role),
@@ -192,7 +192,7 @@ export async function syncKnowledgeSpaceMembers(
 
   for (const [email] of previousByEmail) {
     if (!desiredByEmail.has(email)) {
-      await client.knowledge.spaces.members.revoke(spaceKey, {
+      await client.knowledge.spaces.members.delete(spaceKey, {
         subjectType: 'user',
         subjectId: email,
       });

@@ -7,15 +7,18 @@ export type {
   KnowledgeAccessLevel,
   KnowledgeBrowserNode,
   KnowledgeDocumentContent,
+  KnowledgeSpaceContextBinding,
+  KnowledgeSpaceMember,
   KnowledgeSpaceMemberRole,
   KnowledgeWechatApplet,
   KnowledgeWechatArticle,
   KnowledgeWechatOfficialAccount,
-  SdkworkAppClient,
+  SdkworkKnowledgebaseAppClient,
 } from '@sdkwork/knowledgebase-app-sdk';
 
 export type {
   DriveNode,
+  DriveNodeProperty,
   DriveUploaderProfile,
   SdkworkDriveAppClient,
 } from '@sdkwork/drive-app-sdk';

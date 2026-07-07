@@ -171,7 +171,10 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
             .subscribe(context.tenant_id, actor_id, request.listing_id)
             .await
             .map_err(map_market_error)?;
-        Ok(KnowledgeMarketSubscriptionResult { success: true })
+        Ok(KnowledgeMarketSubscriptionResult {
+            accepted: true,
+            status: "completed".to_string(),
+        })
     }
 
     async fn delete_market_subscription(
@@ -194,7 +197,10 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
             .unsubscribe(context.tenant_id, actor_id, listing_id)
             .await
             .map_err(map_market_error)?;
-        Ok(KnowledgeMarketSubscriptionResult { success: true })
+        Ok(KnowledgeMarketSubscriptionResult {
+            accepted: true,
+            status: "completed".to_string(),
+        })
     }
 
     async fn create_site_deployment(
@@ -304,7 +310,8 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
                             })?;
                         if !chunks.is_empty() {
                             return Ok(KnowledgeMediaTaskResult {
-                                success: true,
+                                accepted: true,
+                                status: "completed".to_string(),
                                 url: request.source_url.clone(),
                                 resolution: None,
                                 text: Some(chunks.join("\n\n")),
@@ -323,7 +330,8 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
                     .run_agent_prompt(&context, request.space_id, profile_id, prompt)
                     .await?;
                 Ok(KnowledgeMediaTaskResult {
-                    success: true,
+                    accepted: true,
+                    status: "completed".to_string(),
                     url: request.source_url,
                     resolution: None,
                     text: Some(text),
@@ -354,7 +362,8 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
                     "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&auto=format&fit=crop".to_string()
                 });
                 Ok(KnowledgeMediaTaskResult {
-                    success: true,
+                    accepted: true,
+                    status: "completed".to_string(),
                     url: Some(url),
                     resolution: Some("1024x1024".to_string()),
                     text: None,
@@ -390,6 +399,9 @@ fn map_agent_profile_store_error(error: KnowledgeAgentProfileStoreError) -> ApiE
         ),
         KnowledgeAgentProfileStoreError::Conflict(detail) => {
             ApiError::invalid_request("agent_profile_conflict", detail)
+        }
+        KnowledgeAgentProfileStoreError::Unsupported(detail) => {
+            ApiError::invalid_request("agent_profile_store_unsupported", detail)
         }
         KnowledgeAgentProfileStoreError::Internal(detail) => {
             ApiError::internal("agent_profile_store_failed", detail)

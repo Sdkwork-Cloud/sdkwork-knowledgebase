@@ -168,7 +168,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   const [newGroupNameInput, setNewGroupNameInput] = useState<string>('');
 
   const [officialAccounts, setOfficialAccounts] = useState<OfficialAccount[]>([]);
-  const [selectedOfficialAccountIds, setSelectedOfficialAccountIds] = useState<string[]>(['1']);
+  const [selectedOfficialAccountIds, setSelectedOfficialAccountIds] = useState<string[]>([]);
   const [authorHistory, setAuthorHistory] = useLocalStorage<string[]>('wechat_author_history', []);
   const [isOfficialAccountModalOpen, setIsOfficialAccountModalOpen] = useState(false);
   const [isWechatAppletModalOpen, setIsWechatAppletModalOpen] = useState(false);
@@ -187,7 +187,16 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   useEffect(() => {
     WechatService.getOfficialAccounts().then(accounts => {
       setOfficialAccounts(accounts);
-      const selected = accounts.filter(oa => selectedOfficialAccountIds.includes(oa.id));
+      if (accounts.length > 0 && selectedOfficialAccountIds.length === 0) {
+        setSelectedOfficialAccountIds([accounts[0].id]);
+      }
+      const effectiveSelectedIds =
+        selectedOfficialAccountIds.length > 0
+          ? selectedOfficialAccountIds
+          : accounts[0]
+            ? [accounts[0].id]
+            : [];
+      const selected = accounts.filter(oa => effectiveSelectedIds.includes(oa.id));
       const oaName = selected[0]?.name || '';
       
       let parsedHistory: string[] = [];
@@ -815,10 +824,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
 
     setIsSavingDraft(true);
     try {
-      const result = await WechatService.publishArticles(selectedOfficialAccountIds, articles, {
+      await WechatService.publishArticles(selectedOfficialAccountIds, articles, {
         sendNotification: false,
       });
-      toast.success(result.message || t('saveSuccess', { defaultValue: '保存成功' }));
+      toast.success(t('saveSuccess', { defaultValue: '保存成功' }));
     } catch (error) {
       console.error(error);
       toastKnowledgebaseError(error, tErrors);
@@ -1543,6 +1552,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
         onClose={() => setIsPublishModalOpen(false)}
         isPublishing={isPublishing}
         onConfirmPublish={handleConfirmPublishWithOptions}
+        officialAccountId={selectedOfficialAccounts[0]?.id}
         officialAccountName={selectedOfficialAccounts[0]?.name}
         officialAccountType={selectedOfficialAccounts[0]?.type}
       />
@@ -1701,6 +1711,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
         onClose={() => setIsTypographyModalOpen(false)}
         originalContent={selectedArticle?.content || ''}
         articleTitle={selectedArticle?.title || ''}
+        previewAuthorName={selectedArticle?.author || selectedOfficialAccounts[0]?.name}
         onConfirm={(formattedHtml) => {
           if (selectedArticle) {
             updateSelectedArticle({ content: formattedHtml });

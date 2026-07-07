@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, LayoutTemplate, Wand2, Check, Sparkles, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
@@ -11,6 +11,7 @@ export interface TypographyModalProps {
   originalContent: string;
   onConfirm: (formattedHtml: string) => void;
   articleTitle?: string;
+  previewAuthorName?: string;
 }
 
 const THEME_COLORS = [
@@ -35,8 +36,12 @@ const getSolidColor = (colorVal: string) => {
   return colorVal;
 };
 
-export function TypographyModal({ isOpen, onClose, originalContent, onConfirm, articleTitle }: TypographyModalProps) {
+export function TypographyModal({ isOpen, onClose, originalContent, onConfirm, articleTitle, previewAuthorName }: TypographyModalProps) {
   const { t } = useTranslation(['editor', 'common', 'mcp']);
+  const previewDateLabel = useMemo(
+    () => new Date().toLocaleDateString(),
+    [isOpen],
+  );
   
   const getTranslatedColorName = (id: string, def: string) => {
     switch (id) {
@@ -435,9 +440,11 @@ export function TypographyModal({ isOpen, onClose, originalContent, onConfirm, a
                         {titleToShow}
                       </h2>
                       <div className="flex items-center gap-2 mt-2 text-[11px] text-zinc-400 font-medium">
-                        <span style={{ color: resolvedSolidColor }}>{t('aiPlaza', { ns: 'mcp' }) || 'AI人工智能基地'}</span>
+                        <span style={{ color: resolvedSolidColor }}>
+                          {previewAuthorName || t('previewAuthorPlaceholder', { ns: 'mcp', defaultValue: '公众号名称' })}
+                        </span>
                         <span>•</span>
-                        <span>2026-06-16</span>
+                        <span>{previewDateLabel}</span>
                       </div>
                     </div>
 

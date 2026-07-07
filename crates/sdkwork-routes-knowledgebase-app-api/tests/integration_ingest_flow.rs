@@ -102,7 +102,7 @@ async fn integration_hosted_ingest_retrieves_document_content_via_contract_route
     let document_id = list_body["items"]
         .as_array()
         .and_then(|items| items.first())
-        .and_then(|item| item["id"].as_u64())
+        .and_then(|item| json_u64_field(item, "id"))
         .expect("ingested document id");
 
     let content_response = app
@@ -124,7 +124,10 @@ async fn integration_hosted_ingest_retrieves_document_content_via_contract_route
         response_body_string(content_response).await
     );
     let content_body = response_body_json(content_response).await;
-    assert_eq!(content_body["documentId"], document_id);
+    assert_eq!(
+        json_u64_field(&content_body, "documentId"),
+        Some(document_id)
+    );
     assert!(
         content_body["contentMarkdown"]
             .as_str()
@@ -190,7 +193,7 @@ async fn integration_hosted_ingest_lists_document_versions_via_contract_route() 
     let document_id = list_body["items"]
         .as_array()
         .and_then(|items| items.first())
-        .and_then(|item| item["id"].as_u64())
+        .and_then(|item| json_u64_field(item, "id"))
         .expect("ingested document id");
 
     let versions_response = app
@@ -219,7 +222,7 @@ async fn integration_hosted_ingest_lists_document_versions_via_contract_route() 
         !items.is_empty(),
         "ingest should create at least one document version"
     );
-    assert_eq!(items[0]["documentId"], document_id);
+    assert_eq!(json_u64_field(&items[0], "documentId"), Some(document_id));
 }
 
 #[tokio::test]
@@ -273,7 +276,7 @@ async fn integration_hosted_ingest_updates_document_visibility_via_contract_rout
     let document_id = list_body["items"]
         .as_array()
         .and_then(|items| items.first())
-        .and_then(|item| item["id"].as_u64())
+        .and_then(|item| json_u64_field(item, "id"))
         .expect("ingested document id");
     let title = list_body["items"]
         .as_array()
@@ -354,7 +357,17 @@ async fn create_space(runtime: &KnowledgebaseRuntime) -> u64 {
         String::from_utf8_lossy(&bytes)
     );
     let body: Value = serde_json::from_slice(&bytes).expect("parse create space response");
-    body["data"]["item"]["id"].as_u64().expect("space id")
+    json_item_u64_field(&body, "id").expect("space id")
+}
+
+fn json_item_u64_field(body: &Value, field: &str) -> Option<u64> {
+    body.pointer("/data/item")
+        .and_then(|item| json_u64_field(item, field))
+}
+
+fn json_u64_field(body: &Value, field: &str) -> Option<u64> {
+    body.get(field)
+        .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse().ok()))
 }
 
 async fn test_runtime() -> KnowledgebaseRuntime {

@@ -139,7 +139,7 @@ impl KnowledgeSpaceStore for FixedSpaceStore {
         _record: CreateKnowledgeSpaceRecord,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         Err(KnowledgeSpaceStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -159,7 +159,7 @@ impl KnowledgeSpaceStore for FixedSpaceStore {
         _drive_space_id: String,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         Err(KnowledgeSpaceStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -168,7 +168,7 @@ impl KnowledgeSpaceStore for FixedSpaceStore {
         _space_id: u64,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         Err(KnowledgeSpaceStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -178,13 +178,13 @@ impl KnowledgeSpaceStore for FixedSpaceStore {
         _record: UpdateKnowledgeSpaceRecord,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         Err(KnowledgeSpaceStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
     async fn mark_space_deleted(&self, _space_id: u64) -> Result<(), KnowledgeSpaceStoreError> {
         Err(KnowledgeSpaceStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 }
@@ -199,7 +199,7 @@ impl KnowledgeSourceStore for MemorySourceStore {
         _record: CreateKnowledgeSourceRecord,
     ) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
         Err(KnowledgeSourceStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 }
@@ -225,7 +225,7 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
         KnowledgeOkfConceptStoreError,
     > {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -237,7 +237,7 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
         KnowledgeOkfConceptStoreError,
     > {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -246,7 +246,7 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
         _concept_row_id: u64,
     ) -> Result<u64, KnowledgeOkfConceptStoreError> {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -258,7 +258,7 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
         KnowledgeOkfConceptStoreError,
     > {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 
@@ -311,7 +311,7 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
         KnowledgeOkfConceptStoreError,
     > {
         Err(KnowledgeOkfConceptStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 }
@@ -393,7 +393,7 @@ impl KnowledgeDriveStorage for MemoryDrive {
         &self,
         _object_ref: &KnowledgeObjectRef,
     ) -> Result<String, KnowledgeStorageError> {
-        Err(KnowledgeStorageError::internal("not implemented"))
+        Err(KnowledgeStorageError::internal("unsupported in test fake"))
     }
 }
 

@@ -22,15 +22,51 @@
     "sdkDependencies": [
       {
         "workspace": "sdkwork-knowledgebase-backend-sdk",
+        "permissionModuleId": "knowledge",
         "surface": "backend-api",
         "credentialMode": "authenticated-backend-admin"
       },
       {
         "workspace": "sdkwork-utils",
-        "surface": "open-api",
-        "credentialMode": "protected-open-api-flexible"
+        "surface": "local-native",
+        "credentialMode": "local-native"
       }
     ],
+    "permissionComposition": {
+      "inheritanceMode": "module-catalog-with-overrides",
+      "applicationModule": {
+        "manifestRef": "../../../../../specs/iam.module.manifest.json"
+      },
+      "moduleCatalogRefs": [
+        {
+          "moduleId": "knowledge",
+          "manifestRef": "../../../../../specs/iam.module.manifest.json",
+          "inheritPermissions": true,
+          "inheritRoles": true
+        },
+        {
+          "moduleId": "iam-kernel",
+          "manifestRef": "../../../../../../sdkwork-iam/iam/modules/iam-kernel/iam.module.manifest.json",
+          "inheritPermissions": true,
+          "inheritRoles": true
+        }
+      ],
+      "bootstrapAccessTokenScope": {
+        "inheritFrom": "sdkwork.app.config.json#backend.accessTokenPermissionScope",
+        "supplement": [],
+        "overrideReplace": false
+      },
+      "routePermissionHints": {
+        "inheritFromOpenApi": true,
+        "inheritFromModuleManifests": true,
+        "overrides": []
+      },
+      "consumerPolicy": {
+        "forbidLocalPermissionCatalogForDependencyDomains": true,
+        "allowExplicitOverridesOnly": true,
+        "allowFrontendHintsWithoutServerDuplication": true
+      }
+    },
     "sdkClients": [
       "@sdkwork/knowledgebase-backend-sdk"
     ],

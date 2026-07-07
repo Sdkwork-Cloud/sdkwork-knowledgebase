@@ -407,7 +407,7 @@ mod tests {
                 sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineDocument,
                 String,
             > {
-                Err("not implemented".to_string())
+                Err("unsupported in test fake".to_string())
             }
         }
 

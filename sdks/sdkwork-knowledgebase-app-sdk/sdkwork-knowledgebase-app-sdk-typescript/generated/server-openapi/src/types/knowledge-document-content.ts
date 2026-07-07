@@ -1,5 +1,5 @@
 export interface KnowledgeDocumentContent {
-  documentId: number;
+  documentId: string;
   contentMarkdown: string;
   contentSource: string;
   contentVersion: string;

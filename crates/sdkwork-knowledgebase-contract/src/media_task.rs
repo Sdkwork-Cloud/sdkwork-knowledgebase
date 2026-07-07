@@ -27,7 +27,8 @@ pub struct KnowledgeMediaTaskRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeMediaTaskResult {
-    pub success: bool,
+    pub accepted: bool,
+    pub status: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

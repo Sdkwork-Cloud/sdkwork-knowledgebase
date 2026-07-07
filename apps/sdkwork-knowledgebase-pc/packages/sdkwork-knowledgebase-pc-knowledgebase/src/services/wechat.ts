@@ -199,6 +199,11 @@ export interface WechatArticle {
   coverAspect?: '2.35' | '1:1';
 }
 
+export interface WechatCommandResult {
+  accepted: boolean;
+  status: string;
+}
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /** In-memory demo store when API is unavailable and preview fallback is enabled. */
@@ -232,7 +237,7 @@ export class WechatService {
             }),
           )
         : accounts;
-      await wechatSdk().officialAccounts.replace({
+      await wechatSdk().officialAccounts.update({
         accounts: prepared.map(fromOfficialAccount),
       });
       return true;
@@ -267,7 +272,7 @@ export class WechatService {
             }),
           )
         : applets;
-      await wechatSdk().applets.replace({
+      await wechatSdk().applets.update({
         applets: prepared.map(fromApplet),
       });
       return true;
@@ -276,6 +281,22 @@ export class WechatService {
     await delay(500);
     demoApplets = JSON.parse(JSON.stringify(applets));
     return true;
+  }
+
+  static async listFanTags(accountId: string): Promise<Array<{ id: string; name: string; fanCount: number }>> {
+    if (!accountId) {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.WECHAT_INVALID_ARGS);
+    }
+    if (isKnowledgebaseApiAvailable()) {
+      const list = await wechatSdk().officialAccounts.fanTags.list(accountId);
+      return (list.tags ?? []).map((tag) => ({
+        id: tag.id,
+        name: tag.name,
+        fanCount: Number(tag.fanCount ?? 0),
+      }));
+    }
+    assertWechatDemoFallbackAllowed();
+    return [];
   }
 
   static async publishArticles(
@@ -287,7 +308,7 @@ export class WechatService {
       selectedGroupId?: string;
       scheduleTime?: string | null;
     },
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<WechatCommandResult> {
     if (!selectedAccountIds.length || !articles.length) {
       throwKnowledgebaseError(KnowledgebaseErrorCodes.WECHAT_INVALID_ARGS);
     }
@@ -303,14 +324,14 @@ export class WechatService {
     }
     assertWechatDemoFallbackAllowed();
     await delay(1500);
-    return { success: true, message: '' };
+    return { accepted: true, status: 'completed' };
   }
 
   static async sendPreview(
     accountId: string,
     wechatIds: string[],
     articles: WechatArticle[],
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<WechatCommandResult> {
     if (!accountId || !wechatIds.length || !articles.length) {
       throwKnowledgebaseError(KnowledgebaseErrorCodes.WECHAT_INVALID_ARGS);
     }
@@ -323,7 +344,7 @@ export class WechatService {
     }
     assertWechatDemoFallbackAllowed();
     await delay(1200);
-    return { success: true, message: '' };
+    return { accepted: true, status: 'completed' };
   }
 
   static async autoFormatContent(content: string, type: string): Promise<string> {

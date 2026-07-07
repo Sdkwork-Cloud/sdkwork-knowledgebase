@@ -1,8 +1,121 @@
 import { appApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserNode, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceContextBindingList, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest, KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, SdkWorkPageData, UpdateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceRequest } from '../types';
+import type { CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserNode, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevision, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList, KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PageInfo, SdkWorkCommandData, UpdateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceRequest } from '../types';
 
+
+export class KnowledgeMediaTasksApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Create a knowledge media task (image generation or speech-to-text) */
+  async create(body: KnowledgeMediaTaskRequest): Promise<KnowledgeMediaTaskResult> {
+    return this.client.post<KnowledgeMediaTaskResult>(appApiPath(`/knowledge/media_tasks`), body, undefined, undefined, 'application/json');
+  }
+}
+
+export class KnowledgeSiteDeploymentsPreviewApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Retrieve site deployment preview HTML */
+  async list(deploymentId: string): Promise<KnowledgeSiteDeploymentPreview> {
+    return this.client.get<KnowledgeSiteDeploymentPreview>(appApiPath(`/knowledge/site_deployments/${serializePathParameter(deploymentId, { name: 'deploymentId', style: 'simple', explode: false })}/preview`));
+  }
+}
+
+export class KnowledgeSiteDeploymentsApi {
+  private client: HttpClient;
+  public readonly preview: KnowledgeSiteDeploymentsPreviewApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.preview = new KnowledgeSiteDeploymentsPreviewApi(client);
+  }
+
+
+/** Deploy a knowledge space as a static website */
+  async create(body: KnowledgeSiteDeploymentRequest): Promise<KnowledgeSiteDeploymentResult> {
+    return this.client.post<KnowledgeSiteDeploymentResult>(appApiPath(`/knowledge/site_deployments`), body, undefined, undefined, 'application/json');
+  }
+}
+
+export class KnowledgeMarketSubscriptionsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Subscribe to a knowledge market listing */
+  async create(body: KnowledgeMarketSubscriptionRequest): Promise<KnowledgeMarketSubscriptionResult> {
+    return this.client.post<KnowledgeMarketSubscriptionResult>(appApiPath(`/knowledge/market/subscriptions`), body, undefined, undefined, 'application/json');
+  }
+
+/** Unsubscribe from a knowledge market listing */
+  async delete(listingId: string): Promise<void> {
+    return this.client.delete<void>(appApiPath(`/knowledge/market/subscriptions/${serializePathParameter(listingId, { name: 'listingId', style: 'simple', explode: false })}`));
+  }
+}
+
+export interface KnowledgeMarketListingsListParams {
+  cursor?: string;
+  pageSize?: number;
+}
+
+export class KnowledgeMarketListingsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** List knowledge market catalog listings */
+  async list(params?: KnowledgeMarketListingsListParams): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/market/listings`), query));
+  }
+}
+
+export class KnowledgeMarketApi {
+  private client: HttpClient;
+  public readonly listings: KnowledgeMarketListingsApi;
+  public readonly subscriptions: KnowledgeMarketSubscriptionsApi;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+    this.listings = new KnowledgeMarketListingsApi(client);
+    this.subscriptions = new KnowledgeMarketSubscriptionsApi(client);
+  }
+
+}
+
+export class KnowledgeGitSyncsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Sync knowledge space documents to a Git repository */
+  async create(body: KnowledgeGitSyncRequest): Promise<KnowledgeGitSyncResult> {
+    return this.client.post<KnowledgeGitSyncResult>(appApiPath(`/knowledge/git_syncs`), body, undefined, undefined, 'application/json');
+  }
+}
 
 export class KnowledgeWechatArticlesApi {
   private client: HttpClient;
@@ -37,16 +150,32 @@ export class KnowledgeWechatAppletsApi {
   }
 
 /** Replace WeChat applets */
-  async replace(body: KnowledgeWechatReplaceAppletsRequest): Promise<KnowledgeWechatAppletList> {
+  async update(body: KnowledgeWechatReplaceAppletsRequest): Promise<KnowledgeWechatAppletList> {
     return this.client.put<KnowledgeWechatAppletList>(appApiPath(`/knowledge/wechat/applets`), body, undefined, undefined, 'application/json');
+  }
+}
+
+export class KnowledgeWechatOfficialAccountsFanTagsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** List WeChat official account fan tags */
+  async list(accountId: string): Promise<KnowledgeWechatFanTagList> {
+    return this.client.get<KnowledgeWechatFanTagList>(appApiPath(`/knowledge/wechat/official_accounts/${serializePathParameter(accountId, { name: 'accountId', style: 'simple', explode: false })}/fan_tags`));
   }
 }
 
 export class KnowledgeWechatOfficialAccountsApi {
   private client: HttpClient;
+  public readonly fanTags: KnowledgeWechatOfficialAccountsFanTagsApi;
 
   constructor(client: HttpClient) {
     this.client = client;
+    this.fanTags = new KnowledgeWechatOfficialAccountsFanTagsApi(client);
   }
 
 
@@ -56,7 +185,7 @@ export class KnowledgeWechatOfficialAccountsApi {
   }
 
 /** Replace WeChat official accounts */
-  async replace(body: KnowledgeWechatReplaceOfficialAccountsRequest): Promise<KnowledgeWechatOfficialAccountList> {
+  async update(body: KnowledgeWechatReplaceOfficialAccountsRequest): Promise<KnowledgeWechatOfficialAccountList> {
     return this.client.put<KnowledgeWechatOfficialAccountList>(appApiPath(`/knowledge/wechat/official_accounts`), body, undefined, undefined, 'application/json');
   }
 }
@@ -128,7 +257,7 @@ export class KnowledgeAgentProfilesChatApi {
 
 
 /** Chat with a knowledge-backed agent profile */
-  async create(profileId: string, body: KnowledgeAgentChatRequest): Promise<KnowledgeAgentChatResponse> {
+  async chat(profileId: string, body: KnowledgeAgentChatRequest): Promise<KnowledgeAgentChatResponse> {
     return this.client.post<KnowledgeAgentChatResponse>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/chat`), body, undefined, undefined, 'application/json');
   }
 }
@@ -142,7 +271,7 @@ export class KnowledgeAgentProfilesRetrievalPreviewApi {
 
 
 /** Preview retrieval for an agent profile */
-  async create(profileId: string, body: KnowledgeRetrievalRequest): Promise<KnowledgeRetrievalResult> {
+  async retrievalPreview(profileId: string, body: KnowledgeRetrievalRequest): Promise<KnowledgeRetrievalResult> {
     return this.client.post<KnowledgeRetrievalResult>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/retrieval_preview`), body, undefined, undefined, 'application/json');
   }
 }
@@ -161,7 +290,7 @@ export class KnowledgeAgentProfilesBindingsApi {
   }
 
 /** Create an agent profile binding */
-  async create(profileId: string, body: KnowledgeAgentBindingRequest): Promise<KnowledgeAgentBinding> {
+  async bindings(profileId: string, body: KnowledgeAgentBindingRequest): Promise<KnowledgeAgentBinding> {
     return this.client.post<KnowledgeAgentBinding>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings`), body, undefined, undefined, 'application/json');
   }
 
@@ -286,7 +415,7 @@ export class KnowledgeOkfQueriesApi {
   }
 
 /** File an answer for an OKF query */
-  async fileAnswer(queryId: number, body: OkfFileAnswerRequest): Promise<OkfQueryResult> {
+  async fileAnswer(queryId: string, body: OkfFileAnswerRequest): Promise<OkfQueryResult> {
     return this.client.post<OkfQueryResult>(appApiPath(`/knowledge/okf/queries/${serializePathParameter(queryId, { name: 'queryId', style: 'simple', explode: false })}/file_answer`), body, undefined, undefined, 'application/json');
   }
 }
@@ -319,7 +448,7 @@ export class KnowledgeOkfBundleExportApi {
   }
 
 /** Retrieve an OKF bundle export */
-  async retrieve(exportId: number): Promise<KnowledgeOkfBundleFile> {
+  async retrieve(exportId: string): Promise<KnowledgeOkfBundleFile> {
     return this.client.get<KnowledgeOkfBundleFile>(appApiPath(`/knowledge/okf/exports/${serializePathParameter(exportId, { name: 'exportId', style: 'simple', explode: false })}`));
   }
 }
@@ -333,7 +462,7 @@ export class KnowledgeOkfBundleProfileApi {
 
 
 /** Retrieve the OKF bundle profile */
-  async retrieve(): Promise<OkfProfileDocument> {
+  async list(): Promise<OkfProfileDocument> {
     return this.client.get<OkfProfileDocument>(appApiPath(`/knowledge/okf/profile`));
   }
 }
@@ -347,7 +476,7 @@ export class KnowledgeOkfBundleLogApi {
 
 
 /** Retrieve the OKF bundle log */
-  async retrieve(): Promise<OkfLogDocument> {
+  async list(): Promise<OkfLogDocument> {
     return this.client.get<OkfLogDocument>(appApiPath(`/knowledge/okf/log`));
   }
 }
@@ -361,7 +490,7 @@ export class KnowledgeOkfBundleIndexApi {
 
 
 /** Retrieve the OKF bundle index */
-  async retrieve(): Promise<OkfIndexDocument> {
+  async list(): Promise<OkfIndexDocument> {
     return this.client.get<OkfIndexDocument>(appApiPath(`/knowledge/okf/index`));
   }
 }
@@ -385,6 +514,11 @@ export class KnowledgeOkfBundleApi {
 
 }
 
+export interface KnowledgeOkfConceptsRevisionsListParams {
+  cursor?: string;
+  pageSize?: number;
+}
+
 export class KnowledgeOkfConceptsRevisionsApi {
   private client: HttpClient;
 
@@ -394,14 +528,18 @@ export class KnowledgeOkfConceptsRevisionsApi {
 
 
 /** List OKF concept revisions */
-  async list(conceptId: number): Promise<KnowledgeOkfConceptRevisionList> {
-    return this.client.get<KnowledgeOkfConceptRevisionList>(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}/revisions`));
+  async list(conceptId: string, params?: KnowledgeOkfConceptsRevisionsListParams): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}/revisions`), query));
   }
 }
 
 export interface KnowledgeOkfConceptsListParams {
-  spaceId: number;
-  cursor?: string | null;
+  spaceId: string;
+  cursor?: string;
   pageSize?: number;
 }
 
@@ -416,27 +554,27 @@ export class KnowledgeOkfConceptsApi {
 
 
 /** List OKF concepts */
-  async list(params: KnowledgeOkfConceptsListParams): Promise<SdkWorkPageData<OkfConceptSummary>> {
+  async list(params: KnowledgeOkfConceptsListParams): Promise<Record<string, unknown>> {
     const query = buildQueryString([
       { name: 'spaceId', value: params.spaceId, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'pageSize', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<SdkWorkPageData<OkfConceptSummary>>(appendQueryString(appApiPath(`/knowledge/okf/concepts`), query));
+    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/okf/concepts`), query));
   }
 
 /** Retrieve an OKF concept */
-  async retrieve(conceptId: number): Promise<OkfConceptSummary> {
+  async retrieve(conceptId: string): Promise<OkfConceptSummary> {
     return this.client.get<OkfConceptSummary>(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}`));
   }
 
 /** Delete an OKF concept */
-  async delete(conceptId: number): Promise<void> {
+  async delete(conceptId: string): Promise<void> {
     return this.client.delete<void>(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}`));
   }
 
 /** Upsert an OKF concept revision */
-  async upsert(body: OkfConceptUpsertRequest): Promise<OkfConceptSummary> {
+  async update(body: OkfConceptUpsertRequest): Promise<OkfConceptSummary> {
     return this.client.put<OkfConceptSummary>(appApiPath(`/knowledge/okf/concepts/upsert`), body, undefined, undefined, 'application/json');
   }
 }
@@ -460,6 +598,11 @@ export class KnowledgeOkfApi {
 
 }
 
+export interface KnowledgeDocumentsVersionsListParams {
+  cursor?: string;
+  pageSize?: number;
+}
+
 export class KnowledgeDocumentsVersionsApi {
   private client: HttpClient;
 
@@ -469,24 +612,16 @@ export class KnowledgeDocumentsVersionsApi {
 
 
 /** List document versions */
-  async list(
-    documentId: number,
-    params?: { cursor?: string | null; pageSize?: number },
-  ): Promise<SdkWorkPageData<KnowledgeDocumentVersion>> {
+  async list(documentId: string, params?: KnowledgeDocumentsVersionsListParams): Promise<Record<string, unknown>> {
     const query = buildQueryString([
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'pageSize', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<SdkWorkPageData<KnowledgeDocumentVersion>>(
-      appendQueryString(
-        appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/versions`),
-        query,
-      ),
-    );
+    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/versions`), query));
   }
 
 /** Create a document version */
-  async create(documentId: number, body: CreateKnowledgeDocumentVersionRequest): Promise<KnowledgeDocumentVersion> {
+  async versions(documentId: string, body: CreateKnowledgeDocumentVersionRequest): Promise<KnowledgeDocumentVersion> {
     return this.client.post<KnowledgeDocumentVersion>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/versions`), body, undefined, undefined, 'application/json');
   }
 }
@@ -500,14 +635,14 @@ export class KnowledgeDocumentsContentApi {
 
 
 /** Retrieve authoritative knowledge document content */
-  async retrieve(documentId: number): Promise<KnowledgeDocumentContent> {
+  async list(documentId: string): Promise<KnowledgeDocumentContent> {
     return this.client.get<KnowledgeDocumentContent>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/content`));
   }
 }
 
 export interface KnowledgeDocumentsListParams {
-  spaceId: number;
-  cursor?: string | null;
+  spaceId: string;
+  cursor?: string;
   pageSize?: number;
 }
 
@@ -524,13 +659,13 @@ export class KnowledgeDocumentsApi {
 
 
 /** List knowledge documents */
-  async list(params: KnowledgeDocumentsListParams): Promise<SdkWorkPageData<KnowledgeDocument>> {
+  async list(params: KnowledgeDocumentsListParams): Promise<Record<string, unknown>> {
     const query = buildQueryString([
       { name: 'spaceId', value: params.spaceId, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'pageSize', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<SdkWorkPageData<KnowledgeDocument>>(appendQueryString(appApiPath(`/knowledge/documents`), query));
+    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/documents`), query));
   }
 
 /** Create a knowledge document */
@@ -539,17 +674,17 @@ export class KnowledgeDocumentsApi {
   }
 
 /** Retrieve a knowledge document */
-  async retrieve(documentId: number): Promise<KnowledgeDocument> {
+  async retrieve(documentId: string): Promise<KnowledgeDocument> {
     return this.client.get<KnowledgeDocument>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`));
   }
 
 /** Update a knowledge document */
-  async update(documentId: number, body: CreateKnowledgeDocumentRequest): Promise<KnowledgeDocument> {
+  async update(documentId: string, body: CreateKnowledgeDocumentRequest): Promise<KnowledgeDocument> {
     return this.client.patch<KnowledgeDocument>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
   }
 
 /** Delete a knowledge document */
-  async delete(documentId: number): Promise<void> {
+  async delete(documentId: string): Promise<void> {
     return this.client.delete<void>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`));
   }
 }
@@ -568,7 +703,7 @@ export class KnowledgeIngestsApi {
   }
 
 /** Retrieve an ingestion job */
-  async retrieve(ingestId: number): Promise<IngestionJob> {
+  async retrieve(ingestId: string): Promise<IngestionJob> {
     return this.client.get<IngestionJob>(appApiPath(`/knowledge/ingests/${serializePathParameter(ingestId, { name: 'ingestId', style: 'simple', explode: false })}`));
   }
 }
@@ -584,113 +719,6 @@ export class KnowledgeGitImportsApi {
 /** Import a Git repository into knowledgebase */
   async create(body: KnowledgeGitImportRequest): Promise<KnowledgeGitImportResult> {
     return this.client.post<KnowledgeGitImportResult>(appApiPath(`/knowledge/git_imports`), body, undefined, undefined, 'application/json');
-  }
-}
-
-export class KnowledgeGitSyncsApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-
-/** Sync knowledge space documents to a Git repository */
-  async create(body: KnowledgeGitSyncRequest): Promise<KnowledgeGitSyncResult> {
-    return this.client.post<KnowledgeGitSyncResult>(appApiPath(`/knowledge/git_syncs`), body, undefined, undefined, 'application/json');
-  }
-}
-
-export interface KnowledgeMarketListingsListParams {
-  cursor?: string | null;
-  pageSize?: number;
-}
-
-export class KnowledgeMarketListingsApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-/** List knowledge market catalog listings */
-  async list(params: KnowledgeMarketListingsListParams = {}): Promise<SdkWorkPageData<KnowledgeMarketCatalogItem>> {
-    const query = buildQueryString([
-      { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'pageSize', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
-    ]);
-    return this.client.get<SdkWorkPageData<KnowledgeMarketCatalogItem>>(
-      appendQueryString(appApiPath(`/knowledge/market/listings`), query),
-    );
-  }
-}
-
-export class KnowledgeMarketSubscriptionsApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-/** Subscribe to a knowledge market listing */
-  async create(body: KnowledgeMarketSubscriptionRequest): Promise<KnowledgeMarketSubscriptionResult> {
-    return this.client.post<KnowledgeMarketSubscriptionResult>(appApiPath(`/knowledge/market/subscriptions`), body, undefined, undefined, 'application/json');
-  }
-
-/** Unsubscribe from a knowledge market listing */
-  async delete(listingId: number): Promise<KnowledgeMarketSubscriptionResult> {
-    return this.client.delete<KnowledgeMarketSubscriptionResult>(appApiPath(`/knowledge/market/subscriptions/${serializePathParameter(listingId, { name: 'listingId', style: 'simple', explode: false })}`));
-  }
-}
-
-export class KnowledgeMarketApi {
-  public readonly listings: KnowledgeMarketListingsApi;
-  public readonly subscriptions: KnowledgeMarketSubscriptionsApi;
-
-  constructor(client: HttpClient) {
-    this.listings = new KnowledgeMarketListingsApi(client);
-    this.subscriptions = new KnowledgeMarketSubscriptionsApi(client);
-  }
-}
-
-export class KnowledgeSiteDeploymentsPreviewApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-/** Retrieve site deployment preview HTML */
-  async retrieve(deploymentId: number): Promise<KnowledgeSiteDeploymentPreview> {
-    return this.client.get<KnowledgeSiteDeploymentPreview>(appApiPath(`/knowledge/site_deployments/${serializePathParameter(deploymentId, { name: 'deploymentId', style: 'simple', explode: false })}/preview`));
-  }
-}
-
-export class KnowledgeSiteDeploymentsApi {
-  private client: HttpClient;
-  public readonly preview: KnowledgeSiteDeploymentsPreviewApi;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-    this.preview = new KnowledgeSiteDeploymentsPreviewApi(client);
-  }
-
-/** Deploy a knowledge space as a static website */
-  async create(body: KnowledgeSiteDeploymentRequest): Promise<KnowledgeSiteDeploymentResult> {
-    return this.client.post<KnowledgeSiteDeploymentResult>(appApiPath(`/knowledge/site_deployments`), body, undefined, undefined, 'application/json');
-  }
-}
-
-export class KnowledgeMediaTasksApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-/** Create a knowledge media task (image generation or speech-to-text) */
-  async create(body: KnowledgeMediaTaskRequest): Promise<KnowledgeMediaTaskResult> {
-    return this.client.post<KnowledgeMediaTaskResult>(appApiPath(`/knowledge/media_tasks`), body, undefined, undefined, 'application/json');
   }
 }
 
@@ -713,7 +741,7 @@ export interface KnowledgeSpacesMembersListParams {
   pageSize?: number;
 }
 
-export interface KnowledgeSpacesMembersRevokeParams {
+export interface KnowledgeSpacesMembersDeleteParams {
   subjectType: KnowledgeSpaceMemberSubjectType;
   subjectId: string;
 }
@@ -727,35 +755,32 @@ export class KnowledgeSpacesMembersApi {
 
 
 /** List knowledge space members */
-  async list(
-    spaceId: string,
-    params?: KnowledgeSpacesMembersListParams,
-  ): Promise<SdkWorkPageData<KnowledgeSpaceMember>> {
+  async list(spaceId: string, params?: KnowledgeSpacesMembersListParams): Promise<Record<string, unknown>> {
     const query = buildQueryString([
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'pageSize', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<SdkWorkPageData<KnowledgeSpaceMember>>(
-      appendQueryString(
-        appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`),
-        query,
-      ),
-    );
+    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), query));
   }
 
 /** Grant knowledge space member access */
-  async grant(spaceId: string, body: GrantKnowledgeSpaceMemberRequest): Promise<void> {
-    return this.client.post<void>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), body, undefined, undefined, 'application/json');
+  async members(spaceId: string, body: GrantKnowledgeSpaceMemberRequest): Promise<SdkWorkCommandData> {
+    return this.client.post<SdkWorkCommandData>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), body, undefined, undefined, 'application/json');
   }
 
 /** Revoke knowledge space member access */
-  async revoke(spaceId: string, params: KnowledgeSpacesMembersRevokeParams): Promise<void> {
+  async delete(spaceId: string, params: KnowledgeSpacesMembersDeleteParams): Promise<void> {
     const query = buildQueryString([
       { name: 'subjectType', value: params.subjectType, style: 'form', explode: true, allowReserved: false },
       { name: 'subjectId', value: params.subjectId, style: 'form', explode: true, allowReserved: false },
     ]);
     return this.client.delete<void>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), query));
   }
+}
+
+export interface KnowledgeSpacesContextBindingsListParams {
+  cursor?: string;
+  pageSize?: number;
 }
 
 export class KnowledgeSpacesContextBindingsApi {
@@ -767,12 +792,16 @@ export class KnowledgeSpacesContextBindingsApi {
 
 
 /** List knowledge space context bindings */
-  async list(spaceId: string): Promise<KnowledgeSpaceContextBindingList> {
-    return this.client.get<KnowledgeSpaceContextBindingList>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/context_bindings`));
+  async list(spaceId: string, params?: KnowledgeSpacesContextBindingsListParams): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/context_bindings`), query));
   }
 
 /** Create a knowledge space context binding */
-  async create(spaceId: string, body: CreateKnowledgeSpaceContextBindingRequest): Promise<KnowledgeSpaceContextBinding> {
+  async contextBindings(spaceId: string, body: CreateKnowledgeSpaceContextBindingRequest): Promise<KnowledgeSpaceContextBinding> {
     return this.client.post<KnowledgeSpaceContextBinding>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/context_bindings`), body, undefined, undefined, 'application/json');
   }
 }
@@ -793,22 +822,14 @@ export class KnowledgeSpacesBrowserApi {
 
 
 /** List browser view of a knowledge space */
-  async list(
-    spaceId: number,
-    params: KnowledgeSpacesBrowserListParams,
-  ): Promise<SdkWorkPageData<KnowledgeBrowserNode>> {
+  async list(spaceId: string, params: KnowledgeSpacesBrowserListParams): Promise<Record<string, unknown>> {
     const query = buildQueryString([
       { name: 'view', value: params.view, style: 'form', explode: true, allowReserved: false },
       { name: 'parentId', value: params.parentId, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
-      { name: 'pageSize', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<SdkWorkPageData<KnowledgeBrowserNode>>(
-      appendQueryString(
-        appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/browser`),
-        query,
-      ),
-    );
+    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/browser`), query));
   }
 }
 
@@ -832,17 +853,17 @@ export class KnowledgeSpacesApi {
   }
 
 /** Retrieve a knowledge space */
-  async retrieve(spaceId: number): Promise<KnowledgeSpace> {
+  async retrieve(spaceId: string): Promise<KnowledgeSpace> {
     return this.client.get<KnowledgeSpace>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`));
   }
 
 /** Update a knowledge space */
-  async update(spaceId: number, body: UpdateKnowledgeSpaceRequest): Promise<KnowledgeSpace> {
+  async update(spaceId: string, body: UpdateKnowledgeSpaceRequest): Promise<KnowledgeSpace> {
     return this.client.patch<KnowledgeSpace>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
   }
 
 /** Delete a knowledge space */
-  async delete(spaceId: number): Promise<void> {
+  async delete(spaceId: string): Promise<void> {
     return this.client.delete<void>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`));
   }
 }
@@ -852,10 +873,6 @@ export class KnowledgeApi {
   public readonly spaces: KnowledgeSpacesApi;
   public readonly driveImports: KnowledgeDriveImportsApi;
   public readonly gitImports: KnowledgeGitImportsApi;
-  public readonly gitSyncs: KnowledgeGitSyncsApi;
-  public readonly market: KnowledgeMarketApi;
-  public readonly siteDeployments: KnowledgeSiteDeploymentsApi;
-  public readonly mediaTasks: KnowledgeMediaTasksApi;
   public readonly ingests: KnowledgeIngestsApi;
   public readonly documents: KnowledgeDocumentsApi;
   public readonly okf: KnowledgeOkfApi;
@@ -865,16 +882,16 @@ export class KnowledgeApi {
   public readonly contextBindings: KnowledgeContextBindingsApi;
   public readonly uploadSessions: KnowledgeUploadSessionsApi;
   public readonly wechat: KnowledgeWechatApi;
+  public readonly gitSyncs: KnowledgeGitSyncsApi;
+  public readonly market: KnowledgeMarketApi;
+  public readonly siteDeployments: KnowledgeSiteDeploymentsApi;
+  public readonly mediaTasks: KnowledgeMediaTasksApi;
 
   constructor(client: HttpClient) {
     this.client = client;
     this.spaces = new KnowledgeSpacesApi(client);
     this.driveImports = new KnowledgeDriveImportsApi(client);
     this.gitImports = new KnowledgeGitImportsApi(client);
-    this.gitSyncs = new KnowledgeGitSyncsApi(client);
-    this.market = new KnowledgeMarketApi(client);
-    this.siteDeployments = new KnowledgeSiteDeploymentsApi(client);
-    this.mediaTasks = new KnowledgeMediaTasksApi(client);
     this.ingests = new KnowledgeIngestsApi(client);
     this.documents = new KnowledgeDocumentsApi(client);
     this.okf = new KnowledgeOkfApi(client);
@@ -884,6 +901,10 @@ export class KnowledgeApi {
     this.contextBindings = new KnowledgeContextBindingsApi(client);
     this.uploadSessions = new KnowledgeUploadSessionsApi(client);
     this.wechat = new KnowledgeWechatApi(client);
+    this.gitSyncs = new KnowledgeGitSyncsApi(client);
+    this.market = new KnowledgeMarketApi(client);
+    this.siteDeployments = new KnowledgeSiteDeploymentsApi(client);
+    this.mediaTasks = new KnowledgeMediaTasksApi(client);
   }
 
 }

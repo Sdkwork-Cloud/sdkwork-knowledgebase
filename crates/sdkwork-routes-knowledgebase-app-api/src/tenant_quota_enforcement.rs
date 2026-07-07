@@ -15,7 +15,6 @@ use sdkwork_knowledgebase_contract::KnowledgeTenantQuotaStatus;
 use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
 use sdkwork_routes_knowledgebase_backend_api::knowledgebase_rate_limit_store;
 use sdkwork_utils_rust::is_blank;
-use sdkwork_web_core::RateLimitStore;
 use std::time::Duration;
 
 use crate::{runtime::KnowledgebaseRuntime, ApiError, ApiResult};
@@ -188,10 +187,7 @@ pub(crate) async fn verify_ingest_capacity_after_enqueue(
     Ok(())
 }
 
-pub(crate) async fn ensure_tenant_retrieval_rate(
-    runtime: &KnowledgebaseRuntime,
-    tenant_id: u64,
-) -> ApiResult<()> {
+pub(crate) async fn ensure_tenant_retrieval_rate(tenant_id: u64) -> ApiResult<()> {
     let limits = KnowledgebaseTenantQuotaLimits::from_env();
     let store = knowledgebase_rate_limit_store();
     let key = format!("kb:tenant:{tenant_id}:retrieval:minute");

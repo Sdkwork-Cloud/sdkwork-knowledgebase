@@ -17,7 +17,7 @@ function requireSdkClient() {
   return requireKnowledgebaseAppSdkHttpClient();
 }
 
-function spaceIdFromKbId(kbId: string): number {
+function spaceIdFromKbId(kbId: string): string {
   return parseKnowledgeSpaceId(kbId);
 }
 
@@ -61,7 +61,7 @@ function okfConceptLogicalPath(conceptId: string): string {
 function matchOkfConceptNode(
   node: KnowledgeBrowserNode,
   expectedLogicalPath: string,
-): node is KnowledgeBrowserNode & { conceptId: number } {
+): node is KnowledgeBrowserNode & { conceptId: string } {
   if (node.nodeType !== 'okf_concept' || !node.conceptId) {
     return false;
   }
@@ -74,10 +74,10 @@ function isFolderNode(node: KnowledgeBrowserNode): boolean {
 }
 
 async function findOkfConceptRowIdInPaginatedBrowser(
-  spaceId: number,
+  spaceId: string,
   conceptIdString: string,
   logicalPath?: string,
-): Promise<number | null> {
+): Promise<string | null> {
   const expectedLogicalPath = normalizeBrowserPath(
     logicalPath ?? okfConceptLogicalPath(conceptIdString),
   );
@@ -111,9 +111,9 @@ async function findOkfConceptRowIdInPaginatedBrowser(
 }
 
 async function findOkfConceptRowIdViaRootBrowserPages(
-  spaceId: number,
+  spaceId: string,
   conceptIdString: string,
-): Promise<number | null> {
+): Promise<string | null> {
   const client = requireSdkClient();
   let cursor: string | null = null;
 
@@ -123,7 +123,7 @@ async function findOkfConceptRowIdViaRootBrowserPages(
       if (node.nodeType !== 'okf_concept' || !node.conceptId) {
         continue;
       }
-      const summary = await client.knowledge.okf.concepts.retrieve(node.conceptId);
+      const summary = await client.knowledge.okf.concepts.retrieve(String(node.conceptId));
       if (summary.conceptId === conceptIdString) {
         return node.conceptId;
       }
@@ -135,10 +135,10 @@ async function findOkfConceptRowIdViaRootBrowserPages(
 }
 
 async function resolveOkfConceptRowIdByConceptId(
-  spaceId: number,
+  spaceId: string,
   conceptIdString: string,
   logicalPath?: string,
-): Promise<number> {
+): Promise<string> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (attempt > 0) {
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -166,15 +166,15 @@ async function resolveOkfConceptRowIdByConceptId(
 }
 
 export async function copyOkfConcept(
-  sourceSpaceId: number,
-  sourceConceptRowId: number,
+  sourceSpaceId: string,
+  sourceConceptRowId: string,
   targetKbId: string,
-  readMarkdown: (spaceId: number, conceptRowId: number) => Promise<string>,
+  readMarkdown: (spaceId: string, conceptRowId: string) => Promise<string>,
   options?: { titleSuffix?: string },
 ): Promise<DocumentMeta> {
   const client = requireSdkClient();
   const targetSpaceId = spaceIdFromKbId(targetKbId);
-  const sourceConcept = await client.knowledge.okf.concepts.retrieve(sourceConceptRowId);
+  const sourceConcept = await client.knowledge.okf.concepts.retrieve(String(sourceConceptRowId));
   const titleSuffix = options?.titleSuffix ?? ' (Copy)';
   const targetTitle = `${sourceConcept.title}${titleSuffix}`;
   const targetConceptId = buildCopiedConceptId(sourceConcept.conceptId);
@@ -183,7 +183,7 @@ export async function copyOkfConcept(
     targetTitle,
   );
 
-  const upserted = await client.knowledge.okf.concepts.upsert({
+  const upserted = await client.knowledge.okf.concepts.update({
     spaceId: targetSpaceId,
     conceptId: targetConceptId,
     markdown,
@@ -210,10 +210,10 @@ export async function copyOkfConcept(
 }
 
 export async function moveOkfConcept(
-  sourceSpaceId: number,
-  sourceConceptRowId: number,
+  sourceSpaceId: string,
+  sourceConceptRowId: string,
   targetKbId: string,
-  readMarkdown: (spaceId: number, conceptRowId: number) => Promise<string>,
+  readMarkdown: (spaceId: string, conceptRowId: string) => Promise<string>,
 ): Promise<DocumentMeta> {
   const targetSpaceId = spaceIdFromKbId(targetKbId);
   if (sourceSpaceId === targetSpaceId) {
@@ -221,10 +221,10 @@ export async function moveOkfConcept(
   }
 
   const client = requireSdkClient();
-  const sourceConcept = await client.knowledge.okf.concepts.retrieve(sourceConceptRowId);
+  const sourceConcept = await client.knowledge.okf.concepts.retrieve(String(sourceConceptRowId));
   const markdown = await readMarkdown(sourceSpaceId, sourceConceptRowId);
 
-  const upserted = await client.knowledge.okf.concepts.upsert({
+  const upserted = await client.knowledge.okf.concepts.update({
     spaceId: targetSpaceId,
     conceptId: sourceConcept.conceptId,
     markdown,
@@ -238,7 +238,20 @@ export async function moveOkfConcept(
     upserted.logicalPath,
   );
 
-  await client.knowledge.okf.concepts.delete(sourceConceptRowId);
+  try {
+    await client.knowledge.okf.concepts.delete(String(sourceConceptRowId));
+  } catch (deleteError) {
+    try {
+      await client.knowledge.okf.concepts.delete(String(targetConceptRowId));
+    } catch (rollbackError) {
+      console.error(
+        '[KnowledgeOkfConceptTransferService] move rollback failed after source delete error.',
+        { deleteError, rollbackError, targetConceptRowId },
+      );
+    }
+    const detail = deleteError instanceof Error ? deleteError.message : String(deleteError);
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED, { cause: detail });
+  }
 
   invalidateKnowledgeBrowserNodeCacheForSpaceIds(sourceSpaceId, targetSpaceId);
   return {

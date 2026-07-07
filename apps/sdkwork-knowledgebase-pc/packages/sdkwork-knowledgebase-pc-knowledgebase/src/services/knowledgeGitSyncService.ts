@@ -1,9 +1,11 @@
 import {
   KnowledgebaseErrorCodes,
-  parseKnowledgeSpaceId,
   requireKnowledgebaseAppSdkHttpClient,
   requireNonEmptyString,
+  requireRegisteredSpaceId,
 } from 'sdkwork-knowledgebase-pc-core';
+
+import { invalidateKnowledgeBrowserNodeCacheForSpaceIds } from './knowledgeBrowserListService';
 
 export interface GitSyncProgress {
   phase: 'resolve' | 'push' | 'done';
@@ -12,7 +14,8 @@ export interface GitSyncProgress {
 }
 
 export interface GitSyncResult {
-  success: boolean;
+  accepted: boolean;
+  status: string;
   hash: string;
   syncedCount: number;
 }
@@ -21,17 +24,13 @@ function requireSdkClient() {
   return requireKnowledgebaseAppSdkHttpClient();
 }
 
-function spaceIdFromKbId(kbId: string): number {
-  return parseKnowledgeSpaceId(kbId);
-}
-
 function normalizeBranch(branch: string): string {
   const trimmed = branch.trim();
   return trimmed || 'main';
 }
 
 function buildSyncIdempotencyKey(
-  spaceId: number,
+  spaceId: string,
   repoUrl: string,
   branch: string,
   commitMessage: string,
@@ -55,7 +54,7 @@ export async function syncGitRepository(
   );
 
   const normalizedBranch = normalizeBranch(branch);
-  const spaceId = spaceIdFromKbId(kbId);
+  const spaceId = requireRegisteredSpaceId(kbId);
   const client = requireSdkClient();
   const idempotencyKey = buildSyncIdempotencyKey(
     spaceId,
@@ -67,12 +66,12 @@ export async function syncGitRepository(
 
   onProgress?.({
     phase: 'resolve',
-    message: `Resolving repository on branch "${normalizedBranch}"…`,
+    message: `Resolving repository on branch "${normalizedBranch}"\u2026`,
   });
 
   onProgress?.({
     phase: 'push',
-    message: 'Pushing knowledge base documents to the remote repository…',
+    message: 'Pushing knowledge base documents to the remote repository\u2026',
   });
 
   const result = await client.knowledge.gitSyncs.create({
@@ -90,8 +89,10 @@ export async function syncGitRepository(
     syncedCount: result.syncedCount,
   });
 
+  invalidateKnowledgeBrowserNodeCacheForSpaceIds(spaceId);
   return {
-    success: result.success,
+    accepted: result.accepted === true,
+    status: result.status,
     hash: result.hash,
     syncedCount: result.syncedCount,
   };

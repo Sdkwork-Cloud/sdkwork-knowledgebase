@@ -4,22 +4,24 @@ import {
   requireKnowledgebaseAppSdkHttpClient,
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
-import { normalizeSdkWorkListPage } from './sdkWorkListPage';
+import { listKnowledgeBrowserNodesPage } from './knowledgeBrowserListService';
 
 const INGEST_POLL_INTERVAL_MS = 250;
 const INGEST_POLL_TIMEOUT_MS = 30_000;
+const INGEST_RESOLVE_ATTEMPTS = 6;
+const INGEST_RESOLVE_RETRY_MS = 300;
 
-export async function waitForIngestJob(jobId: number): Promise<IngestionJob> {
+export async function waitForIngestJob(jobId: string | number): Promise<IngestionJob> {
   const client = requireKnowledgebaseAppSdkHttpClient();
   const deadline = Date.now() + INGEST_POLL_TIMEOUT_MS;
-  let job = await client.knowledge.ingests.retrieve(jobId);
+  let job = await client.knowledge.ingests.retrieve(String(jobId));
 
   while (job.state === 'queued' || job.state === 'running') {
     if (Date.now() >= deadline) {
       throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED);
     }
     await new Promise((resolve) => setTimeout(resolve, INGEST_POLL_INTERVAL_MS));
-    job = await client.knowledge.ingests.retrieve(jobId);
+    job = await client.knowledge.ingests.retrieve(String(jobId));
   }
 
   if (job.state === 'failed') {
@@ -34,35 +36,48 @@ export async function waitForIngestJob(jobId: number): Promise<IngestionJob> {
   return job;
 }
 
+async function findDocumentByTitleInBrowser(
+  spaceId: string,
+  normalizedTitle: string,
+  fresh: boolean,
+): Promise<{ id: string; title: string } | null> {
+  let cursor: string | null = null;
+  do {
+    const page = await listKnowledgeBrowserNodesPage(spaceId, null, {
+      cursor,
+      fresh,
+      pageSize: 100,
+    });
+    const node = page.items.find(
+      (entry) => entry.name === normalizedTitle && entry.documentId,
+    );
+    if (node?.documentId) {
+      return { id: String(node.documentId), title: node.name };
+    }
+    cursor = page.hasMore ? page.nextCursor : null;
+  } while (cursor);
+  return null;
+}
+
 export async function resolveIngestedDocument(
-  spaceId: number,
+  spaceId: string,
   title: string,
-): Promise<{ id: number; title: string }> {
-  const client = requireKnowledgebaseAppSdkHttpClient();
-  const documents = normalizeSdkWorkListPage(
-    await client.knowledge.documents.list({ spaceId, pageSize: 200 }),
-  );
+): Promise<{ id: string; title: string }> {
   const normalizedTitle = title.trim();
 
-  const matches = documents.items.filter(
-    (document) => document.spaceId === spaceId && document.title === normalizedTitle,
-  );
-  if (matches.length > 0) {
-    const latest = matches.reduce((left, right) => (right.id > left.id ? right : left));
-    return { id: latest.id, title: latest.title };
-  }
+  for (let attempt = 0; attempt < INGEST_RESOLVE_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, INGEST_RESOLVE_RETRY_MS));
+    }
 
-  const browser = normalizeSdkWorkListPage(
-    await client.knowledge.spaces.browser.list(spaceId, {
-      view: 'files',
-      pageSize: 100,
-    }),
-  );
-  const node = browser.items.find(
-    (entry) => entry.name === normalizedTitle && entry.documentId,
-  );
-  if (node?.documentId) {
-    return { id: node.documentId, title: node.name };
+    const fromBrowser = await findDocumentByTitleInBrowser(
+      spaceId,
+      normalizedTitle,
+      attempt > 0,
+    );
+    if (fromBrowser) {
+      return fromBrowser;
+    }
   }
 
   throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED);

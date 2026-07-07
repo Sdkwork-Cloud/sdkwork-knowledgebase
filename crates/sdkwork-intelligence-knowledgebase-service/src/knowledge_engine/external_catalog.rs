@@ -215,7 +215,7 @@ impl KnowledgeEngine for CatalogExternalKnowledgeEngine {
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
-            "catalog external engine list_documents is not implemented; use native OKF/RAG search"
+            "catalog external engine list_documents is unsupported; use native OKF/RAG search"
                 .to_string(),
         ))
     }

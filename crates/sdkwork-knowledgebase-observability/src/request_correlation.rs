@@ -8,7 +8,8 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use sdkwork_knowledgebase_contract::ProblemDetails;
 use sdkwork_utils_rust::{
-    SdkWorkApiResponse, SdkWorkPageData, SdkWorkResourceData, SDKWORK_TRACE_ID_HEADER,
+    SdkWorkApiResponse, SdkWorkCommandData, SdkWorkPageData, SdkWorkResourceData,
+    SDKWORK_TRACE_ID_HEADER,
 };
 use serde::Serialize;
 use std::future::Future;
@@ -83,6 +84,16 @@ pub fn success_json_response<T: Serialize>(status: StatusCode, data: T) -> Respo
     let trace_id = resolve_trace_id();
     let envelope =
         SdkWorkApiResponse::success(SdkWorkResourceData { item: data }, trace_id.clone());
+    let mut response = (status, Json(envelope)).into_response();
+    attach_trace_header(&mut response, &trace_id);
+    response
+}
+
+/// Build a success command response with `SdkWorkCommandData` directly in
+/// `SdkWorkApiResponse.data`.
+pub fn success_command_json_response(status: StatusCode, data: SdkWorkCommandData) -> Response {
+    let trace_id = resolve_trace_id();
+    let envelope = SdkWorkApiResponse::success(data, trace_id.clone());
     let mut response = (status, Json(envelope)).into_response();
     attach_trace_header(&mut response, &trace_id);
     response
@@ -166,6 +177,20 @@ mod tests {
         let payload: serde_json::Value = serde_json::from_slice(&body).expect("json");
         assert_eq!(0, payload["code"].as_i64().unwrap());
         assert_eq!(42, payload["data"]["item"]["id"].as_i64().unwrap());
+        assert!(payload["traceId"].as_str().is_some());
+    }
+
+    #[tokio::test]
+    async fn success_command_json_response_wraps_command_data_directly() {
+        let response =
+            success_command_json_response(StatusCode::OK, SdkWorkCommandData::accepted());
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        let payload: serde_json::Value = serde_json::from_slice(&body).expect("json");
+        assert_eq!(0, payload["code"].as_i64().unwrap());
+        assert_eq!(true, payload["data"]["accepted"].as_bool().unwrap());
+        assert!(payload["data"].get("item").is_none());
         assert!(payload["traceId"].as_str().is_some());
     }
 

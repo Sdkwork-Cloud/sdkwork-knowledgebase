@@ -16,7 +16,8 @@ pub struct KnowledgeGitSyncRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeGitSyncResult {
-    pub success: bool,
+    pub accepted: bool,
+    pub status: String,
     pub hash: String,
     pub synced_count: u32,
 }

@@ -1,6 +1,20 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     connect_postgres_and_install_schema, is_postgres_database_url, knowledgebase_health_check,
-    KnowledgeAuditEventRecord, SqliteKnowledgeAuditEventStore, SqliteKnowledgeSpaceStore,
+    KnowledgeAuditEventRecord, SqliteKnowledgeAuditEventStore,
+    SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeDocumentStore,
+    SqliteKnowledgeDocumentVersionStore, SqliteKnowledgeDriveObjectRefStore,
+    SqliteKnowledgeSpaceStore,
+};
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_browser_projection_store::KnowledgeBrowserProjectionStore;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_store::{
+    CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
+};
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_version_store::{
+    CreateKnowledgeDocumentVersionRecord, KnowledgeDocumentVersionStore,
+};
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_ref_store::{
+    CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore, MANAGED_DRIVE_ACCESS_MODE,
+    SDKWORK_DRIVE_PROVIDER_KIND,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore,
@@ -191,4 +205,78 @@ async fn postgres_create_space_when_database_url_configured() {
         .await
         .expect("create knowledge space on postgres");
     assert!(created.id > 0);
+}
+
+#[tokio::test]
+async fn postgres_browser_projection_batches_document_status_when_database_url_configured() {
+    let Some(database_url) = optional_postgres_database_url() else {
+        eprintln!(
+            "skipping postgres browser projection integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL or DATABASE_URL to a postgres URL"
+        );
+        return;
+    };
+
+    let pool = connect_postgres_and_install_schema(&database_url)
+        .await
+        .expect("connect postgres knowledgebase schema");
+    let tenant_id = 100_001;
+    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id);
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
+    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id);
+    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, tenant_id);
+
+    let object_ref = object_refs
+        .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
+            space_id: 7,
+            drive_space_id: Some("drv-kb-001".to_string()),
+            drive_node_id: Some("node-pdf".to_string()),
+            logical_path: Some("raw/documents/doc-1/original/report.pdf".to_string()),
+            drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+            drive_storage_provider_id: "provider-kb".to_string(),
+            drive_bucket: "knowledgebase-test".to_string(),
+            drive_object_key: "raw/documents/doc-1/original/report.pdf".to_string(),
+            drive_object_version: None,
+            drive_etag: None,
+            content_type: Some("application/pdf".to_string()),
+            size_bytes: 42,
+            checksum_sha256_hex: Some("checksum".to_string()),
+            object_role: "original_document".to_string(),
+            access_mode: MANAGED_DRIVE_ACCESS_MODE.to_string(),
+        })
+        .await
+        .expect("create drive object ref on postgres");
+    let document = documents
+        .create_document(CreateKnowledgeDocumentRecord {
+            space_id: 7,
+            collection_id: 0,
+            source_id: None,
+            identity_scope: KnowledgeDocumentIdentityScope::SourceAndOriginalDriveNode,
+            original_file_drive_node_id: Some("node-pdf".to_string()),
+            title: "Report".to_string(),
+            mime_type: Some("application/pdf".to_string()),
+            language: Some("en".to_string()),
+        })
+        .await
+        .expect("create document on postgres");
+    let version = versions
+        .create_document_version(CreateKnowledgeDocumentVersionRecord {
+            document_id: document.id,
+            version_no: 1,
+            original_object_ref_id: object_ref.id,
+            checksum_sha256_hex: object_ref.checksum_sha256_hex.clone(),
+            size_bytes: object_ref.size_bytes,
+            mime_type: object_ref.content_type.clone(),
+        })
+        .await
+        .expect("create document version on postgres");
+
+    let batch = projections
+        .batch_document_projections(7, vec!["node-folder".to_string(), "node-pdf".to_string()])
+        .await
+        .expect("batch browser document projections on postgres");
+
+    assert_eq!(batch.len(), 1);
+    assert_eq!(batch[0].drive_node_id, "node-pdf");
+    assert_eq!(batch[0].document_id, document.id);
+    assert_eq!(batch[0].current_version_id, Some(version.id));
 }

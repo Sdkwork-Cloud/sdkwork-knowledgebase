@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{OriginalUri, Path, Query, State},
     http::StatusCode,
     response::Response,
     routing::{get, post},
@@ -130,9 +130,11 @@ async fn retrieve_ingest(
 async fn list_documents(
     State(state): State<OpenState>,
     context: RequiredOpenContext,
+    OriginalUri(uri): OriginalUri,
     Query(query): Query<ListDocumentsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
     ok_list_json(
         state
             .api
@@ -154,9 +156,11 @@ async fn list_browser(
     State(state): State<OpenState>,
     context: RequiredOpenContext,
     Path(space_id): Path<u64>,
+    OriginalUri(uri): OriginalUri,
     Query(query): Query<ListBrowserQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
     let view = parse_view(query.view.as_deref())?;
     ok_list_json(
         state
@@ -224,6 +228,7 @@ where
 struct ListDocumentsQuery {
     space_id: u64,
     cursor: Option<String>,
+    #[serde(rename = "page_size")]
     page_size: Option<u32>,
 }
 
@@ -233,6 +238,7 @@ struct ListBrowserQuery {
     view: Option<String>,
     parent_id: Option<String>,
     cursor: Option<String>,
+    #[serde(rename = "page_size")]
     page_size: Option<u32>,
 }
 
@@ -247,4 +253,33 @@ fn parse_view(value: Option<&str>) -> Result<KnowledgeBrowserView, ApiProblem> {
             format!("unsupported browser view: {value}"),
         )),
     }
+}
+
+const FORBIDDEN_PAGINATION_QUERY_ALIASES: &[(&str, &str)] = &[
+    ("pageSize", "page_size"),
+    ("limit", "page_size"),
+    ("page_no", "page"),
+    ("pageNo", "page"),
+    ("per_page", "page_size"),
+    ("size", "page_size"),
+];
+
+fn reject_forbidden_pagination_aliases(query: Option<&str>) -> Result<(), ApiProblem> {
+    let Some(query) = query else {
+        return Ok(());
+    };
+    for pair in query.split('&') {
+        let key = pair.split_once('=').map_or(pair, |(key, _)| key);
+        if let Some((alias, canonical)) = FORBIDDEN_PAGINATION_QUERY_ALIASES
+            .iter()
+            .find(|(alias, _)| key == *alias)
+        {
+            return Err(ApiProblem::new(
+                StatusCode::BAD_REQUEST,
+                "pagination_parameter_alias_forbidden",
+                format!("HTTP query parameter {alias} is forbidden; use {canonical}"),
+            ));
+        }
+    }
+    Ok(())
 }

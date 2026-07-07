@@ -13,7 +13,7 @@ This README is the SDKWork module entrypoint for `sdkwork-knowledgebase-app-sdk`
 
 ## Required SDK Surface
 
-- `SdkworkAppClient`
+- `SdkworkKnowledgebaseAppClient`
 
 ## Configuration
 

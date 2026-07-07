@@ -323,7 +323,7 @@ describe('knowledgebase security standard alignment', () => {
     );
     assert.match(adminConsole, /sdkwork-knowledgebase-pc-admin-core/);
     assert.match(adminConsole, /canAccessKnowledgebaseAdminConsole/);
-    assert.match(adminConsole, /providerHealth\.retrieve/);
+    assert.match(adminConsole, /providerHealth\.list/);
     assert.match(adminConsole, /retrievalTraces\.list/);
     assert.match(adminConsole, /spaces\.list/);
     assert.match(adminConsole, /spaces\.members\.list/);

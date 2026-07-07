@@ -40,7 +40,7 @@ const MAX_ASSET_LIBRARY_ITEMS = 200;
 const MAX_ASSET_SCAN_NODES = 2000;
 const ASSET_LIBRARY_PAGE_SIZE = 24;
 
-function spaceIdFromKbId(kbId: string): number {
+function spaceIdFromKbId(kbId: string): string {
   return parseKnowledgeSpaceId(kbId);
 }
 
@@ -104,7 +104,7 @@ function scanStateExhausted(state: AssetScanState): boolean {
 }
 
 async function collectAssetNodesPage(
-  spaceId: number,
+  spaceId: string,
   assetType: AssetType,
   state: AssetScanState,
   targetCount: number,
@@ -251,7 +251,7 @@ function mapDocumentTypeFromAsset(node: KnowledgeBrowserNode, assetType: AssetTy
 }
 
 async function searchMediaInBrowserPages(
-  spaceId: number,
+  spaceId: string,
   kbId: string,
   trimmedQuery: string,
   limit: number,

@@ -100,6 +100,9 @@ where
                     KnowledgeAgentProfileStoreError::Conflict(detail) => {
                         KnowledgeAgentChatServiceError::InvalidRequest(detail)
                     }
+                    KnowledgeAgentProfileStoreError::Unsupported(detail) => {
+                        KnowledgeAgentChatServiceError::InvalidRequest(detail)
+                    }
                     KnowledgeAgentProfileStoreError::Internal(detail) => {
                         KnowledgeAgentChatServiceError::Runtime(detail)
                     }
@@ -599,7 +602,7 @@ mod tests {
                 sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineDocument,
                 String,
             > {
-                Err("not implemented".to_string())
+                Err("unsupported in test fake".to_string())
             }
         }
 

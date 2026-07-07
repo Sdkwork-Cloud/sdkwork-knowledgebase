@@ -476,7 +476,7 @@ impl KnowledgeSpaceStore for MemorySpaceStore {
         _record: sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::UpdateKnowledgeSpaceRecord,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         Err(KnowledgeSpaceStoreError::Internal(
-            "not implemented".to_string(),
+            "unsupported in test fake".to_string(),
         ))
     }
 }

@@ -89,11 +89,11 @@ impl ApiError {
         )
     }
 
-    pub fn not_implemented(operation_id: &'static str) -> Self {
+    pub fn unsupported_operation(operation_id: &'static str) -> Self {
         Self::new(
             StatusCode::NOT_IMPLEMENTED,
-            "operation_not_implemented",
-            format!("operation is not implemented: {operation_id}"),
+            "operation_unsupported",
+            format!("operation is unsupported by this runtime: {operation_id}"),
         )
     }
 
@@ -206,6 +206,9 @@ impl From<KnowledgeAgentServiceError> for ApiError {
             KnowledgeAgentServiceError::Store(KnowledgeAgentProfileStoreError::Conflict(
                 detail,
             )) => Self::conflict("knowledge_agent_profile_conflict", detail),
+            KnowledgeAgentServiceError::Store(KnowledgeAgentProfileStoreError::Unsupported(
+                detail,
+            )) => Self::invalid_request("knowledge_agent_profile_store_unsupported", detail),
             KnowledgeAgentServiceError::Store(KnowledgeAgentProfileStoreError::Internal(
                 detail,
             )) => Self::internal("knowledge_agent_profile_store_failed", detail),
@@ -482,6 +485,9 @@ impl From<KnowledgeDocumentStoreError> for ApiError {
             KnowledgeDocumentStoreError::InvalidRecord(detail) => {
                 Self::invalid_request("invalid_knowledge_document_record", detail)
             }
+            KnowledgeDocumentStoreError::Unsupported(detail) => {
+                Self::invalid_request("knowledge_document_store_unsupported", detail)
+            }
             KnowledgeDocumentStoreError::Internal(detail) => {
                 if detail.contains("missing knowledge document") {
                     Self::not_found("knowledge_document_not_found", detail)
@@ -682,6 +688,22 @@ impl From<sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImp
             sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImportPipelineServiceError::Storage(
                 error,
             ) => Self::from(error),
+            sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImportPipelineServiceError::PayloadLimit(
+                error,
+            ) => match error {
+                sdkwork_intelligence_knowledgebase_service::ingest::PayloadLimitError::PayloadEmpty => {
+                    Self::invalid_request(
+                        "invalid_knowledge_drive_import_payload",
+                        "drive import payload must not be empty",
+                    )
+                }
+                sdkwork_intelligence_knowledgebase_service::ingest::PayloadLimitError::PayloadTooLarge {
+                    max_bytes,
+                } => Self::invalid_request(
+                    "invalid_knowledge_drive_import_payload",
+                    format!("drive import payload exceeds maximum allowed size of {max_bytes} bytes"),
+                ),
+            },
         }
     }
 }

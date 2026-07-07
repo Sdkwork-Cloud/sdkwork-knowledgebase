@@ -101,12 +101,12 @@ export function KnowledgebaseAdminConsole() {
       try {
         const client = getKnowledgebaseBackendSdkClient().client;
         const [status, sourceList, spaceList, indexList, traceList, health] = await Promise.all([
-          client.knowledge.tenants.current.retrieve(),
+          client.knowledge.tenants.current.list(),
           client.knowledge.sources.list(),
           client.knowledge.spaces.list(),
           client.knowledge.indexes.list(),
           client.knowledge.retrievalTraces.list(),
-          client.knowledge.providerHealth.retrieve(),
+          client.knowledge.providerHealth.list(),
         ]);
         if (cancelled) {
           return;

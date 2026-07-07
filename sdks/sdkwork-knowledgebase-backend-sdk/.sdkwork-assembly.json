@@ -30,7 +30,7 @@
       "version": "0.1.0",
       "description": "Generator-owned TypeScript transport SDK for sdkwork-knowledgebase-backend-api.",
       "consumerSurface": {
-        "primaryClient": "SdkworkBackendClient",
+        "primaryClient": "SdkworkKnowledgebaseBackendClient",
         "apiPrefix": "/backend/v3/api"
       }
     }

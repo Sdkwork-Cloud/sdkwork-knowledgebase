@@ -1,5 +1,5 @@
-import type { KnowledgeTenantStatusEnum } from './knowledge-tenant-status-enum';
 import type { KnowledgeTenantQuotaStatus } from './knowledge-tenant-quota-status';
+import type { KnowledgeTenantStatusEnum } from './knowledge-tenant-status-enum';
 
 export interface KnowledgeTenantStatus {
   tenantName?: string | null;

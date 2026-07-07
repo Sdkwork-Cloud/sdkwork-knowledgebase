@@ -1,3 +1,4 @@
 export interface KnowledgeMarketSubscriptionResult {
-  success: boolean;
+  accepted: true;
+  status: 'completed';
 }

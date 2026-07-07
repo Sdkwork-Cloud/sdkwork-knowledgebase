@@ -1,5 +1,5 @@
 export interface KnowledgeSiteDeploymentPreview {
-  deploymentId: number;
+  deploymentId: string;
   contentType: string;
   html: string;
 }

@@ -66,6 +66,12 @@ sdkwork-agent-plugin-core = { path = "../sdkwork-kernel/sdkwork-kernel-plugins/c
 sdkwork-intelligence-knowledgebase-object-key-service = { path = "crates/sdkwork-intelligence-knowledgebase-object-key-service" }
 sdkwork-knowledgebase-memory = { path = "crates/sdkwork-knowledgebase-memory" }
 sdkwork-knowledgebase-test-support = { path = "crates/sdkwork-knowledgebase-test-support" }
+sdkwork-knowledgebase-gateway-assembly = { path = "crates/sdkwork-knowledgebase-gateway-assembly" }
+sdkwork-knowledgebase-standalone-gateway = { path = "crates/sdkwork-knowledgebase-standalone-gateway" }
+sdkwork-knowledgebase-worker = { path = "crates/sdkwork-knowledgebase-worker" }
+sdkwork-routes-knowledgebase-app-api = { path = "crates/sdkwork-routes-knowledgebase-app-api" }
+sdkwork-routes-knowledgebase-backend-api = { path = "crates/sdkwork-routes-knowledgebase-backend-api" }
+sdkwork-routes-knowledgebase-open-api = { path = "crates/sdkwork-routes-knowledgebase-open-api" }
 sdkwork-intelligence-knowledgebase-service = { path = "crates/sdkwork-intelligence-knowledgebase-service" }
 sdkwork-intelligence-knowledgebase-repository-sqlx = { path = "crates/sdkwork-intelligence-knowledgebase-repository-sqlx" }
 sdkwork-iam-web-adapter = { path = "../sdkwork-iam/crates/sdkwork-iam-web-adapter" }

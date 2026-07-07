@@ -74,7 +74,7 @@ Re-run before release cutover:
 | PC WeChat editor HTML sanitization | enforced |
 | Production demo/synthetic media gating | enforced (`shouldUseKnowledgebaseDemoFallback` across WeChat, search, asset library, music player) |
 | Tenant-scoped dynamic rate limit policy (`web_rate_limit_policy`) | wired on app/backend/open HTTP surfaces |
-| Backend `tenants.current.retrieve` implementation | wired in `HostedBackendApi` |
+| Backend `tenants.current.list` implementation | wired in `HostedBackendApi` |
 | PC admin console (`/admin`) | tenant status, spaces, members, sources, indexes, retrieval traces, provider health via backend SDK |
 | Backend `spaces.list` / `spaces.members.list` | admin operator APIs on `/backend/v3/api/knowledge/spaces` |
 | Web policy bootstrap | idempotent `web_rate_limit_policy` + `web_tenant_runtime_profile` seeds on web store connect |

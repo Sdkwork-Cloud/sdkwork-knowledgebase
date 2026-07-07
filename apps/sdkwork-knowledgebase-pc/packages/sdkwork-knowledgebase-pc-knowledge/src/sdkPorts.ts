@@ -1,12 +1,12 @@
 import type { SessionSnapshot } from 'sdkwork-knowledgebase-pc-core';
 import { KnowledgebaseErrorCodes, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
-import type { SdkworkAppClient, SdkworkDriveAppClient } from 'sdkwork-knowledgebase-pc-core';
+import type { SdkworkKnowledgebaseAppClient, SdkworkDriveAppClient } from 'sdkwork-knowledgebase-pc-core';
 
 import type { HostKnowledgeWindowRequest } from './hostKnowledgeWindowRequest';
 
 export type { HostKnowledgeWindowRequest };
 
-export interface KnowledgebasePcSdkPorts {  getKnowledgebaseClient: () => SdkworkAppClient;
+export interface KnowledgebasePcSdkPorts {  getKnowledgebaseClient: () => SdkworkKnowledgebaseAppClient;
   getDriveClient: () => SdkworkDriveAppClient;
   readHostSession: () => SessionSnapshot | null;
   subscribeHostSession?: (listener: () => void) => () => void;
@@ -28,7 +28,7 @@ export function getKnowledgebasePcSdkPorts(): KnowledgebasePcSdkPorts {
   return sdkPorts;
 }
 
-export function getConfiguredKnowledgebaseAppSdkClient(): SdkworkAppClient {
+export function getConfiguredKnowledgebaseAppSdkClient(): SdkworkKnowledgebaseAppClient {
   return getKnowledgebasePcSdkPorts().getKnowledgebaseClient();
 }
 
