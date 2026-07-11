@@ -5,6 +5,7 @@ import {
   AI_DEFAULT_MODEL,
   AI_DEFAULT_VENDOR,
   AI_MODELS,
+  normalizeAiModelSelection,
   type AiModelInfo
 } from './aiModelCatalog';
 
@@ -14,12 +15,13 @@ export function useAiModelSelection() {
     AI_ACTIVE_MODEL_KEY,
     AI_DEFAULT_MODEL
   );
+  const selection = normalizeAiModelSelection(activeVendor, activeModel);
 
   return {
-    activeVendor,
+    activeVendor: selection.vendorId,
     setActiveVendor,
-    activeModel,
+    activeModel: selection.model,
     setActiveModel,
-    modelsForVendor: AI_MODELS[activeVendor] ?? AI_MODELS[AI_DEFAULT_VENDOR]
+    modelsForVendor: AI_MODELS[selection.vendorId] ?? AI_MODELS[AI_DEFAULT_VENDOR]
   };
 }

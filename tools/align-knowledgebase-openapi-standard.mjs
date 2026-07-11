@@ -9,9 +9,11 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  browserListEnvelope,
   commandEnvelope,
   createdResponse,
   jsonResponse,
+  listDataEnvelope,
   listEnvelope,
   resourceEnvelope,
 } from './lib/openapi-envelope.mjs';
@@ -39,6 +41,14 @@ const appOperations = [
     operationId: 'documents.versions.versions',
     status: '200',
     itemRef: '#/components/schemas/KnowledgeDocumentVersion',
+  }),
+  namedList('get', '/app/v3/api/knowledge/okf/concepts', {
+    operationId: 'okf.concepts.list',
+    dataRef: '#/components/schemas/OkfConceptSummaryList',
+  }),
+  namedList('get', '/app/v3/api/knowledge/okf/concepts/{conceptId}/revisions', {
+    operationId: 'okf.concepts.revisions.list',
+    dataRef: '#/components/schemas/KnowledgeOkfConceptRevisionList',
   }),
   resource('get', '/app/v3/api/knowledge/okf/index', {
     operationId: 'okf.bundle.index.list',
@@ -161,6 +171,9 @@ const appOperations = [
     status: '201',
     payloadRef: '#/components/schemas/KnowledgeMediaTaskResult',
   }),
+  browserList('get', '/app/v3/api/knowledge/spaces/{spaceId}/browser', {
+    operationId: 'spaces.browser.list',
+  }),
 ];
 
 const backendOperations = [
@@ -226,6 +239,26 @@ function list(method, routePath, options) {
   };
 }
 
+function namedList(method, routePath, options) {
+  return {
+    method,
+    routePath,
+    operationId: options.operationId,
+    status: '200',
+    schema: listDataEnvelope(options.dataRef),
+  };
+}
+
+function browserList(method, routePath, options) {
+  return {
+    method,
+    routePath,
+    operationId: options.operationId,
+    status: '200',
+    schema: browserListEnvelope(),
+  };
+}
+
 function command(method, routePath, options) {
   return {
     method,
@@ -252,8 +285,179 @@ async function alignFile(filePath, operationAlignments) {
   for (const alignment of operationAlignments) {
     applyOperationAlignment(spec, alignment);
   }
+  alignOkfPaginationSchemas(spec);
   alignCommandResultSchemas(spec);
+  alignBrowserContracts(spec);
   await writeJsonIfChanged(filePath, spec);
+}
+
+function alignOkfPaginationSchemas(spec) {
+  const schemas = spec.components?.schemas;
+  if (!schemas || typeof schemas !== 'object') {
+    return;
+  }
+
+  schemas.OkfConceptSummaryList = listDataSchema(
+    '#/components/schemas/OkfConceptSummary',
+    'One bounded cursor page of published OKF concept summaries.',
+  );
+  schemas.KnowledgeOkfConceptRevisionList = listDataSchema(
+    '#/components/schemas/KnowledgeOkfConceptRevision',
+    'One bounded cursor page of OKF concept revisions.',
+  );
+}
+
+function listDataSchema(itemSchemaRef, description) {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    description,
+    required: ['items', 'pageInfo'],
+    properties: {
+      items: {
+        type: 'array',
+        items: { $ref: itemSchemaRef },
+      },
+      pageInfo: { $ref: '#/components/schemas/PageInfo' },
+    },
+  };
+}
+
+function alignBrowserContracts(spec) {
+  const operation = spec.paths?.['/app/v3/api/knowledge/spaces/{spaceId}/browser']?.get;
+  if (!operation) {
+    removeStaleBrowserSchemas(spec);
+    return;
+  }
+
+  const schemas = spec.components?.schemas;
+  if (!schemas || typeof schemas !== 'object') {
+    return;
+  }
+
+  alignBrowserSchemas(schemas);
+  alignBrowserOperation(operation);
+}
+
+function removeStaleBrowserSchemas(spec) {
+  const schemas = spec.components?.schemas;
+  if (!schemas || typeof schemas !== 'object') {
+    return;
+  }
+  delete schemas.KnowledgeBrowserListData;
+  delete schemas.KnowledgeBrowserPage;
+  delete schemas.KnowledgeBrowserView;
+}
+
+function alignBrowserOperation(operation) {
+  operation.summary = 'List knowledge browser view';
+  operation.description = [
+    'Lists one cursor page from a bounded knowledge browser view.',
+    'For OKF knowledge spaces, view=files resolves to the original raw source file root sources/raw and must not expose the generated okf/ bundle directory tree.',
+    'view=okf_bundle resolves to the generated OKF bundle root okf, and view=outputs resolves to output.',
+    'When parentId is omitted, the response data.parentId is the resolved Drive folder for the current view root; clients must use it for root uploads and root folder creation.',
+    'When parentId is provided, it must stay inside the selected view root.',
+  ].join(' ');
+
+  for (const parameter of operation.parameters ?? []) {
+    if (!parameter || typeof parameter !== 'object') {
+      continue;
+    }
+    if (parameter.name === 'view') {
+      parameter.description =
+        'Browser view selector. For OKF spaces, files lists original files under sources/raw; okf_bundle lists generated bundle files under okf; outputs lists generated output files under output.';
+    }
+    if (parameter.name === 'parentId') {
+      parameter.description =
+        'Drive node id of a folder inside the selected browser view root. Omit it to resolve the current view root; the resolved folder id is returned as data.parentId.';
+    }
+    if (parameter.name === 'page_size') {
+      parameter.description = 'Maximum number of browser nodes to return. Defaults to 20 and is capped at 200.';
+    }
+    if (parameter.name === 'cursor') {
+      parameter.description = 'Opaque cursor returned by data.pageInfo.nextCursor.';
+    }
+  }
+}
+
+function alignBrowserSchemas(schemas) {
+  schemas.KnowledgeBrowserView = {
+    type: 'string',
+    description:
+      'Browser view selector. files lists original source files; for OKF spaces this is sources/raw. okf_bundle lists generated OKF bundle files under okf. outputs lists generated output files under output.',
+    enum: ['files', 'okf_bundle', 'outputs'],
+  };
+
+  if (schemas.ListKnowledgeBrowserRequest?.properties) {
+    schemas.ListKnowledgeBrowserRequest.description =
+      'Browser list request. parentId is a Drive folder id within the selected view root; omit parentId to resolve the view root.';
+    schemas.ListKnowledgeBrowserRequest.properties.parentId = {
+      type: ['string', 'null'],
+      maxLength: 128,
+      description:
+        'Drive folder id within the selected browser view root. For OKF files view, it must be under sources/raw; for okf_bundle, under okf; for outputs, under output.',
+    };
+    schemas.ListKnowledgeBrowserRequest.properties.view = {
+      $ref: '#/components/schemas/KnowledgeBrowserView',
+      description:
+        'files shows original files, okf_bundle shows generated OKF bundle content, outputs shows generated outputs.',
+    };
+    if (schemas.ListKnowledgeBrowserRequest.properties.pageSize) {
+      schemas.ListKnowledgeBrowserRequest.properties.pageSize.description =
+        'JSON request body page size. HTTP GET uses page_size on the wire.';
+    }
+  }
+
+  schemas.KnowledgeBrowserListData = {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      'Standard browser list response data. It follows SDKWork list semantics with items and pageInfo, and also returns the resolved Drive view context needed by clients.',
+    required: ['spaceId', 'driveSpaceId', 'view', 'pageSize', 'items', 'pageInfo'],
+    properties: {
+      spaceId: int64StringSchema(),
+      driveSpaceId: {
+        type: 'string',
+        minLength: 1,
+        description: 'Drive space id bound to the knowledge space.',
+      },
+      parentId: {
+        type: ['string', 'null'],
+        maxLength: 128,
+        description:
+          'Resolved Drive folder id for the current browser view page. When request parentId is omitted, this is the view root folder id; OKF files view resolves to sources/raw.',
+      },
+      view: {
+        $ref: '#/components/schemas/KnowledgeBrowserView',
+      },
+      pageSize: {
+        type: 'integer',
+        format: 'uint32',
+        minimum: 1,
+        maximum: 200,
+      },
+      items: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/KnowledgeBrowserNode',
+        },
+      },
+      pageInfo: {
+        $ref: '#/components/schemas/PageInfo',
+      },
+    },
+  };
+
+  delete schemas.KnowledgeBrowserPage;
+
+  const mode = schemas.KnowledgeAgentKnowledgeMode;
+  if (mode && Array.isArray(mode.enum) && !mode.enum.includes('external')) {
+    mode.enum = [...mode.enum, 'external'];
+  }
+  if (mode && typeof mode.description !== 'string') {
+    mode.description =
+      'Knowledge execution mode. okf_bundle uses native OKF bundle knowledge, rag uses native RAG retrieval, and external delegates to an external knowledge engine integration.';
+  }
 }
 
 function alignCommandResultSchemas(spec) {

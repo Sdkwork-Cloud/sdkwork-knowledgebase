@@ -7,7 +7,7 @@
     "language": "typescript",
     "sdkType": "app",
     "protocol": "http",
-    "packageName": "@sdkwork/knowledgebase-app-sdk"
+    "packageName": "@sdkwork-internal/knowledgebase-app-sdk-generated"
   },
   "generatedFiles": [
     {
@@ -44,7 +44,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "63d39fedaa0ddd8f6c1e8151fe17981e7ee7f6c495471a6ba85699bd08b4295e"
+      "sha256": "2d7861dee1f1ee10c8030b9fe29593e3f63a355e5f507bff35cacb2a67359721"
     },
     {
       "path": "sdkwork-sdk.json",
@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "630d274d6904caa0fab1017b61cfb0f6e0036139067e2dadff4fcd6b4c08f868"
+      "sha256": "089702c1e123894ec5fa3efd4581e0c2ed114702e7a6fbcc4e51824684f94c2d"
     },
     {
       "path": "src/api/paths.ts",
@@ -212,7 +212,7 @@
     },
     {
       "path": "src/types/index.ts",
-      "sha256": "ddfaa7cb6a1d833e7356d76854695085ee2870223ed7ab3e33896deeb9b7df2f"
+      "sha256": "4faff95a46158a0b06871da21f0ad0426537805e6423259125ef68302b53d8e7"
     },
     {
       "path": "src/types/ingestion-job-state.ts",
@@ -256,7 +256,7 @@
     },
     {
       "path": "src/types/knowledge-agent-knowledge-mode.ts",
-      "sha256": "c7d134ea605f5774f898fe27c01be2c64cd73e30f3bfdb74cb7815624795717b"
+      "sha256": "e65026acfad866e5865c1d74690b9d00cb3cf4cdb72d40ee66199123a971399d"
     },
     {
       "path": "src/types/knowledge-agent-profile-request.ts",
@@ -271,6 +271,10 @@
       "sha256": "30219143676ff22427a701f387006d61813aa571113775ed7830cb4f15b7f7c4"
     },
     {
+      "path": "src/types/knowledge-browser-list-data.ts",
+      "sha256": "cff9641ade9e9d472d8f3c96eb35bd69ec70f1c3c035a1cf276985732dc44d09"
+    },
+    {
       "path": "src/types/knowledge-browser-node-permissions.ts",
       "sha256": "4070ef1e04252d47f6a1ddc8de0392f78b45c1254bf11ede3584dfee4541d046"
     },
@@ -283,12 +287,8 @@
       "sha256": "57026c9cd56ea41e49bb56d53eaf18dce733219a83fa2e21944c523b11b83fed"
     },
     {
-      "path": "src/types/knowledge-browser-page.ts",
-      "sha256": "81c7a7fd16a4d9a1a57505dd3e82049037c75b723a74f751a08a5deb3071e57d"
-    },
-    {
       "path": "src/types/knowledge-browser-view.ts",
-      "sha256": "87f49b3eba0ec7c4d106908295e4bea9a1db71250d17d71d2c25475ce238b6ff"
+      "sha256": "f845cf59f02dbc2a24d34a73d5c086ec3ee71bde7be4c1d8f2b2eb8d6611138a"
     },
     {
       "path": "src/types/knowledge-citation.ts",
@@ -432,7 +432,7 @@
     },
     {
       "path": "src/types/knowledge-okf-concept-revision-list.ts",
-      "sha256": "f31a169e5cb232c567efd7b1e625be10cb68446177f50244ec7d38859a74110e"
+      "sha256": "942084c2d97936b93a7e2a24e3c2f9f87b412bd98523313abd9c4cb60e1dc0b4"
     },
     {
       "path": "src/types/knowledge-okf-concept-revision.ts",
@@ -592,7 +592,7 @@
     },
     {
       "path": "src/types/list-knowledge-browser-request.ts",
-      "sha256": "7f4ffc2df0a8733f963f8d1af82e0faa601d66564c33e97f29a179482adb4db1"
+      "sha256": "777585bd5737344a98eab46413726d963f41b6038199f2b5a3fa84a3d5dd5784"
     },
     {
       "path": "src/types/market-listings-list-response.ts",
@@ -668,7 +668,7 @@
     },
     {
       "path": "src/types/okf-concept-summary-list.ts",
-      "sha256": "0707070256c87e39ff05f85ab04d71772347a71d6fb5581fb1893ed96357eb4d"
+      "sha256": "a49810eeb8d0f9bc7eb3775dd957048d48d633131cd5239afd5f9b7a17b78dda"
     },
     {
       "path": "src/types/okf-concept-summary.ts",
@@ -680,7 +680,7 @@
     },
     {
       "path": "src/types/okf-concepts-list-response.ts",
-      "sha256": "c0a1fdde62885f9db7a093d8465771145f86ab07ba7edea17abf237c51c1adf5"
+      "sha256": "a16dbf922c100cb5fcbefe7b59d393cbee9b0bd59573cfa1e75b1d1a51e15976"
     },
     {
       "path": "src/types/okf-concepts-retrieve-response.ts",
@@ -688,7 +688,7 @@
     },
     {
       "path": "src/types/okf-concepts-revisions-list-response.ts",
-      "sha256": "6a9dc1feee284d4ff5894ee2471c2bdf490b4cea3773459fe37ef602966c80d7"
+      "sha256": "eeab857cbbbdbce22680e4d7ac45abbf632be907d896d94d809d57181b16553e"
     },
     {
       "path": "src/types/okf-concepts-update-response.ts",
@@ -816,7 +816,7 @@
     },
     {
       "path": "src/types/spaces-browser-list-response.ts",
-      "sha256": "6f90662339618e0f2792fe8104b44eb00910e02801a8a098d35523912a6ff8b7"
+      "sha256": "61a130d384ab11700c6e45c26901380a85aea17657e92f1dca46355488bae6c5"
     },
     {
       "path": "src/types/spaces-context-bindings-list-response.ts",

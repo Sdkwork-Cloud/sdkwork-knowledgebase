@@ -12,16 +12,16 @@ use sdkwork_knowledgebase_contract::{
     upload::{CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest},
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, KnowledgeAgentBindingRequest,
-    KnowledgeAgentChatRequest, KnowledgeAgentProfileRequest, KnowledgeBrowserView,
-    KnowledgeContextPackRequest, KnowledgeDriveImportRequest, KnowledgeGitImportRequest,
-    KnowledgeGitSyncRequest, KnowledgeIngestRequest, KnowledgeMarketSubscriptionRequest,
-    KnowledgeMediaTaskRequest, KnowledgeRetrievalRequest, KnowledgeSiteDeploymentRequest,
-    KnowledgeSpaceMemberSubjectType, KnowledgeWechatArticlesPreviewRequest,
-    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatReplaceAppletsRequest,
-    KnowledgeWechatReplaceOfficialAccountsRequest, ListKnowledgeBrowserRequest,
-    ListOkfConceptsQuery, OkfBundleExportRequest, OkfBundleImportRequest, OkfConceptUpsertRequest,
-    OkfContextPackRequest, OkfFileAnswerRequest, OkfQualityRunRequest, OkfQueryRequest,
-    UpdateKnowledgeSpaceRequest,
+    KnowledgeAgentChatRequest, KnowledgeAgentProfileRequest, KnowledgeBrowserListData,
+    KnowledgeBrowserView, KnowledgeContextPackRequest, KnowledgeDriveImportRequest,
+    KnowledgeGitImportRequest, KnowledgeGitSyncRequest, KnowledgeIngestRequest,
+    KnowledgeMarketSubscriptionRequest, KnowledgeMediaTaskRequest, KnowledgeRetrievalRequest,
+    KnowledgeSiteDeploymentRequest, KnowledgeSpaceMemberSubjectType,
+    KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest,
+    KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
+    ListKnowledgeBrowserRequest, ListOkfConceptsQuery, OkfBundleExportRequest,
+    OkfBundleImportRequest, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest,
+    OkfQualityRunRequest, OkfQueryRequest, UpdateKnowledgeSpaceRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -150,7 +150,7 @@ pub fn build_router_with_shared_app_api_and_readiness(
 }
 
 fn build_business_router(api: Arc<dyn KnowledgeAppApi>) -> Router {
-    let business = Router::new()
+    Router::new()
         .route(paths::SPACES, post(create_space))
         .route(
             paths::SPACE,
@@ -273,8 +273,7 @@ fn build_business_router(api: Arc<dyn KnowledgeAppApi>) -> Router {
             get(retrieve_site_deployment_preview),
         )
         .route(paths::MEDIA_TASKS, post(create_media_task))
-        .with_state(AppState { api });
-    business
+        .with_state(AppState { api })
 }
 
 #[derive(Debug, Deserialize)]
@@ -714,10 +713,9 @@ async fn list_okf_concepts(
     State(state): State<AppState>,
     context: RequiredAppContext,
     OriginalUri(uri): OriginalUri,
-    Query(query): Query<ListOkfConceptsQuery>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    reject_forbidden_pagination_aliases(uri.query())?;
+    let query = parse_okf_concept_list_query(uri.query())?;
     ok_list_json(
         state
             .api
@@ -767,12 +765,14 @@ async fn list_okf_concept_revisions(
     State(state): State<AppState>,
     context: RequiredAppContext,
     Path(concept_row_id): Path<u64>,
+    OriginalUri(uri): OriginalUri,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    ok_json(
+    let query = parse_okf_revision_list_query(uri.query())?;
+    ok_list_json(
         state
             .api
-            .list_okf_concept_revisions(context, concept_row_id)
+            .list_okf_concept_revisions(context, concept_row_id, query.cursor, query.page_size)
             .await,
     )
 }
@@ -883,7 +883,7 @@ async fn list_browser(
     let context = require_app_context(context)?;
     reject_forbidden_pagination_aliases(uri.query())?;
     let view = parse_view(query.view.as_deref())?;
-    ok_list_json(
+    ok_browser_list_json(
         state
             .api
             .list_browser(
@@ -1244,6 +1244,19 @@ where
         .map_err(ApiProblem::from)
 }
 
+fn ok_browser_list_json(
+    result: ApiResult<KnowledgeBrowserListData>,
+) -> Result<Response, ApiProblem> {
+    result
+        .map(|value| {
+            sdkwork_knowledgebase_observability::request_correlation::success_browser_list_json_response(
+                StatusCode::OK,
+                value,
+            )
+        })
+        .map_err(ApiProblem::from)
+}
+
 fn ok_json<T>(result: ApiResult<T>) -> Result<Response, ApiProblem>
 where
     T: Serialize,
@@ -1294,20 +1307,114 @@ fn reject_forbidden_pagination_aliases(query: Option<&str>) -> Result<(), ApiPro
     let Some(query) = query else {
         return Ok(());
     };
-    for pair in query.split('&') {
-        let key = pair.split_once('=').map_or(pair, |(key, _)| key);
+    for (key, _) in url::form_urlencoded::parse(query.as_bytes()) {
         if let Some((alias, canonical)) = FORBIDDEN_PAGINATION_QUERY_ALIASES
             .iter()
             .find(|(alias, _)| key == *alias)
         {
             return Err(ApiProblem::new(
                 StatusCode::BAD_REQUEST,
-                "pagination_parameter_alias_forbidden",
+                "invalid_parameter",
                 format!("HTTP query parameter {alias} is forbidden; use {canonical}"),
             ));
         }
     }
     Ok(())
+}
+
+#[derive(Debug, Default)]
+struct OkfRevisionListQuery {
+    cursor: Option<String>,
+    page_size: Option<u32>,
+}
+
+fn parse_okf_concept_list_query(query: Option<&str>) -> Result<ListOkfConceptsQuery, ApiProblem> {
+    reject_forbidden_pagination_aliases(query)?;
+    let mut space_id = None;
+    let mut pagination = OkfRevisionListQuery::default();
+    for (key, value) in url::form_urlencoded::parse(query.unwrap_or_default().as_bytes()) {
+        match key.as_ref() {
+            "spaceId" => {
+                reject_duplicate_query_parameter(space_id.is_some(), "spaceId")?;
+                let parsed = parse_positive_u64_query_parameter(&value, "spaceId")?;
+                space_id = Some(parsed);
+            }
+            "cursor" => {
+                reject_duplicate_query_parameter(pagination.cursor.is_some(), "cursor")?;
+                pagination.cursor = Some(value.into_owned());
+            }
+            "page_size" => {
+                reject_duplicate_query_parameter(pagination.page_size.is_some(), "page_size")?;
+                pagination.page_size = Some(parse_page_size_query_parameter(&value)?);
+            }
+            _ => {
+                return Err(invalid_query_parameter(format!(
+                    "unknown query parameter: {key}"
+                )))
+            }
+        }
+    }
+    Ok(ListOkfConceptsQuery {
+        space_id: space_id.ok_or_else(|| invalid_query_parameter("spaceId is required"))?,
+        cursor: pagination.cursor,
+        page_size: pagination.page_size,
+    })
+}
+
+fn parse_okf_revision_list_query(query: Option<&str>) -> Result<OkfRevisionListQuery, ApiProblem> {
+    reject_forbidden_pagination_aliases(query)?;
+    let mut parsed = OkfRevisionListQuery::default();
+    for (key, value) in url::form_urlencoded::parse(query.unwrap_or_default().as_bytes()) {
+        match key.as_ref() {
+            "cursor" => {
+                reject_duplicate_query_parameter(parsed.cursor.is_some(), "cursor")?;
+                parsed.cursor = Some(value.into_owned());
+            }
+            "page_size" => {
+                reject_duplicate_query_parameter(parsed.page_size.is_some(), "page_size")?;
+                parsed.page_size = Some(parse_page_size_query_parameter(&value)?);
+            }
+            _ => {
+                return Err(invalid_query_parameter(format!(
+                    "unknown query parameter: {key}"
+                )))
+            }
+        }
+    }
+    Ok(parsed)
+}
+
+fn parse_positive_u64_query_parameter(value: &str, name: &str) -> Result<u64, ApiProblem> {
+    let value = value
+        .parse::<u64>()
+        .map_err(|_| invalid_query_parameter(format!("{name} must be a positive integer")))?;
+    if value == 0 {
+        return Err(invalid_query_parameter(format!(
+            "{name} must be a positive integer"
+        )));
+    }
+    Ok(value)
+}
+
+fn parse_page_size_query_parameter(value: &str) -> Result<u32, ApiProblem> {
+    let page_size = value
+        .parse::<u32>()
+        .map_err(|_| invalid_query_parameter("page_size must be an integer between 1 and 200"))?;
+    crate::pagination::normalize_page_size(Some(page_size))
+        .map_err(|_| invalid_query_parameter("page_size must be between 1 and 200"))
+}
+
+fn reject_duplicate_query_parameter(duplicate: bool, name: &str) -> Result<(), ApiProblem> {
+    if duplicate {
+        return Err(invalid_query_parameter(format!(
+            "query parameter {name} must appear at most once"
+        )));
+    }
+    Ok(())
+}
+
+fn invalid_query_parameter(detail: impl Into<String>) -> ApiProblem {
+    ApiProblem::new(StatusCode::BAD_REQUEST, "invalid_parameter", detail)
 }
 
 #[derive(Debug, Deserialize)]

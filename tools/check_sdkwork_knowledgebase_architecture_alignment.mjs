@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const failures = [];
 const warnings = [];
+const retiredTopologyPattern = /self-hosted|cloud-hosted|--service-layout|serviceLayout|SERVICE_LAYOUT|unified-process|split-services/u;
+const v4TopologyProfileIdPattern = /^(?:standalone|cloud)\.(?:development|production)$/u;
 
 function readText(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath);
@@ -21,10 +23,45 @@ function readJson(relativePath) {
   return JSON.parse(readText(relativePath));
 }
 
+function parseEnvValues(text) {
+  const values = {};
+  for (const line of text.split(/\r?\n/u)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+    const separatorIndex = trimmed.indexOf('=');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+    values[trimmed.slice(0, separatorIndex)] = trimmed.slice(separatorIndex + 1);
+  }
+  return values;
+}
+
 function assert(condition, message) {
   if (!condition) {
     failures.push(message);
   }
+}
+
+function listFilesRecursive(relativePath) {
+  const absolutePath = path.join(repoRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    failures.push(`${relativePath}/ must exist`);
+    return [];
+  }
+
+  const files = [];
+  for (const entry of fs.readdirSync(absolutePath, { withFileTypes: true })) {
+    const childPath = path.join(relativePath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listFilesRecursive(childPath));
+    } else if (entry.isFile()) {
+      files.push(childPath.replaceAll('\\', '/'));
+    }
+  }
+  return files;
 }
 
 function assertDirectory(relativePath) {
@@ -87,9 +124,9 @@ for (const script of ['dev', 'build', 'test', 'check', 'verify', 'clean']) {
 
 for (const script of [
   'dev:browser',
-  'dev:browser:postgres:unified-process:standalone',
+  'dev:browser:postgres:standalone',
   'dev:desktop',
-  'dev:desktop:postgres:unified-process:standalone',
+  'dev:desktop:postgres:standalone',
   'check:pnpm-script-standard',
   'check:agent-workflow-standard',
 ]) {
@@ -103,7 +140,7 @@ for (const [scriptName, command] of Object.entries(packageJson.scripts ?? {})) {
     `package.json script ${scriptName} must use SDKWork action-first naming`,
   );
   assert(
-    !/(--hosting|\bself-hosted\b|\bcloud-hosted\b)/u.test(String(command)),
+    !/(--hosting|--service-layout|\bself-hosted\b|\bcloud-hosted\b|\bunified-process\b|\bsplit-services\b|\bserviceLayout\b)/u.test(String(command)),
     `package.json script ${scriptName} must not use retired deployment command values`,
   );
 }
@@ -127,6 +164,18 @@ assert(
 assert(cargoToml.includes('sdkwork-utils-rust'), 'Cargo.toml must declare sdkwork-utils-rust');
 assert(cargoToml.includes('sdkwork-id-core'), 'Cargo.toml must declare sdkwork-id-core');
 assert(!cargoToml.includes('sdkwork-discovery'), 'sdkwork-discovery is not required until RPC services exist');
+
+const cargoWorkspace = readText('Cargo.toml');
+const workspaceMembersBlock = cargoWorkspace.match(/members\s*=\s*\[([\s\S]*?)\]/u)?.[1] ?? '';
+for (const member of [...workspaceMembersBlock.matchAll(/"([^"]+)"/gu)].map((match) => match[1])) {
+  if (!member.startsWith('crates/')) {
+    continue;
+  }
+  assert(
+    fs.existsSync(path.join(repoRoot, member, 'specs/component.spec.json')),
+    `${member}/specs/component.spec.json must exist per COMPONENT_SPEC.md`,
+  );
+}
 
 const workflow = readJson('sdkwork.workflow.json');
 const dependencyIds = new Set((workflow.dependencies || []).map((dependency) => dependency.id));
@@ -165,17 +214,102 @@ for (const target of workflow.targets || []) {
 }
 
 const topologySpec = readJson('specs/topology.spec.json');
+const expectedTopologyProfileIds = [
+  'cloud.development',
+  'cloud.production',
+  'standalone.development',
+  'standalone.production',
+];
 assert(
   topologySpec.vocabulary?.deploymentProfile?.allowed?.join(',') === 'standalone,cloud',
   'specs/topology.spec.json must use deploymentProfile standalone/cloud vocabulary',
 );
 assert(
-  topologySpec.defaults?.developmentProfileId === 'standalone.unified-process.development',
-  'specs/topology.spec.json must default development to standalone.unified-process.development',
+  topologySpec.defaults?.developmentProfileId === 'standalone.development',
+  'specs/topology.spec.json must default development to standalone.development',
 );
 assert(
-  topologySpec.defaults?.productionProfileId === 'cloud.split-services.production',
-  'specs/topology.spec.json must default production to cloud.split-services.production',
+  topologySpec.defaults?.productionProfileId === 'cloud.production',
+  'specs/topology.spec.json must default production to cloud.production',
+);
+assert(
+  JSON.stringify(Object.keys(topologySpec.profileFiles ?? {}).sort()) === JSON.stringify(expectedTopologyProfileIds),
+  'specs/topology.spec.json profileFiles must declare only v4 topology profile ids',
+);
+const topologyEnvFiles = listFilesRecursive('configs/topology')
+  .filter((relativePath) => relativePath.endsWith('.env'))
+  .sort();
+assert(
+  JSON.stringify(topologyEnvFiles) === JSON.stringify(
+    expectedTopologyProfileIds.map((profileId) => `configs/topology/${profileId}.env`).sort(),
+  ),
+  'configs/topology must contain only v4 deploymentProfile.environment env files',
+);
+for (const relativePath of topologyEnvFiles) {
+  const profileId = path.basename(relativePath, '.env');
+  assert(
+    v4TopologyProfileIdPattern.test(profileId),
+    `${relativePath} must use deploymentProfile.environment profile id`,
+  );
+  const profileEnvText = readText(relativePath);
+  assert(
+    !retiredTopologyPattern.test(profileEnvText),
+    `${relativePath} must not contain retired topology vocabulary`,
+  );
+  if (profileId.startsWith('standalone.')) {
+    const values = parseEnvValues(profileEnvText);
+    assert(
+      values.SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL
+        === values.SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL,
+      `${relativePath} backend SDK URL must use the standalone public ingress`,
+    );
+    assert(
+      values.SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL
+        === values.SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL,
+      `${relativePath} open SDK URL must use the standalone public ingress`,
+    );
+    assert(
+      values.SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_BIND
+        === values.SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND,
+      `${relativePath} backend bind must use the standalone public ingress`,
+    );
+    assert(
+      values.SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_BIND
+        === values.SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND,
+      `${relativePath} open bind must use the standalone public ingress`,
+    );
+    assert(
+      values.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL
+        === values.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL,
+      `${relativePath} browser backend SDK URL must use the standalone public ingress`,
+    );
+    assert(
+      values.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL
+        === values.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL,
+      `${relativePath} browser open SDK URL must use the standalone public ingress`,
+    );
+  }
+}
+
+const deploymentYaml = readText('deployments/deploy.yaml');
+assert(
+  !retiredTopologyPattern.test(deploymentYaml),
+  'deployments/deploy.yaml must not contain retired topology vocabulary',
+);
+assert(
+  v4TopologyProfileIdPattern.test(deploymentYaml.match(/^defaultProfile:\s*(\S+)\s*$/mu)?.[1] ?? ''),
+  'deployments/deploy.yaml defaultProfile must use a v4 topology profile id',
+);
+const deploymentProfileIds = [...deploymentYaml.matchAll(/^  ([A-Za-z0-9.-]+):\s*$/gmu)]
+  .map((match) => match[1])
+  .sort();
+assert(
+  JSON.stringify(deploymentProfileIds) === JSON.stringify(expectedTopologyProfileIds),
+  'deployments/deploy.yaml profiles must match the v4 topology profile ids',
+);
+assert(
+  !retiredTopologyPattern.test(readText('deployments/kubernetes/networkpolicy.yaml')),
+  'deployments/kubernetes/networkpolicy.yaml must not contain retired topology vocabulary',
 );
 
 const routerCrates = [

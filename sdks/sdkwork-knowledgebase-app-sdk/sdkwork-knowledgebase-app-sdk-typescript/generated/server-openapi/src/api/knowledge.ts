@@ -1,7 +1,7 @@
 import { appApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserNode, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevision, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList, KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PageInfo, SdkWorkCommandData, UpdateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceRequest } from '../types';
+import type { CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList, KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PageInfo, SdkWorkCommandData, UpdateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceRequest } from '../types';
 
 
 export class KnowledgeMediaTasksApi {
@@ -528,12 +528,12 @@ export class KnowledgeOkfConceptsRevisionsApi {
 
 
 /** List OKF concept revisions */
-  async list(conceptId: string, params?: KnowledgeOkfConceptsRevisionsListParams): Promise<Record<string, unknown>> {
+  async list(conceptId: string, params?: KnowledgeOkfConceptsRevisionsListParams): Promise<KnowledgeOkfConceptRevisionList> {
     const query = buildQueryString([
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}/revisions`), query));
+    return this.client.get<KnowledgeOkfConceptRevisionList>(appendQueryString(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}/revisions`), query));
   }
 }
 
@@ -554,13 +554,13 @@ export class KnowledgeOkfConceptsApi {
 
 
 /** List OKF concepts */
-  async list(params: KnowledgeOkfConceptsListParams): Promise<Record<string, unknown>> {
+  async list(params: KnowledgeOkfConceptsListParams): Promise<OkfConceptSummaryList> {
     const query = buildQueryString([
       { name: 'spaceId', value: params.spaceId, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/okf/concepts`), query));
+    return this.client.get<OkfConceptSummaryList>(appendQueryString(appApiPath(`/knowledge/okf/concepts`), query));
   }
 
 /** Retrieve an OKF concept */
@@ -821,15 +821,15 @@ export class KnowledgeSpacesBrowserApi {
   }
 
 
-/** List browser view of a knowledge space */
-  async list(spaceId: string, params: KnowledgeSpacesBrowserListParams): Promise<Record<string, unknown>> {
+/** List knowledge browser view */
+  async list(spaceId: string, params: KnowledgeSpacesBrowserListParams): Promise<KnowledgeBrowserListData> {
     const query = buildQueryString([
       { name: 'view', value: params.view, style: 'form', explode: true, allowReserved: false },
       { name: 'parentId', value: params.parentId, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/browser`), query));
+    return this.client.get<KnowledgeBrowserListData>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/browser`), query));
   }
 }
 

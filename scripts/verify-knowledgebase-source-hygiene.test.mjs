@@ -37,6 +37,10 @@ const forbiddenProductionPhrases = [
   },
 ];
 
+function readRepoFile(relativePath) {
+  return readFileSync(path.join(repoRoot, relativePath), 'utf8');
+}
+
 function listFiles(root) {
   const files = [];
   const absoluteRoot = path.join(repoRoot, root);
@@ -190,5 +194,42 @@ describe('knowledgebase production source hygiene', () => {
     }
 
     assert.deepEqual(violations, []);
+  });
+
+  it('keeps Cloud Drive interactive lists on explicit server pagination', () => {
+    const driveImportService = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/knowledgeDriveImportService.ts',
+    );
+    const cloudDriveService = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/cloudDriveService.ts',
+    );
+    const cloudDriveModal = readRepoFile(
+      'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/CloudDriveModal.tsx',
+    );
+
+    assert.doesNotMatch(driveImportService, /listDriveCollectionItems/);
+    assert.doesNotMatch(driveImportService, /MAX_DRIVE_COLLECTION_ITEMS/);
+    assert.doesNotMatch(driveImportService, /listCloudDriveBrowserItems\(/);
+    assert.doesNotMatch(driveImportService, /updatedAt:\s*new Date\(\)\.toISOString\(\)/);
+    assert.match(driveImportService, /listStarredCloudDriveItemsPage/);
+    assert.match(driveImportService, /listRecentCloudDriveItemsPage/);
+    assert.match(driveImportService, /listSharedCloudDriveItemsPage/);
+
+    assert.doesNotMatch(cloudDriveService, /listBrowserItems\(/);
+    assert.doesNotMatch(cloudDriveService, /listStarredCloudDriveItems\(/);
+    assert.doesNotMatch(cloudDriveService, /listRecentCloudDriveItems\(/);
+    assert.doesNotMatch(cloudDriveService, /listSharedCloudDriveItems\(/);
+    assert.match(cloudDriveService, /listStarredItemsPage/);
+    assert.match(cloudDriveService, /listRecentItemsPage/);
+    assert.match(cloudDriveService, /listSharedItemsPage/);
+
+    assert.doesNotMatch(cloudDriveModal, /CloudDriveService\.listStarredItems\(/);
+    assert.doesNotMatch(cloudDriveModal, /CloudDriveService\.listRecentItems\(/);
+    assert.doesNotMatch(cloudDriveModal, /CloudDriveService\.listSharedItems\(/);
+    assert.doesNotMatch(cloudDriveModal, /\{item\.updatedAt\}/);
+    assert.match(cloudDriveModal, /formatDriveUpdatedAt/);
+    assert.match(cloudDriveModal, /CloudDriveService\.listStarredItemsPage/);
+    assert.match(cloudDriveModal, /CloudDriveService\.listRecentItemsPage/);
+    assert.match(cloudDriveModal, /CloudDriveService\.listSharedItemsPage/);
   });
 });

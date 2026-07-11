@@ -7,7 +7,6 @@ import {
   getKnowledgebaseAppSdkClient,
   isKnowledgebaseApiAvailable,
   KnowledgebaseErrorCodes,
-  shouldUseKnowledgebaseDemoFallback,
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 
@@ -20,10 +19,11 @@ import {
   persistOfficialAccountSecrets,
 } from './wechatCredentialStore';
 
-function assertWechatDemoFallbackAllowed(): void {
-  if (!shouldUseKnowledgebaseDemoFallback()) {
+function requireWechatSdk() {
+  if (!isKnowledgebaseApiAvailable()) {
     throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_WECHAT);
   }
+  return getKnowledgebaseAppSdkClient().client.knowledge.wechat;
 }
 
 function toOfficialAccount(account: KnowledgeWechatOfficialAccount): OfficialAccount {
@@ -135,10 +135,6 @@ function toArticle(article: WechatArticle): KnowledgeWechatArticle {
   };
 }
 
-function wechatSdk() {
-  return getKnowledgebaseAppSdkClient().client.knowledge.wechat;
-}
-
 export interface OfficialAccount {
   id: string;
   name: string;
@@ -204,82 +200,54 @@ export interface WechatCommandResult {
   status: string;
 }
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-/** In-memory demo store when API is unavailable and preview fallback is enabled. */
-let demoOfficialAccounts: OfficialAccount[] = [];
-
-/** In-memory demo store when API is unavailable and preview fallback is enabled. */
-let demoApplets: WechatAppletConfig[] = [];
-
 export class WechatService {
   static async getOfficialAccounts(): Promise<OfficialAccount[]> {
-    if (isKnowledgebaseApiAvailable()) {
-      const list = await wechatSdk().officialAccounts.list();
-      const accounts = list.accounts.map(toOfficialAccount);
-      if (isDesktopSecureStorageAvailable()) {
-        return Promise.all(accounts.map((account) => hydrateOfficialAccountSecrets(account)));
-      }
-      return accounts;
+    const list = await requireWechatSdk().officialAccounts.list();
+    const accounts = list.accounts.map(toOfficialAccount);
+    if (isDesktopSecureStorageAvailable()) {
+      return Promise.all(accounts.map((account) => hydrateOfficialAccountSecrets(account)));
     }
-    assertWechatDemoFallbackAllowed();
-    await delay(300);
-    return JSON.parse(JSON.stringify(demoOfficialAccounts));
+    return accounts;
   }
 
   static async saveOfficialAccounts(accounts: OfficialAccount[]): Promise<boolean> {
-    if (isKnowledgebaseApiAvailable()) {
-      const prepared = isDesktopSecureStorageAvailable()
-        ? await Promise.all(
-            accounts.map(async (account) => {
-              await persistOfficialAccountSecrets(account);
-              return hydrateOfficialAccountSecrets(account);
-            }),
-          )
-        : accounts;
-      await wechatSdk().officialAccounts.update({
-        accounts: prepared.map(fromOfficialAccount),
-      });
-      return true;
-    }
-    assertWechatDemoFallbackAllowed();
-    await delay(500);
-    demoOfficialAccounts = JSON.parse(JSON.stringify(accounts));
+    const sdk = requireWechatSdk();
+    const prepared = isDesktopSecureStorageAvailable()
+      ? await Promise.all(
+          accounts.map(async (account) => {
+            await persistOfficialAccountSecrets(account);
+            return hydrateOfficialAccountSecrets(account);
+          }),
+        )
+      : accounts;
+    await sdk.officialAccounts.update({
+      accounts: prepared.map(fromOfficialAccount),
+    });
     return true;
   }
 
   static async getApplets(): Promise<WechatAppletConfig[]> {
-    if (isKnowledgebaseApiAvailable()) {
-      const list = await wechatSdk().applets.list();
-      const applets = list.applets.map(toApplet);
-      if (isDesktopSecureStorageAvailable()) {
-        return Promise.all(applets.map((applet) => hydrateAppletSecrets(applet)));
-      }
-      return applets;
+    const list = await requireWechatSdk().applets.list();
+    const applets = list.applets.map(toApplet);
+    if (isDesktopSecureStorageAvailable()) {
+      return Promise.all(applets.map((applet) => hydrateAppletSecrets(applet)));
     }
-    assertWechatDemoFallbackAllowed();
-    await delay(300);
-    return JSON.parse(JSON.stringify(demoApplets));
+    return applets;
   }
 
   static async saveApplets(applets: WechatAppletConfig[]): Promise<boolean> {
-    if (isKnowledgebaseApiAvailable()) {
-      const prepared = isDesktopSecureStorageAvailable()
-        ? await Promise.all(
-            applets.map(async (applet) => {
-              await persistAppletSecrets(applet);
-              return hydrateAppletSecrets(applet);
-            }),
-          )
-        : applets;
-      await wechatSdk().applets.update({
-        applets: prepared.map(fromApplet),
-      });
-      return true;
-    }
-    assertWechatDemoFallbackAllowed();
-    await delay(500);
-    demoApplets = JSON.parse(JSON.stringify(applets));
+    const sdk = requireWechatSdk();
+    const prepared = isDesktopSecureStorageAvailable()
+      ? await Promise.all(
+          applets.map(async (applet) => {
+            await persistAppletSecrets(applet);
+            return hydrateAppletSecrets(applet);
+          }),
+        )
+      : applets;
+    await sdk.applets.update({
+      applets: prepared.map(fromApplet),
+    });
     return true;
   }
 
@@ -287,16 +255,12 @@ export class WechatService {
     if (!accountId) {
       throwKnowledgebaseError(KnowledgebaseErrorCodes.WECHAT_INVALID_ARGS);
     }
-    if (isKnowledgebaseApiAvailable()) {
-      const list = await wechatSdk().officialAccounts.fanTags.list(accountId);
-      return (list.tags ?? []).map((tag) => ({
-        id: tag.id,
-        name: tag.name,
-        fanCount: Number(tag.fanCount ?? 0),
-      }));
-    }
-    assertWechatDemoFallbackAllowed();
-    return [];
+    const list = await requireWechatSdk().officialAccounts.fanTags.list(accountId);
+    return (list.tags ?? []).map((tag) => ({
+      id: tag.id,
+      name: tag.name,
+      fanCount: Number(tag.fanCount ?? 0),
+    }));
   }
 
   static async publishArticles(
@@ -312,19 +276,14 @@ export class WechatService {
     if (!selectedAccountIds.length || !articles.length) {
       throwKnowledgebaseError(KnowledgebaseErrorCodes.WECHAT_INVALID_ARGS);
     }
-    if (isKnowledgebaseApiAvailable()) {
-      return wechatSdk().articles.publish({
-        accountIds: selectedAccountIds,
-        articles: articles.map(toArticle),
-        sendNotification: options?.sendNotification,
-        groupNotification: options?.groupNotification,
-        selectedGroupId: options?.selectedGroupId,
-        scheduleTime: options?.scheduleTime ?? undefined,
-      });
-    }
-    assertWechatDemoFallbackAllowed();
-    await delay(1500);
-    return { accepted: true, status: 'completed' };
+    return requireWechatSdk().articles.publish({
+      accountIds: selectedAccountIds,
+      articles: articles.map(toArticle),
+      sendNotification: options?.sendNotification,
+      groupNotification: options?.groupNotification,
+      selectedGroupId: options?.selectedGroupId,
+      scheduleTime: options?.scheduleTime ?? undefined,
+    });
   }
 
   static async sendPreview(
@@ -335,26 +294,16 @@ export class WechatService {
     if (!accountId || !wechatIds.length || !articles.length) {
       throwKnowledgebaseError(KnowledgebaseErrorCodes.WECHAT_INVALID_ARGS);
     }
-    if (isKnowledgebaseApiAvailable()) {
-      return wechatSdk().articles.preview({
-        accountId,
-        wechatIds,
-        articles: articles.map(toArticle),
-      });
-    }
-    assertWechatDemoFallbackAllowed();
-    await delay(1200);
-    return { accepted: true, status: 'completed' };
+    return requireWechatSdk().articles.preview({
+      accountId,
+      wechatIds,
+      articles: articles.map(toArticle),
+    });
   }
 
   static async autoFormatContent(content: string, type: string): Promise<string> {
-    if (isKnowledgebaseApiAvailable()) {
-      const wrapped = `<article data-wechat-format="${type}">${content}</article>`;
-      return AIService.streamRewrite(wrapped, () => undefined);
-    }
-
-    assertWechatDemoFallbackAllowed();
-    await delay(1200);
-    return `<div style="font-family: inherit; color: #222; text-align: justify; line-height: 1.8; padding: 20px 10px;">${content}</div>`;
+    requireWechatSdk();
+    const wrapped = `<article data-wechat-format="${type}">${content}</article>`;
+    return AIService.streamRewrite(wrapped, () => undefined);
   }
 }

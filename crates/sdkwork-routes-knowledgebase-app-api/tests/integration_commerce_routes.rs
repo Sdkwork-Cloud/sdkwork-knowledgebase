@@ -103,12 +103,13 @@ async fn integration_market_subscription_round_trip() {
         .await
         .unwrap();
     let subscribed_body = response_body_json(subscribed_list).await;
+    let listing_id_wire = listing_id.to_string();
     let subscribed_item = subscribed_body["items"]
         .as_array()
         .and_then(|items| {
             items
                 .iter()
-                .find(|item| item["id"] == listing_id.to_string())
+                .find(|item| item["id"].as_str() == Some(listing_id_wire.as_str()))
         })
         .expect("subscribed listing");
     assert_eq!(subscribed_item["isSubscribed"], true);
@@ -131,7 +132,7 @@ async fn integration_market_subscription_round_trip() {
 }
 
 #[tokio::test]
-async fn integration_site_deployment_publishes_ingested_documents() {
+async fn integration_site_deployment_fails_closed_without_a_publisher() {
     let runtime = test_runtime().await;
     let space_id = create_space(&runtime, "Site Deployment Space").await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
@@ -182,52 +183,16 @@ async fn integration_site_deployment_publishes_ingested_documents() {
         )
         .await
         .unwrap();
-    assert_eq!(
-        deploy_response.status(),
-        StatusCode::CREATED,
-        "site deployment failed: {}",
-        response_body_string(deploy_response).await
-    );
-    let deploy_body = response_body_json(deploy_response).await;
-    assert_eq!(deploy_body["accepted"], true);
-    assert_eq!(deploy_body["status"], "completed");
-    assert!(deploy_body["url"]
-        .as_str()
-        .is_some_and(|url| url.starts_with("https://")));
-    let deployment_id = deploy_body["deploymentId"]
-        .as_str()
-        .expect("deployment id must be serialized as an int64 string");
-
-    let preview_response = app
-        .oneshot(
-            Request::builder()
-                .method(Method::GET)
-                .uri(format!(
-                    "/app/v3/api/knowledge/site_deployments/{deployment_id}/preview"
-                ))
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        preview_response.status(),
-        StatusCode::OK,
-        "preview failed: {}",
-        response_body_string(preview_response).await
-    );
-    let preview_body = response_body_json(preview_response).await;
-    assert_eq!(preview_body["deploymentId"], deployment_id);
-    assert!(
-        preview_body["html"]
-            .as_str()
-            .is_some_and(|html| html.contains("Deploy Demo")),
-        "preview html should include site title"
-    );
+    assert_eq!(deploy_response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = response_body_json(deploy_response).await;
+    assert_eq!(body["code"], 50301);
+    assert_eq!(body["status"], 503);
+    assert!(body.get("detail").is_none());
+    assert!(!body.to_string().contains("sites.sdkwork.com"));
 }
 
 #[tokio::test]
-async fn integration_media_task_requires_agent_profile() {
+async fn integration_image_generation_fails_closed_without_a_media_provider() {
     let runtime = test_runtime().await;
     let space_id = create_space(&runtime, "Media Task Space").await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
@@ -251,12 +216,45 @@ async fn integration_media_task_requires_agent_profile() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body = response_body_string(response).await;
-    assert!(
-        body.contains("agent profile") && body.contains("40003"),
-        "expected agent profile validation with numeric code 40003, got: {body}"
-    );
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = response_body_json(response).await;
+    assert_eq!(body["code"], 50301);
+    assert_eq!(body["status"], 503);
+    assert!(body.get("detail").is_none());
+    assert!(!body.to_string().contains("unsplash.com"));
+}
+
+#[tokio::test]
+async fn integration_transcription_fails_closed_without_derived_text_or_provider() {
+    let runtime = test_runtime().await;
+    let space_id = create_space(&runtime, "Transcription Task Space").await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(paths::MEDIA_TASKS)
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "spaceId": space_id,
+                        "taskType": "speech_to_text",
+                        "sourceUrl": "https://media.example.invalid/audio.mp3"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let body = response_body_json(response).await;
+    assert_eq!(body["code"], 50301);
+    assert_eq!(body["status"], 503);
+    assert!(body.get("detail").is_none());
+    assert!(!body.to_string().contains("audio.mp3"));
 }
 
 #[tokio::test]

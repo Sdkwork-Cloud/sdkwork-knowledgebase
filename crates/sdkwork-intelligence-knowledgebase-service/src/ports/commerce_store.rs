@@ -26,6 +26,16 @@ pub enum KnowledgeSiteDeploymentStoreError {
     Internal(String),
 }
 
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum KnowledgeSitePublisherError {
+    #[error("site publisher rejected the request: {0}")]
+    InvalidRequest(String),
+    #[error("site publisher upstream error: {0}")]
+    Upstream(String),
+    #[error("site publisher internal error: {0}")]
+    Internal(String),
+}
+
 #[async_trait]
 pub trait KnowledgeMarketStore: Send + Sync {
     async fn list_catalog_page(
@@ -73,6 +83,29 @@ pub struct SiteDeploymentRecord {
     pub custom_domain: Option<String>,
     pub deployed_url: String,
     pub preview_object_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublishKnowledgeSiteRequest {
+    pub tenant_id: u64,
+    pub space_id: u64,
+    pub platform: String,
+    pub site_name: String,
+    pub custom_domain: Option<String>,
+    pub preview_object_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublishedKnowledgeSite {
+    pub public_url: String,
+}
+
+#[async_trait]
+pub trait KnowledgeSitePublisher: Send + Sync {
+    async fn publish_site(
+        &self,
+        request: PublishKnowledgeSiteRequest,
+    ) -> Result<PublishedKnowledgeSite, KnowledgeSitePublisherError>;
 }
 
 #[async_trait]

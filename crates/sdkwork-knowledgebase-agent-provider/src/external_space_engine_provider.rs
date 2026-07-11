@@ -68,6 +68,11 @@ impl KnowledgeProvider for SpaceEngineKnowledgeProvider {
                 .search_space(tenant_id, space_id, &query, top_k)
                 .await
         })
+        .map_err(|error| {
+            KernelError::provider_error("external_knowledge.search_failed", error.to_string())
+                .with_provider(self.provider_id.clone())
+                .from_source(KernelErrorSource::Provider)
+        })?
         .map_err(|message| {
             KernelError::provider_error("external_knowledge.search_failed", message)
                 .with_provider(self.provider_id.clone())
@@ -96,6 +101,11 @@ impl KnowledgeProvider for SpaceEngineKnowledgeProvider {
                 .read_space_document(tenant_id, space_id, &scoped_document_id)
                 .await
         })
+        .map_err(|error| {
+            KernelError::provider_error("external_knowledge.read_failed", error.to_string())
+                .with_provider(self.provider_id.clone())
+                .from_source(KernelErrorSource::Provider)
+        })?
         .map_err(|message| {
             KernelError::provider_error("external_knowledge.read_failed", message)
                 .with_provider(self.provider_id.clone())

@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::drive_import_metadata_store::DriveImportMetadataStoreError;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_store::KnowledgeOkfCandidateStoreError;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
@@ -14,12 +15,17 @@ use sdkwork_knowledgebase_contract::okf::{
     KnowledgeOkfConcept, KnowledgeOkfConceptRevision, OkfConceptPublishState,
     OkfRevisionReviewState,
 };
+use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
 use sqlx::{any::AnyRow, Any, AnyPool, Row, Transaction};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
+use crate::quota_transaction::{
+    begin_tenant_quota_transaction, enforce_tenant_quotas_after_write, TenantQuotaTransactionError,
+};
 use crate::sqlite_knowledge_document_metadata_transaction::create_or_get_object_ref_in_transaction;
 use crate::sqlite_okf_candidate_transaction::{
     update_okf_candidate_state_by_concept_row_id_in_transaction,
@@ -37,6 +43,9 @@ pub struct SqliteOkfConceptRevisionMetadataStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
+    database_engine: DatabaseEngine,
+    quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
 impl SqliteOkfConceptRevisionMetadataStore {
@@ -53,7 +62,21 @@ impl SqliteOkfConceptRevisionMetadataStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
+            database_engine: DatabaseEngine::Sqlite,
+            quota_limits: None,
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self.database_engine = database_engine;
+        self
+    }
+
+    pub fn with_quota_limits(mut self, quota_limits: KnowledgebaseTenantQuotaLimits) -> Self {
+        self.quota_limits = Some(quota_limits);
+        self
     }
 }
 
@@ -72,15 +95,20 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             concept,
         )
         .await
         .map_err(map_concept_store_error)?;
 
-        let revision_no =
-            next_okf_revision_no_in_transaction(&mut transaction, self.tenant_id, concept.id)
-                .await
-                .map_err(map_concept_store_error)?;
+        let revision_no = next_okf_revision_no_in_transaction(
+            &mut transaction,
+            self.tenant_id,
+            self.timestamp_dialect,
+            concept.id,
+        )
+        .await
+        .map_err(map_concept_store_error)?;
 
         transaction
             .commit()
@@ -97,15 +125,26 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
         &self,
         record: StageOkfConceptRevisionMetadataRecord,
     ) -> Result<StagedOkfConceptRevisionMetadata, OkfConceptRevisionMetadataStoreError> {
-        let mut transaction =
+        let tenant_id = i64::try_from(self.tenant_id).map_err(|_| {
+            OkfConceptRevisionMetadataStoreError::invalid_request("tenant_id exceeds i64 range")
+        })?;
+        let mut transaction = if self.quota_limits.is_some() {
+            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
+                .await
+                .map_err(|error| {
+                    OkfConceptRevisionMetadataStoreError::internal(error.to_string())
+                })?
+        } else {
             self.pool.begin().await.map_err(|error| {
                 OkfConceptRevisionMetadataStoreError::internal(error.to_string())
-            })?;
+            })?
+        };
 
         let revision_object_ref = create_or_get_object_ref_in_transaction(
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             &record.revision_object_ref,
         )
         .await
@@ -117,6 +156,7 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
                     &mut transaction,
                     self.tenant_id,
                     &self.id_generator,
+                    self.timestamp_dialect,
                     published_record,
                 )
                 .await
@@ -129,6 +169,7 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             record.concept_row_id,
             record.revision_no,
             revision_object_ref.id,
@@ -140,6 +181,7 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
         let concept = mark_okf_current_revision_in_transaction(
             &mut transaction,
             self.tenant_id,
+            self.timestamp_dialect,
             MarkKnowledgeOkfConceptCurrentRevisionRecord {
                 concept_row_id: record.concept_row_id,
                 revision_id: revision.id,
@@ -157,10 +199,22 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
                 &mut transaction,
                 self.tenant_id,
                 &self.id_generator,
+                self.timestamp_dialect,
                 candidate,
             )
             .await
             .map_err(map_candidate_store_error)?;
+        }
+
+        if let Some(limits) = self.quota_limits {
+            enforce_tenant_quotas_after_write(
+                &mut transaction,
+                self.database_engine,
+                tenant_id,
+                limits,
+            )
+            .await
+            .map_err(map_quota_transaction_error)?;
         }
 
         transaction
@@ -180,15 +234,26 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
         &self,
         record: PublishOkfConceptRevisionMetadataRecord,
     ) -> Result<PublishedOkfConceptRevisionMetadata, OkfConceptRevisionMetadataStoreError> {
-        let mut transaction =
+        let tenant_id = i64::try_from(self.tenant_id).map_err(|_| {
+            OkfConceptRevisionMetadataStoreError::invalid_request("tenant_id exceeds i64 range")
+        })?;
+        let mut transaction = if self.quota_limits.is_some() {
+            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
+                .await
+                .map_err(|error| {
+                    OkfConceptRevisionMetadataStoreError::internal(error.to_string())
+                })?
+        } else {
             self.pool.begin().await.map_err(|error| {
                 OkfConceptRevisionMetadataStoreError::internal(error.to_string())
-            })?;
+            })?
+        };
 
         let published_object_ref = create_or_get_object_ref_in_transaction(
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             &record.published_object_ref,
         )
         .await
@@ -197,6 +262,7 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
         let concept = mark_okf_current_revision_in_transaction(
             &mut transaction,
             self.tenant_id,
+            self.timestamp_dialect,
             record.mark_current,
         )
         .await?;
@@ -205,6 +271,7 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
             update_okf_candidate_state_by_concept_row_id_in_transaction(
                 &mut transaction,
                 self.tenant_id,
+                self.timestamp_dialect,
                 candidate_state_update.concept_row_id,
                 candidate_state_update.state,
                 candidate_state_update.reviewer_id,
@@ -212,6 +279,17 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
             )
             .await
             .map_err(map_candidate_store_error)?;
+        }
+
+        if let Some(limits) = self.quota_limits {
+            enforce_tenant_quotas_after_write(
+                &mut transaction,
+                self.database_engine,
+                tenant_id,
+                limits,
+            )
+            .await
+            .map_err(map_quota_transaction_error)?;
         }
 
         transaction
@@ -231,6 +309,7 @@ async fn create_okf_revision_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
     concept_row_id: u64,
     revision_no: u64,
     markdown_object_ref_id: u64,
@@ -243,34 +322,37 @@ async fn create_okf_revision_in_transaction(
     let markdown_object_ref_id = to_i64("markdown_object_ref_id", markdown_object_ref_id)?;
     let id = next_i64_id(id_generator).map_err(id_error)?;
     let now = now_rfc3339()?;
+    let created_at_expr = timestamp_dialect.sql_timestamp_expr("$10");
+    let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$11");
 
-    let row = sqlx::query(
+    let query = format!(
         r#"
         INSERT INTO kb_okf_concept_revision (
             id, uuid, tenant_id, concept_row_id, revision_no, markdown_object_ref_id,
             content_hash, review_state, status, created_at, updated_at, version
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, {created_at_expr}, {updated_at_expr}, $12)
         RETURNING
             id, concept_row_id, revision_no, markdown_object_ref_id, content_hash,
             review_state, created_at
         "#,
-    )
-    .bind(id)
-    .bind(Uuid::new_v4().to_string())
-    .bind(tenant_id)
-    .bind(concept_row_id)
-    .bind(revision_no)
-    .bind(markdown_object_ref_id)
-    .bind(content_hash)
-    .bind(review_state.as_str())
-    .bind(ACTIVE_STATUS)
-    .bind(now.clone())
-    .bind(now)
-    .bind(INITIAL_VERSION)
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(sqlx_error)?;
+    );
+    let row = sqlx::query(&query)
+        .bind(id)
+        .bind(Uuid::new_v4().to_string())
+        .bind(tenant_id)
+        .bind(concept_row_id)
+        .bind(revision_no)
+        .bind(markdown_object_ref_id)
+        .bind(content_hash)
+        .bind(review_state.as_str())
+        .bind(ACTIVE_STATUS)
+        .bind(now.clone())
+        .bind(now)
+        .bind(INITIAL_VERSION)
+        .fetch_one(&mut **transaction)
+        .await
+        .map_err(sqlx_error)?;
 
     revision_from_row(&row)
 }
@@ -278,35 +360,38 @@ async fn create_okf_revision_in_transaction(
 async fn mark_okf_current_revision_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
+    timestamp_dialect: SqlTimestampDialect,
     record: MarkKnowledgeOkfConceptCurrentRevisionRecord,
 ) -> Result<KnowledgeOkfConcept, OkfConceptRevisionMetadataStoreError> {
     let tenant_id = to_i64("tenant_id", tenant_id)?;
     let concept_row_id = to_i64("concept_row_id", record.concept_row_id)?;
     let revision_id = to_i64("revision_id", record.revision_id)?;
     let now = now_rfc3339()?;
+    let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$3");
 
-    let row = sqlx::query(
+    let query = format!(
         r#"
         UPDATE kb_okf_concept
         SET current_revision_id = $1,
             publish_state = $2,
-            updated_at = CAST($3 AS TIMESTAMP),
+            updated_at = {updated_at_expr},
             version = version + 1
         WHERE tenant_id = $4 AND id = $5 AND status = $6
         RETURNING
             id, space_id, concept_id, title, concept_type, logical_path, description,
-            source_count, tags, current_revision_id, publish_state, updated_at
+            source_count, CAST(tags AS TEXT) AS tags, current_revision_id, publish_state, updated_at
         "#,
-    )
-    .bind(revision_id)
-    .bind(record.publish_state.as_str())
-    .bind(now)
-    .bind(tenant_id)
-    .bind(concept_row_id)
-    .bind(ACTIVE_STATUS)
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(sqlx_error)?;
+    );
+    let row = sqlx::query(&query)
+        .bind(revision_id)
+        .bind(record.publish_state.as_str())
+        .bind(now)
+        .bind(tenant_id)
+        .bind(concept_row_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(&mut **transaction)
+        .await
+        .map_err(sqlx_error)?;
 
     concept_from_row(&row)
 }
@@ -416,7 +501,26 @@ fn map_object_ref_error(
         DriveImportMetadataStoreError::Conflict(detail) => {
             OkfConceptRevisionMetadataStoreError::internal(detail)
         }
+        DriveImportMetadataStoreError::QuotaExceeded(error) => {
+            OkfConceptRevisionMetadataStoreError::QuotaExceeded(error)
+        }
         DriveImportMetadataStoreError::Internal(detail) => {
+            OkfConceptRevisionMetadataStoreError::internal(detail)
+        }
+    }
+}
+
+fn map_quota_transaction_error(
+    error: TenantQuotaTransactionError,
+) -> OkfConceptRevisionMetadataStoreError {
+    match error {
+        TenantQuotaTransactionError::Quota(error) => {
+            OkfConceptRevisionMetadataStoreError::QuotaExceeded(error)
+        }
+        TenantQuotaTransactionError::Database(error) => {
+            OkfConceptRevisionMetadataStoreError::internal(error.to_string())
+        }
+        TenantQuotaTransactionError::Invalid(detail) => {
             OkfConceptRevisionMetadataStoreError::internal(detail)
         }
     }

@@ -198,7 +198,13 @@ export default defineConfig(({mode}) => {
       exclude: ['pdfjs-dist'],
     },
     resolve: {
-      dedupe: ['react', 'react-dom'],
+      dedupe: [
+        'react',
+        'react-dom',
+        'react-router-dom',
+        'i18next',
+        'react-i18next',
+      ],
       alias: [
         { find: '@', replacement: path.resolve(__dirname, '.') },
         {

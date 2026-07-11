@@ -1,6 +1,7 @@
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     connect_postgres_and_install_schema, is_postgres_database_url, knowledgebase_health_check,
-    KnowledgeAuditEventRecord, SqliteKnowledgeAuditEventStore,
+    KnowledgeAuditEventRecord, SqliteIngestionJobStore, SqliteKnowledgeAuditEventStore,
     SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeDocumentStore,
     SqliteKnowledgeDocumentVersionStore, SqliteKnowledgeDriveObjectRefStore,
     SqliteKnowledgeSpaceStore,
@@ -16,11 +17,17 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_re
     CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore, MANAGED_DRIVE_ACCESS_MODE,
     SDKWORK_DRIVE_PROVIDER_KIND,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::{
+    CreateIngestionJobRecord, IngestionJobStore,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
+use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::Barrier;
 
 fn optional_postgres_database_url() -> Option<String> {
     std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_URL")
@@ -42,6 +49,68 @@ async fn postgres_repository_health_check_when_database_url_configured() {
     knowledgebase_health_check(&pool)
         .await
         .expect("postgres health check");
+}
+
+#[tokio::test]
+async fn postgres_ingest_quota_advisory_lock_is_atomic_when_database_url_configured() {
+    let Some(database_url) = optional_postgres_database_url() else {
+        eprintln!("skipping postgres quota integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL or DATABASE_URL to a postgres URL");
+        return;
+    };
+
+    let pool = connect_postgres_and_install_schema(&database_url)
+        .await
+        .expect("connect postgres knowledgebase schema");
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_millis() as u64;
+    let tenant_id = 700_000_000_u64.saturating_add(nonce % 100_000_000);
+    let limits = KnowledgebaseTenantQuotaLimits {
+        max_concurrent_ingest_jobs: 2,
+        ..KnowledgebaseTenantQuotaLimits::default()
+    };
+    let store = Arc::new(
+        SqliteIngestionJobStore::new(pool.clone(), tenant_id)
+            .with_database_engine(DatabaseEngine::Postgres)
+            .with_quota_limits(limits),
+    );
+    let barrier = Arc::new(Barrier::new(11));
+    let mut tasks = Vec::new();
+    for index in 0..10_u64 {
+        let store = Arc::clone(&store);
+        let barrier = Arc::clone(&barrier);
+        tasks.push(tokio::spawn(async move {
+            barrier.wait().await;
+            store
+                .create_or_get_job(CreateIngestionJobRecord {
+                    space_id: 7,
+                    source_type: "api".to_string(),
+                    idempotency_key: format!("postgres-atomic-{nonce}-{index}"),
+                    idempotency_fingerprint_sha256_hex: None,
+                })
+                .await
+        }));
+    }
+    barrier.wait().await;
+
+    let mut succeeded = 0;
+    let mut rejected = 0;
+    for task in tasks {
+        match task.await.expect("join") {
+            Ok(_) => succeeded += 1,
+            Err(error) if error.to_string().contains("quota exceeded") => rejected += 1,
+            Err(error) => panic!("unexpected postgres quota error: {error}"),
+        }
+    }
+    assert_eq!(succeeded, 2);
+    assert_eq!(rejected, 8);
+
+    sqlx::query("DELETE FROM kb_ingestion_job WHERE tenant_id = $1")
+        .bind(tenant_id as i64)
+        .execute(&pool)
+        .await
+        .expect("cleanup postgres quota probe");
 }
 
 #[tokio::test]

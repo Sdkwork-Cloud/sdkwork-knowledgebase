@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::rag::{KnowledgeRetrievalBinding, KnowledgeRetrievalMethod};
+use std::time::Duration;
 use thiserror::Error;
 
 #[async_trait]
@@ -41,6 +42,10 @@ pub struct KnowledgeChunkSearchHit {
 pub enum KnowledgeRetrievalBackendError {
     #[error("knowledge retrieval backend internal error: {0}")]
     Internal(String),
+    #[error("knowledge retrieval embedding queue is saturated at capacity {capacity}")]
+    QueueSaturated { capacity: usize },
+    #[error("knowledge retrieval embedding timed out after {timeout:?}")]
+    TimedOut { timeout: Duration },
     #[error("tenant_id does not match retrieval backend scope")]
     TenantMismatch,
     #[error("retrieval method {0:?} is not supported by the configured backend")]

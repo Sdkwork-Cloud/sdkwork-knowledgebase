@@ -2,10 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
 import { useTranslation } from 'react-i18next';
 import { X, Shield, Settings, Sliders, Upload, UserPlus, Globe, Check, AlertCircle } from 'lucide-react';
-import { isKnowledgebaseApiAvailable, shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
+import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 import { KnowledgeBase, DocumentService } from './services/document';
 import type { KnowledgeSpaceMemberUi } from './services/knowledgeSpaceMembersService';
 import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
+import {
+  KNOWLEDGE_AGENT_DEFAULT_UI_PROVIDER,
+  KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID,
+} from './services/knowledgeAgentDefaults';
 
 interface KnowledgeBaseSettingsModalProps {
   kb: KnowledgeBase;
@@ -15,7 +19,7 @@ interface KnowledgeBaseSettingsModalProps {
 
 const predefinedIcons = ['📘', '📗', '📕', '📙', '📓', '📁', '🌟', '🚀', '💡', '🔥', '⚙️', '📊', '🌍', '📖'];
 
-interface MemberMock extends KnowledgeSpaceMemberUi {}
+interface KnowledgeSpaceMemberDraft extends KnowledgeSpaceMemberUi {}
 
 export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBaseSettingsModalProps) {
   const { t } = useTranslation(['kb', 'common']);
@@ -31,7 +35,7 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
   // Permissions Settings States
   const [publicPermission, setPublicPermission] = useState<'none' | 'read' | 'write' | 'admin'>(kb.publicPermission || 'none');
   const [guestLinkEnabled, setGuestLinkEnabled] = useState(kb.guestLinkEnabled !== undefined ? kb.guestLinkEnabled : false);
-  const [members, setMembers] = useState<MemberMock[]>([]);
+  const [members, setMembers] = useState<KnowledgeSpaceMemberDraft[]>([]);
   const loadedMemberEmailsRef = useRef<Set<string>>(new Set());
   const membersDirtyRef = useRef(false);
   const [membersNextCursor, setMembersNextCursor] = useState<string | null>(null);
@@ -77,8 +81,8 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
   }, [kb.id]);
 
   // Model Settings States
-  const [provider, setProvider] = useState(kb.provider || 'Google');
-  const [modelName, setModelName] = useState(kb.modelName || 'gemini-3.5-flash');
+  const provider = kb.provider || KNOWLEDGE_AGENT_DEFAULT_UI_PROVIDER;
+  const modelName = kb.modelName || KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID;
   const [temperature, setTemperature] = useState(kb.temperature !== undefined ? kb.temperature : 0.7);
   const [maxTokens, setMaxTokens] = useState(kb.maxTokens || 2048);
   const [systemPrompt, setSystemPrompt] = useState(kb.systemPrompt || '你是一个资深的知识库智脑助手。请基于已知文档回答用户的问题。如果问题不在文档中，请友好地指出。');
@@ -102,13 +106,11 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
     if (isBlank(newMemberEmail)) return;
     const name = newMemberEmail.split('@')[0];
     const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
-    const newMember: MemberMock = {
+    const newMember: KnowledgeSpaceMemberDraft = {
       name: capitalizedName,
       email: newMemberEmail,
       role: newMemberRole,
-      avatar: shouldUseKnowledgebaseDemoFallback()
-        ? `https://images.unsplash.com/photo-${Math.floor(Math.random() * 100000) + 1500000}?w=100&h=100&fit=crop`
-        : '',
+      avatar: '',
     };
     setMembers([...members, newMember]);
     loadedMemberEmailsRef.current.add(newMemberEmail.toLowerCase());
@@ -184,21 +186,6 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
     }
   };
 
-  // Predefined models mapping based on provider
-  const modelsForProvider: Record<string, string[]> = {
-    Google: ['gemini-3.5-flash', 'gemini-3.5-pro', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'],
-    OpenAI: ['gpt-4o', 'gpt-4o-mini', 'o1-mini'],
-    DeepSeek: ['deepseek-chat', 'deepseek-reasoner']
-  };
-
-  const providerChange = (p: string) => {
-    setProvider(p);
-    const available = modelsForProvider[p];
-    if (available && available.length > 0) {
-      setModelName(available[0]);
-    }
-  };
-
   return (
     <div className="fixed inset-0 bg-zinc-950/40 z-[300] flex items-center justify-center backdrop-blur-md animate-fade-in">
       <div className="bg-white dark:bg-[var(--color-kb-editor)] w-[820px] h-[600px] rounded-2xl shadow-[0_24px_70px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_24px_70px_-15px_rgba(0,0,0,0.4)] border border-zinc-200/80 dark:border-[var(--color-kb-panel-border)] flex overflow-hidden animate-in fade-in zoom-in-95 duration-300">
@@ -237,9 +224,6 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
             </button>
           </div>
 
-          <div className="px-6">
-            <span className="text-[10px] text-zinc-400 dark:text-[var(--color-kb-text-muted)] font-mono font-bold tracking-widest uppercase">v1.2.5 • Premium</span>
-          </div>
         </div>
 
         {/* Right Active Tab Settings Panel Workspace */}
@@ -477,17 +461,13 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
                             <option value="viewer">{t('viewer')}</option>
                           </select>
                           
-                          {member.email !== 'alice@company.com' ? (
-                            <button 
-                              type="button" 
-                              onClick={() => handleRemoveMember(idx)} 
-                              className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            >
-                              <X size={16} strokeWidth={2.5} />
-                            </button>
-                          ) : (
-                            <div className="w-8"></div>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMember(idx)}
+                            className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                          >
+                            <X size={16} strokeWidth={2.5} />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -521,32 +501,19 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
                      {/* Select AI Model Provider */}
                      <div className="flex flex-col space-y-2">
                        <label className="text-[13px] font-extrabold text-indigo-950 dark:text-indigo-100">{t('cloudProvider')}</label>
-                       <div className="flex gap-2">
-                         {['Google', 'DeepSeek', 'OpenAI'].map(p => (
-                           <button
-                             key={p}
-                             type="button"
-                             onClick={() => providerChange(p)}
-                             className={`flex-1 py-2 text-[12.5px] rounded-xl border-2 font-bold text-center transition-all ${provider === p ? 'border-indigo-500 bg-white dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 shadow-sm translate-y-[-1px]' : 'border-indigo-100 dark:border-indigo-900/40 bg-white/50 dark:bg-[var(--color-kb-panel)] text-zinc-500 hover:text-zinc-800 hover:border-indigo-300'}`}
-                           >
-                             {p}
-                           </button>
-                         ))}
+                       <div className="min-h-10 flex items-center rounded-lg border border-indigo-100 bg-white px-4 text-[13px] font-bold text-indigo-900 dark:border-indigo-900/40 dark:bg-[var(--color-kb-input-bg)] dark:text-indigo-100">
+                         {provider}
                        </div>
                      </div>
 
                      {/* Select Model Name */}
                      <div className="flex flex-col space-y-2">
                        <label className="text-[13px] font-extrabold text-indigo-950 dark:text-indigo-100">{t('llmModel')}</label>
-                       <select
+                       <input
                          value={modelName}
-                         onChange={(e) => setModelName(e.target.value)}
-                         className="w-full bg-white dark:bg-[var(--color-kb-input-bg)] border-2 border-indigo-100 dark:border-indigo-900/40 rounded-xl px-4 py-2 text-[13.5px] font-bold text-indigo-900 dark:text-indigo-100 focus:outline-none focus:border-indigo-500 shadow-sm cursor-pointer"
-                       >
-                         {(modelsForProvider[provider] || []).map(m => (
-                           <option key={m} value={m}>{m}</option>
-                         ))}
-                       </select>
+                         readOnly
+                         className="min-h-10 w-full rounded-lg border border-indigo-100 bg-white px-4 text-[13px] font-bold text-indigo-900 outline-none dark:border-indigo-900/40 dark:bg-[var(--color-kb-input-bg)] dark:text-indigo-100"
+                       />
                      </div>
                    </div>
                 </div>

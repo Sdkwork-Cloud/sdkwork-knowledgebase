@@ -1,8 +1,10 @@
 use sdkwork_knowledgebase_agent_provider::ClawRouterEmbeddingClient;
 use sdkwork_knowledgebase_contract::rag::KnowledgeIndexRequest;
 use sdkwork_utils_rust::is_blank;
+use std::time::Duration;
 use thiserror::Error;
 
+use crate::bounded_blocking::{run_bounded_blocking, BoundedBlockingError};
 use crate::ports::knowledge_embedding_store::{
     ChunkEmbeddingIndexRequest, ChunkEmbeddingUpsertRequest, KnowledgeEmbeddingStore,
     KnowledgeEmbeddingStoreError,
@@ -52,11 +54,14 @@ impl<'a> KnowledgeEmbeddingIndexService<'a> {
         let model_id = request
             .embedding_model
             .as_deref()
-            .or(request.index_embedding_model.as_deref());
-        let vector = self
-            .embedder
-            .embed_text(&content, model_id)
-            .map_err(KnowledgeEmbeddingIndexServiceError::Embedding)?;
+            .or(request.index_embedding_model.as_deref())
+            .map(str::to_string);
+        let embedder = self.embedder.clone();
+        let vector =
+            run_bounded_blocking(move || embedder.embed_text(&content, model_id.as_deref()))
+                .await
+                .map_err(map_embedding_blocking_error)?
+                .map_err(KnowledgeEmbeddingIndexServiceError::Embedding)?;
 
         self.embeddings
             .upsert_chunk_embedding(
@@ -93,17 +98,13 @@ impl<'a> KnowledgeEmbeddingIndexService<'a> {
         let mut embedded = 0usize;
         for batch in chunks.chunks(EMBED_BATCH_SIZE) {
             let texts: Vec<String> = batch.iter().map(|(_, text)| text.clone()).collect();
-            let vectors = tokio::task::spawn_blocking({
+            let vectors = run_bounded_blocking({
                 let embedder = self.embedder.clone();
                 let model = embedding_model.clone();
                 move || embedder.embed_texts(&texts, model.as_deref())
             })
             .await
-            .map_err(|error| {
-                KnowledgeEmbeddingIndexServiceError::Internal(format!(
-                    "embedding worker join failed: {error}"
-                ))
-            })?
+            .map_err(map_embedding_blocking_error)?
             .map_err(KnowledgeEmbeddingIndexServiceError::Embedding)?;
 
             let upsert_requests = batch
@@ -166,14 +167,67 @@ impl<'a> KnowledgeEmbeddingIndexService<'a> {
     }
 }
 
+fn map_embedding_blocking_error(
+    error: BoundedBlockingError,
+) -> KnowledgeEmbeddingIndexServiceError {
+    match error {
+        BoundedBlockingError::QueueSaturated { capacity } => {
+            KnowledgeEmbeddingIndexServiceError::QueueSaturated { capacity }
+        }
+        BoundedBlockingError::TimedOut { timeout } => {
+            KnowledgeEmbeddingIndexServiceError::TimedOut { timeout }
+        }
+        error @ (BoundedBlockingError::InvalidCapacity
+        | BoundedBlockingError::TaskPanicked
+        | BoundedBlockingError::TaskCancelled) => KnowledgeEmbeddingIndexServiceError::Internal(
+            format!("embedding blocking operation failed: {error}"),
+        ),
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum KnowledgeEmbeddingIndexServiceError {
     #[error("invalid embedding index request: {0}")]
     InvalidRequest(String),
+    #[error("embedding index execution queue is saturated at capacity {capacity}")]
+    QueueSaturated { capacity: usize },
+    #[error("embedding index execution timed out after {timeout:?}")]
+    TimedOut { timeout: Duration },
     #[error("embedding index internal error: {0}")]
     Internal(String),
     #[error("embedding provider error: {0}")]
     Embedding(String),
     #[error(transparent)]
     Store(#[from] KnowledgeEmbeddingStoreError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bounded_blocking::BoundedBlockingError;
+    use std::time::Duration;
+
+    #[test]
+    fn blocking_error_mapping_preserves_overload_and_timeout() {
+        let timeout = Duration::from_secs(13);
+        assert!(matches!(
+            map_embedding_blocking_error(BoundedBlockingError::QueueSaturated { capacity: 64 }),
+            KnowledgeEmbeddingIndexServiceError::QueueSaturated { capacity: 64 }
+        ));
+        assert!(matches!(
+            map_embedding_blocking_error(BoundedBlockingError::TimedOut { timeout }),
+            KnowledgeEmbeddingIndexServiceError::TimedOut { timeout: actual } if actual == timeout
+        ));
+
+        for error in [
+            BoundedBlockingError::InvalidCapacity,
+            BoundedBlockingError::TaskPanicked,
+            BoundedBlockingError::TaskCancelled,
+        ] {
+            assert!(matches!(
+                map_embedding_blocking_error(error),
+                KnowledgeEmbeddingIndexServiceError::Internal(_)
+            ));
+        }
+    }
 }

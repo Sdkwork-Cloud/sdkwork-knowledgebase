@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { isBlank, trim } from '@sdkwork/utils';
-import { X, Clock, FileText, ArrowUp, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
-import { isKnowledgebaseApiAvailable, shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
+import { isBlank } from '@sdkwork/utils';
+import { X, Clock, FileText, ArrowUp, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  isKnowledgebaseApiAvailable,
+  resolveUserFacingErrorMessage,
+  type ErrorTranslateFn,
+} from 'sdkwork-knowledgebase-pc-core';
 import { AIService } from '../services/ai';
 import { useTranslation } from 'react-i18next';
 
@@ -24,31 +28,7 @@ interface Message {
   };
 }
 
-const OFFLINE_DEMO_MESSAGES: Message[] = [
-  {
-    role: 'user',
-    type: 'text',
-    content: '一只欢快的小猪',
-  },
-  {
-    role: 'ai',
-    type: 'image_result',
-    content: '已为你生成图片，1024x1024',
-    imageDetails: {
-      url: 'https://images.unsplash.com/photo-1600861194942-f883de0dfe96?q=80&w=1024&auto=format&fit=crop',
-      resolution: '1024x1024',
-      suggestions: ['换黄昏暖光背景', '加几只蝴蝶飞舞', '改仰拍大特写'],
-      similars: [
-        'https://images.unsplash.com/photo-1600861194942-f883de0dfe96?q=80&w=200&auto=format&fit=crop',
-        'https://images.unsplash.com/photo-1627917812975-ebce01eac74a?q=80&w=200&auto=format&fit=crop',
-        'https://images.unsplash.com/photo-1627917812975-ebce01eac74a?q=80&w=200&auto=format&fit=crop',
-      ],
-    },
-  },
-];
-
-function appendImageGenerationError(messages: Message[], error: unknown): Message[] {
-  const detail = error instanceof Error ? error.message : 'AI 配图生成失败。';
+function appendImageGenerationError(messages: Message[], detail: string): Message[] {
   return [
     ...messages,
     {
@@ -62,21 +42,46 @@ function appendImageGenerationError(messages: Message[], error: unknown): Messag
 export function WechatAiImageModal({ isOpen, onClose, onConfirm, kbId }: WechatAiImageModalProps) {
   const { t } = useTranslation(['editor', 'common', 'officialAccount']);
   const [prompt, setPrompt] = useState('');
-  const [messages, setMessages] = useState<Message[]>(() =>
-    isKnowledgebaseApiAvailable() || !shouldUseKnowledgebaseDemoFallback()
-      ? [
-          {
-            role: 'ai',
-            type: 'text',
-            content: '描述你想要的配图，我会通过 Knowledgebase 媒体任务生成可用图片链接。',
-          },
-        ]
-      : OFFLINE_DEMO_MESSAGES,
-  );
-  const [aspectMode, setAspectMode] = useState('1:1');
-  const [styleMode, setStyleMode] = useState('风格');
-  
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [aspectMode, setAspectMode] = useState<'1:1' | '16:9' | '9:16'>('1:1');
+  const [styleMode, setStyleMode] = useState<
+    'illustration' | 'photography' | 'minimalist' | 'abstract'
+  >('illustration');
   const [showSimilars, setShowSimilars] = useState(true);
+  const imageGenerationAvailable = isKnowledgebaseApiAvailable();
+
+  const handleGenerateImage = async () => {
+    if (!imageGenerationAvailable || isBlank(prompt)) return;
+
+    const newMsg: Message = { role: 'user', type: 'text', content: prompt.trim() };
+    setMessages(prev => [...prev, newMsg]);
+    setPrompt('');
+
+    try {
+      const result = await AIService.generateImage(
+        newMsg.content,
+        aspectMode,
+        styleMode,
+        kbId ? { spaceId: kbId } : undefined,
+      );
+      setMessages(prev => [...prev, {
+        role: 'ai',
+        type: 'image_result',
+        content: t('ai_generated_desc_suggestions', {
+          aspect: aspectMode,
+          style: styleMode,
+          defaultValue: `已为您生成图片 (${aspectMode} - ${styleMode})，包含相关的调整建议。`,
+        }),
+        imageDetails: result,
+      }]);
+    } catch (error) {
+      const detail = resolveUserFacingErrorMessage(
+        error,
+        t as unknown as ErrorTranslateFn,
+      );
+      setMessages(prev => appendImageGenerationError(prev, detail));
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -104,6 +109,20 @@ export function WechatAiImageModal({ isOpen, onClose, onConfirm, kbId }: WechatA
 
         {/* Chat Area */}
         <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-8 bg-[var(--color-kb-editor)]">
+          {messages.length === 0 && (
+            <div
+              role={imageGenerationAvailable ? 'status' : 'alert'}
+              className="max-w-[80%] text-[14px] leading-relaxed bg-[var(--color-kb-panel-hover)]/30 border border-[var(--color-kb-panel-border)]/50 rounded-xl p-4 text-[var(--color-kb-text)]"
+            >
+              {imageGenerationAvailable
+                ? t('wechatAiImageReady', {
+                    defaultValue: 'Describe the image you want to generate.',
+                  })
+                : t('wechatAiImageUnavailable', {
+                    defaultValue: 'AI image generation is unavailable until the Knowledgebase API is connected.',
+                  })}
+            </div>
+          )}
           {messages.map((msg, idx) => (
             <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
               {msg.role === 'user' ? (
@@ -177,74 +196,59 @@ export function WechatAiImageModal({ isOpen, onClose, onConfirm, kbId }: WechatA
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder={t('ai_illustration_placeholder', { defaultValue: '请描述你想要创作的画面（如：极简扁平插画，一只身穿宇航服的绿色小恐龙）...' })}
-              className="w-full min-h-[80px] max-h-[160px] resize-none outline-none text-[14px] font-medium p-4 text-[var(--color-kb-text-heading)] placeholder-[var(--color-kb-text-muted)] bg-transparent"
+              disabled={!imageGenerationAvailable}
+              placeholder={imageGenerationAvailable
+                ? t('ai_illustration_placeholder', { defaultValue: 'Describe the image you want to create.' })
+                : t('wechatAiImageUnavailable', { defaultValue: 'AI image generation is unavailable.' })}
+              className="w-full min-h-[80px] max-h-[160px] resize-none outline-none text-[14px] font-medium p-4 text-[var(--color-kb-text-heading)] placeholder-[var(--color-kb-text-muted)] bg-transparent disabled:cursor-not-allowed disabled:opacity-60"
               onKeyDown={async (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  if (isBlank(prompt)) return;
-                  const newMsg: Message = { role: 'user', type: 'text', content: prompt.trim() };
-                  setMessages(prev => [...prev, newMsg]);
-                  setPrompt('');
-                  
-                  try {
-                    const result = await AIService.generateImage(
-                      newMsg.content,
-                      aspectMode,
-                      styleMode,
-                      kbId ? { spaceId: kbId } : undefined,
-                    );
-                    setMessages(prev => [...prev, {
-                      role: 'ai',
-                      type: 'image_result',
-                      content: t('ai_generated_desc_format', { aspect: aspectMode, style: styleMode, defaultValue: `已为您生成图片 (${aspectMode} - ${styleMode})，双击或点击“使用此图片”插入。` }),
-                      imageDetails: result
-                    }]);
-                  } catch (error) {
-                    console.error(error);
-                    setMessages((prev) => appendImageGenerationError(prev, error));
-                  }
+                  await handleGenerateImage();
                 }
               }}
             />
             
             <div className="flex items-center justify-between px-4 pb-4">
               <div className="flex items-center gap-2">
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-kb-panel)] hover:bg-[var(--color-kb-panel-hover)] border border-[var(--color-kb-panel-border)] text-[var(--color-kb-text)] text-[12.5px] font-semibold transition-colors">
-                  {aspectMode} <ChevronDown size={14} className="text-[var(--color-kb-text-muted)]" />
-                </button>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--color-kb-panel)] hover:bg-[var(--color-kb-panel-hover)] border border-[var(--color-kb-panel-border)] text-[var(--color-kb-text)] text-[12.5px] font-semibold transition-colors">
-                  {styleMode} <ChevronDown size={14} className="text-[var(--color-kb-text-muted)]" />
-                </button>
+                <select
+                  aria-label={t('aspectRatio', { defaultValue: 'Aspect ratio' })}
+                  value={aspectMode}
+                  onChange={(event) => setAspectMode(event.target.value as typeof aspectMode)}
+                  className="h-8 rounded-lg border border-[var(--color-kb-panel-border)] bg-[var(--color-kb-panel)] px-3 text-[12.5px] font-semibold text-[var(--color-kb-text)] outline-none transition-colors hover:bg-[var(--color-kb-panel-hover)] focus:border-[var(--color-kb-accent)]"
+                >
+                  <option value="1:1">1:1</option>
+                  <option value="16:9">16:9</option>
+                  <option value="9:16">9:16</option>
+                </select>
+                <select
+                  aria-label={t('imageStyle', { defaultValue: 'Image style' })}
+                  value={styleMode}
+                  onChange={(event) => setStyleMode(event.target.value as typeof styleMode)}
+                  className="h-8 rounded-lg border border-[var(--color-kb-panel-border)] bg-[var(--color-kb-panel)] px-3 text-[12.5px] font-semibold text-[var(--color-kb-text)] outline-none transition-colors hover:bg-[var(--color-kb-panel-hover)] focus:border-[var(--color-kb-accent)]"
+                >
+                  <option value="illustration">
+                    {t('aiStyleIllustration', { defaultValue: 'Illustration' })}
+                  </option>
+                  <option value="photography">
+                    {t('aiStylePhotography', { defaultValue: 'Photography' })}
+                  </option>
+                  <option value="minimalist">
+                    {t('aiStyleMinimalist', { defaultValue: 'Minimalist' })}
+                  </option>
+                  <option value="abstract">
+                    {t('aiStyleAbstract', { defaultValue: 'Abstract' })}
+                  </option>
+                </select>
               </div>
               
               <button 
-                onClick={async () => {
-                  if (isBlank(prompt)) return;
-                  const newMsg: Message = { role: 'user', type: 'text', content: prompt.trim() };
-                  setMessages(prev => [...prev, newMsg]);
-                  setPrompt('');
-                  
-                  try {
-                    const result = await AIService.generateImage(
-                      newMsg.content,
-                      aspectMode,
-                      styleMode,
-                      kbId ? { spaceId: kbId } : undefined,
-                    );
-                    setMessages(prev => [...prev, {
-                      role: 'ai',
-                      type: 'image_result',
-                      content: t('ai_generated_desc_suggestions', { aspect: aspectMode, style: styleMode, defaultValue: `已为您生成图片 (${aspectMode} - ${styleMode})，包含相关的调整建议。` }),
-                      imageDetails: result
-                    }]);
-                  } catch (error) {
-                    console.error(error);
-                    setMessages((prev) => appendImageGenerationError(prev, error));
-                  }
-                }}
+                type="button"
+                onClick={handleGenerateImage}
+                disabled={!imageGenerationAvailable || isBlank(prompt)}
+                aria-label={t('generateImage', { defaultValue: 'Generate image' })}
                 className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                  prompt.trim() ? 'bg-[var(--color-kb-accent)] text-white hover:opacity-90 shadow-sm' : 'bg-[var(--color-kb-panel-hover)] border border-[var(--color-kb-panel-border)] text-[var(--color-kb-text-muted)] cursor-not-allowed'
+                  imageGenerationAvailable && !isBlank(prompt) ? 'bg-[var(--color-kb-accent)] text-white hover:opacity-90 shadow-sm' : 'bg-[var(--color-kb-panel-hover)] border border-[var(--color-kb-panel-border)] text-[var(--color-kb-text-muted)] cursor-not-allowed'
                 }`}
               >
                 <ArrowUp size={16} strokeWidth={2.5} />

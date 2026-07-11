@@ -69,7 +69,7 @@ void i18n
     lng: initialLanguage,
     fallbackLng: 'en-US',
     supportedLngs: ['zh-CN', 'en-US'],
-    nonExplicitSupportedLngs: true,
+    nonExplicitSupportedLngs: false,
     ns: [
       'common',
       'kb',

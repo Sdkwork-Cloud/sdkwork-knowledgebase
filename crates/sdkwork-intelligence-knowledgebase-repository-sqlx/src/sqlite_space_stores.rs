@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_bundle_file_store::{
     CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
     KnowledgeOkfBundleFileStoreError,
@@ -15,7 +16,7 @@ use sqlx::{any::AnyRow, AnyPool, Row};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::db::sql_timestamp::utc_sql_timestamp_text;
+use crate::db::sql_timestamp::{utc_sql_timestamp_text, SqlTimestampDialect};
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const ACTIVE_STATUS: i64 = 1;
@@ -34,6 +35,7 @@ pub struct SqliteKnowledgeSpaceStore {
     tenant_id: u64,
     organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeSpaceStore {
@@ -57,7 +59,13 @@ impl SqliteKnowledgeSpaceStore {
             tenant_id,
             organization_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 
     pub async fn summarize_tenant_knowledgebase(
@@ -204,7 +212,9 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let id = next_i64_id(&self.id_generator).map_err(space_id_error)?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
-        let row = sqlx::query(
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$11");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let query = format!(
             r#"
             INSERT INTO kb_space (
                 id,
@@ -221,26 +231,27 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CAST($11 AS TIMESTAMP), CAST($12 AS TIMESTAMP), $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, {created_at_expr}, {updated_at_expr}, $13)
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(organization_id)
-        .bind(record.name)
-        .bind(record.description)
-        .bind(None::<String>)
-        .bind(space_status_code(KnowledgeSpaceStatus::Active))
-        .bind(bool_code(record.okf_bundle_initialized))
-        .bind(space_knowledge_mode_code(record.knowledge_mode))
-        .bind(now.clone())
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(space_sqlx_error)?;
+        );
+        let row = sqlx::query(&query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(record.name)
+            .bind(record.description)
+            .bind(None::<String>)
+            .bind(space_status_code(KnowledgeSpaceStatus::Active))
+            .bind(bool_code(record.okf_bundle_initialized))
+            .bind(space_knowledge_mode_code(record.knowledge_mode))
+            .bind(now.clone())
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(space_sqlx_error)?;
 
         space_from_row(&row)
     }
@@ -279,23 +290,25 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let drive_space_id = require_safe_drive_id(drive_space_id, "drive_space_id")?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let query = format!(
             r#"
             UPDATE kb_space
-            SET drive_space_id = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+            SET drive_space_id = $1, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
-        )
-        .bind(drive_space_id)
-        .bind(now)
-        .bind(tenant_id)
-        .bind(organization_id)
-        .bind(space_id_i64)
-        .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|error| space_fetch_error(space_id, error))?;
+        );
+        let row = sqlx::query(&query)
+            .bind(drive_space_id)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(space_id_i64)
+            .bind(ACTIVE_STATUS)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| space_fetch_error(space_id, error))?;
 
         space_from_row(&row)
     }
@@ -309,22 +322,24 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let space_id_i64 = space_to_i64("space_id", space_id)?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$1");
+        let query = format!(
             r#"
             UPDATE kb_space
-            SET okf_bundle_initialized = 1, updated_at = CAST($1 AS TIMESTAMP), version = version + 1
+            SET okf_bundle_initialized = 1, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $2 AND organization_id = $3 AND id = $4 AND status = $5
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
-        )
-        .bind(now)
-        .bind(tenant_id)
-        .bind(organization_id)
-        .bind(space_id_i64)
-        .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|error| space_fetch_error(space_id, error))?;
+        );
+        let row = sqlx::query(&query)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(space_id_i64)
+            .bind(ACTIVE_STATUS)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| space_fetch_error(space_id, error))?;
 
         space_from_row(&row)
     }
@@ -348,24 +363,26 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let space_id_i64 = space_to_i64("space_id", space_id)?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$3");
+        let query = format!(
             r#"
             UPDATE kb_space
-            SET name = $1, description = $2, updated_at = CAST($3 AS TIMESTAMP), version = version + 1
+            SET name = $1, description = $2, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $4 AND organization_id = $5 AND id = $6 AND status = $7
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
-        )
-        .bind(name)
-        .bind(description)
-        .bind(now)
-        .bind(tenant_id)
-        .bind(organization_id)
-        .bind(space_id_i64)
-        .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|error| space_fetch_error(space_id, error))?;
+        );
+        let row = sqlx::query(&query)
+            .bind(name)
+            .bind(description)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(space_id_i64)
+            .bind(ACTIVE_STATUS)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| space_fetch_error(space_id, error))?;
 
         space_from_row(&row)
     }
@@ -376,22 +393,24 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let space_id_i64 = space_to_i64("space_id", space_id)?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
-        sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let query = format!(
             r#"
             UPDATE kb_space
-            SET status = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+            SET status = $1, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
             "#,
-        )
-        .bind(space_status_code(KnowledgeSpaceStatus::Deleted))
-        .bind(now)
-        .bind(tenant_id)
-        .bind(organization_id)
-        .bind(space_id_i64)
-        .bind(ACTIVE_STATUS)
-        .execute(&self.pool)
-        .await
-        .map_err(space_sqlx_error)?;
+        );
+        sqlx::query(&query)
+            .bind(space_status_code(KnowledgeSpaceStatus::Deleted))
+            .bind(now)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(space_id_i64)
+            .bind(ACTIVE_STATUS)
+            .execute(&self.pool)
+            .await
+            .map_err(space_sqlx_error)?;
 
         Ok(())
     }
@@ -428,6 +447,7 @@ pub struct SqliteKnowledgeOkfBundleFileStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeOkfBundleFileStore {
@@ -444,7 +464,13 @@ impl SqliteKnowledgeOkfBundleFileStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 }
 
@@ -475,7 +501,9 @@ impl SqliteKnowledgeOkfBundleFileStore {
         let id = next_i64_id(&self.id_generator).map_err(okf_bundle_file_id_error)?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeOkfBundleFileStoreError::Internal)?;
 
-        let row = sqlx::query(
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let query = format!(
             r#"
             INSERT INTO kb_okf_bundle_file (
                 id,
@@ -493,7 +521,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CAST($12 AS TIMESTAMP), CAST($13 AS TIMESTAMP), $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {created_at_expr}, {updated_at_expr}, $14)
             RETURNING
                 id,
                 space_id,
@@ -504,24 +532,25 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 drive_object_key,
                 checksum_sha256_hex
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(record.logical_path)
-        .bind(okf_bundle_file_type_code(record.file_kind))
-        .bind(record.artifact_role)
-        .bind(record.drive_bucket)
-        .bind(record.drive_object_key)
-        .bind(record.checksum_sha256_hex)
-        .bind(ACTIVE_STATUS)
-        .bind(now.clone())
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(okf_bundle_file_sqlx_error)?;
+        );
+        let row = sqlx::query(&query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(record.logical_path)
+            .bind(okf_bundle_file_type_code(record.file_kind))
+            .bind(record.artifact_role)
+            .bind(record.drive_bucket)
+            .bind(record.drive_object_key)
+            .bind(record.checksum_sha256_hex)
+            .bind(ACTIVE_STATUS)
+            .bind(now.clone())
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(okf_bundle_file_sqlx_error)?;
 
         okf_bundle_file_from_row(&row)
     }
@@ -535,7 +564,9 @@ impl SqliteKnowledgeOkfBundleFileStore {
         let id = next_i64_id(&self.id_generator).map_err(okf_bundle_file_id_error)?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeOkfBundleFileStoreError::Internal)?;
 
-        let row = sqlx::query(
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let query = format!(
             r#"
             INSERT INTO kb_okf_bundle_file (
                 id,
@@ -553,7 +584,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CAST($12 AS TIMESTAMP), CAST($13 AS TIMESTAMP), $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {created_at_expr}, {updated_at_expr}, $14)
             ON CONFLICT(tenant_id, space_id, logical_path)
             DO UPDATE SET
                 file_kind = excluded.file_kind,
@@ -574,24 +605,25 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 drive_object_key,
                 checksum_sha256_hex
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(record.logical_path)
-        .bind(okf_bundle_file_type_code(record.file_kind))
-        .bind(record.artifact_role)
-        .bind(record.drive_bucket)
-        .bind(record.drive_object_key)
-        .bind(record.checksum_sha256_hex)
-        .bind(ACTIVE_STATUS)
-        .bind(now.clone())
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(okf_bundle_file_sqlx_error)?;
+        );
+        let row = sqlx::query(&query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(record.logical_path)
+            .bind(okf_bundle_file_type_code(record.file_kind))
+            .bind(record.artifact_role)
+            .bind(record.drive_bucket)
+            .bind(record.drive_object_key)
+            .bind(record.checksum_sha256_hex)
+            .bind(ACTIVE_STATUS)
+            .bind(now.clone())
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(okf_bundle_file_sqlx_error)?;
 
         okf_bundle_file_from_row(&row)
     }

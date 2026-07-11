@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
 import { X, LayoutGrid, LayoutList, Plus, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { WechatAppletConfig } from '../services/wechat';
 import { toast } from './ui/toast-manager';
+import {
+  resolveUserFacingErrorMessage,
+  type ErrorTranslateFn,
+} from 'sdkwork-knowledgebase-pc-core';
 
 import { AppletSidebar } from './applets/AppletSidebar';
 import { AppletGrid } from './applets/AppletGrid';
@@ -16,7 +20,7 @@ interface AppletManagerModalProps {
   onSelect: (applet: WechatAppletConfig) => void;
   initialApplets: WechatAppletConfig[];
   initialGroups: string[];
-  onSaveApplets: (applets: WechatAppletConfig[], groups: string[]) => void;
+  onSaveApplets: (applets: WechatAppletConfig[], groups: string[]) => Promise<void>;
 }
 
 export function AppletManagerModal({
@@ -44,6 +48,15 @@ export function AppletManagerModal({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [appletData, setAppletData] = useState<WechatAppletConfig | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setApplets(initialApplets);
+    setGroups(initialGroups);
+    setSaveError(null);
+  }, [initialApplets, initialGroups, isOpen]);
 
   if (!isOpen) return null;
 
@@ -57,7 +70,28 @@ export function AppletManagerModal({
     setAppletData(undefined);
   };
 
-  const handleSaveApplet = (newApplet: WechatAppletConfig) => {
+  const persistApplets = async (
+    nextApplets: WechatAppletConfig[],
+    nextGroups: string[],
+  ): Promise<boolean> => {
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onSaveApplets(nextApplets, nextGroups);
+      setApplets(nextApplets);
+      setGroups(nextGroups);
+      return true;
+    } catch (error) {
+      setSaveError(
+        resolveUserFacingErrorMessage(error, t as unknown as ErrorTranslateFn),
+      );
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveApplet = async (newApplet: WechatAppletConfig) => {
     let newApplets;
     if (editingId === 'new') {
       newApplets = [...applets, newApplet];
@@ -67,30 +101,26 @@ export function AppletManagerModal({
       return;
     }
 
-    setApplets(newApplets);
-    onSaveApplets(newApplets, groups);
-    closeEditor();
-    toast.success(t('errors.saveSuccess'));
+    if (await persistApplets(newApplets, groups)) {
+      closeEditor();
+      toast.success(t('errors.saveSuccess'));
+    }
   };
 
   // const handleDeleteApplet = (id: string) => { // Removed because it seems not directly exposed in the UI except through editor maybe? Actually keeping it out of editor for now or add it later if needed.
 
-  const handleGroupDelete = (grp: string) => {
+  const handleGroupDelete = async (grp: string) => {
     if (confirm(t('errors.confirmDeleteGroup', { group: grp }))) {
       const newGroups = groups.filter(g => g !== grp);
       const newApplets = applets.map(app => app.group === grp ? { ...app, group: '未分组' } : app);
-      
-      setGroups(newGroups);
-      setApplets(newApplets);
-      onSaveApplets(newApplets, newGroups);
-      
-      if (selectedGroupFilter === grp) {
+
+      if (await persistApplets(newApplets, newGroups) && selectedGroupFilter === grp) {
         setSelectedGroupFilter('all');
       }
     }
   };
 
-  const handleGroupAdd = () => {
+  const handleGroupAdd = async () => {
     if (newGroupNameInput.trim()) {
       const trimmed = newGroupNameInput.trim();
       if (groups.includes(trimmed)) {
@@ -98,10 +128,10 @@ export function AppletManagerModal({
         return;
       }
       const newGroups = [...groups, trimmed];
-      setGroups(newGroups);
-      onSaveApplets(applets, newGroups);
-      setNewGroupNameInput('');
-      setShowGroupManager(false);
+      if (await persistApplets(applets, newGroups)) {
+        setNewGroupNameInput('');
+        setShowGroupManager(false);
+      }
     }
   };
 
@@ -131,6 +161,12 @@ export function AppletManagerModal({
             <X size={18} />
           </button>
         </div>
+
+        {saveError && (
+          <div role="alert" className="px-6 py-2 text-xs text-red-500 bg-red-500/5 border-b border-red-500/20">
+            {saveError}
+          </div>
+        )}
 
         {/* Modal Body */}
         <div className="flex flex-1 overflow-hidden relative bg-[var(--color-kb-panel)]">
@@ -231,6 +267,8 @@ export function AppletManagerModal({
         groups={groups}
         onClose={closeEditor}
         onSave={handleSaveApplet}
+        isSaving={isSaving}
+        saveError={saveError}
       />
     </div>
   );

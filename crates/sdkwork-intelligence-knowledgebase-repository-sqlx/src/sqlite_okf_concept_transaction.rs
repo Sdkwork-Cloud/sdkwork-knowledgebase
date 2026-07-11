@@ -9,6 +9,7 @@ use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{next_i64_id, KnowledgeIdGenerator};
 
 pub(crate) const OKF_CONCEPT_ACTIVE_STATUS: i64 = 1;
@@ -18,6 +19,7 @@ pub(crate) async fn upsert_okf_concept_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
     record: UpsertKnowledgeOkfConceptRecord,
 ) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {
     let tenant_id = to_i64("tenant_id", tenant_id)?;
@@ -28,8 +30,11 @@ pub(crate) async fn upsert_okf_concept_in_transaction(
     let publish_state = record.publish_state.as_str();
     let tags = tags_to_json(&record.tags)?;
     let id = next_i64_id(id_generator).map_err(id_error)?;
+    let tags_expr = timestamp_dialect.sql_json_expr("$11");
+    let created_at_expr = timestamp_dialect.sql_timestamp_expr("$14");
+    let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$15");
 
-    let row = sqlx::query(
+    let query = format!(
         r#"
         INSERT INTO kb_okf_concept (
             id,
@@ -50,7 +55,7 @@ pub(crate) async fn upsert_okf_concept_in_transaction(
             updated_at,
             version
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, $12, $13, $14, $15, $16)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, {tags_expr}, NULL, $12, $13, {created_at_expr}, {updated_at_expr}, $16)
         ON CONFLICT(tenant_id, space_id, concept_id)
         DO UPDATE SET
             title = excluded.title,
@@ -71,31 +76,32 @@ pub(crate) async fn upsert_okf_concept_in_transaction(
             logical_path,
             description,
             source_count,
-            tags,
+            CAST(tags AS TEXT) AS tags,
             current_revision_id,
             publish_state,
             updated_at
         "#,
-    )
-    .bind(id)
-    .bind(Uuid::new_v4().to_string())
-    .bind(tenant_id)
-    .bind(space_id)
-    .bind(record.concept_id)
-    .bind(record.title)
-    .bind(concept_type)
-    .bind(record.logical_path)
-    .bind(record.description)
-    .bind(source_count)
-    .bind(tags)
-    .bind(publish_state)
-    .bind(OKF_CONCEPT_ACTIVE_STATUS)
-    .bind(now.clone())
-    .bind(now)
-    .bind(OKF_CONCEPT_INITIAL_VERSION)
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(sqlx_error)?;
+    );
+    let row = sqlx::query(&query)
+        .bind(id)
+        .bind(Uuid::new_v4().to_string())
+        .bind(tenant_id)
+        .bind(space_id)
+        .bind(record.concept_id)
+        .bind(record.title)
+        .bind(concept_type)
+        .bind(record.logical_path)
+        .bind(record.description)
+        .bind(source_count)
+        .bind(tags)
+        .bind(publish_state)
+        .bind(OKF_CONCEPT_ACTIVE_STATUS)
+        .bind(now.clone())
+        .bind(now)
+        .bind(OKF_CONCEPT_INITIAL_VERSION)
+        .fetch_one(&mut **transaction)
+        .await
+        .map_err(sqlx_error)?;
 
     concept_from_row(&row)
 }
@@ -103,27 +109,30 @@ pub(crate) async fn upsert_okf_concept_in_transaction(
 pub(crate) async fn next_okf_revision_no_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
+    timestamp_dialect: SqlTimestampDialect,
     concept_row_id: u64,
 ) -> Result<u64, KnowledgeOkfConceptStoreError> {
     let tenant_id = to_i64("tenant_id", tenant_id)?;
     let concept_row_id = to_i64("concept_row_id", concept_row_id)?;
-    let next: i64 = sqlx::query_scalar(
+    let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$1");
+    let query = format!(
         r#"
         UPDATE kb_okf_concept
         SET revision_counter = revision_counter + 1,
-            updated_at = CAST($1 AS TIMESTAMP),
+            updated_at = {updated_at_expr},
             version = version + 1
         WHERE tenant_id = $2 AND id = $3 AND status = $4
         RETURNING revision_counter
         "#,
-    )
-    .bind(now_rfc3339()?)
-    .bind(tenant_id)
-    .bind(concept_row_id)
-    .bind(OKF_CONCEPT_ACTIVE_STATUS)
-    .fetch_one(&mut **transaction)
-    .await
-    .map_err(sqlx_error)?;
+    );
+    let next: i64 = sqlx::query_scalar(&query)
+        .bind(now_rfc3339()?)
+        .bind(tenant_id)
+        .bind(concept_row_id)
+        .bind(OKF_CONCEPT_ACTIVE_STATUS)
+        .fetch_one(&mut **transaction)
+        .await
+        .map_err(sqlx_error)?;
     from_i64("revision_no", next)
 }
 

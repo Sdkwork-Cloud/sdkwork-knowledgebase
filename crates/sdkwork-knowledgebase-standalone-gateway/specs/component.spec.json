@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-standalone-gateway",
+    "displayName": "SDKWork Knowledgebase Standalone Gateway",
+    "version": "0.1.0",
+    "type": "rust-standalone-gateway",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-standalone-gateway",
+    "domain": "intelligence",
+    "capability": "gateway",
+    "surface": "gateway-api",
+    "languages": [
+      "rust"
+    ],
+    "generated": false,
+    "private": false,
+    "manifests": [
+      "Cargo.toml"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "COMPONENT_SPEC.md",
+      "path": "../../../sdkwork-specs/COMPONENT_SPEC.md",
+      "purpose": "Component-local contract and discovery rules."
+    },
+    {
+      "file": "APPLICATION_GATEWAY_SPEC.md",
+      "path": "../../../sdkwork-specs/APPLICATION_GATEWAY_SPEC.md",
+      "purpose": "Application gateway topology and ingress rules."
+    },
+    {
+      "file": "APP_RUNTIME_TOPOLOGY_SPEC.md",
+      "path": "../../../sdkwork-specs/APP_RUNTIME_TOPOLOGY_SPEC.md",
+      "purpose": "Deployment profile and application ingress topology rules."
+    },
+    {
+      "file": "APP_RUNTIME_TOPOLOGY_NAMING.md",
+      "path": "../../../sdkwork-specs/APP_RUNTIME_TOPOLOGY_NAMING.md",
+      "purpose": "Canonical runtime and gateway naming dictionary."
+    },
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored source structure and generated code boundaries."
+    },
+    {
+      "file": "CONFIG_SPEC.md",
+      "path": "../../../sdkwork-specs/CONFIG_SPEC.md",
+      "purpose": "Typed lifecycle environment and gateway runtime configuration rules."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../../../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Canonical gateway package naming rules."
+    },
+    {
+      "file": "PNPM_SCRIPT_SPEC.md",
+      "path": "../../../sdkwork-specs/PNPM_SCRIPT_SPEC.md",
+      "purpose": "Canonical application lifecycle commands."
+    },
+    {
+      "file": "RUST_CODE_SPEC.md",
+      "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md",
+      "purpose": "Rust gateway crate rules."
+    },
+    {
+      "file": "WEB_BACKEND_SPEC.md",
+      "path": "../../../sdkwork-specs/WEB_BACKEND_SPEC.md",
+      "purpose": "HTTP backend runtime layering rules."
+    },
+    {
+      "file": "WEB_FRAMEWORK_SPEC.md",
+      "path": "../../../sdkwork-specs/WEB_FRAMEWORK_SPEC.md",
+      "purpose": "Mandatory web framework integration rules."
+    },
+    {
+      "file": "TEST_SPEC.md",
+      "path": "../../../sdkwork-specs/TEST_SPEC.md",
+      "purpose": "Verification requirements."
+    }
+  ],
+  "contracts": {
+    "layerRole": "runtime-gateway",
+    "publicExports": [
+      ".",
+      "serve_router_with_runtime_shutdown",
+      "shutdown_runtime_services",
+      "shutdown_signal"
+    ],
+    "runtimeEntrypoints": [
+      "sdkwork-knowledgebase-standalone-gateway",
+      "serve_router_with_runtime_shutdown",
+      "shutdown_runtime_services",
+      "shutdown_signal"
+    ],
+    "providedPorts": [
+      {
+        "name": "applicationPublicIngress",
+        "export": "serve_router_with_runtime_shutdown"
+      }
+    ],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [
+      {
+        "workspace": "sdkwork-iam",
+        "sdkFamily": "sdkwork-iam-app-sdk",
+        "apiAuthority": "sdkwork-iam-app-api",
+        "surface": "app-api",
+        "apiPrefix": "/app/v3/api",
+        "runtimeMode": "same-origin",
+        "sameOriginAllowed": true,
+        "executablePublicExport": "serve_router_with_runtime_shutdown",
+        "routerAssemblyExport": "sdkwork_knowledgebase_gateway_assembly::assemble_application_router",
+        "cargoDependency": "sdkwork-knowledgebase-gateway-assembly",
+        "coverage": "verified"
+      }
+    ],
+    "events": [],
+    "configKeys": [
+      "SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND",
+      "SDKWORK_KNOWLEDGEBASE_ENVIRONMENT",
+      "SDKWORK_KNOWLEDGEBASE_GATEWAY_DRAIN_TIMEOUT_SECS",
+      "SDKWORK_KNOWLEDGEBASE_GATEWAY_HEADER_READ_TIMEOUT_SECS",
+      "SDKWORK_KNOWLEDGEBASE_GATEWAY_MAX_CONNECTIONS",
+      "SDKWORK_KNOWLEDGEBASE_DATABASE_URL",
+      "SDKWORK_KNOWLEDGEBASE_TENANT_ID",
+      "SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "cargo test -p sdkwork-knowledgebase-standalone-gateway",
+      "pnpm test:topology"
+    ]
+  }
+}

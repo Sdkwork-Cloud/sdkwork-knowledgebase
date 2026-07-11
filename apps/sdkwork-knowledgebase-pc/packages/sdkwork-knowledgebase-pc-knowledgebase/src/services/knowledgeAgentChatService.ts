@@ -1,3 +1,4 @@
+import type { KnowledgeAgentKnowledgeMode } from 'sdkwork-knowledgebase-pc-core';
 import { isBlank } from '@sdkwork/utils';
 import {
   KnowledgebaseErrorCodes,
@@ -8,10 +9,12 @@ import {
 } from 'sdkwork-knowledgebase-pc-core';
 
 import { ensureSpaceAgentProfile } from './knowledgeSpaceSettingsService';
+import {
+  KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID,
+  KNOWLEDGE_AGENT_RIG_IMPLEMENTATION_ID,
+  KNOWLEDGE_AGENT_RIG_MODEL_PROVIDER_ID,
+} from './knowledgeAgentDefaults';
 
-const DEFAULT_MODEL_PROVIDER_ID = 'provider.model.knowledgebase-contract';
-const DEFAULT_MODEL_ID = 'contract';
-const DEFAULT_AGENT_IMPLEMENTATION_ID = 'plugin.intelligence.knowledgebase-contract';
 
 function resolvePrimarySpaceId(): string {
   requireKnowledgebaseTenantId();
@@ -27,7 +30,7 @@ export async function sendKnowledgeAgentMessage(
   options?: {
     spaceId?: string;
     sessionId?: string;
-    mode?: 'okf_bundle' | 'rag';
+    mode?: KnowledgeAgentKnowledgeMode;
   },
 ): Promise<string> {
   requireNonEmptyString(message, KnowledgebaseErrorCodes.MESSAGE_REQUIRED);
@@ -41,9 +44,10 @@ export async function sendKnowledgeAgentMessage(
     message: message.trim(),
     mode: options?.mode ?? profile.knowledgeMode ?? 'okf_bundle',
     sessionId: options?.sessionId ?? null,
-    modelProviderId: profile.modelProviderId ?? DEFAULT_MODEL_PROVIDER_ID,
-    modelId: profile.modelId ?? DEFAULT_MODEL_ID,
-    agentImplementationId: profile.agentImplementationId ?? DEFAULT_AGENT_IMPLEMENTATION_ID,
+    modelProviderId: profile.modelProviderId ?? KNOWLEDGE_AGENT_RIG_MODEL_PROVIDER_ID,
+    modelId: profile.modelId ?? KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID,
+    agentImplementationId:
+      profile.agentImplementationId ?? KNOWLEDGE_AGENT_RIG_IMPLEMENTATION_ID,
   });
 
   return response.answer.trim();

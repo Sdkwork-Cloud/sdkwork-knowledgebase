@@ -389,7 +389,7 @@ mod tests {
     fn expand_ranked_with_link_edges_boosts_linked_targets() {
         use crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkEdge;
 
-        let pages = vec![
+        let pages = [
             sample_concept("tables/users", "Users", "User dimension table"),
             sample_concept("tables/orders", "Orders", "Order fact table"),
         ];

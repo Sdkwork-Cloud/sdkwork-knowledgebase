@@ -1,4 +1,3 @@
-import '@sdkwork/knowledgebase-pc-knowledge/i18n';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';

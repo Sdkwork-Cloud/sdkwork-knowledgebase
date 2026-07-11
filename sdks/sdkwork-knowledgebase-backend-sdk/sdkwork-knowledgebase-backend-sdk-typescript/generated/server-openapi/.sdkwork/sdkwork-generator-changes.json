@@ -9,7 +9,7 @@
     "protocol": "http",
     "packageName": "@sdkwork/knowledgebase-backend-sdk"
   },
-  "changeFingerprint": "115a8f1bea55a7b153c796dbc9fe1defda0eda7b75429c15d6d4dc8818c793d2",
+  "changeFingerprint": "d03d9189dca76627941cff8b3bbbc40648986cdd74bfdfdea1743eb06d7358ee",
   "changes": {
     "createdGeneratedFiles": [],
     "updatedGeneratedFiles": [],
@@ -80,6 +80,7 @@
       "src/types/knowledge-memory-context-fragment.ts",
       "src/types/knowledge-okf-bundle-file-list.ts",
       "src/types/knowledge-okf-bundle-file.ts",
+      "src/types/knowledge-okf-concept-revision-list.ts",
       "src/types/knowledge-okf-profile-request.ts",
       "src/types/knowledge-provider-health.ts",
       "src/types/knowledge-retrieval-binding.ts",
@@ -117,6 +118,7 @@
       "src/types/okf-compile-job-request.ts",
       "src/types/okf-compile-jobs-create-response201.ts",
       "src/types/okf-concept-publish-request.ts",
+      "src/types/okf-concept-summary-list.ts",
       "src/types/okf-concept-summary.ts",
       "src/types/okf-concepts-publish-response.ts",
       "src/types/okf-context-pack-request.ts",

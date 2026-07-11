@@ -1,3 +1,4 @@
+use crate::bounded_http_body::{read_bounded_http_body, BoundedHttpBodyError};
 use reqwest::header::{HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
@@ -5,6 +6,7 @@ use thiserror::Error;
 const GITHUB_API_BASE: &str = "https://api.github.com";
 const MAX_IMPORT_FILES: usize = 64;
 const MAX_FILE_BYTES: usize = 512 * 1024;
+const MAX_GITHUB_JSON_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedGitHubRepo {
@@ -31,14 +33,11 @@ pub fn parse_github_repo_url(repo_url: &str) -> Result<ParsedGitHubRepo, GitHubA
     if let Some(stripped) = trimmed.strip_suffix(".git") {
         trimmed = stripped;
     }
-    let rest = trimmed
-        .strip_prefix("https://")
-        .or_else(|| trimmed.strip_prefix("http://"))
-        .ok_or_else(|| {
-            GitHubApiError::InvalidRequest(
-                "only public HTTPS GitHub repository URLs are supported".to_string(),
-            )
-        })?;
+    let rest = trimmed.strip_prefix("https://").ok_or_else(|| {
+        GitHubApiError::InvalidRequest(
+            "only public HTTPS GitHub repository URLs are supported".to_string(),
+        )
+    })?;
     let host_and_path = rest.split_once('/').ok_or_else(|| {
         GitHubApiError::InvalidRequest(
             "only public HTTPS GitHub repository URLs are supported".to_string(),
@@ -152,10 +151,7 @@ pub async fn list_importable_github_files(
             response.status()
         )));
     }
-    let payload: serde_json::Value = response
-        .json()
-        .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+    let payload = read_github_json(response, "repository tree").await?;
     let use_private_api = access_token.is_some();
     let mut paths = payload
         .get("tree")
@@ -225,15 +221,12 @@ pub async fn fetch_github_file_content(
             response.status()
         )));
     }
-    let text = response
-        .text()
+    let bytes = read_bounded_http_body(response, MAX_FILE_BYTES)
         .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
-    if text.len() > MAX_FILE_BYTES {
-        return Err(GitHubApiError::InvalidRequest(format!(
-            "file \"{path}\" exceeds the {MAX_FILE_BYTES} byte import limit"
-        )));
-    }
+        .map_err(|error| map_github_file_body_error(error, path))?;
+    let text = String::from_utf8(bytes).map_err(|_| {
+        GitHubApiError::InvalidRequest(format!("file \"{path}\" is not valid UTF-8 text"))
+    })?;
     if is_blank(Some(text.as_str())) {
         return Err(GitHubApiError::InvalidRequest(format!(
             "file \"{path}\" is empty"
@@ -289,10 +282,7 @@ pub async fn create_github_commit(
             ref_response.status()
         )));
     }
-    let ref_payload: serde_json::Value = ref_response
-        .json()
-        .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+    let ref_payload = read_github_json(ref_response, "git ref").await?;
     let parent_commit_sha = ref_payload
         .get("object")
         .and_then(|value| value.get("sha"))
@@ -319,10 +309,7 @@ pub async fn create_github_commit(
             commit_response.status()
         )));
     }
-    let commit_payload: serde_json::Value = commit_response
-        .json()
-        .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+    let commit_payload = read_github_json(commit_response, "parent commit").await?;
     let base_tree_sha = commit_payload
         .get("tree")
         .and_then(|value| value.get("sha"))
@@ -363,10 +350,7 @@ pub async fn create_github_commit(
                 blob_response.status()
             )));
         }
-        let blob_body: serde_json::Value = blob_response
-            .json()
-            .await
-            .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+        let blob_body = read_github_json(blob_response, "created git blob").await?;
         let blob_sha = blob_body
             .get("sha")
             .and_then(|value| value.as_str())
@@ -407,10 +391,7 @@ pub async fn create_github_commit(
             tree_response.status()
         )));
     }
-    let tree_body: serde_json::Value = tree_response
-        .json()
-        .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+    let tree_body = read_github_json(tree_response, "created git tree").await?;
     let tree_sha = tree_body
         .get("sha")
         .and_then(|value| value.as_str())
@@ -440,10 +421,7 @@ pub async fn create_github_commit(
             new_commit_response.status()
         )));
     }
-    let new_commit_body: serde_json::Value = new_commit_response
-        .json()
-        .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+    let new_commit_body = read_github_json(new_commit_response, "created git commit").await?;
     let commit_sha = new_commit_body
         .get("sha")
         .and_then(|value| value.as_str())
@@ -496,10 +474,7 @@ async fn resolve_branch_sha(
             "failed to resolve git branch: {detail}"
         )));
     }
-    let payload: serde_json::Value = response
-        .json()
-        .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+    let payload = read_github_json(response, "git branch").await?;
     payload
         .get("commit")
         .and_then(|value| value.get("sha"))
@@ -515,6 +490,35 @@ fn github_client() -> Result<reqwest::Client, GitHubApiError> {
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|error| GitHubApiError::Upstream(error.to_string()))
+}
+
+async fn read_github_json(
+    response: reqwest::Response,
+    context: &str,
+) -> Result<serde_json::Value, GitHubApiError> {
+    let body = read_bounded_http_body(response, MAX_GITHUB_JSON_RESPONSE_BYTES)
+        .await
+        .map_err(|error| map_github_json_body_error(error, context))?;
+    serde_json::from_slice(&body)
+        .map_err(|error| GitHubApiError::Upstream(format!("invalid {context} response: {error}")))
+}
+
+fn map_github_json_body_error(error: BoundedHttpBodyError, context: &str) -> GitHubApiError {
+    match error {
+        BoundedHttpBodyError::TooLarge { .. } => GitHubApiError::Upstream(format!(
+            "{context} response exceeds the {MAX_GITHUB_JSON_RESPONSE_BYTES} byte safety limit"
+        )),
+        BoundedHttpBodyError::Read(error) => GitHubApiError::Upstream(error.to_string()),
+    }
+}
+
+fn map_github_file_body_error(error: BoundedHttpBodyError, path: &str) -> GitHubApiError {
+    match error {
+        BoundedHttpBodyError::TooLarge { .. } => GitHubApiError::InvalidRequest(format!(
+            "file \"{path}\" exceeds the {MAX_FILE_BYTES} byte import limit"
+        )),
+        BoundedHttpBodyError::Read(error) => GitHubApiError::Upstream(error.to_string()),
+    }
 }
 
 fn github_headers(
@@ -555,5 +559,10 @@ mod tests {
         let parsed = parse_github_repo_url("https://github.com/octocat/Hello-World.git").unwrap();
         assert_eq!(parsed.owner, "octocat");
         assert_eq!(parsed.repo, "Hello-World");
+    }
+
+    #[test]
+    fn parse_github_repo_url_rejects_plain_http() {
+        assert!(parse_github_repo_url("http://github.com/octocat/Hello-World").is_err());
     }
 }

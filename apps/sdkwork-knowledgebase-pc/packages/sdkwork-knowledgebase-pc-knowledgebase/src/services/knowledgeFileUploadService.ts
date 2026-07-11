@@ -171,7 +171,7 @@ async function ingestTextFile(
     throwKnowledgebaseError(KnowledgebaseErrorCodes.FILE_EMPTY);
   }
 
-  if (isKnowledgebaseDriveApiAvailable() && resolveRelativeFolderPath(file)) {
+  if (isKnowledgebaseDriveApiAvailable()) {
     const driveSpaceId = await resolveDriveSpaceId(spaceId);
     const resolvedParentId = await resolveUploadParentNodeId(
       kbId,

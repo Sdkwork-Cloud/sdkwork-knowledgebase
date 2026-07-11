@@ -35,6 +35,40 @@
       "exportable": false
     }
   },
+  "browser": {
+    "responseDataSchema": "KnowledgeBrowserListData",
+    "rootParentSource": "spaces.browser.list.data.parentId",
+    "views": {
+      "files": {
+        "okfDriveRoot": "sources/raw",
+        "nonOkfDriveRoot": null,
+        "purpose": "original_source_file_list",
+        "visibleInFrontendFileList": true,
+        "forbiddenDriveRoots": ["okf", "output", ".sdkwork/governance"],
+        "missingOkfRootPolicy": "empty_page",
+        "parentBoundary": "mustStayWithinViewRoot"
+      },
+      "okf_bundle": {
+        "driveRoot": "okf",
+        "purpose": "generated_okf_bundle_tree",
+        "visibleInFrontendFileList": false,
+        "parentBoundary": "mustStayWithinViewRoot"
+      },
+      "outputs": {
+        "driveRoot": "output",
+        "purpose": "generated_outputs",
+        "visibleInFrontendFileList": false,
+        "parentBoundary": "mustStayWithinViewRoot"
+      }
+    },
+    "frontendRules": {
+      "fileListView": "files",
+      "rootUploadParent": "response.data.parentId",
+      "forbidHardCodedRootUploadPath": true,
+      "forbidDriveRootUploadForOkf": true,
+      "okfConceptToolsView": "okf_bundle"
+    }
+  },
   "concept": {
     "requiredFrontmatter": ["type"],
     "recommendedFrontmatter": ["title", "description", "resource", "tags", "timestamp"],

@@ -13,6 +13,8 @@ import {
   invalidateKnowledgeBrowserNodeCacheForSpaceIds,
 } from './knowledgeBrowserListService';
 
+const OKF_BUNDLE_BROWSER_VIEW = 'okf_bundle' as const;
+
 function requireSdkClient() {
   return requireKnowledgebaseAppSdkHttpClient();
 }
@@ -94,7 +96,10 @@ async function findOkfConceptRowIdInPaginatedBrowser(
 
     let cursor: string | null = null;
     do {
-      const page = await listKnowledgeBrowserNodesPage(spaceId, parentId, { cursor });
+      const page = await listKnowledgeBrowserNodesPage(spaceId, parentId, {
+        cursor,
+        view: OKF_BUNDLE_BROWSER_VIEW,
+      });
       for (const node of page.items) {
         if (matchOkfConceptNode(node, expectedLogicalPath)) {
           return node.conceptId;
@@ -118,7 +123,10 @@ async function findOkfConceptRowIdViaRootBrowserPages(
   let cursor: string | null = null;
 
   do {
-    const page = await listKnowledgeBrowserNodesPage(spaceId, null, { cursor });
+    const page = await listKnowledgeBrowserNodesPage(spaceId, null, {
+      cursor,
+      view: OKF_BUNDLE_BROWSER_VIEW,
+    });
     for (const node of page.items) {
       if (node.nodeType !== 'okf_concept' || !node.conceptId) {
         continue;

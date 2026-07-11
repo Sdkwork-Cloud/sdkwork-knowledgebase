@@ -55,19 +55,13 @@ pub fn require_backend_context(
     Ok(context)
 }
 
-/// Extracts context and records an admin audit operation for mutations.
+/// Extracts and validates context for an admin mutation.
 pub fn require_backend_mutation_context(
     state: &BackendState,
     context: RequiredBackendContext,
-    operation: &str,
+    _operation: &str,
 ) -> Result<KnowledgeBackendRequestContext, BackendApiProblem> {
-    let context = require_backend_context(state, context)?;
-    sdkwork_knowledgebase_observability::record_backend_admin_operation(
-        operation,
-        context.tenant_id,
-        context.operator_id.unwrap_or(0),
-    );
-    Ok(context)
+    require_backend_context(state, context)
 }
 
 pub fn ensure_runtime_tenant(

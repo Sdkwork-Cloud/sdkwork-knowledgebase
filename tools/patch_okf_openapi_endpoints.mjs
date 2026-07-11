@@ -5,9 +5,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const targets = [
-  "apis/backend-api/knowledgebase-backend-api.openapi.json",
   "sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json",
-  "apis/app-api/knowledgebase-app-api.openapi.json",
   "sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json",
 ];
 
@@ -313,7 +311,70 @@ const appSchemas = {
       skippedFiles: { type: "array", items: { type: "string" } },
     },
   },
+  OkfConceptSummaryList: okfListDataSchema(
+    "#/components/schemas/OkfConceptSummary",
+    "One bounded cursor page of published OKF concept summaries.",
+  ),
+  KnowledgeOkfConceptRevisionList: okfListDataSchema(
+    "#/components/schemas/KnowledgeOkfConceptRevision",
+    "One bounded cursor page of OKF concept revisions.",
+  ),
 };
+
+function okfListDataSchema(itemSchemaRef, description) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    description,
+    required: ["items", "pageInfo"],
+    properties: {
+      items: {
+        type: "array",
+        items: { $ref: itemSchemaRef },
+      },
+      pageInfo: { $ref: "#/components/schemas/PageInfo" },
+    },
+  };
+}
+
+function okfListResponseSchema(dataSchemaRef) {
+  return {
+    allOf: [
+      { $ref: "#/components/schemas/SdkWorkApiResponse" },
+      {
+        type: "object",
+        required: ["data"],
+        properties: {
+          data: { $ref: dataSchemaRef },
+        },
+      },
+    ],
+  };
+}
+
+function cursorParameter() {
+  return {
+    name: "cursor",
+    in: "query",
+    required: false,
+    schema: { type: "string", maxLength: 512 },
+  };
+}
+
+function pageSizeParameter() {
+  return {
+    name: "page_size",
+    in: "query",
+    required: false,
+    schema: {
+      type: "integer",
+      format: "int32",
+      minimum: 1,
+      maximum: 200,
+      default: 20,
+    },
+  };
+}
 
 const backendCandidatesPath = "/backend/v3/api/knowledge/okf/candidates";
 
@@ -359,9 +420,39 @@ for (const relativePath of targets) {
           name: "spaceId",
           in: "query",
           required: true,
-          schema: { type: "integer", format: "uint64" },
+          schema: {
+            type: "string",
+            format: "uint64",
+            pattern: "^[0-9]+$",
+            "x-sdkwork-int64-string": true,
+          },
         },
+        cursorParameter(),
+        pageSizeParameter(),
       ];
+      spec.paths[appConceptsListPath].get.responses["200"].content[
+        "application/json"
+      ].schema = okfListResponseSchema("#/components/schemas/OkfConceptSummaryList");
+    }
+    const appRevisionListPath =
+      "/app/v3/api/knowledge/okf/concepts/{conceptId}/revisions";
+    if (spec.paths[appRevisionListPath]?.get) {
+      const conceptIdParameter = spec.paths[appRevisionListPath].get.parameters?.find(
+        (parameter) => parameter.name === "conceptId" && parameter.in === "path",
+      );
+      if (!conceptIdParameter) {
+        throw new Error(`Missing conceptId path parameter: ${appRevisionListPath}`);
+      }
+      spec.paths[appRevisionListPath].get.parameters = [
+        conceptIdParameter,
+        cursorParameter(),
+        pageSizeParameter(),
+      ];
+      spec.paths[appRevisionListPath].get.responses["200"].content[
+        "application/json"
+      ].schema = okfListResponseSchema(
+        "#/components/schemas/KnowledgeOkfConceptRevisionList",
+      );
     }
     const bundleFile = spec.components.schemas.KnowledgeOkfBundleFile;
     if (bundleFile?.properties) {

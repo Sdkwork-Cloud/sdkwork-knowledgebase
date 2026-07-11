@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_backend::{
     KnowledgeChunkSearchHit, KnowledgeChunkSearchRequest, KnowledgeRetrievalBackend,
     KnowledgeRetrievalBackendError,
@@ -15,6 +16,7 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::binding_scope_filters::push_binding_scope_filters;
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 use crate::keyword_search::KeywordSearchBackend;
 
@@ -30,6 +32,7 @@ pub struct SqliteKnowledgeChunkRetrievalStore {
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     keyword_backend: KeywordSearchBackend,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeChunkRetrievalStore {
@@ -66,7 +69,13 @@ impl SqliteKnowledgeChunkRetrievalStore {
             tenant_id,
             id_generator,
             keyword_backend,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 }
 
@@ -530,8 +539,11 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
         let latency_ms = record.latency_ms.map(|value| value as i64);
         let status = trace_status_code(&record.status)?;
         let now = now_rfc3339().map_err(KnowledgeRetrievalTraceStoreError::Internal)?;
+        let request_payload_expr = self.timestamp_dialect.sql_json_expr("$8");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
 
-        sqlx::query(
+        let query = format!(
             r#"
             INSERT INTO kb_retrieval_trace (
                 id,
@@ -549,26 +561,27 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, {request_payload_expr}, $9, $10, $11, {created_at_expr}, {updated_at_expr}, $14)
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(actor_id)
-        .bind(retrieval_profile_id)
-        .bind(record.query_hash_sha256_hex)
-        .bind(record.query_text_redacted)
-        .bind(record.request_payload_json)
-        .bind(latency_ms)
-        .bind(result_count)
-        .bind(status)
-        .bind(now.clone())
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .execute(&self.pool)
-        .await
-        .map_err(trace_sqlx_error)?;
+        );
+        sqlx::query(&query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(actor_id)
+            .bind(retrieval_profile_id)
+            .bind(record.query_hash_sha256_hex)
+            .bind(record.query_text_redacted)
+            .bind(record.request_payload_json)
+            .bind(latency_ms)
+            .bind(result_count)
+            .bind(status)
+            .bind(now.clone())
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .execute(&self.pool)
+            .await
+            .map_err(trace_sqlx_error)?;
 
         u64::try_from(id).map_err(|_| {
             KnowledgeRetrievalTraceStoreError::Internal(
@@ -599,8 +612,12 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 .transpose()?;
             let result_rank = i64::from(record.result_rank);
             let now = now_rfc3339().map_err(KnowledgeRetrievalTraceStoreError::Internal)?;
+            let citation_expr = self.timestamp_dialect.sql_json_expr("$11");
+            let metadata_expr = self.timestamp_dialect.sql_json_expr("$12");
+            let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
+            let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$15");
 
-            sqlx::query(
+            let query = format!(
                 r#"
                 INSERT INTO kb_retrieval_hit (
                     id,
@@ -620,28 +637,29 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                     updated_at,
                     version
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, {citation_expr}, {metadata_expr}, $13, {created_at_expr}, {updated_at_expr}, $16)
                 "#,
-            )
-            .bind(id)
-            .bind(Uuid::new_v4().to_string())
-            .bind(tenant_id)
-            .bind(retrieval_trace_id)
-            .bind(chunk_id)
-            .bind(document_id)
-            .bind(document_version_id)
-            .bind(record.score)
-            .bind(result_rank)
-            .bind(record.match_reason)
-            .bind(record.citation_json)
-            .bind(record.metadata_json)
-            .bind(ACTIVE_STATUS)
-            .bind(now.clone())
-            .bind(now)
-            .bind(INITIAL_VERSION)
-            .execute(&self.pool)
-            .await
-            .map_err(trace_sqlx_error)?;
+            );
+            sqlx::query(&query)
+                .bind(id)
+                .bind(Uuid::new_v4().to_string())
+                .bind(tenant_id)
+                .bind(retrieval_trace_id)
+                .bind(chunk_id)
+                .bind(document_id)
+                .bind(document_version_id)
+                .bind(record.score)
+                .bind(result_rank)
+                .bind(record.match_reason)
+                .bind(record.citation_json)
+                .bind(record.metadata_json)
+                .bind(ACTIVE_STATUS)
+                .bind(now.clone())
+                .bind(now)
+                .bind(INITIAL_VERSION)
+                .execute(&self.pool)
+                .await
+                .map_err(trace_sqlx_error)?;
         }
 
         Ok(())
@@ -709,7 +727,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 h.score,
                 h.result_rank,
                 h.match_reason,
-                h.citation,
+                CAST(h.citation AS TEXT) AS citation,
                 c.token_count
             FROM kb_retrieval_hit h
             JOIN kb_chunk c

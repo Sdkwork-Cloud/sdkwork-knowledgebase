@@ -22,7 +22,7 @@ const families = [
     output: "sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
     name: "sdkwork-knowledgebase-app-sdk",
     type: "app",
-    packageName: "@sdkwork/knowledgebase-app-sdk",
+    packageName: "@sdkwork-internal/knowledgebase-app-sdk-generated",
     apiPrefix: "/app/v3/api",
     clientName: "SdkworkKnowledgebaseAppClient",
   },

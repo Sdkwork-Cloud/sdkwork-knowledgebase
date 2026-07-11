@@ -276,7 +276,7 @@ export class DocumentService {
       customDomain?: string;
       siteLogo?: string;
     },
-  ): Promise<{ accepted: boolean; url?: string }> {
+  ): Promise<{ accepted: true; url: string }> {
     return withKnowledgebaseApi(async () => {
       const result = await KnowledgeSiteDeploymentService.publishKnowledgeSite(
         targetId,
@@ -287,7 +287,7 @@ export class DocumentService {
           siteLogoDataUrl: options?.siteLogo,
         },
       );
-      return { accepted: result.accepted, url: result.url };
+      return { accepted: true, url: result.url };
     });
   }
 

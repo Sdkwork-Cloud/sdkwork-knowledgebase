@@ -1,7 +1,5 @@
 use axum::Router;
-use sdkwork_routes_knowledgebase_backend_api::{health, DbReadinessCheck};
 use sdkwork_utils_rust::is_blank;
-use sdkwork_web_bootstrap::assemble_multi_surface_router;
 
 pub use sdkwork_knowledgebase_observability::{
     is_development_environment, is_production_like_environment, knowledgebase_environment,
@@ -112,48 +110,6 @@ fn validate_snowflake_node_id_for_production() {
         eprintln!("invalid SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID: {error}");
         std::process::exit(1);
     }
-}
-
-pub fn is_unified_process_layout() -> bool {
-    std::env::var("SDKWORK_KNOWLEDGEBASE_SERVICE_LAYOUT")
-        .map(|value| value.eq_ignore_ascii_case("unified-process"))
-        .unwrap_or(false)
-}
-
-pub async fn build_served_unified_business_router(
-    runtime: &KnowledgebaseRuntime,
-    _tenant_id: u64,
-    _actor_id: Option<u64>,
-    _operator_id: Option<u64>,
-) -> Router {
-    let app_router = runtime.build_full_app_router_with_web_framework().await;
-    let backend_router = runtime
-        .build_backend_business_router_with_web_framework()
-        .await;
-    let open_router = runtime
-        .build_open_business_router_with_web_framework()
-        .await;
-    app_router.merge(backend_router).merge(open_router)
-}
-
-pub async fn build_served_unified_router(
-    runtime: &KnowledgebaseRuntime,
-    _tenant_id: u64,
-    _actor_id: Option<u64>,
-    _operator_id: Option<u64>,
-) -> Router {
-    let readiness = DbReadinessCheck::new(runtime.pool().clone());
-    let app_router = runtime.build_full_app_router_with_web_framework().await;
-    let backend_router = runtime
-        .build_backend_business_router_with_web_framework()
-        .await;
-    let open_router = runtime
-        .build_open_business_router_with_web_framework()
-        .await;
-    assemble_multi_surface_router(
-        [app_router, backend_router, open_router],
-        health::knowledgebase_service_router_config(Some(readiness)),
-    )
 }
 
 pub async fn build_served_app_router(

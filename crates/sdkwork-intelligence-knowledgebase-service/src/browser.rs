@@ -18,11 +18,13 @@ use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserNode, KnowledgeBrowserNodePermissions, KnowledgeBrowserNodeType,
     KnowledgeBrowserPage, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
 };
+use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use std::collections::HashMap;
 use thiserror::Error;
 
 const DEFAULT_BROWSER_PAGE_SIZE: u32 = 50;
 const MAX_BROWSER_PAGE_SIZE: u32 = 200;
+const FILES_VIEW_OKF_ROOT_PATH: &str = "sources/raw";
 const OKF_VIEW_ROOT_PATH: &str = "okf";
 const OUTPUTS_VIEW_ROOT_PATH: &str = "output";
 
@@ -97,16 +99,35 @@ impl<'a> KnowledgeBrowserService<'a> {
                 )));
             }
         }
-        let drive_space_id = space.drive_space_id.ok_or_else(|| {
+        let drive_space_id = space.drive_space_id.clone().ok_or_else(|| {
             KnowledgeBrowserServiceError::InvalidRequest(
                 "drive space is not bound for knowledge space".to_string(),
             )
         })?;
         let page_size = normalize_page_size(request.page_size);
 
-        let parent_drive_node_id = self
-            .resolve_view_parent_id(&drive_space_id, request.view, request.parent_id)
+        let parent_resolution = self
+            .resolve_view_parent_id(
+                &drive_space_id,
+                space.knowledge_mode,
+                request.view,
+                request.parent_id,
+            )
             .await?;
+        let parent_drive_node_id = match parent_resolution {
+            BrowserParentResolution::Parent(parent_drive_node_id) => parent_drive_node_id,
+            BrowserParentResolution::MissingViewRoot => {
+                return Ok(KnowledgeBrowserPage {
+                    space_id: request.space_id,
+                    drive_space_id,
+                    parent_id: None,
+                    view: request.view,
+                    page_size,
+                    items: vec![],
+                    next_cursor: None,
+                });
+            }
+        };
         let drive_page = self
             .drive_tree
             .list_children(ListKnowledgeDriveNodeChildrenRequest {
@@ -176,28 +197,61 @@ impl<'a> KnowledgeBrowserService<'a> {
     async fn resolve_view_parent_id(
         &self,
         drive_space_id: &str,
+        knowledge_mode: KnowledgeAgentKnowledgeMode,
         view: KnowledgeBrowserView,
         parent_id: Option<String>,
-    ) -> Result<Option<String>, KnowledgeBrowserServiceError> {
+    ) -> Result<BrowserParentResolution, KnowledgeBrowserServiceError> {
         if view == KnowledgeBrowserView::Files {
+            if knowledge_mode == KnowledgeAgentKnowledgeMode::OkfBundle {
+                return self
+                    .resolve_bounded_view_parent_id(
+                        drive_space_id,
+                        view,
+                        FILES_VIEW_OKF_ROOT_PATH,
+                        parent_id,
+                        MissingViewRootPolicy::EmptyPage,
+                    )
+                    .await;
+            }
+
             if let Some(parent_id) = parent_id {
                 self.validate_folder_parent(drive_space_id, &parent_id, None)
                     .await?;
-                return Ok(Some(parent_id));
+                return Ok(BrowserParentResolution::Parent(Some(parent_id)));
             }
-            return Ok(None);
+            return Ok(BrowserParentResolution::Parent(None));
         }
 
         let root_path = match view {
-            KnowledgeBrowserView::Files => return Ok(None),
+            KnowledgeBrowserView::Files => {
+                return Ok(BrowserParentResolution::Parent(None));
+            }
             KnowledgeBrowserView::OkfBundle => OKF_VIEW_ROOT_PATH,
             KnowledgeBrowserView::Outputs => OUTPUTS_VIEW_ROOT_PATH,
         };
 
+        self.resolve_bounded_view_parent_id(
+            drive_space_id,
+            view,
+            root_path,
+            parent_id,
+            MissingViewRootPolicy::InvalidRequest,
+        )
+        .await
+    }
+
+    async fn resolve_bounded_view_parent_id(
+        &self,
+        drive_space_id: &str,
+        view: KnowledgeBrowserView,
+        root_path: &str,
+        parent_id: Option<String>,
+        missing_root_policy: MissingViewRootPolicy,
+    ) -> Result<BrowserParentResolution, KnowledgeBrowserServiceError> {
         if let Some(parent_id) = parent_id {
             self.validate_folder_parent(drive_space_id, &parent_id, Some((view, root_path)))
                 .await?;
-            return Ok(Some(parent_id));
+            return Ok(BrowserParentResolution::Parent(Some(parent_id)));
         }
 
         let root = self
@@ -208,11 +262,15 @@ impl<'a> KnowledgeBrowserService<'a> {
             })
             .await?;
 
-        root.map(|node| Some(node.drive_node_id)).ok_or_else(|| {
-            KnowledgeBrowserServiceError::InvalidRequest(format!(
+        match root {
+            Some(node) => Ok(BrowserParentResolution::Parent(Some(node.drive_node_id))),
+            None if missing_root_policy == MissingViewRootPolicy::EmptyPage => {
+                Ok(BrowserParentResolution::MissingViewRoot)
+            }
+            None => Err(KnowledgeBrowserServiceError::InvalidRequest(format!(
                 "browser view root is missing in drive space: {root_path}"
-            ))
-        })
+            ))),
+        }
     }
 
     async fn validate_folder_parent(
@@ -249,6 +307,18 @@ impl<'a> KnowledgeBrowserService<'a> {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum BrowserParentResolution {
+    Parent(Option<String>),
+    MissingViewRoot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MissingViewRootPolicy {
+    EmptyPage,
+    InvalidRequest,
 }
 
 fn path_is_within_root(path: &str, root_path: &str) -> bool {

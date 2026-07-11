@@ -4,21 +4,27 @@ import { createPortal } from 'react-dom';
 import { X, Plus, Trash2, Send, History, Check, UserPlus, Loader2 } from 'lucide-react';
 import { toast } from './components/ui/toast-manager';
 import { useTranslation } from 'react-i18next';
+import {
+  resolveUserFacingErrorMessage,
+  type ErrorTranslateFn,
+} from 'sdkwork-knowledgebase-pc-core';
 
 export interface WechatSendPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   previewWechatId: string;
   setPreviewWechatId: (id: string) => void;
-  onConfirmSend?: (recipients: string[]) => Promise<void>;
+  onConfirmSend: (recipients: string[]) => Promise<void>;
   isSending?: boolean;
 }
 
 export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPreviewWechatId, onConfirmSend, isSending }: WechatSendPreviewModalProps) {
   const { t } = useTranslation(['common', 'officialAccount', 'editor']);
+  const { t: tErrors } = useTranslation('errors');
   const [recipients, setRecipients] = useState<string[]>([]);
   const [newIdInput, setNewIdInput] = useState('');
   const [history, setHistory] = useState<string[]>([]);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -44,6 +50,7 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
         setRecipients([]);
       }
       setNewIdInput('');
+      setSendError(null);
     }
   }, [isOpen, previewWechatId]);
 
@@ -111,10 +118,9 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
       return;
     }
 
+    setSendError(null);
     try {
-      if (onConfirmSend) {
-        await onConfirmSend(currentRecipients);
-      }
+      await onConfirmSend(currentRecipients);
       
       const updatedHistory = [...history];
       currentRecipients.forEach(id => {
@@ -139,8 +145,12 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
         }),
       );
     } catch (e: unknown) {
-      console.error(e);
-      toast.error(t('wechatPreviewError', { ns: 'editor' }));
+      const message = resolveUserFacingErrorMessage(
+        e,
+        tErrors as unknown as ErrorTranslateFn,
+      );
+      setSendError(message);
+      toast.error(message);
     }
   };
 
@@ -260,6 +270,12 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
                 </div>
               </div>
             )}
+
+            {sendError && (
+              <p role="alert" className="mt-4 text-[12px] text-red-500">
+                {sendError}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-between px-6 py-4 bg-[#fafafa] dark:bg-[var(--color-kb-panel)]/50 border-t border-zinc-200/50 dark:border-[var(--color-kb-panel-border)]/80">
@@ -297,4 +313,3 @@ export function WechatSendPreviewModal({ isOpen, onClose, previewWechatId, setPr
     document.body
   );
 }
-

@@ -45,6 +45,7 @@ impl ClawRouterEmbeddingClient {
 
         let client = Arc::clone(&self.client);
         let response = block_on_async(async move { client.embeddings().create(&request).await })
+            .map_err(|error| error.to_string())?
             .map_err(map_sdk_error)?;
 
         response

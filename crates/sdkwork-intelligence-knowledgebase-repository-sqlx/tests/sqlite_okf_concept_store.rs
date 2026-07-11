@@ -142,6 +142,227 @@ async fn sqlite_okf_concept_store_publishes_concepts_revisions_logs_and_projecti
 }
 
 #[tokio::test]
+async fn sqlite_okf_concept_store_pages_205_published_concepts_by_concept_id() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    insert_space(&pool, 9001, 7).await;
+    insert_space(&pool, 9001, 8).await;
+    insert_space(&pool, 9002, 9).await;
+
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), 9001);
+    let other_tenant_concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9002);
+    let mut expected_ids = Vec::with_capacity(205);
+    for index in 0..205 {
+        let concept_id = format!("topics/concept-{index:04}");
+        upsert_published_concept(&concepts, 7, &concept_id).await;
+        expected_ids.push(concept_id);
+    }
+    upsert_published_concept(&concepts, 8, "topics/other-space").await;
+    upsert_published_concept(&other_tenant_concepts, 9, "topics/other-tenant").await;
+
+    let (first_items, next_key, first_has_more) = concepts
+        .list_concept_summaries_page(7, None, 200)
+        .await
+        .expect("first concept page");
+    assert_eq!(first_items.len(), 200);
+    assert!(first_has_more);
+    assert_eq!(next_key.as_deref(), Some("topics/concept-0199"));
+
+    let (second_items, final_key, second_has_more) = concepts
+        .list_concept_summaries_page(7, next_key, 200)
+        .await
+        .expect("second concept page");
+    assert_eq!(second_items.len(), 5);
+    assert!(!second_has_more);
+    assert_eq!(final_key, None);
+
+    let actual_ids = first_items
+        .into_iter()
+        .chain(second_items)
+        .map(|item| item.concept_id)
+        .collect::<Vec<_>>();
+    assert_eq!(actual_ids, expected_ids);
+}
+
+#[tokio::test]
+async fn sqlite_okf_concept_store_pages_205_revisions_by_revision_number() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    insert_space(&pool, 9001, 7).await;
+    insert_space(&pool, 9001, 8).await;
+    insert_space(&pool, 9002, 9).await;
+
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), 9001);
+    let other_tenant_concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9002);
+    let concept_row_id = upsert_published_concept(&concepts, 7, "topics/main").await;
+    let other_concept_row_id = upsert_published_concept(&concepts, 7, "topics/other-concept").await;
+    let other_space_concept_row_id =
+        upsert_published_concept(&concepts, 8, "topics/other-space").await;
+    let other_tenant_concept_row_id =
+        upsert_published_concept(&other_tenant_concepts, 9, "topics/other-tenant").await;
+
+    for revision_no in 1..=205 {
+        create_revision(&concepts, concept_row_id, revision_no).await;
+    }
+    create_revision(&concepts, other_concept_row_id, 1).await;
+    create_revision(&concepts, other_space_concept_row_id, 1).await;
+    create_revision(&other_tenant_concepts, other_tenant_concept_row_id, 1).await;
+
+    let (first_items, next_revision_no, first_has_more) = concepts
+        .list_concept_revisions_page(concept_row_id, None, 200)
+        .await
+        .expect("first revision page");
+    assert_eq!(first_items.len(), 200);
+    assert!(first_has_more);
+    assert_eq!(next_revision_no, Some(200));
+
+    let (second_items, final_revision_no, second_has_more) = concepts
+        .list_concept_revisions_page(concept_row_id, next_revision_no, 200)
+        .await
+        .expect("second revision page");
+    assert_eq!(second_items.len(), 5);
+    assert!(!second_has_more);
+    assert_eq!(final_revision_no, None);
+
+    let actual_revision_numbers = first_items
+        .into_iter()
+        .chain(second_items)
+        .map(|item| item.revision_no)
+        .collect::<Vec<_>>();
+    assert_eq!(actual_revision_numbers, (1..=205).collect::<Vec<_>>());
+}
+
+#[tokio::test]
+async fn sqlite_okf_concept_store_pages_more_than_200_rows_by_stable_business_keys() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let tenant_id = 9001;
+    let other_tenant_id = 9002;
+    let space_id = 7;
+    let other_space_id = 8;
+    insert_space(&pool, tenant_id, space_id).await;
+    insert_space(&pool, tenant_id, other_space_id).await;
+    insert_space(&pool, other_tenant_id, 9).await;
+
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id);
+    let other_tenant_concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), other_tenant_id);
+    let mut revision_concept_id = None;
+
+    // Insert in reverse lexical order so an id-based query cannot accidentally pass.
+    for index in (0..205).rev() {
+        let concept = concepts
+            .upsert_concept(published_concept_record(
+                space_id,
+                format!("topics/concept-{index:04}"),
+            ))
+            .await
+            .unwrap();
+        if index == 0 {
+            revision_concept_id = Some(concept.id);
+        }
+    }
+    concepts
+        .upsert_concept(published_concept_record(
+            other_space_id,
+            "topics/other-space".to_string(),
+        ))
+        .await
+        .unwrap();
+    other_tenant_concepts
+        .upsert_concept(published_concept_record(
+            9,
+            "topics/other-tenant".to_string(),
+        ))
+        .await
+        .unwrap();
+
+    let (first_concepts, next_concept_id, has_more_concepts) = concepts
+        .list_concept_summaries_page(space_id, None, 200)
+        .await
+        .unwrap();
+    assert_eq!(first_concepts.len(), 200);
+    assert!(has_more_concepts);
+    assert_eq!(first_concepts[0].concept_id, "topics/concept-0000");
+    assert_eq!(first_concepts[199].concept_id, "topics/concept-0199");
+    assert_eq!(next_concept_id.as_deref(), Some("topics/concept-0199"));
+
+    let (second_concepts, final_concept_cursor, has_more_concepts) = concepts
+        .list_concept_summaries_page(space_id, next_concept_id, 200)
+        .await
+        .unwrap();
+    assert_eq!(second_concepts.len(), 5);
+    assert!(!has_more_concepts);
+    assert!(final_concept_cursor.is_none());
+    assert_eq!(second_concepts[0].concept_id, "topics/concept-0200");
+    assert_eq!(second_concepts[4].concept_id, "topics/concept-0204");
+
+    let all_concept_ids = first_concepts
+        .iter()
+        .chain(second_concepts.iter())
+        .map(|item| item.concept_id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(all_concept_ids.len(), 205);
+    assert!(all_concept_ids.windows(2).all(|pair| pair[0] < pair[1]));
+    assert!(!all_concept_ids.contains(&"topics/other-space"));
+    assert!(!all_concept_ids.contains(&"topics/other-tenant"));
+
+    let revision_concept_id = revision_concept_id.expect("revision concept");
+    for revision_no in 1..=205_u64 {
+        insert_revision_row(
+            &pool,
+            tenant_id,
+            revision_concept_id,
+            revision_no,
+            1_000_000 + (206 - revision_no),
+        )
+        .await;
+    }
+    insert_revision_row(&pool, tenant_id, revision_concept_id + 1, 1, 2_000_001).await;
+    insert_revision_row(&pool, other_tenant_id, revision_concept_id, 1, 2_000_002).await;
+
+    let (first_revisions, next_revision_no, has_more_revisions) = concepts
+        .list_concept_revisions_page(revision_concept_id, None, 200)
+        .await
+        .unwrap();
+    assert_eq!(first_revisions.len(), 200);
+    assert!(has_more_revisions);
+    assert_eq!(first_revisions[0].revision_no, 1);
+    assert_eq!(first_revisions[199].revision_no, 200);
+    assert_eq!(next_revision_no, Some(200));
+
+    let (second_revisions, final_revision_cursor, has_more_revisions) = concepts
+        .list_concept_revisions_page(revision_concept_id, next_revision_no, 200)
+        .await
+        .unwrap();
+    assert_eq!(second_revisions.len(), 5);
+    assert!(!has_more_revisions);
+    assert!(final_revision_cursor.is_none());
+    assert_eq!(second_revisions[0].revision_no, 201);
+    assert_eq!(second_revisions[4].revision_no, 205);
+
+    let all_revision_numbers = first_revisions
+        .iter()
+        .chain(second_revisions.iter())
+        .map(|item| item.revision_no)
+        .collect::<Vec<_>>();
+    assert_eq!(all_revision_numbers, (1..=205).collect::<Vec<_>>());
+
+    for invalid_page_size in [0, 201] {
+        let concept_error = concepts
+            .list_concept_summaries_page(space_id, None, invalid_page_size)
+            .await
+            .unwrap_err();
+        assert!(concept_error.to_string().contains("page_size"));
+
+        let revision_error = concepts
+            .list_concept_revisions_page(revision_concept_id, None, invalid_page_size)
+            .await
+            .unwrap_err();
+        assert!(revision_error.to_string().contains("page_size"));
+    }
+}
+
+#[tokio::test]
 async fn sqlite_okf_concept_store_reserves_revision_numbers_before_revision_insert() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
@@ -549,6 +770,92 @@ async fn insert_space(pool: &AnyPool, tenant_id: u64, space_id: u64) {
     .bind(format!("space-{space_id}"))
     .bind(tenant_id as i64)
     .bind(format!("Knowledge Space {space_id}"))
+    .bind("2026-06-05T00:00:00Z")
+    .bind("2026-06-05T00:00:00Z")
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
+async fn upsert_published_concept(
+    store: &SqliteKnowledgeOkfConceptStore,
+    space_id: u64,
+    concept_id: &str,
+) -> u64 {
+    store
+        .upsert_concept(UpsertKnowledgeOkfConceptRecord {
+            space_id,
+            concept_id: concept_id.to_string(),
+            title: concept_id.to_string(),
+            concept_type: "Topic".to_string(),
+            logical_path: format!("okf/{concept_id}.md"),
+            description: format!("Summary for {concept_id}."),
+            source_count: 1,
+            tags: vec!["pagination".to_string()],
+            publish_state: OkfConceptPublishState::Published,
+        })
+        .await
+        .expect("upsert published concept")
+        .id
+}
+
+async fn create_revision(
+    store: &SqliteKnowledgeOkfConceptStore,
+    concept_row_id: u64,
+    revision_no: u64,
+) {
+    store
+        .create_revision(CreateKnowledgeOkfConceptRevisionRecord {
+            concept_row_id,
+            revision_no,
+            markdown_object_ref_id: 10_000 + revision_no,
+            content_hash: format!("content-hash-{concept_row_id}-{revision_no}"),
+            review_state: OkfRevisionReviewState::Approved,
+        })
+        .await
+        .expect("create revision fixture");
+}
+
+fn published_concept_record(space_id: u64, concept_id: String) -> UpsertKnowledgeOkfConceptRecord {
+    UpsertKnowledgeOkfConceptRecord {
+        space_id,
+        title: concept_id.clone(),
+        concept_type: "Topic".to_string(),
+        logical_path: format!("okf/{concept_id}.md"),
+        description: format!("Summary for {concept_id}"),
+        concept_id,
+        source_count: 0,
+        tags: vec![],
+        publish_state: OkfConceptPublishState::Published,
+    }
+}
+
+async fn insert_revision_row(
+    pool: &AnyPool,
+    tenant_id: u64,
+    concept_row_id: u64,
+    revision_no: u64,
+    id: u64,
+) {
+    sqlx::query(
+        r#"
+        INSERT INTO kb_okf_concept_revision (
+            id, uuid, tenant_id, concept_row_id, revision_no,
+            markdown_object_ref_id, content_hash, review_state, status,
+            created_at, updated_at, version
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'approved', 1, $8, $9, 0)
+        "#,
+    )
+    .bind(id as i64)
+    .bind(format!(
+        "revision-{tenant_id}-{concept_row_id}-{revision_no}"
+    ))
+    .bind(tenant_id as i64)
+    .bind(concept_row_id as i64)
+    .bind(revision_no as i64)
+    .bind(id as i64)
+    .bind(format!("hash-{revision_no}"))
     .bind("2026-06-05T00:00:00Z")
     .bind("2026-06-05T00:00:00Z")
     .execute(pool)

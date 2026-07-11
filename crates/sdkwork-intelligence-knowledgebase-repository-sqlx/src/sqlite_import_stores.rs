@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_store::{
     CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
     KnowledgeDocumentStoreError,
@@ -9,13 +10,16 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_versio
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::{
     CompleteRunningIngestionRecord, CompletedIngestionResult, CreateIngestionJobRecord,
-    CreateOrGetIngestionJobResult, DriveImportJobLinkage, IngestionJobStore,
-    IngestionJobStoreError,
+    CreateOrGetIngestionJobResult, DriveImportJobLinkage, IngestionJobLifecycle, IngestionJobStore,
+    IngestionJobStoreError, KNOWLEDGE_UPLOAD_SESSION_TTL, STALE_UPLOAD_SESSION_RECOVERY_BATCH_SIZE,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::AppendOutboxEventRecord;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceLineageSnapshot, KnowledgeSourceStore,
     KnowledgeSourceStoreError,
+};
+use sdkwork_intelligence_knowledgebase_service::tenant_quota::{
+    ensure_document_capacity, ensure_ingest_concurrency,
 };
 use sdkwork_knowledgebase_contract::document::{
     KnowledgeDocument, KnowledgeDocumentState, KnowledgeDocumentVersion,
@@ -23,15 +27,18 @@ use sdkwork_knowledgebase_contract::document::{
 };
 use sdkwork_knowledgebase_contract::ingest::{IngestionJob, IngestionJobState};
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
+use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
 use sdkwork_utils_rust::is_blank;
-use sqlx::{any::AnyRow, AnyPool, Row};
+use sqlx::{any::AnyRow, AnyConnection, AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::chunk_transaction::replace_version_chunks_in_transaction;
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 use crate::keyword_search::KeywordSearchBackend;
+use crate::quota_transaction::begin_tenant_quota_transaction;
 
 const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
@@ -42,6 +49,7 @@ pub struct SqliteKnowledgeSourceStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeSourceStore {
@@ -58,7 +66,13 @@ impl SqliteKnowledgeSourceStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 }
 
@@ -114,7 +128,7 @@ impl SqliteKnowledgeSourceStore {
         let source_type_value = record.source_type.as_str().to_string();
         let row = sqlx::query(
             r#"
-            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, metadata
+            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, CAST(metadata AS TEXT) AS metadata
             FROM kb_source
             WHERE tenant_id = $1
               AND space_id = $2
@@ -169,6 +183,9 @@ impl SqliteKnowledgeSourceStore {
         let id = next_i64_id(&self.id_generator).map_err(source_id_error)?;
         let now = source_now()?;
         let source_type_value = record.source_type.as_str().to_string();
+        let metadata_expr = self.timestamp_dialect.sql_json_expr("$9");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$11");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
         let query = format!(
             r#"
             INSERT INTO kb_source (
@@ -186,9 +203,9 @@ impl SqliteKnowledgeSourceStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, {metadata_expr}, $10, {created_at_expr}, {updated_at_expr}, $13)
             {conflict_clause}
-            RETURNING id, space_id, source_type, provider, drive_bucket, drive_prefix, metadata
+            RETURNING id, space_id, source_type, provider, drive_bucket, drive_prefix, CAST(metadata AS TEXT) AS metadata
             "#
         );
 
@@ -221,7 +238,7 @@ impl SqliteKnowledgeSourceStore {
         let space_id = source_to_i64("space_id", space_id)?;
         let newest = sqlx::query_scalar::<_, Option<String>>(
             r#"
-            SELECT MAX(COALESCE(last_sync_at, updated_at))
+            SELECT CAST(MAX(COALESCE(last_sync_at, updated_at)) AS TEXT)
             FROM kb_source
             WHERE tenant_id = $1 AND space_id = $2 AND status = $3
             "#,
@@ -243,7 +260,12 @@ impl SqliteKnowledgeSourceStore {
         let space_id = source_to_i64("space_id", space_id)?;
         let rows = sqlx::query(
             r#"
-            SELECT id, updated_at, last_sync_at, provider, drive_bucket, drive_prefix
+            SELECT id,
+                   CAST(updated_at AS TEXT) AS updated_at,
+                   CAST(last_sync_at AS TEXT) AS last_sync_at,
+                   provider,
+                   drive_bucket,
+                   drive_prefix
             FROM kb_source
             WHERE tenant_id = $1 AND space_id = $2 AND status = $3
             ORDER BY id ASC
@@ -280,7 +302,7 @@ impl SqliteKnowledgeSourceStore {
         let tenant_id = source_to_i64("tenant_id", self.tenant_id)?;
         let rows = sqlx::query(
             r#"
-            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, metadata
+            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, CAST(metadata AS TEXT) AS metadata
             FROM kb_source
             WHERE tenant_id = $1 AND status = $2
             ORDER BY id ASC
@@ -304,7 +326,7 @@ impl SqliteKnowledgeSourceStore {
         let space_id = source_to_i64("space_id", space_id)?;
         let rows = sqlx::query(
             r#"
-            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, metadata
+            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, CAST(metadata AS TEXT) AS metadata
             FROM kb_source
             WHERE tenant_id = $1 AND space_id = $2 AND status = $3
             ORDER BY id ASC
@@ -327,6 +349,9 @@ pub struct SqliteKnowledgeDocumentStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
+    database_engine: DatabaseEngine,
+    quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
 impl SqliteKnowledgeDocumentStore {
@@ -343,7 +368,21 @@ impl SqliteKnowledgeDocumentStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
+            database_engine: DatabaseEngine::Sqlite,
+            quota_limits: None,
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self.database_engine = database_engine;
+        self
+    }
+
+    pub fn with_quota_limits(mut self, quota_limits: KnowledgebaseTenantQuotaLimits) -> Self {
+        self.quota_limits = Some(quota_limits);
+        self
     }
 }
 
@@ -353,6 +392,9 @@ impl KnowledgeDocumentStore for SqliteKnowledgeDocumentStore {
         &self,
         record: CreateKnowledgeDocumentRecord,
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        if let Some(limits) = self.quota_limits {
+            return self.create_document_with_quota(record, limits).await;
+        }
         self.insert_document(record).await
     }
 
@@ -360,6 +402,9 @@ impl KnowledgeDocumentStore for SqliteKnowledgeDocumentStore {
         &self,
         record: CreateKnowledgeDocumentRecord,
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        if let Some(limits) = self.quota_limits {
+            return self.create_or_get_document_with_quota(record, limits).await;
+        }
         if let Some(document) = self.insert_document_if_absent(record.clone()).await? {
             return Ok(document);
         }
@@ -400,10 +445,120 @@ impl KnowledgeDocumentStore for SqliteKnowledgeDocumentStore {
 }
 
 impl SqliteKnowledgeDocumentStore {
+    async fn create_document_with_quota(
+        &self,
+        record: CreateKnowledgeDocumentRecord,
+        limits: KnowledgebaseTenantQuotaLimits,
+    ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
+                .await
+                .map_err(document_sqlx_error)?;
+        self.ensure_document_quota_on(&mut transaction, limits)
+            .await?;
+        let document = self
+            .insert_document_with_conflict_clause_on(record, "", &mut transaction)
+            .await?
+            .ok_or_else(|| {
+                KnowledgeDocumentStoreError::Internal("failed to insert document".to_string())
+            })?;
+        transaction.commit().await.map_err(document_sqlx_error)?;
+        Ok(document)
+    }
+
+    async fn create_or_get_document_with_quota(
+        &self,
+        record: CreateKnowledgeDocumentRecord,
+        limits: KnowledgebaseTenantQuotaLimits,
+    ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
+                .await
+                .map_err(document_sqlx_error)?;
+
+        if let Some(document) = self
+            .find_document_by_identity_on(&record, &mut transaction)
+            .await?
+        {
+            transaction.commit().await.map_err(document_sqlx_error)?;
+            return self
+                .enrich_document_drive_node_binding(
+                    document,
+                    record.original_file_drive_node_id.as_deref(),
+                )
+                .await;
+        }
+
+        self.ensure_document_quota_on(&mut transaction, limits)
+            .await?;
+        let document = self
+            .insert_document_with_conflict_clause_on(
+                record.clone(),
+                "ON CONFLICT DO NOTHING",
+                &mut transaction,
+            )
+            .await?;
+        let document = match document {
+            Some(document) => document,
+            None => self
+                .find_document_by_identity_on(&record, &mut transaction)
+                .await?
+                .ok_or_else(|| {
+                    KnowledgeDocumentStoreError::Internal(
+                        "document identity conflict did not resolve to an active document"
+                            .to_string(),
+                    )
+                })?,
+        };
+        transaction.commit().await.map_err(document_sqlx_error)?;
+        self.enrich_document_drive_node_binding(
+            document,
+            record.original_file_drive_node_id.as_deref(),
+        )
+        .await
+    }
+
+    async fn ensure_document_quota_on(
+        &self,
+        connection: &mut AnyConnection,
+        limits: KnowledgebaseTenantQuotaLimits,
+    ) -> Result<(), KnowledgeDocumentStoreError> {
+        let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM kb_document WHERE tenant_id = $1 AND status = $2",
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(connection)
+        .await
+        .map_err(document_sqlx_error)?;
+        let count = u64::try_from(count.max(0))
+            .map_err(|error| KnowledgeDocumentStoreError::Internal(error.to_string()))?;
+        ensure_document_capacity(count, &limits)?;
+        Ok(())
+    }
+
     async fn get_document_by_identity(
         &self,
         record: &CreateKnowledgeDocumentRecord,
     ) -> Result<KnowledgeDocument, KnowledgeDocumentStoreError> {
+        let mut connection = self.pool.acquire().await.map_err(document_sqlx_error)?;
+        self.find_document_by_identity_on(record, &mut connection)
+            .await?
+            .ok_or_else(|| {
+                KnowledgeDocumentStoreError::Internal(
+                    "document identity did not resolve to an active document".to_string(),
+                )
+            })
+    }
+
+    async fn find_document_by_identity_on(
+        &self,
+        record: &CreateKnowledgeDocumentRecord,
+        connection: &mut AnyConnection,
+    ) -> Result<Option<KnowledgeDocument>, KnowledgeDocumentStoreError> {
         validate_document_identity(record)?;
 
         let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
@@ -449,11 +604,11 @@ impl SqliteKnowledgeDocumentStore {
         .bind(source_id)
         .bind(&record.original_file_drive_node_id)
         .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
+        .fetch_optional(connection)
         .await
         .map_err(document_sqlx_error)?;
 
-        document_from_row(&row)
+        row.map(|row| document_from_row(&row)).transpose()
     }
 
     pub async fn list_active_documents(
@@ -609,39 +764,41 @@ impl SqliteKnowledgeDocumentStore {
         let document_id = document_to_i64("document_id", document_id)?;
         let now = document_now()?;
         let visibility_code = visibility.map(document_visibility_code);
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$5");
+        let query = format!(
             r#"
             UPDATE kb_document
             SET title = $1,
                 mime_type = $2,
                 language = $3,
                 visibility = COALESCE($4, visibility),
-                updated_at = CAST($5 AS TIMESTAMP),
+                updated_at = {updated_at_expr},
                 version = version + 1
             WHERE tenant_id = $6 AND id = $7 AND status = $8
             RETURNING id, space_id, collection_id, source_id, original_file_drive_node_id, title, mime_type, language,
                       current_version_id, visibility, content_state, index_state
             "#,
-        )
-        .bind(title)
-        .bind(mime_type)
-        .bind(language)
-        .bind(visibility_code)
-        .bind(now)
-        .bind(tenant_id)
-        .bind(document_id)
-        .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|error| {
-            if matches!(error, sqlx::Error::RowNotFound) {
-                KnowledgeDocumentStoreError::Internal(format!(
-                    "missing knowledge document: {document_id}"
-                ))
-            } else {
-                document_sqlx_error(error)
-            }
-        })?;
+        );
+        let row = sqlx::query(&query)
+            .bind(title)
+            .bind(mime_type)
+            .bind(language)
+            .bind(visibility_code)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(document_id)
+            .bind(ACTIVE_STATUS)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| {
+                if matches!(error, sqlx::Error::RowNotFound) {
+                    KnowledgeDocumentStoreError::Internal(format!(
+                        "missing knowledge document: {document_id}"
+                    ))
+                } else {
+                    document_sqlx_error(error)
+                }
+            })?;
 
         document_from_row(&row)
     }
@@ -653,20 +810,22 @@ impl SqliteKnowledgeDocumentStore {
         let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
         let document_id = document_to_i64("document_id", document_id)?;
         let now = document_now()?;
-        let rows = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$1");
+        let query = format!(
             r#"
             UPDATE kb_document
-            SET status = 0, updated_at = CAST($1 AS TIMESTAMP), version = version + 1
+            SET status = 0, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $2 AND id = $3 AND status = $4
             "#,
-        )
-        .bind(now)
-        .bind(tenant_id)
-        .bind(document_id)
-        .bind(ACTIVE_STATUS)
-        .execute(&self.pool)
-        .await
-        .map_err(document_sqlx_error)?;
+        );
+        let rows = sqlx::query(&query)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(document_id)
+            .bind(ACTIVE_STATUS)
+            .execute(&self.pool)
+            .await
+            .map_err(document_sqlx_error)?;
 
         if rows.rows_affected() == 0 {
             return Err(KnowledgeDocumentStoreError::Internal(format!(
@@ -691,11 +850,12 @@ impl SqliteKnowledgeDocumentStore {
         let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
         let document_id = document_to_i64("document_id", document.id)?;
         let now = document_now()?;
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let query = format!(
             r#"
             UPDATE kb_document
             SET original_file_drive_node_id = COALESCE(original_file_drive_node_id, $1),
-                updated_at = CAST($2 AS TIMESTAMP),
+                updated_at = {updated_at_expr},
                 version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
             RETURNING
@@ -713,15 +873,16 @@ impl SqliteKnowledgeDocumentStore {
                 content_state,
                 index_state
             "#,
-        )
-        .bind(original_file_drive_node_id)
-        .bind(now)
-        .bind(tenant_id)
-        .bind(document_id)
-        .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(document_sqlx_error)?;
+        );
+        let row = sqlx::query(&query)
+            .bind(original_file_drive_node_id)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(document_id)
+            .bind(ACTIVE_STATUS)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(document_sqlx_error)?;
 
         document_from_row(&row)
     }
@@ -750,6 +911,17 @@ impl SqliteKnowledgeDocumentStore {
         record: CreateKnowledgeDocumentRecord,
         conflict_clause: &str,
     ) -> Result<Option<KnowledgeDocument>, KnowledgeDocumentStoreError> {
+        let mut connection = self.pool.acquire().await.map_err(document_sqlx_error)?;
+        self.insert_document_with_conflict_clause_on(record, conflict_clause, &mut connection)
+            .await
+    }
+
+    async fn insert_document_with_conflict_clause_on(
+        &self,
+        record: CreateKnowledgeDocumentRecord,
+        conflict_clause: &str,
+        connection: &mut AnyConnection,
+    ) -> Result<Option<KnowledgeDocument>, KnowledgeDocumentStoreError> {
         validate_document_identity(&record)?;
 
         let tenant_id = document_to_i64("tenant_id", self.tenant_id)?;
@@ -761,6 +933,8 @@ impl SqliteKnowledgeDocumentStore {
             .transpose()?;
         let generated_id = next_i64_id(&self.id_generator).map_err(document_id_error)?;
         let now = document_now()?;
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$16");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$17");
         let query = format!(
             r#"
             INSERT INTO kb_document (
@@ -783,7 +957,7 @@ impl SqliteKnowledgeDocumentStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, {created_at_expr}, {updated_at_expr}, $18)
             {conflict_clause}
             RETURNING
                 id,
@@ -820,7 +994,7 @@ impl SqliteKnowledgeDocumentStore {
             .bind(now.clone())
             .bind(now)
             .bind(INITIAL_VERSION)
-            .fetch_optional(&self.pool)
+            .fetch_optional(connection)
             .await
             .map_err(document_sqlx_error)?;
 
@@ -846,6 +1020,7 @@ pub struct SqliteKnowledgeDocumentVersionStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeDocumentVersionStore {
@@ -862,7 +1037,13 @@ impl SqliteKnowledgeDocumentVersionStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 }
 
@@ -960,6 +1141,9 @@ impl SqliteKnowledgeDocumentVersionStore {
         let size_bytes = version_to_i64("size_bytes", record.size_bytes)?;
         let generated_id = next_i64_id(&self.id_generator).map_err(version_id_error)?;
         let now = version_now()?;
+        let submitted_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$15");
         let query = format!(
             r#"
             INSERT INTO kb_document_version (
@@ -980,7 +1164,7 @@ impl SqliteKnowledgeDocumentVersionStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {submitted_at_expr}, $13, {created_at_expr}, {updated_at_expr}, $16)
             {conflict_clause}
             RETURNING
                 id,
@@ -1044,10 +1228,11 @@ impl SqliteKnowledgeDocumentVersionStore {
         let version_id = version_to_i64("version_id", version_id)?;
         let version_no = version_to_i64("version_no", version_no)?;
 
-        sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let query = format!(
             r#"
             UPDATE kb_document
-            SET current_version_id = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+            SET current_version_id = $1, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
               AND (
                   current_version_id IS NULL
@@ -1062,17 +1247,18 @@ impl SqliteKnowledgeDocumentVersionStore {
                   )
               )
             "#,
-        )
-        .bind(version_id)
-        .bind(now)
-        .bind(tenant_id)
-        .bind(document_id)
-        .bind(ACTIVE_STATUS)
-        .bind(ACTIVE_STATUS)
-        .bind(version_no)
-        .execute(&self.pool)
-        .await
-        .map_err(version_sqlx_error)?;
+        );
+        sqlx::query(&query)
+            .bind(version_id)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(document_id)
+            .bind(ACTIVE_STATUS)
+            .bind(ACTIVE_STATUS)
+            .bind(version_no)
+            .execute(&self.pool)
+            .await
+            .map_err(version_sqlx_error)?;
 
         Ok(())
     }
@@ -1176,6 +1362,9 @@ pub struct SqliteIngestionJobStore {
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     keyword_backend: KeywordSearchBackend,
+    timestamp_dialect: SqlTimestampDialect,
+    database_engine: DatabaseEngine,
+    quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
 impl SqliteIngestionJobStore {
@@ -1212,7 +1401,21 @@ impl SqliteIngestionJobStore {
             tenant_id,
             id_generator,
             keyword_backend,
+            timestamp_dialect: SqlTimestampDialect::default(),
+            database_engine: DatabaseEngine::Sqlite,
+            quota_limits: None,
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self.database_engine = database_engine;
+        self
+    }
+
+    pub fn with_quota_limits(mut self, quota_limits: KnowledgebaseTenantQuotaLimits) -> Self {
+        self.quota_limits = Some(quota_limits);
+        self
     }
 
     pub async fn mark_running_job_succeeded_with_outbox(
@@ -1236,13 +1439,16 @@ impl SqliteIngestionJobStore {
             ));
         }
 
-        let mut transaction = self.pool.begin().await.map_err(job_sqlx_error)?;
         let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
+                .await
+                .map_err(job_sqlx_error)?;
         let job_id_i64 = job_to_i64("job_id", job_id)?;
 
         let current_row = sqlx::query(
             r#"
-            SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             FROM kb_ingestion_job
             WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
@@ -1265,50 +1471,55 @@ impl SqliteIngestionJobStore {
         }
 
         let now = job_now()?;
-        let updated_row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let update_query = format!(
             r#"
             UPDATE kb_ingestion_job
-            SET state = $1, error_detail = NULL, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+            SET state = $1, error_detail = NULL, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5 AND state = $6
-            RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
-        )
-        .bind(ingestion_state_code(IngestionJobState::Succeeded))
-        .bind(&now)
-        .bind(tenant_id)
-        .bind(job_id_i64)
-        .bind(ACTIVE_STATUS)
-        .bind(ingestion_state_code(IngestionJobState::Running))
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(|error| job_fetch_error(job_id_i64, error))?;
+        );
+        let updated_row = sqlx::query(&update_query)
+            .bind(ingestion_state_code(IngestionJobState::Succeeded))
+            .bind(&now)
+            .bind(tenant_id)
+            .bind(job_id_i64)
+            .bind(ACTIVE_STATUS)
+            .bind(ingestion_state_code(IngestionJobState::Running))
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(|error| job_fetch_error(job_id_i64, error))?;
 
         let outbox_id = next_i64_id(&self.id_generator)
             .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
         let aggregate_id = job_to_i64("aggregate_id", outbox.aggregate_id)?;
 
-        sqlx::query(
+        let payload_expr = self.timestamp_dialect.sql_json_expr("$7");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$9");
+        let outbox_query = format!(
             r#"
             INSERT INTO kb_outbox_event (
                 id, uuid, tenant_id, aggregate_type, aggregate_id, event_type,
                 payload, status, created_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, {payload_expr}, $8, {created_at_expr}, $10)
             "#,
-        )
-        .bind(outbox_id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(outbox.aggregate_type)
-        .bind(aggregate_id)
-        .bind(outbox.event_type)
-        .bind(outbox.payload_json)
-        .bind(OUTBOX_STATUS_PENDING)
-        .bind(&now)
-        .bind(INITIAL_VERSION)
-        .execute(&mut *transaction)
-        .await
-        .map_err(job_sqlx_error)?;
+        );
+        sqlx::query(&outbox_query)
+            .bind(outbox_id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(outbox.aggregate_type)
+            .bind(aggregate_id)
+            .bind(outbox.event_type)
+            .bind(outbox.payload_json)
+            .bind(OUTBOX_STATUS_PENDING)
+            .bind(&now)
+            .bind(INITIAL_VERSION)
+            .execute(&mut *transaction)
+            .await
+            .map_err(job_sqlx_error)?;
 
         transaction.commit().await.map_err(job_sqlx_error)?;
         job_from_row(&updated_row)
@@ -1334,13 +1545,16 @@ impl SqliteIngestionJobStore {
             ));
         }
 
-        let mut transaction = self.pool.begin().await.map_err(job_sqlx_error)?;
         let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
+                .await
+                .map_err(job_sqlx_error)?;
         let job_id_i64 = job_to_i64("job_id", record.job_id)?;
 
         let current_row = sqlx::query(
             r#"
-            SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             FROM kb_ingestion_job
             WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
@@ -1367,6 +1581,7 @@ impl SqliteIngestionJobStore {
             self.tenant_id,
             &self.id_generator,
             self.keyword_backend,
+            self.timestamp_dialect,
             record.document_version_id,
             &record.chunks,
         )
@@ -1374,50 +1589,55 @@ impl SqliteIngestionJobStore {
         .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
 
         let now = job_now()?;
-        let updated_row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let update_query = format!(
             r#"
             UPDATE kb_ingestion_job
-            SET state = $1, error_detail = NULL, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+            SET state = $1, error_detail = NULL, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5 AND state = $6
-            RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
-        )
-        .bind(ingestion_state_code(IngestionJobState::Succeeded))
-        .bind(&now)
-        .bind(tenant_id)
-        .bind(job_id_i64)
-        .bind(ACTIVE_STATUS)
-        .bind(ingestion_state_code(IngestionJobState::Running))
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(|error| job_fetch_error(job_id_i64, error))?;
+        );
+        let updated_row = sqlx::query(&update_query)
+            .bind(ingestion_state_code(IngestionJobState::Succeeded))
+            .bind(&now)
+            .bind(tenant_id)
+            .bind(job_id_i64)
+            .bind(ACTIVE_STATUS)
+            .bind(ingestion_state_code(IngestionJobState::Running))
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(|error| job_fetch_error(job_id_i64, error))?;
 
         let outbox_id = next_i64_id(&self.id_generator)
             .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
         let aggregate_id = job_to_i64("aggregate_id", record.outbox.aggregate_id)?;
 
-        sqlx::query(
+        let payload_expr = self.timestamp_dialect.sql_json_expr("$7");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$9");
+        let outbox_query = format!(
             r#"
             INSERT INTO kb_outbox_event (
                 id, uuid, tenant_id, aggregate_type, aggregate_id, event_type,
                 payload, status, created_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, {payload_expr}, $8, {created_at_expr}, $10)
             "#,
-        )
-        .bind(outbox_id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(record.outbox.aggregate_type)
-        .bind(aggregate_id)
-        .bind(record.outbox.event_type)
-        .bind(record.outbox.payload_json)
-        .bind(OUTBOX_STATUS_PENDING)
-        .bind(&now)
-        .bind(INITIAL_VERSION)
-        .execute(&mut *transaction)
-        .await
-        .map_err(job_sqlx_error)?;
+        );
+        sqlx::query(&outbox_query)
+            .bind(outbox_id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(record.outbox.aggregate_type)
+            .bind(aggregate_id)
+            .bind(record.outbox.event_type)
+            .bind(record.outbox.payload_json)
+            .bind(OUTBOX_STATUS_PENDING)
+            .bind(&now)
+            .bind(INITIAL_VERSION)
+            .execute(&mut *transaction)
+            .await
+            .map_err(job_sqlx_error)?;
 
         transaction.commit().await.map_err(job_sqlx_error)?;
         Ok(CompletedIngestionResult {
@@ -1433,6 +1653,9 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         &self,
         record: CreateIngestionJobRecord,
     ) -> Result<CreateOrGetIngestionJobResult, IngestionJobStoreError> {
+        if let Some(limits) = self.quota_limits {
+            return self.create_or_get_job_with_quota(record, limits).await;
+        }
         if let Some(job) = self.insert_job_if_absent(record.clone()).await? {
             return Ok(CreateOrGetIngestionJobResult { job, created: true });
         }
@@ -1450,7 +1673,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let job_id = job_to_i64("job_id", job_id)?;
         let row = sqlx::query(
             r#"
-            SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             FROM kb_ingestion_job
             WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
@@ -1465,6 +1688,37 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         job_from_row(&row)
     }
 
+    async fn get_job_lifecycle(
+        &self,
+        job_id: u64,
+    ) -> Result<IngestionJobLifecycle, IngestionJobStoreError> {
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let job_id = job_to_i64("job_id", job_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT id,
+                   space_id,
+                   job_type,
+                   idempotency_key,
+                   state,
+                   error_detail,
+                   CAST(metadata AS TEXT) AS metadata,
+                   CAST(created_at AS TEXT) AS created_at,
+                   CAST(updated_at AS TEXT) AS updated_at
+            FROM kb_ingestion_job
+            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(job_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|error| job_fetch_error(job_id, error))?;
+
+        job_lifecycle_from_row(&row)
+    }
+
     async fn update_job_state(
         &self,
         job_id: u64,
@@ -1475,24 +1729,26 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
         let job_id = job_to_i64("job_id", job_id)?;
         let now = job_now()?;
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$3");
+        let query = format!(
             r#"
             UPDATE kb_ingestion_job
-            SET state = $1, error_detail = $2, updated_at = CAST($3 AS TIMESTAMP), version = version + 1
+            SET state = $1, error_detail = $2, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $4 AND id = $5 AND status = $6 AND state = $7
-            RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
-        )
-        .bind(ingestion_state_code(state))
-        .bind(error_message)
-        .bind(now)
-        .bind(tenant_id)
-        .bind(job_id)
-        .bind(ACTIVE_STATUS)
-        .bind(ingestion_state_code(expected_state))
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|error| job_fetch_error(job_id, error))?;
+        );
+        let row = sqlx::query(&query)
+            .bind(ingestion_state_code(state))
+            .bind(error_message)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(job_id)
+            .bind(ACTIVE_STATUS)
+            .bind(ingestion_state_code(expected_state))
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| job_fetch_error(job_id, error))?;
 
         job_from_row(&row)
     }
@@ -1506,7 +1762,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let job_id = job_to_i64("job_id", job_id)?;
         let row = sqlx::query(
             r#"
-            SELECT metadata
+            SELECT CAST(metadata AS TEXT) AS metadata
             FROM kb_ingestion_job
             WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
@@ -1523,21 +1779,24 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let existing: Option<String> = row.try_get("metadata").map_err(job_sqlx_error)?;
         let metadata = merge_drive_import_linkage_metadata(existing.as_deref(), &linkage)?;
         let now = job_now()?;
-        let updated = sqlx::query(
+        let metadata_expr = self.timestamp_dialect.sql_json_expr("$1");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let query = format!(
             r#"
             UPDATE kb_ingestion_job
-            SET metadata = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+            SET metadata = {metadata_expr}, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
             "#,
-        )
-        .bind(metadata)
-        .bind(now)
-        .bind(tenant_id)
-        .bind(job_id)
-        .bind(ACTIVE_STATUS)
-        .execute(&self.pool)
-        .await
-        .map_err(job_sqlx_error)?;
+        );
+        let updated = sqlx::query(&query)
+            .bind(metadata)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(job_id)
+            .bind(ACTIVE_STATUS)
+            .execute(&self.pool)
+            .await
+            .map_err(job_sqlx_error)?;
 
         if updated.rows_affected() == 0 {
             return Err(IngestionJobStoreError::NotFound(job_id as u64));
@@ -1553,7 +1812,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let job_id = job_to_i64("job_id", job_id)?;
         let row = sqlx::query(
             r#"
-            SELECT metadata
+            SELECT CAST(metadata AS TEXT) AS metadata
             FROM kb_ingestion_job
             WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
@@ -1581,7 +1840,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let limit = i64::from(limit.clamp(1, 200));
         let rows = sqlx::query(
             r#"
-            SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             FROM kb_ingestion_job
             WHERE tenant_id = $1 AND state = $2 AND status = $3
             ORDER BY id ASC
@@ -1597,6 +1856,63 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
 
         rows.into_iter().map(|row| job_from_row(&row)).collect()
+    }
+
+    async fn fail_expired_upload_sessions(
+        &self,
+        expired_before: OffsetDateTime,
+        limit: u32,
+    ) -> Result<u32, IngestionJobStoreError> {
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let expired_before = expired_before
+            .format(&Rfc3339)
+            .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+        let now = job_now()?;
+        let limit = i64::from(limit.clamp(1, 200));
+        let expired_before_expr = self.timestamp_dialect.sql_timestamp_expr("$1");
+        let now_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let query = format!(
+            r#"
+            WITH stale_upload_sessions AS (
+                SELECT id
+                FROM kb_ingestion_job
+                WHERE tenant_id = $3
+                  AND state IN ($4, $5)
+                  AND status = $6
+                  AND job_type = $7
+                  AND created_at <= {expired_before_expr}
+                ORDER BY id ASC
+                LIMIT $8
+            )
+            UPDATE kb_ingestion_job
+            SET state = $9,
+                error_detail = $10,
+                finished_at = {now_expr},
+                updated_at = {now_expr},
+                version = version + 1
+            WHERE tenant_id = $3
+              AND status = $6
+              AND state IN ($4, $5)
+              AND id IN (SELECT id FROM stale_upload_sessions)
+            "#,
+        );
+        let result = sqlx::query(&query)
+            .bind(expired_before)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(ingestion_state_code(IngestionJobState::Queued))
+            .bind(ingestion_state_code(IngestionJobState::Running))
+            .bind(ACTIVE_STATUS)
+            .bind("upload_session")
+            .bind(limit)
+            .bind(ingestion_state_code(IngestionJobState::Failed))
+            .bind("upload session expired before completion")
+            .execute(&self.pool)
+            .await
+            .map_err(job_sqlx_error)?;
+
+        u32::try_from(result.rows_affected())
+            .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))
     }
 
     async fn mark_running_job_succeeded_with_outbox(
@@ -1617,24 +1933,141 @@ impl IngestionJobStore for SqliteIngestionJobStore {
 }
 
 impl SqliteIngestionJobStore {
-    pub async fn count_inflight_jobs(&self) -> Result<u32, IngestionJobStoreError> {
+    async fn create_or_get_job_with_quota(
+        &self,
+        record: CreateIngestionJobRecord,
+        limits: KnowledgebaseTenantQuotaLimits,
+    ) -> Result<CreateOrGetIngestionJobResult, IngestionJobStoreError> {
         let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
-        let row: (i64,) = sqlx::query_as(
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
+                .await
+                .map_err(job_sqlx_error)?;
+
+        if let Some(row) = self
+            .find_job_by_idempotency_on(&record, &mut transaction)
+            .await?
+        {
+            validate_existing_job_idempotency(&row, &record)?;
+            let job = job_from_row(&row)?;
+            transaction.commit().await.map_err(job_sqlx_error)?;
+            return Ok(CreateOrGetIngestionJobResult {
+                job,
+                created: false,
+            });
+        }
+
+        self.ensure_ingest_quota_on(&mut transaction, limits)
+            .await?;
+        let job = self
+            .insert_job_if_absent_on(record.clone(), &mut transaction)
+            .await?;
+        let (job, created) = match job {
+            Some(job) => (job, true),
+            None => {
+                let row = self
+                    .find_job_by_idempotency_on(&record, &mut transaction)
+                    .await?
+                    .ok_or_else(|| {
+                        IngestionJobStoreError::Internal(
+                            "ingestion idempotency conflict did not resolve to an active job"
+                                .to_string(),
+                        )
+                    })?;
+                validate_existing_job_idempotency(&row, &record)?;
+                (job_from_row(&row)?, false)
+            }
+        };
+        transaction.commit().await.map_err(job_sqlx_error)?;
+        Ok(CreateOrGetIngestionJobResult { job, created })
+    }
+
+    async fn ensure_ingest_quota_on(
+        &self,
+        connection: &mut AnyConnection,
+        limits: KnowledgebaseTenantQuotaLimits,
+    ) -> Result<(), IngestionJobStoreError> {
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let expired_before = OffsetDateTime::now_utc()
+            .checked_sub(KNOWLEDGE_UPLOAD_SESSION_TTL)
+            .ok_or_else(|| {
+                IngestionJobStoreError::Internal(
+                    "upload session quota cutoff is outside the supported timestamp range"
+                        .to_string(),
+                )
+            })?
+            .format(&Rfc3339)
+            .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+        let expired_before_expr = self.timestamp_dialect.sql_timestamp_expr("$6");
+        let query = format!(
             r#"
             SELECT COUNT(*)
             FROM kb_ingestion_job
             WHERE tenant_id = $1
               AND status = $2
               AND state IN ($3, $4)
+              AND NOT (
+                  job_type = $5
+                  AND created_at <= {expired_before_expr}
+              )
             "#,
-        )
-        .bind(tenant_id)
-        .bind(ACTIVE_STATUS)
-        .bind(ingestion_state_code(IngestionJobState::Queued))
-        .bind(ingestion_state_code(IngestionJobState::Running))
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+        );
+        let count: i64 = sqlx::query_scalar(&query)
+            .bind(tenant_id)
+            .bind(ACTIVE_STATUS)
+            .bind(ingestion_state_code(IngestionJobState::Queued))
+            .bind(ingestion_state_code(IngestionJobState::Running))
+            .bind("upload_session")
+            .bind(expired_before)
+            .fetch_one(connection)
+            .await
+            .map_err(job_sqlx_error)?;
+        let count = u32::try_from(count.max(0))
+            .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+        ensure_ingest_concurrency(count, &limits)?;
+        Ok(())
+    }
+
+    pub async fn count_inflight_jobs(&self) -> Result<u32, IngestionJobStoreError> {
+        let expired_before = OffsetDateTime::now_utc()
+            .checked_sub(KNOWLEDGE_UPLOAD_SESSION_TTL)
+            .ok_or_else(|| {
+                IngestionJobStoreError::Internal(
+                    "upload session recovery cutoff is outside the supported timestamp range"
+                        .to_string(),
+                )
+            })?;
+        self.fail_expired_upload_sessions(expired_before, STALE_UPLOAD_SESSION_RECOVERY_BATCH_SIZE)
+            .await?;
+
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let expired_before = expired_before
+            .format(&Rfc3339)
+            .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+        let expired_before_expr = self.timestamp_dialect.sql_timestamp_expr("$6");
+        let query = format!(
+            r#"
+            SELECT COUNT(*)
+            FROM kb_ingestion_job
+            WHERE tenant_id = $1
+              AND status = $2
+              AND state IN ($3, $4)
+              AND NOT (
+                  job_type = $5
+                  AND created_at <= {expired_before_expr}
+              )
+            "#,
+        );
+        let row: (i64,) = sqlx::query_as(&query)
+            .bind(tenant_id)
+            .bind(ACTIVE_STATUS)
+            .bind(ingestion_state_code(IngestionJobState::Queued))
+            .bind(ingestion_state_code(IngestionJobState::Running))
+            .bind("upload_session")
+            .bind(expired_before)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
         u32::try_from(row.0.max(0))
             .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))
     }
@@ -1643,11 +2076,26 @@ impl SqliteIngestionJobStore {
         &self,
         record: &CreateIngestionJobRecord,
     ) -> Result<AnyRow, IngestionJobStoreError> {
+        let mut connection = self.pool.acquire().await.map_err(job_sqlx_error)?;
+        self.find_job_by_idempotency_on(record, &mut connection)
+            .await?
+            .ok_or_else(|| {
+                IngestionJobStoreError::Internal(
+                    "ingestion idempotency key did not resolve to an active job".to_string(),
+                )
+            })
+    }
+
+    async fn find_job_by_idempotency_on(
+        &self,
+        record: &CreateIngestionJobRecord,
+        connection: &mut AnyConnection,
+    ) -> Result<Option<AnyRow>, IngestionJobStoreError> {
         let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
         let space_id = job_to_i64("space_id", record.space_id)?;
         sqlx::query(
             r#"
-            SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             FROM kb_ingestion_job
             WHERE tenant_id = $1 AND space_id = $2 AND idempotency_key = $3 AND status = $4
             LIMIT 1
@@ -1657,7 +2105,7 @@ impl SqliteIngestionJobStore {
         .bind(space_id)
         .bind(&record.idempotency_key)
         .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
+        .fetch_optional(connection)
         .await
         .map_err(job_sqlx_error)
     }
@@ -1666,12 +2114,24 @@ impl SqliteIngestionJobStore {
         &self,
         record: CreateIngestionJobRecord,
     ) -> Result<Option<IngestionJob>, IngestionJobStoreError> {
+        let mut connection = self.pool.acquire().await.map_err(job_sqlx_error)?;
+        self.insert_job_if_absent_on(record, &mut connection).await
+    }
+
+    async fn insert_job_if_absent_on(
+        &self,
+        record: CreateIngestionJobRecord,
+        connection: &mut AnyConnection,
+    ) -> Result<Option<IngestionJob>, IngestionJobStoreError> {
         let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
         let space_id = job_to_i64("space_id", record.space_id)?;
         let id = next_i64_id(&self.id_generator).map_err(job_id_error)?;
         let now = job_now()?;
         let metadata = job_metadata_to_json(record.idempotency_fingerprint_sha256_hex.as_deref())?;
-        let row = sqlx::query(
+        let metadata_expr = self.timestamp_dialect.sql_json_expr("$8");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$10");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$11");
+        let query = format!(
             r#"
             INSERT INTO kb_ingestion_job (
                 id,
@@ -1689,26 +2149,27 @@ impl SqliteIngestionJobStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, {metadata_expr}, $9, {created_at_expr}, {updated_at_expr}, $12)
             ON CONFLICT(tenant_id, space_id, idempotency_key) DO NOTHING
-            RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(record.source_type)
-        .bind(ingestion_state_code(IngestionJobState::Queued))
-        .bind(record.idempotency_key)
-        .bind(metadata)
-        .bind(ACTIVE_STATUS)
-        .bind(now.clone())
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(job_sqlx_error)?;
+        );
+        let row = sqlx::query(&query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(record.source_type)
+            .bind(ingestion_state_code(IngestionJobState::Queued))
+            .bind(record.idempotency_key)
+            .bind(metadata)
+            .bind(ACTIVE_STATUS)
+            .bind(now.clone())
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .fetch_optional(connection)
+            .await
+            .map_err(job_sqlx_error)?;
 
         row.map(|row| job_from_row(&row)).transpose()
     }
@@ -1723,6 +2184,30 @@ fn job_from_row(row: &AnyRow) -> Result<IngestionJob, IngestionJobStoreError> {
         idempotency_key: row.try_get("idempotency_key").map_err(job_sqlx_error)?,
         state: ingestion_state_from_code(state_code)?,
         error_message: row.try_get("error_detail").map_err(job_sqlx_error)?,
+    })
+}
+
+fn job_lifecycle_from_row(row: &AnyRow) -> Result<IngestionJobLifecycle, IngestionJobStoreError> {
+    let created_at: String = row.try_get("created_at").map_err(job_sqlx_error)?;
+    let updated_at: String = row.try_get("updated_at").map_err(job_sqlx_error)?;
+    Ok(IngestionJobLifecycle {
+        job: job_from_row(row)?,
+        created_at: parse_job_timestamp("created_at", &created_at)?,
+        updated_at: parse_job_timestamp("updated_at", &updated_at)?,
+    })
+}
+
+fn parse_job_timestamp(field: &str, value: &str) -> Result<OffsetDateTime, IngestionJobStoreError> {
+    let value = value.trim();
+    if let Ok(timestamp) = OffsetDateTime::parse(value, &Rfc3339) {
+        return Ok(timestamp);
+    }
+
+    let normalized = format!("{}Z", value.replacen(' ', "T", 1));
+    OffsetDateTime::parse(&normalized, &Rfc3339).map_err(|error| {
+        IngestionJobStoreError::Internal(format!(
+            "invalid ingestion job {field} timestamp {value:?}: {error}"
+        ))
     })
 }
 

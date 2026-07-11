@@ -8,6 +8,7 @@ use crate::imports::KnowledgeDocumentMarkdownReader;
 use crate::ports::commerce_store::{
     deployment_preview, deployment_result, validate_site_deployment_request,
     CreateSiteDeploymentRecord, KnowledgeSiteDeploymentStore, KnowledgeSiteDeploymentStoreError,
+    KnowledgeSitePublisher, KnowledgeSitePublisherError, PublishKnowledgeSiteRequest,
 };
 use crate::ports::knowledge_document_store::KnowledgeDocumentStore;
 use crate::ports::knowledge_drive_storage::{
@@ -29,6 +30,10 @@ pub enum KnowledgeSiteDeploymentServiceError {
     DocumentContent(String),
     #[error("drive storage failed: {0}")]
     Storage(String),
+    #[error("site deployment publisher is not configured")]
+    PublisherUnavailable,
+    #[error(transparent)]
+    Publisher(#[from] KnowledgeSitePublisherError),
 }
 
 pub struct KnowledgeSiteDeploymentService<'a> {
@@ -36,6 +41,7 @@ pub struct KnowledgeSiteDeploymentService<'a> {
     markdown: &'a dyn KnowledgeDocumentMarkdownReader,
     deployments: &'a dyn KnowledgeSiteDeploymentStore,
     drive: &'a dyn KnowledgeDriveStorage,
+    publisher: Option<&'a dyn KnowledgeSitePublisher>,
 }
 
 impl<'a> KnowledgeSiteDeploymentService<'a> {
@@ -44,12 +50,14 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
         markdown: &'a dyn KnowledgeDocumentMarkdownReader,
         deployments: &'a dyn KnowledgeSiteDeploymentStore,
         drive: &'a dyn KnowledgeDriveStorage,
+        publisher: Option<&'a dyn KnowledgeSitePublisher>,
     ) -> Self {
         Self {
             documents,
             markdown,
             deployments,
             drive,
+            publisher,
         }
     }
 
@@ -60,6 +68,9 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
         drive_space_id: Option<&str>,
     ) -> Result<KnowledgeSiteDeploymentResult, KnowledgeSiteDeploymentServiceError> {
         validate_site_deployment_request(&request)?;
+        let publisher = self
+            .publisher
+            .ok_or(KnowledgeSiteDeploymentServiceError::PublisherUnavailable)?;
 
         let documents = self
             .documents
@@ -99,12 +110,6 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
         let html =
             render_static_site_html(site_name, request.site_logo_data_url.as_deref(), &sections);
         let slug = build_site_slug(site_name, request.space_id);
-        let deployed_url = request
-            .custom_domain
-            .as_deref()
-            .filter(|value| !is_blank(Some(value)))
-            .map(|domain| format!("https://{domain}"))
-            .unwrap_or_else(|| format!("https://{slug}.sites.sdkwork.com"));
         let preview_object_key = format!(
             "site-deployments/{}/{}-{}.html",
             request.space_id,
@@ -127,6 +132,18 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
             .await
             .map_err(|error| KnowledgeSiteDeploymentServiceError::Storage(error.to_string()))?;
 
+        let published = publisher
+            .publish_site(PublishKnowledgeSiteRequest {
+                tenant_id,
+                space_id: request.space_id,
+                platform: request.platform.trim().to_string(),
+                site_name: site_name.to_string(),
+                custom_domain: request.custom_domain.clone(),
+                preview_object_key: preview_object_key.clone(),
+            })
+            .await?;
+        validate_published_url(&published.public_url)?;
+
         let record = self
             .deployments
             .create_deployment(CreateSiteDeploymentRecord {
@@ -136,7 +153,7 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
                 site_name: Some(site_name.to_string()),
                 custom_domain: request.custom_domain.clone(),
                 site_logo_data_url: request.site_logo_data_url.clone(),
-                deployed_url: deployed_url.clone(),
+                deployed_url: published.public_url,
                 preview_object_key,
             })
             .await?;
@@ -172,6 +189,21 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
             .map_err(|error| KnowledgeSiteDeploymentServiceError::Storage(error.to_string()))?;
         Ok(deployment_preview(html, record.id))
     }
+}
+
+fn validate_published_url(url: &str) -> Result<(), KnowledgeSiteDeploymentServiceError> {
+    let authority = url.trim().strip_prefix("https://").unwrap_or_default();
+    if authority.is_empty()
+        || authority.starts_with('/')
+        || authority.chars().any(char::is_whitespace)
+    {
+        return Err(KnowledgeSiteDeploymentServiceError::Publisher(
+            KnowledgeSitePublisherError::InvalidRequest(
+                "publisher must return an absolute HTTPS public URL".to_string(),
+            ),
+        ));
+    }
+    Ok(())
 }
 
 fn build_site_slug(site_name: &str, space_id: u64) -> String {

@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use serde_json::Value;
 use sqlx::{AnyPool, Row};
 use std::sync::Arc;
@@ -5,7 +7,7 @@ use uuid::Uuid;
 
 use sdkwork_utils_rust::is_blank;
 
-use crate::db::sql_timestamp::utc_sql_timestamp_text;
+use crate::db::sql_timestamp::{utc_sql_timestamp_text, SqlTimestampDialect};
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const INITIAL_VERSION: i64 = 0;
@@ -36,8 +38,12 @@ pub enum KnowledgeAuditEventStoreError {
     IdGeneration(String),
 }
 
+#[async_trait]
 pub trait KnowledgeAuditEventStore: Send + Sync {
-    fn record(&self, event: KnowledgeAuditEventRecord);
+    async fn record(
+        &self,
+        event: KnowledgeAuditEventRecord,
+    ) -> Result<(), KnowledgeAuditEventStoreError>;
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +51,7 @@ pub struct SqliteKnowledgeAuditEventStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeAuditEventStore {
@@ -61,7 +68,13 @@ impl SqliteKnowledgeAuditEventStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 
     pub async fn append_event(
@@ -96,35 +109,38 @@ impl SqliteKnowledgeAuditEventStore {
                 KnowledgeAuditEventStoreError::InvalidRequest("resource_id".to_string())
             })?;
         let payload = event.payload.as_ref().map(ToString::to_string);
-        let now = utc_sql_timestamp_text()
-            .map_err(|error| KnowledgeAuditEventStoreError::InvalidRequest(error))?;
+        let now =
+            utc_sql_timestamp_text().map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
 
-        sqlx::query(
+        let payload_expr = self.timestamp_dialect.sql_json_expr("$12");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let query = format!(
             r#"
             INSERT INTO kb_audit_event (
                 id, uuid, tenant_id, event_type, actor_type, actor_id,
                 resource_type, resource_id, result, request_id, trace_id,
                 payload, created_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CAST($12 AS JSONB), CAST($13 AS TIMESTAMP), $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {payload_expr}, {created_at_expr}, $14)
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(event.event_type)
-        .bind(event.actor_type)
-        .bind(event.actor_id)
-        .bind(event.resource_type)
-        .bind(resource_id)
-        .bind(event.result)
-        .bind(event.request_id)
-        .bind(event.trace_id)
-        .bind(payload)
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .execute(&self.pool)
-        .await?;
+        );
+        sqlx::query(&query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(event.event_type)
+            .bind(event.actor_type)
+            .bind(event.actor_id)
+            .bind(event.resource_type)
+            .bind(resource_id)
+            .bind(event.result)
+            .bind(event.request_id)
+            .bind(event.trace_id)
+            .bind(payload)
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }
@@ -145,7 +161,7 @@ impl SqliteKnowledgeAuditEventStore {
         let rows = sqlx::query(
             r#"
             SELECT id, uuid, event_type, actor_type, actor_id, resource_type, resource_id,
-                   result, request_id, trace_id, created_at
+                   result, request_id, trace_id, CAST(created_at AS TEXT) AS created_at
             FROM kb_audit_event
             WHERE tenant_id = $1 AND actor_id = $2
             ORDER BY created_at ASC
@@ -162,10 +178,10 @@ impl SqliteKnowledgeAuditEventStore {
             .map(|row| {
                 let id = row
                     .try_get::<i64, _>("id")
-                    .map_err(|error| KnowledgeAuditEventStoreError::Database(error))?;
+                    .map_err(KnowledgeAuditEventStoreError::Database)?;
                 let created_at = row
                     .try_get::<String, _>("created_at")
-                    .map_err(|error| KnowledgeAuditEventStoreError::Database(error))?;
+                    .map_err(KnowledgeAuditEventStoreError::Database)?;
                 Ok(KnowledgeAuditEventRecord {
                     id: Some(id),
                     uuid: row.try_get("uuid").ok(),
@@ -223,16 +239,13 @@ impl SqliteKnowledgeAuditEventStore {
     }
 }
 
+#[async_trait]
 impl KnowledgeAuditEventStore for SqliteKnowledgeAuditEventStore {
-    fn record(&self, event: KnowledgeAuditEventRecord) {
-        let store = self.clone();
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            handle.spawn(async move {
-                if let Err(error) = store.append_event(event).await {
-                    tracing::warn!(?error, "failed to persist knowledge audit event");
-                }
-            });
-        }
+    async fn record(
+        &self,
+        event: KnowledgeAuditEventRecord,
+    ) -> Result<(), KnowledgeAuditEventStoreError> {
+        self.append_event(event).await
     }
 }
 
@@ -340,5 +353,34 @@ mod tests {
         .expect("row");
         assert_eq!(row.0, "gdpr-redacted");
         assert_eq!(row.1, "system");
+    }
+
+    #[tokio::test]
+    async fn record_returns_database_failure_instead_of_detaching_write() {
+        let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+            .await
+            .expect("sqlite pool");
+        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001);
+        pool.close().await;
+
+        let error = store
+            .record(KnowledgeAuditEventRecord {
+                id: None,
+                uuid: None,
+                event_type: "knowledge.space.member_granted".to_string(),
+                actor_type: "user".to_string(),
+                actor_id: "42".to_string(),
+                resource_type: "space".to_string(),
+                resource_id: Some(7),
+                result: "success".to_string(),
+                request_id: None,
+                trace_id: Some("trace-1".to_string()),
+                payload: None,
+                created_at: None,
+            })
+            .await
+            .expect_err("closed pool must fail synchronously");
+
+        assert!(matches!(error, KnowledgeAuditEventStoreError::Database(_)));
     }
 }

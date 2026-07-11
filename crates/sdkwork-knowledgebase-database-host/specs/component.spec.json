@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-database-host",
+    "displayName": "SDKWork Knowledgebase Database Host",
+    "version": "0.1.0",
+    "type": "rust-crate",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-database-host",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "surface": "database-host",
+    "languages": [
+      "rust"
+    ],
+    "generated": false,
+    "private": false,
+    "manifests": [
+      "Cargo.toml"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "COMPONENT_SPEC.md",
+      "path": "../../../sdkwork-specs/COMPONENT_SPEC.md",
+      "purpose": "Component-local contract and discovery rules."
+    },
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored source structure and generated code boundaries."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../../../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Canonical package and component naming rules."
+    },
+    {
+      "file": "RUST_CODE_SPEC.md",
+      "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md",
+      "purpose": "Rust crate boundary rules."
+    },
+    {
+      "file": "DATABASE_SPEC.md",
+      "path": "../../../sdkwork-specs/DATABASE_SPEC.md",
+      "purpose": "Database lifecycle, schema, and production data rules."
+    },
+    {
+      "file": "DATABASE_FRAMEWORK_SPEC.md",
+      "path": "../../../sdkwork-specs/DATABASE_FRAMEWORK_SPEC.md",
+      "purpose": "Database framework lifecycle bootstrap rules."
+    },
+    {
+      "file": "CONFIG_SPEC.md",
+      "path": "../../../sdkwork-specs/CONFIG_SPEC.md",
+      "purpose": "Environment and typed config rules."
+    },
+    {
+      "file": "TEST_SPEC.md",
+      "path": "../../../sdkwork-specs/TEST_SPEC.md",
+      "purpose": "Verification requirements."
+    }
+  ],
+  "contracts": {
+    "layerRole": "runtime-service-host",
+    "publicExports": [
+      "."
+    ],
+    "runtimeEntrypoints": [
+      "bootstrap_knowledgebase_database",
+      "bootstrap_knowledgebase_database_from_env",
+      "KnowledgebaseDatabaseHost"
+    ],
+    "providedPorts": [
+      {
+        "name": "knowledgebaseDatabaseHost",
+        "export": "."
+      }
+    ],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": [],
+    "configKeys": [
+      "SDKWORK_KNOWLEDGEBASE_APP_ROOT",
+      "SDKWORK_KNOWLEDGEBASE_DATABASE_URL"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "cargo test -p sdkwork-knowledgebase-database-host"
+    ]
+  }
+}

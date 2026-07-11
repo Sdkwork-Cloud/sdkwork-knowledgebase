@@ -52,6 +52,11 @@ Initial API surface for the SDKWork Knowledgebase App API.
 - `POST /app/v3/api/knowledge/okf/lint_runs` — `okf.lintRuns.create`
 
 **Browser / Navigation**
+Browser list response data is `KnowledgeBrowserListData`: standard `items` + `pageInfo`, plus `spaceId`, `driveSpaceId`, resolved `parentId`, `view`, and `pageSize`.
+For OKF spaces, `view=files` resolves to `sources/raw` and lists original raw source files; it must not expose the generated `okf/` bundle tree.
+For OKF spaces, `view=okf_bundle` resolves to `okf`, and `view=outputs` resolves to `output`.
+Clients creating root folders or uploading root files use response `data.parentId` as the Drive parent node id instead of Drive root or a hard-coded logical path.
+
 - `GET /app/v3/api/knowledge/spaces/{spaceId}/browser?view=files` — `spaces.browser.list`
 
 **Retrieval & RAG**

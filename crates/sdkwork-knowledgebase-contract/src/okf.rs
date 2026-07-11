@@ -73,6 +73,7 @@ pub struct OkfConceptSummaryList {
 pub struct ListOkfConceptsQuery {
     pub space_id: u64,
     pub cursor: Option<String>,
+    #[serde(rename = "page_size")]
     pub page_size: Option<u32>,
 }
 

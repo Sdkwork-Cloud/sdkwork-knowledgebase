@@ -1,7 +1,7 @@
 import { customApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { IngestionJob, KnowledgeBrowserNode, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeIngestRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, PageInfo } from '../types';
+import type { IngestionJob, KnowledgeBrowserListData, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeIngestRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, PageInfo } from '../types';
 
 
 export interface KnowledgeSpacesBrowserListParams {
@@ -19,15 +19,15 @@ export class KnowledgeSpacesBrowserApi {
   }
 
 
-/** List browser view of a knowledge space */
-  async list(spaceId: string, params: KnowledgeSpacesBrowserListParams): Promise<Record<string, unknown>> {
+/** List knowledge browser view */
+  async list(spaceId: string, params: KnowledgeSpacesBrowserListParams): Promise<KnowledgeBrowserListData> {
     const query = buildQueryString([
       { name: 'view', value: params.view, style: 'form', explode: true, allowReserved: false },
       { name: 'parentId', value: params.parentId, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<Record<string, unknown>>(appendQueryString(customApiPath(`/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/browser`), query));
+    return this.client.get<KnowledgeBrowserListData>(appendQueryString(customApiPath(`/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/browser`), query));
   }
 }
 

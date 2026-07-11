@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
-use sdkwork_knowledgebase_contract::browser::ListKnowledgeBrowserRequest;
+use sdkwork_knowledgebase_contract::browser::{
+    KnowledgeBrowserListData, ListKnowledgeBrowserRequest,
+};
 use sdkwork_routes_knowledgebase_app_api::{
     build_router_with_browser, pagination::browser_list_page_data, ApiResult,
     KnowledgeAppRequestContext, KnowledgeBrowserApi,
@@ -50,15 +52,27 @@ fn app_openapi_uses_collection_schemas_for_okf_list_operations() {
     ))
     .unwrap();
 
-    assert_list_response_envelope(
+    assert_named_list_response_envelope(
         &spec,
         "okf.concepts.list",
+        "#/components/schemas/OkfConceptSummaryList",
         "#/components/schemas/OkfConceptSummary",
     );
-    assert_list_response_envelope(
+    assert_cursor_list_parameters(
+        &spec,
+        "okf.concepts.list",
+        &["spaceId", "cursor", "page_size"],
+    );
+    assert_named_list_response_envelope(
         &spec,
         "okf.concepts.revisions.list",
+        "#/components/schemas/KnowledgeOkfConceptRevisionList",
         "#/components/schemas/KnowledgeOkfConceptRevision",
+    );
+    assert_cursor_list_parameters(
+        &spec,
+        "okf.concepts.revisions.list",
+        &["conceptId", "cursor", "page_size"],
     );
 }
 
@@ -85,6 +99,81 @@ fn app_openapi_exposes_drive_bound_contract_fields() {
             "driveStorageProviderId",
             "logicalPath",
         ],
+    );
+}
+
+#[test]
+fn app_openapi_exposes_browser_list_data_context_contract() {
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json"
+    ))
+    .unwrap();
+
+    let operation = &spec["paths"]["/app/v3/api/knowledge/spaces/{spaceId}/browser"]["get"];
+    assert!(
+        operation["description"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("sources/raw"),
+        "browser operation must document OKF raw source root"
+    );
+    let parent_parameter = operation["parameters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|parameter| parameter["name"] == "parentId")
+        .expect("browser parentId query parameter");
+    assert!(
+        parent_parameter["description"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("data.parentId"),
+        "parentId parameter must tell clients to use response data.parentId"
+    );
+
+    let response_schema = operation_response_schema(&spec, "spaces.browser.list");
+    assert_eq!(
+        response_schema["allOf"][1]["properties"]["data"]["$ref"],
+        "#/components/schemas/KnowledgeBrowserListData"
+    );
+    assert!(spec["components"]["schemas"]["KnowledgeBrowserPage"].is_null());
+    assert_schema_properties(
+        &spec,
+        "KnowledgeBrowserListData",
+        &[
+            "spaceId",
+            "driveSpaceId",
+            "parentId",
+            "view",
+            "pageSize",
+            "items",
+            "pageInfo",
+        ],
+    );
+
+    let data_schema = &spec["components"]["schemas"]["KnowledgeBrowserListData"];
+    assert_eq!(
+        data_schema["properties"]["items"]["items"]["$ref"],
+        "#/components/schemas/KnowledgeBrowserNode"
+    );
+    assert_eq!(
+        data_schema["properties"]["pageInfo"]["$ref"],
+        "#/components/schemas/PageInfo"
+    );
+    assert!(
+        data_schema["properties"]["parentId"]["description"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("sources/raw"),
+        "browser list data parentId must document OKF files root"
+    );
+
+    let knowledge_mode_enum = spec["components"]["schemas"]["KnowledgeAgentKnowledgeMode"]["enum"]
+        .as_array()
+        .expect("KnowledgeAgentKnowledgeMode enum");
+    assert!(
+        knowledge_mode_enum.iter().any(|value| value == "external"),
+        "KnowledgeAgentKnowledgeMode must expose external mode"
     );
 }
 
@@ -351,14 +440,62 @@ fn assert_schema_properties(spec: &Value, schema_name: &str, expected: &[&str]) 
 }
 
 fn operation_response_schema<'a>(spec: &'a Value, operation_id: &str) -> &'a Value {
+    &operation_by_id(spec, operation_id)["responses"]["200"]["content"]["application/json"]
+        ["schema"]
+}
+
+fn operation_by_id<'a>(spec: &'a Value, operation_id: &str) -> &'a Value {
     for methods in spec["paths"].as_object().unwrap().values() {
         for operation in methods.as_object().unwrap().values() {
             if operation["operationId"] == operation_id {
-                return &operation["responses"]["200"]["content"]["application/json"]["schema"];
+                return operation;
             }
         }
     }
     panic!("missing operationId: {operation_id}");
+}
+
+fn assert_named_list_response_envelope(
+    spec: &Value,
+    operation_id: &str,
+    data_schema_ref: &str,
+    item_schema_ref: &str,
+) {
+    let schema = operation_response_schema(spec, operation_id);
+    let all_of = schema["allOf"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{operation_id} must use SdkWorkApiResponse allOf envelope"));
+    assert_eq!(
+        all_of[0]["$ref"], "#/components/schemas/SdkWorkApiResponse",
+        "{operation_id} must extend SdkWorkApiResponse"
+    );
+
+    let data = &all_of[1]["properties"]["data"];
+    assert_eq!(
+        data["$ref"], data_schema_ref,
+        "{operation_id} must reference a named list data schema"
+    );
+    let data_schema_name = data_schema_ref
+        .strip_prefix("#/components/schemas/")
+        .expect("component schema ref");
+    let data_schema = &spec["components"]["schemas"][data_schema_name];
+    assert_eq!(
+        data_schema["additionalProperties"], false,
+        "{data_schema_name} must reject unknown response fields"
+    );
+    assert_eq!(
+        data_schema["properties"]["items"]["items"]["$ref"], item_schema_ref,
+        "{operation_id} must list {item_schema_ref} in data.items"
+    );
+    assert_eq!(
+        data_schema["properties"]["pageInfo"]["$ref"], "#/components/schemas/PageInfo",
+        "{operation_id} must expose data.pageInfo"
+    );
+    let required = data_schema["required"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{data_schema_name} must define required fields"));
+    assert!(required.iter().any(|field| field == "items"));
+    assert!(required.iter().any(|field| field == "pageInfo"));
 }
 
 fn assert_list_response_envelope(spec: &Value, operation_id: &str, item_schema_ref: &str) {
@@ -380,6 +517,33 @@ fn assert_list_response_envelope(spec: &Value, operation_id: &str, item_schema_r
         data["properties"]["pageInfo"]["$ref"], "#/components/schemas/PageInfo",
         "{operation_id} must expose data.pageInfo"
     );
+}
+
+fn assert_cursor_list_parameters(spec: &Value, operation_id: &str, expected_names: &[&str]) {
+    let operation = operation_by_id(spec, operation_id);
+    let parameters = operation["parameters"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{operation_id} must define parameters"));
+    let names = parameters
+        .iter()
+        .map(|parameter| parameter["name"].as_str().expect("parameter name"))
+        .collect::<Vec<_>>();
+    assert_eq!(names, expected_names, "{operation_id} parameter drift");
+
+    let cursor = parameters
+        .iter()
+        .find(|parameter| parameter["name"] == "cursor")
+        .expect("cursor parameter");
+    assert_eq!(cursor["schema"]["maxLength"], 512);
+
+    let page_size = parameters
+        .iter()
+        .find(|parameter| parameter["name"] == "page_size")
+        .expect("page_size parameter");
+    assert_eq!(page_size["schema"]["format"], "int32");
+    assert_eq!(page_size["schema"]["minimum"], 1);
+    assert_eq!(page_size["schema"]["maximum"], 200);
+    assert_eq!(page_size["schema"]["default"], 20);
 }
 
 fn method_from_openapi(method_name: &str) -> Method {
@@ -480,10 +644,12 @@ impl KnowledgeBrowserApi for EmptyBrowserApi {
         &self,
         _context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<
-        sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>,
-    > {
+    ) -> ApiResult<KnowledgeBrowserListData> {
         Ok(browser_list_page_data(
+            request.space_id,
+            "drv-kb-001".to_string(),
+            request.parent_id.clone(),
+            request.view,
             vec![],
             None,
             request.page_size.unwrap_or(1),

@@ -12,6 +12,7 @@ import {
 import {
   findKnowledgeBrowserNodeByDocumentId,
   getLoadedKnowledgeBrowserNodes,
+  listKnowledgeBrowserNodesPage,
 } from './knowledgeBrowserListService';
 import { resolveDriveNodeId } from './knowledgeDriveDocumentMetadataService';
 
@@ -21,6 +22,10 @@ function spaceIdFromKbId(kbId: string): string {
 
 function requireSdkClient() {
   return requireKnowledgebaseAppSdkHttpClient();
+}
+
+function normalizeKnowledgeMode(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : 'okf_bundle';
 }
 
 function parseOkfDocumentReference(reference: string): { conceptRowId: number } | null {
@@ -172,7 +177,7 @@ export async function resolveKnowledgeBrowserParentDriveNodeId(
   parentReference: string | null | undefined,
 ): Promise<string | undefined> {
   if (isBlank(parentReference)) {
-    return undefined;
+    return resolveKnowledgeBrowserFilesRootDriveNodeId(kbId);
   }
 
   const trimmed = trim(parentReference)!;
@@ -201,6 +206,28 @@ export async function resolveKnowledgeBrowserParentDriveNodeId(
   }
 
   return driveNodeId;
+}
+
+export async function resolveKnowledgeBrowserFilesRootDriveNodeId(
+  kbId: string,
+): Promise<string | undefined> {
+  const spaceId = spaceIdFromKbId(kbId);
+  const page = await listKnowledgeBrowserNodesPage(spaceId, null, {
+    fresh: true,
+    pageSize: 1,
+  });
+  if (page.parentId) {
+    return page.parentId;
+  }
+
+  const space = await requireSdkClient().knowledge.spaces.retrieve(spaceId);
+  if (normalizeKnowledgeMode(space.knowledgeMode) === 'okf_bundle') {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.PARENT_DRIVE_NODE_MISSING, {
+      cause: 'knowledge browser files root',
+    });
+  }
+
+  return undefined;
 }
 
 export async function resolveKnowledgeBrowserParentNodeId(

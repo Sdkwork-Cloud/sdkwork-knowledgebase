@@ -282,7 +282,7 @@ pub(crate) async fn list_space_members_with_context(
     let okf_initializer = OkfBundleInitializerService::new(runtime.drive_storage())
         .with_registry(&file_registry)
         .with_drive_workspace(runtime.drive_workspace());
-    let normalized_page_size = crate::pagination::normalize_page_size(page_size);
+    let normalized_page_size = crate::pagination::normalize_api_page_size(page_size)?;
     let members = space_service(runtime, &okf_initializer)
         .list_space_members(
             space_id,
@@ -365,7 +365,9 @@ pub(crate) async fn grant_space_member_with_context(
         member_subject_type_label(request.subject_type),
         request.subject_id.trim(),
         member_role_label(request.role),
-    );
+    )
+    .await
+    .map_err(ApiError::from)?;
     Ok(())
 }
 
@@ -404,7 +406,9 @@ pub(crate) async fn revoke_space_member_with_context(
         context.actor_id.unwrap_or(0),
         member_subject_type_label(subject_type),
         subject_id.trim(),
-    );
+    )
+    .await
+    .map_err(ApiError::from)?;
     Ok(())
 }
 

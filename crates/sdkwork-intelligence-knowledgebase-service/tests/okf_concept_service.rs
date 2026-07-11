@@ -48,7 +48,10 @@ use sdkwork_knowledgebase_contract::okf::{
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::Mutex;
-use support::local_okf_bundle::{discover_bundle_files_from_directory, stackoverflow_bundle_root};
+use support::{
+    local_okf_bundle::{discover_bundle_files_from_directory, stackoverflow_bundle_root},
+    okf_pagination::validated_okf_test_page_size,
+};
 
 #[tokio::test]
 async fn okf_concept_service_publishes_concept_and_rebuilds_standard_files() {
@@ -1097,6 +1100,87 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
             summaries.truncate(limit.max(1) as usize);
         }
         Ok(summaries)
+    }
+
+    async fn list_concept_summaries_page(
+        &self,
+        space_id: u64,
+        cursor: Option<String>,
+        page_size: u32,
+    ) -> Result<(Vec<OkfConceptSummary>, Option<String>, bool), KnowledgeOkfConceptStoreError> {
+        let page_size = validated_okf_test_page_size(page_size)?;
+        let fetch_size = page_size + 1;
+        let concepts = self.concepts.lock().unwrap();
+        let mut summaries = Vec::with_capacity(fetch_size);
+
+        for concept in concepts.iter().filter(|concept| {
+            concept.space_id == space_id
+                && concept.publish_state == OkfConceptPublishState::Published
+                && cursor
+                    .as_ref()
+                    .is_none_or(|cursor| concept.concept_id.as_str() > cursor.as_str())
+        }) {
+            let summary = OkfConceptSummary {
+                title: concept.title.clone(),
+                concept_id: concept.concept_id.clone(),
+                concept_type: concept.concept_type.clone(),
+                logical_path: concept.logical_path.clone(),
+                bundle_relative_path: concept.bundle_relative_path.clone(),
+                description: concept.description.clone(),
+                source_count: concept.source_count,
+                updated_at: concept.updated_at.clone(),
+                tags: concept.tags.clone(),
+            };
+            let index = summaries
+                .partition_point(|item: &OkfConceptSummary| item.concept_id <= summary.concept_id);
+            summaries.insert(index, summary);
+            if summaries.len() > fetch_size {
+                summaries.pop();
+            }
+        }
+
+        let has_more = summaries.len() > page_size;
+        summaries.truncate(page_size);
+        let next_cursor = if has_more {
+            summaries.last().map(|item| item.concept_id.clone())
+        } else {
+            None
+        };
+        Ok((summaries, next_cursor, has_more))
+    }
+
+    async fn list_concept_revisions_page(
+        &self,
+        concept_row_id: u64,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeOkfConceptRevision>, Option<u64>, bool), KnowledgeOkfConceptStoreError>
+    {
+        let page_size = validated_okf_test_page_size(page_size)?;
+        let fetch_size = page_size + 1;
+        let mut revisions = Vec::with_capacity(fetch_size);
+
+        for revision in self.revisions.lock().unwrap().iter().filter(|revision| {
+            revision.concept_row_id == concept_row_id
+                && cursor.is_none_or(|cursor| revision.revision_no > cursor)
+        }) {
+            let index = revisions.partition_point(|item: &KnowledgeOkfConceptRevision| {
+                item.revision_no <= revision.revision_no
+            });
+            revisions.insert(index, revision.clone());
+            if revisions.len() > fetch_size {
+                revisions.pop();
+            }
+        }
+
+        let has_more = revisions.len() > page_size;
+        revisions.truncate(page_size);
+        let next_cursor = if has_more {
+            revisions.last().map(|revision| revision.revision_no)
+        } else {
+            None
+        };
+        Ok((revisions, next_cursor, has_more))
     }
 
     async fn append_log_entry(

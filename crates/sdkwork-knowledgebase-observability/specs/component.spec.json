@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-observability",
+    "displayName": "SDKWork Knowledgebase Observability",
+    "version": "0.1.0",
+    "type": "rust-crate",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-observability",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "surface": "observability",
+    "languages": [
+      "rust"
+    ],
+    "generated": false,
+    "private": false,
+    "manifests": [
+      "Cargo.toml"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "COMPONENT_SPEC.md",
+      "path": "../../../sdkwork-specs/COMPONENT_SPEC.md",
+      "purpose": "Component-local contract and discovery rules."
+    },
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored source structure and generated code boundaries."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../../../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Canonical package and component naming rules."
+    },
+    {
+      "file": "RUST_CODE_SPEC.md",
+      "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md",
+      "purpose": "Rust crate boundary rules."
+    },
+    {
+      "file": "OBSERVABILITY_SPEC.md",
+      "path": "../../../sdkwork-specs/OBSERVABILITY_SPEC.md",
+      "purpose": "Metrics, tracing, and audit observability rules."
+    },
+    {
+      "file": "SECURITY_SPEC.md",
+      "path": "../../../sdkwork-specs/SECURITY_SPEC.md",
+      "purpose": "Secure audit and telemetry behavior."
+    },
+    {
+      "file": "TEST_SPEC.md",
+      "path": "../../../sdkwork-specs/TEST_SPEC.md",
+      "purpose": "Verification requirements."
+    }
+  ],
+  "contracts": {
+    "layerRole": "backend-provider",
+    "publicExports": [
+      "."
+    ],
+    "runtimeEntrypoints": [
+      "wrap_router_with_metrics",
+      "metrics_route",
+      "metrics_handler",
+      "init_tracing_from_env"
+    ],
+    "providedPorts": [
+      {
+        "name": "knowledgebaseMetrics",
+        "export": "."
+      },
+      {
+        "name": "knowledgebaseAudit",
+        "export": "."
+      }
+    ],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": [
+      "AuditPersistenceEvent"
+    ],
+    "configKeys": [
+      "SDKWORK_KNOWLEDGEBASE_ENVIRONMENT",
+      "SDKWORK_KNOWLEDGEBASE_LOG_FORMAT",
+      "OTEL_EXPORTER_OTLP_ENDPOINT",
+      "OTEL_SERVICE_NAME"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "cargo test -p sdkwork-knowledgebase-observability",
+      "pnpm test:observability"
+    ]
+  }
+}

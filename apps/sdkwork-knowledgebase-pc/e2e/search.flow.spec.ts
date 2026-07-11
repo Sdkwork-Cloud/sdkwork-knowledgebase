@@ -26,6 +26,8 @@ test.describe('Knowledgebase PC search flow', () => {
     await page.getByTestId('search-sources-toggle').click();
     await page.getByTestId('search-source-row-doc').click();
 
-    await expect(page.getByText(E2E_SOURCE_DOCUMENT.title)).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.locator(`[data-tab-id="${E2E_SOURCE_DOCUMENT.numericId}"]`),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

@@ -2,12 +2,11 @@ use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ingest::{
     ApiMarkdownIngestPipeline, ExistingMarkdownIngestJobParams, KnowledgeUploadSessionService,
 };
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::IngestionJobStore;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
-use sdkwork_knowledgebase_contract::ingest::{IngestionJob, IngestionJobState};
+use sdkwork_knowledgebase_contract::ingest::IngestionJob;
 use sdkwork_knowledgebase_contract::upload::{
     CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
-    KnowledgeUploadSession, KnowledgeUploadSessionStatus,
+    KnowledgeUploadSession,
 };
 use sdkwork_utils_rust::is_blank;
 
@@ -27,35 +26,13 @@ impl HostedUploadSessionService {
     }
 
     async fn session_from_job_id(&self, session_id: u64) -> ApiResult<KnowledgeUploadSession> {
-        let job = self
-            .runtime
-            .ingestion_job_store()
-            .get_job(session_id)
-            .await
-            .map_err(ApiError::from)?;
-        if job.source_type != "upload_session" {
-            return Err(ApiError::not_found(
-                "upload_session_not_found",
-                format!("upload session was not found: {session_id}"),
-            ));
-        }
-        let status = match job.state {
-            IngestionJobState::Queued | IngestionJobState::Running => {
-                KnowledgeUploadSessionStatus::Pending
-            }
-            IngestionJobState::Succeeded => KnowledgeUploadSessionStatus::Completed,
-            IngestionJobState::Failed | IngestionJobState::Cancelled => {
-                KnowledgeUploadSessionStatus::Expired
-            }
-        };
-        Ok(KnowledgeUploadSession {
-            id: job.id,
-            space_id: job.space_id,
-            title: format!("upload-session-{}", job.id),
-            upload_logical_path: format!("upload_sessions/{}/payload", job.id),
-            status,
-            expires_at: String::new(),
-        })
+        KnowledgeUploadSessionService::new(
+            self.runtime.drive_storage(),
+            self.runtime.ingestion_job_store(),
+        )
+        .load_session(session_id)
+        .await
+        .map_err(ApiError::from)
     }
 
     async fn run_ingest_pipeline(
@@ -106,7 +83,6 @@ impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
         request: CreateKnowledgeUploadSessionRequest,
     ) -> ApiResult<KnowledgeUploadSession> {
         require_space_access(&self.runtime, &context, request.space_id).await?;
-        crate::tenant_quota_enforcement::ensure_tenant_can_start_ingest(&self.runtime).await?;
         let service = KnowledgeUploadSessionService::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),

@@ -406,7 +406,6 @@ export function EditorPanel({
             docs={docs}
             activeDoc={activeDoc}
             activeKbId={activeKb?.id}
-            onInsertHtml={insertHtmlToEditor}
             headerHeightClass="h-[40px]"
           />
         )}

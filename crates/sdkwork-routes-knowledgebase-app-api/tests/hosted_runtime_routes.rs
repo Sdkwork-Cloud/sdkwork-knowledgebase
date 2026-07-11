@@ -1,18 +1,22 @@
 use axum::body::Body;
-use axum::http::{Method, Request, StatusCode};
+use axum::http::{header, Method, Request, StatusCode};
+use sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeOkfConceptStore;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
+    KnowledgeOkfConceptStore, UpsertKnowledgeOkfConceptRecord,
+};
+use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sdkwork_routes_knowledgebase_app_api::{dev_auth, KnowledgebaseRuntime};
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::{Mutex, MutexGuard};
 use tower::util::ServiceExt;
 
-static EXTERNAL_ADAPTER_ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
+static EXTERNAL_ADAPTER_ENV_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
-fn lock_external_adapter_env() -> std::sync::MutexGuard<'static, ()> {
-    EXTERNAL_ADAPTER_ENV_TEST_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+async fn lock_external_adapter_env() -> MutexGuard<'static, ()> {
+    EXTERNAL_ADAPTER_ENV_TEST_LOCK.lock().await
 }
 
 #[tokio::test]
@@ -43,6 +47,46 @@ async fn hosted_app_router_lists_documents() {
 
     let body = response_body_json(response).await;
     assert!(body["items"].is_array());
+}
+
+#[tokio::test]
+async fn hosted_app_router_creates_manual_document_without_client_source_id() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let space_id = create_space(&app, "Manual Document Space").await;
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/documents")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "spaceId": space_id,
+                        "title": "manual note",
+                        "mimeType": "text/markdown"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let status = response.status();
+    let body = response_body_json(response).await;
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "manual document create failed: {body}"
+    );
+    assert_eq!(body["title"], "manual note");
+    assert_eq!(json_u64_field(&body, "spaceId"), Some(space_id));
+    assert!(
+        json_u64_field(&body, "sourceId").is_some(),
+        "backend-created manual document must receive an internal API source: {body}"
+    );
 }
 
 #[tokio::test]
@@ -192,6 +236,240 @@ async fn hosted_app_lists_okf_concepts_for_space() {
         .expect("concept items")
         .iter()
         .any(|item| item["conceptId"] == "tables/users"));
+}
+
+#[tokio::test]
+async fn hosted_app_pages_okf_concepts_and_revisions_with_standard_list_envelopes() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let space_id = create_space(&app, "OKF Pagination Space").await;
+    let concepts = SqliteKnowledgeOkfConceptStore::new(runtime.pool().clone(), 1);
+    let mut revision_concept_id = None;
+    let mut other_concept_id = None;
+
+    for index in (0..205).rev() {
+        let concept = concepts
+            .upsert_concept(UpsertKnowledgeOkfConceptRecord {
+                space_id,
+                concept_id: format!("topics/concept-{index:04}"),
+                title: format!("Concept {index:04}"),
+                concept_type: "Topic".to_string(),
+                logical_path: format!("okf/topics/concept-{index:04}.md"),
+                description: format!("Concept summary {index:04}"),
+                source_count: 0,
+                tags: vec![],
+                publish_state: OkfConceptPublishState::Published,
+            })
+            .await
+            .expect("insert paginated concept fixture");
+        if index == 0 {
+            revision_concept_id = Some(concept.id);
+        } else if index == 1 {
+            other_concept_id = Some(concept.id);
+        }
+    }
+    let revision_concept_id = revision_concept_id.expect("revision concept id");
+    let other_concept_id = other_concept_id.expect("other concept id");
+    for revision_no in 1..=205_u64 {
+        insert_okf_revision_fixture(runtime.pool(), revision_concept_id, revision_no).await;
+    }
+
+    let first_concepts = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/app/v3/api/knowledge/okf/concepts?spaceId={space_id}&page_size=200"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first_concepts.status(), StatusCode::OK);
+    let first_concepts = response_raw_json(first_concepts).await;
+    assert_standard_cursor_page(&first_concepts, 200, true);
+    assert_eq!(
+        first_concepts["data"]["items"][0]["conceptId"],
+        "topics/concept-0000"
+    );
+    assert_eq!(
+        first_concepts["data"]["items"][199]["conceptId"],
+        "topics/concept-0199"
+    );
+    assert!(first_concepts["data"].get("item").is_none());
+    let concept_cursor = first_concepts["data"]["pageInfo"]["nextCursor"]
+        .as_str()
+        .expect("concept next cursor")
+        .to_string();
+    assert_ne!(concept_cursor, "topics/concept-0199");
+
+    let second_concepts = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/app/v3/api/knowledge/okf/concepts?spaceId={space_id}&page_size=200&cursor={concept_cursor}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second_concepts.status(), StatusCode::OK);
+    let second_concepts = response_raw_json(second_concepts).await;
+    assert_standard_cursor_page(&second_concepts, 5, false);
+    assert_eq!(
+        second_concepts["data"]["items"][0]["conceptId"],
+        "topics/concept-0200"
+    );
+    assert_eq!(
+        second_concepts["data"]["items"][4]["conceptId"],
+        "topics/concept-0204"
+    );
+
+    let first_revisions = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/app/v3/api/knowledge/okf/concepts/{revision_concept_id}/revisions?page_size=200"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first_revisions.status(), StatusCode::OK);
+    let first_revisions = response_raw_json(first_revisions).await;
+    assert_standard_cursor_page(&first_revisions, 200, true);
+    assert_eq!(first_revisions["data"]["items"][0]["revisionNo"], 1);
+    assert_eq!(first_revisions["data"]["items"][199]["revisionNo"], 200);
+    assert!(first_revisions["data"].get("item").is_none());
+    let revision_cursor = first_revisions["data"]["pageInfo"]["nextCursor"]
+        .as_str()
+        .expect("revision next cursor")
+        .to_string();
+    assert_ne!(revision_cursor, "200");
+
+    let second_revisions = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/app/v3/api/knowledge/okf/concepts/{revision_concept_id}/revisions?page_size=200&cursor={revision_cursor}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(second_revisions.status(), StatusCode::OK);
+    let second_revisions = response_raw_json(second_revisions).await;
+    assert_standard_cursor_page(&second_revisions, 5, false);
+    assert_eq!(second_revisions["data"]["items"][0]["revisionNo"], 201);
+    assert_eq!(second_revisions["data"]["items"][4]["revisionNo"], 205);
+
+    for uri in [
+        format!(
+            "/app/v3/api/knowledge/okf/concepts/{revision_concept_id}/revisions?cursor={concept_cursor}"
+        ),
+        format!(
+            "/app/v3/api/knowledge/okf/concepts?spaceId={space_id}&cursor={revision_cursor}"
+        ),
+        format!(
+            "/app/v3/api/knowledge/okf/concepts/{other_concept_id}/revisions?cursor={revision_cursor}"
+        ),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(uri)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_invalid_parameter_problem(response).await;
+    }
+
+    let other_space_id = create_space(&app, "Other OKF Pagination Space").await;
+    let replay = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/app/v3/api/knowledge/okf/concepts?spaceId={other_space_id}&cursor={concept_cursor}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_invalid_parameter_problem(replay).await;
+}
+
+#[tokio::test]
+async fn hosted_app_okf_lists_reject_invalid_and_noncanonical_pagination_queries() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let space_id = create_space(&app, "OKF Invalid Pagination Space").await;
+    let concepts = SqliteKnowledgeOkfConceptStore::new(runtime.pool().clone(), 1);
+    let concept = concepts
+        .upsert_concept(UpsertKnowledgeOkfConceptRecord {
+            space_id,
+            concept_id: "topics/query-validation".to_string(),
+            title: "Query validation".to_string(),
+            concept_type: "Topic".to_string(),
+            logical_path: "okf/topics/query-validation.md".to_string(),
+            description: "Query validation fixture".to_string(),
+            source_count: 0,
+            tags: vec![],
+            publish_state: OkfConceptPublishState::Published,
+        })
+        .await
+        .expect("insert query validation concept");
+
+    for invalid_query in [
+        "page_size=0",
+        "page_size=201",
+        "page_size=-1",
+        "page_size=not-a-number",
+        "pageSize=20",
+        "%70ageSize=20",
+        "limit=20",
+        "page_no=1",
+        "pageNo=1",
+        "per_page=20",
+        "size=20",
+    ] {
+        for uri in [
+            format!("/app/v3/api/knowledge/okf/concepts?spaceId={space_id}&{invalid_query}"),
+            format!(
+                "/app/v3/api/knowledge/okf/concepts/{}/revisions?{invalid_query}",
+                concept.id
+            ),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::GET)
+                        .uri(uri)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_invalid_parameter_problem(response).await;
+        }
+    }
 }
 
 #[tokio::test]
@@ -1075,7 +1353,7 @@ async fn hosted_backend_resolves_external_space_to_haystack_engine() {
 
 #[tokio::test]
 async fn hosted_external_agent_chat_rejects_unconfigured_external_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     clear_dify_adapter_env();
     clear_ragflow_adapter_env();
     clear_onyx_adapter_env();
@@ -1197,7 +1475,7 @@ async fn hosted_external_agent_chat_rejects_unconfigured_external_adapter() {
 
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path("/datasets/ds-hosted-e2e/retrieve"))
@@ -1330,7 +1608,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
 
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_dify_citation_document() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path("/datasets/ds-read-e2e/retrieve"))
@@ -1479,7 +1757,7 @@ async fn hosted_external_read_resolves_configured_dify_citation_document() {
 
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path("/api/v1/retrieval"))
@@ -1635,7 +1913,7 @@ async fn hosted_external_read_resolves_configured_open_webui_citation_document()
     const SNIPPET: &str = "hosted openwebui read snippet";
     use sdkwork_knowledgebase_engine_open_webui::chunk_id_from_content;
 
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path(
@@ -1778,7 +2056,7 @@ async fn hosted_external_read_resolves_configured_flowise_citation_document() {
     const SNIPPET: &str = "hosted flowise read snippet";
     use sdkwork_knowledgebase_engine_flowise::chunk_id_from_content;
 
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path(
@@ -1921,7 +2199,7 @@ async fn hosted_external_read_resolves_configured_flowise_citation_document() {
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
     const SNIPPET: &str = "hosted qdrant read snippet";
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     let collection_name = "kb-read-qdrant";
     wiremock::Mock::given(wiremock::matchers::method("POST"))
@@ -2083,7 +2361,7 @@ async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
 
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path("/api/v1/retrieval"))
@@ -2220,7 +2498,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
 
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path("/search"))
@@ -2351,7 +2629,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
 
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path(
@@ -2489,7 +2767,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter
 
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path(
@@ -2624,7 +2902,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter(
 
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST"))
         .and(wiremock::matchers::path(
@@ -2761,7 +3039,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
 
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_chroma_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     let collection_id = "603a7b51-ae7c-4b0a-8865-e454ed2f6766";
     wiremock::Mock::given(wiremock::matchers::method("POST"))
@@ -2895,7 +3173,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_chroma_adapter() {
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_chroma_citation_document() {
     const SNIPPET: &str = "hosted chroma read snippet";
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     let collection_id = "603a7b51-ae7c-4b0a-8865-e454ed2f6766";
     wiremock::Mock::given(wiremock::matchers::method("POST"))
@@ -3045,7 +3323,7 @@ async fn hosted_external_read_resolves_configured_chroma_citation_document() {
 
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     let collection_name = "policies-hosted";
     wiremock::Mock::given(wiremock::matchers::method("POST"))
@@ -3187,7 +3465,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter() {
 
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     let class_name = "KnowledgeChunk";
     wiremock::Mock::given(wiremock::matchers::method("POST"))
@@ -3324,7 +3602,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter() 
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
     const SNIPPET: &str = "hosted weaviate read snippet";
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     let class_name = "KnowledgeChunk";
     wiremock::Mock::given(wiremock::matchers::method("POST"))
@@ -3476,7 +3754,7 @@ async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
 
 #[tokio::test]
 async fn hosted_external_agent_chat_succeeds_with_configured_haystack_adapter() {
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     let pipeline_name = "retrieval_pipeline";
     wiremock::Mock::given(wiremock::matchers::method("POST"))
@@ -3612,7 +3890,7 @@ async fn hosted_external_agent_chat_succeeds_with_configured_haystack_adapter() 
 #[tokio::test]
 async fn hosted_external_read_resolves_configured_haystack_citation_document() {
     const SNIPPET: &str = "hosted haystack read snippet";
-    let _env_guard = lock_external_adapter_env();
+    let _env_guard = lock_external_adapter_env().await;
     let mock_server = wiremock::MockServer::start().await;
     let pipeline_name = "retrieval_pipeline";
     wiremock::Mock::given(wiremock::matchers::method("POST"))
@@ -4135,11 +4413,74 @@ async fn test_runtime() -> KnowledgebaseRuntime {
         .expect("initialize hosted runtime")
 }
 
-async fn response_body_json(response: axum::response::Response) -> Value {
+async fn insert_okf_revision_fixture(pool: &sqlx::AnyPool, concept_row_id: u64, revision_no: u64) {
+    let id = 9_000_000_i64 + revision_no as i64;
+    sqlx::query(
+        r#"
+        INSERT INTO kb_okf_concept_revision (
+            id, uuid, tenant_id, concept_row_id, revision_no,
+            markdown_object_ref_id, content_hash, review_state, status,
+            created_at, updated_at, version
+        )
+        VALUES ($1, $2, 1, $3, $4, $1, $5, 'approved', 1, $6, $6, 0)
+        "#,
+    )
+    .bind(id)
+    .bind(format!("route-pagination-revision-{revision_no}"))
+    .bind(concept_row_id as i64)
+    .bind(revision_no as i64)
+    .bind(format!("route-pagination-hash-{revision_no}"))
+    .bind("2026-07-10T00:00:00Z")
+    .execute(pool)
+    .await
+    .expect("insert revision pagination fixture");
+}
+
+fn assert_standard_cursor_page(body: &Value, expected_items: usize, has_more: bool) {
+    assert_eq!(body["code"], 0);
+    assert_eq!(
+        body["data"]["items"]
+            .as_array()
+            .expect("standard list items")
+            .len(),
+        expected_items
+    );
+    assert_eq!(body["data"]["pageInfo"]["mode"], "cursor");
+    assert_eq!(body["data"]["pageInfo"]["pageSize"], 200);
+    assert_eq!(body["data"]["pageInfo"]["hasMore"], has_more);
+    if has_more {
+        assert!(body["data"]["pageInfo"]["nextCursor"].is_string());
+    } else {
+        assert!(body["data"]["pageInfo"]["nextCursor"].is_null());
+    }
+    let trace_id = body["traceId"].as_str().expect("success traceId");
+    uuid::Uuid::parse_str(trace_id).expect("success traceId UUID");
+}
+
+async fn assert_invalid_parameter_problem(response: axum::response::Response) {
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("application/problem+json")
+    );
+    let body = response_raw_json(response).await;
+    assert_eq!(body["code"].as_i64(), Some(40003));
+    let trace_id = body["traceId"].as_str().expect("problem traceId");
+    uuid::Uuid::parse_str(trace_id).expect("problem traceId UUID");
+}
+
+async fn response_raw_json(response: axum::response::Response) -> Value {
     let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
         .await
         .expect("read response body");
-    let value: Value = serde_json::from_slice(&bytes).expect("parse response json");
+    serde_json::from_slice(&bytes).expect("parse response json")
+}
+
+async fn response_body_json(response: axum::response::Response) -> Value {
+    let value = response_raw_json(response).await;
     sdkwork_knowledgebase_test_support::api_envelope::unwrap_payload_or_envelope(&value)
 }
 

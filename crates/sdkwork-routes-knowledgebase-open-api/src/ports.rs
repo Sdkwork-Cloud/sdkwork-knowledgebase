@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
-    IngestionJob, KnowledgeBrowserNode, KnowledgeContextPack, KnowledgeContextPackRequest,
+    IngestionJob, KnowledgeBrowserListData, KnowledgeContextPack, KnowledgeContextPackRequest,
     KnowledgeDocument, KnowledgeIngestRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
     ListKnowledgeBrowserRequest,
 };
@@ -80,7 +80,7 @@ pub trait KnowledgeOpenApi: Send + Sync + 'static {
         &self,
         _context: KnowledgeOpenApiRequestContext,
         _request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>> {
+    ) -> ApiResult<KnowledgeBrowserListData> {
         Err(ApiError::unsupported_operation("spaces.browser.list"))
     }
 }

@@ -3,6 +3,7 @@ use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
 use thiserror::Error;
 
 use super::knowledge_drive_storage::KnowledgeObjectRef;
+use crate::tenant_quota::TenantQuotaExceeded;
 
 pub const SDKWORK_DRIVE_PROVIDER_KIND: &str = "sdkwork-drive";
 pub const MANAGED_DRIVE_ACCESS_MODE: &str = "managed";
@@ -79,6 +80,8 @@ pub fn managed_drive_object_ref_record(
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum KnowledgeDriveObjectRefStoreError {
+    #[error(transparent)]
+    QuotaExceeded(#[from] TenantQuotaExceeded),
     #[error("knowledge drive object ref store internal error: {0}")]
     Internal(String),
 }

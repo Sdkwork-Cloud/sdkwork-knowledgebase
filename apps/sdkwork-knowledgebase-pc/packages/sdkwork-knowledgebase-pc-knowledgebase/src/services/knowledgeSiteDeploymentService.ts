@@ -3,6 +3,7 @@ import {
   parseKnowledgeSpaceId,
   requireKnowledgebaseAppSdkHttpClient,
   requireNonEmptyString,
+  throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 
 export interface SiteDeploymentOptions {
@@ -12,10 +13,25 @@ export interface SiteDeploymentOptions {
 }
 
 export interface SiteDeploymentResult {
-  accepted: boolean;
-  status: string;
+  accepted: true;
+  status: 'completed';
   deploymentId: string;
   url: string;
+}
+
+export function isVerifiedSiteDeploymentUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || !value.trim()) {
+    return false;
+  }
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:'
+      && url.hostname.length > 0
+      && !url.username
+      && !url.password;
+  } catch {
+    return false;
+  }
 }
 
 export async function publishKnowledgeSite(
@@ -37,10 +53,22 @@ export async function publishKnowledgeSite(
     siteLogoDataUrl: options?.siteLogoDataUrl || undefined,
   });
 
+  const deploymentId = String(result.deploymentId ?? '').trim();
+  if (
+    result.accepted !== true
+    || result.status !== 'completed'
+    || !deploymentId
+    || !isVerifiedSiteDeploymentUrl(result.url)
+  ) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED, {
+      cause: new Error('site deployment response did not contain verified publisher evidence'),
+    });
+  }
+
   return {
-    accepted: result.accepted === true,
-    status: result.status,
-    deploymentId: result.deploymentId,
-    url: result.url,
+    accepted: true,
+    status: 'completed',
+    deploymentId,
+    url: result.url.trim(),
   };
 }

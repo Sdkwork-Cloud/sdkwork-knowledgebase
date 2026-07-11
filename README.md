@@ -119,7 +119,7 @@ Acceptance criteria: [docs/product/prd/PRD-mvp-launch.md](docs/product/prd/PRD-m
 
 ## Runtime
 
-Default `pnpm dev` uses the topology profile `standalone.unified-process.development`:
+Default `pnpm dev` uses the topology profile `standalone.development`:
 
 - one application ingress at `http://127.0.0.1:18081`
 - browser dev server at `http://127.0.0.1:5184` with same-origin API proxying
@@ -131,14 +131,14 @@ Default `pnpm dev` uses the topology profile `standalone.unified-process.develop
 | `sdkwork-knowledgebase-standalone-gateway` | `127.0.0.1:18081` | unified app/backend/open + embedded IAM app-api |
 | `sdkwork-knowledgebase-worker` | health `127.0.0.1:18085` | background worker |
 
-Cloud profiles use `configs/topology/cloud.*.development.env` and may autostart `sdkwork-api-cloud-gateway` on `3900`.
+Cloud profiles use `configs/topology/cloud.development.env` and may autostart `sdkwork-api-cloud-gateway` on `3900`.
 
 Run from the repository root:
 
 ```powershell
 pnpm dev
-# cloud split-services example:
-pnpm dev:browser:postgres:split-services:cloud
+# cloud development example:
+pnpm dev:browser:postgres:cloud
 ```
 
 Common environment variables:

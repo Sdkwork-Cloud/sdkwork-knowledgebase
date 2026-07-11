@@ -8791,6 +8791,46 @@
             "minimum": 0
           }
         }
+      },
+      "OkfConceptSummaryList": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "One bounded cursor page of published OKF concept summaries.",
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OkfConceptSummary"
+            }
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        }
+      },
+      "KnowledgeOkfConceptRevisionList": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "One bounded cursor page of OKF concept revisions.",
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeOkfConceptRevision"
+            }
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        }
       }
     },
     "securitySchemes": {

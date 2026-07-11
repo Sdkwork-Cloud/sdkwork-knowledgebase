@@ -3,8 +3,8 @@ use axum::body::{to_bytes, Body};
 use axum::http::{header, Request, StatusCode};
 use sdkwork_iam_web_adapter::IamWebRequestContextResolver;
 use sdkwork_knowledgebase_contract::browser::{
-    KnowledgeBrowserNode, KnowledgeBrowserNodePermissions, KnowledgeBrowserNodeType,
-    KnowledgeBrowserView, ListKnowledgeBrowserRequest,
+    KnowledgeBrowserListData, KnowledgeBrowserNode, KnowledgeBrowserNodePermissions,
+    KnowledgeBrowserNodeType, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
 };
 use sdkwork_knowledgebase_contract::document::{
     KnowledgeDocument, KnowledgeDocumentState, KnowledgeDocumentVersionState,
@@ -82,6 +82,53 @@ fn open_api_manifest_uses_public_knowledge_prefix_and_api_key_auth() {
         "GET",
         "/knowledge/v3/api/spaces/{spaceId}/browser",
         "spaces.browser.list",
+    );
+}
+
+#[test]
+fn open_openapi_exposes_browser_list_data_context_contract() {
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../sdks/sdkwork-knowledgebase-sdk/openapi/knowledgebase-open-api.openapi.json"
+    ))
+    .unwrap();
+
+    let operation = &spec["paths"]["/knowledge/v3/api/spaces/{spaceId}/browser"]["get"];
+    assert!(
+        operation["description"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("sources/raw"),
+        "browser operation must document OKF raw source root"
+    );
+    let response_schema = &operation["responses"]["200"]["content"]["application/json"]["schema"];
+    assert_eq!(
+        response_schema["allOf"][1]["properties"]["data"]["$ref"],
+        "#/components/schemas/KnowledgeBrowserListData"
+    );
+    assert!(spec["components"]["schemas"]["KnowledgeBrowserPage"].is_null());
+
+    let data_schema = &spec["components"]["schemas"]["KnowledgeBrowserListData"];
+    for property in [
+        "spaceId",
+        "driveSpaceId",
+        "parentId",
+        "view",
+        "pageSize",
+        "items",
+        "pageInfo",
+    ] {
+        assert!(
+            data_schema["properties"][property].is_object(),
+            "KnowledgeBrowserListData must expose {property}"
+        );
+    }
+    assert_eq!(
+        data_schema["properties"]["items"]["items"]["$ref"],
+        "#/components/schemas/KnowledgeBrowserNode"
+    );
+    assert_eq!(
+        data_schema["properties"]["pageInfo"]["$ref"],
+        "#/components/schemas/PageInfo"
     );
 }
 
@@ -188,6 +235,9 @@ async fn open_browser_route_preserves_query_parameters() {
     let body = response_json(response).await;
     assert_eq!(body["data"]["items"].as_array().unwrap().len(), 1);
     assert_eq!(body["data"]["pageInfo"]["mode"], "cursor");
+    assert_eq!(body["data"]["parentId"], "node-okf");
+    assert_eq!(body["data"]["driveSpaceId"], "drv-kb-001");
+    assert_eq!(body["data"]["view"], "okf_bundle");
     assert_eq!(
         service.last_browser_request().unwrap(),
         ListKnowledgeBrowserRequest {
@@ -502,9 +552,14 @@ impl KnowledgeOpenApi for RecordingOpenApi {
         &self,
         _context: KnowledgeOpenApiRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<KnowledgeBrowserNode>> {
+    ) -> ApiResult<KnowledgeBrowserListData> {
         *self.browser_request.lock().unwrap() = Some(request.clone());
-        Ok(sdkwork_utils_rust::SdkWorkPageData {
+        Ok(KnowledgeBrowserListData {
+            space_id: request.space_id,
+            drive_space_id: "drv-kb-001".to_string(),
+            parent_id: request.parent_id.clone(),
+            view: request.view,
+            page_size: request.page_size.unwrap_or(50),
             items: vec![KnowledgeBrowserNode {
                 id: "node-index".to_string(),
                 node_type: KnowledgeBrowserNodeType::OkfConcept,

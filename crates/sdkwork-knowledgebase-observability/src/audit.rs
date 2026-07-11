@@ -1,10 +1,17 @@
 //! Structured audit log lines, Prometheus counters, and durable persistence hooks.
 
-use std::sync::{Arc, Mutex};
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
+};
 
 use serde_json::{json, Value};
 
-type AuditPersistenceHandler = Arc<dyn Fn(AuditPersistenceEvent) + Send + Sync>;
+type AuditPersistenceFuture =
+    Pin<Box<dyn Future<Output = Result<(), AuditPersistenceError>> + Send>>;
+type AuditPersistenceHandler =
+    Arc<dyn Fn(AuditPersistenceEvent) -> AuditPersistenceFuture + Send + Sync>;
 
 static DOCUMENT_VISIBILITY_CHANGED_TOTAL: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
@@ -28,26 +35,43 @@ pub struct AuditPersistenceEvent {
     pub payload: Option<Value>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum AuditPersistenceError {
+    #[error("audit persistence is not configured")]
+    Unavailable,
+    #[error("audit persistence failed: {0}")]
+    WriteFailed(String),
+}
+
+impl AuditPersistenceError {
+    pub fn write_failed(detail: impl Into<String>) -> Self {
+        Self::WriteFailed(detail.into())
+    }
+}
+
 /// Installs a durable audit writer invoked for security-relevant mutations.
-pub fn install_audit_persistence(handler: AuditPersistenceHandler) {
+pub fn install_audit_persistence<F, Fut>(handler: F)
+where
+    F: Fn(AuditPersistenceEvent) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = Result<(), AuditPersistenceError>> + Send + 'static,
+{
+    let handler: AuditPersistenceHandler = Arc::new(move |event| Box::pin(handler(event)));
     let mut slot = AUDIT_PERSISTENCE
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if slot.is_some() {
-        tracing::warn!("audit persistence handler already installed; ignoring duplicate install");
-        return;
+    if slot.replace(handler).is_some() {
+        tracing::warn!("audit persistence handler already installed; replacing stale handler");
     }
-    *slot = Some(handler);
 }
 
-fn persist(event: AuditPersistenceEvent) {
-    if let Some(handler) = AUDIT_PERSISTENCE
+async fn persist(event: AuditPersistenceEvent) -> Result<(), AuditPersistenceError> {
+    let handler = AUDIT_PERSISTENCE
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
         .as_ref()
-    {
-        handler(event);
-    }
+        .cloned()
+        .ok_or(AuditPersistenceError::Unavailable)?;
+    handler(event).await
 }
 
 #[cfg(test)]
@@ -67,13 +91,13 @@ fn reset_audit_counters_for_tests() {
     BACKEND_ADMIN_OPERATION_TOTAL.store(0, Ordering::Relaxed);
 }
 
-pub fn record_document_visibility_changed(
+pub async fn record_document_visibility_changed(
     document_id: u64,
     space_id: u64,
     actor_id: u64,
     previous_visibility: &str,
     new_visibility: &str,
-) {
+) -> Result<(), AuditPersistenceError> {
     use std::sync::atomic::Ordering;
 
     DOCUMENT_VISIBILITY_CHANGED_TOTAL.fetch_add(1, Ordering::Relaxed);
@@ -98,16 +122,17 @@ pub fn record_document_visibility_changed(
             "previous_visibility": previous_visibility,
             "new_visibility": new_visibility,
         })),
-    });
+    })
+    .await
 }
 
-pub fn record_space_member_granted(
+pub async fn record_space_member_granted(
     space_id: u64,
     actor_id: u64,
     subject_type: &str,
     subject_id: &str,
     role: &str,
-) {
+) -> Result<(), AuditPersistenceError> {
     use std::sync::atomic::Ordering;
 
     SPACE_MEMBER_GRANTED_TOTAL.fetch_add(1, Ordering::Relaxed);
@@ -132,15 +157,16 @@ pub fn record_space_member_granted(
             "subject_id": subject_id,
             "role": role,
         })),
-    });
+    })
+    .await
 }
 
-pub fn record_space_member_revoked(
+pub async fn record_space_member_revoked(
     space_id: u64,
     actor_id: u64,
     subject_type: &str,
     subject_id: &str,
-) {
+) -> Result<(), AuditPersistenceError> {
     use std::sync::atomic::Ordering;
 
     SPACE_MEMBER_REVOKED_TOTAL.fetch_add(1, Ordering::Relaxed);
@@ -163,10 +189,15 @@ pub fn record_space_member_revoked(
             "subject_type": subject_type,
             "subject_id": subject_id,
         })),
-    });
+    })
+    .await
 }
 
-pub fn record_backend_admin_operation(operation: &str, tenant_id: u64, operator_id: u64) {
+pub async fn record_backend_admin_operation(
+    operation: &str,
+    tenant_id: u64,
+    operator_id: u64,
+) -> Result<(), AuditPersistenceError> {
     use std::sync::atomic::Ordering;
 
     BACKEND_ADMIN_OPERATION_TOTAL.fetch_add(1, Ordering::Relaxed);
@@ -188,7 +219,8 @@ pub fn record_backend_admin_operation(operation: &str, tenant_id: u64, operator_
             "operation": operation,
             "tenant_id": tenant_id,
         })),
-    });
+    })
+    .await
 }
 
 pub fn render_audit_prometheus_metrics() -> String {
@@ -224,14 +256,27 @@ mod tests {
         LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
+    fn block_on_audit<F>(future: F) -> Result<(), AuditPersistenceError>
+    where
+        F: Future<Output = Result<(), AuditPersistenceError>>,
+    {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(future)
+    }
+
     #[test]
     fn audit_metrics_export_prometheus_lines() {
         let _guard = audit_test_lock();
         reset_audit_persistence_for_tests();
         reset_audit_counters_for_tests();
-        record_document_visibility_changed(1, 2, 3, "space", "public");
-        record_space_member_granted(2, 3, "user", "alice", "writer");
-        record_space_member_revoked(2, 3, "user", "alice");
+        let _ = block_on_audit(record_document_visibility_changed(
+            1, 2, 3, "space", "public",
+        ));
+        let _ = block_on_audit(record_space_member_granted(2, 3, "user", "alice", "writer"));
+        let _ = block_on_audit(record_space_member_revoked(2, 3, "user", "alice"));
 
         let body = render_audit_prometheus_metrics();
         assert!(body.contains("knowledge_audit_document_visibility_changed_total 1"));
@@ -244,7 +289,11 @@ mod tests {
         let _guard = audit_test_lock();
         reset_audit_persistence_for_tests();
         reset_audit_counters_for_tests();
-        record_backend_admin_operation("sources.create", 100_001, 99);
+        let _ = block_on_audit(record_backend_admin_operation(
+            "sources.create",
+            100_001,
+            99,
+        ));
         let body = render_audit_prometheus_metrics();
         assert!(body.contains("knowledge_audit_backend_admin_operation_total 1"));
     }
@@ -256,15 +305,73 @@ mod tests {
         reset_audit_counters_for_tests();
         let captured = Arc::new(Mutex::new(Vec::<String>::new()));
         let sink = Arc::clone(&captured);
-        install_audit_persistence(Arc::new(move |event| {
-            sink.lock().expect("lock").push(event.event_type);
-        }));
-        record_backend_admin_operation("sources.list", 1, 2);
+        install_audit_persistence(move |event| {
+            let sink = Arc::clone(&sink);
+            async move {
+                sink.lock().expect("lock").push(event.event_type);
+                Ok(())
+            }
+        });
+        block_on_audit(record_backend_admin_operation("sources.list", 1, 2))
+            .expect("audit persistence");
         let events = captured.lock().expect("lock");
         assert_eq!(
             events.last().map(String::as_str),
             Some("knowledge.backend.admin_operation")
         );
+        reset_audit_persistence_for_tests();
+    }
+
+    #[test]
+    fn audit_persistence_waits_for_completion_before_returning() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let _guard = audit_test_lock();
+        reset_audit_persistence_for_tests();
+        reset_audit_counters_for_tests();
+        let completed = Arc::new(AtomicBool::new(false));
+        let completed_by_handler = Arc::clone(&completed);
+        install_audit_persistence(move |_event| {
+            let completed = Arc::clone(&completed_by_handler);
+            async move {
+                tokio::task::yield_now().await;
+                completed.store(true, Ordering::SeqCst);
+                Ok(())
+            }
+        });
+
+        block_on_audit(record_backend_admin_operation(
+            "sources.create",
+            100_001,
+            99,
+        ))
+        .expect("audit persistence");
+
+        assert!(completed.load(Ordering::SeqCst));
+        reset_audit_persistence_for_tests();
+    }
+
+    #[test]
+    fn audit_persistence_returns_database_failure_to_caller() {
+        let _guard = audit_test_lock();
+        reset_audit_persistence_for_tests();
+        reset_audit_counters_for_tests();
+        install_audit_persistence(|_event| async {
+            Err(AuditPersistenceError::write_failed("database unavailable"))
+        });
+
+        let error = block_on_audit(record_backend_admin_operation(
+            "sources.create",
+            100_001,
+            99,
+        ))
+        .expect_err("persistence failure must be observable");
+
+        assert!(matches!(
+            error,
+            AuditPersistenceError::WriteFailed(ref detail)
+                if detail == "database unavailable"
+        ));
         reset_audit_persistence_for_tests();
     }
 }

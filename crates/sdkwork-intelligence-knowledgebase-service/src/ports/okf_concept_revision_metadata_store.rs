@@ -6,6 +6,8 @@ use sdkwork_knowledgebase_contract::okf::{
 };
 use thiserror::Error;
 
+use crate::tenant_quota::TenantQuotaExceeded;
+
 use super::{
     knowledge_drive_object_ref_store::CreateKnowledgeDriveObjectRefRecord,
     knowledge_okf_candidate_store::UpsertKnowledgeOkfCandidateRecord,
@@ -83,6 +85,8 @@ pub trait OkfConceptRevisionMetadataStore: Send + Sync {
 pub enum OkfConceptRevisionMetadataStoreError {
     #[error("invalid okf concept revision metadata request: {0}")]
     InvalidRequest(String),
+    #[error(transparent)]
+    QuotaExceeded(#[from] TenantQuotaExceeded),
     #[error("okf concept revision metadata store internal error: {0}")]
     Internal(String),
 }

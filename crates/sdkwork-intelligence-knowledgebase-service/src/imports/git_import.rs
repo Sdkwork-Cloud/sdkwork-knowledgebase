@@ -3,12 +3,14 @@ use super::github_api::{
     normalize_branch, parse_github_repo_url, GitHubApiError, GitHubImportFile,
 };
 use crate::ingest::{
-    ApiMarkdownIngestPipeline, ApiMarkdownIngestPipelineError, GIT_IMPORT_CONCURRENCY,
+    ApiMarkdownIngestPipeline, ApiMarkdownIngestPipelineError,
+    KnowledgeApiMarkdownIndexServiceError, KnowledgeApiPayloadIngestServiceError,
+    KnowledgeIngestionServiceError, GIT_IMPORT_CONCURRENCY,
 };
 use crate::ports::{
     knowledge_drive_storage::KnowledgeDriveStorage,
-    knowledge_ingestion_job_store::IngestionJobStore,
-    markdown_index_metadata_store::MarkdownIndexMetadataStore,
+    knowledge_ingestion_job_store::{IngestionJobStore, IngestionJobStoreError},
+    markdown_index_metadata_store::{MarkdownIndexMetadataStore, MarkdownIndexMetadataStoreError},
 };
 use sdkwork_knowledgebase_contract::{
     git_import::{KnowledgeGitImportRequest, KnowledgeGitImportResult},
@@ -85,6 +87,7 @@ impl<'a> KnowledgeGitImportService<'a> {
         let mut imported_count = 0u32;
         let mut skipped_count = 0u32;
         let mut document_version_ids = Vec::new();
+        let total_file_count = u32::try_from(files.len()).unwrap_or(u32::MAX);
         let access_token = access_token.map(str::to_string);
 
         for batch in files.chunks(GIT_IMPORT_CONCURRENCY) {
@@ -138,6 +141,17 @@ impl<'a> KnowledgeGitImportService<'a> {
                             document_version_ids.push(document_version_id);
                         }
                     }
+                    Err(error) if is_quota_pipeline_error(&error) => {
+                        let skipped_count = total_file_count.saturating_sub(imported_count);
+                        if imported_count == 0 {
+                            return Err(KnowledgeGitImportServiceError::Pipeline(error));
+                        }
+                        return Ok(build_git_import_result(
+                            imported_count,
+                            skipped_count,
+                            document_version_ids,
+                        ));
+                    }
                     Err(error) => {
                         warn!(?error, "skipped git import file during ingest");
                         skipped_count += 1;
@@ -153,14 +167,42 @@ impl<'a> KnowledgeGitImportService<'a> {
             ));
         }
 
-        Ok(KnowledgeGitImportRunResult {
-            result: KnowledgeGitImportResult {
-                imported_count,
-                skipped_count,
-            },
+        Ok(build_git_import_result(
+            imported_count,
+            skipped_count,
             document_version_ids,
-        })
+        ))
     }
+}
+
+fn build_git_import_result(
+    imported_count: u32,
+    skipped_count: u32,
+    document_version_ids: Vec<u64>,
+) -> KnowledgeGitImportRunResult {
+    KnowledgeGitImportRunResult {
+        result: KnowledgeGitImportResult {
+            imported_count,
+            skipped_count,
+        },
+        document_version_ids,
+    }
+}
+
+fn is_quota_pipeline_error(error: &ApiMarkdownIngestPipelineError) -> bool {
+    matches!(
+        error,
+        ApiMarkdownIngestPipelineError::Payload(KnowledgeApiPayloadIngestServiceError::Store(
+            IngestionJobStoreError::QuotaExceeded(_)
+        )) | ApiMarkdownIngestPipelineError::Ingestion(KnowledgeIngestionServiceError::Store(
+            IngestionJobStoreError::QuotaExceeded(_)
+        )) | ApiMarkdownIngestPipelineError::Store(IngestionJobStoreError::QuotaExceeded(_))
+            | ApiMarkdownIngestPipelineError::Index(
+                KnowledgeApiMarkdownIndexServiceError::Metadata(
+                    MarkdownIndexMetadataStoreError::QuotaExceeded(_)
+                )
+            )
+    )
 }
 
 async fn build_git_ingest_request(
@@ -216,11 +258,25 @@ fn build_file_idempotency_key(space_id: u64, repo_key: &str, path: &str) -> Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tenant_quota::{TenantQuotaExceeded, TenantQuotaKind};
 
     #[test]
     fn build_file_idempotency_key_sanitizes_and_truncates() {
         let key = build_file_idempotency_key(42, "octocat/Hello@main", "docs/read me.md");
         assert!(key.starts_with("git-import-42-"));
         assert!(!key.contains(' '));
+    }
+
+    #[test]
+    fn quota_pipeline_error_is_not_treated_as_a_skippable_file_failure() {
+        let error = ApiMarkdownIngestPipelineError::Store(IngestionJobStoreError::QuotaExceeded(
+            TenantQuotaExceeded {
+                kind: TenantQuotaKind::IngestConcurrency,
+                usage: 3,
+                limit: 2,
+            },
+        ));
+
+        assert!(is_quota_pipeline_error(&error));
     }
 }

@@ -1,8 +1,8 @@
-import type { KnowledgeBrowserNode } from './knowledge-browser-node';
+import type { KnowledgeBrowserListData } from './knowledge-browser-list-data';
 
 export interface SpacesBrowserListResponse {
   code: 0;
-  data: unknown & Record<string, unknown>;
+  data: unknown & KnowledgeBrowserListData;
   /** Server-owned request correlation id. */
   traceId: string;
 }

@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, HelpCircle, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { shouldUseKnowledgebaseDemoFallback } from 'sdkwork-knowledgebase-pc-core';
+import {
+  resolveUserFacingErrorMessage,
+  type ErrorTranslateFn,
+} from 'sdkwork-knowledgebase-pc-core';
 import { AppletManagerModal } from './AppletManagerModal';
 import { WechatService, WechatAppletConfig } from '../services/wechat';
 
@@ -20,16 +23,36 @@ export function WechatAppletModal({ onClose, onConfirm }: WechatAppletModalProps
   const [isAppletManagerOpen, setIsAppletManagerOpen] = useState(false);
   const [applets, setApplets] = useState<WechatAppletConfig[]>([]);
   const [appletGroups, setAppletGroups] = useState<string[]>([]);
+  const [appletsLoading, setAppletsLoading] = useState(true);
+  const [appletError, setAppletError] = useState<string | null>(null);
 
   useEffect(() => {
-    setAppletGroups([t('toolsGroup', { defaultValue: '工具' }), t('aiToolsGroup', { defaultValue: 'AI工具' })]);
+    let active = true;
+    setAppletsLoading(true);
+    setAppletError(null);
+
+    void WechatService.getApplets()
+      .then(data => {
+        if (!active) return;
+        setApplets(data);
+        setAppletGroups(
+          Array.from(new Set(data.map(item => item.group).filter((group): group is string => Boolean(group)))),
+        );
+      })
+      .catch(error => {
+        if (!active) return;
+        setAppletError(
+          resolveUserFacingErrorMessage(error, t as unknown as ErrorTranslateFn),
+        );
+      })
+      .finally(() => {
+        if (active) setAppletsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [t]);
-
-  useEffect(() => {
-    WechatService.getApplets().then(data => {
-      setApplets(data);
-    });
-  }, []);
 
   const handleConfirm = () => {
     onConfirm({ 
@@ -48,10 +71,18 @@ export function WechatAppletModal({ onClose, onConfirm }: WechatAppletModalProps
     setIsAppletManagerOpen(false);
   };
 
-  const handleSaveApplets = (newApplets: WechatAppletConfig[], newGroups: string[]) => {
-    setApplets(newApplets);
-    setAppletGroups(newGroups);
-    WechatService.saveApplets(newApplets);
+  const handleSaveApplets = async (newApplets: WechatAppletConfig[], newGroups: string[]) => {
+    setAppletError(null);
+    try {
+      await WechatService.saveApplets(newApplets);
+      setApplets(newApplets);
+      setAppletGroups(newGroups);
+    } catch (error) {
+      setAppletError(
+        resolveUserFacingErrorMessage(error, t as unknown as ErrorTranslateFn),
+      );
+      throw error;
+    }
   };
 
   return (
@@ -88,7 +119,8 @@ export function WechatAppletModal({ onClose, onConfirm }: WechatAppletModalProps
                 />
                 <button 
                   onClick={() => setIsAppletManagerOpen(true)}
-                  className="px-4 py-2 bg-[var(--color-kb-panel)] hover:bg-[var(--color-kb-panel-hover)] border border-[var(--color-kb-panel-border)] text-[var(--color-kb-text)] text-sm rounded shadow-sm transition-colors whitespace-nowrap"
+                  disabled={appletsLoading || Boolean(appletError)}
+                  className="px-4 py-2 bg-[var(--color-kb-panel)] hover:bg-[var(--color-kb-panel-hover)] border border-[var(--color-kb-panel-border)] text-[var(--color-kb-text)] text-sm rounded shadow-sm transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {t('selectApplet')}
                 </button>
@@ -96,6 +128,16 @@ export function WechatAppletModal({ onClose, onConfirm }: WechatAppletModalProps
               <div className="text-[13px] text-[var(--color-kb-text-muted)] mt-3 leading-relaxed">
                 {t('cannotCopyHint')}
               </div>
+              {appletsLoading && (
+                <p role="status" className="text-[12px] text-[var(--color-kb-text-muted)] mt-2">
+                  {t('loadingApplets', { defaultValue: 'Loading applets...' })}
+                </p>
+              )}
+              {appletError && (
+                <p role="alert" className="text-[12px] text-red-500 mt-2">
+                  {appletError}
+                </p>
+              )}
             </div>
           </div>
 
@@ -161,10 +203,18 @@ export function WechatAppletModal({ onClose, onConfirm }: WechatAppletModalProps
                 <div className="text-[13px] text-[var(--color-kb-text-muted)] mb-3">
                   {t('imageTypeHint')}
                 </div>
-                <div className="flex space-x-3">
-                  <button className="px-4 py-1.5 bg-[#fbfbfb] hover:bg-gray-50 border border-[#e3e3e3] rounded text-sm text-[#333] transition-colors shadow-sm">{t('uploadImageBtn')}</button>
-                  <button className="px-4 py-1.5 bg-[#fbfbfb] hover:bg-gray-50 border border-[#e3e3e3] rounded text-sm text-[#333] transition-colors shadow-sm">{t('chooseFromLibraryBtn')}</button>
-                </div>
+                <input
+                  type="url"
+                  value={imageUrl}
+                  onChange={event => setImageUrl(event.target.value)}
+                  placeholder={t('imageUrlPlaceholder', { defaultValue: 'https://example.com/image.png' })}
+                  className="w-full border border-[var(--color-kb-panel-border)] rounded bg-transparent px-3 py-2 text-sm text-[var(--color-kb-text)] focus:outline-none focus:border-[var(--color-kb-accent)] transition-colors"
+                />
+                <p className="text-[12px] text-[var(--color-kb-text-muted)] mt-2">
+                  {t('imagePickerUnavailable', {
+                    defaultValue: 'Upload and asset library integrations are not configured. Enter an image URL.',
+                  })}
+                </p>
               </div>
             </div>
           )}
@@ -208,21 +258,21 @@ export function WechatAppletModal({ onClose, onConfirm }: WechatAppletModalProps
                         <div className="text-[13px] text-[#999] text-center mb-4 leading-relaxed">
                           {t('cardImageHint')}
                         </div>
-                        <div className="flex flex-col space-y-2 w-full px-4">
-                          {!shouldUseKnowledgebaseDemoFallback() ? (
-                            <p className="text-[12px] text-[#999] text-center leading-relaxed">
-                              API 模式下请手动填写图片 URL，或从素材库复制链接后粘贴。
-                            </p>
-                          ) : (
-                            <>
-                              <button onClick={() => setImageUrl('https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&w=400&q=80')} className="w-full py-1.5 bg-[#fbfbfb] hover:bg-gray-50 border border-[#e3e3e3] rounded text-sm text-[#333] transition-colors shadow-sm">{t('uploadImageBtn')}</button>
-                              <button onClick={() => setImageUrl('https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&w=400&q=80')} className="w-full py-1.5 bg-[#fbfbfb] hover:bg-gray-50 border border-[#e3e3e3] rounded text-sm text-[#333] transition-colors shadow-sm">{t('chooseFromLibraryBtn')}</button>
-                            </>
-                          )}
-                        </div>
+                        <p className="text-[12px] text-[#999] text-center leading-relaxed">
+                          {t('imagePickerUnavailable', {
+                            defaultValue: 'Upload and asset library integrations are not configured.',
+                          })}
+                        </p>
                       </div>
                     )}
                   </div>
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={event => setImageUrl(event.target.value)}
+                    placeholder={t('imageUrlPlaceholder', { defaultValue: 'https://example.com/image.png' })}
+                    className="w-[280px] mt-3 border border-[var(--color-kb-panel-border)] rounded bg-transparent px-3 py-2 text-sm text-[var(--color-kb-text)] focus:outline-none focus:border-[var(--color-kb-accent)] transition-colors"
+                  />
                   <div className="text-[14px] text-[#333] mt-3 flex items-center">
                     <span className="w-3 h-3 rounded-full border border-[var(--color-kb-accent)] flex items-center justify-center mr-2">
                       <span className="w-1.5 h-1.5 bg-[var(--color-kb-accent)] rounded-full"></span>

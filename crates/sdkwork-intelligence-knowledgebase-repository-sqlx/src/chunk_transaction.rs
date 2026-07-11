@@ -6,6 +6,7 @@ use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::{push_sql_timestamp_bind, SqlTimestampDialect};
 use crate::id::{next_i64_id, KnowledgeIdGenerator};
 use crate::keyword_search::KeywordSearchBackend;
 
@@ -31,6 +32,7 @@ pub async fn replace_version_chunks_in_transaction(
     tenant_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
     keyword_backend: KeywordSearchBackend,
+    timestamp_dialect: SqlTimestampDialect,
     document_version_id: u64,
     chunks: &[CreateKnowledgeChunkRecord],
 ) -> Result<usize, KnowledgeChunkStoreError> {
@@ -101,8 +103,15 @@ pub async fn replace_version_chunks_in_transaction(
                 .await?;
             bulk_insert_kb_chunk_fts(transaction, tenant_id_i64, batch).await?;
         } else {
-            bulk_insert_kb_chunks_postgres(transaction, tenant_id_i64, version_id, &now, batch)
-                .await?;
+            bulk_insert_kb_chunks_postgres(
+                transaction,
+                tenant_id_i64,
+                version_id,
+                timestamp_dialect,
+                &now,
+                batch,
+            )
+            .await?;
         }
     }
 
@@ -156,6 +165,7 @@ async fn bulk_insert_kb_chunks_postgres(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: i64,
     version_id: i64,
+    timestamp_dialect: SqlTimestampDialect,
     now: &str,
     batch: &[PreparedChunkRow],
 ) -> Result<(), KnowledgeChunkStoreError> {
@@ -182,13 +192,13 @@ async fn bulk_insert_kb_chunks_postgres(
             .push_bind(chunk.content_hash.as_str())
             .push_bind(chunk.token_count)
             .push_bind(chunk.locator.as_deref())
-            .push_bind(ACTIVE_STATUS)
-            .push_bind(now)
-            .push_bind(now)
-            .push_bind(INITIAL_VERSION);
+            .push_bind(ACTIVE_STATUS);
+        push_sql_timestamp_bind(&mut row, timestamp_dialect, now);
+        push_sql_timestamp_bind(&mut row, timestamp_dialect, now);
+        row.push_bind(INITIAL_VERSION);
         row.push("to_tsvector('simple', ");
-        row.push_bind(chunk.content_text.as_str());
-        row.push(")");
+        row.push_bind_unseparated(chunk.content_text.as_str());
+        row.push_unseparated(")");
     });
 
     builder
@@ -244,6 +254,7 @@ pub async fn replace_version_chunks_with_pool(
         tenant_id,
         id_generator,
         keyword_backend,
+        SqlTimestampDialect::default(),
         document_version_id,
         &chunks,
     )

@@ -9,6 +9,7 @@ use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{next_i64_id, KnowledgeIdGenerator};
 
 pub(crate) const OKF_CANDIDATE_ACTIVE_STATUS: i64 = 1;
@@ -18,6 +19,7 @@ pub(crate) async fn upsert_okf_candidate_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
     record: UpsertKnowledgeOkfCandidateRecord,
 ) -> Result<(), KnowledgeOkfCandidateStoreError> {
     let tenant_id = to_i64("tenant_id", tenant_id)?;
@@ -42,61 +44,67 @@ pub(crate) async fn upsert_okf_candidate_in_transaction(
     .map_err(sqlx_error)?;
 
     if let Some(candidate_id) = existing_id {
-        sqlx::query(
+        let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$4");
+        let query = format!(
             r#"
             UPDATE kb_okf_candidate
             SET candidate_type = $1,
                 state = $2,
                 markdown_object_ref_id = $3,
-                updated_at = CAST($4 AS TIMESTAMP),
+                updated_at = {updated_at_expr},
                 version = version + 1
             WHERE tenant_id = $5 AND id = $6 AND status = $7
             "#,
-        )
-        .bind(record.candidate_type.as_str())
-        .bind(record.state.as_str())
-        .bind(markdown_object_ref_id)
-        .bind(&now)
-        .bind(tenant_id)
-        .bind(candidate_id)
-        .bind(OKF_CANDIDATE_ACTIVE_STATUS)
-        .execute(&mut **transaction)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        sqlx::query(&query)
+            .bind(record.candidate_type.as_str())
+            .bind(record.state.as_str())
+            .bind(markdown_object_ref_id)
+            .bind(&now)
+            .bind(tenant_id)
+            .bind(candidate_id)
+            .bind(OKF_CANDIDATE_ACTIVE_STATUS)
+            .execute(&mut **transaction)
+            .await
+            .map_err(sqlx_error)?;
         return Ok(());
     }
 
     let id = next_i64_id(id_generator).map_err(id_error)?;
-    sqlx::query(
+    let created_at_expr = timestamp_dialect.sql_timestamp_expr("$10");
+    let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$11");
+    let query = format!(
         r#"
         INSERT INTO kb_okf_candidate (
             id, uuid, tenant_id, space_id, concept_id, candidate_type, state,
             markdown_object_ref_id, reviewer_id, review_note, status,
             created_at, updated_at, version
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, NULL, $9, $10, $11, $12)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, NULL, $9, {created_at_expr}, {updated_at_expr}, $12)
         "#,
-    )
-    .bind(id)
-    .bind(Uuid::new_v4().to_string())
-    .bind(tenant_id)
-    .bind(space_id)
-    .bind(&record.concept_id)
-    .bind(record.candidate_type.as_str())
-    .bind(record.state.as_str())
-    .bind(markdown_object_ref_id)
-    .bind(OKF_CANDIDATE_ACTIVE_STATUS)
-    .bind(&now)
-    .bind(&now)
-    .bind(OKF_CANDIDATE_INITIAL_VERSION)
-    .execute(&mut **transaction)
-    .await
-    .map_err(sqlx_error)?;
+    );
+    sqlx::query(&query)
+        .bind(id)
+        .bind(Uuid::new_v4().to_string())
+        .bind(tenant_id)
+        .bind(space_id)
+        .bind(&record.concept_id)
+        .bind(record.candidate_type.as_str())
+        .bind(record.state.as_str())
+        .bind(markdown_object_ref_id)
+        .bind(OKF_CANDIDATE_ACTIVE_STATUS)
+        .bind(&now)
+        .bind(&now)
+        .bind(OKF_CANDIDATE_INITIAL_VERSION)
+        .execute(&mut **transaction)
+        .await
+        .map_err(sqlx_error)?;
     Ok(())
 }
 
 pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
+    timestamp_dialect: SqlTimestampDialect,
     concept_row_id: u64,
     state: OkfConceptPublishState,
     reviewer_id: Option<u64>,
@@ -140,28 +148,30 @@ pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
         .map(|value| to_i64("reviewer_id", value))
         .transpose()?;
     let now = now_rfc3339()?;
-    sqlx::query(
+    let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$4");
+    let query = format!(
         r#"
         UPDATE kb_okf_candidate
         SET state = $1,
             reviewer_id = $2,
             review_note = $3,
-            updated_at = CAST($4 AS TIMESTAMP),
+            updated_at = {updated_at_expr},
             version = version + 1
         WHERE tenant_id = $5 AND space_id = $6 AND concept_id = $7 AND status = $8
         "#,
-    )
-    .bind(state.as_str())
-    .bind(reviewer_id)
-    .bind(review_note)
-    .bind(&now)
-    .bind(tenant_id)
-    .bind(space_id)
-    .bind(concept_id)
-    .bind(OKF_CANDIDATE_ACTIVE_STATUS)
-    .execute(&mut **transaction)
-    .await
-    .map_err(sqlx_error)?;
+    );
+    sqlx::query(&query)
+        .bind(state.as_str())
+        .bind(reviewer_id)
+        .bind(review_note)
+        .bind(&now)
+        .bind(tenant_id)
+        .bind(space_id)
+        .bind(concept_id)
+        .bind(OKF_CANDIDATE_ACTIVE_STATUS)
+        .execute(&mut **transaction)
+        .await
+        .map_err(sqlx_error)?;
     Ok(())
 }
 

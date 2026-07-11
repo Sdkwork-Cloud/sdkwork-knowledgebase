@@ -80,9 +80,11 @@ The first public surface exposes common external integration flows only.
 | `GET` | `/knowledge/v3/api/ingests/{ingestId}` | `ingests.retrieve` | Read ingestion task status. |
 | `GET` | `/knowledge/v3/api/documents` | `documents.list` | List externally visible knowledge documents. |
 | `GET` | `/knowledge/v3/api/documents/{documentId}` | `documents.retrieve` | Read an externally visible knowledge document. |
-| `GET` | `/knowledge/v3/api/spaces/{spaceId}/browser` | `spaces.browser.list` | Browse externally visible nodes in a knowledge space. |
+| `GET` | `/knowledge/v3/api/spaces/{spaceId}/browser` | `spaces.browser.list` | Browse a bounded knowledge browser view; OKF `view=files` lists original files under `sources/raw`, while `view=okf_bundle` lists generated bundle files under `okf`. |
 
 This scope intentionally reuses app-api business DTOs where the existing contracts already model the external use case. It does not expose create/update/delete document administration or backend operator controls.
+
+Browser list responses use `KnowledgeBrowserListData` (`items`, `pageInfo`, `spaceId`, `driveSpaceId`, resolved `parentId`, `view`, and `pageSize`). Clients must use the resolved `parentId` for root operations and must not infer Drive folder ids from logical paths.
 
 ## Authentication And Request Context
 
@@ -216,4 +218,3 @@ Gateway verification:
 ## Rollback
 
 Before release, rollback is a normal git revert of the open-api route crate, SDK family, route manifest, standardization script changes, and gateway integration. Because this is a new public surface, no existing public consumer compatibility window is required until the API is published.
-

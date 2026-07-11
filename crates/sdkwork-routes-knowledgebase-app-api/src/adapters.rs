@@ -9,14 +9,14 @@ use sdkwork_knowledgebase_contract::{
     CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile,
-    KnowledgeAgentProfileRequest, KnowledgeBrowserNode, KnowledgeContextPack,
+    KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeContextPack,
     KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent,
     KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult,
     KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest,
     KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem,
     KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult,
     KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile,
-    KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
+    KnowledgeOkfConceptRevision, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
     KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
     KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession,
     KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
@@ -55,7 +55,7 @@ impl KnowledgeAppApi for BrowserOnlyAppApi {
         &self,
         context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>> {
+    ) -> ApiResult<KnowledgeBrowserListData> {
         self.browser.list_browser(context, request).await
     }
 }
@@ -620,9 +620,11 @@ impl KnowledgeAppApi for FullAppApi {
         &self,
         context: KnowledgeAppRequestContext,
         concept_row_id: u64,
-    ) -> ApiResult<KnowledgeOkfConceptRevisionList> {
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeOkfConceptRevision>> {
         self.okf
-            .list_okf_concept_revisions(context, concept_row_id)
+            .list_okf_concept_revisions(context, concept_row_id, cursor, page_size)
             .await
     }
 
@@ -729,7 +731,7 @@ impl KnowledgeAppApi for FullAppApi {
         &self,
         context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>> {
+    ) -> ApiResult<KnowledgeBrowserListData> {
         self.browser.list_browser(context, request).await
     }
 

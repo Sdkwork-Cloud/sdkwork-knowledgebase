@@ -7,6 +7,8 @@ use sdkwork_knowledgebase_contract::{
 };
 use thiserror::Error;
 
+use crate::tenant_quota::TenantQuotaExceeded;
+
 use super::{
     knowledge_document_store::CreateKnowledgeDocumentRecord,
     knowledge_document_version_store::CreateKnowledgeDocumentVersionRecord,
@@ -52,6 +54,8 @@ pub enum DriveImportMetadataStoreError {
     InvalidRequest(String),
     #[error("drive import metadata conflict: {0}")]
     Conflict(String),
+    #[error(transparent)]
+    QuotaExceeded(#[from] TenantQuotaExceeded),
     #[error("drive import metadata store internal error: {0}")]
     Internal(String),
 }

@@ -5,16 +5,15 @@ use sdkwork_routes_knowledgebase_app_api::{
     paths, KnowledgeAppRequestContext, KnowledgebaseRuntime,
 };
 use serde_json::json;
-use std::sync::Mutex;
+use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::{Mutex, MutexGuard};
 use tower::util::ServiceExt;
 
-static POSTGRES_CREATE_SPACE_TEST_LOCK: Mutex<()> = Mutex::new(());
+static POSTGRES_CREATE_SPACE_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
-fn postgres_create_space_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    POSTGRES_CREATE_SPACE_TEST_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+async fn postgres_create_space_test_lock() -> MutexGuard<'static, ()> {
+    POSTGRES_CREATE_SPACE_TEST_LOCK.lock().await
 }
 
 fn optional_postgres_database_url() -> Option<String> {
@@ -25,7 +24,7 @@ fn optional_postgres_database_url() -> Option<String> {
 
 #[tokio::test]
 async fn postgres_runtime_creates_space_through_app_router() {
-    let _guard = postgres_create_space_test_lock();
+    let _guard = postgres_create_space_test_lock().await;
     let Some(database_url) = optional_postgres_database_url() else {
         eprintln!(
             "skipping postgres create space integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL to a postgres URL"

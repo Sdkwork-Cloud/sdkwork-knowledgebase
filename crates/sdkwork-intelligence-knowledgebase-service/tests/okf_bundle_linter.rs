@@ -1,4 +1,8 @@
 use async_trait::async_trait;
+#[path = "support/okf_pagination.rs"]
+mod okf_pagination_support;
+
+use okf_pagination_support::validated_okf_test_page_size;
 use sdkwork_intelligence_knowledgebase_service::okf::{
     lint_bundle_summaries, lint_published_concept_markdown, render_okf_concept_markdown,
     to_contract_lint_result, OkfBundleLinterService, OkfConceptDocument,
@@ -27,7 +31,7 @@ use std::sync::Mutex;
 async fn bundle_linter_reports_broken_links_and_orphans() {
     let drive = MemoryDrive::default();
     let concepts = MemoryOkfConceptStore::default();
-    let links = MemoryLinkStore::default();
+    let links = MemoryLinkStore;
 
     let markdown = render_okf_concept_markdown(&OkfConceptDocument {
         concept_type: "Entity".to_string(),
@@ -97,6 +101,45 @@ async fn bundle_linter_reports_broken_links_and_orphans() {
         .issues
         .iter()
         .any(|issue| issue.code == "orphan_concepts"));
+}
+
+#[tokio::test]
+async fn paged_concept_fake_lists_only_published_concepts() {
+    let concepts = MemoryOkfConceptStore::default();
+    for (concept_id, publish_state) in [
+        ("entities/candidate", OkfConceptPublishState::CandidateReady),
+        ("entities/published", OkfConceptPublishState::Published),
+    ] {
+        concepts
+            .upsert_concept(UpsertKnowledgeOkfConceptRecord {
+                space_id: 1,
+                concept_id: concept_id.to_string(),
+                title: concept_id.to_string(),
+                concept_type: "Entity".to_string(),
+                logical_path: format!("okf/{concept_id}.md"),
+                description: "Summary.".to_string(),
+                source_count: 0,
+                tags: vec![],
+                publish_state,
+            })
+            .await
+            .unwrap();
+    }
+
+    let (items, next_cursor, has_more) = concepts
+        .list_concept_summaries_page(1, None, 20)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        items
+            .iter()
+            .map(|item| item.concept_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["entities/published"]
+    );
+    assert!(next_cursor.is_none());
+    assert!(!has_more);
 }
 
 #[test]
@@ -328,6 +371,65 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
             summaries.truncate(limit.max(1) as usize);
         }
         Ok(summaries)
+    }
+
+    async fn list_concept_summaries_page(
+        &self,
+        space_id: u64,
+        cursor: Option<String>,
+        page_size: u32,
+    ) -> Result<(Vec<OkfConceptSummary>, Option<String>, bool), KnowledgeOkfConceptStoreError> {
+        let page_size = validated_okf_test_page_size(page_size)?;
+        let fetch_size = page_size + 1;
+        let concepts = self.concepts.lock().unwrap();
+        let mut summaries = Vec::with_capacity(fetch_size);
+
+        for concept in concepts.iter().filter(|concept| {
+            concept.space_id == space_id
+                && concept.publish_state == OkfConceptPublishState::Published
+                && match cursor.as_ref() {
+                    Some(cursor) => concept.concept_id.as_str() > cursor.as_str(),
+                    None => true,
+                }
+        }) {
+            let summary = OkfConceptSummary {
+                title: concept.title.clone(),
+                concept_id: concept.concept_id.clone(),
+                concept_type: concept.concept_type.clone(),
+                logical_path: concept.logical_path.clone(),
+                bundle_relative_path: concept.bundle_relative_path.clone(),
+                description: concept.description.clone(),
+                source_count: concept.source_count,
+                updated_at: concept.updated_at.clone(),
+                tags: concept.tags.clone(),
+            };
+            let index = summaries
+                .partition_point(|item: &OkfConceptSummary| item.concept_id <= summary.concept_id);
+            summaries.insert(index, summary);
+            if summaries.len() > fetch_size {
+                summaries.pop();
+            }
+        }
+
+        let has_more = summaries.len() > page_size;
+        summaries.truncate(page_size);
+        let next_cursor = if has_more {
+            summaries.last().map(|item| item.concept_id.clone())
+        } else {
+            None
+        };
+        Ok((summaries, next_cursor, has_more))
+    }
+
+    async fn list_concept_revisions_page(
+        &self,
+        _concept_row_id: u64,
+        _cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeOkfConceptRevision>, Option<u64>, bool), KnowledgeOkfConceptStoreError>
+    {
+        validated_okf_test_page_size(page_size)?;
+        Ok((Vec::new(), None, false))
     }
 
     async fn append_log_entry(

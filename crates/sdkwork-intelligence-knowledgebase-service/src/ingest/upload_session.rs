@@ -5,16 +5,18 @@ use crate::ports::{
         PutKnowledgeObjectRequest,
     },
     knowledge_ingestion_job_store::{
-        CreateIngestionJobRecord, IngestionJobStore, IngestionJobStoreError,
+        CreateIngestionJobRecord, IngestionJobLifecycle, IngestionJobStore, IngestionJobStoreError,
+        KNOWLEDGE_UPLOAD_SESSION_TTL,
     },
 };
+use sdkwork_knowledgebase_contract::ingest::IngestionJobState;
 use sdkwork_knowledgebase_contract::upload::{
     CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
     KnowledgeUploadSession, KnowledgeUploadSessionStatus,
 };
 use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
-use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub struct KnowledgeUploadSessionService<'a> {
     drive: &'a dyn KnowledgeDriveStorage,
@@ -51,20 +53,20 @@ impl<'a> KnowledgeUploadSessionService<'a> {
             })
             .await?
             .job;
+        let mut session = self.load_session(job.id).await?;
+        session.title = request.title;
+        Ok(session)
+    }
 
-        let upload_logical_path = format!("upload_sessions/{}/payload", job.id);
-        let expires_at = (OffsetDateTime::now_utc() + Duration::hours(24))
-            .format(&Rfc3339)
-            .map_err(|error| KnowledgeUploadSessionServiceError::Internal(error.to_string()))?;
-
-        Ok(KnowledgeUploadSession {
-            id: job.id,
-            space_id: request.space_id,
-            title: request.title,
-            upload_logical_path,
-            status: KnowledgeUploadSessionStatus::Pending,
-            expires_at,
-        })
+    pub async fn load_session(
+        &self,
+        session_id: u64,
+    ) -> Result<KnowledgeUploadSession, KnowledgeUploadSessionServiceError> {
+        let lifecycle = self.jobs.get_job_lifecycle(session_id).await?;
+        if lifecycle.job.source_type != "upload_session" {
+            return Err(KnowledgeUploadSessionServiceError::NotFound(session_id));
+        }
+        upload_session_from_lifecycle(lifecycle, OffsetDateTime::now_utc())
     }
 
     pub async fn resolve_payload_markdown(
@@ -73,6 +75,20 @@ impl<'a> KnowledgeUploadSessionService<'a> {
         request: &CompleteKnowledgeUploadSessionRequest,
         drive_space_id: Option<&str>,
     ) -> Result<String, KnowledgeUploadSessionServiceError> {
+        match session.status {
+            KnowledgeUploadSessionStatus::Pending => {}
+            KnowledgeUploadSessionStatus::Completed => {
+                return Err(KnowledgeUploadSessionServiceError::InvalidRequest(
+                    "upload session is already completed".to_string(),
+                ));
+            }
+            KnowledgeUploadSessionStatus::Expired => {
+                return Err(KnowledgeUploadSessionServiceError::InvalidRequest(
+                    "upload session has expired".to_string(),
+                ));
+            }
+        }
+
         if let Some(payload_markdown) = &request.payload_markdown {
             if is_blank(Some(payload_markdown.as_str())) {
                 return Err(KnowledgeUploadSessionServiceError::InvalidRequest(
@@ -146,8 +162,48 @@ impl<'a> KnowledgeUploadSessionService<'a> {
     }
 }
 
+fn upload_session_from_lifecycle(
+    lifecycle: IngestionJobLifecycle,
+    now: OffsetDateTime,
+) -> Result<KnowledgeUploadSession, KnowledgeUploadSessionServiceError> {
+    let expires_at = lifecycle
+        .created_at
+        .checked_add(KNOWLEDGE_UPLOAD_SESSION_TTL)
+        .ok_or_else(|| {
+            KnowledgeUploadSessionServiceError::Internal(
+                "upload session expiry is outside the supported timestamp range".to_string(),
+            )
+        })?;
+    let status = match lifecycle.job.state {
+        IngestionJobState::Queued | IngestionJobState::Running if now >= expires_at => {
+            KnowledgeUploadSessionStatus::Expired
+        }
+        IngestionJobState::Queued | IngestionJobState::Running => {
+            KnowledgeUploadSessionStatus::Pending
+        }
+        IngestionJobState::Succeeded => KnowledgeUploadSessionStatus::Completed,
+        IngestionJobState::Failed | IngestionJobState::Cancelled => {
+            KnowledgeUploadSessionStatus::Expired
+        }
+    };
+    let expires_at = expires_at
+        .format(&Rfc3339)
+        .map_err(|error| KnowledgeUploadSessionServiceError::Internal(error.to_string()))?;
+
+    Ok(KnowledgeUploadSession {
+        id: lifecycle.job.id,
+        space_id: lifecycle.job.space_id,
+        title: format!("upload-session-{}", lifecycle.job.id),
+        upload_logical_path: format!("upload_sessions/{}/payload", lifecycle.job.id),
+        status,
+        expires_at,
+    })
+}
+
 #[derive(Debug, Error)]
 pub enum KnowledgeUploadSessionServiceError {
+    #[error("upload session not found: {0}")]
+    NotFound(u64),
     #[error("invalid upload session request: {0}")]
     InvalidRequest(String),
     #[error("upload session internal error: {0}")]

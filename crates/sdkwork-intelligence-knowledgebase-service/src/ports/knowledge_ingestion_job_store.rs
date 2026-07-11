@@ -2,9 +2,14 @@ use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::drive::KnowledgeDriveObjectRef;
 use sdkwork_knowledgebase_contract::ingest::{IngestionJob, IngestionJobState};
 use thiserror::Error;
+use time::{Duration, OffsetDateTime};
 
 use crate::ports::knowledge_chunk_store::CreateKnowledgeChunkRecord;
 use crate::ports::knowledge_outbox_store::AppendOutboxEventRecord;
+use crate::tenant_quota::TenantQuotaExceeded;
+
+pub const KNOWLEDGE_UPLOAD_SESSION_TTL: Duration = Duration::hours(24);
+pub const STALE_UPLOAD_SESSION_RECOVERY_BATCH_SIZE: u32 = 100;
 
 #[async_trait]
 pub trait IngestionJobStore: Send + Sync {
@@ -14,6 +19,15 @@ pub trait IngestionJobStore: Send + Sync {
     ) -> Result<CreateOrGetIngestionJobResult, IngestionJobStoreError>;
 
     async fn get_job(&self, job_id: u64) -> Result<IngestionJob, IngestionJobStoreError>;
+
+    async fn get_job_lifecycle(
+        &self,
+        job_id: u64,
+    ) -> Result<IngestionJobLifecycle, IngestionJobStoreError> {
+        Err(IngestionJobStoreError::Internal(format!(
+            "ingestion job store does not expose lifecycle timestamps for job {job_id}"
+        )))
+    }
 
     async fn update_job_state(
         &self,
@@ -28,6 +42,16 @@ pub trait IngestionJobStore: Send + Sync {
         state: IngestionJobState,
         limit: u32,
     ) -> Result<Vec<IngestionJob>, IngestionJobStoreError>;
+
+    async fn fail_expired_upload_sessions(
+        &self,
+        _expired_before: OffsetDateTime,
+        _limit: u32,
+    ) -> Result<u32, IngestionJobStoreError> {
+        Err(IngestionJobStoreError::Internal(
+            "ingestion job store does not support expired upload-session recovery".to_string(),
+        ))
+    }
 
     async fn attach_drive_import_linkage(
         &self,
@@ -58,6 +82,13 @@ pub struct CompleteRunningIngestionRecord {
     pub document_version_id: u64,
     pub chunks: Vec<CreateKnowledgeChunkRecord>,
     pub outbox: AppendOutboxEventRecord,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IngestionJobLifecycle {
+    pub job: IngestionJob,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,6 +125,8 @@ pub enum IngestionJobStoreError {
     NotFound(u64),
     #[error("ingestion job conflict: {0}")]
     Conflict(String),
+    #[error(transparent)]
+    QuotaExceeded(#[from] TenantQuotaExceeded),
     #[error("ingestion job store internal error: {0}")]
     Internal(String),
 }

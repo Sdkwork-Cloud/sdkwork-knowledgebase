@@ -22,22 +22,24 @@ use sdkwork_intelligence_knowledgebase_service::{
             CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
         },
         knowledge_okf_concept_store::KnowledgeOkfConceptStore,
+        knowledge_source_store::{CreateKnowledgeSourceRecord, KnowledgeSourceStore},
         knowledge_space_store::KnowledgeSpaceStore,
     },
 };
+use sdkwork_knowledgebase_contract::source::KnowledgeSourceType;
 use sdkwork_knowledgebase_contract::{
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
-    CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob, KnowledgeDocument,
-    KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDocumentVisibility,
-    KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest,
-    KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult,
-    KnowledgeIngestRequest, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList,
-    KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType,
-    ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleFileKind, OkfBundleImportRequest,
-    OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest, OkfContextPackRequest,
-    OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun,
-    OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PublishKnowledgeOkfConceptRequest,
-    UpdateKnowledgeSpaceRequest,
+    CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
+    KnowledgeBrowserListData, KnowledgeDocument, KnowledgeDocumentContent,
+    KnowledgeDocumentVersion, KnowledgeDocumentVisibility, KnowledgeDriveImportRequest,
+    KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult,
+    KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest,
+    KnowledgeOkfBundleFile, KnowledgeOkfConceptRevision, KnowledgeSpace, KnowledgeSpaceMember,
+    KnowledgeSpaceMemberSubjectType, ListKnowledgeBrowserRequest, OkfBundleExportRequest,
+    OkfBundleFileKind, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary,
+    OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument,
+    OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest,
+    OkfQueryResult, PublishKnowledgeOkfConceptRequest, UpdateKnowledgeSpaceRequest,
 };
 use sdkwork_utils_rust::{is_blank, SdkWorkPageData};
 
@@ -171,12 +173,6 @@ impl KnowledgeIngestAppService for HostedIngestService {
     ) -> ApiResult<IngestionJob> {
         let space_id = request.space_id;
         let space = require_space_access(&self.runtime, &context, space_id).await?;
-        crate::tenant_quota_enforcement::ensure_tenant_can_start_ingest(&self.runtime).await?;
-        crate::tenant_quota_enforcement::ensure_tenant_can_add_storage(
-            &self.runtime,
-            u64::try_from(request.payload_markdown.len()).unwrap_or(u64::MAX),
-        )
-        .await?;
         let pipeline = ApiMarkdownIngestPipeline::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
@@ -224,12 +220,6 @@ impl KnowledgeDriveImportAppService for HostedDriveImportService {
     ) -> ApiResult<KnowledgeDriveImportResult> {
         require_space_access(&self.runtime, &context, request.space_id).await?;
         let request = resolve_drive_import_request(self.runtime.drive_tree(), request).await?;
-        crate::tenant_quota_enforcement::ensure_tenant_can_start_ingest(&self.runtime).await?;
-        crate::tenant_quota_enforcement::ensure_tenant_can_import_drive_object(
-            &self.runtime,
-            &request,
-        )
-        .await?;
         let service = KnowledgeDriveImportService::new(
             self.runtime.drive_storage(),
             self.runtime.drive_import_metadata_store(),
@@ -284,7 +274,6 @@ impl KnowledgeGitImportAppService for HostedGitImportService {
     ) -> ApiResult<KnowledgeGitImportResult> {
         let space_id = request.space_id;
         let space = require_space_access(&self.runtime, &context, space_id).await?;
-        crate::tenant_quota_enforcement::ensure_tenant_can_start_ingest(&self.runtime).await?;
         let service = KnowledgeGitImportService::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
@@ -349,6 +338,26 @@ impl HostedDocumentService {
     pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
+
+    async fn create_manual_document_source(&self, space_id: u64) -> ApiResult<u64> {
+        let source = self
+            .runtime
+            .source_store()
+            .create_source(CreateKnowledgeSourceRecord {
+                space_id,
+                source_type: KnowledgeSourceType::Api,
+                provider: Some("documents.create".to_string()),
+                drive_bucket: None,
+                drive_prefix: Some(format!(
+                    "documents/create/{}",
+                    uuid::Uuid::new_v4().as_simple()
+                )),
+                connector_metadata_json: None,
+            })
+            .await
+            .map_err(ApiError::from)?;
+        Ok(source.id)
+    }
 }
 
 #[async_trait]
@@ -367,7 +376,7 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
             ));
         }
         require_space_access(&self.runtime, &context, space_id).await?;
-        let normalized_page_size = crate::pagination::normalize_page_size(page_size);
+        let normalized_page_size = crate::pagination::normalize_api_page_size(page_size)?;
         let cursor_id = crate::pagination::parse_u64_cursor(cursor.as_deref()).map_err(|_| {
             ApiError::invalid_request("invalid_parameter", "cursor must be a valid document id")
         })?;
@@ -405,12 +414,17 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
         require_space_access(&self.runtime, &context, request.space_id).await?;
         crate::tenant_quota_enforcement::ensure_tenant_can_create_document(&self.runtime).await?;
 
+        let source_id = match request.source_id {
+            Some(source_id) => source_id,
+            None => self.create_manual_document_source(request.space_id).await?,
+        };
+
         self.runtime
             .document_store()
             .create_document(CreateKnowledgeDocumentRecord {
                 space_id: request.space_id,
                 collection_id: request.collection_id.unwrap_or(0),
-                source_id: request.source_id,
+                source_id: Some(source_id),
                 identity_scope: KnowledgeDocumentIdentityScope::SourceOnly,
                 original_file_drive_node_id: None,
                 title: request.title,
@@ -469,7 +483,9 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
                     context.actor_id.unwrap_or(0),
                     document_visibility_label(previous_visibility),
                     document_visibility_label(new_visibility),
-                );
+                )
+                .await
+                .map_err(ApiError::from)?;
             }
         }
         Ok(updated)
@@ -496,7 +512,7 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
         page_size: Option<u32>,
     ) -> ApiResult<SdkWorkPageData<KnowledgeDocumentVersion>> {
         require_document_access(&self.runtime, &context, document_id).await?;
-        let normalized_page_size = crate::pagination::normalize_page_size(page_size);
+        let normalized_page_size = crate::pagination::normalize_api_page_size(page_size)?;
         let cursor_id = crate::pagination::parse_u64_cursor(cursor.as_deref()).map_err(|_| {
             ApiError::invalid_request(
                 "invalid_parameter",
@@ -572,7 +588,15 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
         self.runtime
             .read_document_content_markdown(document_id)
             .await
-            .map_err(|detail| ApiError::internal("document_content_read_failed", detail))
+            .map_err(|detail| {
+                if detail == "document has no versions"
+                    || detail == "document content is not available"
+                {
+                    ApiError::not_found("document_content_not_available", detail)
+                } else {
+                    ApiError::internal("document_content_read_failed", detail)
+                }
+            })
     }
 }
 
@@ -593,7 +617,7 @@ impl KnowledgeBrowserApi for HostedBrowserService {
         &self,
         context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>> {
+    ) -> ApiResult<KnowledgeBrowserListData> {
         ensure_runtime_tenant(&self.runtime, &context)?;
         let actor_id = context
             .actor_id
@@ -615,11 +639,7 @@ impl KnowledgeBrowserApi for HostedBrowserService {
             )
             .await
             .map_err(ApiError::from)?;
-        Ok(crate::pagination::browser_list_page_data(
-            page.items,
-            page.next_cursor,
-            page.page_size,
-        ))
+        Ok(page.into())
     }
 }
 
@@ -653,16 +673,42 @@ impl KnowledgeOkfAppService for HostedOkfService {
         self.runtime
             .resolve_okf_bundle_engine_for_space(space_id)
             .await?;
-        let normalized_page_size = crate::pagination::normalize_page_size(page_size);
-        let cursor_id = crate::pagination::parse_u64_cursor(cursor.as_deref()).map_err(|_| {
-            ApiError::invalid_request("invalid_parameter", "cursor must be a valid concept id")
-        })?;
-        let (items, next_cursor, has_more) = self
+        let normalized_page_size = crate::pagination::normalize_api_page_size(page_size)?;
+        let cursor_position = crate::pagination::parse_okf_concept_cursor(
+            cursor.as_deref(),
+            context.tenant_id,
+            space_id,
+        )
+        .map_err(|_| ApiError::invalid_request("invalid_parameter", "cursor is invalid"))?;
+        let (items, next_position, has_more) = self
             .runtime
             .okf_concept_store()
-            .list_concept_summaries_page(space_id, cursor_id, normalized_page_size)
+            .list_concept_summaries_page(space_id, cursor_position, normalized_page_size)
             .await
             .map_err(map_okf_concept_store_error)?;
+        let next_cursor = if has_more {
+            let next_position = next_position.ok_or_else(|| {
+                ApiError::sanitized_internal(
+                    "okf_concept_cursor_missing",
+                    "concept store returned has_more without a next position",
+                )
+            })?;
+            Some(
+                crate::pagination::encode_okf_concept_cursor(
+                    context.tenant_id,
+                    space_id,
+                    &next_position,
+                )
+                .map_err(|_| {
+                    ApiError::sanitized_internal(
+                        "okf_concept_cursor_encoding_failed",
+                        "concept cursor payload could not be encoded",
+                    )
+                })?,
+            )
+        } else {
+            None
+        };
         Ok(crate::pagination::cursor_page_data(
             items,
             next_cursor,
@@ -690,15 +736,55 @@ impl KnowledgeOkfAppService for HostedOkfService {
         &self,
         context: KnowledgeAppRequestContext,
         concept_row_id: u64,
-    ) -> ApiResult<KnowledgeOkfConceptRevisionList> {
-        require_okf_concept_space_access(&self.runtime, &context, concept_row_id).await?;
-        let items = self
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeOkfConceptRevision>> {
+        let normalized_page_size = crate::pagination::normalize_api_page_size(page_size)?;
+        let space =
+            require_okf_concept_space_access(&self.runtime, &context, concept_row_id).await?;
+        let cursor_position = crate::pagination::parse_okf_revision_cursor(
+            cursor.as_deref(),
+            context.tenant_id,
+            space.id,
+            concept_row_id,
+        )
+        .map_err(|_| ApiError::invalid_request("invalid_parameter", "cursor is invalid"))?;
+        let (items, next_position, has_more) = self
             .runtime
             .okf_concept_store()
-            .list_concept_revisions(concept_row_id)
+            .list_concept_revisions_page(concept_row_id, cursor_position, normalized_page_size)
             .await
             .map_err(map_okf_concept_store_error)?;
-        Ok(KnowledgeOkfConceptRevisionList { items })
+        let next_cursor = if has_more {
+            let next_position = next_position.ok_or_else(|| {
+                ApiError::sanitized_internal(
+                    "okf_revision_cursor_missing",
+                    "revision store returned has_more without a next position",
+                )
+            })?;
+            Some(
+                crate::pagination::encode_okf_revision_cursor(
+                    context.tenant_id,
+                    space.id,
+                    concept_row_id,
+                    next_position,
+                )
+                .map_err(|_| {
+                    ApiError::sanitized_internal(
+                        "okf_revision_cursor_encoding_failed",
+                        "revision cursor payload could not be encoded",
+                    )
+                })?,
+            )
+        } else {
+            None
+        };
+        Ok(crate::pagination::cursor_page_data(
+            items,
+            next_cursor,
+            has_more,
+            normalized_page_size,
+        ))
     }
 
     async fn upsert_okf_concept(

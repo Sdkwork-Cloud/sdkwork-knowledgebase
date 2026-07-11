@@ -176,9 +176,9 @@ describe('knowledgebase security standard alignment', () => {
     }
   });
 
-  it('aligns production ingress hosts with cloud.split-services topology', () => {
+  it('aligns production ingress hosts with cloud.production topology', () => {
     const ingress = readRepoFile('deployments/kubernetes/ingress.yaml');
-    const productionEnv = readRepoFile('configs/topology/cloud.split-services.production.env');
+    const productionEnv = readRepoFile('configs/topology/cloud.production.env');
     assert.match(ingress, /knowledgebase\.sdkwork\.com/);
     assert.match(ingress, /knowledgebase-admin\.sdkwork\.com/);
     assert.match(ingress, /knowledge\.sdkwork\.com/);

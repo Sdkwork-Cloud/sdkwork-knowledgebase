@@ -3,7 +3,8 @@
 pub mod audit;
 pub use audit::{
     install_audit_persistence, record_backend_admin_operation, record_document_visibility_changed,
-    record_space_member_granted, record_space_member_revoked, AuditPersistenceEvent,
+    record_space_member_granted, record_space_member_revoked, AuditPersistenceError,
+    AuditPersistenceEvent,
 };
 pub mod billing_metrics;
 pub use billing_metrics::{

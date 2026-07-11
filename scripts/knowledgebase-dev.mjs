@@ -66,7 +66,6 @@ function parseArgs(argv) {
     devEnvFile: undefined,
     dryRun: false,
     help: false,
-    serviceLayout: 'unified-process',
     target: 'browser',
   };
 
@@ -78,11 +77,6 @@ function parseArgs(argv) {
     }
     if (arg === '--deployment-profile') {
       settings.deploymentProfile = argv[index + 1] ?? settings.deploymentProfile;
-      index += 1;
-      continue;
-    }
-    if (arg === '--service-layout') {
-      settings.serviceLayout = argv[index + 1] ?? settings.serviceLayout;
       index += 1;
       continue;
     }
@@ -129,7 +123,6 @@ Database profiles:
 
 Options:
   --deployment-profile <standalone|cloud>           Default: standalone
-  --service-layout <unified-process|split-services> Default: unified-process
   --database <postgres|sqlite>                      Default: postgres
   --target <browser|desktop>                        Default: browser
   --dev-env-file <path>                             Optional PostgreSQL override for IAM/login
@@ -421,7 +414,7 @@ async function main() {
   }
 
   const profileId =
-    resolveDevProfileId(settings.deploymentProfile, settings.serviceLayout) || DEFAULT_DEV_PROFILE_ID;
+    resolveDevProfileId(settings.deploymentProfile) || DEFAULT_DEV_PROFILE_ID;
   const profileEnv = loadProfile(profileId);
   const postgresDevEnv =
     settings.database === 'postgres' ? loadEnvFile(resolvePostgresDevEnvFile(settings)) : {};
@@ -438,7 +431,6 @@ async function main() {
       resolveKnowledgebaseRuntimeTenantEnv(iamSourceEnv),
       {
         SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: settings.deploymentProfile,
-        SDKWORK_KNOWLEDGEBASE_SERVICE_LAYOUT: settings.serviceLayout,
         SDKWORK_KNOWLEDGEBASE_DATABASE_PROFILE: settings.database,
         SDKWORK_KNOWLEDGEBASE_PROFILE_ID: profileId,
         SDKWORK_KNOWLEDGEBASE_DEV_MODE: '1',
@@ -463,7 +455,7 @@ async function main() {
 
   if (settings.dryRun) {
     console.log(
-      `[sdkwork-knowledgebase] profile=${profileId} deploymentProfile=${settings.deploymentProfile} serviceLayout=${settings.serviceLayout} database=${settings.database} target=${settings.target} knowledgeDatabase=${runtimeEnv.SDKWORK_KNOWLEDGEBASE_DATABASE_URL} iamDatabase=${runtimeEnv.SDKWORK_IAM_DATABASE_URL ?? runtimeEnv.SDKWORK_CLAW_DATABASE_URL ?? 'unknown'}`,
+      `[sdkwork-knowledgebase] profile=${profileId} deploymentProfile=${settings.deploymentProfile} database=${settings.database} target=${settings.target} knowledgeDatabase=${runtimeEnv.SDKWORK_KNOWLEDGEBASE_DATABASE_URL} iamDatabase=${runtimeEnv.SDKWORK_IAM_DATABASE_URL ?? runtimeEnv.SDKWORK_CLAW_DATABASE_URL ?? 'unknown'}`,
     );
     for (const entry of processes) {
       console.log(`[${entry.label}] ${entry.command} ${entry.args.join(' ')}`);

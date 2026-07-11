@@ -11,6 +11,30 @@ const APP_ROOT_POSTGRES_BASELINE: &str =
     include_str!("../../../database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql");
 const APP_ROOT_SQLITE_BASELINE: &str =
     include_str!("../../../database/ddl/baseline/sqlite/0001_knowledgebase_baseline.sql");
+const AGENT_PROFILE_STORE_SOURCE: &str = include_str!("../src/agent_profile_store.rs");
+const AUDIT_EVENT_STORE_SOURCE: &str = include_str!("../src/audit_event_store.rs");
+const DRIVE_OBJECT_REF_STORE_SOURCE: &str = include_str!("../src/drive_object_ref_store.rs");
+const INDEX_STORE_SOURCE: &str = include_str!("../src/index_store.rs");
+const OKF_CONCEPT_LINK_STORE_SOURCE: &str = include_str!("../src/okf_concept_link_store.rs");
+const OKF_CONCEPT_STORE_SOURCE: &str = include_str!("../src/okf_concept_store.rs");
+const RETRIEVAL_PROFILE_STORE_SOURCE: &str = include_str!("../src/retrieval_profile_store.rs");
+const RETRIEVAL_STORE_SOURCE: &str = include_str!("../src/retrieval_store.rs");
+const SQLITE_COMMERCE_STORE_SOURCE: &str = include_str!("../src/sqlite_commerce_store.rs");
+const SQLITE_CONTEXT_BINDING_STORE_SOURCE: &str =
+    include_str!("../src/sqlite_context_binding_store.rs");
+const SQLITE_DRIVE_IMPORT_METADATA_STORE_SOURCE: &str =
+    include_str!("../src/sqlite_drive_import_metadata_store.rs");
+const SQLITE_IMPORT_STORES_SOURCE: &str = include_str!("../src/sqlite_import_stores.rs");
+const SQLITE_KNOWLEDGE_DOCUMENT_METADATA_TRANSACTION_SOURCE: &str =
+    include_str!("../src/sqlite_knowledge_document_metadata_transaction.rs");
+const SQLITE_OKF_CANDIDATE_TRANSACTION_SOURCE: &str =
+    include_str!("../src/sqlite_okf_candidate_transaction.rs");
+const SQLITE_OKF_CONCEPT_REVISION_METADATA_STORE_SOURCE: &str =
+    include_str!("../src/sqlite_okf_concept_revision_metadata_store.rs");
+const SQLITE_OKF_CONCEPT_TRANSACTION_SOURCE: &str =
+    include_str!("../src/sqlite_okf_concept_transaction.rs");
+const SQLITE_OUTBOX_STORE_SOURCE: &str = include_str!("../src/sqlite_outbox_store.rs");
+const SQLITE_SPACE_STORES_SOURCE: &str = include_str!("../src/sqlite_space_stores.rs");
 
 const REQUIRED_CORE_TABLES: [&str; 22] = [
     "kb_space",
@@ -516,6 +540,154 @@ fn market_site_migrations_define_commerce_tables() {
         ] {
             assert!(tables.contains(table), "missing commerce table: {table}");
         }
+    }
+}
+
+#[test]
+fn runtime_sql_value_bindings_are_generated_by_database_dialect() {
+    for (file, source) in [
+        ("agent_profile_store.rs", AGENT_PROFILE_STORE_SOURCE),
+        ("audit_event_store.rs", AUDIT_EVENT_STORE_SOURCE),
+        ("drive_object_ref_store.rs", DRIVE_OBJECT_REF_STORE_SOURCE),
+        ("index_store.rs", INDEX_STORE_SOURCE),
+        ("okf_concept_link_store.rs", OKF_CONCEPT_LINK_STORE_SOURCE),
+        ("okf_concept_store.rs", OKF_CONCEPT_STORE_SOURCE),
+        (
+            "retrieval_profile_store.rs",
+            RETRIEVAL_PROFILE_STORE_SOURCE,
+        ),
+        ("retrieval_store.rs", RETRIEVAL_STORE_SOURCE),
+        ("sqlite_commerce_store.rs", SQLITE_COMMERCE_STORE_SOURCE),
+        (
+            "sqlite_context_binding_store.rs",
+            SQLITE_CONTEXT_BINDING_STORE_SOURCE,
+        ),
+        (
+            "sqlite_drive_import_metadata_store.rs",
+            SQLITE_DRIVE_IMPORT_METADATA_STORE_SOURCE,
+        ),
+        ("sqlite_import_stores.rs", SQLITE_IMPORT_STORES_SOURCE),
+        (
+            "sqlite_knowledge_document_metadata_transaction.rs",
+            SQLITE_KNOWLEDGE_DOCUMENT_METADATA_TRANSACTION_SOURCE,
+        ),
+        (
+            "sqlite_okf_candidate_transaction.rs",
+            SQLITE_OKF_CANDIDATE_TRANSACTION_SOURCE,
+        ),
+        (
+            "sqlite_okf_concept_revision_metadata_store.rs",
+            SQLITE_OKF_CONCEPT_REVISION_METADATA_STORE_SOURCE,
+        ),
+        (
+            "sqlite_okf_concept_transaction.rs",
+            SQLITE_OKF_CONCEPT_TRANSACTION_SOURCE,
+        ),
+        ("sqlite_outbox_store.rs", SQLITE_OUTBOX_STORE_SOURCE),
+        ("sqlite_space_stores.rs", SQLITE_SPACE_STORES_SOURCE),
+    ] {
+        assert!(
+            !source.contains("AS TIMESTAMP)"),
+            "{file} must use SqlTimestampDialect::sql_timestamp_expr instead of hard-coded PostgreSQL timestamp casts"
+        );
+        assert!(
+            !source.contains("AS JSONB)"),
+            "{file} must use SqlTimestampDialect::sql_json_expr instead of hard-coded PostgreSQL JSONB casts"
+        );
+    }
+
+    assert!(
+        [
+            AGENT_PROFILE_STORE_SOURCE,
+            AUDIT_EVENT_STORE_SOURCE,
+            DRIVE_OBJECT_REF_STORE_SOURCE,
+            INDEX_STORE_SOURCE,
+            OKF_CONCEPT_LINK_STORE_SOURCE,
+            OKF_CONCEPT_STORE_SOURCE,
+            RETRIEVAL_PROFILE_STORE_SOURCE,
+            RETRIEVAL_STORE_SOURCE,
+            SQLITE_COMMERCE_STORE_SOURCE,
+            SQLITE_CONTEXT_BINDING_STORE_SOURCE,
+            SQLITE_DRIVE_IMPORT_METADATA_STORE_SOURCE,
+            SQLITE_IMPORT_STORES_SOURCE,
+            SQLITE_KNOWLEDGE_DOCUMENT_METADATA_TRANSACTION_SOURCE,
+            SQLITE_OKF_CANDIDATE_TRANSACTION_SOURCE,
+            SQLITE_OKF_CONCEPT_REVISION_METADATA_STORE_SOURCE,
+            SQLITE_OKF_CONCEPT_TRANSACTION_SOURCE,
+            SQLITE_OUTBOX_STORE_SOURCE,
+            SQLITE_SPACE_STORES_SOURCE,
+        ]
+        .iter()
+        .any(|source| source.contains("sql_timestamp_expr")),
+        "runtime repositories must generate PostgreSQL timestamp casts through SqlTimestampDialect"
+    );
+    assert!(
+        [
+            AGENT_PROFILE_STORE_SOURCE,
+            AUDIT_EVENT_STORE_SOURCE,
+            OKF_CONCEPT_STORE_SOURCE,
+            RETRIEVAL_STORE_SOURCE,
+            SQLITE_DRIVE_IMPORT_METADATA_STORE_SOURCE,
+            SQLITE_IMPORT_STORES_SOURCE,
+            SQLITE_KNOWLEDGE_DOCUMENT_METADATA_TRANSACTION_SOURCE,
+            SQLITE_OKF_CONCEPT_TRANSACTION_SOURCE,
+            SQLITE_OUTBOX_STORE_SOURCE,
+        ]
+            .iter()
+            .any(|source| source.contains("sql_json_expr")),
+        "runtime repositories must generate PostgreSQL JSONB casts through SqlTimestampDialect"
+    );
+    for (file, source, projection) in [
+        (
+            "sqlite_import_stores.rs",
+            SQLITE_IMPORT_STORES_SOURCE,
+            "CAST(metadata AS TEXT) AS metadata",
+        ),
+        (
+            "sqlite_knowledge_document_metadata_transaction.rs",
+            SQLITE_KNOWLEDGE_DOCUMENT_METADATA_TRANSACTION_SOURCE,
+            "CAST(metadata AS TEXT) AS metadata",
+        ),
+        (
+            "sqlite_drive_import_metadata_store.rs",
+            SQLITE_DRIVE_IMPORT_METADATA_STORE_SOURCE,
+            "CAST(metadata AS TEXT) AS metadata",
+        ),
+        (
+            "sqlite_okf_concept_transaction.rs",
+            SQLITE_OKF_CONCEPT_TRANSACTION_SOURCE,
+            "CAST(tags AS TEXT) AS tags",
+        ),
+        (
+            "sqlite_okf_concept_revision_metadata_store.rs",
+            SQLITE_OKF_CONCEPT_REVISION_METADATA_STORE_SOURCE,
+            "CAST(tags AS TEXT) AS tags",
+        ),
+        (
+            "okf_concept_store.rs",
+            OKF_CONCEPT_STORE_SOURCE,
+            "CAST(tags AS TEXT) AS tags",
+        ),
+        (
+            "okf_concept_store.rs",
+            OKF_CONCEPT_STORE_SOURCE,
+            "CAST(metadata AS TEXT) AS metadata",
+        ),
+        (
+            "retrieval_store.rs",
+            RETRIEVAL_STORE_SOURCE,
+            "CAST(h.citation AS TEXT) AS citation",
+        ),
+        (
+            "sqlite_outbox_store.rs",
+            SQLITE_OUTBOX_STORE_SOURCE,
+            "CAST(payload AS TEXT) AS payload",
+        ),
+    ] {
+        assert!(
+            source.contains(projection),
+            "{file} must project PostgreSQL JSONB values as text before decoding them as Rust String"
+        );
     }
 }
 

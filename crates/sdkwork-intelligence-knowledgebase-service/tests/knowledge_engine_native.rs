@@ -1,4 +1,8 @@
 use async_trait::async_trait;
+#[path = "support/okf_pagination.rs"]
+mod okf_pagination_support;
+
+use okf_pagination_support::validated_okf_test_page_size;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
     build_default_registry, KnowledgeEngine, KnowledgeEngineRegistry, KnowledgeEngineRuntimeDeps,
     OkfNativeKnowledgeEngine, OkfNativeKnowledgeEngineDeps,
@@ -88,6 +92,55 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
             summaries.truncate(limit.max(1) as usize);
         }
         Ok(summaries)
+    }
+
+    async fn list_concept_summaries_page(
+        &self,
+        space_id: u64,
+        cursor: Option<String>,
+        page_size: u32,
+    ) -> Result<(Vec<OkfConceptSummary>, Option<String>, bool), KnowledgeOkfConceptStoreError> {
+        let page_size = validated_okf_test_page_size(page_size)?;
+        let fetch_size = page_size + 1;
+        let mut summaries = Vec::with_capacity(fetch_size);
+
+        for summary in self
+            .summaries
+            .get(&space_id)
+            .into_iter()
+            .flatten()
+            .filter(|summary| match cursor.as_ref() {
+                Some(cursor) => summary.concept_id.as_str() > cursor.as_str(),
+                None => true,
+            })
+        {
+            let index = summaries
+                .partition_point(|item: &OkfConceptSummary| item.concept_id <= summary.concept_id);
+            summaries.insert(index, summary.clone());
+            if summaries.len() > fetch_size {
+                summaries.pop();
+            }
+        }
+
+        let has_more = summaries.len() > page_size;
+        summaries.truncate(page_size);
+        let next_cursor = if has_more {
+            summaries.last().map(|item| item.concept_id.clone())
+        } else {
+            None
+        };
+        Ok((summaries, next_cursor, has_more))
+    }
+
+    async fn list_concept_revisions_page(
+        &self,
+        _concept_row_id: u64,
+        _cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeOkfConceptRevision>, Option<u64>, bool), KnowledgeOkfConceptStoreError>
+    {
+        validated_okf_test_page_size(page_size)?;
+        Ok((Vec::new(), None, false))
     }
 
     async fn append_log_entry(

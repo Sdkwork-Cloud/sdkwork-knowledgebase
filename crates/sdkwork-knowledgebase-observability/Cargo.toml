@@ -24,6 +24,7 @@ tokio = { workspace = true, features = ["sync", "macros", "rt"] }
 tower.workspace = true
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+thiserror.workspace = true
 uuid = { version = "1", features = ["v4"] }
 sdkwork-web-bootstrap = { workspace = true, features = ["sqlx"] }
 tracing-opentelemetry = { version = "0.28", optional = true }

@@ -2,7 +2,7 @@
 
 Status: active  
 Owner: SDKWork maintainers  
-Updated: 2026-06-29  
+Updated: 2026-07-09<br>
 Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -25,7 +25,7 @@ Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## 1. Architecture Overview
 
-SDKWork Knowledgebase is a split-services Rust backend with a PC React client (browser + optional Tauri desktop). Each production deployment binds **one tenant per API/worker process** with fail-closed tenant and organization guards.
+SDKWork Knowledgebase is a Rust backend with separately deployable API and worker processes plus a PC React client (browser + optional Tauri desktop). Each production deployment binds **one tenant per API/worker process** with fail-closed tenant and organization guards.
 
 | Surface | Prefix | SDK family | Auth |
 |---------|--------|------------|------|
@@ -40,8 +40,10 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 
 - **Backend**: Rust, Axum, SQLx, `sdkwork-web-framework`, PostgreSQL (production), SQLite (local dev)
 - **Storage**: `sdkwork-drive` via `sdkwork-knowledgebase-drive` adapter only
+- **OKF browser views**: PC file lists use `spaces.browser.list?view=files`, which resolves OKF spaces to `sources/raw` original files. OKF bundle inspection uses `view=okf_bundle`; generated outputs use `view=outputs`.
 - **Memory**: `sdkwork-memory` via `sdkwork-knowledgebase-memory` port only
 - **Frontend**: React 19, Vite, TipTap, IAM app SDK, generated knowledgebase app SDK, `@sdkwork/drive-app-sdk` for persistent uploads
+- **Client pagination**: PC Cloud Drive browse/import uses generated Knowledgebase SDK and Drive SDK cursor page methods; interactive my-drive, starred, recent, and shared tabs load one page at a time and never prefetch multi-page aggregates
 - **Client composition**: native authority per `APP_COMPOSITION_SPEC.md` — root `pnpm-workspace.yaml`, pc-core `sdkDependencies`, and capability packages import SDK types only via `sdkwork-knowledgebase-pc-core/sdk`
 - **Observability**: Prometheus `/metrics` (in-cluster only), structured audit logs, optional OTLP
 
@@ -62,7 +64,7 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 
 ## 5. Deployment Topology
 
-Production uses `cloud.split-services.production` with separate Deployments for app-api, backend-api, open-api, and worker. See `deployments/README.md` and `configs/topology/`.
+Production uses `cloud.production`; API and worker process decomposition is implementation detail inside that profile. The current Kubernetes descriptors run separate Deployments for app-api, backend-api, open-api, and worker. See `deployments/README.md` and `configs/topology/`.
 
 ## 6. Verification
 

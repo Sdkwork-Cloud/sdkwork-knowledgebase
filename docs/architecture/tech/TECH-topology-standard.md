@@ -14,9 +14,9 @@ This repository adopts the shared SDKWork runtime topology framework.
 
 ## Default Dev Profile
 
-`standalone.unified-process.development`
+`standalone.development`
 
-The default browser and desktop development commands use PostgreSQL, `unified-process`, and `standalone`:
+The default browser and desktop development commands use PostgreSQL and `standalone`:
 
 ```bash
 pnpm dev:browser
@@ -28,7 +28,7 @@ Explicit development variants use suffixed commands such as:
 
 ```bash
 pnpm dev:browser:sqlite
-pnpm dev:browser:postgres:split-services:cloud
+pnpm dev:browser:postgres:cloud
 ```
 
 ## Local URLs
@@ -55,4 +55,3 @@ Cloud gateway config bundles:
 
 - `configs/sdkwork-api-cloud-gateway.knowledgebase.development.toml`
 - `configs/sdkwork-api-cloud-gateway.knowledgebase.production.toml`
-

@@ -6,7 +6,7 @@
 use axum::http::{header, HeaderName, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use sdkwork_knowledgebase_contract::ProblemDetails;
+use sdkwork_knowledgebase_contract::{KnowledgeBrowserListData, ProblemDetails};
 use sdkwork_utils_rust::{
     SdkWorkApiResponse, SdkWorkCommandData, SdkWorkPageData, SdkWorkResourceData,
     SDKWORK_TRACE_ID_HEADER,
@@ -67,6 +67,19 @@ pub fn problem_json_response(status: StatusCode, problem: ProblemDetails) -> Res
 pub fn success_list_json_response<T: Serialize>(
     status: StatusCode,
     data: SdkWorkPageData<T>,
+) -> Response {
+    let trace_id = resolve_trace_id();
+    let envelope = SdkWorkApiResponse::success(data, trace_id.clone());
+    let mut response = (status, Json(envelope)).into_response();
+    attach_trace_header(&mut response, &trace_id);
+    response
+}
+
+/// Build a knowledge browser list response with standard list fields and
+/// browser view context directly in `SdkWorkApiResponse.data`.
+pub fn success_browser_list_json_response(
+    status: StatusCode,
+    data: KnowledgeBrowserListData,
 ) -> Response {
     let trace_id = resolve_trace_id();
     let envelope = SdkWorkApiResponse::success(data, trace_id.clone());
@@ -166,6 +179,58 @@ mod tests {
         );
         assert!(payload.get("data").unwrap().get("item").is_none());
         assert!(payload["traceId"].as_str().is_some());
+    }
+
+    #[tokio::test]
+    async fn success_browser_list_json_response_preserves_view_context() {
+        use sdkwork_knowledgebase_contract::{
+            KnowledgeBrowserListData, KnowledgeBrowserNode, KnowledgeBrowserView,
+        };
+        use sdkwork_utils_rust::{PageInfo, PageMode};
+
+        let page = KnowledgeBrowserListData {
+            space_id: 7,
+            drive_space_id: "drv-kb-001".to_string(),
+            parent_id: Some("node-raw".to_string()),
+            view: KnowledgeBrowserView::Files,
+            page_size: 20,
+            items: Vec::<KnowledgeBrowserNode>::new(),
+            page_info: PageInfo {
+                mode: PageMode::Cursor,
+                page: None,
+                page_size: Some(20),
+                total_items: None,
+                total_pages: None,
+                next_cursor: Some("next-1".to_string()),
+                has_more: Some(true),
+            },
+        };
+
+        let response = success_browser_list_json_response(StatusCode::OK, page);
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body");
+        let payload: serde_json::Value = serde_json::from_slice(&body).expect("json");
+
+        assert_eq!(0, payload["code"].as_i64().unwrap());
+        assert_eq!(7, payload["data"]["spaceId"].as_u64().unwrap());
+        assert_eq!(
+            "drv-kb-001",
+            payload["data"]["driveSpaceId"].as_str().unwrap()
+        );
+        assert_eq!("node-raw", payload["data"]["parentId"].as_str().unwrap());
+        assert_eq!("files", payload["data"]["view"].as_str().unwrap());
+        assert_eq!(20, payload["data"]["pageSize"].as_u64().unwrap());
+        assert!(payload["data"]["items"].as_array().unwrap().is_empty());
+        assert_eq!(
+            "cursor",
+            payload["data"]["pageInfo"]["mode"].as_str().unwrap()
+        );
+        assert_eq!(
+            "next-1",
+            payload["data"]["pageInfo"]["nextCursor"].as_str().unwrap()
+        );
+        assert!(payload["data"].get("item").is_none());
     }
 
     #[tokio::test]

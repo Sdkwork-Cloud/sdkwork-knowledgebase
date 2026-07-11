@@ -12,7 +12,7 @@ Owner: SDKWork Knowledgebase maintainers.
 
 ## Orchestration
 
-Production cloud topology (`cloud.split-services.production`) requires the background worker as a dedicated Deployment. See `deployments/kubernetes/worker-deployment.yaml`.
+Production cloud topology (`cloud.production`) requires the background worker as a dedicated Deployment. See `deployments/kubernetes/worker-deployment.yaml`.
 
 Environment variables:
 

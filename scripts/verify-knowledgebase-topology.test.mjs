@@ -4,6 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 const ROOT = process.cwd();
+const RETIRED_TOPOLOGY_PATTERN = /self-hosted|cloud-hosted|--service-layout|serviceLayout|SERVICE_LAYOUT|unified-process|split-services/u;
+const V4_PROFILE_ID_PATTERN = /^(?:standalone|cloud)\.(?:development|production)$/u;
 
 async function exists(relativePath) {
   try {
@@ -40,6 +42,26 @@ async function listFiles(relativePath) {
   return files;
 }
 
+function normalizePathForAssert(relativePath) {
+  return relativePath.replaceAll('\\', '/');
+}
+
+function parseEnvValues(text) {
+  const values = {};
+  for (const line of text.split(/\r?\n/u)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+    const separatorIndex = trimmed.indexOf('=');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+    values[trimmed.slice(0, separatorIndex)] = trimmed.slice(separatorIndex + 1);
+  }
+  return values;
+}
+
 function schemaNameFromRef(ref) {
   return ref?.split('/').pop();
 }
@@ -70,40 +92,114 @@ function schemaHasTenantInput(schema, schemas, seen = new Set()) {
   return false;
 }
 
-test('declares SDKWork v3 deployment topology spec and profile env files for sdkwork-knowledgebase', async () => {
+test('declares SDKWork v4 deployment topology spec and profile env files for sdkwork-knowledgebase', async () => {
   assert.equal(await exists('specs/topology.spec.json'), true);
   assert.equal(await exists('scripts/lib/knowledgebase-topology.mjs'), true);
   assert.equal(await exists('scripts/knowledgebase-dev.mjs'), true);
   assert.equal(await exists('docs/architecture/tech/TECH-topology-standard.md'), true);
 
   const spec = await readJson('specs/topology.spec.json');
-  assert.equal(spec.schemaVersion, 2);
+  assert.equal(spec.schemaVersion, 4);
   assert.equal(spec.kind, 'sdkwork.app.topology');
   assert.equal(spec.appId, 'sdkwork-knowledgebase');
   assert.equal(spec.archetype, 'application-http-gateway');
   assert.deepEqual(spec.vocabulary.deploymentProfile.allowed, ['standalone', 'cloud']);
-  assert.equal(spec.defaults.developmentProfileId, 'standalone.unified-process.development');
-  assert.equal(spec.defaults.productionProfileId, 'cloud.split-services.production');
+  assert.equal(spec.defaults.developmentProfileId, 'standalone.development');
+  assert.equal(spec.defaults.productionProfileId, 'cloud.production');
   assert.ok(spec.surfaces['application.public-ingress']);
   assert.ok(spec.surfaces['application.backend-http']);
   assert.ok(spec.surfaces['application.open-http']);
   assert.ok(spec.surfaces['platform.api-gateway']);
 
   for (const profileId of [
-    'standalone.unified-process.development',
-    'standalone.unified-process.production',
-    'cloud.split-services.development',
-    'cloud.split-services.production',
+    'standalone.development',
+    'standalone.production',
+    'cloud.development',
+    'cloud.production',
   ]) {
+    assert.equal(profileId.split('.').length, 2, `${profileId} must use deploymentProfile.environment`);
     const profilePath = spec.profileFiles[profileId];
     assert.equal(await exists(profilePath), true, `${profilePath} should exist`);
     const profileEnv = await read(profilePath);
     assert.match(profileEnv, /SDKWORK_KNOWLEDGEBASE_PROFILE_ID=/);
     assert.match(profileEnv, /SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE=/);
-    assert.doesNotMatch(profileEnv, /HOSTING|self-hosted|cloud-hosted/);
+    assert.doesNotMatch(profileEnv, /HOSTING|self-hosted|cloud-hosted|SERVICE_LAYOUT|unified-process|split-services/);
     assert.match(profileEnv, /VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL=/);
     assert.match(profileEnv, /VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL=/);
+    if (profileId.startsWith('standalone.')) {
+      const values = parseEnvValues(profileEnv);
+      assert.equal(
+        values.SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL,
+        values.SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL,
+        `${profilePath} backend SDK URL must use the standalone public ingress`,
+      );
+      assert.equal(
+        values.SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL,
+        values.SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL,
+        `${profilePath} open SDK URL must use the standalone public ingress`,
+      );
+      assert.equal(
+        values.SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_BIND,
+        values.SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND,
+        `${profilePath} backend bind must use the standalone public ingress`,
+      );
+      assert.equal(
+        values.SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_BIND,
+        values.SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND,
+        `${profilePath} open bind must use the standalone public ingress`,
+      );
+      assert.equal(
+        values.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL,
+        values.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL,
+        `${profilePath} browser backend SDK URL must use the standalone public ingress`,
+      );
+      assert.equal(
+        values.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL,
+        values.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL,
+        `${profilePath} browser open SDK URL must use the standalone public ingress`,
+      );
+    }
   }
+});
+
+test('topology governance files do not retain retired deployment profile segments', async () => {
+  const spec = await readJson('specs/topology.spec.json');
+  const expectedProfileIds = Object.keys(spec.profileFiles).sort();
+  assert.deepEqual(expectedProfileIds, [
+    'cloud.development',
+    'cloud.production',
+    'standalone.development',
+    'standalone.production',
+  ]);
+
+  const topologyEnvFiles = (await listFiles('configs/topology'))
+    .map(normalizePathForAssert)
+    .filter((relativePath) => relativePath.endsWith('.env'))
+    .sort();
+  assert.deepEqual(
+    topologyEnvFiles,
+    expectedProfileIds.map((profileId) => `configs/topology/${profileId}.env`).sort(),
+  );
+
+  for (const relativePath of topologyEnvFiles) {
+    const profileId = path.basename(relativePath, '.env');
+    assert.match(profileId, V4_PROFILE_ID_PATTERN, `${relativePath} must use deploymentProfile.environment`);
+    const profileEnv = await read(relativePath);
+    assert.doesNotMatch(profileEnv, RETIRED_TOPOLOGY_PATTERN, relativePath);
+  }
+
+  const deployment = await read('deployments/deploy.yaml');
+  assert.doesNotMatch(deployment, RETIRED_TOPOLOGY_PATTERN);
+  const defaultProfile = deployment.match(/^defaultProfile:\s*(\S+)\s*$/mu)?.[1];
+  assert.match(defaultProfile ?? '', V4_PROFILE_ID_PATTERN, 'deployments/deploy.yaml defaultProfile must use v4 profile id');
+
+  const deploymentProfileIds = [...deployment.matchAll(/^  ([A-Za-z0-9.-]+):\s*$/gmu)]
+    .map((match) => match[1])
+    .sort();
+  assert.deepEqual(deploymentProfileIds, expectedProfileIds);
+
+  const networkPolicy = await read('deployments/kubernetes/networkpolicy.yaml');
+  assert.doesNotMatch(networkPolicy, RETIRED_TOPOLOGY_PATTERN);
 });
 
 test('root package.json wires @sdkwork/app-topology and standard dev scripts', async () => {
@@ -111,11 +207,11 @@ test('root package.json wires @sdkwork/app-topology and standard dev scripts', a
   assert.equal(packageJson.dependencies['@sdkwork/app-topology'], 'workspace:*');
   const workspaceYaml = await read('pnpm-workspace.yaml');
   assert.match(workspaceYaml, /["']\.\.\/sdkwork-app-topology["']/);
-  assert.match(packageJson.scripts['dev:browser'], /dev:browser:postgres:unified-process:standalone/);
-  assert.match(packageJson.scripts['dev:desktop'], /dev:desktop:postgres:unified-process:standalone/);
-  assert.match(packageJson.scripts['dev:browser:postgres:unified-process:standalone'], /--database postgres/);
-  assert.match(packageJson.scripts['dev:browser:postgres:unified-process:standalone'], /--deployment-profile standalone/);
-  assert.match(packageJson.scripts['dev:browser:postgres:unified-process:standalone'], /--service-layout unified-process/);
+  assert.match(packageJson.scripts['dev:browser'], /dev:browser:postgres:standalone/);
+  assert.match(packageJson.scripts['dev:desktop'], /dev:desktop:postgres:standalone/);
+  assert.match(packageJson.scripts['dev:browser:postgres:standalone'], /--database postgres/);
+  assert.match(packageJson.scripts['dev:browser:postgres:standalone'], /--deployment-profile standalone/);
+  assert.doesNotMatch(packageJson.scripts['dev:browser:postgres:standalone'], /--service-layout|unified-process|split-services/);
   assert.equal(packageJson.scripts['knowledgebase:dev'], undefined);
   assert.equal(packageJson.scripts['knowledgebase:dev:cloud'], undefined);
   assert.match(packageJson.scripts['topology:validate'], /sdkwork-topology\.mjs validate/);
@@ -140,7 +236,7 @@ test('knowledgebase dev orchestrator uses orchestration spec and gateway config'
   assert.match(devScript, /--deployment-profile/);
   assert.match(devScript, /--database/);
   assert.doesNotMatch(devScript, /--hosting/);
-  assert.doesNotMatch(devScript, /self-hosted|cloud-hosted/);
+  assert.doesNotMatch(devScript, /self-hosted|cloud-hosted|--service-layout|serviceLayout|unified-process|split-services/);
 });
 
 test('knowledgebase topology adapter exports IAM application bootstrap env aliases', async () => {
@@ -262,8 +358,8 @@ test('OpenAPI and generated SDK inputs do not expose current tenant selectors', 
 
 test('production cloud topology orchestrates background worker and health probes', async () => {
   const spec = await readJson('specs/topology.spec.json');
-  const productionProfile = spec.orchestration.profiles['cloud.split-services.production'];
-  assert.ok(productionProfile, 'cloud.split-services.production orchestration profile must exist');
+  const productionProfile = spec.orchestration.profiles['cloud.production'];
+  assert.ok(productionProfile, 'cloud.production orchestration profile must exist');
 
   const processIds = productionProfile.processes.map((process) => process.id);
   assert.equal(new Set(processIds).size, processIds.length, 'process ids must be unique');
@@ -284,6 +380,7 @@ test('production cloud topology orchestrates background worker and health probes
     /SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID must be set when SDKWORK_KNOWLEDGEBASE_ENVIRONMENT is not development/,
   );
   assert.doesNotMatch(bootstrapSource, /DEV_AUTH_BYPASS/);
+  assert.doesNotMatch(bootstrapSource, /SDKWORK_KNOWLEDGEBASE_SERVICE_LAYOUT|is_unified_process_layout/);
 
   const workerSource = await read('crates/sdkwork-knowledgebase-worker/src/lib.rs');
   assert.match(workerSource, /shutdown_signal/);

@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::drive_import_metadata_store::{
     DriveImportMetadataStore, DriveImportMetadataStoreError, PrepareDriveImportMetadataRecord,
     PreparedDriveImportMetadata,
@@ -9,11 +10,16 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_s
 use sdkwork_knowledgebase_contract::document::{KnowledgeDocument, KnowledgeDocumentVersion};
 use sdkwork_knowledgebase_contract::ingest::{IngestionJob, IngestionJobState};
 use sdkwork_knowledgebase_contract::source::KnowledgeSource;
+use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
 use sqlx::{any::AnyRow, Any, AnyPool, Row, Transaction};
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{next_i64_id, KnowledgeIdGenerator};
+use crate::quota_transaction::{
+    begin_tenant_quota_transaction, enforce_tenant_quotas_after_write, TenantQuotaTransactionError,
+};
 
 use crate::sqlite_knowledge_document_metadata_transaction::{
     bind_document_current_version_in_transaction, create_or_get_document_in_transaction,
@@ -28,6 +34,9 @@ pub struct SqliteDriveImportMetadataStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
+    database_engine: DatabaseEngine,
+    quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
 impl SqliteDriveImportMetadataStore {
@@ -44,7 +53,21 @@ impl SqliteDriveImportMetadataStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
+            database_engine: DatabaseEngine::Sqlite,
+            quota_limits: None,
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self.database_engine = database_engine;
+        self
+    }
+
+    pub fn with_quota_limits(mut self, quota_limits: KnowledgebaseTenantQuotaLimits) -> Self {
+        self.quota_limits = Some(quota_limits);
+        self
     }
 
     async fn validate_idempotency(
@@ -55,7 +78,7 @@ impl SqliteDriveImportMetadataStore {
         let space_id = to_i64("space_id", record.space_id)?;
         let row = sqlx::query(
             r#"
-            SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             FROM kb_ingestion_job
             WHERE tenant_id = $1 AND space_id = $2 AND idempotency_key = $3 AND status = $4
             LIMIT 1
@@ -81,16 +104,23 @@ impl SqliteDriveImportMetadataStore {
         &self,
         record: PrepareDriveImportMetadataRecord,
     ) -> Result<PreparedDriveImportMetadata, DriveImportMetadataStoreError> {
-        let mut transaction = self
-            .pool
-            .begin()
-            .await
-            .map_err(|error| DriveImportMetadataStoreError::Internal(error.to_string()))?;
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let mut transaction = if self.quota_limits.is_some() {
+            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
+                .await
+                .map_err(|error| DriveImportMetadataStoreError::Internal(error.to_string()))?
+        } else {
+            self.pool
+                .begin()
+                .await
+                .map_err(|error| DriveImportMetadataStoreError::Internal(error.to_string()))?
+        };
 
         let (job, job_metadata) = create_or_get_job_in_transaction(
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             &record.job,
         )
         .await?;
@@ -109,6 +139,7 @@ impl SqliteDriveImportMetadataStore {
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             &record.object_ref,
         )
         .await?;
@@ -117,6 +148,7 @@ impl SqliteDriveImportMetadataStore {
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             &record.source,
         )
         .await?;
@@ -127,6 +159,7 @@ impl SqliteDriveImportMetadataStore {
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             &document_record,
         )
         .await?;
@@ -138,6 +171,7 @@ impl SqliteDriveImportMetadataStore {
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             &version_record,
         )
         .await?;
@@ -147,6 +181,7 @@ impl SqliteDriveImportMetadataStore {
         bind_document_current_version_in_transaction(
             &mut transaction,
             self.tenant_id,
+            self.timestamp_dialect,
             document.id,
             version.id,
             version.version_no,
@@ -156,6 +191,7 @@ impl SqliteDriveImportMetadataStore {
         attach_drive_import_linkage_in_transaction(
             &mut transaction,
             self.tenant_id,
+            self.timestamp_dialect,
             job.id,
             job_metadata.as_deref(),
             DriveImportJobLinkage {
@@ -166,6 +202,17 @@ impl SqliteDriveImportMetadataStore {
             },
         )
         .await?;
+
+        if let Some(limits) = self.quota_limits {
+            enforce_tenant_quotas_after_write(
+                &mut transaction,
+                self.database_engine,
+                tenant_id,
+                limits,
+            )
+            .await
+            .map_err(map_quota_transaction_error)?;
+        }
 
         transaction
             .commit()
@@ -179,6 +226,22 @@ impl SqliteDriveImportMetadataStore {
             version,
             original_object_ref: object_ref,
         })
+    }
+}
+
+fn map_quota_transaction_error(
+    error: TenantQuotaTransactionError,
+) -> DriveImportMetadataStoreError {
+    match error {
+        TenantQuotaTransactionError::Quota(error) => {
+            DriveImportMetadataStoreError::QuotaExceeded(error)
+        }
+        TenantQuotaTransactionError::Database(error) => {
+            DriveImportMetadataStoreError::Internal(error.to_string())
+        }
+        TenantQuotaTransactionError::Invalid(detail) => {
+            DriveImportMetadataStoreError::Internal(detail)
+        }
     }
 }
 
@@ -223,6 +286,7 @@ async fn create_or_get_job_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
     record: &CreateIngestionJobRecord,
 ) -> Result<(IngestionJob, Option<String>), DriveImportMetadataStoreError> {
     let tenant_id = to_i64("tenant_id", tenant_id)?;
@@ -230,32 +294,36 @@ async fn create_or_get_job_in_transaction(
     let id = next_i64_id(id_generator).map_err(id_gen_error)?;
     let now = now_rfc3339()?;
     let metadata = job_metadata_to_json(record.idempotency_fingerprint_sha256_hex.as_deref())?;
-    let row = sqlx::query(
+    let metadata_expr = timestamp_dialect.sql_json_expr("$8");
+    let created_at_expr = timestamp_dialect.sql_timestamp_expr("$10");
+    let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$11");
+    let query = format!(
         r#"
         INSERT INTO kb_ingestion_job (
             id, uuid, tenant_id, space_id, job_type, state, priority, progress,
             idempotency_key, metadata, status, created_at, updated_at, version
         )
-        VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, {metadata_expr}, $9, {created_at_expr}, {updated_at_expr}, $12)
         ON CONFLICT(tenant_id, space_id, idempotency_key) DO NOTHING
-        RETURNING id, space_id, job_type, idempotency_key, state, error_detail, metadata
+        RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
         "#,
-    )
-    .bind(id)
-    .bind(Uuid::new_v4().to_string())
-    .bind(tenant_id)
-    .bind(space_id)
-    .bind(&record.source_type)
-    .bind(ingestion_state_code(IngestionJobState::Queued))
-    .bind(&record.idempotency_key)
-    .bind(metadata.clone())
-    .bind(ACTIVE_STATUS)
-    .bind(now.clone())
-    .bind(now)
-    .bind(INITIAL_VERSION)
-    .fetch_optional(&mut **transaction)
-    .await
-    .map_err(sqlx_error)?;
+    );
+    let row = sqlx::query(&query)
+        .bind(id)
+        .bind(Uuid::new_v4().to_string())
+        .bind(tenant_id)
+        .bind(space_id)
+        .bind(&record.source_type)
+        .bind(ingestion_state_code(IngestionJobState::Queued))
+        .bind(&record.idempotency_key)
+        .bind(metadata.clone())
+        .bind(ACTIVE_STATUS)
+        .bind(now.clone())
+        .bind(now)
+        .bind(INITIAL_VERSION)
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(sqlx_error)?;
 
     if let Some(row) = row {
         let job = job_from_row(&row)?;
@@ -265,7 +333,7 @@ async fn create_or_get_job_in_transaction(
 
     let row = sqlx::query(
         r#"
-        SELECT id, space_id, job_type, idempotency_key, state, error_detail, metadata
+        SELECT id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
         FROM kb_ingestion_job
         WHERE tenant_id = $1 AND space_id = $2 AND idempotency_key = $3 AND status = $4
         LIMIT 1
@@ -287,6 +355,7 @@ async fn create_or_get_job_in_transaction(
 async fn attach_drive_import_linkage_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
+    timestamp_dialect: SqlTimestampDialect,
     job_id: u64,
     existing_metadata: Option<&str>,
     linkage: DriveImportJobLinkage,
@@ -295,21 +364,24 @@ async fn attach_drive_import_linkage_in_transaction(
     let tenant_id = to_i64("tenant_id", tenant_id)?;
     let job_id = to_i64("job_id", job_id)?;
     let now = now_rfc3339()?;
-    let updated = sqlx::query(
+    let metadata_expr = timestamp_dialect.sql_json_expr("$1");
+    let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$2");
+    let query = format!(
         r#"
         UPDATE kb_ingestion_job
-        SET metadata = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+        SET metadata = {metadata_expr}, updated_at = {updated_at_expr}, version = version + 1
         WHERE tenant_id = $3 AND id = $4 AND status = $5
         "#,
-    )
-    .bind(metadata)
-    .bind(now)
-    .bind(tenant_id)
-    .bind(job_id)
-    .bind(ACTIVE_STATUS)
-    .execute(&mut **transaction)
-    .await
-    .map_err(sqlx_error)?;
+    );
+    let updated = sqlx::query(&query)
+        .bind(metadata)
+        .bind(now)
+        .bind(tenant_id)
+        .bind(job_id)
+        .bind(ACTIVE_STATUS)
+        .execute(&mut **transaction)
+        .await
+        .map_err(sqlx_error)?;
     if updated.rows_affected() == 0 {
         return Err(DriveImportMetadataStoreError::Internal(format!(
             "ingestion job not found: {job_id}"
@@ -326,7 +398,7 @@ async fn load_source_by_id(
     let source_id = to_i64("source_id", source_id)?;
     let row = sqlx::query(
         r#"
-        SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, metadata
+        SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, CAST(metadata AS TEXT) AS metadata
         FROM kb_source
         WHERE tenant_id = $1 AND id = $2 AND status = $3
         "#,

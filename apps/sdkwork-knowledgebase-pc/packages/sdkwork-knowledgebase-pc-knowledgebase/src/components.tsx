@@ -441,9 +441,6 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
             resultItem = created;
           }
         }
-        if (resultItem && resultItem.type !== 'folder') {
-          handleSelectDoc(resultItem);
-        }
       } else if ((actionType === 'localFile' || actionType === 'localFolder' || actionType === 'audioUpload' || actionType === 'musicUpload') && payload && payload.length > 0) {
         // Use custom type for music Upload
         const uploaded = await DocumentService.uploadFiles(payload, activeKb!.id, parentId, actionType === 'musicUpload' ? 'music' : undefined);
@@ -485,14 +482,18 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         };
         const createdDoc = await DocumentService.createDocument(newDocParams);
         resultItem = createdDoc;
-        if (docType !== 'folder') {
-          handleSelectDoc(createdDoc);
-        }
       }
 
-      // Refresh docs to correctly build the tree
+      // Preserve the authoritative mutation result while the browser projection catches up.
       const updatedDocs = await DocumentService.getDocuments(activeKb!.id);
-      setDocs(updatedDocs);
+      const selectableResult = resultItem?.type !== 'folder' ? resultItem : null;
+      const nextDocs = selectableResult && !findDocInTree(updatedDocs, selectableResult.id)
+        ? [...updatedDocs, selectableResult]
+        : updatedDocs;
+      setDocs(nextDocs);
+      if (selectableResult) {
+        handleSelectDoc(selectableResult);
+      }
       return resultItem;
     } catch (e) {
       toastKnowledgebaseError(e, t);

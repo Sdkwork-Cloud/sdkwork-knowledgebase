@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::commerce_store::{
     map_catalog_item, CreateSiteDeploymentRecord, KnowledgeMarketStore, KnowledgeMarketStoreError,
     KnowledgeSiteDeploymentStore, KnowledgeSiteDeploymentStoreError, SiteDeploymentRecord,
@@ -9,6 +10,7 @@ use sqlx::{AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const ACTIVE_STATUS: i64 = 1;
@@ -18,6 +20,7 @@ const DELETED_STATUS: i64 = 0;
 pub struct SqliteCommerceStore {
     pool: AnyPool,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteCommerceStore {
@@ -25,7 +28,13 @@ impl SqliteCommerceStore {
         Self {
             pool,
             id_generator: default_knowledge_id_generator(),
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 
     async fn bootstrap_market_listings_from_spaces(
@@ -85,34 +94,37 @@ impl SqliteCommerceStore {
                 continue;
             }
 
-            sqlx::query(
+            let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
+            let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$15");
+            let query = format!(
                 r#"
                 INSERT INTO kb_market_listing (
                     id, tenant_id, space_id, title, icon, description, author, tags_json,
                     provider, model_name, subscribers_count, documents_count,
                     status, created_at, updated_at, version
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, {created_at_expr}, {updated_at_expr}, $16)
                 "#,
-            )
-            .bind(listing_id)
-            .bind(tenant_id as i64)
-            .bind(space_id)
-            .bind(&title)
-            .bind("📘")
-            .bind(&description)
-            .bind("SDKWork")
-            .bind(r#"["知识共享","团队协同"]"#)
-            .bind("Google")
-            .bind("gemini-3.5-flash")
-            .bind(0_i64)
-            .bind(documents_count)
-            .bind(ACTIVE_STATUS)
-            .bind(&now)
-            .bind(&now)
-            .bind(0_i64)
-            .execute(&self.pool)
-            .await
-            .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
+            );
+            sqlx::query(&query)
+                .bind(listing_id)
+                .bind(tenant_id as i64)
+                .bind(space_id)
+                .bind(&title)
+                .bind("📘")
+                .bind(&description)
+                .bind("SDKWork")
+                .bind(r#"["知识共享","团队协同"]"#)
+                .bind("Google")
+                .bind("gemini-3.5-flash")
+                .bind(0_i64)
+                .bind(documents_count)
+                .bind(ACTIVE_STATUS)
+                .bind(&now)
+                .bind(&now)
+                .bind(0_i64)
+                .execute(&self.pool)
+                .await
+                .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
         }
 
         Ok(())
@@ -167,7 +179,7 @@ async fn fetch_catalog_rows(
         FROM kb_market_listing l
         WHERE l.tenant_id = $1
           AND l.status = 1
-          AND ($3::bigint IS NULL OR l.id < $3)
+          AND ($3 IS NULL OR l.id < $3)
         ORDER BY l.id DESC
         LIMIT $4
         "#,
@@ -250,41 +262,45 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
         let now = now_rfc3339()?;
         let id = next_i64_id(&self.id_generator)
             .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
-        sqlx::query(
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$5");
+        let query = format!(
             r#"
             INSERT INTO kb_market_subscription (
                 id, tenant_id, subscriber_actor_id, listing_id, created_at, status
-            ) VALUES ($1, $2, $3, $4, $5, $6)
+            ) VALUES ($1, $2, $3, $4, {created_at_expr}, $6)
             "#,
-        )
-        .bind(id)
-        .bind(tenant_id as i64)
-        .bind(subscriber_actor_id as i64)
-        .bind(listing_id as i64)
-        .bind(&now)
-        .bind(ACTIVE_STATUS)
-        .execute(&self.pool)
-        .await
-        .map_err(|error| {
-            let message = error.to_string();
-            if message.contains("UNIQUE") || message.contains("unique") {
-                KnowledgeMarketStoreError::InvalidRequest(
-                    "market listing is already subscribed".to_string(),
-                )
-            } else {
-                KnowledgeMarketStoreError::Internal(message)
-            }
-        })?;
+        );
+        sqlx::query(&query)
+            .bind(id)
+            .bind(tenant_id as i64)
+            .bind(subscriber_actor_id as i64)
+            .bind(listing_id as i64)
+            .bind(&now)
+            .bind(ACTIVE_STATUS)
+            .execute(&self.pool)
+            .await
+            .map_err(|error| {
+                let message = error.to_string();
+                if message.contains("UNIQUE") || message.contains("unique") {
+                    KnowledgeMarketStoreError::InvalidRequest(
+                        "market listing is already subscribed".to_string(),
+                    )
+                } else {
+                    KnowledgeMarketStoreError::Internal(message)
+                }
+            })?;
 
-        sqlx::query(
-            "UPDATE kb_market_listing SET subscribers_count = subscribers_count + 1, updated_at = CAST($3 AS TIMESTAMP) WHERE tenant_id = $1 AND id = $2",
-        )
-        .bind(tenant_id as i64)
-        .bind(listing_id as i64)
-        .bind(&now)
-        .execute(&self.pool)
-        .await
-        .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$3");
+        let query = format!(
+            "UPDATE kb_market_listing SET subscribers_count = subscribers_count + 1, updated_at = {updated_at_expr} WHERE tenant_id = $1 AND id = $2",
+        );
+        sqlx::query(&query)
+            .bind(tenant_id as i64)
+            .bind(listing_id as i64)
+            .bind(&now)
+            .execute(&self.pool)
+            .await
+            .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
 
         Ok(())
     }
@@ -315,15 +331,17 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
             return Err(KnowledgeMarketStoreError::NotFound);
         }
 
-        sqlx::query(
-            "UPDATE kb_market_listing SET subscribers_count = CASE WHEN subscribers_count > 0 THEN subscribers_count - 1 ELSE 0 END, updated_at = CAST($3 AS TIMESTAMP) WHERE tenant_id = $1 AND id = $2",
-        )
-        .bind(tenant_id as i64)
-        .bind(listing_id as i64)
-        .bind(&now)
-        .execute(&self.pool)
-        .await
-        .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$3");
+        let query = format!(
+            "UPDATE kb_market_listing SET subscribers_count = CASE WHEN subscribers_count > 0 THEN subscribers_count - 1 ELSE 0 END, updated_at = {updated_at_expr} WHERE tenant_id = $1 AND id = $2",
+        );
+        sqlx::query(&query)
+            .bind(tenant_id as i64)
+            .bind(listing_id as i64)
+            .bind(&now)
+            .execute(&self.pool)
+            .await
+            .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
 
         Ok(())
     }
@@ -341,31 +359,34 @@ impl KnowledgeSiteDeploymentStore for SqliteCommerceStore {
         let id = next_i64_id(&self.id_generator)
             .map_err(|error| KnowledgeSiteDeploymentStoreError::Internal(error.to_string()))?;
 
-        sqlx::query(
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$11");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let query = format!(
             r#"
             INSERT INTO kb_site_deployment (
                 id, tenant_id, space_id, platform, site_name, custom_domain,
                 site_logo_data_url, deployed_url, preview_object_key,
                 status, created_at, updated_at, version
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, {created_at_expr}, {updated_at_expr}, $13)
             "#,
-        )
-        .bind(id)
-        .bind(record.tenant_id as i64)
-        .bind(record.space_id as i64)
-        .bind(&record.platform)
-        .bind(&record.site_name)
-        .bind(&record.custom_domain)
-        .bind(&record.site_logo_data_url)
-        .bind(&record.deployed_url)
-        .bind(&record.preview_object_key)
-        .bind(ACTIVE_STATUS)
-        .bind(&now)
-        .bind(&now)
-        .bind(0_i64)
-        .execute(&self.pool)
-        .await
-        .map_err(|error| KnowledgeSiteDeploymentStoreError::Internal(error.to_string()))?;
+        );
+        sqlx::query(&query)
+            .bind(id)
+            .bind(record.tenant_id as i64)
+            .bind(record.space_id as i64)
+            .bind(&record.platform)
+            .bind(&record.site_name)
+            .bind(&record.custom_domain)
+            .bind(&record.site_logo_data_url)
+            .bind(&record.deployed_url)
+            .bind(&record.preview_object_key)
+            .bind(ACTIVE_STATUS)
+            .bind(&now)
+            .bind(&now)
+            .bind(0_i64)
+            .execute(&self.pool)
+            .await
+            .map_err(|error| KnowledgeSiteDeploymentStoreError::Internal(error.to_string()))?;
 
         Ok(SiteDeploymentRecord {
             id: id as u64,

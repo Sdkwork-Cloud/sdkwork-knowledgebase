@@ -58,7 +58,7 @@ impl KnowledgeContextBindingAppService for HostedContextBindingService {
         context_type: Option<KnowledgeContextType>,
     ) -> ApiResult<SdkWorkPageData<KnowledgeSpaceContextBinding>> {
         require_space_access(&self.runtime, &context, space_id).await?;
-        let normalized_page_size = crate::pagination::normalize_page_size(page_size);
+        let normalized_page_size = crate::pagination::normalize_api_page_size(page_size)?;
         let service = KnowledgeContextBindingService::new(self.runtime.context_binding_store());
         let listed = service
             .list_space_bindings(

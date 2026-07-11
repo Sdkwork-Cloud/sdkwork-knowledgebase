@@ -6,8 +6,8 @@ use axum::{
     Json, Router,
 };
 use sdkwork_knowledgebase_contract::{
-    KnowledgeBrowserView, KnowledgeContextPackRequest, KnowledgeIngestRequest,
-    KnowledgeRetrievalRequest, ListKnowledgeBrowserRequest,
+    KnowledgeBrowserListData, KnowledgeBrowserView, KnowledgeContextPackRequest,
+    KnowledgeIngestRequest, KnowledgeRetrievalRequest, ListKnowledgeBrowserRequest,
 };
 use sdkwork_routes_knowledgebase_backend_api::{health, DbReadinessCheck};
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,7 @@ pub fn build_router_with_shared_open_api_and_readiness(
 }
 
 pub fn build_business_router_with_shared_open_api(api: Arc<dyn KnowledgeOpenApi>) -> Router {
-    let business = Router::new()
+    Router::new()
         .route(paths::RETRIEVALS, post(create_retrieval))
         .route(paths::RETRIEVAL, get(retrieve_retrieval))
         .route(paths::CONTEXT_PACKS, post(create_context_pack))
@@ -54,8 +54,7 @@ pub fn build_business_router_with_shared_open_api(api: Arc<dyn KnowledgeOpenApi>
         .route(paths::DOCUMENTS, get(list_documents))
         .route(paths::DOCUMENT, get(retrieve_document))
         .route(paths::SPACE_BROWSER, get(list_browser))
-        .with_state(OpenState { api });
-    business
+        .with_state(OpenState { api })
 }
 
 pub fn gateway_mount_business(api: Arc<dyn KnowledgeOpenApi>) -> Router {
@@ -162,7 +161,7 @@ async fn list_browser(
     let context = require_context(context)?;
     reject_forbidden_pagination_aliases(uri.query())?;
     let view = parse_view(query.view.as_deref())?;
-    ok_list_json(
+    ok_browser_list_json(
         state
             .api
             .list_browser(
@@ -188,6 +187,19 @@ where
     result
         .map(|value| {
             sdkwork_knowledgebase_observability::request_correlation::success_list_json_response(
+                StatusCode::OK,
+                value,
+            )
+        })
+        .map_err(ApiProblem::from)
+}
+
+fn ok_browser_list_json(
+    result: ApiResult<KnowledgeBrowserListData>,
+) -> Result<Response, ApiProblem> {
+    result
+        .map(|value| {
+            sdkwork_knowledgebase_observability::request_correlation::success_browser_list_json_response(
                 StatusCode::OK,
                 value,
             )

@@ -27,10 +27,10 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
     let drive_tree = RecordingDriveTree::with_nodes(vec![
         KnowledgeDriveNodeSummary {
             drive_node_id: "node-folder".to_string(),
-            parent_drive_node_id: Some("root".to_string()),
+            parent_drive_node_id: Some("node-raw-root".to_string()),
             kind: DriveNodeKind::Folder,
             name: "Papers".to_string(),
-            path: "/Files/Papers".to_string(),
+            path: "sources/raw/Papers".to_string(),
             content_type: None,
             size_bytes: None,
             children_count: Some(3),
@@ -39,10 +39,10 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
         },
         KnowledgeDriveNodeSummary {
             drive_node_id: "node-pdf".to_string(),
-            parent_drive_node_id: Some("root".to_string()),
+            parent_drive_node_id: Some("node-raw-root".to_string()),
             kind: DriveNodeKind::File,
             name: "LLM-Wiki Paper.pdf".to_string(),
-            path: "/Files/Papers/LLM-Wiki Paper.pdf".to_string(),
+            path: "sources/raw/Papers/LLM-Wiki Paper.pdf".to_string(),
             content_type: Some("application/pdf".to_string()),
             size_bytes: Some(42),
             children_count: None,
@@ -51,11 +51,11 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
         },
     ])
     .with_node(KnowledgeDriveNodeSummary {
-        drive_node_id: "root".to_string(),
+        drive_node_id: "node-raw-root".to_string(),
         parent_drive_node_id: None,
         kind: DriveNodeKind::Folder,
-        name: "Files".to_string(),
-        path: "Files".to_string(),
+        name: "raw".to_string(),
+        path: "sources/raw".to_string(),
         content_type: None,
         size_bytes: None,
         children_count: Some(2),
@@ -79,7 +79,7 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
             None,
             ListKnowledgeBrowserRequest {
                 space_id: 1,
-                parent_id: Some("root".to_string()),
+                parent_id: Some("node-raw-root".to_string()),
                 view: KnowledgeBrowserView::Files,
                 cursor: Some("cursor-a".to_string()),
                 page_size: Some(50),
@@ -90,7 +90,7 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
 
     assert_eq!(page.space_id, 1);
     assert_eq!(page.drive_space_id, "drv-kb-001");
-    assert_eq!(page.parent_id.as_deref(), Some("root"));
+    assert_eq!(page.parent_id.as_deref(), Some("node-raw-root"));
     assert_eq!(page.items.len(), 2);
     assert_eq!(page.items[0].node_type, KnowledgeBrowserNodeType::Folder);
     assert_eq!(page.items[0].drive_node_id.as_deref(), Some("node-folder"));
@@ -106,6 +106,183 @@ async fn browser_lists_drive_children_and_batches_document_projection() {
         projections.requested_drive_node_ids(),
         vec!["node-folder".to_string(), "node-pdf".to_string()]
     );
+}
+
+#[tokio::test]
+async fn browser_files_root_lists_original_files_under_okf_raw_sources() {
+    let spaces = MemorySpaceStore::bound("drv-kb-001");
+    let drive_tree = RecordingDriveTree::with_nodes(vec![KnowledgeDriveNodeSummary {
+        drive_node_id: "node-raw-note".to_string(),
+        parent_drive_node_id: Some("node-raw-root".to_string()),
+        kind: DriveNodeKind::File,
+        name: "raw-note.md".to_string(),
+        path: "sources/raw/raw-note.md".to_string(),
+        content_type: Some("text/markdown; charset=utf-8".to_string()),
+        size_bytes: Some(128),
+        children_count: None,
+        updated_at: "2026-06-04T12:04:00Z".to_string(),
+        object_locator: None,
+    }])
+    .with_resolved_path("sources/raw", Some("node-raw-root"))
+    .expect_parent_id(Some("node-raw-root"));
+    let projections =
+        RecordingProjectionStore::with_documents(vec![KnowledgeBrowserDocumentProjection {
+            drive_node_id: "node-raw-note".to_string(),
+            document_id: 91,
+            current_version_id: Some(92),
+            ingest_state: "completed".to_string(),
+            parse_state: "succeeded".to_string(),
+            index_state: "indexed".to_string(),
+            okf_state: "candidate_ready".to_string(),
+        }]);
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+
+    let page = service
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: None,
+                view: KnowledgeBrowserView::Files,
+                cursor: None,
+                page_size: Some(50),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(page.view, KnowledgeBrowserView::Files);
+    assert_eq!(page.parent_id.as_deref(), Some("node-raw-root"));
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.items[0].node_type, KnowledgeBrowserNodeType::Document);
+    assert_eq!(page.items[0].document_id, Some(91));
+    assert_eq!(drive_tree.resolved_paths(), vec!["sources/raw".to_string()]);
+    assert_eq!(drive_tree.calls(), 1);
+    assert_eq!(
+        projections.requested_drive_node_ids(),
+        vec!["node-raw-note".to_string()]
+    );
+}
+
+#[tokio::test]
+async fn browser_files_root_returns_empty_page_when_okf_raw_source_root_is_missing() {
+    let spaces = MemorySpaceStore::bound("drv-kb-001");
+    let drive_tree = RecordingDriveTree::with_nodes(vec![KnowledgeDriveNodeSummary {
+        drive_node_id: "node-okf-root".to_string(),
+        parent_drive_node_id: None,
+        kind: DriveNodeKind::Folder,
+        name: "okf".to_string(),
+        path: "okf".to_string(),
+        content_type: None,
+        size_bytes: None,
+        children_count: Some(1),
+        updated_at: "2026-06-04T12:05:00Z".to_string(),
+        object_locator: None,
+    }])
+    .with_resolved_path("sources/raw", None);
+    let projections = RecordingProjectionStore::default();
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+
+    let page = service
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: None,
+                view: KnowledgeBrowserView::Files,
+                cursor: None,
+                page_size: Some(50),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(page.view, KnowledgeBrowserView::Files);
+    assert_eq!(page.parent_id, None);
+    assert!(page.items.is_empty());
+    assert_eq!(page.next_cursor, None);
+    assert_eq!(drive_tree.resolved_paths(), vec!["sources/raw".to_string()]);
+    assert_eq!(drive_tree.calls(), 0);
+    assert_eq!(projections.calls(), 0);
+}
+
+#[tokio::test]
+async fn browser_rejects_files_parent_id_outside_okf_raw_sources() {
+    let spaces = MemorySpaceStore::bound("drv-kb-001");
+    let drive_tree = RecordingDriveTree::with_nodes(vec![]).with_node(KnowledgeDriveNodeSummary {
+        drive_node_id: "node-okf-root".to_string(),
+        parent_drive_node_id: None,
+        kind: DriveNodeKind::Folder,
+        name: "okf".to_string(),
+        path: "okf".to_string(),
+        content_type: None,
+        size_bytes: None,
+        children_count: Some(1),
+        updated_at: "2026-06-04T12:05:00Z".to_string(),
+        object_locator: None,
+    });
+    let projections = RecordingProjectionStore::default();
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+
+    let error = service
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: Some("node-okf-root".to_string()),
+                view: KnowledgeBrowserView::Files,
+                cursor: None,
+                page_size: Some(50),
+            },
+        )
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("outside files view"));
+    assert_eq!(drive_tree.calls(), 0);
+    assert_eq!(projections.calls(), 0);
+}
+
+#[tokio::test]
+async fn browser_files_root_keeps_drive_root_for_external_knowledge_spaces() {
+    let spaces =
+        MemorySpaceStore::bound_with_mode("drv-kb-001", KnowledgeAgentKnowledgeMode::External);
+    let drive_tree = RecordingDriveTree::with_nodes(vec![KnowledgeDriveNodeSummary {
+        drive_node_id: "node-external-folder".to_string(),
+        parent_drive_node_id: None,
+        kind: DriveNodeKind::Folder,
+        name: "ExternalProvider".to_string(),
+        path: "ExternalProvider".to_string(),
+        content_type: None,
+        size_bytes: None,
+        children_count: Some(0),
+        updated_at: "2026-06-04T12:05:00Z".to_string(),
+        object_locator: None,
+    }])
+    .expect_parent_id(None);
+    let projections = RecordingProjectionStore::default();
+    let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
+
+    let page = service
+        .list(
+            None,
+            ListKnowledgeBrowserRequest {
+                space_id: 1,
+                parent_id: None,
+                view: KnowledgeBrowserView::Files,
+                cursor: None,
+                page_size: Some(50),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(page.view, KnowledgeBrowserView::Files);
+    assert_eq!(page.parent_id, None);
+    assert_eq!(page.items.len(), 1);
+    assert_eq!(page.items[0].name, "ExternalProvider");
+    assert!(drive_tree.resolved_paths().is_empty());
+    assert_eq!(drive_tree.calls(), 1);
 }
 
 #[tokio::test]
@@ -176,7 +353,9 @@ async fn browser_rejects_file_as_files_parent_id() {
 #[tokio::test]
 async fn browser_caps_page_size_to_prevent_unbounded_directory_scans() {
     let spaces = MemorySpaceStore::bound("drv-kb-001");
-    let drive_tree = RecordingDriveTree::with_nodes(vec![]);
+    let drive_tree = RecordingDriveTree::with_nodes(vec![])
+        .with_resolved_path("sources/raw", Some("node-raw-root"))
+        .expect_parent_id(Some("node-raw-root"));
     let projections = RecordingProjectionStore::default();
     let service = KnowledgeBrowserService::new(&spaces, &drive_tree, &projections);
 
@@ -196,6 +375,7 @@ async fn browser_caps_page_size_to_prevent_unbounded_directory_scans() {
 
     assert_eq!(page.page_size, 200);
     assert_eq!(drive_tree.last_page_size(), Some(200));
+    assert_eq!(drive_tree.resolved_paths(), vec!["sources/raw".to_string()]);
 }
 
 #[tokio::test]
@@ -420,14 +600,18 @@ struct MemorySpaceStore {
 
 impl MemorySpaceStore {
     fn bound(drive_space_id: &str) -> Self {
+        Self::bound_with_mode(drive_space_id, KnowledgeAgentKnowledgeMode::OkfBundle)
+    }
+
+    fn bound_with_mode(drive_space_id: &str, knowledge_mode: KnowledgeAgentKnowledgeMode) -> Self {
         Self {
-            space: Mutex::new(space(Some(drive_space_id.to_string()))),
+            space: Mutex::new(space(Some(drive_space_id.to_string()), knowledge_mode)),
         }
     }
 
     fn unbound() -> Self {
         Self {
-            space: Mutex::new(space(None)),
+            space: Mutex::new(space(None, KnowledgeAgentKnowledgeMode::OkfBundle)),
         }
     }
 }
@@ -664,7 +848,10 @@ impl KnowledgeBrowserProjectionStore for RecordingProjectionStore {
     }
 }
 
-fn space(drive_space_id: Option<String>) -> KnowledgeSpace {
+fn space(
+    drive_space_id: Option<String>,
+    knowledge_mode: KnowledgeAgentKnowledgeMode,
+) -> KnowledgeSpace {
     KnowledgeSpace {
         id: 1,
         uuid: "kb-001".to_string(),
@@ -673,6 +860,6 @@ fn space(drive_space_id: Option<String>) -> KnowledgeSpace {
         drive_space_id,
         status: KnowledgeSpaceStatus::Active,
         okf_bundle_initialized: false,
-        knowledge_mode: KnowledgeAgentKnowledgeMode::default(),
+        knowledge_mode,
     }
 }

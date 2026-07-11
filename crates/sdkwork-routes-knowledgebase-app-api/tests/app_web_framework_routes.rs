@@ -2,7 +2,9 @@ use async_trait::async_trait;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use sdkwork_iam_web_adapter::IamWebRequestContextResolver;
-use sdkwork_knowledgebase_contract::browser::ListKnowledgeBrowserRequest;
+use sdkwork_knowledgebase_contract::browser::{
+    KnowledgeBrowserListData, ListKnowledgeBrowserRequest,
+};
 use sdkwork_routes_knowledgebase_app_api::{
     app_route_manifest, build_router_with_browser, manifest, pagination::browser_list_page_data,
     wrap_router_with_web_framework, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
@@ -174,9 +176,7 @@ impl KnowledgeBrowserApi for EmptyBrowserApi {
         &self,
         _context: KnowledgeAppRequestContext,
         _request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<
-        sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>,
-    > {
+    ) -> ApiResult<KnowledgeBrowserListData> {
         unreachable!("unauthenticated requests must not reach handlers")
     }
 }
@@ -197,11 +197,17 @@ impl KnowledgeBrowserApi for RecordingBrowserApi {
     async fn list_browser(
         &self,
         context: KnowledgeAppRequestContext,
-        _request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<
-        sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>,
-    > {
+        request: ListKnowledgeBrowserRequest,
+    ) -> ApiResult<KnowledgeBrowserListData> {
         self.tenant_ids.lock().unwrap().push(context.tenant_id);
-        Ok(browser_list_page_data(vec![], None, 50))
+        Ok(browser_list_page_data(
+            request.space_id,
+            "drv-kb-001".to_string(),
+            request.parent_id,
+            request.view,
+            vec![],
+            None,
+            request.page_size.unwrap_or(50),
+        ))
     }
 }

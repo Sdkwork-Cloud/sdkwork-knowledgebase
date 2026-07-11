@@ -11,6 +11,10 @@ path = "src/bin/app_main.rs"
 [dependencies]
 sdkwork-knowledgebase-gateway-assembly.workspace = true
 axum.workspace = true
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal"] }
+hyper.workspace = true
+hyper-util.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "signal", "time"] }
+tower.workspace = true
 tracing = "0.1"
 sdkwork-knowledgebase-observability = { workspace = true, features = ["otel"] }
+sdkwork-knowledgebase-agent-provider.workspace = true

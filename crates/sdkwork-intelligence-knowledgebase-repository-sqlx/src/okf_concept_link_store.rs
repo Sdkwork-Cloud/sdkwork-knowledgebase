@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_link_store::{
     KnowledgeOkfConceptLinkEdge, KnowledgeOkfConceptLinkStore, KnowledgeOkfConceptLinkStoreError,
     ReplaceKnowledgeOkfConceptLinksRecord,
@@ -10,6 +11,7 @@ use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 /// Maximum inbound link targets scanned for orphan concept detection per space.
@@ -23,6 +25,7 @@ pub struct SqliteKnowledgeOkfConceptLinkStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeOkfConceptLinkStore {
@@ -39,7 +42,13 @@ impl SqliteKnowledgeOkfConceptLinkStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 }
 
@@ -59,46 +68,51 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
             .await
             .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
 
-        sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$1");
+        let update_query = format!(
             r#"
             UPDATE kb_okf_concept_link
-            SET status = 0, updated_at = CAST($1 AS TIMESTAMP), version = version + 1
+            SET status = 0, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $2 AND space_id = $3 AND from_concept_id = $4 AND status = $5
             "#,
-        )
-        .bind(&now)
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(&record.from_concept_id)
-        .bind(ACTIVE_STATUS)
-        .execute(&mut *transaction)
-        .await
-        .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
+        );
+        sqlx::query(&update_query)
+            .bind(&now)
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(&record.from_concept_id)
+            .bind(ACTIVE_STATUS)
+            .execute(&mut *transaction)
+            .await
+            .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
 
         for link in record.links {
             let id = next_i64_id(&self.id_generator).map_err(id_error)?;
-            sqlx::query(
+            let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$9");
+            let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$10");
+            let insert_query = format!(
                 r#"
                 INSERT INTO kb_okf_concept_link (
                     id, uuid, tenant_id, space_id, from_concept_id, to_concept_id,
                     anchor_text, status, created_at, updated_at, version
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, {created_at_expr}, {updated_at_expr}, $11)
                 "#,
-            )
-            .bind(id)
-            .bind(Uuid::new_v4().to_string())
-            .bind(tenant_id)
-            .bind(space_id)
-            .bind(&record.from_concept_id)
-            .bind(&link.to_concept_id)
-            .bind(&link.anchor_text)
-            .bind(ACTIVE_STATUS)
-            .bind(&now)
-            .bind(&now)
-            .bind(INITIAL_VERSION)
-            .execute(&mut *transaction)
-            .await
-            .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
+            );
+            sqlx::query(&insert_query)
+                .bind(id)
+                .bind(Uuid::new_v4().to_string())
+                .bind(tenant_id)
+                .bind(space_id)
+                .bind(&record.from_concept_id)
+                .bind(&link.to_concept_id)
+                .bind(&link.anchor_text)
+                .bind(ACTIVE_STATUS)
+                .bind(&now)
+                .bind(&now)
+                .bind(INITIAL_VERSION)
+                .execute(&mut *transaction)
+                .await
+                .map_err(|error| KnowledgeOkfConceptLinkStoreError::Internal(error.to_string()))?;
         }
 
         transaction

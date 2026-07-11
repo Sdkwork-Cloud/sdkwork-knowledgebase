@@ -37,9 +37,7 @@ impl ProblemDetails {
             .unwrap_or("HTTP Error")
             .to_string();
         let detail_text = detail.into();
-        let client_detail = if status.is_server_error() {
-            None
-        } else if detail_text.is_empty() {
+        let client_detail = if status.is_server_error() || detail_text.is_empty() {
             None
         } else {
             Some(detail_text)
@@ -72,7 +70,9 @@ fn platform_code_for_status(status: http::StatusCode, domain_code: &str) -> SdkW
     use http::StatusCode;
     match status {
         StatusCode::BAD_REQUEST => {
-            if domain_code.contains("validation") || domain_code.contains("invalid") {
+            if domain_code.contains("invalid_parameter") {
+                SdkWorkResultCode::InvalidParameter
+            } else if domain_code.contains("validation") || domain_code.contains("invalid") {
                 SdkWorkResultCode::ValidationError
             } else if domain_code.contains("malformed") {
                 SdkWorkResultCode::MalformedRequest
@@ -169,6 +169,17 @@ mod tests {
             "trace-789",
         );
         assert_eq!(problem.code, 40001);
+    }
+
+    #[test]
+    fn problem_details_invalid_parameter_maps_exactly_to_40003() {
+        let problem = ProblemDetails::from_status(
+            StatusCode::BAD_REQUEST,
+            "invalid_parameter",
+            "page_size must be between 1 and 200",
+            "trace-invalid-parameter",
+        );
+        assert_eq!(problem.code, 40003);
     }
 
     #[test]

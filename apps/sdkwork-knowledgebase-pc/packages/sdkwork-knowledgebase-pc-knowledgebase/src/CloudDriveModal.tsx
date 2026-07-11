@@ -11,6 +11,7 @@ import {
 
 import {
   CloudDriveService,
+  type CloudDriveBrowserItemsPage,
   type CloudDriveBrowserItem,
   type CloudDriveImportResultItem,
 } from './services/cloudDriveService';
@@ -102,6 +103,10 @@ const renderGridIcon = (item: CloudDriveBrowserItem) => {
   return <FileSpreadsheet size={32} className="text-zinc-500 mb-2 shrink-0" />;
 };
 
+function formatDriveUpdatedAt(value: string | null | undefined): string {
+  return value?.trim() || '--';
+}
+
 export function CloudDriveModal({
   isOpen,
   onClose,
@@ -121,8 +126,8 @@ export function CloudDriveModal({
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [browserNextCursor, setBrowserNextCursor] = useState<string | null>(null);
-  const [browserHasMore, setBrowserHasMore] = useState(false);
+  const [driveNextCursor, setDriveNextCursor] = useState<string | null>(null);
+  const [driveHasMore, setDriveHasMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
@@ -136,29 +141,24 @@ export function CloudDriveModal({
     setIsLoading(true);
     setLoadError(null);
     try {
-      let nextItems: CloudDriveBrowserItem[];
+      let page: CloudDriveBrowserItemsPage;
       switch (activeTab) {
         case 'starred':
-          nextItems = await CloudDriveService.listStarredItems(spaceId);
+          page = await CloudDriveService.listStarredItemsPage(spaceId);
           break;
         case 'recent':
-          nextItems = await CloudDriveService.listRecentItems(spaceId);
+          page = await CloudDriveService.listRecentItemsPage(spaceId);
           break;
         case 'shared':
-          nextItems = await CloudDriveService.listSharedItems(spaceId);
+          page = await CloudDriveService.listSharedItemsPage(spaceId);
           break;
-        default: {
-          const page = await CloudDriveService.listBrowserItemsPage(spaceId, currentFolderId);
-          nextItems = page.items;
-          setBrowserNextCursor(page.nextCursor);
-          setBrowserHasMore(page.hasMore);
+        default:
+          page = await CloudDriveService.listBrowserItemsPage(spaceId, currentFolderId);
           break;
-        }
       }
-      if (activeTab !== 'my-drive') {
-        setBrowserNextCursor(null);
-        setBrowserHasMore(false);
-      }
+      const nextItems = page.items;
+      setDriveNextCursor(page.nextCursor);
+      setDriveHasMore(page.hasMore);
       setItems(nextItems);
       setItemIndex(() => {
         const nextIndex = new Map<string, CloudDriveBrowserItem>();
@@ -200,8 +200,8 @@ export function CloudDriveModal({
         setLoadError(null);
         setItems([]);
         setItemIndex(new Map());
-        setBrowserNextCursor(null);
-        setBrowserHasMore(false);
+        setDriveNextCursor(null);
+        setDriveHasMore(false);
         setLoadingMore(false);
       }, 200);
       return () => window.clearTimeout(timer);
@@ -286,10 +286,9 @@ export function CloudDriveModal({
   const handleLoadMore = async () => {
     if (
       !spaceId
-      || activeTab !== 'my-drive'
-      || !browserHasMore
+      || !driveHasMore
       || loadingMore
-      || !browserNextCursor
+      || !driveNextCursor
       || isBlank(spaceId)
     ) {
       return;
@@ -297,10 +296,24 @@ export function CloudDriveModal({
 
     setLoadingMore(true);
     try {
-      const page = await CloudDriveService.listBrowserItemsPage(spaceId, currentFolderId, browserNextCursor);
+      let page: CloudDriveBrowserItemsPage;
+      switch (activeTab) {
+        case 'starred':
+          page = await CloudDriveService.listStarredItemsPage(spaceId, driveNextCursor);
+          break;
+        case 'recent':
+          page = await CloudDriveService.listRecentItemsPage(spaceId, driveNextCursor);
+          break;
+        case 'shared':
+          page = await CloudDriveService.listSharedItemsPage(spaceId, driveNextCursor);
+          break;
+        default:
+          page = await CloudDriveService.listBrowserItemsPage(spaceId, currentFolderId, driveNextCursor);
+          break;
+      }
       setItems((previous) => [...previous, ...page.items]);
-      setBrowserNextCursor(page.nextCursor);
-      setBrowserHasMore(page.hasMore);
+      setDriveNextCursor(page.nextCursor);
+      setDriveHasMore(page.hasMore);
       setItemIndex((previous) => {
         const merged = new Map(previous);
         for (const item of page.items) {
@@ -537,7 +550,7 @@ export function CloudDriveModal({
                               )}
                             </div>
                           </td>
-                          <td className="py-3 text-[var(--color-kb-text-muted)] font-mono">{item.updatedAt}</td>
+                          <td className="py-3 text-[var(--color-kb-text-muted)] font-mono">{formatDriveUpdatedAt(item.updatedAt)}</td>
                           <td className="py-3 pr-6 text-right text-[var(--color-kb-text-muted)] font-mono">{item.size || t('folderSize')}</td>
                         </tr>
                       );
@@ -578,7 +591,7 @@ export function CloudDriveModal({
                         </div>
 
                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-[var(--color-kb-panel-border)]/50 text-[10px] text-[var(--color-kb-text-muted)] font-mono leading-none">
-                          <span>{item.updatedAt}</span>
+                          <span>{formatDriveUpdatedAt(item.updatedAt)}</span>
                           <span>{item.size || t('folderSize')}</span>
                         </div>
                       </div>
@@ -587,7 +600,7 @@ export function CloudDriveModal({
                 </div>
               </div>
             )}
-            {activeTab === 'my-drive' && browserHasMore && !isLoading && !loadError ? (
+            {driveHasMore && !isLoading && !loadError ? (
               <div className="shrink-0 border-t border-[var(--color-kb-panel-border)]/50 px-6 py-3 flex justify-center bg-[var(--color-kb-editor)]">
                 <button
                   type="button"

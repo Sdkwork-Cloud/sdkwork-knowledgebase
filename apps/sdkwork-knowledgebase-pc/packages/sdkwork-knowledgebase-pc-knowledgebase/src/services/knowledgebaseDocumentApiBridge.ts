@@ -18,7 +18,7 @@ import {
   updateOkfConceptTags,
 } from './knowledgeOkfDocumentMetadataService';
 import { copyOkfConcept, moveOkfConcept } from './knowledgeOkfConceptTransferService';
-import { waitForIngestJob } from './knowledgeIngestService';
+import { resolveIngestedDocument, waitForIngestJob } from './knowledgeIngestService';
 import {
   transferDocumentAcrossKnowledgeBases,
   copyDriveFolderWithinKnowledgeBase,
@@ -1139,6 +1139,12 @@ function trackRecentDocument(doc: Pick<DocumentMeta, 'id' | 'title' | 'type' | '
   });
 }
 
+function buildCreateDocumentIngestIdempotencyKey(spaceId: string, title: string): string {
+  const normalizedTitle = title.trim().replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 48);
+  const randomSuffix = Math.random().toString(36).slice(2, 10);
+  return `pc-create-${spaceId}-${normalizedTitle}-${Date.now()}-${randomSuffix}`.slice(0, 128);
+}
+
 async function collectRecentDocumentsFromSpaces(limit: number): Promise<DocumentMeta[]> {
   const tenantId = requireTenantId();
   const registry = readRegisteredSpaces(tenantId);
@@ -1293,13 +1299,47 @@ export async function createDocument(doc: Partial<DocumentMeta>): Promise<Docume
     };
   }
 
+  const spaceId = spaceIdFromKbId(doc.kbId);
+  const title = doc.title?.trim() || 'Untitled';
+  const content = doc.content ?? '';
+  if (!isBlank(content)) {
+    const job = await client.knowledge.ingests.create({
+      spaceId,
+      title,
+      payloadMarkdown: content,
+      idempotencyKey: buildCreateDocumentIngestIdempotencyKey(spaceId, title),
+    });
+    const finalJob = job.state === 'succeeded' ? job : await waitForIngestJob(job.id);
+    if (finalJob.state !== 'succeeded') {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED, {
+        cause: finalJob.errorMessage ?? undefined,
+      });
+    }
+    const document = await resolveIngestedDocument(spaceId, title);
+    const createdDoc: DocumentMeta = {
+      id: String(document.id),
+      title: document.title,
+      type: doc.type ?? 'richtext',
+      kbId: doc.kbId,
+      parentId: doc.parentId ?? null,
+      updatedAt: new Date().toISOString(),
+      author: doc.author ?? 'Knowledgebase',
+      content,
+    };
+    writeLocalDocumentContent(tenantId, createdDoc.id, content, `ingest-${finalJob.id}`);
+    trackRecentDocument(createdDoc);
+    if (doc.parentId) {
+      await placeDocumentInParentFolder(createdDoc.id, doc.kbId, doc.parentId);
+    }
+    invalidateKnowledgeBrowserNodeCacheForKbIds(doc.kbId);
+    return createdDoc;
+  }
+
   const created = await client.knowledge.documents.create({
-    spaceId: spaceIdFromKbId(doc.kbId),
-    title: doc.title?.trim() || 'Untitled',
+    spaceId,
+    title,
     mimeType: doc.type === 'markdown' ? 'text/markdown' : 'text/plain',
   });
-
-  const content = doc.content ?? '';
   const createdDoc: DocumentMeta = {
     id: String(created.id),
     title: created.title,
@@ -1310,22 +1350,6 @@ export async function createDocument(doc: Partial<DocumentMeta>): Promise<Docume
     author: doc.author ?? 'Knowledgebase',
     content,
   };
-
-  if (content) {
-    writeLocalDocumentContent(tenantId, createdDoc.id, content);
-    const job = await client.knowledge.ingests.create({
-      spaceId: created.spaceId,
-      title: created.title,
-      payloadMarkdown: content,
-      idempotencyKey: `pc-create-${created.id}`,
-    });
-    const finalJob = job.state === 'succeeded' ? job : await waitForIngestJob(job.id);
-    if (finalJob.state !== 'succeeded') {
-      throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED, {
-        cause: finalJob.errorMessage ?? undefined,
-      });
-    }
-  }
 
   trackRecentDocument(createdDoc);
   if (doc.parentId) {

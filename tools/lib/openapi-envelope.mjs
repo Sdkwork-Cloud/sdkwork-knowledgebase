@@ -49,6 +49,25 @@ export function listEnvelope(itemSchemaRef) {
   };
 }
 
+export function listDataEnvelope(dataSchemaRef) {
+  return {
+    allOf: [
+      { $ref: '#/components/schemas/SdkWorkApiResponse' },
+      {
+        type: 'object',
+        required: ['data'],
+        properties: {
+          data: { $ref: dataSchemaRef },
+        },
+      },
+    ],
+  };
+}
+
+export function browserListEnvelope(dataSchemaRef = '#/components/schemas/KnowledgeBrowserListData') {
+  return listDataEnvelope(dataSchemaRef);
+}
+
 export function commandEnvelope(payloadSchemaRef) {
   return {
     allOf: [

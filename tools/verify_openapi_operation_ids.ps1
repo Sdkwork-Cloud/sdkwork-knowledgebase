@@ -180,7 +180,7 @@ $requiredSchemas = @(
     "IngestionJob",
     "KnowledgeDriveImportRequest",
     "ListKnowledgeBrowserRequest",
-    "KnowledgeBrowserPage",
+    "KnowledgeBrowserListData",
     "KnowledgeBrowserNode",
     "KnowledgeBrowserView",
     "KnowledgeBrowserNodeType",

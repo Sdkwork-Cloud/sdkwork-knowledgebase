@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-worker",
+    "displayName": "SDKWork Knowledgebase Worker",
+    "version": "0.1.0",
+    "type": "rust-crate",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-worker",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "surface": "worker",
+    "languages": [
+      "rust"
+    ],
+    "generated": false,
+    "private": false,
+    "manifests": [
+      "Cargo.toml"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "COMPONENT_SPEC.md",
+      "path": "../../../sdkwork-specs/COMPONENT_SPEC.md",
+      "purpose": "Component-local contract and discovery rules."
+    },
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored source structure and generated code boundaries."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../../../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Canonical worker package naming rules."
+    },
+    {
+      "file": "RUST_CODE_SPEC.md",
+      "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md",
+      "purpose": "Rust worker crate rules."
+    },
+    {
+      "file": "WEB_BACKEND_SPEC.md",
+      "path": "../../../sdkwork-specs/WEB_BACKEND_SPEC.md",
+      "purpose": "Backend runtime layering rules."
+    },
+    {
+      "file": "OBSERVABILITY_SPEC.md",
+      "path": "../../../sdkwork-specs/OBSERVABILITY_SPEC.md",
+      "purpose": "Worker health and metrics rules."
+    },
+    {
+      "file": "TEST_SPEC.md",
+      "path": "../../../sdkwork-specs/TEST_SPEC.md",
+      "purpose": "Verification requirements."
+    }
+  ],
+  "contracts": {
+    "layerRole": "backend-provider",
+    "publicExports": [
+      ".",
+      "run_maintenance_tick",
+      "run_polling_loop",
+      "health::worker_health_router"
+    ],
+    "runtimeEntrypoints": [
+      "sdkwork-knowledgebase-worker",
+      "run_maintenance_tick",
+      "run_polling_loop",
+      "health::worker_health_router"
+    ],
+    "providedPorts": [
+      {
+        "name": "knowledgebaseMaintenanceWorker",
+        "export": "."
+      }
+    ],
+    "requiredPorts": [
+      {
+        "name": "knowledgebaseRuntime",
+        "export": "run_maintenance_tick",
+        "target": "sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime"
+      }
+    ],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": [
+      "knowledgebase worker maintenance tick"
+    ],
+    "configKeys": [
+      "SDKWORK_KNOWLEDGEBASE_DATABASE_URL",
+      "SDKWORK_KNOWLEDGEBASE_TENANT_ID",
+      "SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "cargo test -p sdkwork-knowledgebase-worker",
+      "pnpm test:phase2-readiness"
+    ]
+  }
+}

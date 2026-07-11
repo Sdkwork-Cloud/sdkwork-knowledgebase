@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-engine-ragflow",
+    "displayName": "SDKWork Knowledgebase RAGFlow Engine Adapter",
+    "version": "0.1.0",
+    "type": "rust-crate",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-engine-ragflow",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "surface": "engine-adapter",
+    "languages": [
+      "rust"
+    ],
+    "generated": false,
+    "private": false,
+    "manifests": [
+      "Cargo.toml"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "COMPONENT_SPEC.md",
+      "path": "../../../sdkwork-specs/COMPONENT_SPEC.md",
+      "purpose": "Component-local contract and discovery rules."
+    },
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored source structure and generated code boundaries."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../../../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Canonical package and component naming rules."
+    },
+    {
+      "file": "RUST_CODE_SPEC.md",
+      "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md",
+      "purpose": "Rust crate boundary rules."
+    },
+    {
+      "file": "MODULE_SPEC.md",
+      "path": "../../../sdkwork-specs/MODULE_SPEC.md",
+      "purpose": "Reusable adapter module boundary rules."
+    },
+    {
+      "file": "SECURITY_SPEC.md",
+      "path": "../../../sdkwork-specs/SECURITY_SPEC.md",
+      "purpose": "Secret handling and provider boundary rules."
+    },
+    {
+      "file": "TEST_SPEC.md",
+      "path": "../../../sdkwork-specs/TEST_SPEC.md",
+      "purpose": "Verification requirements."
+    }
+  ],
+  "contracts": {
+    "layerRole": "backend-provider",
+    "publicExports": [
+      "."
+    ],
+    "runtimeEntrypoints": [
+      "RagflowKnowledgeEngine",
+      "RagflowConnectorConfig",
+      "RAGFLOW_IMPLEMENTATION_ID",
+      "RAGFLOW_AGENT_PROVIDER_ID"
+    ],
+    "providedPorts": [
+      {
+        "name": "ragflowKnowledgeEngine",
+        "export": "."
+      }
+    ],
+    "requiredPorts": [
+      {
+        "name": "knowledgeEngineSpi",
+        "export": ".",
+        "target": "sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine"
+      },
+      {
+        "name": "knowledgeSourceStore",
+        "export": ".",
+        "target": "sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore"
+      }
+    ],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": [],
+    "configKeys": [
+      "SDKWORK_KNOWLEDGEBASE_RAGFLOW_BASE_URL",
+      "SDKWORK_KNOWLEDGEBASE_RAGFLOW_CREDENTIAL",
+      "SDKWORK_KNOWLEDGEBASE_RAGFLOW_CREDENTIAL_FILE",
+      "SDKWORK_KNOWLEDGEBASE_RAGFLOW_DATASET_ID"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "cargo test -p sdkwork-knowledgebase-engine-ragflow"
+    ]
+  }
+}

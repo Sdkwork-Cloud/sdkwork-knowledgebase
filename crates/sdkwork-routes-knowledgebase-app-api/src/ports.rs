@@ -12,14 +12,14 @@ use sdkwork_knowledgebase_contract::{
     CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile,
-    KnowledgeAgentProfileRequest, KnowledgeBrowserNode, KnowledgeContextPack,
+    KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeContextPack,
     KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent,
     KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult,
     KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest,
     KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem,
     KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult,
     KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile,
-    KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
+    KnowledgeOkfConceptRevision, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
     KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
     KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType,
     KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
@@ -293,7 +293,9 @@ pub trait KnowledgeOkfAppService: Send + Sync + 'static {
         &self,
         context: KnowledgeAppRequestContext,
         concept_row_id: u64,
-    ) -> ApiResult<KnowledgeOkfConceptRevisionList>;
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeOkfConceptRevision>>;
 
     async fn upsert_okf_concept(
         &self,
@@ -375,7 +377,7 @@ pub trait KnowledgeBrowserApi: Send + Sync + 'static {
         &self,
         context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>>;
+    ) -> ApiResult<KnowledgeBrowserListData>;
 }
 
 #[async_trait]
@@ -721,7 +723,9 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         &self,
         _context: KnowledgeAppRequestContext,
         _concept_row_id: u64,
-    ) -> ApiResult<KnowledgeOkfConceptRevisionList> {
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeOkfConceptRevision>> {
         Err(ApiError::unsupported_operation(
             "okf.concepts.revisions.list",
         ))
@@ -830,7 +834,7 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         &self,
         _context: KnowledgeAppRequestContext,
         _request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<SdkWorkPageData<KnowledgeBrowserNode>> {
+    ) -> ApiResult<KnowledgeBrowserListData> {
         Err(ApiError::unsupported_operation("spaces.browser.list"))
     }
 

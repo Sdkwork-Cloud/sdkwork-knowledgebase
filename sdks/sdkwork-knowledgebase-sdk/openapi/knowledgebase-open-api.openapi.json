@@ -1281,7 +1281,8 @@
             "required": true,
             "schema": {
               "$ref": "#/components/schemas/KnowledgeBrowserView"
-            }
+            },
+            "description": "Browser view selector. For OKF spaces, files lists original files under sources/raw; okf_bundle lists generated bundle files under okf; outputs lists generated output files under output."
           },
           {
             "name": "parentId",
@@ -1293,7 +1294,8 @@
                 "null"
               ],
               "maxLength": 128
-            }
+            },
+            "description": "Drive node id of a folder inside the selected browser view root. Omit it to resolve the current view root; the resolved folder id is returned as data.parentId."
           },
           {
             "name": "cursor",
@@ -1305,7 +1307,8 @@
                 "null"
               ],
               "maxLength": 512
-            }
+            },
+            "description": "Opaque cursor returned by data.pageInfo.nextCursor."
           },
           {
             "name": "page_size",
@@ -1316,7 +1319,8 @@
               "format": "uint32",
               "minimum": 1,
               "maximum": 200
-            }
+            },
+            "description": "Maximum number of browser nodes to return. Defaults to 20 and is capped at 200."
           }
         ],
         "responses": {
@@ -1336,45 +1340,7 @@
                       ],
                       "properties": {
                         "data": {
-                          "type": "object",
-                          "additionalProperties": false,
-                          "required": [
-                            "items",
-                            "pageInfo"
-                          ],
-                          "properties": {
-                            "items": {
-                              "type": "array",
-                              "items": {
-                                "$ref": "#/components/schemas/KnowledgeBrowserNode"
-                              }
-                            },
-                            "pageInfo": {
-                              "type": "object",
-                              "additionalProperties": false,
-                              "required": [
-                                "mode",
-                                "hasMore"
-                              ],
-                              "properties": {
-                                "mode": {
-                                  "type": "string",
-                                  "enum": [
-                                    "cursor"
-                                  ]
-                                },
-                                "nextCursor": {
-                                  "type": [
-                                    "string",
-                                    "null"
-                                  ]
-                                },
-                                "hasMore": {
-                                  "type": "boolean"
-                                }
-                              }
-                            }
-                          }
+                          "$ref": "#/components/schemas/KnowledgeBrowserListData"
                         }
                       }
                     }
@@ -1496,11 +1462,11 @@
         ],
         "x-sdkwork-owner": "sdkwork-knowledgebase",
         "x-sdkwork-api-authority": "sdkwork-knowledgebase-open-api",
-        "description": "List browser view of a knowledge space",
+        "description": "Lists one cursor page from a bounded knowledge browser view. For OKF knowledge spaces, view=files resolves to the original raw source file root sources/raw and must not expose the generated okf/ bundle directory tree. view=okf_bundle resolves to the generated OKF bundle root okf, and view=outputs resolves to output. When parentId is omitted, the response data.parentId is the resolved Drive folder for the current view root; clients must use it for root uploads and root folder creation. When parentId is provided, it must stay inside the selected view root.",
         "x-sdkwork-request-context": "WebRequestContext",
         "x-sdkwork-api-surface": "open-api",
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-open-api",
-        "summary": "List browser view of a knowledge space",
+        "summary": "List knowledge browser view",
         "x-sdkwork-auth-mode": "api-key",
         "x-sdkwork-source": "sdks/standardize-knowledgebase-sdk-family.mjs"
       }
@@ -2513,11 +2479,64 @@
       },
       "KnowledgeBrowserView": {
         "type": "string",
+        "description": "Browser view selector. files lists original source files; for OKF spaces this is sources/raw. okf_bundle lists generated OKF bundle files under okf. outputs lists generated output files under output.",
         "enum": [
           "files",
           "okf_bundle",
           "outputs"
         ]
+      },
+      "KnowledgeBrowserListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Standard browser list response data. It follows SDKWork list semantics with items and pageInfo, and also returns the resolved Drive view context needed by clients.",
+        "required": [
+          "spaceId",
+          "driveSpaceId",
+          "view",
+          "pageSize",
+          "items",
+          "pageInfo"
+        ],
+        "properties": {
+          "spaceId": {
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "driveSpaceId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Drive space id bound to the knowledge space."
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 128,
+            "description": "Resolved Drive folder id for the current browser view page. When request parentId is omitted, this is the view root folder id; OKF files view resolves to sources/raw."
+          },
+          "view": {
+            "$ref": "#/components/schemas/KnowledgeBrowserView"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeBrowserNode"
+            }
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/PageInfo"
+          }
+        }
       },
       "KnowledgeBrowserNode": {
         "type": "object",

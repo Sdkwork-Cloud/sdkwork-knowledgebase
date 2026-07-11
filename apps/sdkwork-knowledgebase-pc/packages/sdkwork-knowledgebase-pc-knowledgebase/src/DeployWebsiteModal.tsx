@@ -13,6 +13,7 @@ import {
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 import { KnowledgeBase, DocumentService } from './services/document';
+import { isVerifiedSiteDeploymentUrl } from './services/knowledgeSiteDeploymentService';
 
 interface DeployWebsiteModalProps {
   isOpen: boolean;
@@ -43,16 +44,21 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
       setSiteName(activeKb.siteName || activeKb.title || '');
       setCustomDomain(activeKb.customDomain || '');
       setLogoBase64(activeKb.siteLogo || activeKb.avatar || '');
-      setIsDeployed(!!activeKb.isDeployed);
-      setDeployedSiteUrl(activeKb.deployedUrl || `https://${activeKb.id.toLowerCase().replace(/[^a-z0-9-]/g, '') || 'kb'}.sdkwork.com`);
+      const verifiedUrl = isVerifiedSiteDeploymentUrl(activeKb.deployedUrl)
+        ? activeKb.deployedUrl
+        : '';
+      setIsDeployed(activeKb.isDeployed === true && Boolean(verifiedUrl));
+      setDeployedSiteUrl(verifiedUrl);
     }
   }, [activeKb, isOpen]);
 
   if (!isOpen || !activeKb) return null;
 
   const handleCopy = () => {
-    const urlToCopy = customDomain ? `https://${customDomain}` : deployedSiteUrl;
-    navigator.clipboard.writeText(urlToCopy);
+    if (!isVerifiedSiteDeploymentUrl(deployedSiteUrl)) {
+      return;
+    }
+    navigator.clipboard.writeText(deployedSiteUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -113,23 +119,14 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
     setDeployStep('正在分析并序列化站点内容...');
     
     try {
-      const selectedPlatform = 'vercel';
+      const selectedPlatform = 'sdkwork-sites';
       const res = await DocumentService.publishWebsite(selectedPlatform, activeKb.id, {
         siteName: siteName || activeKb.title,
         customDomain: customDomain || undefined,
         siteLogo: logoBase64 || undefined,
       });
 
-      if (!res.accepted) {
-        setDeployStep('网站部署失败，请检查知识库内容后重试。');
-        setIsDeploying(false);
-        toast.error('网站部署失败，请检查知识库内容后重试。');
-        return;
-      }
-
-      setDeployStep('正在激活 SSL 服务证书与配置边缘路由...');
-      
-      const newUrl = res.url || `https://${siteName.toLowerCase().replace(/\s+/g, '-')}.${selectedPlatform}.app`;
+      const newUrl = res.url;
       setDeployedSiteUrl(newUrl);
       
       setIsDeploying(false);
@@ -147,26 +144,6 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
       setDeployStep(detail);
       setIsDeploying(false);
       toastKnowledgebaseError(e, t);
-    }
-  };
-
-  const handleSaveSettings = () => {
-    onSave({
-      siteName: siteName || activeKb.title,
-      customDomain: customDomain || undefined,
-      siteLogo: logoBase64 || undefined,
-    });
-    toast.success('网站配置修改成功！');
-  };
-
-  const handleStopDeploy = () => {
-    if (confirm('确定要卸载脱离当前网站部署吗？脱离后该地址将无法直接访问。')) {
-      setIsDeployed(false);
-      onSave({
-        isDeployed: false,
-        customDomain: '',
-        siteLogo: ''
-      });
     }
   };
 
@@ -231,7 +208,7 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
                     <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--color-kb-text-heading)] truncate">
                       <Globe size={15} className="text-indigo-500 shrink-0" />
                       <span className="truncate underline cursor-pointer font-sans select-all">
-                        {customDomain ? `https://${customDomain}` : deployedSiteUrl}
+                        {deployedSiteUrl}
                       </span>
                     </div>
                     
@@ -254,7 +231,7 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
                       </button>
                       
                       <a 
-                        href={customDomain ? `https://${customDomain}` : deployedSiteUrl} 
+                        href={deployedSiteUrl}
                         target="_blank" 
                         rel="noreferrer"
                         className="p-1 text-[var(--color-kb-text-muted)] hover:text-indigo-500 border border-[var(--color-kb-panel-border)] hover:bg-[var(--color-kb-panel-hover)] rounded-md transition-all shrink-0"
@@ -404,13 +381,10 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
         <div className="h-[70px] border-t border-zinc-200/80 dark:border-[var(--color-kb-panel-border)] bg-[#fafafa] dark:bg-[var(--color-kb-panel)] flex items-center justify-between px-6 shrink-0 rounded-b-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.02)] z-10">
           <div>
             {isDeployed ? (
-              <button
-                onClick={handleStopDeploy}
-                className="text-[12.5px] font-bold text-red-500 hover:text-red-600 flex items-center gap-1.5 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors active:scale-95"
-              >
-                <Trash2 size={14} strokeWidth={2.5} />
-                <span>{t('offlineSite')}</span>
-              </button>
+              <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-emerald-600 dark:text-emerald-400">
+                <Globe size={14} strokeWidth={2.5} />
+                {t('deployed')}
+              </span>
             ) : (
               <span className="text-[11.5px] font-bold text-zinc-500 dark:text-[var(--color-kb-text-muted)] flex items-center gap-1.5">
                 <Laptop size={14} strokeWidth={2.5} />
@@ -427,24 +401,18 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
             >
               {t('close')}
             </button>
-            {isDeployed ? (
-              <button
-                onClick={handleSaveSettings}
-                className="px-6 py-2.5 text-[13px] font-extrabold bg-[#07C160] hover:bg-[#06ad56] text-white rounded-xl shadow-md transition-all active:scale-95 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-[#07C160]/20"
-                disabled={isDeploying}
-              >
-                {t('saveConfig')}
-              </button>
-            ) : (
-              <button
-                onClick={handleStartDeploy}
-                className="px-6 py-2.5 text-[13px] font-extrabold bg-[#07C160] hover:bg-[#06ad56] text-white rounded-xl shadow-md transition-all flex items-center gap-2 active:scale-95 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-[#07C160]/20 disabled:opacity-40 disabled:grayscale"
-                disabled={isDeploying}
-              >
-                <RefreshCw size={15} strokeWidth={2.5} className={isDeploying ? 'animate-spin' : ''} />
-                <span>{t('deployStart')}</span>
-              </button>
-            )}
+            <button
+              onClick={handleStartDeploy}
+              className="px-6 py-2.5 text-[13px] font-extrabold bg-[#07C160] hover:bg-[#06ad56] text-white rounded-xl shadow-md transition-all flex items-center gap-2 active:scale-95 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-[#07C160]/20 disabled:opacity-40 disabled:grayscale"
+              disabled={isDeploying}
+            >
+              <RefreshCw size={15} strokeWidth={2.5} className={isDeploying ? 'animate-spin' : ''} />
+              <span>
+                {isDeployed
+                  ? t('redeploySite', { defaultValue: 'Redeploy website' })
+                  : t('deployStart')}
+              </span>
+            </button>
           </div>
         </div>
 

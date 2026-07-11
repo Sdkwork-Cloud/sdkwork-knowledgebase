@@ -88,6 +88,8 @@ export type { KnowledgeAuditEventItem } from './knowledge-audit-event-item';
 export type { KnowledgeAuditEventExport } from './knowledge-audit-event-export';
 export type { AnonymizeKnowledgeAuditSubjectRequest } from './anonymize-knowledge-audit-subject-request';
 export type { AnonymizeKnowledgeAuditSubjectResult } from './anonymize-knowledge-audit-subject-result';
+export type { OkfConceptSummaryList } from './okf-concept-summary-list';
+export type { KnowledgeOkfConceptRevisionList } from './knowledge-okf-concept-revision-list';
 export type { SourcesListResponse } from './sources-list-response';
 export type { SourcesCreateResponse201 } from './sources-create-response201';
 export type { OkfCompileJobsCreateResponse201 } from './okf-compile-jobs-create-response201';

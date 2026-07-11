@@ -90,8 +90,8 @@ Assert-PathExists "scripts/lib/knowledgebase-topology.mjs" "Missing topology ada
 Assert-PathExists "scripts/knowledgebase-dev.mjs" "Missing topology dev orchestrator"
 
 $topologySpec = Get-JsonFile "specs/topology.spec.json"
-if ($topologySpec.schemaVersion -ne 2) {
-    throw "specs/topology.spec.json schemaVersion must be 2"
+if ($topologySpec.schemaVersion -ne 4) {
+    throw "specs/topology.spec.json schemaVersion must be 4"
 }
 if ($topologySpec.kind -ne "sdkwork.app.topology") {
     throw "specs/topology.spec.json kind must be sdkwork.app.topology"

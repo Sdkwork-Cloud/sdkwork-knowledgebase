@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_context_binding_store::{
     KnowledgeContextBindingStore, KnowledgeContextBindingStoreError,
 };
@@ -13,6 +14,7 @@ use sqlx::{AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const ACTIVE_STATUS: i64 = 1;
@@ -23,6 +25,7 @@ const INITIAL_VERSION: i64 = 0;
 pub struct SqliteContextBindingStore {
     pool: AnyPool,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteContextBindingStore {
@@ -30,11 +33,21 @@ impl SqliteContextBindingStore {
         Self {
             pool,
             id_generator: default_knowledge_id_generator(),
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
     }
 
     pub fn with_id_generator(pool: AnyPool, id_generator: Arc<dyn KnowledgeIdGenerator>) -> Self {
-        Self { pool, id_generator }
+        Self {
+            pool,
+            id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
+        }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 }
 
@@ -56,44 +69,47 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
             .unwrap_or(KnowledgeAccessLevel::Reader)
             .as_str();
 
-        let row = sqlx::query(
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$10");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$11");
+        let query = format!(
             r#"
             INSERT INTO kb_space_context_binding (
                 id, tenant_id, space_id, context_type, context_id,
                 context_name, access_level, status, created_by,
                 created_at, updated_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, {created_at_expr}, {updated_at_expr}, $12)
             RETURNING id, tenant_id, space_id, context_type, context_id,
                       context_name, access_level, status, created_by,
                       created_at, updated_at
             "#,
-        )
-        .bind(id)
-        .bind(tenant_i64)
-        .bind(space_i64)
-        .bind(context_type_str)
-        .bind(&request.context_id)
-        .bind(&request.context_name)
-        .bind(access_level_str)
-        .bind(ACTIVE_STATUS)
-        .bind(created_by)
-        .bind(&now)
-        .bind(&now)
-        .bind(INITIAL_VERSION)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| {
-            let msg = e.to_string();
-            if msg.contains("UNIQUE") || msg.contains("unique") {
-                KnowledgeContextBindingStoreError::Conflict(format!(
-                    "binding already exists for space {} context {}:{}",
-                    request.space_id, context_type_str, request.context_id
-                ))
-            } else {
-                KnowledgeContextBindingStoreError::Internal(msg)
-            }
-        })?;
+        );
+        let row = sqlx::query(&query)
+            .bind(id)
+            .bind(tenant_i64)
+            .bind(space_i64)
+            .bind(context_type_str)
+            .bind(&request.context_id)
+            .bind(&request.context_name)
+            .bind(access_level_str)
+            .bind(ACTIVE_STATUS)
+            .bind(created_by)
+            .bind(&now)
+            .bind(&now)
+            .bind(INITIAL_VERSION)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| {
+                let msg = e.to_string();
+                if msg.contains("UNIQUE") || msg.contains("unique") {
+                    KnowledgeContextBindingStoreError::Conflict(format!(
+                        "binding already exists for space {} context {}:{}",
+                        request.space_id, context_type_str, request.context_id
+                    ))
+                } else {
+                    KnowledgeContextBindingStoreError::Internal(msg)
+                }
+            })?;
 
         cb_from_row(&row)
     }
@@ -138,28 +154,30 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
         let binding_i64 = cb_to_i64("binding_id", binding_id)?;
         let now = cb_now()?;
 
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$3");
+        let query = format!(
             r#"
             UPDATE kb_space_context_binding
             SET context_name = COALESCE($1, context_name),
                 access_level = COALESCE($2, access_level),
-                updated_at = CAST($3 AS TIMESTAMP),
+                updated_at = {updated_at_expr},
                 version = version + 1
             WHERE tenant_id = $4 AND id = $5 AND status = $6
             RETURNING id, tenant_id, space_id, context_type, context_id,
                       context_name, access_level, status, created_by,
                       created_at, updated_at
             "#,
-        )
-        .bind(&request.context_name)
-        .bind(request.access_level.map(|l| l.as_str()))
-        .bind(&now)
-        .bind(tenant_i64)
-        .bind(binding_i64)
-        .bind(ACTIVE_STATUS)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?;
+        );
+        let row = sqlx::query(&query)
+            .bind(&request.context_name)
+            .bind(request.access_level.map(|l| l.as_str()))
+            .bind(&now)
+            .bind(tenant_i64)
+            .bind(binding_i64)
+            .bind(ACTIVE_STATUS)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?;
 
         match row {
             Some(row) => cb_from_row(&row),
@@ -176,21 +194,23 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
         let binding_i64 = cb_to_i64("binding_id", binding_id)?;
         let now = cb_now()?;
 
-        let result = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let query = format!(
             r#"
             UPDATE kb_space_context_binding
-            SET status = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+            SET status = $1, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
             "#,
-        )
-        .bind(DELETED_STATUS)
-        .bind(&now)
-        .bind(tenant_i64)
-        .bind(binding_i64)
-        .bind(ACTIVE_STATUS)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?;
+        );
+        let result = sqlx::query(&query)
+            .bind(DELETED_STATUS)
+            .bind(&now)
+            .bind(tenant_i64)
+            .bind(binding_i64)
+            .bind(ACTIVE_STATUS)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?;
 
         if result.rows_affected() == 0 {
             return Err(KnowledgeContextBindingStoreError::NotFound(binding_id));

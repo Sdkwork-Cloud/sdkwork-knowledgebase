@@ -10,6 +10,7 @@ use thiserror::Error;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::{push_sql_timestamp_bind, SqlTimestampDialect};
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 use crate::postgres_pgvector_retrieval::format_pgvector_literal;
 
@@ -91,6 +92,7 @@ impl SqliteKnowledgeEmbeddingStore {
         }
 
         let is_postgres = self.database_engine == DatabaseEngine::Postgres;
+        let timestamp_dialect = SqlTimestampDialect::from_database_engine(self.database_engine);
         let mut prepared = Vec::with_capacity(requests.len());
         for request in requests {
             prepared.push(self.prepare_embedding_upsert(request)?);
@@ -99,7 +101,7 @@ impl SqliteKnowledgeEmbeddingStore {
         let mut tx = self.pool.begin().await.map_err(sqlx_error)?;
         for batch in prepared.chunks(EMBEDDING_UPSERT_BATCH_SIZE) {
             if is_postgres {
-                bulk_upsert_embeddings_postgres(&mut tx, batch).await?;
+                bulk_upsert_embeddings_postgres(&mut tx, timestamp_dialect, batch).await?;
             } else {
                 bulk_upsert_embeddings_sqlite(&mut tx, batch).await?;
             }
@@ -308,6 +310,7 @@ async fn bulk_upsert_embeddings_sqlite(
 
 async fn bulk_upsert_embeddings_postgres(
     transaction: &mut Transaction<'_, Any>,
+    timestamp_dialect: SqlTimestampDialect,
     batch: &[PreparedEmbeddingUpsert],
 ) -> Result<(), SqliteKnowledgeEmbeddingStoreError> {
     let mut builder = QueryBuilder::new(
@@ -328,16 +331,16 @@ async fn bulk_upsert_embeddings_postgres(
             .push_bind(item.vector_ref.as_str())
             .push_bind(item.vector_json.as_str());
         row.push("CAST(");
-        row.push_bind(item.pgvector_literal.as_str());
-        row.push(" AS vector)");
+        row.push_bind_unseparated(item.pgvector_literal.as_str());
+        row.push_unseparated(" AS vector)");
         row.push_bind(item.dimension)
             .push_bind(item.provider_id.as_str())
             .push_bind(item.model.as_str())
             .push("NULL")
-            .push_bind(ACTIVE_STATUS)
-            .push_bind(item.now.as_str())
-            .push_bind(item.now.as_str())
-            .push_bind(INITIAL_VERSION);
+            .push_bind(ACTIVE_STATUS);
+        push_sql_timestamp_bind(&mut row, timestamp_dialect, item.now.as_str());
+        push_sql_timestamp_bind(&mut row, timestamp_dialect, item.now.as_str());
+        row.push_bind(INITIAL_VERSION);
     });
     builder.push(
         r#"

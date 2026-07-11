@@ -1,3 +1,4 @@
+use sdkwork_utils_rust::{PageInfo, PageMode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,6 +41,41 @@ pub struct KnowledgeBrowserPage {
     pub page_size: u32,
     pub items: Vec<KnowledgeBrowserNode>,
     pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KnowledgeBrowserListData {
+    pub space_id: u64,
+    pub drive_space_id: String,
+    pub parent_id: Option<String>,
+    pub view: KnowledgeBrowserView,
+    pub page_size: u32,
+    pub items: Vec<KnowledgeBrowserNode>,
+    pub page_info: PageInfo,
+}
+
+impl From<KnowledgeBrowserPage> for KnowledgeBrowserListData {
+    fn from(page: KnowledgeBrowserPage) -> Self {
+        let next_cursor = page.next_cursor;
+        Self {
+            space_id: page.space_id,
+            drive_space_id: page.drive_space_id,
+            parent_id: page.parent_id,
+            view: page.view,
+            page_size: page.page_size,
+            items: page.items,
+            page_info: PageInfo {
+                mode: PageMode::Cursor,
+                page: None,
+                page_size: Some(page.page_size as i32),
+                total_items: None,
+                total_pages: None,
+                has_more: Some(next_cursor.is_some()),
+                next_cursor,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

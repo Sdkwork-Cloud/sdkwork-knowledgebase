@@ -213,18 +213,21 @@ Each knowledge space stores curated knowledge as an OKF v0.1 bundle. Drive layou
 
 ```text
 {space_root}/
-├── sources/raw/                 # immutable source files
-├── okf/                         # OKF bundle root
-│   ├── index.md
-│   ├── log.md
-│   ├── schema/
-│   │   ├── AGENTS.md
-│   │   └── okf_profile.yaml
-│   └── <domain>/<concept>.md
-└── .sdkwork/governance/         # drafts and revisions (never exported)
+|-- sources/raw/                 # immutable original source files
+|-- okf/                         # generated OKF bundle root
+|   |-- index.md
+|   |-- log.md
+|   |-- schema/
+|   |   |-- AGENTS.md
+|   |   `-- okf_profile.yaml
+|   `-- <domain>/<concept>.md
+|-- output/                      # generated answers, reports, and exports
+`-- .sdkwork/governance/         # drafts and revisions (never exported)
 ```
 
 SQL stores `kb_okf_concept`, `kb_okf_concept_revision`, `kb_okf_concept_link`, `kb_okf_bundle_file`, `kb_okf_log_entry`, and `kb_okf_candidate` metadata. File bytes flow only through `sdkwork-drive`.
+
+The knowledge browser separates user-facing file navigation from generated OKF bundle navigation. For OKF spaces, `spaces.browser.list?view=files` resolves to `sources/raw` and returns original source files only. Generated concepts and bundle files are available through `view=okf_bundle`, and generated outputs through `view=outputs`. The response uses `KnowledgeBrowserListData` so clients receive the resolved Drive `parentId` for root uploads and root folder creation.
 
 See [TECH-2026-06-19-okf-knowledge-bundle-design.md](TECH-2026-06-19-okf-knowledge-bundle-design.md) for workflows (ingest, compile, eval, query, lint), export modes, and purge rules.
 

@@ -3,6 +3,8 @@ use sdkwork_knowledgebase_contract::document::{KnowledgeDocument, KnowledgeDocum
 use sdkwork_knowledgebase_contract::drive::KnowledgeDriveObjectRef;
 use thiserror::Error;
 
+use crate::tenant_quota::TenantQuotaExceeded;
+
 use super::{
     knowledge_document_store::{CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope},
     knowledge_document_version_store::CreateKnowledgeDocumentVersionRecord,
@@ -46,6 +48,8 @@ pub enum MarkdownIndexMetadataStoreError {
     InvalidRequest(String),
     #[error("markdown index metadata conflict: {0}")]
     Conflict(String),
+    #[error(transparent)]
+    QuotaExceeded(#[from] TenantQuotaExceeded),
     #[error("markdown index metadata store internal error: {0}")]
     Internal(String),
 }

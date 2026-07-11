@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS kb_okf_concept_link (
     to_concept_id VARCHAR(256) NOT NULL,
     anchor_text VARCHAR(512) NOT NULL DEFAULT '',
     status INTEGER NOT NULL,
-    created_at VARCHAR(64) NOT NULL,
-    updated_at VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id)
 );
@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS kb_okf_candidate (
     reviewer_id BIGINT,
     review_note TEXT,
     status INTEGER NOT NULL,
-    created_at VARCHAR(64) NOT NULL,
-    updated_at VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
     version BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id)
 );

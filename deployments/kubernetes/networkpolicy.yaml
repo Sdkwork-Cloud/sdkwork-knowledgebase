@@ -36,8 +36,7 @@ spec:
       ports:
         - protocol: TCP
           port: 18085
-    # Same-namespace inter-service traffic for split-services topology
-    # (app-api <-> backend-api <-> open-api <-> worker coordination).
+    # Same-namespace application service traffic for API and worker coordination.
     - from:
         - podSelector:
             matchLabels:
@@ -67,7 +66,7 @@ spec:
         - protocol: TCP
           port: 5432
     # Redis for distributed rate limiting and outbox claim coordination
-    # (cloud + split-services topology, multi-replica HA).
+    # in the cloud deployment profile.
     - to:
         - namespaceSelector:
             matchLabels:
@@ -93,7 +92,7 @@ spec:
       ports:
         - protocol: TCP
           port: 443
-    # Same-namespace inter-service egress for split-services topology.
+    # Same-namespace application service egress.
     - to:
         - podSelector:
             matchLabels:

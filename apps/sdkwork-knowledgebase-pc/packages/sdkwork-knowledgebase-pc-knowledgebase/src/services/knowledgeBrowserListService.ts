@@ -1,4 +1,4 @@
-import type { KnowledgeBrowserNode } from 'sdkwork-knowledgebase-pc-core';
+import type { KnowledgeBrowserNode, KnowledgeBrowserView } from 'sdkwork-knowledgebase-pc-core';
 import {
   isKnowledgebaseAppError,
   parseKnowledgeSpaceId,
@@ -13,20 +13,35 @@ const browserParentCache = new Map<string, BrowserNodeCacheEntry>();
 
 interface BrowserNodeCacheEntry {
   fetchedAt: number;
+  view: KnowledgeBrowserView;
+  parentId: string | null;
   nodes: KnowledgeBrowserNode[];
   nextCursor: string | null;
   hasMore: boolean;
 }
 
-function parentCacheKey(spaceId: string, parentId: string | null): string {
-  return `${spaceId}:${parentId ?? '__root__'}`;
+const DEFAULT_BROWSER_VIEW: KnowledgeBrowserView = 'files';
+
+function parentCacheKey(
+  spaceId: string,
+  view: KnowledgeBrowserView,
+  parentId: string | null,
+): string {
+  return `${spaceId}:${view}:${parentId ?? '__root__'}`;
 }
 
-export function getLoadedKnowledgeBrowserNodes(spaceId: string): KnowledgeBrowserNode[] {
+export function getLoadedKnowledgeBrowserNodes(
+  spaceId: string,
+  options?: { view?: KnowledgeBrowserView },
+): KnowledgeBrowserNode[] {
   const prefix = `${spaceId}:`;
+  const view = options?.view ?? DEFAULT_BROWSER_VIEW;
   const merged = new Map<string, KnowledgeBrowserNode>();
   for (const [key, entry] of browserParentCache.entries()) {
     if (!key.startsWith(prefix)) {
+      continue;
+    }
+    if (entry.view !== view) {
       continue;
     }
     for (const node of entry.nodes) {
@@ -60,6 +75,8 @@ function trimBrowserCacheMaps(): void {
 
 function rememberBrowserParentCacheEntry(
   cacheKey: string,
+  view: KnowledgeBrowserView,
+  parentId: string | null,
   nodes: KnowledgeBrowserNode[],
   nextCursor: string | null,
   hasMore: boolean,
@@ -67,6 +84,8 @@ function rememberBrowserParentCacheEntry(
   purgeExpiredBrowserCacheEntries();
   browserParentCache.set(cacheKey, {
     fetchedAt: Date.now(),
+    view,
+    parentId,
     nodes,
     nextCursor,
     hasMore,
@@ -119,24 +138,40 @@ export function invalidateKnowledgeBrowserNodeCacheForKbIds(
 }
 
 export interface KnowledgeBrowserNodesPageResult {
+  parentId: string | null;
   items: KnowledgeBrowserNode[];
   nextCursor: string | null;
   hasMore: boolean;
 }
 
+function resolveBrowserPageParentId(page: unknown): string | null {
+  if (typeof page !== 'object' || page === null || Array.isArray(page)) {
+    return null;
+  }
+  const parentId = (page as { parentId?: unknown }).parentId;
+  return typeof parentId === 'string' && parentId.trim() ? parentId : null;
+}
+
 export async function listKnowledgeBrowserNodesPage(
   spaceId: string,
   parentId: string | null,
-  options?: { cursor?: string | null; pageSize?: number; fresh?: boolean },
+  options?: {
+    cursor?: string | null;
+    pageSize?: number;
+    fresh?: boolean;
+    view?: KnowledgeBrowserView;
+  },
 ): Promise<KnowledgeBrowserNodesPageResult> {
+  const view = options?.view ?? DEFAULT_BROWSER_VIEW;
   const pageSize = options?.pageSize ?? DEFAULT_BROWSER_PAGE_SIZE;
   const cursor = options?.cursor ?? null;
-  const cacheKey = parentCacheKey(spaceId, parentId);
+  const cacheKey = parentCacheKey(spaceId, view, parentId);
 
   if (!cursor && !options?.fresh) {
     const cached = browserParentCache.get(cacheKey);
     if (cached && Date.now() - cached.fetchedAt < BROWSER_NODE_CACHE_TTL_MS) {
       return {
+        parentId: cached.parentId,
         items: cached.nodes,
         nextCursor: cached.nextCursor,
         hasMore: cached.hasMore,
@@ -149,20 +184,29 @@ export async function listKnowledgeBrowserNodesPage(
 
   const client = requireSdkClient();
   const page = await client.knowledge.spaces.browser.list(spaceId, {
-    view: 'files',
+    view,
     parentId,
     cursor,
     pageSize,
   });
   const normalized = normalizeSdkWorkListPage<KnowledgeBrowserNode>(page);
+  const pageParentId = resolveBrowserPageParentId(page);
   const nextCursor = normalized.nextCursor;
   const hasMore = normalized.hasMore;
 
   if (!cursor) {
-    rememberBrowserParentCacheEntry(cacheKey, normalized.items, nextCursor, hasMore);
+    rememberBrowserParentCacheEntry(
+      cacheKey,
+      view,
+      pageParentId,
+      normalized.items,
+      nextCursor,
+      hasMore,
+    );
   }
 
   return {
+    parentId: pageParentId,
     items: normalized.items,
     nextCursor,
     hasMore,
@@ -172,11 +216,12 @@ export async function listKnowledgeBrowserNodesPage(
 export async function listKnowledgeBrowserNodesForParent(
   spaceId: string,
   parentId: string | null,
-  options?: { fresh?: boolean; pageSize?: number },
+  options?: { fresh?: boolean; pageSize?: number; view?: KnowledgeBrowserView },
 ): Promise<KnowledgeBrowserNode[]> {
   const page = await listKnowledgeBrowserNodesPage(spaceId, parentId, {
     fresh: options?.fresh,
     pageSize: options?.pageSize,
+    view: options?.view,
   });
   return page.items;
 }
@@ -184,18 +229,22 @@ export async function listKnowledgeBrowserNodesForParent(
 export async function ensureKnowledgeBrowserFolderLoaded(
   spaceId: string,
   folderId: string | null,
+  options?: { view?: KnowledgeBrowserView },
 ): Promise<KnowledgeBrowserNode[]> {
-  return listKnowledgeBrowserNodesForParent(spaceId, folderId);
+  return listKnowledgeBrowserNodesForParent(spaceId, folderId, {
+    view: options?.view,
+  });
 }
 
 export async function listLoadedKnowledgeBrowserNodes(
   spaceId: string,
-  options?: { includeRoot?: boolean },
+  options?: { includeRoot?: boolean; view?: KnowledgeBrowserView },
 ): Promise<KnowledgeBrowserNode[]> {
+  const view = options?.view ?? DEFAULT_BROWSER_VIEW;
   if (options?.includeRoot !== false) {
-    await listKnowledgeBrowserNodesForParent(spaceId, null);
+    await listKnowledgeBrowserNodesForParent(spaceId, null, { view });
   }
-  return getLoadedKnowledgeBrowserNodes(spaceId);
+  return getLoadedKnowledgeBrowserNodes(spaceId, { view });
 }
 
 export function findKnowledgeBrowserNodeByDocumentId(

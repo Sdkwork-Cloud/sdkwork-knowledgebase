@@ -274,6 +274,9 @@ fn map_document_store_error(
         crate::ports::knowledge_document_store::KnowledgeDocumentStoreError::Unsupported(
             message,
         ) => KnowledgeEngineError::Unsupported(message),
+        crate::ports::knowledge_document_store::KnowledgeDocumentStoreError::QuotaExceeded(
+            error,
+        ) => KnowledgeEngineError::Validation(error.to_string()),
         crate::ports::knowledge_document_store::KnowledgeDocumentStoreError::Internal(message)
             if message.contains("missing knowledge document") =>
         {

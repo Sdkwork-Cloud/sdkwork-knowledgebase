@@ -1,9 +1,9 @@
-# SDKWork Knowledgebase — MVP Launch Acceptance
+# SDKWork Knowledgebase - MVP Launch Acceptance
 
 Status: prelaunch-gated
 Owner: SDKWork maintainers
 Application: sdkwork-knowledgebase
-Updated: 2026-07-07
+Updated: 2026-07-09
 Parent: [PRD.md](PRD.md)
 
 ## Purpose
@@ -43,6 +43,7 @@ Decision: SDKWork Knowledgebase remains prelaunch and must not be treated as a p
 - [x] `pnpm sdk:generate:check` passes
 - [x] Open API included in `verify_openapi_operation_ids.ps1` and phase1 generated SDK roots
 - [x] `specs/component.spec.json` indexes all three HTTP surfaces and SDK clients
+- [x] Browser list uses `KnowledgeBrowserListData`; OKF `view=files` resolves to original files under `sources/raw`, `view=okf_bundle` resolves to generated bundle files under `okf`, and root create/upload clients use response `data.parentId`.
 
 ### Reliability
 
@@ -71,8 +72,9 @@ Decision: SDKWork Knowledgebase remains prelaunch and must not be treated as a p
 - [x] Auto-save and editor uploads surface i18n errors via `toastKnowledgebaseError`; numeric ProblemDetail `60002` maps to tenant quota message
 - [x] Editor demo upload uses blob URLs only under `shouldUseKnowledgebaseDemoFallback()`
 - [x] Permissions modal uses paginated member count (`20+` when truncated)
-- [x] Cloud drive import modal uses cursor pagination (`listBrowserItemsPage`) with Load more on my-drive browse
-- [x] Cloud drive starred/recent/shared collections paginate through Drive `pageToken` (capped at 500 items)
+- [x] Cloud drive import modal uses cursor pagination (`listBrowserItemsPage`, `listStarredItemsPage`, `listRecentItemsPage`, `listSharedItemsPage`) with Load more across my-drive, starred, recent, and shared tabs
+- [x] Cloud drive interactive browse never prefetches multi-page collections or caps an in-memory aggregate; each tab requests the next Drive SDK cursor page on demand
+- [x] Cloud drive collection tabs do not synthesize Drive metadata; when the Drive SDK page lacks `updatedAt`, the UI renders an explicit `--` placeholder instead of a generated timestamp
 - [x] Drive import pipeline enforces `MAX_MARKDOWN_PAYLOAD_BYTES` before chunking
 - [x] WeChat typography preview uses article author and current date instead of hardcoded demo metadata
 - [x] WeChat publish/upload/AI stream API failures use `toastKnowledgebaseError` (quota/offline/network aware)
@@ -83,6 +85,7 @@ Decision: SDKWork Knowledgebase remains prelaunch and must not be treated as a p
 - [x] `pnpm test:frontend` passes; `pnpm lint` (TypeScript) passes
 - [x] Ad-hoc root migration scripts removed; `pnpm check:pc-app-hygiene` passes
 - [x] Browser/desktop staging and production config examples present
+- [x] OKF file list is an original-source file surface: the PC file list calls browser `view=files`, does not show `okf/`, `output/`, `.sdkwork/`, or Drive root system folders, and OKF concept copy/move tooling explicitly calls `view=okf_bundle`.
 
 ### Verification
 
@@ -96,7 +99,7 @@ pnpm lint
 
 ### Functional
 
-- [x] Author scenario: login → create note → edit document → auto-save (`e2e/author.flow.spec.ts`, Playwright CI)
+- [x] Author scenario: login -> create note -> edit document -> auto-save (`e2e/author.flow.spec.ts`, Playwright CI)
 - [x] Search scenario: RAG answer with citations navigates to source document (`e2e/search.flow.spec.ts`, Playwright CI)
 - [x] Admin scenario contract: backend source listing requires `knowledge.admin` (`scripts/smoke-knowledgebase-admin-ingest.test.mjs`; live probe optional via `SDKWORK_KNOWLEDGEBASE_SMOKE_BACKEND_URL`)
 - [x] Open API scenario contract: api-key `context_packs` and `retrievals` (`scripts/smoke-knowledgebase-open-api.test.mjs`; live probe optional via `SDKWORK_KNOWLEDGEBASE_SMOKE_OPEN_URL`)
@@ -138,11 +141,11 @@ pnpm test:e2e:playwright
 
 ## Out of Scope for 1.0
 
-- Multi-tenant SaaS billing — see [PRD-phase2-commercial-saas.md](PRD-phase2-commercial-saas.md)
+- Multi-tenant SaaS billing - see [PRD-phase2-commercial-saas.md](PRD-phase2-commercial-saas.md)
 - Real-time collaborative editing
 - Mobile native clients
 - SOC2 program (platform-level)
 
 ## Database migration authority
 
-Canonical lifecycle assets live under `database/`. The repository crate still embeds SQLite bootstrap SQL mirrored from historical migrations; do not add new schema files under `crates/.../migrations/` — use `database/migrations/{engine}/` and `pnpm db:materialize:contract`.
+Canonical lifecycle assets live under `database/`. The repository crate still embeds SQLite bootstrap SQL mirrored from historical migrations; do not add new schema files under `crates/.../migrations/` - use `database/migrations/{engine}/` and `pnpm db:materialize:contract`.

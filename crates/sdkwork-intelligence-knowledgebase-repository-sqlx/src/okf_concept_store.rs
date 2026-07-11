@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
     AppendKnowledgeOkfLogEntryRecord, CreateKnowledgeOkfConceptRevisionRecord,
     KnowledgeOkfConceptProjection, KnowledgeOkfConceptStore, KnowledgeOkfConceptStoreError,
@@ -14,6 +15,7 @@ use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 use crate::sqlite_okf_concept_transaction::{
     next_okf_revision_no_in_transaction, upsert_okf_concept_in_transaction,
@@ -30,6 +32,7 @@ pub struct SqliteKnowledgeOkfConceptStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeOkfConceptStore {
@@ -46,7 +49,13 @@ impl SqliteKnowledgeOkfConceptStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 
     pub async fn next_revision_no(
@@ -54,9 +63,13 @@ impl SqliteKnowledgeOkfConceptStore {
         concept_row_id: u64,
     ) -> Result<u64, KnowledgeOkfConceptStoreError> {
         let mut transaction = self.pool.begin().await.map_err(sqlx_error)?;
-        let revision_no =
-            next_okf_revision_no_in_transaction(&mut transaction, self.tenant_id, concept_row_id)
-                .await?;
+        let revision_no = next_okf_revision_no_in_transaction(
+            &mut transaction,
+            self.tenant_id,
+            self.timestamp_dialect,
+            concept_row_id,
+        )
+        .await?;
         transaction.commit().await.map_err(sqlx_error)?;
         Ok(revision_no)
     }
@@ -74,8 +87,8 @@ impl SqliteKnowledgeOkfConceptStore {
                 logical_path,
                 description,
                 source_count,
-                updated_at,
-                tags
+                CAST(updated_at AS TEXT) AS updated_at,
+                CAST(tags AS TEXT) AS tags
             FROM kb_okf_concept
             WHERE tenant_id = $1 AND status = $2
             ORDER BY space_id ASC, concept_type ASC, title ASC, id ASC
@@ -109,10 +122,10 @@ impl SqliteKnowledgeOkfConceptStore {
                 logical_path,
                 description,
                 source_count,
-                tags,
+                CAST(tags AS TEXT) AS tags,
                 current_revision_id,
                 publish_state,
-                updated_at
+                CAST(updated_at AS TEXT) AS updated_at
             FROM kb_okf_concept
             WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
@@ -132,37 +145,82 @@ impl SqliteKnowledgeOkfConceptStore {
         concept_from_row(&row)
     }
 
-    pub async fn list_concept_revisions(
+    pub async fn list_concept_revisions_page(
         &self,
         concept_row_id: u64,
-    ) -> Result<Vec<KnowledgeOkfConceptRevision>, KnowledgeOkfConceptStoreError> {
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeOkfConceptRevision>, Option<u64>, bool), KnowledgeOkfConceptStoreError>
+    {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let concept_row_id = to_i64("concept_row_id", concept_row_id)?;
-        let rows = sqlx::query(
-            r#"
-            SELECT
-                id,
-                concept_row_id,
-                revision_no,
-                markdown_object_ref_id,
-                content_hash,
-                review_state,
-                created_at
-            FROM kb_okf_concept_revision
-            WHERE tenant_id = $1 AND concept_row_id = $2 AND status = $3
-            ORDER BY revision_no ASC
-            LIMIT $4
-            "#,
-        )
-        .bind(tenant_id)
-        .bind(concept_row_id)
-        .bind(ACTIVE_STATUS)
-        .bind(MAX_OKF_LIST_ROWS)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        let page_size = validate_page_size(page_size)?;
+        let fetch_limit = page_size + 1;
+        let cursor = cursor
+            .map(|value| to_i64("revision cursor", value))
+            .transpose()?;
+        let rows = if let Some(after_revision_no) = cursor {
+            sqlx::query(
+                r#"
+                SELECT
+                    id,
+                    concept_row_id,
+                    revision_no,
+                    markdown_object_ref_id,
+                    content_hash,
+                    review_state,
+                    CAST(created_at AS TEXT) AS created_at
+                FROM kb_okf_concept_revision
+                WHERE tenant_id = $1 AND concept_row_id = $2 AND status = $3
+                  AND revision_no > $4
+                ORDER BY revision_no ASC
+                LIMIT $5
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(concept_row_id)
+            .bind(ACTIVE_STATUS)
+            .bind(after_revision_no)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sqlx_error)?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT
+                    id,
+                    concept_row_id,
+                    revision_no,
+                    markdown_object_ref_id,
+                    content_hash,
+                    review_state,
+                    CAST(created_at AS TEXT) AS created_at
+                FROM kb_okf_concept_revision
+                WHERE tenant_id = $1 AND concept_row_id = $2 AND status = $3
+                ORDER BY revision_no ASC
+                LIMIT $4
+                "#,
+            )
+            .bind(tenant_id)
+            .bind(concept_row_id)
+            .bind(ACTIVE_STATUS)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sqlx_error)?
+        };
 
-        rows.iter().map(revision_from_row).collect()
+        let has_more = rows.len() > page_size as usize;
+        let mut items = Vec::with_capacity(rows.len().min(page_size as usize));
+        let mut next_position = None;
+        for row in rows.iter().take(page_size as usize) {
+            let revision = revision_from_row(row)?;
+            next_position = Some(revision.revision_no);
+            items.push(revision);
+        }
+        let next_cursor = if has_more { next_position } else { None };
+        Ok((items, next_cursor, has_more))
     }
 
     pub async fn get_revision_by_id(
@@ -180,7 +238,7 @@ impl SqliteKnowledgeOkfConceptStore {
                 markdown_object_ref_id,
                 content_hash,
                 review_state,
-                created_at
+                CAST(created_at AS TEXT) AS created_at
             FROM kb_okf_concept_revision
             WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
@@ -206,10 +264,11 @@ impl SqliteKnowledgeOkfConceptStore {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let concept_row_id = to_i64("concept_row_id", concept_row_id)?;
         let now = now_rfc3339()?;
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let query = format!(
             r#"
             UPDATE kb_okf_concept
-            SET publish_state = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+            SET publish_state = $1, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
             RETURNING
                 id,
@@ -220,25 +279,26 @@ impl SqliteKnowledgeOkfConceptStore {
                 logical_path,
                 description,
                 source_count,
-                tags,
+                CAST(tags AS TEXT) AS tags,
                 current_revision_id,
                 publish_state,
-                updated_at
+                CAST(updated_at AS TEXT) AS updated_at
             "#,
-        )
-        .bind(publish_state.as_str())
-        .bind(now)
-        .bind(tenant_id)
-        .bind(concept_row_id)
-        .bind(ACTIVE_STATUS)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(sqlx_error)?
-        .ok_or_else(|| {
-            KnowledgeOkfConceptStoreError::Internal(format!(
-                "missing okf concept: {concept_row_id}"
-            ))
-        })?;
+        );
+        let row = sqlx::query(&query)
+            .bind(publish_state.as_str())
+            .bind(now)
+            .bind(tenant_id)
+            .bind(concept_row_id)
+            .bind(ACTIVE_STATUS)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(sqlx_error)?
+            .ok_or_else(|| {
+                KnowledgeOkfConceptStoreError::Internal(format!(
+                    "missing okf concept: {concept_row_id}"
+                ))
+            })?;
 
         concept_from_row(&row)
     }
@@ -255,6 +315,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             record,
         )
         .await?;
@@ -273,8 +334,10 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
             to_i64("markdown_object_ref_id", record.markdown_object_ref_id)?;
         let id = next_i64_id(&self.id_generator).map_err(id_error)?;
         let now = now_rfc3339()?;
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$10");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$11");
 
-        let row = sqlx::query(
+        let query = format!(
             r#"
             INSERT INTO kb_okf_concept_revision (
                 id,
@@ -290,7 +353,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, {created_at_expr}, {updated_at_expr}, $12)
             RETURNING
                 id,
                 concept_row_id,
@@ -298,24 +361,25 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 markdown_object_ref_id,
                 content_hash,
                 review_state,
-                created_at
+                CAST(created_at AS TEXT) AS created_at
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(concept_row_id)
-        .bind(revision_no)
-        .bind(markdown_object_ref_id)
-        .bind(record.content_hash)
-        .bind(record.review_state.as_str())
-        .bind(ACTIVE_STATUS)
-        .bind(now.clone())
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        let row = sqlx::query(&query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(concept_row_id)
+            .bind(revision_no)
+            .bind(markdown_object_ref_id)
+            .bind(record.content_hash)
+            .bind(record.review_state.as_str())
+            .bind(ACTIVE_STATUS)
+            .bind(now.clone())
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         revision_from_row(&row)
     }
@@ -335,13 +399,14 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         let concept_row_id = to_i64("concept_row_id", record.concept_row_id)?;
         let revision_id = to_i64("revision_id", record.revision_id)?;
         let now = now_rfc3339()?;
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$3");
 
-        let row = sqlx::query(
+        let query = format!(
             r#"
             UPDATE kb_okf_concept
             SET current_revision_id = $1,
                 publish_state = $2,
-                updated_at = CAST($3 AS TIMESTAMP),
+                updated_at = {updated_at_expr},
                 version = version + 1
             WHERE tenant_id = $4 AND id = $5 AND status = $6
             RETURNING
@@ -353,21 +418,22 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 logical_path,
                 description,
                 source_count,
-                tags,
+                CAST(tags AS TEXT) AS tags,
                 current_revision_id,
                 publish_state,
-                updated_at
+                CAST(updated_at AS TEXT) AS updated_at
             "#,
-        )
-        .bind(revision_id)
-        .bind(record.publish_state.as_str())
-        .bind(now)
-        .bind(tenant_id)
-        .bind(concept_row_id)
-        .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        let row = sqlx::query(&query)
+            .bind(revision_id)
+            .bind(record.publish_state.as_str())
+            .bind(now)
+            .bind(tenant_id)
+            .bind(concept_row_id)
+            .bind(ACTIVE_STATUS)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         concept_from_row(&row)
     }
@@ -393,8 +459,8 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 logical_path,
                 description,
                 source_count,
-                updated_at,
-                tags
+                CAST(updated_at AS TEXT) AS updated_at,
+                CAST(tags AS TEXT) AS tags
             FROM kb_okf_concept
             WHERE tenant_id = $1 AND space_id = $2 AND status = $3
               AND publish_state = 'published'
@@ -416,16 +482,15 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
     async fn list_concept_summaries_page(
         &self,
         space_id: u64,
-        cursor: Option<u64>,
+        cursor: Option<String>,
         page_size: u32,
     ) -> Result<(Vec<OkfConceptSummary>, Option<String>, bool), KnowledgeOkfConceptStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", space_id)?;
-        let page_size = i64::from(page_size.clamp(1, MAX_OKF_LIST_ROWS as u32));
+        let page_size = validate_page_size(page_size)?;
         let fetch_limit = page_size + 1;
-        let cursor_id = cursor.map(|value| to_i64("cursor", value)).transpose()?;
 
-        let rows = if let Some(after_id) = cursor_id {
+        let rows = if let Some(after_concept_id) = cursor {
             sqlx::query(
                 r#"
                 SELECT
@@ -436,19 +501,19 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                     logical_path,
                     description,
                     source_count,
-                    updated_at,
-                    tags
+                    CAST(updated_at AS TEXT) AS updated_at,
+                    CAST(tags AS TEXT) AS tags
                 FROM kb_okf_concept
                 WHERE tenant_id = $1 AND space_id = $2 AND status = $3
-                  AND publish_state = 'published' AND id > $4
-                ORDER BY id ASC
+                  AND publish_state = 'published' AND concept_id > $4
+                ORDER BY concept_id ASC
                 LIMIT $5
                 "#,
             )
             .bind(tenant_id)
             .bind(space_id)
             .bind(ACTIVE_STATUS)
-            .bind(after_id)
+            .bind(after_concept_id)
             .bind(fetch_limit)
             .fetch_all(&self.pool)
             .await
@@ -464,12 +529,12 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                     logical_path,
                     description,
                     source_count,
-                    updated_at,
-                    tags
+                    CAST(updated_at AS TEXT) AS updated_at,
+                    CAST(tags AS TEXT) AS tags
                 FROM kb_okf_concept
                 WHERE tenant_id = $1 AND space_id = $2 AND status = $3
                   AND publish_state = 'published'
-                ORDER BY id ASC
+                ORDER BY concept_id ASC
                 LIMIT $4
                 "#,
             )
@@ -483,18 +548,30 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         };
 
         let has_more = rows.len() > page_size as usize;
-        let mut items = Vec::new();
-        let mut last_id = None;
+        let mut items = Vec::with_capacity(rows.len().min(page_size as usize));
+        let mut last_concept_id = None;
         for row in rows.into_iter().take(page_size as usize) {
-            last_id = Some(from_i64("id", row.try_get("id").map_err(sqlx_error)?)?);
+            last_concept_id = Some(row.try_get::<String, _>("concept_id").map_err(sqlx_error)?);
             items.push(description_from_row(row)?);
         }
-        let next_cursor = if has_more {
-            last_id.map(|value| value.to_string())
-        } else {
-            None
-        };
+        let next_cursor = if has_more { last_concept_id } else { None };
         Ok((items, next_cursor, has_more))
+    }
+
+    async fn list_concept_revisions_page(
+        &self,
+        concept_row_id: u64,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeOkfConceptRevision>, Option<u64>, bool), KnowledgeOkfConceptStoreError>
+    {
+        SqliteKnowledgeOkfConceptStore::list_concept_revisions_page(
+            self,
+            concept_row_id,
+            cursor,
+            page_size,
+        )
+        .await
     }
 
     async fn append_log_entry(
@@ -504,23 +581,25 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", record.space_id)?;
         let now = now_rfc3339()?;
-        let sequence_no: i64 = sqlx::query_scalar(
+        let space_updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$1");
+        let sequence_query = format!(
             r#"
             UPDATE kb_space
             SET okf_log_sequence_counter = okf_log_sequence_counter + 1,
-                updated_at = CAST($1 AS TIMESTAMP),
+                updated_at = {space_updated_at_expr},
                 version = version + 1
             WHERE tenant_id = $2 AND id = $3 AND status = $4
             RETURNING okf_log_sequence_counter
             "#,
-        )
-        .bind(now.clone())
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        let sequence_no: i64 = sqlx::query_scalar(&sequence_query)
+            .bind(now.clone())
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(ACTIVE_STATUS)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         let metadata = log_metadata_to_json(
             &record.actor,
@@ -529,7 +608,11 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
             &record.warnings,
         )?;
         let id = next_i64_id(&self.id_generator).map_err(id_error)?;
-        let row = sqlx::query(
+        let event_time_expr = self.timestamp_dialect.sql_timestamp_expr("$7");
+        let metadata_expr = self.timestamp_dialect.sql_json_expr("$10");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let insert_query = format!(
             r#"
             INSERT INTO kb_okf_log_entry (
                 id,
@@ -547,31 +630,32 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, {event_time_expr}, $8, $9, {metadata_expr}, $11, {created_at_expr}, {updated_at_expr}, $14)
             RETURNING
                 event_type,
-                event_time,
+                CAST(event_time AS TEXT) AS event_time,
                 title,
-                metadata
+                CAST(metadata AS TEXT) AS metadata
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(sequence_no)
-        .bind(record.event_type)
-        .bind(record.event_time)
-        .bind(record.title)
-        .bind(record.privacy_level)
-        .bind(metadata)
-        .bind(ACTIVE_STATUS)
-        .bind(now.clone())
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        let row = sqlx::query(&insert_query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(sequence_no)
+            .bind(record.event_type)
+            .bind(record.event_time)
+            .bind(record.title)
+            .bind(record.privacy_level)
+            .bind(metadata)
+            .bind(ACTIVE_STATUS)
+            .bind(now.clone())
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         log_entry_from_row(&row)
     }
@@ -584,7 +668,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         let space_id = to_i64("space_id", space_id)?;
         let rows = sqlx::query(
             r#"
-            SELECT event_type, event_time, title, metadata
+            SELECT event_type, CAST(event_time AS TEXT) AS event_time, title, CAST(metadata AS TEXT) AS metadata
             FROM kb_okf_log_entry
             WHERE tenant_id = $1 AND space_id = $2 AND status = $3
             ORDER BY sequence_no ASC
@@ -653,10 +737,11 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
         let space_id = to_i64("space_id", space_id)?;
         let concept_row_id = to_i64("concept_row_id", concept_row_id)?;
         let now = now_rfc3339()?;
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let update_concept_query = format!(
             r#"
             UPDATE kb_okf_concept
-            SET status = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+            SET status = $1, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND space_id = $4 AND id = $5 AND status = $6
             RETURNING
                 id,
@@ -667,42 +752,44 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 logical_path,
                 description,
                 source_count,
-                tags,
+                CAST(tags AS TEXT) AS tags,
                 current_revision_id,
                 publish_state,
-                updated_at
+                CAST(updated_at AS TEXT) AS updated_at
             "#,
-        )
-        .bind(DELETED_STATUS)
-        .bind(&now)
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(concept_row_id)
-        .bind(ACTIVE_STATUS)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(sqlx_error)?
-        .ok_or_else(|| {
-            KnowledgeOkfConceptStoreError::Internal(format!(
-                "missing okf concept: {concept_row_id}"
-            ))
-        })?;
+        );
+        let row = sqlx::query(&update_concept_query)
+            .bind(DELETED_STATUS)
+            .bind(&now)
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(concept_row_id)
+            .bind(ACTIVE_STATUS)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(sqlx_error)?
+            .ok_or_else(|| {
+                KnowledgeOkfConceptStoreError::Internal(format!(
+                    "missing okf concept: {concept_row_id}"
+                ))
+            })?;
 
-        sqlx::query(
+        let update_revision_query = format!(
             r#"
             UPDATE kb_okf_concept_revision
-            SET status = $1, updated_at = CAST($2 AS TIMESTAMP), version = version + 1
+            SET status = $1, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND concept_row_id = $4 AND status = $5
             "#,
-        )
-        .bind(DELETED_STATUS)
-        .bind(now)
-        .bind(tenant_id)
-        .bind(concept_row_id)
-        .bind(ACTIVE_STATUS)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        sqlx::query(&update_revision_query)
+            .bind(DELETED_STATUS)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(concept_row_id)
+            .bind(ACTIVE_STATUS)
+            .execute(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         concept_from_row(&row)
     }
@@ -715,6 +802,16 @@ fn validate_projection_batch_size(len: usize) -> Result<(), KnowledgeOkfConceptS
         )));
     }
     Ok(())
+}
+
+fn validate_page_size(page_size: u32) -> Result<i64, KnowledgeOkfConceptStoreError> {
+    let max_page_size = MAX_OKF_LIST_ROWS as u32;
+    if !(1..=max_page_size).contains(&page_size) {
+        return Err(KnowledgeOkfConceptStoreError::Internal(format!(
+            "page_size must be between 1 and {max_page_size}"
+        )));
+    }
+    Ok(i64::from(page_size))
 }
 
 fn concept_from_row(row: &AnyRow) -> Result<KnowledgeOkfConcept, KnowledgeOkfConceptStoreError> {

@@ -16,5 +16,5 @@
   "auth": {
     "tokenStorage": "browser-session"
   },
-  "notes": "Production browser runtime example aligned with cloud.split-services.production topology."
+  "notes": "Production browser runtime example aligned with the cloud.production topology profile."
 }

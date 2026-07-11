@@ -5,7 +5,10 @@
 export type {
   IngestionJob,
   KnowledgeAccessLevel,
+  KnowledgeAgentKnowledgeMode,
+  KnowledgeBrowserListData,
   KnowledgeBrowserNode,
+  KnowledgeBrowserView,
   KnowledgeDocumentContent,
   KnowledgeSpaceContextBinding,
   KnowledgeSpaceMember,

@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "e2ef932c00bbbc6c3338456ef6ee2cc2640c14f1ea901505ba94431356950237"
+      "sha256": "cf65c908fe74ad78cbd65d09708e582824019f1c0c6f358edfc0959b72d94b3c"
     },
     {
       "path": "src/api/paths.ts",
@@ -108,7 +108,7 @@
     },
     {
       "path": "src/types/index.ts",
-      "sha256": "a5f825ac6b198569e351fe195bddd8f8e00d670a9fc7139c5fdeb37e72171e27"
+      "sha256": "fc94c29568221ca9908a06fb87711b6c25c64bb78f35fce40dcbfcf228fac551"
     },
     {
       "path": "src/types/ingestion-job-state.ts",
@@ -127,6 +127,10 @@
       "sha256": "0450d98102001b3dc64d25e569726d7f96d6c55f61ee2df3eaab498e95b9d79f"
     },
     {
+      "path": "src/types/knowledge-browser-list-data.ts",
+      "sha256": "cff9641ade9e9d472d8f3c96eb35bd69ec70f1c3c035a1cf276985732dc44d09"
+    },
+    {
       "path": "src/types/knowledge-browser-node-permissions.ts",
       "sha256": "4070ef1e04252d47f6a1ddc8de0392f78b45c1254bf11ede3584dfee4541d046"
     },
@@ -140,7 +144,7 @@
     },
     {
       "path": "src/types/knowledge-browser-view.ts",
-      "sha256": "87f49b3eba0ec7c4d106908295e4bea9a1db71250d17d71d2c25475ce238b6ff"
+      "sha256": "f845cf59f02dbc2a24d34a73d5c086ec3ee71bde7be4c1d8f2b2eb8d6611138a"
     },
     {
       "path": "src/types/knowledge-citation.ts",
@@ -236,7 +240,7 @@
     },
     {
       "path": "src/types/spaces-browser-list-response.ts",
-      "sha256": "6f90662339618e0f2792fe8104b44eb00910e02801a8a098d35523912a6ff8b7"
+      "sha256": "61a130d384ab11700c6e45c26901380a85aea17657e92f1dca46355488bae6c5"
     },
     {
       "path": "tsconfig.json",

@@ -69,6 +69,32 @@ impl ApiError {
         )
     }
 
+    fn gateway_timeout(code: impl Into<String>, internal_detail: impl Into<String>) -> Self {
+        let code_value = code.into();
+        eprintln!(
+            "[knowledgebase-app-api] gateway timeout code={code_value}: {}",
+            internal_detail.into()
+        );
+        Self::new(
+            StatusCode::GATEWAY_TIMEOUT,
+            code_value,
+            INTERNAL_CLIENT_DETAIL,
+        )
+    }
+
+    fn service_unavailable(code: impl Into<String>, internal_detail: impl Into<String>) -> Self {
+        let code_value = code.into();
+        eprintln!(
+            "[knowledgebase-app-api] service unavailable code={code_value}: {}",
+            internal_detail.into()
+        );
+        Self::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            code_value,
+            INTERNAL_CLIENT_DETAIL,
+        )
+    }
+
     pub fn invalid_request(code: impl Into<String>, detail: impl Into<String>) -> Self {
         Self::new(StatusCode::BAD_REQUEST, code, detail)
     }
@@ -168,6 +194,18 @@ impl From<KnowledgeRetrievalServiceError> for ApiError {
                 "unsupported_retrieval_method",
                 format!("retrieval method is not supported by the configured backend: {method:?}"),
             ),
+            KnowledgeRetrievalServiceError::Backend(
+                KnowledgeRetrievalBackendError::QueueSaturated { capacity },
+            ) => Self::service_unavailable(
+                "knowledge_retrieval_queue_saturated",
+                format!("knowledge retrieval embedding queue is saturated at capacity {capacity}"),
+            ),
+            KnowledgeRetrievalServiceError::Backend(KnowledgeRetrievalBackendError::TimedOut {
+                timeout,
+            }) => Self::gateway_timeout(
+                "knowledge_retrieval_timed_out",
+                format!("knowledge retrieval embedding timed out after {timeout:?}"),
+            ),
             KnowledgeRetrievalServiceError::TraceStore(
                 KnowledgeRetrievalTraceStoreError::NotFound(retrieval_id),
             ) => Self::not_found(
@@ -223,6 +261,18 @@ impl From<KnowledgeAgentChatServiceError> for ApiError {
             KnowledgeAgentChatServiceError::InvalidRequest(detail) => {
                 Self::invalid_request("invalid_knowledge_agent_chat_request", detail)
             }
+            KnowledgeAgentChatServiceError::QueueSaturated { capacity } => {
+                Self::service_unavailable(
+                    "knowledge_agent_chat_queue_saturated",
+                    format!(
+                        "knowledge agent chat execution queue is saturated at capacity {capacity}"
+                    ),
+                )
+            }
+            KnowledgeAgentChatServiceError::TimedOut { timeout } => Self::gateway_timeout(
+                "knowledge_agent_chat_timed_out",
+                format!("knowledge agent chat exceeded its {timeout:?} execution budget"),
+            ),
             KnowledgeAgentChatServiceError::Retrieval(error) => Self::from(error),
             KnowledgeAgentChatServiceError::KnowledgeProvider(detail) => {
                 if detail.contains("capability unsupported") {
@@ -336,6 +386,9 @@ impl From<IngestionJobStoreError> for ApiError {
             IngestionJobStoreError::Conflict(detail) => {
                 Self::conflict("ingestion_job_conflict", detail)
             }
+            IngestionJobStoreError::QuotaExceeded(error) => {
+                crate::tenant_quota_enforcement::map_tenant_quota_error(error)
+            }
             IngestionJobStoreError::Internal(detail) => {
                 Self::internal("ingestion_job_store_failed", detail)
             }
@@ -370,6 +423,9 @@ impl From<KnowledgeDriveImportServiceError> for ApiError {
                 }
                 sdkwork_intelligence_knowledgebase_service::ports::drive_import_metadata_store::DriveImportMetadataStoreError::Conflict(detail) => {
                     Self::conflict("knowledge_drive_import_conflict", detail)
+                }
+                sdkwork_intelligence_knowledgebase_service::ports::drive_import_metadata_store::DriveImportMetadataStoreError::QuotaExceeded(error) => {
+                    crate::tenant_quota_enforcement::map_tenant_quota_error(error)
                 }
                 sdkwork_intelligence_knowledgebase_service::ports::drive_import_metadata_store::DriveImportMetadataStoreError::Internal(detail) => {
                     Self::internal("drive_import_metadata_store_failed", detail)
@@ -488,6 +544,9 @@ impl From<KnowledgeDocumentStoreError> for ApiError {
             KnowledgeDocumentStoreError::Unsupported(detail) => {
                 Self::invalid_request("knowledge_document_store_unsupported", detail)
             }
+            KnowledgeDocumentStoreError::QuotaExceeded(error) => {
+                crate::tenant_quota_enforcement::map_tenant_quota_error(error)
+            }
             KnowledgeDocumentStoreError::Internal(detail) => {
                 if detail.contains("missing knowledge document") {
                     Self::not_found("knowledge_document_not_found", detail)
@@ -518,6 +577,12 @@ impl From<KnowledgeStorageError> for ApiError {
                 Self::internal("knowledge_storage_failed", detail)
             }
         }
+    }
+}
+
+impl From<sdkwork_knowledgebase_observability::AuditPersistenceError> for ApiError {
+    fn from(error: sdkwork_knowledgebase_observability::AuditPersistenceError) -> Self {
+        Self::internal("knowledge_audit_persistence_failed", error.to_string())
     }
 }
 
@@ -590,6 +655,9 @@ impl From<OkfConceptServiceError> for ApiError {
             OkfConceptServiceError::InvalidRequest(detail) => {
                 Self::invalid_request("invalid_knowledge_okf_concept_request", detail)
             }
+            OkfConceptServiceError::RevisionMetadata(
+                sdkwork_intelligence_knowledgebase_service::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError::QuotaExceeded(error),
+            ) => crate::tenant_quota_enforcement::map_tenant_quota_error(error),
             other => Self::internal("knowledge_okf_concept_service_failed", other.to_string()),
         }
     }
@@ -661,6 +729,9 @@ impl From<KnowledgeApiMarkdownIndexServiceError> for ApiError {
                 sdkwork_intelligence_knowledgebase_service::ports::markdown_index_metadata_store::MarkdownIndexMetadataStoreError::Conflict(detail) => {
                     Self::conflict("markdown_index_metadata_conflict", detail)
                 }
+                sdkwork_intelligence_knowledgebase_service::ports::markdown_index_metadata_store::MarkdownIndexMetadataStoreError::QuotaExceeded(error) => {
+                    crate::tenant_quota_enforcement::map_tenant_quota_error(error)
+                }
                 sdkwork_intelligence_knowledgebase_service::ports::markdown_index_metadata_store::MarkdownIndexMetadataStoreError::Internal(detail) => {
                     Self::internal("markdown_index_metadata_store_failed", detail)
                 }
@@ -711,6 +782,10 @@ impl From<sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImp
 impl From<KnowledgeUploadSessionServiceError> for ApiError {
     fn from(error: KnowledgeUploadSessionServiceError) -> Self {
         match error {
+            KnowledgeUploadSessionServiceError::NotFound(session_id) => Self::not_found(
+                "upload_session_not_found",
+                format!("upload session was not found: {session_id}"),
+            ),
             KnowledgeUploadSessionServiceError::InvalidRequest(detail) => {
                 Self::invalid_request("invalid_knowledge_upload_session_request", detail)
             }
@@ -720,5 +795,87 @@ impl From<KnowledgeUploadSessionServiceError> for ApiError {
             KnowledgeUploadSessionServiceError::Store(store_error) => store_error.into(),
             KnowledgeUploadSessionServiceError::Storage(storage_error) => storage_error.into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::to_bytes;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn agent_chat_timeout_maps_to_sanitized_gateway_timeout_problem() {
+        assert_sanitized_problem(
+            ApiError::from(KnowledgeAgentChatServiceError::TimedOut {
+                timeout: Duration::from_secs(30),
+            }),
+            StatusCode::GATEWAY_TIMEOUT,
+            50401,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn agent_chat_saturation_maps_to_sanitized_service_unavailable_problem() {
+        assert_sanitized_problem(
+            ApiError::from(KnowledgeAgentChatServiceError::QueueSaturated { capacity: 64 }),
+            StatusCode::SERVICE_UNAVAILABLE,
+            50301,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn retrieval_timeout_maps_to_sanitized_gateway_timeout_problem() {
+        assert_sanitized_problem(
+            ApiError::from(KnowledgeRetrievalServiceError::Backend(
+                KnowledgeRetrievalBackendError::TimedOut {
+                    timeout: Duration::from_secs(30),
+                },
+            )),
+            StatusCode::GATEWAY_TIMEOUT,
+            50401,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn retrieval_saturation_maps_to_sanitized_service_unavailable_problem() {
+        assert_sanitized_problem(
+            ApiError::from(KnowledgeRetrievalServiceError::Backend(
+                KnowledgeRetrievalBackendError::QueueSaturated { capacity: 64 },
+            )),
+            StatusCode::SERVICE_UNAVAILABLE,
+            50301,
+        )
+        .await;
+    }
+
+    async fn assert_sanitized_problem(
+        error: ApiError,
+        expected_status: StatusCode,
+        expected_code: i32,
+    ) {
+        assert_eq!(error.status, expected_status);
+
+        let response = ApiProblem::from(error).into_response();
+        assert_eq!(response.status(), expected_status);
+        assert_eq!(
+            response
+                .headers()
+                .get(axum::http::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+            Some("application/problem+json")
+        );
+
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read problem response body");
+        let problem: ProblemDetails =
+            serde_json::from_slice(&body).expect("deserialize problem response body");
+        assert_eq!(problem.status, expected_status.as_u16());
+        assert_eq!(problem.code, expected_code);
+        assert!(problem.detail.is_none());
     }
 }

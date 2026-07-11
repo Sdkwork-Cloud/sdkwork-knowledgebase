@@ -36,9 +36,9 @@ pub use external_space_engine_provider::{
 };
 pub use knowledge_access::{
     default_top_k, enabled_bindings, resolve_chat_knowledge_mode, validate_bindings_support_mode,
-    validate_rag_profile_requirements, KnowledgeAccessGateway, KnowledgeAccessRequest,
-    KnowledgeAccessResult, KnowledgeAccessRetrievalExecutor, KnowledgeRetrievalPlanResolver,
-    KnowledgeSpaceModeResolver, SpaceKnowledgeEngineClient,
+    validate_rag_profile_requirements, KnowledgeAccessError, KnowledgeAccessGateway,
+    KnowledgeAccessRequest, KnowledgeAccessResult, KnowledgeAccessRetrievalExecutor,
+    KnowledgeRetrievalPlanResolver, KnowledgeSpaceModeResolver, SpaceKnowledgeEngineClient,
 };
 pub use okf::{
     citations_from_engine_hits, citations_from_okf_concepts,

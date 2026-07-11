@@ -9,6 +9,7 @@ import {
 
 import {
   buildEditorActionPrompt,
+  sendKnowledgeAgentMessage,
   synthesizeKnowledgeSearchAnswer,
 } from './knowledgeAgentChatService';
 
@@ -99,6 +100,43 @@ afterEach(() => {
 });
 
 describe('knowledge agent prompt builders', () => {
+  it('uses Rig defaults when an existing profile omits optional model routing fields', async () => {
+    const tenantId = 'tenant-1';
+    const chatRequests: Array<Record<string, unknown>> = [];
+    bindTenantContext(tenantId);
+    installRegisteredSpace(tenantId, '42');
+    window.localStorage.setItem(
+      `sdkwork.knowledgebase.spaceAgentProfile.v1.${tenantId}.42`,
+      'profile-1',
+    );
+    configureKnowledgebaseAppSdk({
+      client: {
+        knowledge: {
+          agentProfiles: {
+            retrieve: async () => ({ knowledgeMode: 'okf_bundle' }),
+            update: async () => ({ profileId: 'profile-1' }),
+            chat: {
+              chat: async (_profileId: string, request: Record<string, unknown>) => {
+                chatRequests.push(request);
+                return { answer: 'real provider answer' };
+              },
+            },
+          },
+        },
+      } as never,
+      setTokenManager() {},
+    });
+
+    await expect(sendKnowledgeAgentMessage('question', { spaceId: '42' })).resolves.toBe(
+      'real provider answer',
+    );
+    expect(chatRequests[0]).toMatchObject({
+      modelProviderId: 'provider.model.rig-rust',
+      modelId: 'rig.default-chat',
+      agentImplementationId: 'plugin.intelligence.rig',
+    });
+  });
+
   it('builds readable editor action prompts without mojibake', () => {
     const text = 'a'.repeat(4001);
 

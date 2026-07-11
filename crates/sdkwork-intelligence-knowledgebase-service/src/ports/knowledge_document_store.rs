@@ -2,6 +2,8 @@ use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::document::KnowledgeDocument;
 use thiserror::Error;
 
+use crate::tenant_quota::TenantQuotaExceeded;
+
 #[async_trait]
 pub trait KnowledgeDocumentStore: Send + Sync {
     async fn create_document(
@@ -81,6 +83,8 @@ pub enum KnowledgeDocumentStoreError {
     InvalidRecord(String),
     #[error("knowledge document store unsupported operation: {0}")]
     Unsupported(String),
+    #[error(transparent)]
+    QuotaExceeded(#[from] TenantQuotaExceeded),
     #[error("knowledge document store internal error: {0}")]
     Internal(String),
 }

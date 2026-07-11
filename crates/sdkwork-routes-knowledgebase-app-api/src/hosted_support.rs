@@ -536,11 +536,7 @@ where
             idempotency_fingerprint_sha256_hex: None,
         })
         .await
-        .map_err(|error| ApiError::internal("okf_ingestion_job_failed", error.to_string()))?;
-
-    if result.created {
-        crate::tenant_quota_enforcement::verify_ingest_capacity_after_enqueue(runtime).await?;
-    }
+        .map_err(ApiError::from)?;
 
     let mut job = result.job;
     if job.state != IngestionJobState::Queued {

@@ -8,7 +8,7 @@ This directory is the local SDKWork component contract for `sdkwork-knowledgebas
 
 Read `specs/component.spec.json` before changing this component's public exports, runtime entrypoints, SDK clients, generated artifacts, config keys, or verification commands.
 
-- OKF bundle contract: `specs/okf-knowledge-bundle.spec.json`
+- OKF bundle contract: `specs/okf-knowledge-bundle.spec.json` owns OKF bundle layers, browser view mapping, original-source file list semantics, and root upload parent resolution rules.
 - Knowledge Engine SPI (switchable backends): `specs/knowledge-engine-spi.spec.json`
 - External OSS engine catalog: `specs/external-knowledge-engine-catalog.spec.json`
 

@@ -13,10 +13,11 @@ import {
 import {
   getKnowledgebaseTenantId,
   isKnowledgebaseApiAvailable,
+  KnowledgebaseAppError,
   KnowledgebaseErrorCodes,
   readRegisteredSpaces,
-  shouldUseKnowledgebaseDemoFallback,
-  throwKnowledgebaseError,
+  resolveUserFacingErrorMessage,
+  type ErrorTranslateFn,
 } from 'sdkwork-knowledgebase-pc-core';
 import {
   resolvePrimaryKnowledgebaseKbId,
@@ -169,6 +170,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
 
   const [officialAccounts, setOfficialAccounts] = useState<OfficialAccount[]>([]);
   const [selectedOfficialAccountIds, setSelectedOfficialAccountIds] = useState<string[]>([]);
+  const [officialAccountLoadError, setOfficialAccountLoadError] = useState<string | null>(null);
   const [authorHistory, setAuthorHistory] = useLocalStorage<string[]>('wechat_author_history', []);
   const [isOfficialAccountModalOpen, setIsOfficialAccountModalOpen] = useState(false);
   const [isWechatAppletModalOpen, setIsWechatAppletModalOpen] = useState(false);
@@ -185,7 +187,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   };
 
   useEffect(() => {
-    WechatService.getOfficialAccounts().then(accounts => {
+    let active = true;
+    setOfficialAccountLoadError(null);
+    void WechatService.getOfficialAccounts().then(accounts => {
+      if (!active) return;
       setOfficialAccounts(accounts);
       if (accounts.length > 0 && selectedOfficialAccountIds.length === 0) {
         setSelectedOfficialAccountIds([accounts[0].id]);
@@ -209,7 +214,19 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
         }
         return a;
       }));
+    }).catch((error) => {
+      if (!active) return;
+      setOfficialAccountLoadError(
+        resolveUserFacingErrorMessage(
+          error,
+          tErrors as unknown as ErrorTranslateFn,
+        ),
+      );
     });
+
+    return () => {
+      active = false;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -260,10 +277,6 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
     try {
       const currentAccountId = selectedOfficialAccounts[0]?.id || '';
       await WechatService.sendPreview(currentAccountId, recipients, articles);
-      toast.success(t('wechatPreviewSuccess'));
-    } catch (e) {
-      console.error(e);
-      toast.error(t('wechatPreviewError'));
     } finally {
       setIsSendingPreview(false);
     }
@@ -287,20 +300,38 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   const [isCoverFromBodyOpen, setIsCoverFromBodyOpen] = useState(false);
   const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
   const [assetLibraryTab, setAssetLibraryTab] = useState<AssetType>('image');
+  const [assetLibraryKbId, setAssetLibraryKbId] = useState<string | null>(null);
   const [isWechatScanOpen, setIsWechatScanOpen] = useState(false);
   const [isAiCoverOpen, setIsAiCoverOpen] = useState(false);
 
-  // States for scan & AI simulation
-  const [scanStatus, setScanStatus] = useState<'pending' | 'scanning' | 'success'>('pending');
-  const [scannedCover, setScannedCover] = useState('');
+  // States for cover selection
   const [extractedBodyImages, setExtractedBodyImages] = useState<string[]>([]);
   const [selectedBodyImage, setSelectedBodyImage] = useState<string>('');
-  const [aiStyle, setAiStyle] = useState<'illustration' | 'photography' | 'abstract' | 'minimalist'>('abstract');
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiGenStep, setAiGenStep] = useState('');
 
   // Dropdown states for inserting tools
   const [imageActionTarget, setImageActionTarget] = useState<'cover' | 'editor'>('cover');
+
+  const openAssetLibrary = () => {
+    const kbId = resolvePrimaryKnowledgebaseKbId();
+    const apiAvailable = isKnowledgebaseApiAvailable();
+    if (!kbId || !apiAvailable) {
+      setAssetLibraryOpen(false);
+      setAssetLibraryKbId(null);
+      toast.error(
+        resolveUserFacingErrorMessage(
+          new KnowledgebaseAppError(
+            apiAvailable
+              ? KnowledgebaseErrorCodes.KB_ID_REQUIRED
+              : KnowledgebaseErrorCodes.API_UNAVAILABLE_WECHAT,
+          ),
+          tErrors as unknown as ErrorTranslateFn,
+        ),
+      );
+      return;
+    }
+    setAssetLibraryKbId(kbId);
+    setAssetLibraryOpen(true);
+  };
 
   // Active Tool Insertion states
   const [activeInsertType, setActiveInsertType] = useState<string | null>(null);
@@ -382,10 +413,6 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
 
     const kbId = resolvePrimaryKnowledgebaseKbId();
     if (!kbId || !isKnowledgebaseApiAvailable()) {
-      if (!shouldUseKnowledgebaseDemoFallback()) {
-        toast.error(t('uploadRequiresKnowledgebaseApi', { defaultValue: '请先登录并选择知识库后再上传图片。' }));
-        return;
-      }
       toast.error(t('uploadRequiresKnowledgebaseApi', { defaultValue: '请先登录并选择知识库后再上传图片。' }));
       return;
     }
@@ -421,14 +448,11 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   const handleSelectCoverFromGallery = () => {
     setImageActionTarget('cover');
     setAssetLibraryTab('image');
-    setAssetLibraryOpen(true);
+    openAssetLibrary();
   };
 
 
   const handleWechatScanUpload = () => {
-    setImageActionTarget('cover');
-    setScanStatus('pending');
-    setScannedCover('');
     setIsWechatScanOpen(true);
   };
 
@@ -437,82 +461,19 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
     setIsAiCoverOpen(true);
   };
 
-  const triggerScanSimulation = async () => {
-    if (!shouldUseKnowledgebaseDemoFallback()) {
-      toast.error(t('wechatDemoScanUnavailable', { defaultValue: '扫码配图需要连接 Knowledgebase API 或启用开发 Demo 模式。' }));
-      return;
-    }
-    setScanStatus('scanning');
-    await new Promise(r => setTimeout(r, 1200));
-    const mobileCovers = [
-      'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&q=80',
-      'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&q=80',
-      'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800&q=80'
-    ];
-    const picked = mobileCovers[Math.floor(Math.random() * mobileCovers.length)];
-    setScannedCover(picked);
-    setScanStatus('success');
-    if (imageActionTarget === 'editor') {
-      insertHtmlToEditor(`<p><img src="${picked}" alt="Scanned Image" style="border-radius: 12px; max-width: 100%; margin: 16px 0; border: 1px solid var(--color-kb-panel-border);" /></p>`);
-    } else {
-      setTempCoverToCrop(picked);
-      setIsCropperOpen(true);
-    }
-    setTimeout(() => setIsWechatScanOpen(false), 900);
-  };
-
-  const triggerAiCoverGeneration = async () => {
-    if (!shouldUseKnowledgebaseDemoFallback()) {
-      toast.error(t('wechatDemoAiCoverUnavailable', { defaultValue: 'AI 封面生成需要连接 Knowledgebase API 或启用开发 Demo 模式。' }));
-      setIsAiCoverOpen(false);
-      return;
-    }
-    setAiGenerating(true);
-    const steps = t('aiGenSteps', { returnObjects: true }) as string[];
-    for (let i = 0; i < steps.length; i++) {
-      setAiGenStep(steps[i]);
-      await new Promise(r => setTimeout(r, 450));
-    }
-    
-    const styleArtMap = {
-      illustration: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80',
-      photography: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80',
-      abstract: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=800&q=80',
-      minimalist: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80'
-    };
-    
-    const outcome = styleArtMap[aiStyle] || styleArtMap.abstract;
-    if (imageActionTarget === 'editor') {
-      insertHtmlToEditor(`<p><img src="${outcome}" alt="AI Image" style="border-radius: 12px; max-width: 100%; margin: 16px 0; border: 1px solid var(--color-kb-panel-border);" /></p>`);
-    } else {
-      setTempCoverToCrop(outcome);
-      setIsCropperOpen(true);
-    }
-    setAiGenerating(false);
-    setIsAiCoverOpen(false);
-  };
-
   const handleInsertToolClick = (toolName: string) => {
     if (toolName === t('toolImage', { defaultValue: '图片' })) {
-      setActiveInsertType('image');
+      setImageActionTarget('editor');
+      setAssetLibraryTab('image');
+      openAssetLibrary();
     } else if (toolName === t('toolVideo', { defaultValue: '视频' })) {
-      if (shouldUseKnowledgebaseDemoFallback()) {
-        const widgetUrl = 'https://sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4';
-        insertHtmlToEditor(`<video src="${widgetUrl}" controls></video>`);
-      } else {
-        setImageActionTarget('editor');
-        setAssetLibraryTab('video');
-        setAssetLibraryOpen(true);
-      }
+      setImageActionTarget('editor');
+      setAssetLibraryTab('video');
+      openAssetLibrary();
     } else if (toolName === t('toolAudio', { defaultValue: '音频' })) {
-      if (shouldUseKnowledgebaseDemoFallback()) {
-        const widgetUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-        insertHtmlToEditor(`<audio src="${widgetUrl}" controls></audio>`);
-      } else {
-        setImageActionTarget('editor');
-        setAssetLibraryTab('audio');
-        setAssetLibraryOpen(true);
-      }
+      setImageActionTarget('editor');
+      setAssetLibraryTab('audio');
+      openAssetLibrary();
     } else if (toolName === t('toolLink', { defaultValue: '超链接' })) {
       setWidgetTitle(t('widgetTitleLink'));
       setWidgetUrl('https://id.sdkwork.com');
@@ -569,12 +530,9 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
   const handleInsertConfirm = () => {
     switch (activeInsertType) {
       case 'image': {
-        if (!shouldUseKnowledgebaseDemoFallback()) {
-          toast.error(t('wechatDemoImageUnavailable', { defaultValue: '图片插入需要连接 Knowledgebase API 或启用开发 Demo 模式。' }));
-          break;
-        }
-        const pickedImage = 'https://images.unsplash.com/photo-1542281286-9e0a16bb7366?auto=format&fit=crop&w=600&q=80';
-        insertHtmlToEditor(`<p><img src="${pickedImage}" alt="Gallery Cover" style="border-radius: 12px; max-width: 100%; margin: 16px 0; border: 1px solid var(--color-kb-panel-border);" /></p>`);
+        setImageActionTarget('editor');
+        setAssetLibraryTab('image');
+        openAssetLibrary();
         break;
       }
       case 'link': {
@@ -813,15 +771,6 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
       toast.error(t('noArticlesToSave', { defaultValue: '没有可保存的文章。' }));
       return;
     }
-    if (!isKnowledgebaseApiAvailable()) {
-      if (!shouldUseKnowledgebaseDemoFallback()) {
-        toast.error(t('wechatApiRequired', { defaultValue: '请先连接知识库 API 后再保存草稿。' }));
-        return;
-      }
-      toast.success(t('saveSuccess', { defaultValue: '保存成功' }));
-      return;
-    }
-
     setIsSavingDraft(true);
     try {
       await WechatService.publishArticles(selectedOfficialAccountIds, articles, {
@@ -891,150 +840,6 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
     }
   };
 
-  const handleStreamingContinue = async () => {
-    if (!selectedArticle) return;
-    setIsRewritingStreaming(true);
-    try {
-      const originalContent = selectedArticle.content || '';
-      if (isKnowledgebaseApiAvailable()) {
-        const targetContent = await AIService.handleAIAction('continue', originalContent, '');
-        updateSelectedArticle({ content: targetContent });
-        if (activeEditor) {
-          activeEditor.commands.setContent(targetContent);
-        }
-        toast.success(t('wechatStreamContinueSuccess'));
-        return;
-      }
-      if (!shouldUseKnowledgebaseDemoFallback()) {
-        toast.error(t('wechatApiRequired', { defaultValue: '请先连接知识库 API。' }));
-        return;
-      }
-      const continuationChunks = [
-        `<p><br></p>`,
-        `<p><strong>💡 延伸洞察与行动路线 (AI 增补)：</strong></p>`,
-        `<p>面对上述新趋势，第一步核心策略在于实现低成本、高精度的快速落地试验。其次，要注重建立完善的反馈闭环，以此在多维度的应用场景中最大化释放业务价值。此外，技术团队应当确保接口层面的充分解耦，使整体框架在未来高并发、长连接、高算力周期的演进中，依然拥有极佳的韧性与横向扩展空间。</p>`,
-        `<p>总结来说，真正的技术升级不光是框架的更迭，更是技术认知体系的全面重组。唯有时刻保持前沿敏锐度，方能保持数字化长跑的领先优势。</p>`
-      ];
-      
-      let addedContent = "";
-      for (const paragraph of continuationChunks) {
-        const chars = paragraph.split("");
-        for (let j = 0; j < chars.length; j += 4) {
-          const nextLetters = chars.slice(j, j + 4).join("");
-          addedContent += nextLetters;
-          const targetContent = originalContent + addedContent;
-          
-          updateSelectedArticle({ content: targetContent });
-          if (activeEditor) {
-            activeEditor.commands.setContent(targetContent);
-          }
-          await new Promise(r => setTimeout(r, 12));
-        }
-        addedContent += "\n";
-        await new Promise(r => setTimeout(r, 80));
-      }
-      toast.success(t('wechatStreamContinueSuccess'));
-    } catch (e) {
-      console.error(e);
-      toastKnowledgebaseError(e, tErrors);
-    } finally {
-      setIsRewritingStreaming(false);
-    }
-  };
-
-  const handleCreateNewArticleAndWrite = async (title: string, promptTopic?: string) => {
-    const newId = `new-${Date.now()}`;
-    const defaultTitle = title || '智能新篇章';
-    const newArt: WechatArticle = {
-      id: newId,
-      title: defaultTitle,
-      author: 'AI 智能助手',
-      content: `<p>正在思考并流式起草《${defaultTitle}》...</p>`,
-      cover: '',
-      abstract: '基于 AI 智能体一键生成的深度前沿洞察文稿大纲。'
-    };
-    
-    // Add to articles list and select it
-    const updatedArticles = [...articles, newArt];
-    setArticles(updatedArticles);
-    const newIndex = updatedArticles.length - 1;
-    setSelectedIndex(newIndex);
-    
-    setIsRewritingStreaming(true);
-    try {
-      if (isKnowledgebaseApiAvailable()) {
-        const prompt = promptTopic
-          ? `请撰写一篇微信公众号文章，标题为「${defaultTitle}」，主题：${promptTopic}。输出可直接粘贴到编辑器的 HTML 片段。`
-          : `请撰写一篇微信公众号文章，标题为「${defaultTitle}」。输出可直接粘贴到编辑器的 HTML 片段。`;
-        const draftedContent = await AIService.handleAIAction('custom', '', '', prompt);
-        updateSelectedArticle({ content: draftedContent });
-        setArticles((prev) => {
-          const copy = [...prev];
-          const idx = copy.findIndex((a) => a.id === newId);
-          if (idx !== -1) {
-            copy[idx] = { ...copy[idx], content: draftedContent };
-          }
-          return copy;
-        });
-        if (activeEditor) {
-          activeEditor.commands.setContent(draftedContent);
-        }
-        toast.success(t('wechatStreamDraftSuccess'));
-        return;
-      }
-      if (!shouldUseKnowledgebaseDemoFallback()) {
-        toast.error(t('wechatApiRequired', { defaultValue: '请先连接知识库 API。' }));
-        return;
-      }
-
-      await new Promise(r => setTimeout(r, 600)); // demo UX delay
-      
-      const contentParagraphs = [
-        `<h1>🌐 ${defaultTitle}：AI 智能时代的生产力范式跃迁</h1>`,
-        `<p>当下，人工智能技术浪潮正以破竹之势席卷全球。从单一维度的辅助生成，到多模态语义对齐的自主行动体（Autonomous Agent），科技的发展正以前所未有的速率重写人类商业与日常协作的范式。</p>`,
-        `<h2>💡 核心洞察：从机械自动化迈入认知自主化</h2>`,
-        `<p>传统的软件工程偏向于规定清晰逻辑和既定流程的分发。而现代 AI 赋能的业务模型，则通过内置的多推理步骤、自动反思以及在不确定场景下的感知决策，颠覆了我们对传统工具的定义。</p>`,
-        `<div style="margin: 20px 0; background-color: var(--color-kb-panel-hover); border: 1.5px solid var(--color-kb-panel-border); border-left: 5px solid var(--color-kb-accent); border-radius: 12px; padding: 16px;" class="kb-mcp-block">
-           <span style="color: #ffffff; font-size: 12px; font-weight: bold; background-color: var(--color-kb-accent); padding: 3px 10px; border-radius: 6px;">🎯 核心金句</span>
-           <p style="font-size: 13px; color: var(--color-kb-text); line-height: 1.6; margin: 8px 0 0 0;">
-             “技术升维的终极目的从来不是机械地堆砌指令，而是为人性的创意释放提供更为呼吸感、无感知的赋能沙盒。”
-           </p>
-         </div>`,
-        `<h2>🚀 引领未来：如何布局智能化资产沉淀</h2>`,
-        `<p>针对未来的智能化运营，企业及个人均须确立以下三大行动立足点：首先是建立深度的知识库对齐；其次是训练高执行力的定制化轻量模型；最后是勇于设计端到端的闭环业务节点。只有如此，才能在未来的长跑中，长久锁定价值链的核心优势。</p>`
-      ];
-      
-      let draftedContent = "";
-      for (let i = 0; i < contentParagraphs.length; i++) {
-        const part = contentParagraphs[i];
-        const chars = part.split("");
-        for (let j = 0; j < chars.length; j += 4) {
-          const nextLetters = chars.slice(j, j + 4).join("");
-          draftedContent += nextLetters;
-          
-          setArticles(prev => {
-            const copy = [...prev];
-            const idx = copy.findIndex(a => a.id === newId);
-            if (idx !== -1) {
-              copy[idx] = { ...copy[idx], content: draftedContent };
-            }
-            return copy;
-          });
-          
-          await new Promise(r => setTimeout(r, 10));
-        }
-        draftedContent += "\n";
-        await new Promise(r => setTimeout(r, 60));
-      }
-      toast.success(t('wechatStreamDraftSuccess'));
-    } catch (e) {
-      console.error(e);
-      toastKnowledgebaseError(e, tErrors);
-    } finally {
-      setIsRewritingStreaming(false);
-    }
-  };
-
   const coverInputRef = React.useRef<HTMLInputElement>(null);
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1044,10 +849,6 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
 
     const kbId = resolvePrimaryKnowledgebaseKbId();
     if (!kbId || !isKnowledgebaseApiAvailable()) {
-      if (!shouldUseKnowledgebaseDemoFallback()) {
-        toast.error(t('uploadRequiresKnowledgebaseApi', { defaultValue: '请先登录并选择知识库后再上传封面。' }));
-        return;
-      }
       toast.error(t('uploadRequiresKnowledgebaseApi', { defaultValue: '请先登录并选择知识库后再上传封面。' }));
       return;
     }
@@ -1172,6 +973,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
           >
             <div 
               onClick={() => {
+                if (officialAccountLoadError) {
+                  toast.error(officialAccountLoadError);
+                  return;
+                }
                 setIsOfficialAccountModalOpen(true);
               }}
               className="p-4 border-b border-[var(--color-kb-panel-border)] flex items-center justify-between bg-[var(--color-kb-panel-hover)] sticky top-0 z-[21] backdrop-blur-sm bg-opacity-95 hover:bg-[var(--color-kb-panel)] cursor-pointer transition-all group select-none active:scale-[0.98]"
@@ -1198,6 +1003,12 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
               </div>
               <ChevronDown size={14} className="text-zinc-400 group-hover:text-[#07c160] group-hover:translate-y-0.5 transition-all shrink-0" />
             </div>
+
+            {officialAccountLoadError && (
+              <div role="alert" className="border-b border-red-500/20 bg-red-500/5 px-4 py-2 text-xs text-red-500">
+                {officialAccountLoadError}
+              </div>
+            )}
             
             <div className="p-3">
               <div className="flex flex-col focus:outline-none border border-[var(--color-kb-panel-border)] rounded-xl overflow-hidden shadow-sm bg-[var(--color-kb-panel)] divide-y divide-[var(--color-kb-panel-border)]">
@@ -1341,7 +1152,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
                     onOpenImageGallery={() => {
                       setImageActionTarget('editor');
                       setAssetLibraryTab('image');
-                      setAssetLibraryOpen(true);
+                      openAssetLibrary();
                     }}
                     onWechatScan={() => {
                       setImageActionTarget('editor');
@@ -1352,23 +1163,19 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
                       setIsAiCoverOpen(true);
                     }}
                     onAudioInsert={() => {
-                      if (shouldUseKnowledgebaseDemoFallback()) {
-                        insertHtmlToEditor(`<audio src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" controls></audio>`);
-                        return;
-                      }
                       setImageActionTarget('editor');
                       setAssetLibraryTab('audio');
-                      setAssetLibraryOpen(true);
+                      openAssetLibrary();
                     }}
                     onAudioGallery={() => {
                       setImageActionTarget('editor');
                       setAssetLibraryTab('audio');
-                      setAssetLibraryOpen(true);
+                      openAssetLibrary();
                     }}
                     onVideoGallery={() => {
                       setImageActionTarget('editor');
                       setAssetLibraryTab('video');
-                      setAssetLibraryOpen(true);
+                      openAssetLibrary();
                     }}
                   />
                 </div>
@@ -1484,13 +1291,6 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
               docs={documents}
               activeDoc={documents.find((d: any) => d.id === selectedArticle?.id)}
               selectedArticle={selectedArticle}
-              onUpdateArticle={updateSelectedArticle}
-              onTriggerStreamRewrite={handleStreamingRewrite}
-              onTriggerStreamContinue={handleStreamingContinue}
-              onTriggerCreateNewArticle={handleCreateNewArticleAndWrite}
-              onInsertHtml={(html) => {
-                insertHtmlToEditor(html);
-              }}
             />
           </div>
         )}
@@ -1584,7 +1384,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
           if (cropperSource === 'body') setIsCoverFromBodyOpen(true);
           if (cropperSource === 'gallery') {
             setAssetLibraryTab('image');
-            setAssetLibraryOpen(true);
+            openAssetLibrary();
           }
           setIsCropperOpen(false);
         }}
@@ -1629,8 +1429,12 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
       {/* 2. Unified Asset Library modal */}
       <AssetLibraryModal
         isOpen={assetLibraryOpen}
-        onClose={() => setAssetLibraryOpen(false)}
+        onClose={() => {
+          setAssetLibraryOpen(false);
+          setAssetLibraryKbId(null);
+        }}
         initialTab={assetLibraryTab}
+        kbId={assetLibraryKbId}
         title={imageActionTarget === 'editor' ? t('select_editor_asset_title', { defaultValue: '选择要插入文章的素材' }) : t('asset_library_cover_title', { defaultValue: '图片库精选封面' })}
         onSelect={(item) => {
           if (imageActionTarget === 'editor') {
@@ -1656,10 +1460,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
       {/* 3. WeChat scanning code upload modal */}
       <WechatScanModal 
         isOpen={isWechatScanOpen}
-        scanStatus={scanStatus}
-        scannedCover={scannedCover}
         onClose={() => setIsWechatScanOpen(false)}
-        triggerScanSimulation={triggerScanSimulation}
       />
 
       {/* 4. AI Match Cover modal */}
@@ -1738,10 +1539,10 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
         initialSelectedAccountIds={selectedOfficialAccountIds}
         initialOaGroups={oaGroups}
         onConfirm={async (data) => {
+          await WechatService.saveOfficialAccounts(data.officialAccounts);
           setOfficialAccounts(data.officialAccounts);
           setSelectedOfficialAccountIds(data.selectedOfficialAccountIds);
           setOaGroups(data.oaGroups);
-          await WechatService.saveOfficialAccounts(data.officialAccounts);
           setIsOfficialAccountModalOpen(false);
         }}
       />

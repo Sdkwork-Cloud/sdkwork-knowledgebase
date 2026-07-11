@@ -1,8 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, HelpCircle, Info, Calendar, Users, Radio, CheckCircle2, ChevronDown, ChevronUp, RefreshCw, AlertCircle } from 'lucide-react';
+import { X, HelpCircle, Calendar, Users, Radio, CheckCircle2, ChevronDown, ChevronUp, RefreshCw, AlertCircle } from 'lucide-react';
 import { toast } from './ui/toast-manager';
 import { useTranslation } from 'react-i18next';
+import {
+  resolveUserFacingErrorMessage,
+  type ErrorTranslateFn,
+} from 'sdkwork-knowledgebase-pc-core';
 import { WechatService } from '../services/wechat';
 
 export interface WechatPublishModalProps {
@@ -30,22 +34,27 @@ export function WechatPublishModal({
   officialAccountType = 'subscription'
 }: WechatPublishModalProps) {
   const { t } = useTranslation(['editor', 'common', 'officialAccount']);
+  const { t: tErrors } = useTranslation('errors');
 
   const [fanGroupOptions, setFanGroupOptions] = useState([
     { id: 'all', name: t('tags_all', { defaultValue: '所有人 (全粉丝)' }) },
   ]);
   const [loadingFanTags, setLoadingFanTags] = useState(false);
+  const [fanTagError, setFanTagError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !officialAccountId) {
       setFanGroupOptions([
         { id: 'all', name: t('tags_all', { defaultValue: '所有人 (全粉丝)' }) },
       ]);
+      setFanTagError(null);
+      setLoadingFanTags(false);
       return;
     }
 
     let cancelled = false;
     setLoadingFanTags(true);
+    setFanTagError(null);
     void WechatService.listFanTags(officialAccountId)
       .then((tags) => {
         if (cancelled) {
@@ -59,11 +68,15 @@ export function WechatPublishModal({
           })),
         ]);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
-          setFanGroupOptions([
-            { id: 'all', name: t('tags_all', { defaultValue: '所有人 (全粉丝)' }) },
-          ]);
+          setFanGroupOptions([]);
+          setFanTagError(
+            resolveUserFacingErrorMessage(
+              error,
+              tErrors as unknown as ErrorTranslateFn,
+            ),
+          );
         }
       })
       .finally(() => {
@@ -75,7 +88,7 @@ export function WechatPublishModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, officialAccountId, t]);
+  }, [isOpen, officialAccountId, t, tErrors]);
 
   // States matching the screenshot UI
   const [sendNotification, setSendNotification] = useState(true);
@@ -140,6 +153,19 @@ export function WechatPublishModal({
 
         {/* Content Body */}
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto bg-[var(--color-kb-editor)]/30">
+          {loadingFanTags && (
+            <div role="status" className="flex items-center gap-2 rounded-xl border border-[var(--color-kb-panel-border)] bg-[var(--color-kb-panel)] px-4 py-3 text-xs text-[var(--color-kb-text-muted)]">
+              <RefreshCw size={14} className="animate-spin" />
+              {t('common:loading')}
+            </div>
+          )}
+
+          {fanTagError && (
+            <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-xs text-red-500">
+              <AlertCircle size={14} className="mt-0.5 shrink-0" />
+              <span>{fanTagError}</span>
+            </div>
+          )}
           
           {/* Card 1: 群发通知 */}
           <div className="bg-[var(--color-kb-panel)] rounded-2xl p-5 border border-[var(--color-kb-panel-border)] shadow-xs space-y-2.5">
@@ -158,7 +184,7 @@ export function WechatPublishModal({
               </div>
               
               {/* Green iOS-style Toggle Switch */}
-              <button 
+              <button
                 onClick={() => {
                   setSendNotification(!sendNotification);
                 }}
@@ -195,12 +221,13 @@ export function WechatPublishModal({
                 </div>
                 
                 {/* Switch */}
-                <button 
-                  onClick={() => setGroupNotification(!groupNotification)}
-                  className={`w-12 h-6 flex items-center rounded-full p-0.5 transition-colors duration-300 focus:outline-none ${
-                    groupNotification ? 'bg-[#07c160]' : 'bg-[var(--color-kb-panel-hover)] border border-[var(--color-kb-panel-border)]'
-                  }`}
-                  id="toggle-group-send"
+              <button
+                onClick={() => setGroupNotification(!groupNotification)}
+                disabled={loadingFanTags || Boolean(fanTagError)}
+                className={`w-12 h-6 flex items-center rounded-full p-0.5 transition-colors duration-300 focus:outline-none ${
+                  groupNotification ? 'bg-[#07c160]' : 'bg-[var(--color-kb-panel-hover)] border border-[var(--color-kb-panel-border)]'
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+                id="toggle-group-send"
                 >
                   <div 
                     className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-300 ${

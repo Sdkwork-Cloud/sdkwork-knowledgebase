@@ -1,9 +1,8 @@
-import type { KnowledgeOkfConceptRevision } from './knowledge-okf-concept-revision';
-import type { PageInfo } from './page-info';
+import type { KnowledgeOkfConceptRevisionList } from './knowledge-okf-concept-revision-list';
 
 export interface OkfConceptsRevisionsListResponse {
   code: 0;
-  data: unknown & Record<string, unknown>;
+  data: unknown & KnowledgeOkfConceptRevisionList;
   /** Server-owned request correlation id. */
   traceId: string;
 }

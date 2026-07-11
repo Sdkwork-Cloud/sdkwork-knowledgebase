@@ -34,6 +34,7 @@ mod sqlite_space_stores;
 
 pub mod pgvector_layered_retrieval;
 mod postgres_pgvector_retrieval;
+mod quota_transaction;
 
 pub use agent_profile_store::SqliteKnowledgeAgentProfileStore;
 pub use audit_event_store::{

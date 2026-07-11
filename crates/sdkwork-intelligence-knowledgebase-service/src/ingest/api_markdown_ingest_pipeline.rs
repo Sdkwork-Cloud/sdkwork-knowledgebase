@@ -19,6 +19,7 @@ use sdkwork_knowledgebase_contract::{
     source::KnowledgeSourceType,
     KnowledgeIngestRequest,
 };
+use std::future::Future;
 use thiserror::Error;
 
 pub struct ApiMarkdownIngestPipeline<'a> {
@@ -94,15 +95,19 @@ impl<'a> ApiMarkdownIngestPipeline<'a> {
         job = ingestion.mark_running(job.id).await?;
         let source_drive_prefix = format!("inbox/api/{}", job.id);
 
-        self.index_and_complete_running_job(
-            job,
-            space_id,
-            &title,
-            &payload_markdown,
-            &result.payload_object_ref,
-            ingest_provider,
-            &source_drive_prefix,
-            drive_space_id,
+        let job_id = job.id;
+        self.with_running_job_failure_guard(
+            job_id,
+            self.index_and_complete_running_job(
+                job,
+                space_id,
+                &title,
+                &payload_markdown,
+                &result.payload_object_ref,
+                ingest_provider,
+                &source_drive_prefix,
+                drive_space_id,
+            ),
         )
         .await
     }
@@ -114,30 +119,34 @@ impl<'a> ApiMarkdownIngestPipeline<'a> {
     ) -> Result<ApiMarkdownIngestPipelineResult, ApiMarkdownIngestPipelineError> {
         let ingestion = KnowledgeIngestionService::new(self.jobs);
         let job = ingestion.mark_running(params.job_id).await?;
+        let job_id = job.id;
 
-        let payload_object_ref = self
-            .drive
-            .put_object(
-                PutKnowledgeObjectRequest::text(
-                    params.payload_logical_path,
-                    "api_payload",
-                    params.payload_markdown.as_str(),
-                    None,
+        self.with_running_job_failure_guard(job_id, async move {
+            let payload_object_ref = self
+                .drive
+                .put_object(
+                    PutKnowledgeObjectRequest::text(
+                        params.payload_logical_path,
+                        "api_payload",
+                        params.payload_markdown.as_str(),
+                        None,
+                    )
+                    .with_drive_space_id(drive_space_id),
                 )
-                .with_drive_space_id(drive_space_id),
-            )
-            .await?;
+                .await?;
 
-        self.index_and_complete_running_job(
-            job,
-            params.space_id,
-            &params.title,
-            &params.payload_markdown,
-            &payload_object_ref,
-            &params.ingest_provider,
-            &params.source_drive_prefix,
-            drive_space_id,
-        )
+            self.index_and_complete_running_job(
+                job,
+                params.space_id,
+                &params.title,
+                &params.payload_markdown,
+                &payload_object_ref,
+                &params.ingest_provider,
+                &params.source_drive_prefix,
+                drive_space_id,
+            )
+            .await
+        })
         .await
     }
 
@@ -156,7 +165,7 @@ impl<'a> ApiMarkdownIngestPipeline<'a> {
         let ingestion = KnowledgeIngestionService::new(self.jobs);
 
         let indexer = KnowledgeApiMarkdownIndexService::new(self.markdown_metadata);
-        let index_result = match indexer
+        let index_result = indexer
             .prepare_payload_markdown_index(
                 space_id,
                 MarkdownIndexSourceBinding::Create(CreateKnowledgeSourceRecord {
@@ -172,20 +181,7 @@ impl<'a> ApiMarkdownIngestPipeline<'a> {
                 payload_object_ref,
                 drive_space_id,
             )
-            .await
-        {
-            Ok(prepared) => prepared,
-            Err(error) => {
-                if let Err(mark_error) = ingestion.mark_failed(job.id, format!("{error:?}")).await {
-                    tracing::error!(
-                        job_id = job.id,
-                        ?mark_error,
-                        "failed to mark ingestion job as failed after prepare error"
-                    );
-                }
-                return Err(error.into());
-            }
-        };
+            .await?;
 
         let document_version_id = index_result.document_version_id;
         if let Some(linkage) = index_result.ingest_linkage {
@@ -194,33 +190,44 @@ impl<'a> ApiMarkdownIngestPipeline<'a> {
                 .await?;
         }
 
-        let completed = match ingestion
+        let completed = ingestion
             .complete_with_chunks_and_outbox(CompleteRunningIngestionRecord {
                 job_id: job.id,
                 document_version_id,
                 chunks: index_result.chunk_records,
                 outbox: ingest_success_outbox_record(&job),
             })
-            .await
-        {
-            Ok(completed) => completed,
-            Err(error) => {
-                if let Err(mark_error) = ingestion.mark_failed(job.id, format!("{error:?}")).await {
-                    tracing::error!(
-                        job_id = job.id,
-                        ?mark_error,
-                        "failed to mark ingestion job as failed after prepare error"
-                    );
-                }
-                return Err(error.into());
-            }
-        };
+            .await?;
         job = completed.job;
 
         Ok(ApiMarkdownIngestPipelineResult {
             job,
             document_version_id: Some(document_version_id),
         })
+    }
+
+    async fn with_running_job_failure_guard<T, F>(
+        &self,
+        job_id: u64,
+        operation: F,
+    ) -> Result<T, ApiMarkdownIngestPipelineError>
+    where
+        F: Future<Output = Result<T, ApiMarkdownIngestPipelineError>>,
+    {
+        match operation.await {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                let ingestion = KnowledgeIngestionService::new(self.jobs);
+                if let Err(mark_error) = ingestion.mark_failed(job_id, error.to_string()).await {
+                    tracing::error!(
+                        job_id,
+                        ?mark_error,
+                        "failed to mark ingestion job as failed after running work error"
+                    );
+                }
+                Err(error)
+            }
+        }
     }
 
     async fn replay_if_not_processable(

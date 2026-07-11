@@ -1,4 +1,8 @@
 use async_trait::async_trait;
+#[path = "support/okf_pagination.rs"]
+mod okf_pagination_support;
+
+use okf_pagination_support::validated_okf_test_page_size;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
     build_default_registry, KnowledgeEngineRuntimeDeps, KnowledgeEngineSpaceResolver,
     OkfNativeKnowledgeEngineDeps,
@@ -87,6 +91,27 @@ impl KnowledgeOkfConceptStore for MockOkfConceptStore {
         _limit: Option<u32>,
     ) -> Result<Vec<OkfConceptSummary>, KnowledgeOkfConceptStoreError> {
         Ok(Vec::new())
+    }
+
+    async fn list_concept_summaries_page(
+        &self,
+        _space_id: u64,
+        _cursor: Option<String>,
+        page_size: u32,
+    ) -> Result<(Vec<OkfConceptSummary>, Option<String>, bool), KnowledgeOkfConceptStoreError> {
+        validated_okf_test_page_size(page_size)?;
+        Ok((Vec::new(), None, false))
+    }
+
+    async fn list_concept_revisions_page(
+        &self,
+        _concept_row_id: u64,
+        _cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeOkfConceptRevision>, Option<u64>, bool), KnowledgeOkfConceptStoreError>
+    {
+        validated_okf_test_page_size(page_size)?;
+        Ok((Vec::new(), None, false))
     }
 
     async fn append_log_entry(

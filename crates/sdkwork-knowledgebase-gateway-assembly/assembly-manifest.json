@@ -4,7 +4,7 @@
   "applicationCode": "knowledgebase",
   "packageName": "sdkwork-knowledgebase-gateway-assembly",
   "crateDir": "crates/sdkwork-knowledgebase-gateway-assembly",
-  "generatedAt": "2026-06-25T13:08:05.557Z",
+  "generatedAt": "2026-07-08T01:34:12.530Z",
   "routeCrates": [
     {
       "packageName": "sdkwork-routes-knowledgebase-app-api",

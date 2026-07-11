@@ -1,6 +1,6 @@
 # SDKWork Knowledgebase — deployment artifacts
 
-Production deployment descriptors for `cloud.split-services.production` topology.
+Production deployment descriptors for the `cloud.production` topology profile.
 
 ## Contents
 
@@ -27,7 +27,7 @@ Production deployment descriptors for `cloud.split-services.production` topology
    docker build -f deployments/docker/Dockerfile.api -t registry.sdkwork.com/apps/sdkwork-knowledgebase/api:0.1.0 .
    docker build -f deployments/docker/Dockerfile.worker -t registry.sdkwork.com/apps/sdkwork-knowledgebase/worker:0.1.0 .
    ```
-2. Apply secrets and config from `configs/topology/cloud.split-services.production.env`.
+2. Apply secrets and config from `configs/topology/cloud.production.env`.
 3. Apply manifests:
    ```bash
    kubectl apply -f deployments/kubernetes/

@@ -45,6 +45,8 @@ sdkwork-drive-storage-local = { path = "../sdkwork-drive/crates/sdkwork-drive-st
 sdkwork-database-id = { path = "../sdkwork-database/crates/sdkwork-database-id", package = "sdkwork-database-id" }
 async-trait = "0.1"
 axum = { version = "0.8", features = ["ws"] }
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"

@@ -2345,6 +2345,7 @@ name = "sdkwork-drive-contract"
 version = "0.1.0"
 dependencies = [
  "sdkwork-drive-storage-contract",
+ "sdkwork-utils-rust",
  "serde",
  "serde_json",
 ]
@@ -2618,6 +2619,7 @@ dependencies = [
  "time",
  "tokio",
  "tracing",
+ "url",
  "urlencoding",
  "uuid",
  "wiremock",
@@ -2876,6 +2878,7 @@ dependencies = [
  "sdkwork-web-bootstrap",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
  "tokio",
  "tower 0.5.3",
  "tracing",
@@ -2889,9 +2892,13 @@ name = "sdkwork-knowledgebase-standalone-gateway"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
+ "hyper",
+ "hyper-util",
+ "sdkwork-knowledgebase-agent-provider",
  "sdkwork-knowledgebase-gateway-assembly",
  "sdkwork-knowledgebase-observability",
  "tokio",
+ "tower 0.5.3",
  "tracing",
 ]
 
@@ -3042,6 +3049,8 @@ dependencies = [
  "sqlx",
  "tokio",
  "tower 0.5.3",
+ "url",
+ "uuid",
  "wiremock",
 ]
 

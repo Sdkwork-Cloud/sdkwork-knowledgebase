@@ -3,6 +3,7 @@ import {
   requireKnowledgebaseNetworkOnline,
 } from 'sdkwork-knowledgebase-pc-core';
 
+import type { CloudDriveBrowserItemsPage } from './knowledgeDriveImportService';
 import * as KnowledgeDriveImportService from './knowledgeDriveImportService';
 
 function withCloudDriveApi<T>(apiCall: () => Promise<T>): Promise<T> {
@@ -15,39 +16,35 @@ function withCloudDriveApi<T>(apiCall: () => Promise<T>): Promise<T> {
  * Frontend service facade for enterprise Drive browse/import flows.
  */
 export class CloudDriveService {
-  static async listBrowserItems(
-    kbId: string,
-    folderId: string | null,
-  ): Promise<KnowledgeDriveImportService.CloudDriveBrowserItem[]> {
-    return withCloudDriveApi(() => KnowledgeDriveImportService.listCloudDriveBrowserItems(kbId, folderId));
-  }
-
   static async listBrowserItemsPage(
     kbId: string,
     folderId: string | null,
     cursor?: string | null,
-  ): Promise<{ items: KnowledgeDriveImportService.CloudDriveBrowserItem[]; nextCursor: string | null; hasMore: boolean }> {
+  ): Promise<CloudDriveBrowserItemsPage> {
     return withCloudDriveApi(() =>
       KnowledgeDriveImportService.listCloudDriveBrowserItemsPage(kbId, folderId, cursor),
     );
   }
 
-  static async listStarredItems(
+  static async listStarredItemsPage(
     kbId: string,
-  ): Promise<KnowledgeDriveImportService.CloudDriveBrowserItem[]> {
-    return withCloudDriveApi(() => KnowledgeDriveImportService.listStarredCloudDriveItems(kbId));
+    cursor?: string | null,
+  ): Promise<CloudDriveBrowserItemsPage> {
+    return withCloudDriveApi(() => KnowledgeDriveImportService.listStarredCloudDriveItemsPage(kbId, cursor));
   }
 
-  static async listRecentItems(
+  static async listRecentItemsPage(
     kbId: string,
-  ): Promise<KnowledgeDriveImportService.CloudDriveBrowserItem[]> {
-    return withCloudDriveApi(() => KnowledgeDriveImportService.listRecentCloudDriveItems(kbId));
+    cursor?: string | null,
+  ): Promise<CloudDriveBrowserItemsPage> {
+    return withCloudDriveApi(() => KnowledgeDriveImportService.listRecentCloudDriveItemsPage(kbId, cursor));
   }
 
-  static async listSharedItems(
+  static async listSharedItemsPage(
     kbId: string,
-  ): Promise<KnowledgeDriveImportService.CloudDriveBrowserItem[]> {
-    return withCloudDriveApi(() => KnowledgeDriveImportService.listSharedCloudDriveItems(kbId));
+    cursor?: string | null,
+  ): Promise<CloudDriveBrowserItemsPage> {
+    return withCloudDriveApi(() => KnowledgeDriveImportService.listSharedCloudDriveItemsPage(kbId, cursor));
   }
 
   static async importItems(
@@ -62,6 +59,7 @@ export class CloudDriveService {
 }
 
 export type {
+  CloudDriveBrowserItemsPage,
   CloudDriveBrowserItem,
   CloudDriveImportFailure,
   CloudDriveImportResultItem,

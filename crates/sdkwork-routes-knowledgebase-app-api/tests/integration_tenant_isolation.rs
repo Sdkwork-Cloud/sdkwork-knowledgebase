@@ -5,16 +5,15 @@ use sdkwork_routes_knowledgebase_app_api::{
 };
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::{Mutex, MutexGuard};
 use tower::util::ServiceExt;
 
-static TENANT_ISOLATION_TEST_LOCK: Mutex<()> = Mutex::new(());
+static TENANT_ISOLATION_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
-fn tenant_isolation_test_lock() -> std::sync::MutexGuard<'static, ()> {
-    TENANT_ISOLATION_TEST_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+async fn tenant_isolation_test_lock() -> MutexGuard<'static, ()> {
+    TENANT_ISOLATION_TEST_LOCK.lock().await
 }
 
 struct TestEnvVarGuard {
@@ -54,7 +53,7 @@ fn app_context(
 
 #[tokio::test]
 async fn tenant_id_mismatch_rejects_space_retrieve() {
-    let _guard = tenant_isolation_test_lock();
+    let _guard = tenant_isolation_test_lock().await;
     let runtime = test_runtime().await;
     let space_id = create_space(&runtime, app_context(1, 42, None)).await;
     let app = runtime.build_full_app_router();
@@ -78,7 +77,7 @@ async fn tenant_id_mismatch_rejects_space_retrieve() {
 
 #[tokio::test]
 async fn tenant_id_mismatch_rejects_space_creation() {
-    let _guard = tenant_isolation_test_lock();
+    let _guard = tenant_isolation_test_lock().await;
     let runtime = test_runtime().await;
     let app = runtime.build_full_app_router();
 
@@ -108,7 +107,7 @@ async fn tenant_id_mismatch_rejects_space_creation() {
 
 #[tokio::test]
 async fn organization_id_mismatch_rejects_when_runtime_org_configured() {
-    let _guard = tenant_isolation_test_lock();
+    let _guard = tenant_isolation_test_lock().await;
     let _org_env = TestEnvVarGuard::set("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "100");
     let runtime = test_runtime().await;
     let app = runtime.build_full_app_router();

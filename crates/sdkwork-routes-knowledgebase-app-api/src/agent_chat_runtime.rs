@@ -113,6 +113,7 @@ impl RuntimeKnowledgebaseRetrievalClient {
                 .await
                 .map_err(|error| error.to_string())
         })
+        .map_err(|error| error.to_string())?
     }
 }
 
@@ -129,6 +130,7 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
             session_id: None,
         };
         block_on_async(async move { retrieval.retrieve(context, request).await })
+            .map_err(|error| error.to_string())?
             .map_err(|error| error.to_string())
     }
 
@@ -143,6 +145,7 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
                     .get_document_by_id(document_row_id)
                     .await
             })
+            .map_err(|error| error.to_string())?
             .map_err(|error| error.to_string())?;
             (document.space_id, document.id.to_string())
         } else {
@@ -164,6 +167,7 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
                 })
                 .await
         })
+        .map_err(|error| error.to_string())?
         .map_err(|error| error.to_string())?;
 
         Ok(KnowledgeDocument::new(
@@ -193,6 +197,7 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
                 })
                 .await
         })
+        .map_err(|error| error.to_string())?
         .map_err(|error| error.to_string())?;
 
         Ok(listed
@@ -235,6 +240,7 @@ impl RuntimeOkfKnowledgeClient {
                 .await
                 .map_err(|error| error.to_string())
         })
+        .map_err(|error| error.to_string())?
     }
 }
 
@@ -282,6 +288,7 @@ impl OkfKnowledgeClient for RuntimeOkfKnowledgeClient {
                 })
                 .collect())
         })
+        .map_err(|error| error.to_string())?
     }
 
     fn read_okf_concept_content(
@@ -304,6 +311,7 @@ impl OkfKnowledgeClient for RuntimeOkfKnowledgeClient {
 
             Ok(document.content)
         })
+        .map_err(|error| error.to_string())?
     }
 }
 

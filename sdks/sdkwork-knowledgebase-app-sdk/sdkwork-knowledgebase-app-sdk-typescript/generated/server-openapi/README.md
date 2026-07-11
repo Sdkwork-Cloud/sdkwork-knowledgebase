@@ -5,17 +5,17 @@ Generated SDKWork v3 dual-token transport SDK.
 ## Installation
 
 ```bash
-npm install @sdkwork/knowledgebase-app-sdk
+npm install @sdkwork-internal/knowledgebase-app-sdk-generated
 # or
-yarn add @sdkwork/knowledgebase-app-sdk
+yarn add @sdkwork-internal/knowledgebase-app-sdk-generated
 # or
-pnpm add @sdkwork/knowledgebase-app-sdk
+pnpm add @sdkwork-internal/knowledgebase-app-sdk-generated
 ```
 
 ## Quick Start
 
 ```typescript
-import { SdkworkKnowledgebaseAppClient } from '@sdkwork/knowledgebase-app-sdk';
+import { SdkworkKnowledgebaseAppClient } from '@sdkwork-internal/knowledgebase-app-sdk-generated';
 
 const client = new SdkworkKnowledgebaseAppClient({
   baseUrl: '/app/v3/api',
@@ -41,7 +41,7 @@ Access-Token: <accessToken>
 ## Configuration (Non-Auth)
 
 ```typescript
-import { SdkworkKnowledgebaseAppClient } from '@sdkwork/knowledgebase-app-sdk';
+import { SdkworkKnowledgebaseAppClient } from '@sdkwork-internal/knowledgebase-app-sdk-generated';
 
 const client = new SdkworkKnowledgebaseAppClient({
   baseUrl: '/app/v3/api',
@@ -68,7 +68,7 @@ const result = await client.knowledge.okf.bundle.index.list();
 ## Error Handling
 
 ```typescript
-import { SdkworkKnowledgebaseAppClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-app-sdk';
+import { SdkworkKnowledgebaseAppClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork-internal/knowledgebase-app-sdk-generated';
 
 try {
   const result = await client.knowledge.okf.bundle.index.list();

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   configureKnowledgebaseAppSdk,
+  KnowledgebaseErrorCodes,
   setKnowledgebaseApiEnabled,
   setKnowledgebaseNetworkOnline,
 } from 'sdkwork-knowledgebase-pc-core';
@@ -55,6 +56,23 @@ describe('knowledge command result services', () => {
       status: 'completed',
       deploymentId: '9001',
       url: 'https://kb.example.test/site',
+    });
+  });
+
+  it('rejects accepted site deployment results without HTTPS publisher evidence', async () => {
+    configureFakeKnowledgeClient({
+      siteDeployments: {
+        create: async () => ({
+          accepted: true,
+          status: 'completed',
+          deploymentId: '9001',
+          url: '',
+        }),
+      },
+    });
+
+    await expect(publishKnowledgeSite('123', 'sdkwork-sites')).rejects.toMatchObject({
+      code: KnowledgebaseErrorCodes.OPERATION_FAILED,
     });
   });
 

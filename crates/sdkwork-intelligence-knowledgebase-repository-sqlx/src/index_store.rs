@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_index_store::{
     KnowledgeIndexStore, KnowledgeIndexStoreError as PortKnowledgeIndexStoreError,
 };
@@ -10,6 +11,7 @@ use thiserror::Error;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const ACTIVE_STATUS: i64 = 1;
@@ -27,6 +29,7 @@ pub struct SqliteKnowledgeIndexStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeIndexStore {
@@ -43,7 +46,13 @@ impl SqliteKnowledgeIndexStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 
     pub async fn create_index(
@@ -64,35 +73,38 @@ impl SqliteKnowledgeIndexStore {
         let dimension = request.dimension.map(i64::from).unwrap_or_default();
         let now = now_rfc3339()?;
 
-        let row = sqlx::query(
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
+        let query = format!(
             r#"
             INSERT INTO kb_index (
                 id, uuid, tenant_id, space_id, collection_id, index_kind,
                 embedding_provider_id, embedding_model, dimension, metric,
                 schema_version, status, created_at, updated_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, {created_at_expr}, {updated_at_expr}, $15)
             RETURNING id, tenant_id, space_id, index_kind, status
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(space_id)
-        .bind(collection_id)
-        .bind(request.index_kind)
-        .bind(request.embedding_provider_id)
-        .bind(request.embedding_model)
-        .bind(dimension)
-        .bind(request.metric)
-        .bind(DEFAULT_SCHEMA_VERSION)
-        .bind(ACTIVE_STATUS)
-        .bind(now.clone())
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        let row = sqlx::query(&query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(space_id)
+            .bind(collection_id)
+            .bind(request.index_kind)
+            .bind(request.embedding_provider_id)
+            .bind(request.embedding_model)
+            .bind(dimension)
+            .bind(request.metric)
+            .bind(DEFAULT_SCHEMA_VERSION)
+            .bind(ACTIVE_STATUS)
+            .bind(now.clone())
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         index_from_row(&row)
     }

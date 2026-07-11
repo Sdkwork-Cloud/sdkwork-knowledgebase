@@ -8,10 +8,11 @@ use sdkwork_knowledgebase_agent_provider::{
     build_knowledge_agent_runtime, default_top_k, resolve_chat_knowledge_mode,
     resolve_model_provider_for_implementation, validate_bindings_support_mode,
     validate_rag_profile_requirements, validate_registered_agent_implementation,
-    KnowledgeAccessGateway, KnowledgeAccessRequest, KnowledgeAccessRetrievalExecutor,
-    KnowledgeAgentRuntimeBuildRequest, KnowledgeRetrievalPlanResolver, KnowledgeSpaceModeResolver,
-    KnowledgebaseRetrievalClient, OkfKnowledgeClient, SpaceKnowledgeEngineClient,
-    OKF_KNOWLEDGE_PROVIDER_ID, SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
+    KnowledgeAccessError, KnowledgeAccessGateway, KnowledgeAccessRequest,
+    KnowledgeAccessRetrievalExecutor, KnowledgeAgentRuntimeBuildRequest,
+    KnowledgeRetrievalPlanResolver, KnowledgeSpaceModeResolver, KnowledgebaseRetrievalClient,
+    OkfKnowledgeClient, SpaceKnowledgeEngineClient, OKF_KNOWLEDGE_PROVIDER_ID,
+    SDKWORK_KNOWLEDGEBASE_PROVIDER_ID,
 };
 use sdkwork_knowledgebase_contract::agent_chat::{
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentKnowledgeMode,
@@ -19,13 +20,17 @@ use sdkwork_knowledgebase_contract::agent_chat::{
 use sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalRequest;
 use sdkwork_knowledgebase_contract::resolve_agent_implementation_id;
 use sdkwork_utils_rust::is_blank;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use thiserror::Error;
 use uuid::Uuid;
+
+use crate::bounded_blocking::{run_bounded_blocking_with_timeout, BoundedBlockingError};
 
 pub const DEFAULT_MODEL_PROVIDER_ID: &str = rig_ids::MODEL_PROVIDER_ID;
 pub const DEFAULT_MODEL_ID: &str = rig_ids::DEFAULT_MODEL_ID;
 pub use sdkwork_knowledgebase_agent_provider::CONTRACT_MODEL_PROVIDER_ID;
+
+const DEFAULT_AGENT_CHAT_EXECUTION_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub struct KnowledgeAgentChatService<'a, R, W> {
     profiles: &'a dyn KnowledgeAgentProfileStore,
@@ -36,6 +41,7 @@ pub struct KnowledgeAgentChatService<'a, R, W> {
     retrieval_plan_resolver: Option<&'a dyn KnowledgeRetrievalPlanResolver>,
     space_mode_resolver: Option<&'a dyn KnowledgeSpaceModeResolver>,
     space_engine_client: Option<Arc<dyn SpaceKnowledgeEngineClient>>,
+    execution_timeout: Duration,
 }
 
 impl<'a, R, W> KnowledgeAgentChatService<'a, R, W>
@@ -63,10 +69,34 @@ where
             retrieval_plan_resolver,
             space_mode_resolver,
             space_engine_client,
+            execution_timeout: DEFAULT_AGENT_CHAT_EXECUTION_TIMEOUT,
         }
     }
 
+    pub fn with_execution_timeout(mut self, execution_timeout: Duration) -> Self {
+        self.execution_timeout = execution_timeout;
+        self
+    }
+
     pub async fn chat(
+        &self,
+        profile_id: u64,
+        request: KnowledgeAgentChatRequest,
+    ) -> Result<KnowledgeAgentChatResponse, KnowledgeAgentChatServiceError> {
+        match tokio::time::timeout(
+            self.execution_timeout,
+            self.chat_within_deadline(profile_id, request),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => Err(KnowledgeAgentChatServiceError::TimedOut {
+                timeout: self.execution_timeout,
+            }),
+        }
+    }
+
+    async fn chat_within_deadline(
         &self,
         profile_id: u64,
         request: KnowledgeAgentChatRequest,
@@ -157,7 +187,7 @@ where
                 gateway
             }
         };
-        let access_result = access
+        let access_result = match access
             .fetch(KnowledgeAccessRequest {
                 tenant_id: request.tenant_id,
                 message: &request.message,
@@ -169,7 +199,18 @@ where
                 retrieval_plan,
             })
             .await
-            .map_err(KnowledgeAgentChatServiceError::KnowledgeProvider)?;
+        {
+            Ok(result) => result,
+            Err(KnowledgeAccessError::Invalid(detail)) => {
+                return Err(KnowledgeAgentChatServiceError::InvalidRequest(detail));
+            }
+            Err(KnowledgeAccessError::Retrieval(error)) => {
+                return Err(KnowledgeAgentChatServiceError::Retrieval(error));
+            }
+            Err(KnowledgeAccessError::Provider(detail)) => {
+                return Err(KnowledgeAgentChatServiceError::KnowledgeProvider(detail));
+            }
+        };
 
         let citations = access_result.citations;
         let retrieval_id = access_result.retrieval_id;
@@ -244,16 +285,12 @@ where
             );
         }
 
-        let response = tokio::task::spawn_blocking({
+        let response = run_bounded_blocking_with_timeout(self.execution_timeout, {
             let chat_request = chat_request;
             move || AgentChatService::new().invoke(&runtime, chat_request)
         })
         .await
-        .map_err(|error| {
-            KnowledgeAgentChatServiceError::AgentKernel(format!(
-                "agent chat worker join failed: {error}"
-            ))
-        })?
+        .map_err(map_agent_chat_blocking_error)?
         .map_err(map_kernel_error)?;
 
         let answer = response
@@ -283,14 +320,13 @@ struct RetrievalExecutorAdapter<'a> {
 
 #[async_trait::async_trait]
 impl KnowledgeAccessRetrievalExecutor for RetrievalExecutorAdapter<'_> {
+    type Error = KnowledgeRetrievalServiceError;
+
     async fn retrieve(
         &self,
         request: KnowledgeRetrievalRequest,
-    ) -> Result<sdkwork_knowledgebase_contract::KnowledgeRetrievalResult, String> {
-        self.retrieval
-            .retrieve(request)
-            .await
-            .map_err(|error| error.to_string())
+    ) -> Result<sdkwork_knowledgebase_contract::KnowledgeRetrievalResult, Self::Error> {
+        self.retrieval.retrieve(request).await
     }
 }
 
@@ -302,6 +338,22 @@ fn default_knowledge_provider_id(mode: KnowledgeAgentKnowledgeMode) -> &'static 
     }
 }
 
+fn map_agent_chat_blocking_error(error: BoundedBlockingError) -> KnowledgeAgentChatServiceError {
+    match error {
+        BoundedBlockingError::QueueSaturated { capacity } => {
+            KnowledgeAgentChatServiceError::QueueSaturated { capacity }
+        }
+        BoundedBlockingError::TimedOut { timeout } => {
+            KnowledgeAgentChatServiceError::TimedOut { timeout }
+        }
+        error @ (BoundedBlockingError::InvalidCapacity
+        | BoundedBlockingError::TaskPanicked
+        | BoundedBlockingError::TaskCancelled) => KnowledgeAgentChatServiceError::AgentKernel(
+            format!("agent chat blocking operation failed: {error}"),
+        ),
+    }
+}
+
 fn map_kernel_error(error: KernelError) -> KnowledgeAgentChatServiceError {
     KnowledgeAgentChatServiceError::AgentKernel(error.to_string())
 }
@@ -310,6 +362,10 @@ fn map_kernel_error(error: KernelError) -> KnowledgeAgentChatServiceError {
 pub enum KnowledgeAgentChatServiceError {
     #[error("invalid knowledge agent chat request: {0}")]
     InvalidRequest(String),
+    #[error("knowledge agent chat execution queue is saturated at capacity {capacity}")]
+    QueueSaturated { capacity: usize },
+    #[error("knowledge agent chat timed out after {timeout:?}")]
+    TimedOut { timeout: Duration },
     #[error("knowledge provider error: {0}")]
     KnowledgeProvider(String),
     #[error(transparent)]
@@ -335,6 +391,132 @@ mod tests {
         KnowledgeRetrievalResult, KnowledgeRetrievalTrace,
     };
     use sdkwork_knowledgebase_contract::KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID;
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
+
+    #[tokio::test]
+    async fn chat_applies_one_end_to_end_deadline() {
+        let execution_timeout = Duration::from_millis(100);
+        let retrieval_entered = Arc::new(AtomicBool::new(false));
+        let retrieval_cancelled = Arc::new(AtomicBool::new(false));
+        let retrieval = PendingRetrieval {
+            entered: Arc::clone(&retrieval_entered),
+            cancelled: Arc::clone(&retrieval_cancelled),
+        };
+        let service = KnowledgeAgentChatService::new(
+            &FakeProfileStore,
+            &retrieval,
+            FakeRetrievalClient,
+            FakeOkfClient,
+            None,
+            None,
+            None,
+            None,
+        )
+        .with_execution_timeout(execution_timeout);
+
+        let error = service
+            .chat(
+                501,
+                KnowledgeAgentChatRequest {
+                    tenant_id: 100001,
+                    actor_id: None,
+                    message: "Explain hybrid retrieval".to_string(),
+                    mode: Some(KnowledgeAgentKnowledgeMode::Rag),
+                    session_id: Some("session.timeout".to_string()),
+                    model_provider_id: Some(CONTRACT_MODEL_PROVIDER_ID.to_string()),
+                    model_id: Some("contract.default".to_string()),
+                    agent_implementation_id: Some(
+                        KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID.to_string(),
+                    ),
+                },
+            )
+            .await
+            .expect_err("pending retrieval must exhaust the end-to-end execution budget");
+
+        assert!(matches!(
+            error,
+            KnowledgeAgentChatServiceError::TimedOut {
+                timeout
+            } if timeout == execution_timeout
+        ));
+        assert!(retrieval_entered.load(Ordering::SeqCst));
+        assert!(retrieval_cancelled.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn agent_chat_blocking_error_mapping_preserves_overload_and_timeout() {
+        let timeout = Duration::from_secs(7);
+        assert!(matches!(
+            map_agent_chat_blocking_error(
+                crate::bounded_blocking::BoundedBlockingError::QueueSaturated { capacity: 64 }
+            ),
+            KnowledgeAgentChatServiceError::QueueSaturated { capacity: 64 }
+        ));
+        assert!(matches!(
+            map_agent_chat_blocking_error(
+                crate::bounded_blocking::BoundedBlockingError::TimedOut { timeout }
+            ),
+            KnowledgeAgentChatServiceError::TimedOut { timeout: actual } if actual == timeout
+        ));
+
+        for error in [
+            crate::bounded_blocking::BoundedBlockingError::InvalidCapacity,
+            crate::bounded_blocking::BoundedBlockingError::TaskPanicked,
+            crate::bounded_blocking::BoundedBlockingError::TaskCancelled,
+        ] {
+            assert!(matches!(
+                map_agent_chat_blocking_error(error),
+                KnowledgeAgentChatServiceError::AgentKernel(_)
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn chat_preserves_typed_rag_retrieval_overload() {
+        let service = KnowledgeAgentChatService::new(
+            &FakeProfileStore,
+            &SaturatedRetrieval,
+            FakeRetrievalClient,
+            FakeOkfClient,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let error = service
+            .chat(
+                501,
+                KnowledgeAgentChatRequest {
+                    tenant_id: 100001,
+                    actor_id: None,
+                    message: "Explain hybrid retrieval".to_string(),
+                    mode: Some(KnowledgeAgentKnowledgeMode::Rag),
+                    session_id: Some("session.saturated".to_string()),
+                    model_provider_id: Some(CONTRACT_MODEL_PROVIDER_ID.to_string()),
+                    model_id: Some("contract.default".to_string()),
+                    agent_implementation_id: Some(
+                        KNOWLEDGEBASE_CONTRACT_AGENT_IMPLEMENTATION_ID.to_string(),
+                    ),
+                },
+            )
+            .await
+            .expect_err("retrieval overload must remain typed across the RAG adapter");
+
+        assert!(matches!(
+            error,
+            KnowledgeAgentChatServiceError::Retrieval(
+                crate::retrieval::KnowledgeRetrievalServiceError::Backend(
+                    crate::ports::knowledge_retrieval_backend::KnowledgeRetrievalBackendError::QueueSaturated {
+                        capacity: 64
+                    }
+                )
+            )
+        ));
+    }
 
     #[tokio::test]
     async fn chat_defaults_to_okf_bundle_mode_with_citations_and_contract_model() {
@@ -788,6 +970,51 @@ mod tests {
                     citation: None,
                 }],
             })
+        }
+    }
+
+    struct PendingRetrieval {
+        entered: Arc<AtomicBool>,
+        cancelled: Arc<AtomicBool>,
+    }
+
+    struct CancellationMarker(Arc<AtomicBool>);
+
+    impl Drop for CancellationMarker {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[async_trait]
+    impl KnowledgeRetrievalExecutor for PendingRetrieval {
+        async fn retrieve(
+            &self,
+            _request: KnowledgeRetrievalRequest,
+        ) -> Result<KnowledgeRetrievalResult, crate::retrieval::KnowledgeRetrievalServiceError>
+        {
+            self.entered.store(true, Ordering::SeqCst);
+            let cancellation_marker = CancellationMarker(Arc::clone(&self.cancelled));
+            std::future::pending::<()>().await;
+            drop(cancellation_marker);
+            unreachable!("pending retrieval cannot complete")
+        }
+    }
+
+    struct SaturatedRetrieval;
+
+    #[async_trait]
+    impl KnowledgeRetrievalExecutor for SaturatedRetrieval {
+        async fn retrieve(
+            &self,
+            _request: KnowledgeRetrievalRequest,
+        ) -> Result<KnowledgeRetrievalResult, crate::retrieval::KnowledgeRetrievalServiceError>
+        {
+            Err(crate::retrieval::KnowledgeRetrievalServiceError::Backend(
+                crate::ports::knowledge_retrieval_backend::KnowledgeRetrievalBackendError::QueueSaturated {
+                    capacity: 64,
+                },
+            ))
         }
     }
 

@@ -114,6 +114,9 @@ impl ModelProvider for ClawRouterChatModelProvider {
         let completion =
             block_on_async(async move { client.chat().create(&completion_request).await })
                 .map_err(|error| {
+                    KernelError::provider_error("claw_router.chat.create", error.to_string())
+                })?
+                .map_err(|error| {
                     KernelError::provider_error("claw_router.chat.create", map_sdk_error(error))
                 })?;
 

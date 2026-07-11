@@ -10,10 +10,20 @@ interface Props {
   appletData: WechatAppletConfig | undefined;
   groups: string[];
   onClose: () => void;
-  onSave: (applet: WechatAppletConfig) => void;
+  onSave: (applet: WechatAppletConfig) => Promise<void>;
+  isSaving: boolean;
+  saveError: string | null;
 }
 
-export function AppletEditorDrawer({ editingId, appletData, groups, onClose, onSave }: Props) {
+export function AppletEditorDrawer({
+  editingId,
+  appletData,
+  groups,
+  onClose,
+  onSave,
+  isSaving,
+  saveError,
+}: Props) {
   const { t } = useTranslation('applet');
   const [activeTab, setActiveTab] = useState<'basic' | 'domains' | 'server'>('basic');
 
@@ -91,7 +101,7 @@ export function AppletEditorDrawer({ editingId, appletData, groups, onClose, onS
     }
   }, [appletData, editingId, groups]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isBlank(appName) || isBlank(appId)) {
       toast.error(t('errors.fillRequired'));
       return;
@@ -146,7 +156,7 @@ export function AppletEditorDrawer({ editingId, appletData, groups, onClose, onS
       msgEncryptMode: appMsgEncryptMode
     };
 
-    onSave(newApplet);
+    await onSave(newApplet);
   };
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -596,6 +606,12 @@ export function AppletEditorDrawer({ editingId, appletData, groups, onClose, onS
           </div>
         </div>
 
+        {saveError && (
+          <div role="alert" className="px-5 py-2 text-xs text-red-500 bg-red-500/5 border-t border-red-500/20">
+            {saveError}
+          </div>
+        )}
+
         <div className="p-5 border-t border-[var(--color-kb-panel-border)] bg-[var(--color-kb-panel)] flex justify-between shrink-0">
           <button 
            onClick={onClose} 
@@ -604,10 +620,11 @@ export function AppletEditorDrawer({ editingId, appletData, groups, onClose, onS
            {t('cancel')}
           </button>
           <button 
-           onClick={handleSave} 
-           className="px-6 py-2.5 text-[13px] font-bold bg-[#07c160] hover:bg-[#06ad56] text-white rounded-lg transition-all shadow-sm"
+           onClick={() => void handleSave()}
+           disabled={isSaving}
+           className="px-6 py-2.5 text-[13px] font-bold bg-[#07c160] hover:bg-[#06ad56] text-white rounded-lg transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
           >
-           {t('saveConfig')}
+           {isSaving ? t('saving', { defaultValue: 'Saving...' }) : t('saveConfig')}
           </button>
         </div>
       </div>

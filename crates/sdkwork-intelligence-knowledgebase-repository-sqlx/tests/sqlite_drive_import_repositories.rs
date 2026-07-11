@@ -27,8 +27,11 @@ use sdkwork_intelligence_knowledgebase_service::ports::markdown_index_metadata_s
 use sdkwork_knowledgebase_contract::document::KnowledgeDocumentVersionState;
 use sdkwork_knowledgebase_contract::ingest::{IngestionJobState, KnowledgeDriveImportRequest};
 use sdkwork_knowledgebase_contract::source::KnowledgeSourceType;
+use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
 use sdkwork_knowledgebase_test_support::fake_drive::FakeKnowledgeDriveStorage;
 use sqlx::{AnyPool, Row};
+use std::sync::Arc;
+use tokio::sync::Barrier;
 
 #[tokio::test]
 async fn sqlite_repositories_persist_drive_import_metadata_chain() {
@@ -141,6 +144,57 @@ async fn sqlite_repositories_persist_drive_import_metadata_chain() {
     assert_eq!(version_count, 1);
     assert_eq!(object_ref_count, 1);
     assert_eq!(job_count, 1);
+}
+
+#[tokio::test]
+async fn sqlite_drive_import_quota_rolls_back_entire_metadata_chain() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let tenant_id = 9010_u64;
+    let drive = FakeKnowledgeDriveStorage::default();
+    drive
+        .put_text("incoming/quota-report.md", "original_document", "# Report")
+        .await
+        .unwrap();
+    let limits = KnowledgebaseTenantQuotaLimits {
+        max_documents: 0,
+        ..KnowledgebaseTenantQuotaLimits::default()
+    };
+    let metadata =
+        SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id).with_quota_limits(limits);
+    let service = KnowledgeDriveImportService::new(&drive, &metadata);
+
+    let error = service
+        .import_drive_object(KnowledgeDriveImportRequest {
+            space_id: 7,
+            title: "Quota Report".to_string(),
+            drive_space_id: None,
+            drive_node_id: None,
+            drive_storage_provider_id: "provider-kb".to_string(),
+            drive_bucket: "knowledgebase-test".to_string(),
+            drive_object_key: "incoming/quota-report.md".to_string(),
+            idempotency_key: "drive-quota-report".to_string(),
+            language: Some("en".to_string()),
+        })
+        .await
+        .expect_err("drive import must exceed document quota");
+    assert!(error.to_string().contains("quota exceeded"));
+
+    for table in [
+        "kb_source",
+        "kb_document",
+        "kb_document_version",
+        "kb_drive_object_ref",
+        "kb_ingestion_job",
+    ] {
+        let query = format!("SELECT COUNT(*) FROM {table} WHERE tenant_id = $1");
+        let count: i64 = sqlx::query_scalar(&query)
+            .bind(tenant_id as i64)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 0, "quota failure must roll back {table}");
+    }
 }
 
 #[tokio::test]
@@ -510,6 +564,289 @@ async fn sqlite_ingestion_jobs_are_idempotent_per_space_not_whole_tenant() {
         .await
         .unwrap();
     assert_eq!(job_count, 2);
+}
+
+#[tokio::test]
+async fn sqlite_inflight_count_recovers_stale_queued_and_running_upload_sessions() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let tenant_id = 9001_u64;
+    let store = SqliteIngestionJobStore::new(pool.clone(), tenant_id);
+
+    let stale_queued = create_ingestion_job(&store, 7, "upload_session", "stale-queued").await;
+    let stale_running = create_ingestion_job(&store, 7, "upload_session", "stale-running").await;
+    store
+        .update_job_state(
+            stale_running.id,
+            IngestionJobState::Queued,
+            IngestionJobState::Running,
+            None,
+        )
+        .await
+        .unwrap();
+    let fresh_upload = create_ingestion_job(&store, 7, "upload_session", "fresh-upload").await;
+    let stale_api = create_ingestion_job(&store, 7, "api", "stale-api").await;
+    sqlx::query(
+        r#"
+        UPDATE kb_ingestion_job
+        SET created_at = '2026-07-01T00:00:00Z', updated_at = '2026-07-01T00:00:00Z'
+        WHERE tenant_id = $1 AND id IN ($2, $3, $4)
+        "#,
+    )
+    .bind(tenant_id as i64)
+    .bind(stale_queued.id as i64)
+    .bind(stale_running.id as i64)
+    .bind(stale_api.id as i64)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let inflight = store.count_inflight_jobs().await.unwrap();
+
+    assert_eq!(inflight, 2);
+    for job_id in [stale_queued.id, stale_running.id] {
+        let recovered = store.get_job(job_id).await.unwrap();
+        assert_eq!(recovered.state, IngestionJobState::Failed);
+        assert!(recovered
+            .error_message
+            .as_deref()
+            .is_some_and(|detail| detail.contains("expired")));
+    }
+    assert_eq!(
+        store.get_job(fresh_upload.id).await.unwrap().state,
+        IngestionJobState::Queued
+    );
+    assert_eq!(
+        store.get_job(stale_api.id).await.unwrap().state,
+        IngestionJobState::Queued
+    );
+}
+
+#[tokio::test]
+async fn sqlite_stale_upload_session_recovery_is_bounded_without_consuming_quota() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let tenant_id = 9001_u64;
+    let store = SqliteIngestionJobStore::new(pool.clone(), tenant_id);
+
+    for job_number in 0..101_u64 {
+        create_ingestion_job(
+            &store,
+            7,
+            "upload_session",
+            format!("stale-batch-{job_number}").as_str(),
+        )
+        .await;
+    }
+    sqlx::query(
+        r#"
+        UPDATE kb_ingestion_job
+        SET created_at = '2026-07-01T00:00:00Z', updated_at = '2026-07-01T00:00:00Z'
+        WHERE tenant_id = $1 AND job_type = 'upload_session'
+        "#,
+    )
+    .bind(tenant_id as i64)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(store.count_inflight_jobs().await.unwrap(), 0);
+    let remaining_stale: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM kb_ingestion_job
+        WHERE tenant_id = $1
+          AND job_type = 'upload_session'
+          AND state IN (0, 1)
+        "#,
+    )
+    .bind(tenant_id as i64)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        remaining_stale, 1,
+        "cleanup must remain bounded to one batch"
+    );
+    assert_eq!(store.count_inflight_jobs().await.unwrap(), 0);
+}
+
+#[tokio::test]
+async fn sqlite_stale_upload_session_scan_uses_existing_state_index() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let plan = sqlx::query(
+        r#"
+        EXPLAIN QUERY PLAN
+        SELECT id
+        FROM kb_ingestion_job
+        WHERE tenant_id = $1
+          AND state IN ($2, $3)
+          AND status = $4
+          AND job_type = 'upload_session'
+          AND created_at <= $5
+        ORDER BY id ASC
+        LIMIT $6
+        "#,
+    )
+    .bind(9001_i64)
+    .bind(0_i64)
+    .bind(1_i64)
+    .bind(1_i64)
+    .bind("2026-07-09T00:00:00Z")
+    .bind(100_i64)
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    let details = plan
+        .iter()
+        .map(|row| row.try_get::<String, _>("detail").unwrap())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(details.contains("idx_kb_ingestion_job_tenant_state_status"));
+}
+
+#[tokio::test]
+async fn sqlite_ingestion_job_quota_is_atomic_under_concurrent_creates() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let limits = KnowledgebaseTenantQuotaLimits {
+        max_concurrent_ingest_jobs: 2,
+        ..KnowledgebaseTenantQuotaLimits::default()
+    };
+    let store = Arc::new(SqliteIngestionJobStore::new(pool, 9001).with_quota_limits(limits));
+    let barrier = Arc::new(Barrier::new(11));
+    let mut tasks = Vec::new();
+    for index in 0..10_u64 {
+        let store = Arc::clone(&store);
+        let barrier = Arc::clone(&barrier);
+        tasks.push(tokio::spawn(async move {
+            barrier.wait().await;
+            store
+                .create_or_get_job(CreateIngestionJobRecord {
+                    space_id: 7,
+                    source_type: "api".to_string(),
+                    idempotency_key: format!("atomic-ingest-{index}"),
+                    idempotency_fingerprint_sha256_hex: None,
+                })
+                .await
+        }));
+    }
+    barrier.wait().await;
+
+    let mut succeeded = 0;
+    let mut rejected = 0;
+    for task in tasks {
+        match task.await.unwrap() {
+            Ok(_) => succeeded += 1,
+            Err(error) if error.to_string().contains("quota exceeded") => rejected += 1,
+            Err(error) => panic!("unexpected create error: {error}"),
+        }
+    }
+
+    assert_eq!(succeeded, 2);
+    assert_eq!(rejected, 8);
+}
+
+#[tokio::test]
+async fn sqlite_document_quota_is_atomic_under_concurrent_creates() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let limits = KnowledgebaseTenantQuotaLimits {
+        max_documents: 3,
+        ..KnowledgebaseTenantQuotaLimits::default()
+    };
+    let store = Arc::new(SqliteKnowledgeDocumentStore::new(pool, 9001).with_quota_limits(limits));
+    let barrier = Arc::new(Barrier::new(11));
+    let mut tasks = Vec::new();
+    for index in 0..10_u64 {
+        let store = Arc::clone(&store);
+        let barrier = Arc::clone(&barrier);
+        tasks.push(tokio::spawn(async move {
+            barrier.wait().await;
+            store
+                .create_document(CreateKnowledgeDocumentRecord {
+                    space_id: 7,
+                    collection_id: 0,
+                    source_id: Some(10_000 + index),
+                    identity_scope: KnowledgeDocumentIdentityScope::SourceAndOriginalDriveNode,
+                    original_file_drive_node_id: Some(format!("atomic-node-{index}")),
+                    title: format!("Atomic document {index}"),
+                    mime_type: Some("text/markdown".to_string()),
+                    language: Some("en".to_string()),
+                })
+                .await
+        }));
+    }
+    barrier.wait().await;
+
+    let mut succeeded = 0;
+    let mut rejected = 0;
+    for task in tasks {
+        match task.await.unwrap() {
+            Ok(_) => succeeded += 1,
+            Err(error) if error.to_string().contains("quota exceeded") => rejected += 1,
+            Err(error) => panic!("unexpected create error: {error}"),
+        }
+    }
+
+    assert_eq!(succeeded, 3);
+    assert_eq!(rejected, 7);
+}
+
+#[tokio::test]
+async fn sqlite_storage_quota_is_atomic_under_concurrent_object_refs() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let limits = KnowledgebaseTenantQuotaLimits {
+        max_storage_bytes: 100,
+        ..KnowledgebaseTenantQuotaLimits::default()
+    };
+    let store =
+        Arc::new(SqliteKnowledgeDriveObjectRefStore::new(pool, 9001).with_quota_limits(limits));
+    let barrier = Arc::new(Barrier::new(11));
+    let mut tasks = Vec::new();
+    for index in 0..10_u64 {
+        let store = Arc::clone(&store);
+        let barrier = Arc::clone(&barrier);
+        tasks.push(tokio::spawn(async move {
+            barrier.wait().await;
+            store
+                .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
+                    space_id: 7,
+                    drive_space_id: None,
+                    drive_node_id: None,
+                    logical_path: Some(format!("atomic/{index}.md")),
+                    drive_provider_kind: SDKWORK_DRIVE_PROVIDER_KIND.to_string(),
+                    drive_storage_provider_id: "provider-kb".to_string(),
+                    drive_bucket: "knowledgebase-test".to_string(),
+                    drive_object_key: format!("atomic/{index}.md"),
+                    drive_object_version: None,
+                    drive_etag: None,
+                    content_type: Some("text/markdown".to_string()),
+                    size_bytes: 30,
+                    checksum_sha256_hex: None,
+                    object_role: "original_document".to_string(),
+                    access_mode: MANAGED_DRIVE_ACCESS_MODE.to_string(),
+                })
+                .await
+        }));
+    }
+    barrier.wait().await;
+
+    let mut succeeded = 0;
+    let mut rejected = 0;
+    for task in tasks {
+        match task.await.unwrap() {
+            Ok(_) => succeeded += 1,
+            Err(error) if error.to_string().contains("quota exceeded") => rejected += 1,
+            Err(error) => panic!("unexpected create error: {error}"),
+        }
+    }
+
+    assert_eq!(succeeded, 3);
+    assert_eq!(rejected, 7);
 }
 
 #[tokio::test]
@@ -971,6 +1308,111 @@ async fn sqlite_markdown_index_metadata_replay_reuses_document_version_chain() {
         .await
         .unwrap();
     assert_eq!(version_count, 1);
+}
+
+#[tokio::test]
+async fn sqlite_markdown_metadata_quota_allows_replay_and_rolls_back_new_document() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let tenant_id = 9004_u64;
+    let drive = FakeKnowledgeDriveStorage::default();
+    let first_object = drive
+        .put_text("inbox/api/quota-1.md", "api_payload", "# First")
+        .await
+        .unwrap();
+    let second_object = drive
+        .put_text("inbox/api/quota-2.md", "api_payload", "# Second")
+        .await
+        .unwrap();
+    let limits = KnowledgebaseTenantQuotaLimits {
+        max_documents: 1,
+        ..KnowledgebaseTenantQuotaLimits::default()
+    };
+    let metadata =
+        SqliteMarkdownIndexMetadataStore::new(pool.clone(), tenant_id).with_quota_limits(limits);
+    let indexer = KnowledgeApiMarkdownIndexService::new(&metadata);
+    let first_source = MarkdownIndexSourceBinding::Create(CreateKnowledgeSourceRecord {
+        space_id: 7,
+        source_type: KnowledgeSourceType::Api,
+        provider: Some("api-ingest".to_string()),
+        drive_bucket: None,
+        drive_prefix: Some("inbox/api/quota-1".to_string()),
+        connector_metadata_json: None,
+    });
+
+    let first = indexer
+        .prepare_payload_markdown_index(
+            7,
+            first_source.clone(),
+            "First",
+            "# First",
+            &first_object,
+            None,
+        )
+        .await
+        .unwrap();
+    let replay = indexer
+        .prepare_payload_markdown_index(7, first_source, "First", "# First", &first_object, None)
+        .await
+        .unwrap();
+    assert_eq!(first.document_version_id, replay.document_version_id);
+
+    let error = indexer
+        .prepare_payload_markdown_index(
+            7,
+            MarkdownIndexSourceBinding::Create(CreateKnowledgeSourceRecord {
+                space_id: 7,
+                source_type: KnowledgeSourceType::Api,
+                provider: Some("api-ingest".to_string()),
+                drive_bucket: None,
+                drive_prefix: Some("inbox/api/quota-2".to_string()),
+                connector_metadata_json: None,
+            }),
+            "Second",
+            "# Second",
+            &second_object,
+            None,
+        )
+        .await
+        .expect_err("new document must exceed quota");
+    assert!(error.to_string().contains("quota exceeded"));
+
+    let document_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM kb_document WHERE tenant_id = $1 AND status = 1")
+            .bind(tenant_id as i64)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    let object_ref_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM kb_drive_object_ref WHERE tenant_id = $1 AND status = 1",
+    )
+    .bind(tenant_id as i64)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(document_count, 1);
+    assert_eq!(
+        object_ref_count, 1,
+        "quota failure must roll back object ref"
+    );
+}
+
+async fn create_ingestion_job(
+    store: &SqliteIngestionJobStore,
+    space_id: u64,
+    source_type: &str,
+    idempotency_key: &str,
+) -> sdkwork_knowledgebase_contract::ingest::IngestionJob {
+    store
+        .create_or_get_job(CreateIngestionJobRecord {
+            space_id,
+            source_type: source_type.to_string(),
+            idempotency_key: idempotency_key.to_string(),
+            idempotency_fingerprint_sha256_hex: None,
+        })
+        .await
+        .unwrap()
+        .job
 }
 
 async fn sqlite_pool() -> AnyPool {

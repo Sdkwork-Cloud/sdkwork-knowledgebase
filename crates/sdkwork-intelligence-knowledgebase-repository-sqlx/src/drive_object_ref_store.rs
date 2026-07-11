@@ -1,15 +1,20 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_ref_store::{
     CreateKnowledgeDriveObjectRefRecord, KnowledgeDriveObjectRefStore,
     KnowledgeDriveObjectRefStoreError,
 };
+use sdkwork_intelligence_knowledgebase_service::tenant_quota::ensure_storage_capacity;
 use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
-use sqlx::{any::AnyRow, AnyPool, Row};
+use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
+use sqlx::{any::AnyRow, AnyConnection, AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
+use crate::quota_transaction::begin_tenant_quota_transaction;
 
 const ACTIVE_STATUS: i64 = 1;
 
@@ -18,6 +23,9 @@ pub struct SqliteKnowledgeDriveObjectRefStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
+    database_engine: DatabaseEngine,
+    quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
 }
 
 impl SqliteKnowledgeDriveObjectRefStore {
@@ -34,7 +42,21 @@ impl SqliteKnowledgeDriveObjectRefStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
+            database_engine: DatabaseEngine::Sqlite,
+            quota_limits: None,
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self.database_engine = database_engine;
+        self
+    }
+
+    pub fn with_quota_limits(mut self, quota_limits: KnowledgebaseTenantQuotaLimits) -> Self {
+        self.quota_limits = Some(quota_limits);
+        self
     }
 }
 
@@ -44,6 +66,9 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
         &self,
         record: CreateKnowledgeDriveObjectRefRecord,
     ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
+        if let Some(limits) = self.quota_limits {
+            return self.create_object_ref_with_quota(record, limits).await;
+        }
         self.insert_object_ref(record).await
     }
 
@@ -51,6 +76,11 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
         &self,
         record: CreateKnowledgeDriveObjectRefRecord,
     ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
+        if let Some(limits) = self.quota_limits {
+            return self
+                .create_or_get_object_ref_with_quota(record, limits)
+                .await;
+        }
         if let Some(object_ref) = self.insert_object_ref_if_absent(record.clone()).await? {
             return Ok(object_ref);
         }
@@ -117,10 +147,117 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
 }
 
 impl SqliteKnowledgeDriveObjectRefStore {
+    async fn create_object_ref_with_quota(
+        &self,
+        record: CreateKnowledgeDriveObjectRefRecord,
+        limits: KnowledgebaseTenantQuotaLimits,
+    ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
+                .await
+                .map_err(sqlx_error)?;
+        self.ensure_storage_quota_on(&mut transaction, record.size_bytes, limits)
+            .await?;
+        let object_ref = self
+            .insert_object_ref_with_conflict_clause_on(record, "", &mut transaction)
+            .await?
+            .ok_or_else(|| {
+                KnowledgeDriveObjectRefStoreError::Internal(
+                    "failed to insert drive object ref".to_string(),
+                )
+            })?;
+        transaction.commit().await.map_err(sqlx_error)?;
+        Ok(object_ref)
+    }
+
+    async fn create_or_get_object_ref_with_quota(
+        &self,
+        record: CreateKnowledgeDriveObjectRefRecord,
+        limits: KnowledgebaseTenantQuotaLimits,
+    ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let mut transaction =
+            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
+                .await
+                .map_err(sqlx_error)?;
+
+        if let Some(object_ref) = self
+            .find_object_ref_by_locator_on(&record, &mut transaction)
+            .await?
+        {
+            transaction.commit().await.map_err(sqlx_error)?;
+            return self
+                .enrich_object_ref_drive_binding(object_ref, &record)
+                .await;
+        }
+
+        self.ensure_storage_quota_on(&mut transaction, record.size_bytes, limits)
+            .await?;
+        let object_ref = self
+            .insert_object_ref_with_conflict_clause_on(
+                record.clone(),
+                "ON CONFLICT DO NOTHING",
+                &mut transaction,
+            )
+            .await?;
+        let object_ref = match object_ref {
+            Some(object_ref) => object_ref,
+            None => self
+                .find_object_ref_by_locator_on(&record, &mut transaction)
+                .await?
+                .ok_or_else(|| {
+                    KnowledgeDriveObjectRefStoreError::Internal(
+                        "object-ref identity conflict did not resolve to an active record"
+                            .to_string(),
+                    )
+                })?,
+        };
+        transaction.commit().await.map_err(sqlx_error)?;
+        self.enrich_object_ref_drive_binding(object_ref, &record)
+            .await
+    }
+
+    async fn ensure_storage_quota_on(
+        &self,
+        connection: &mut AnyConnection,
+        additional_bytes: u64,
+        limits: KnowledgebaseTenantQuotaLimits,
+    ) -> Result<(), KnowledgeDriveObjectRefStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let total: i64 = sqlx::query_scalar(
+            "SELECT COALESCE(SUM(size_bytes), 0) FROM kb_drive_object_ref WHERE tenant_id = $1 AND status = $2",
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(connection)
+        .await
+        .map_err(sqlx_error)?;
+        let total = u64::try_from(total.max(0))
+            .map_err(|error| KnowledgeDriveObjectRefStoreError::Internal(error.to_string()))?;
+        ensure_storage_capacity(total, additional_bytes, &limits)?;
+        Ok(())
+    }
+
     async fn get_object_ref_by_locator(
         &self,
         record: &CreateKnowledgeDriveObjectRefRecord,
     ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
+        let mut connection = self.pool.acquire().await.map_err(sqlx_error)?;
+        self.find_object_ref_by_locator_on(record, &mut connection)
+            .await?
+            .ok_or_else(|| {
+                KnowledgeDriveObjectRefStoreError::Internal(
+                    "drive object ref locator did not resolve to an active record".to_string(),
+                )
+            })
+    }
+
+    async fn find_object_ref_by_locator_on(
+        &self,
+        record: &CreateKnowledgeDriveObjectRefRecord,
+        connection: &mut AnyConnection,
+    ) -> Result<Option<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", record.space_id)?;
         let row = sqlx::query(
@@ -162,11 +299,11 @@ impl SqliteKnowledgeDriveObjectRefStore {
         .bind(&record.drive_object_version)
         .bind(&record.object_role)
         .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
+        .fetch_optional(connection)
         .await
         .map_err(sqlx_error)?;
 
-        object_ref_from_row(&row)
+        row.map(|row| object_ref_from_row(&row)).transpose()
     }
 
     async fn enrich_object_ref_drive_binding(
@@ -187,13 +324,14 @@ impl SqliteKnowledgeDriveObjectRefStore {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let object_ref_id = to_i64("object_ref_id", object_ref.id)?;
         let now = now_rfc3339()?;
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$4");
+        let query = format!(
             r#"
             UPDATE kb_drive_object_ref
             SET drive_space_id = COALESCE(drive_space_id, $1),
                 drive_node_id = COALESCE(drive_node_id, $2),
                 logical_path = COALESCE(logical_path, $3),
-                updated_at = CAST($4 AS TIMESTAMP),
+                updated_at = {updated_at_expr},
                 version = version + 1
             WHERE tenant_id = $5 AND id = $6 AND status = $7
             RETURNING
@@ -214,17 +352,18 @@ impl SqliteKnowledgeDriveObjectRefStore {
                 object_role,
                 access_mode
             "#,
-        )
-        .bind(&record.drive_space_id)
-        .bind(&record.drive_node_id)
-        .bind(&record.logical_path)
-        .bind(now)
-        .bind(tenant_id)
-        .bind(object_ref_id)
-        .bind(ACTIVE_STATUS)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        let row = sqlx::query(&query)
+            .bind(&record.drive_space_id)
+            .bind(&record.drive_node_id)
+            .bind(&record.logical_path)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(object_ref_id)
+            .bind(ACTIVE_STATUS)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         object_ref_from_row(&row)
     }
@@ -302,11 +441,24 @@ impl SqliteKnowledgeDriveObjectRefStore {
         record: CreateKnowledgeDriveObjectRefRecord,
         conflict_clause: &str,
     ) -> Result<Option<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
+        let mut connection = self.pool.acquire().await.map_err(sqlx_error)?;
+        self.insert_object_ref_with_conflict_clause_on(record, conflict_clause, &mut connection)
+            .await
+    }
+
+    async fn insert_object_ref_with_conflict_clause_on(
+        &self,
+        record: CreateKnowledgeDriveObjectRefRecord,
+        conflict_clause: &str,
+        connection: &mut AnyConnection,
+    ) -> Result<Option<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let space_id = to_i64("space_id", record.space_id)?;
         let size_bytes = to_i64("size_bytes", record.size_bytes)?;
         let id = next_i64_id(&self.id_generator).map_err(id_error)?;
         let now = now_rfc3339()?;
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$20");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$21");
         let query = format!(
             r#"
             INSERT INTO kb_drive_object_ref (
@@ -333,7 +485,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 0)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, {created_at_expr}, {updated_at_expr}, 0)
             {conflict_clause}
             RETURNING
                 id,
@@ -377,7 +529,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
             .bind(ACTIVE_STATUS)
             .bind(now.clone())
             .bind(now)
-            .fetch_optional(&self.pool)
+            .fetch_optional(connection)
             .await
             .map_err(sqlx_error)?;
 

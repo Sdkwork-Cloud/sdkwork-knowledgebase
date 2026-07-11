@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_store::{
     KnowledgeOkfCandidateListItem, KnowledgeOkfCandidateStore, KnowledgeOkfCandidateStoreError,
     UpsertKnowledgeOkfCandidateRecord,
@@ -7,6 +8,7 @@ use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sqlx::AnyPool;
 use std::sync::Arc;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, KnowledgeIdGenerator};
 use crate::sqlite_okf_candidate_transaction::{
     update_okf_candidate_state_by_concept_row_id_in_transaction,
@@ -20,6 +22,7 @@ pub struct SqliteKnowledgeOkfCandidateStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeOkfCandidateStore {
@@ -36,7 +39,13 @@ impl SqliteKnowledgeOkfCandidateStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 }
 
@@ -51,6 +60,7 @@ impl KnowledgeOkfCandidateStore for SqliteKnowledgeOkfCandidateStore {
             &mut transaction,
             self.tenant_id,
             &self.id_generator,
+            self.timestamp_dialect,
             record,
         )
         .await?;
@@ -69,6 +79,7 @@ impl KnowledgeOkfCandidateStore for SqliteKnowledgeOkfCandidateStore {
         update_okf_candidate_state_by_concept_row_id_in_transaction(
             &mut transaction,
             self.tenant_id,
+            self.timestamp_dialect,
             concept_row_id,
             state,
             reviewer_id,

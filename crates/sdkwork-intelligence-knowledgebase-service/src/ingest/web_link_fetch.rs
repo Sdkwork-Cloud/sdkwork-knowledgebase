@@ -1,10 +1,12 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use reqwest::header::{HOST, LOCATION};
+use crate::bounded_http_body::{read_bounded_http_body, BoundedHttpBodyError};
+use reqwest::header::LOCATION;
 use reqwest::redirect::Policy;
 use reqwest::Url;
 use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
+use url::Host;
 
 const MAX_WEB_LINK_BYTES: usize = 512 * 1024;
 const MAX_WEB_LINK_REDIRECTS: usize = 5;
@@ -22,18 +24,11 @@ pub async fn fetch_web_link_markdown(
     title_hint: &str,
 ) -> Result<String, WebLinkFetchError> {
     let url = validate_public_http_url(source_url)?;
-    ensure_public_resolved_target(&url).await?;
-
-    let client = reqwest::Client::builder()
-        .redirect(Policy::none())
-        .timeout(std::time::Duration::from_secs(20))
-        .build()
-        .map_err(|error| WebLinkFetchError::Upstream(error.to_string()))?;
 
     let mut current_url = url;
     let mut response = None;
     for redirect_count in 0..=MAX_WEB_LINK_REDIRECTS {
-        let next = send_pinned_get(&client, &current_url).await?;
+        let next = send_pinned_get(&current_url).await?;
 
         if next.status().is_redirection() {
             if redirect_count == MAX_WEB_LINK_REDIRECTS {
@@ -54,7 +49,6 @@ pub async fn fetch_web_link_markdown(
                 WebLinkFetchError::InvalidRequest(format!("invalid redirect location: {error}"))
             })?;
             validate_public_http_url(current_url.as_str())?;
-            ensure_public_resolved_target(&current_url).await?;
             continue;
         }
 
@@ -80,16 +74,9 @@ pub async fn fetch_web_link_markdown(
         .unwrap_or("")
         .to_ascii_lowercase();
 
-    let bytes = response
-        .bytes()
+    let bytes = read_bounded_http_body(response, MAX_WEB_LINK_BYTES)
         .await
-        .map_err(|error| WebLinkFetchError::Upstream(error.to_string()))?;
-    if bytes.len() > MAX_WEB_LINK_BYTES {
-        return Err(WebLinkFetchError::InvalidRequest(format!(
-            "web page exceeds {} KB import limit",
-            MAX_WEB_LINK_BYTES / 1024
-        )));
-    }
+        .map_err(map_web_body_error)?;
 
     let body = String::from_utf8_lossy(&bytes).trim().to_string();
     if is_blank(Some(body.as_str())) {
@@ -105,23 +92,11 @@ pub async fn fetch_web_link_markdown(
     Ok(body)
 }
 
-async fn ensure_public_resolved_target(url: &Url) -> Result<(), WebLinkFetchError> {
-    resolve_public_socket_addr(url).await.map(|_| ())
-}
-
-async fn send_pinned_get(
-    client: &reqwest::Client,
-    url: &Url,
-) -> Result<reqwest::Response, WebLinkFetchError> {
-    let host = url.host_str().ok_or_else(|| {
-        WebLinkFetchError::InvalidRequest("source_url host is required".to_string())
-    })?;
+async fn send_pinned_get(url: &Url) -> Result<reqwest::Response, WebLinkFetchError> {
     let socket = resolve_public_socket_addr(url).await?;
-    let pinned_url = pinned_request_url(url, socket)?;
+    let request = pinned_get_request(url, socket)?;
 
-    client
-        .get(pinned_url)
-        .header(HOST, host)
+    request
         .header(
             reqwest::header::USER_AGENT,
             "SDKWork-Knowledgebase-Ingest/1.0",
@@ -131,20 +106,50 @@ async fn send_pinned_get(
         .map_err(|error| WebLinkFetchError::Upstream(error.to_string()))
 }
 
-async fn resolve_public_socket_addr(url: &Url) -> Result<SocketAddr, WebLinkFetchError> {
-    let host = url.host_str().ok_or_else(|| {
-        WebLinkFetchError::InvalidRequest("source_url host is required".to_string())
-    })?;
-    let port = url.port_or_known_default().unwrap_or(443);
-
-    if let Ok(ip) = host.parse::<IpAddr>() {
-        if is_blocked_ip(ip) {
+fn pinned_get_request(
+    url: &Url,
+    socket: SocketAddr,
+) -> Result<reqwest::RequestBuilder, WebLinkFetchError> {
+    let client_builder = reqwest::Client::builder()
+        .redirect(Policy::none())
+        .timeout(std::time::Duration::from_secs(20));
+    let client_builder = match url.host() {
+        Some(Host::Domain(host)) => client_builder.resolve(host, socket),
+        Some(Host::Ipv4(_) | Host::Ipv6(_)) => client_builder,
+        None => {
             return Err(WebLinkFetchError::InvalidRequest(
-                "source_url must not target private or loopback addresses".to_string(),
+                "source_url host is required".to_string(),
             ));
         }
-        return Ok(SocketAddr::new(ip, port));
+    };
+    let client = client_builder
+        .build()
+        .map_err(|error| WebLinkFetchError::Upstream(error.to_string()))?;
+    Ok(client.get(url.clone()))
+}
+
+fn map_web_body_error(error: BoundedHttpBodyError) -> WebLinkFetchError {
+    match error {
+        BoundedHttpBodyError::TooLarge { .. } => WebLinkFetchError::InvalidRequest(format!(
+            "web page exceeds {} KB import limit",
+            MAX_WEB_LINK_BYTES / 1024
+        )),
+        BoundedHttpBodyError::Read(error) => WebLinkFetchError::Upstream(error.to_string()),
     }
+}
+
+async fn resolve_public_socket_addr(url: &Url) -> Result<SocketAddr, WebLinkFetchError> {
+    let port = url.port_or_known_default().unwrap_or(443);
+    let host = match url.host() {
+        Some(Host::Ipv4(ip)) => return validated_socket_addr(IpAddr::V4(ip), port),
+        Some(Host::Ipv6(ip)) => return validated_socket_addr(IpAddr::V6(ip), port),
+        Some(Host::Domain(host)) => host,
+        None => {
+            return Err(WebLinkFetchError::InvalidRequest(
+                "source_url host is required".to_string(),
+            ));
+        }
+    };
 
     let authority = format!("{host}:{port}");
     let mut addresses = tokio::net::lookup_host(authority.as_str())
@@ -156,18 +161,19 @@ async fn resolve_public_socket_addr(url: &Url) -> Result<SocketAddr, WebLinkFetc
         .find(|address| !is_blocked_ip(address.ip()))
         .ok_or_else(|| {
             WebLinkFetchError::InvalidRequest(
-                "source_url resolves only to private or loopback addresses".to_string(),
+                "source_url resolves only to private or non-public addresses".to_string(),
             )
         })
 }
 
-fn pinned_request_url(url: &Url, socket: SocketAddr) -> Result<Url, WebLinkFetchError> {
-    let mut pinned = url.clone();
-    pinned.set_ip_host(socket.ip()).map_err(|_| {
-        WebLinkFetchError::InvalidRequest("invalid pinned source_url host".to_string())
-    })?;
-    let _ = pinned.set_port(Some(socket.port()));
-    Ok(pinned)
+fn validated_socket_addr(ip: IpAddr, port: u16) -> Result<SocketAddr, WebLinkFetchError> {
+    if is_blocked_ip(ip) {
+        Err(WebLinkFetchError::InvalidRequest(
+            "source_url must not target private or non-public addresses".to_string(),
+        ))
+    } else {
+        Ok(SocketAddr::new(ip, port))
+    }
 }
 
 pub fn validate_public_http_url(raw: &str) -> Result<Url, WebLinkFetchError> {
@@ -190,18 +196,26 @@ pub fn validate_public_http_url(raw: &str) -> Result<Url, WebLinkFetchError> {
         }
     }
 
-    let host = url.host_str().ok_or_else(|| {
-        WebLinkFetchError::InvalidRequest("source_url host is required".to_string())
-    })?;
-    if is_blocked_hostname(host) {
-        return Err(WebLinkFetchError::InvalidRequest(
-            "source_url host is not allowed".to_string(),
-        ));
-    }
-    if let Ok(ip) = host.parse::<IpAddr>() {
-        if is_blocked_ip(ip) {
+    match url.host() {
+        Some(Host::Domain(host)) if is_blocked_hostname(host) => {
             return Err(WebLinkFetchError::InvalidRequest(
-                "source_url must not target private or loopback addresses".to_string(),
+                "source_url host is not allowed".to_string(),
+            ));
+        }
+        Some(Host::Ipv4(ip)) if is_blocked_ip(IpAddr::V4(ip)) => {
+            return Err(WebLinkFetchError::InvalidRequest(
+                "source_url must not target private or non-public addresses".to_string(),
+            ));
+        }
+        Some(Host::Ipv6(ip)) if is_blocked_ip(IpAddr::V6(ip)) => {
+            return Err(WebLinkFetchError::InvalidRequest(
+                "source_url must not target private or non-public addresses".to_string(),
+            ));
+        }
+        Some(_) => {}
+        None => {
+            return Err(WebLinkFetchError::InvalidRequest(
+                "source_url host is required".to_string(),
             ));
         }
     }
@@ -240,19 +254,35 @@ fn is_blocked_ipv4(ip: Ipv4Addr) -> bool {
     if ip.is_loopback() {
         return false;
     }
-    ip.is_loopback()
+    let [first, second, third, _] = ip.octets();
+    ip.is_unspecified()
         || ip.is_private()
+        || ip.is_loopback()
         || ip.is_link_local()
-        || ip.is_unspecified()
         || ip.is_broadcast()
-        || ip.octets()[0] == 0
+        || ip.is_documentation()
+        || ip.is_multicast()
+        || first == 0
+        || (first == 100 && (64..=127).contains(&second))
+        || (first == 192 && second == 0 && third == 0)
+        || (first == 192 && second == 88 && third == 99)
+        || (first == 198 && matches!(second, 18 | 19))
+        || first >= 240
 }
 
 fn is_blocked_ipv6(ip: Ipv6Addr) -> bool {
-    ip.is_loopback()
-        || ip.is_unspecified()
-        || ip.segments()[0] & 0xfe00 == 0xfc00
-        || ip.segments()[0] & 0xffc0 == 0xfe80
+    let segments = ip.segments();
+    let is_global_unicast_prefix = segments[0] & 0xe000 == 0x2000;
+    let is_ietf_special = segments[0] == 0x2001 && segments[1] <= 0x01ff;
+    let is_documentation = segments[0] == 0x2001 && segments[1] == 0x0db8;
+    let is_6to4 = segments[0] == 0x2002;
+    let is_extended_documentation = segments[0] == 0x3fff && segments[1] & 0xfff0 == 0;
+
+    !is_global_unicast_prefix
+        || is_ietf_special
+        || is_documentation
+        || is_6to4
+        || is_extended_documentation
 }
 
 fn html_to_markdown(html: &str, page_url: &str, title_hint: &str) -> String {
@@ -342,9 +372,26 @@ mod tests {
     fn validate_public_http_url_rejects_private_hosts() {
         assert!(validate_public_http_url("http://10.0.0.1/test").is_err());
         assert!(validate_public_http_url("http://192.168.1.1/test").is_err());
+        assert!(validate_public_http_url("http://100.64.0.1/test").is_err());
+        assert!(validate_public_http_url("http://198.18.0.1/test").is_err());
+        assert!(validate_public_http_url("http://224.0.0.1/test").is_err());
+        assert!(validate_public_http_url("http://[2001:db8::1]/test").is_err());
         assert!(validate_public_http_url("http://metadata.google.internal/test").is_err());
         assert!(validate_public_http_url("ftp://example.com/test").is_err());
         assert!(validate_public_http_url("https://example.com/article").is_ok());
+    }
+
+    #[test]
+    fn pinned_request_url_preserves_https_hostname_for_tls_identity() {
+        let url = Url::parse("https://example.com/article").expect("valid URL");
+        let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)), 443);
+
+        let request = pinned_get_request(&url, socket)
+            .expect("request builder")
+            .build()
+            .expect("request");
+
+        assert_eq!(request.url().host_str(), Some("example.com"));
     }
 
     #[test]
@@ -377,5 +424,52 @@ mod tests {
 
         assert!(markdown.contains("Hello from web"));
         assert!(markdown.contains("Example Article"));
+    }
+
+    #[tokio::test]
+    async fn fetch_web_link_markdown_rejects_declared_oversize_before_reading_body() {
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
+            .await
+            .expect("bind test server");
+        let address = listener.local_addr().expect("test server address");
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.expect("accept request");
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 1024];
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                socket.readable().await.expect("socket readable");
+                match socket.try_read(&mut buffer) {
+                    Ok(0) => break,
+                    Ok(count) => request.extend_from_slice(&buffer[..count]),
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => continue,
+                    Err(error) => panic!("read request: {error}"),
+                }
+            }
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                MAX_WEB_LINK_BYTES + 1
+            );
+            let mut written = 0;
+            while written < response.len() {
+                socket.writable().await.expect("socket writable");
+                match socket.try_write(&response.as_bytes()[written..]) {
+                    Ok(0) => panic!("socket closed while writing response headers"),
+                    Ok(count) => written += count,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => continue,
+                    Err(error) => panic!("write response headers: {error}"),
+                }
+            }
+        });
+
+        let error = fetch_web_link_markdown(&format!("http://{address}/oversize"), "Oversize")
+            .await
+            .expect_err("declared oversized body must be rejected");
+        server.await.expect("test server task");
+
+        assert!(
+            matches!(error, WebLinkFetchError::InvalidRequest(_)),
+            "unexpected error: {error:?}"
+        );
+        assert!(error.to_string().contains("import limit"));
     }
 }

@@ -92,13 +92,7 @@ impl HostedBackendApi {
                 idempotency_fingerprint_sha256_hex: None,
             })
             .await
-            .map_err(|error| map_internal(error.to_string()))?;
-
-        if result.created {
-            crate::tenant_quota_enforcement::verify_ingest_capacity_after_enqueue(&self.runtime)
-                .await
-                .map_err(|error| error.to_backend_api_error())?;
-        }
+            .map_err(|error| crate::ApiError::from(error).to_backend_api_error())?;
 
         let mut job = result.job;
         if job.state != IngestionJobState::Queued {

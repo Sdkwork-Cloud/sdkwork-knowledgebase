@@ -8,10 +8,14 @@ import {
 
 import type { KnowledgeBase } from './document';
 import { normalizeSdkWorkListPage } from './sdkWorkListPage';
+import {
+  KNOWLEDGE_AGENT_DEFAULT_UI_PROVIDER,
+  KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID,
+  KNOWLEDGE_AGENT_RIG_IMPLEMENTATION_ID,
+  KNOWLEDGE_AGENT_RIG_MODEL_PROVIDER_ID,
+} from './knowledgeAgentDefaults';
 
 const SPACE_AGENT_PROFILE_PREFIX = 'sdkwork.knowledgebase.spaceAgentProfile.v1';
-const DEFAULT_MODEL_PROVIDER_ID = 'provider.model.knowledgebase-contract';
-const DEFAULT_AGENT_IMPLEMENTATION_ID = 'plugin.intelligence.knowledgebase-contract';
 const GUEST_CONTEXT_BINDING_ID = 'pc-knowledgebase-guest-link';
 const GUEST_CONTEXT_BINDING_NAME = 'PC Guest Link';
 
@@ -70,7 +74,7 @@ function toBackendModelId(provider?: string, modelName?: string): string {
   if (provider === 'OpenAI') {
     return 'gpt-4o-mini';
   }
-  return 'contract';
+  return KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID;
 }
 
 function mapAccessLevel(
@@ -87,6 +91,14 @@ function resolveGuestContextId(): string {
   return `tenant-${tenantId}`;
 }
 
+function isLegacyContractProfile(profile: {
+  agentImplementationId?: string | null;
+  modelProviderId?: string | null;
+}): boolean {
+  return profile.agentImplementationId === 'plugin.intelligence.knowledgebase-contract'
+    || profile.modelProviderId === 'provider.model.knowledgebase-contract';
+}
+
 export async function ensureSpaceAgentProfile(spaceId: string): Promise<string> {
   const tenantId = requireKnowledgebaseTenantId();
 
@@ -94,7 +106,31 @@ export async function ensureSpaceAgentProfile(spaceId: string): Promise<string> 
   const client = getKnowledgebaseAppSdkClient().client;
   if (cached && !isBlank(cached)) {
     try {
-      await client.knowledge.agentProfiles.retrieve(cached);
+      const profile = await client.knowledge.agentProfiles.retrieve(cached);
+      if (isLegacyContractProfile(profile)) {
+        const existingParams = parseModelParameters(profile.modelParameters);
+        await client.knowledge.agentProfiles.update(cached, {
+          name: profile.name,
+          description: profile.description,
+          systemInstruction: profile.systemInstruction,
+          modelProviderId: KNOWLEDGE_AGENT_RIG_MODEL_PROVIDER_ID,
+          modelId: KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID,
+          modelParameters: JSON.stringify({
+            temperature: existingParams.temperature,
+            maxTokens: existingParams.maxTokens,
+            uiProvider: KNOWLEDGE_AGENT_DEFAULT_UI_PROVIDER,
+            uiModelName: KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID,
+          }),
+          retrievalProfileId: profile.retrievalProfileId,
+          citationPolicy: profile.citationPolicy,
+          memoryPolicyRef: profile.memoryPolicyRef,
+          toolPolicyRef: profile.toolPolicyRef,
+          answerPolicy: profile.answerPolicy,
+          knowledgeMode: profile.knowledgeMode ?? 'okf_bundle',
+          agentImplementationId: KNOWLEDGE_AGENT_RIG_IMPLEMENTATION_ID,
+          status: profile.status,
+        });
+      }
       return cached;
     } catch {
       // Stale cache entry; recreate profile.
@@ -106,15 +142,15 @@ export async function ensureSpaceAgentProfile(spaceId: string): Promise<string> 
     description: 'PC knowledge space assistant profile',
     systemInstruction:
       'You are a helpful knowledge assistant for this knowledge space. Answer accurately and cite sources when available.',
-    modelProviderId: DEFAULT_MODEL_PROVIDER_ID,
-    modelId: 'contract',
+    modelProviderId: KNOWLEDGE_AGENT_RIG_MODEL_PROVIDER_ID,
+    modelId: KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID,
     modelParameters: JSON.stringify({
       temperature: 0.7,
       maxTokens: 2048,
-      uiProvider: 'Google',
-      uiModelName: 'gemini-3.5-flash',
+      uiProvider: KNOWLEDGE_AGENT_DEFAULT_UI_PROVIDER,
+      uiModelName: KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID,
     }),
-    agentImplementationId: DEFAULT_AGENT_IMPLEMENTATION_ID,
+    agentImplementationId: KNOWLEDGE_AGENT_RIG_IMPLEMENTATION_ID,
     knowledgeMode: 'okf_bundle',
     status: 'active',
   });
@@ -143,8 +179,8 @@ export async function loadKnowledgeSpaceModelSettings(
   const params = parseModelParameters(profile.modelParameters);
 
   return {
-    provider: params.uiProvider ?? 'Google',
-    modelName: params.uiModelName ?? profile.modelId ?? 'gemini-3.5-flash',
+    provider: params.uiProvider ?? KNOWLEDGE_AGENT_DEFAULT_UI_PROVIDER,
+    modelName: params.uiModelName ?? profile.modelId ?? KNOWLEDGE_AGENT_RIG_DEFAULT_MODEL_ID,
     temperature: params.temperature ?? 0.7,
     maxTokens: params.maxTokens ?? 2048,
     systemPrompt: profile.systemInstruction,
@@ -164,7 +200,7 @@ export async function applyKnowledgeSpaceModelSettings(
     name: existing.name,
     description: existing.description,
     systemInstruction: updates.systemPrompt ?? existing.systemInstruction,
-    modelProviderId: DEFAULT_MODEL_PROVIDER_ID,
+    modelProviderId: KNOWLEDGE_AGENT_RIG_MODEL_PROVIDER_ID,
     modelId: toBackendModelId(
       updates.provider ?? existingParams.uiProvider,
       updates.modelName ?? existingParams.uiModelName ?? existing.modelId,
@@ -176,7 +212,7 @@ export async function applyKnowledgeSpaceModelSettings(
     toolPolicyRef: existing.toolPolicyRef,
     answerPolicy: existing.answerPolicy,
     knowledgeMode: existing.knowledgeMode ?? 'okf_bundle',
-    agentImplementationId: existing.agentImplementationId ?? DEFAULT_AGENT_IMPLEMENTATION_ID,
+    agentImplementationId: KNOWLEDGE_AGENT_RIG_IMPLEMENTATION_ID,
     status: existing.status,
   });
 }

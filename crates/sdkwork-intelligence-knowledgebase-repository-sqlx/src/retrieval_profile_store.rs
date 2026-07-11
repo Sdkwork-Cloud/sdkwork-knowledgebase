@@ -1,3 +1,4 @@
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
 };
@@ -8,6 +9,7 @@ use thiserror::Error;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const ACTIVE_STATUS: i64 = 1;
@@ -24,6 +26,7 @@ pub struct SqliteKnowledgeRetrievalProfileStore {
     pool: AnyPool,
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeRetrievalProfileStore {
@@ -40,7 +43,13 @@ impl SqliteKnowledgeRetrievalProfileStore {
             pool,
             tenant_id,
             id_generator,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
+        self
     }
 
     pub async fn create_profile(
@@ -61,33 +70,36 @@ impl SqliteKnowledgeRetrievalProfileStore {
         let context_budget_tokens = i64::from(request.context_budget_tokens);
         let now = now_rfc3339()?;
 
-        let row = sqlx::query(
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$11");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let query = format!(
             r#"
             INSERT INTO kb_retrieval_profile (
                 id, uuid, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                 context_budget_tokens, status, created_at, updated_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, {created_at_expr}, {updated_at_expr}, $13)
             RETURNING id, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                       context_budget_tokens, status
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(request.name)
-        .bind(request.strategy)
-        .bind(top_k)
-        .bind(request.min_score)
-        .bind(rerank_enabled)
-        .bind(context_budget_tokens)
-        .bind(profile_status_code(&request.status))
-        .bind(now.clone())
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        let row = sqlx::query(&query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(request.name)
+            .bind(request.strategy)
+            .bind(top_k)
+            .bind(request.min_score)
+            .bind(rerank_enabled)
+            .bind(context_budget_tokens)
+            .bind(profile_status_code(&request.status))
+            .bind(now.clone())
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         profile_from_row(&row)
     }
@@ -135,35 +147,37 @@ impl SqliteKnowledgeRetrievalProfileStore {
         let context_budget_tokens = i64::from(request.context_budget_tokens);
         let now = now_rfc3339()?;
 
-        let row = sqlx::query(
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$8");
+        let query = format!(
             r#"
             UPDATE kb_retrieval_profile
             SET name = $1, strategy = $2, top_k = $3, min_score = $4, rerank_enabled = $5,
-                context_budget_tokens = $6, status = $7, updated_at = CAST($8 AS TIMESTAMP), version = version + 1
+                context_budget_tokens = $6, status = $7, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $9 AND id = $10 AND status = $11
             RETURNING id, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                       context_budget_tokens, status
             "#,
-        )
-        .bind(request.name)
-        .bind(request.strategy)
-        .bind(top_k)
-        .bind(request.min_score)
-        .bind(rerank_enabled)
-        .bind(context_budget_tokens)
-        .bind(profile_status_code(&request.status))
-        .bind(now)
-        .bind(tenant_id)
-        .bind(profile_id)
-        .bind(ACTIVE_STATUS)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(sqlx_error)?
-        .ok_or_else(|| {
-            KnowledgeRetrievalProfileStoreError::Internal(format!(
-                "missing retrieval profile: {profile_id}"
-            ))
-        })?;
+        );
+        let row = sqlx::query(&query)
+            .bind(request.name)
+            .bind(request.strategy)
+            .bind(top_k)
+            .bind(request.min_score)
+            .bind(rerank_enabled)
+            .bind(context_budget_tokens)
+            .bind(profile_status_code(&request.status))
+            .bind(now)
+            .bind(tenant_id)
+            .bind(profile_id)
+            .bind(ACTIVE_STATUS)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(sqlx_error)?
+            .ok_or_else(|| {
+                KnowledgeRetrievalProfileStoreError::Internal(format!(
+                    "missing retrieval profile: {profile_id}"
+                ))
+            })?;
 
         profile_from_row(&row)
     }

@@ -23,11 +23,12 @@ base64 = "0.22"
 hmac = "0.12"
 thiserror.workspace = true
 time.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "macros", "time"] }
 tracing = "0.1"
 uuid.workspace = true
 reqwest = { workspace = true, features = ["multipart"] }
 urlencoding = "2"
+url = "2"
 
 [dev-dependencies]
 tokio.workspace = true

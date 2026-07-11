@@ -24,6 +24,7 @@ export type { KnowledgeDocumentState } from './knowledge-document-state';
 export type { KnowledgeDocumentVersionState } from './knowledge-document-version-state';
 export type { PageInfo } from './page-info';
 export type { KnowledgeBrowserView } from './knowledge-browser-view';
+export type { KnowledgeBrowserListData } from './knowledge-browser-list-data';
 export type { KnowledgeBrowserNode } from './knowledge-browser-node';
 export type { KnowledgeBrowserNodeType } from './knowledge-browser-node-type';
 export type { KnowledgeBrowserNodePermissions } from './knowledge-browser-node-permissions';

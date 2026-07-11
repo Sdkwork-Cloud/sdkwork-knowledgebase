@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::{
     AppendOutboxEventRecord, KnowledgeOutboxStore, KnowledgeOutboxStoreError, PendingOutboxEvent,
 };
@@ -8,6 +9,7 @@ use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use uuid::Uuid;
 
+use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const OUTBOX_STATUS_PENDING: i64 = 0;
@@ -23,6 +25,7 @@ pub struct SqliteKnowledgeOutboxStore {
     tenant_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     use_postgres_skip_locked_claim: bool,
+    timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeOutboxStore {
@@ -32,6 +35,11 @@ impl SqliteKnowledgeOutboxStore {
 
     pub fn with_postgres_skip_locked_claim(mut self, enabled: bool) -> Self {
         self.use_postgres_skip_locked_claim = enabled;
+        self
+    }
+
+    pub fn with_database_engine(mut self, database_engine: DatabaseEngine) -> Self {
+        self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
         self
     }
 
@@ -45,6 +53,7 @@ impl SqliteKnowledgeOutboxStore {
             tenant_id,
             id_generator,
             use_postgres_skip_locked_claim: false,
+            timestamp_dialect: SqlTimestampDialect::default(),
         }
     }
 }
@@ -75,29 +84,32 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let aggregate_id = to_i64("aggregate_id", record.aggregate_id)?;
         let now = now_rfc3339()?;
+        let payload_expr = self.timestamp_dialect.sql_json_expr("$7");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$9");
 
-        sqlx::query(
+        let query = format!(
             r#"
             INSERT INTO kb_outbox_event (
                 id, uuid, tenant_id, aggregate_type, aggregate_id, event_type,
                 payload, status, created_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, {payload_expr}, $8, {created_at_expr}, $10)
             "#,
-        )
-        .bind(id)
-        .bind(Uuid::new_v4().to_string())
-        .bind(tenant_id)
-        .bind(record.aggregate_type)
-        .bind(aggregate_id)
-        .bind(record.event_type)
-        .bind(record.payload_json)
-        .bind(OUTBOX_STATUS_PENDING)
-        .bind(now)
-        .bind(INITIAL_VERSION)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        sqlx::query(&query)
+            .bind(id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(record.aggregate_type)
+            .bind(aggregate_id)
+            .bind(record.event_type)
+            .bind(record.payload_json)
+            .bind(OUTBOX_STATUS_PENDING)
+            .bind(now)
+            .bind(INITIAL_VERSION)
+            .execute(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         Ok(())
     }
@@ -110,7 +122,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         let limit = i64::from(limit.clamp(1, 200));
         let rows = sqlx::query(
             r#"
-            SELECT id, aggregate_type, aggregate_id, event_type, payload
+            SELECT id, aggregate_type, aggregate_id, event_type, CAST(payload AS TEXT) AS payload
             FROM kb_outbox_event
             WHERE tenant_id = $1 AND status = $2
             ORDER BY created_at ASC, id ASC
@@ -148,12 +160,13 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let limit = i64::from(limit.clamp(1, 200));
         let now = now_rfc3339()?;
+        let claimed_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
 
         let rows = if self.use_postgres_skip_locked_claim {
-            sqlx::query(
+            let query = format!(
                 r#"
                 UPDATE kb_outbox_event
-                SET status = $1, claimed_at = $2, version = version + 1
+                SET status = $1, claimed_at = {claimed_at_expr}, version = version + 1
                 WHERE id IN (
                     SELECT id
                     FROM kb_outbox_event
@@ -162,22 +175,23 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                     LIMIT $5
                     FOR UPDATE SKIP LOCKED
                 )
-                RETURNING id, aggregate_type, aggregate_id, event_type, payload
+                RETURNING id, aggregate_type, aggregate_id, event_type, CAST(payload AS TEXT) AS payload
                 "#,
-            )
-            .bind(OUTBOX_STATUS_CLAIMED)
-            .bind(&now)
-            .bind(tenant_id)
-            .bind(OUTBOX_STATUS_PENDING)
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_error)?
+            );
+            sqlx::query(&query)
+                .bind(OUTBOX_STATUS_CLAIMED)
+                .bind(&now)
+                .bind(tenant_id)
+                .bind(OUTBOX_STATUS_PENDING)
+                .bind(limit)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(sqlx_error)?
         } else {
-            sqlx::query(
+            let query = format!(
                 r#"
                 UPDATE kb_outbox_event
-                SET status = $1, claimed_at = $2, version = version + 1
+                SET status = $1, claimed_at = {claimed_at_expr}, version = version + 1
                 WHERE id IN (
                     SELECT id
                     FROM kb_outbox_event
@@ -185,17 +199,18 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                     ORDER BY created_at ASC, id ASC
                     LIMIT $5
                 )
-                RETURNING id, aggregate_type, aggregate_id, event_type, payload
+                RETURNING id, aggregate_type, aggregate_id, event_type, CAST(payload AS TEXT) AS payload
                 "#,
-            )
-            .bind(OUTBOX_STATUS_CLAIMED)
-            .bind(&now)
-            .bind(tenant_id)
-            .bind(OUTBOX_STATUS_PENDING)
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(sqlx_error)?
+            );
+            sqlx::query(&query)
+                .bind(OUTBOX_STATUS_CLAIMED)
+                .bind(&now)
+                .bind(tenant_id)
+                .bind(OUTBOX_STATUS_PENDING)
+                .bind(limit)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(sqlx_error)?
         };
 
         rows.into_iter()
@@ -221,24 +236,26 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         let cutoff = cutoff
             .format(&Rfc3339)
             .map_err(|error| KnowledgeOutboxStoreError::Internal(error.to_string()))?;
+        let cutoff_expr = self.timestamp_dialect.sql_timestamp_expr("$4");
 
-        let updated = sqlx::query(
+        let query = format!(
             r#"
             UPDATE kb_outbox_event
             SET status = $1, claimed_at = NULL, version = version + 1
             WHERE tenant_id = $2
               AND status = $3
               AND claimed_at IS NOT NULL
-              AND claimed_at < $4
+              AND claimed_at < {cutoff_expr}
             "#,
-        )
-        .bind(OUTBOX_STATUS_PENDING)
-        .bind(tenant_id)
-        .bind(OUTBOX_STATUS_CLAIMED)
-        .bind(cutoff)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        let updated = sqlx::query(&query)
+            .bind(OUTBOX_STATUS_PENDING)
+            .bind(tenant_id)
+            .bind(OUTBOX_STATUS_CLAIMED)
+            .bind(cutoff)
+            .execute(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         Ok(updated.rows_affected() as usize)
     }
@@ -247,21 +264,23 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let event_id = to_i64("event_id", event_id)?;
         let now = now_rfc3339()?;
-        let updated = sqlx::query(
+        let published_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let query = format!(
             r#"
             UPDATE kb_outbox_event
-            SET status = $1, published_at = $2, claimed_at = NULL, version = version + 1
+            SET status = $1, published_at = {published_at_expr}, claimed_at = NULL, version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5
             "#,
-        )
-        .bind(OUTBOX_STATUS_PUBLISHED)
-        .bind(now)
-        .bind(tenant_id)
-        .bind(event_id)
-        .bind(OUTBOX_STATUS_CLAIMED)
-        .execute(&self.pool)
-        .await
-        .map_err(sqlx_error)?;
+        );
+        let updated = sqlx::query(&query)
+            .bind(OUTBOX_STATUS_PUBLISHED)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(event_id)
+            .bind(OUTBOX_STATUS_CLAIMED)
+            .execute(&self.pool)
+            .await
+            .map_err(sqlx_error)?;
 
         if updated.rows_affected() == 0 {
             return Err(KnowledgeOutboxStoreError::InvalidRequest(format!(

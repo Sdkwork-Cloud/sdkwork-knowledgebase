@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
-    IngestionJob, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument,
-    KnowledgeIngestRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
+    IngestionJob, KnowledgeBrowserListData, KnowledgeContextPack, KnowledgeContextPackRequest,
+    KnowledgeDocument, KnowledgeIngestRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
     ListKnowledgeBrowserRequest,
 };
 use sdkwork_routes_knowledgebase_open_api::{
@@ -171,9 +171,7 @@ impl KnowledgeOpenApi for HostedOpenApi {
         &self,
         context: KnowledgeOpenApiRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> OpenApiResult<
-        sdkwork_utils_rust::SdkWorkPageData<sdkwork_knowledgebase_contract::KnowledgeBrowserNode>,
-    > {
+    ) -> OpenApiResult<KnowledgeBrowserListData> {
         self.ensure_tenant(&context)?;
         Self::map_error(
             self.browser

@@ -166,6 +166,8 @@ impl KnowledgebaseRuntime {
         database_engine: sdkwork_database_config::DatabaseEngine,
     ) -> Self {
         let tenant_id_str = tenant_id.to_string();
+        let quota_limits =
+            sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits::from_env();
         let object_store = Arc::new(LocalDriveObjectStore::new(drive_storage_root));
         let drive_storage = Arc::new(KnowledgebaseDriveStorageAdapter::new(
             object_store,
@@ -189,12 +191,15 @@ impl KnowledgebaseRuntime {
             drive_pool.clone(),
         ));
 
-        let retrieval_store = Arc::new(SqliteKnowledgeChunkRetrievalStore::with_keyword_backend(
-            pool.clone(),
-            tenant_id,
-            keyword_backend,
-            default_knowledge_id_generator(),
-        ));
+        let retrieval_store = Arc::new(
+            SqliteKnowledgeChunkRetrievalStore::with_keyword_backend(
+                pool.clone(),
+                tenant_id,
+                keyword_backend,
+                default_knowledge_id_generator(),
+            )
+            .with_database_engine(database_engine),
+        );
 
         let base_retrieval: SharedKnowledgeRetrievalBackend = if let Some(pg_pool) = pg_pool {
             Arc::new(PgVectorLayeredRetrievalBackend::new(
@@ -218,36 +223,49 @@ impl KnowledgebaseRuntime {
                 })
                 .unwrap_or(base_retrieval);
 
-        let okf_concept_store =
-            Arc::new(SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id));
-        let space_store = Arc::new(SqliteKnowledgeSpaceStore::new(
-            pool.clone(),
-            tenant_id,
-            organization_id,
-        ));
-        let okf_bundle_file_store = Arc::new(SqliteKnowledgeOkfBundleFileStore::new(
-            pool.clone(),
-            tenant_id,
-        ));
-        let okf_concept_link_store = Arc::new(SqliteKnowledgeOkfConceptLinkStore::new(
-            pool.clone(),
-            tenant_id,
-        ));
-        let okf_candidate_store = Arc::new(SqliteKnowledgeOkfCandidateStore::new(
-            pool.clone(),
-            tenant_id,
-        ));
-        let okf_revision_metadata_store = Arc::new(SqliteOkfConceptRevisionMetadataStore::new(
-            pool.clone(),
-            tenant_id,
-        ));
-        let source_store = Arc::new(SqliteKnowledgeSourceStore::new(pool.clone(), tenant_id));
-        let object_ref_store = Arc::new(SqliteKnowledgeDriveObjectRefStore::new(
-            pool.clone(),
-            tenant_id,
-        ));
-        let document_store = Arc::new(SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id));
-        let index_store = Arc::new(SqliteKnowledgeIndexStore::new(pool.clone(), tenant_id));
+        let okf_concept_store = Arc::new(
+            SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id)
+                .with_database_engine(database_engine),
+        );
+        let space_store = Arc::new(
+            SqliteKnowledgeSpaceStore::new(pool.clone(), tenant_id, organization_id)
+                .with_database_engine(database_engine),
+        );
+        let okf_bundle_file_store = Arc::new(
+            SqliteKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id)
+                .with_database_engine(database_engine),
+        );
+        let okf_concept_link_store = Arc::new(
+            SqliteKnowledgeOkfConceptLinkStore::new(pool.clone(), tenant_id)
+                .with_database_engine(database_engine),
+        );
+        let okf_candidate_store = Arc::new(
+            SqliteKnowledgeOkfCandidateStore::new(pool.clone(), tenant_id)
+                .with_database_engine(database_engine),
+        );
+        let okf_revision_metadata_store = Arc::new(
+            SqliteOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id)
+                .with_database_engine(database_engine)
+                .with_quota_limits(quota_limits),
+        );
+        let source_store = Arc::new(
+            SqliteKnowledgeSourceStore::new(pool.clone(), tenant_id)
+                .with_database_engine(database_engine),
+        );
+        let object_ref_store = Arc::new(
+            SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id)
+                .with_database_engine(database_engine)
+                .with_quota_limits(quota_limits),
+        );
+        let document_store = Arc::new(
+            SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id)
+                .with_database_engine(database_engine)
+                .with_quota_limits(quota_limits),
+        );
+        let index_store = Arc::new(
+            SqliteKnowledgeIndexStore::new(pool.clone(), tenant_id)
+                .with_database_engine(database_engine),
+        );
         let embedding_store = Arc::new(SqliteKnowledgeEmbeddingStore::new(
             pool.clone(),
             tenant_id,
@@ -283,25 +301,39 @@ impl KnowledgebaseRuntime {
                 ),
         }));
 
-        let audit_event_store =
-            Arc::new(SqliteKnowledgeAuditEventStore::new(pool.clone(), tenant_id));
+        let audit_event_store = Arc::new(
+            SqliteKnowledgeAuditEventStore::new(pool.clone(), tenant_id)
+                .with_database_engine(database_engine),
+        );
         let audit_hook_store = audit_event_store.clone();
-        sdkwork_knowledgebase_observability::install_audit_persistence(Arc::new(move |event| {
-            audit_hook_store.record(KnowledgeAuditEventRecord {
-                id: None,
-                uuid: None,
-                event_type: event.event_type,
-                actor_type: event.actor_type,
-                actor_id: event.actor_id,
-                resource_type: event.resource_type,
-                resource_id: event.resource_id,
-                result: event.result,
-                request_id: None,
-                trace_id: None,
-                payload: event.payload,
-                created_at: None,
-            });
-        }));
+        sdkwork_knowledgebase_observability::install_audit_persistence(move |event| {
+            let audit_hook_store = audit_hook_store.clone();
+            async move {
+                let trace_id =
+                    sdkwork_knowledgebase_observability::request_correlation::current_request_id();
+                audit_hook_store
+                    .record(KnowledgeAuditEventRecord {
+                        id: None,
+                        uuid: None,
+                        event_type: event.event_type,
+                        actor_type: event.actor_type,
+                        actor_id: event.actor_id,
+                        resource_type: event.resource_type,
+                        resource_id: event.resource_id,
+                        result: event.result,
+                        request_id: None,
+                        trace_id,
+                        payload: event.payload,
+                        created_at: None,
+                    })
+                    .await
+                    .map_err(|error| {
+                        sdkwork_knowledgebase_observability::AuditPersistenceError::write_failed(
+                            error.to_string(),
+                        )
+                    })
+            }
+        });
 
         Self {
             retrieval_store,
@@ -309,13 +341,15 @@ impl KnowledgebaseRuntime {
             retrieval_profile_store: Arc::new(SqliteKnowledgeRetrievalProfileStore::new(
                 pool.clone(),
                 tenant_id,
-            )),
+            )
+            .with_database_engine(database_engine)),
             index_store,
             embedding_store,
             agent_store: Arc::new(SqliteKnowledgeAgentProfileStore::new(
                 pool.clone(),
                 tenant_id,
-            )),
+            )
+            .with_database_engine(database_engine)),
             space_store,
             okf_bundle_file_store,
             okf_concept_store,
@@ -326,26 +360,35 @@ impl KnowledgebaseRuntime {
             version_store: Arc::new(SqliteKnowledgeDocumentVersionStore::new(
                 pool.clone(),
                 tenant_id,
-            )),
+            )
+            .with_database_engine(database_engine)),
             object_ref_store,
             ingestion_job_store: Arc::new(SqliteIngestionJobStore::with_keyword_backend(
                 pool.clone(),
                 tenant_id,
                 keyword_backend,
                 default_knowledge_id_generator(),
-            )),
+            )
+            .with_database_engine(database_engine)
+            .with_quota_limits(quota_limits)),
             drive_import_metadata_store: Arc::new(SqliteDriveImportMetadataStore::new(
                 pool.clone(),
                 tenant_id,
-            )),
+            )
+            .with_database_engine(database_engine)
+            .with_quota_limits(quota_limits)),
             markdown_index_metadata_store: Arc::new(SqliteMarkdownIndexMetadataStore::new(
                 pool.clone(),
                 tenant_id,
-            )),
+            )
+            .with_database_engine(database_engine)
+            .with_quota_limits(quota_limits)),
             outbox_store: Arc::new(
-                SqliteKnowledgeOutboxStore::new(pool.clone(), tenant_id).with_postgres_skip_locked_claim(
-                    database_engine == sdkwork_database_config::DatabaseEngine::Postgres,
-                ),
+                SqliteKnowledgeOutboxStore::new(pool.clone(), tenant_id)
+                    .with_database_engine(database_engine)
+                    .with_postgres_skip_locked_claim(
+                        database_engine == sdkwork_database_config::DatabaseEngine::Postgres,
+                    ),
             ),
             outbox_dispatcher:
                 sdkwork_intelligence_knowledgebase_service::outbox::knowledge_outbox_dispatcher_from_env(),
@@ -355,7 +398,9 @@ impl KnowledgebaseRuntime {
                 keyword_backend,
                 default_knowledge_id_generator(),
             )),
-            context_binding_store: Arc::new(SqliteContextBindingStore::new(pool.clone())),
+            context_binding_store: Arc::new(
+                SqliteContextBindingStore::new(pool.clone()).with_database_engine(database_engine),
+            ),
             browser_projection_store: Arc::new(SqliteKnowledgeBrowserProjectionStore::new(
                 pool.clone(),
                 tenant_id,
@@ -373,7 +418,9 @@ impl KnowledgebaseRuntime {
             drive_workspace,
             access_control,
             knowledge_engines,
-            commerce_store: Arc::new(SqliteCommerceStore::new(pool.clone())),
+            commerce_store: Arc::new(
+                SqliteCommerceStore::new(pool.clone()).with_database_engine(database_engine),
+            ),
         }
     }
 
@@ -387,18 +434,6 @@ impl KnowledgebaseRuntime {
 
     pub fn organization_id(&self) -> u64 {
         self.organization_id
-    }
-
-    pub(crate) fn arc_agent_store(&self) -> Arc<SqliteKnowledgeAgentProfileStore> {
-        self.agent_store.clone()
-    }
-
-    pub(crate) fn arc_retrieval_profile_store(&self) -> Arc<SqliteKnowledgeRetrievalProfileStore> {
-        self.retrieval_profile_store.clone()
-    }
-
-    pub(crate) fn arc_space_store(&self) -> Arc<SqliteKnowledgeSpaceStore> {
-        self.space_store.clone()
     }
 
     pub(crate) fn commerce_store(&self) -> &SqliteCommerceStore {

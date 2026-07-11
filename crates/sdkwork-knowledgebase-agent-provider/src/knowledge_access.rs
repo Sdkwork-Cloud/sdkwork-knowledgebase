@@ -6,7 +6,10 @@ use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
     KnowledgeRetrievalRequest,
 };
-use std::sync::Arc;
+use std::{
+    fmt::{Debug, Display, Formatter},
+    sync::Arc,
+};
 
 use crate::{
     citations_from_engine_hits, citations_from_okf_concepts_with_query, citations_from_rag_hits,
@@ -33,6 +36,30 @@ pub struct KnowledgeAccessResult {
     pub kernel_methods: Vec<KernelKnowledgeRetrievalMethod>,
     pub resolved_knowledge_provider_id: Option<String>,
 }
+
+#[derive(Debug)]
+pub enum KnowledgeAccessError<E> {
+    Invalid(String),
+    Retrieval(E),
+    Provider(String),
+}
+
+impl<E> Display for KnowledgeAccessError<E>
+where
+    E: Display,
+{
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Invalid(detail) => {
+                write!(formatter, "invalid knowledge access request: {detail}")
+            }
+            Self::Retrieval(error) => write!(formatter, "knowledge retrieval failed: {error}"),
+            Self::Provider(detail) => write!(formatter, "knowledge provider failed: {detail}"),
+        }
+    }
+}
+
+impl<E> std::error::Error for KnowledgeAccessError<E> where E: Debug + Display {}
 
 pub struct KnowledgeAccessGateway<O, E> {
     okf_client: O,
@@ -63,9 +90,11 @@ where
     pub async fn fetch(
         &self,
         request: KnowledgeAccessRequest<'_>,
-    ) -> Result<KnowledgeAccessResult, String> {
+    ) -> Result<KnowledgeAccessResult, KnowledgeAccessError<E::Error>> {
         if request.bindings.is_empty() {
-            return Err("knowledge access requires at least one binding".to_string());
+            return Err(KnowledgeAccessError::Invalid(
+                "knowledge access requires at least one binding".to_string(),
+            ));
         }
 
         let primary_space_id = request.bindings[0].space_id;
@@ -100,7 +129,8 @@ where
                         context_budget_tokens: None,
                         metadata: vec![],
                     })
-                    .await?;
+                    .await
+                    .map_err(KnowledgeAccessError::Retrieval)?;
 
                 let kernel_methods = kernel_methods_for_retrieval(&plan.methods);
 
@@ -113,11 +143,10 @@ where
                 })
             }
             KnowledgeAgentKnowledgeMode::OkfBundle => {
-                let concepts = self.okf_client.search_okf_concepts(
-                    primary_space_id,
-                    request.message,
-                    request.top_k,
-                )?;
+                let concepts = self
+                    .okf_client
+                    .search_okf_concepts(primary_space_id, request.message, request.top_k)
+                    .map_err(KnowledgeAccessError::Provider)?;
 
                 Ok(KnowledgeAccessResult {
                     citations: citations_from_okf_concepts_with_query(
@@ -133,7 +162,9 @@ where
             }
             KnowledgeAgentKnowledgeMode::External => {
                 let client = self.space_engine.as_ref().ok_or_else(|| {
-                    "external knowledge mode requires space engine client wiring".to_string()
+                    KnowledgeAccessError::Provider(
+                        "external knowledge mode requires space engine client wiring".to_string(),
+                    )
                 })?;
                 let search = client
                     .search_space(
@@ -142,8 +173,12 @@ where
                         request.message,
                         request.top_k as u32,
                     )
-                    .await?;
-                let provider_id = client.agent_provider_id_for_space(primary_space_id).await?;
+                    .await
+                    .map_err(KnowledgeAccessError::Provider)?;
+                let provider_id = client
+                    .agent_provider_id_for_space(primary_space_id)
+                    .await
+                    .map_err(KnowledgeAccessError::Provider)?;
 
                 Ok(KnowledgeAccessResult {
                     citations: citations_from_engine_hits(primary_space_id, &search.hits),
@@ -179,10 +214,12 @@ pub trait SpaceKnowledgeEngineClient: Send + Sync {
 
 #[async_trait::async_trait]
 pub trait KnowledgeAccessRetrievalExecutor: Send + Sync {
+    type Error: Debug + Display + Send + Sync;
+
     async fn retrieve(
         &self,
         request: KnowledgeRetrievalRequest,
-    ) -> Result<sdkwork_knowledgebase_contract::KnowledgeRetrievalResult, String>;
+    ) -> Result<sdkwork_knowledgebase_contract::KnowledgeRetrievalResult, Self::Error>;
 }
 
 #[async_trait::async_trait]
@@ -301,10 +338,12 @@ mod tests {
 
     #[async_trait::async_trait]
     impl KnowledgeAccessRetrievalExecutor for FakeRetrieval {
+        type Error = String;
+
         async fn retrieve(
             &self,
             request: KnowledgeRetrievalRequest,
-        ) -> Result<sdkwork_knowledgebase_contract::KnowledgeRetrievalResult, String> {
+        ) -> Result<sdkwork_knowledgebase_contract::KnowledgeRetrievalResult, Self::Error> {
             assert_eq!(request.methods, vec![KnowledgeRetrievalMethod::Hybrid]);
             Ok(sdkwork_knowledgebase_contract::KnowledgeRetrievalResult {
                 retrieval_id: 42,
@@ -325,6 +364,53 @@ mod tests {
                 }],
             })
         }
+    }
+
+    struct FailingRetrieval;
+
+    #[async_trait::async_trait]
+    impl KnowledgeAccessRetrievalExecutor for FailingRetrieval {
+        type Error = &'static str;
+
+        async fn retrieve(
+            &self,
+            _request: KnowledgeRetrievalRequest,
+        ) -> Result<sdkwork_knowledgebase_contract::KnowledgeRetrievalResult, Self::Error> {
+            Err("retrieval overloaded")
+        }
+    }
+
+    #[tokio::test]
+    async fn rag_access_preserves_typed_retrieval_errors() {
+        let gateway = KnowledgeAccessGateway::new(FakeOkf, FailingRetrieval);
+        let bindings = vec![KnowledgeRetrievalBinding {
+            space_id: 7,
+            collection_id: None,
+            source_filter: None,
+            document_filter: None,
+            priority: 0,
+            top_k: Some(4),
+            min_score: None,
+        }];
+
+        let error = gateway
+            .fetch(KnowledgeAccessRequest {
+                tenant_id: 1,
+                message: "query",
+                mode: KnowledgeAgentKnowledgeMode::Rag,
+                bindings: &bindings,
+                top_k: 4,
+                retrieval_profile_id: Some(10),
+                retrieval_methods: vec![],
+                retrieval_plan: Some(KnowledgeRetrievalPlan::default()),
+            })
+            .await
+            .expect_err("failing retrieval must remain typed");
+
+        assert!(matches!(
+            error,
+            KnowledgeAccessError::Retrieval("retrieval overloaded")
+        ));
     }
 
     #[tokio::test]

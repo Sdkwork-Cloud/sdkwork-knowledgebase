@@ -3,13 +3,13 @@
 Status: active
 Owner: SDKWork maintainers
 Application: sdkwork-knowledgebase
-Updated: 2026-06-24
+Updated: 2026-07-09
 Specs: REQUIREMENTS_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
 
-- [PRD-mvp-launch.md](PRD-mvp-launch.md) — MVP launch scope and acceptance criteria
-- [PRD-phase2-commercial-saas.md](PRD-phase2-commercial-saas.md) — Phase 2 multi-tenant commercial SaaS criteria
+- [PRD-mvp-launch.md](PRD-mvp-launch.md) - MVP launch scope and acceptance criteria
+- [PRD-phase2-commercial-saas.md](PRD-phase2-commercial-saas.md) - Phase 2 multi-tenant commercial SaaS criteria
 
 ## 1. Background And Problem
 
@@ -37,10 +37,10 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 **Non-Goals (MVP)**
 
-- Shared multi-tenant SaaS billing (Stripe/seat metering) — delegated to SDKWork platform or Phase 2
+- Shared multi-tenant SaaS billing (Stripe/seat metering) - delegated to SDKWork platform or Phase 2
 - Real-time collaborative editing
 - Mobile native clients
-- Full enterprise compliance program (SOC2) — platform-level concern
+- Full enterprise compliance program (SOC2) - platform-level concern
 
 ## 4. Scope
 
@@ -51,6 +51,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - Open API: retrieval, context packs, ingest, document/browser read
 - Worker: outbox dispatch, ingestion maintenance
 - PC client: editor, search, settings, offline/network awareness
+- OKF original file list: knowledgebase file lists call `spaces.browser.list?view=files`; for OKF spaces this displays original source files under `sources/raw` only and must not expose `okf/`, `output/`, `.sdkwork/`, or Drive root system folders.
+- OKF browser view separation: OKF concept and bundle tooling uses `view=okf_bundle`; generated output tooling uses `view=outputs`. Root uploads and root folder creation use response `data.parentId` as the Drive parent folder id, never Drive root or a hard-coded `sources/raw` path.
 
 **Out of scope (MVP)**
 
@@ -60,11 +62,13 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 ## 5. User Scenarios
 
-1. **Author creates a space and document** — login → create space → create doc → edit in TipTap → auto-save via SDK
-2. **Member searches knowledge** — search module → RAG answer with citations → navigate to source doc
-3. **Admin configures ingest** — backend operator with `knowledge.admin` → create source → worker completes job → retrieval returns new chunks
-4. **Integrator retrieves via Open API** — API key with org context → retrieval → context pack for downstream agent
-5. **Operator deploys tenant** — K8s manifests + env (tenant, org, secrets, outbox webhook) → `/readyz` green → smoke test
+1. **Author creates a space and document** - login -> create space -> create doc -> edit in TipTap -> auto-save via SDK
+2. **Member searches knowledge** - search module -> RAG answer with citations -> navigate to source doc
+3. **Admin configures ingest** - backend operator with `knowledge.admin` -> create source -> worker completes job -> retrieval returns new chunks
+4. **Integrator retrieves via Open API** - API key with org context -> retrieval -> context pack for downstream agent
+5. **Operator deploys tenant** - K8s manifests + env (tenant, org, secrets, outbox webhook) -> `/readyz` green -> smoke test
+
+6. **Author manages OKF source files** - open OKF space file list -> view original files from `sources/raw` through `view=files` -> upload or create root folder using `data.parentId` -> inspect generated OKF concepts only through `view=okf_bundle`
 
 ## 6. Success Metrics
 
@@ -89,11 +93,12 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 - `docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md`
 - `docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md`
+- `specs/okf-knowledge-bundle.spec.json` - OKF bundle layers, browser views, and raw source file list contract
 - `../sdkwork-specs/SECURITY_SPEC.md`, `IAM_SPEC.md`, `APP_SDK_INTEGRATION_SPEC.md`
-- `deployments/README.md` — tenant isolation and observability
+- `deployments/README.md` - tenant isolation and observability
 
 ## 9. Resolved And Open Questions
 
-- **Multi-tenant data model:** Postgres RLS — decided in [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../../architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md); migration shipped for Phase 2.1
-- **Billing owner:** SDKWork platform vs standalone Stripe — open; decide before Phase 2 commercial launch
+- **Multi-tenant data model:** Postgres RLS - decided in [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../../architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md); migration shipped for Phase 2.1
+- **Billing owner:** SDKWork platform vs standalone Stripe - open; decide before Phase 2 commercial launch
 - **Minimum enterprise audit retention period:** documented in [audit-retention.md](../runbooks/audit-retention.md); automated purge/export jobs remain Phase 2.4

@@ -22,7 +22,7 @@ test.describe('Knowledgebase PC shell', () => {
   test('loads the authenticated workspace shell with SDK-backed knowledge APIs mocked', async ({
     page,
   }) => {
-    await setupKnowledgebaseE2ePage(page);
+    const telemetry = await setupKnowledgebaseE2ePage(page);
 
     await page.goto('/');
     await expect(page).toHaveURL('/');
@@ -30,6 +30,11 @@ test.describe('Knowledgebase PC shell', () => {
     const shell = page.getByTestId('knowledgebase-pc-app-shell');
     await expect(shell).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTitle('My Knowledge Base')).toBeVisible();
-    await expect(page.getByText('E2E Knowledge Base')).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => telemetry.requestedPaths).toContain(
+      'GET /app/v3/api/knowledge/spaces/1',
+    );
+    await expect(page.getByRole('heading', { name: 'E2E Knowledge Base' })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });

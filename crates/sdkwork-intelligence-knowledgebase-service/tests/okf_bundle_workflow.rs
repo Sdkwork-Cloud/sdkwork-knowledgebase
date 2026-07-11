@@ -1,4 +1,8 @@
 use async_trait::async_trait;
+#[path = "support/okf_pagination.rs"]
+mod okf_pagination_support;
+
+use okf_pagination_support::validated_okf_test_page_size;
 use sdkwork_intelligence_knowledgebase_service::okf::{
     rebuild_bundle_index_for_space, run_okf_compile_workflow, run_okf_eval_workflow,
     OkfBundleWorkflowDeps, OkfBundleWorkflowEngine,
@@ -53,7 +57,7 @@ async fn compile_workflow_refreshes_standard_bundle_catalog_and_drive_nodes() {
     let file_entries = MemoryOkfBundleFileStore::default();
     let workspace = MemoryDriveWorkspace::default();
     let engine = RecordingWorkflowEngine::new(&drive, &concepts, &spaces);
-    let sources = MemorySourceStore::default();
+    let sources = MemorySourceStore;
 
     let deps = OkfBundleWorkflowDeps {
         concepts: &concepts,
@@ -98,7 +102,7 @@ async fn eval_workflow_refreshes_catalog_after_linting() {
     let file_entries = MemoryOkfBundleFileStore::default();
     let workspace = MemoryDriveWorkspace::default();
     let engine = RecordingWorkflowEngine::new(&drive, &concepts, &spaces);
-    let sources = MemorySourceStore::default();
+    let sources = MemorySourceStore;
 
     let deps = OkfBundleWorkflowDeps {
         concepts: &concepts,
@@ -268,6 +272,33 @@ impl KnowledgeOkfConceptStore for MemoryOkfConceptStore {
         _limit: Option<u32>,
     ) -> Result<Vec<OkfConceptSummary>, KnowledgeOkfConceptStoreError> {
         Ok(Vec::new())
+    }
+
+    async fn list_concept_summaries_page(
+        &self,
+        _space_id: u64,
+        _cursor: Option<String>,
+        page_size: u32,
+    ) -> Result<(Vec<OkfConceptSummary>, Option<String>, bool), KnowledgeOkfConceptStoreError> {
+        validated_okf_test_page_size(page_size)?;
+        Ok((Vec::new(), None, false))
+    }
+
+    async fn list_concept_revisions_page(
+        &self,
+        _concept_row_id: u64,
+        _cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<
+        (
+            Vec<sdkwork_knowledgebase_contract::okf::KnowledgeOkfConceptRevision>,
+            Option<u64>,
+            bool,
+        ),
+        KnowledgeOkfConceptStoreError,
+    > {
+        validated_okf_test_page_size(page_size)?;
+        Ok((Vec::new(), None, false))
     }
 
     async fn append_log_entry(

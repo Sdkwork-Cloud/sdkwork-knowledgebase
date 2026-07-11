@@ -2,7 +2,7 @@
 
 Status: active  
 Application: sdkwork-knowledgebase  
-Topology: `cloud.split-services.production`  
+Topology: `cloud.production`<br>
 Updated: 2026-06-24
 
 ## Purpose
@@ -16,7 +16,7 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
    - Secrets encryption key (`SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY_FILE`)
    - Outbox webhook URL and signing secret
    - Unique `SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID` per pod/process
-2. Apply topology from `configs/topology/cloud.split-services.production.env`.
+2. Apply topology from `configs/topology/cloud.production.env`.
 3. Ensure public ingress exposes app/backend/open API paths only. **Do not expose `/metrics` on ingress**; Prometheus scrapes in-cluster via ServiceMonitor.
 4. Run repository gates:
    ```bash
@@ -44,7 +44,7 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
    SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL=https://knowledgebase.example.com pnpm test:smoke
    ```
    Public smoke checks only probe `/livez` and `/readyz`; `/metrics` remains in-cluster only.
-   For split-services deployments, probe each process independently:
+   For production deployments with separate API and worker processes, probe each process independently:
    ```bash
    SDKWORK_KNOWLEDGEBASE_SMOKE_APP_URL=https://knowledgebase.example.com \
    SDKWORK_KNOWLEDGEBASE_SMOKE_BACKEND_URL=https://knowledgebase-admin.example.com \

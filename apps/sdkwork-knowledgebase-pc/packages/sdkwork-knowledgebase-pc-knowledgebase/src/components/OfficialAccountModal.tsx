@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
 import { X, Settings2, LayoutList, LayoutGrid, Plus, Check } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
+import {
+  resolveUserFacingErrorMessage,
+  type ErrorTranslateFn,
+} from 'sdkwork-knowledgebase-pc-core';
 import { OfficialAccount } from '../services/wechat';
 import { toast } from './ui/toast-manager';
 import { OASidebar } from './officialAccounts/OASidebar';
@@ -16,7 +20,7 @@ interface OfficialAccountModalProps {
     officialAccounts: OfficialAccount[]; 
     selectedOfficialAccountIds: string[]; 
     oaGroups: string[];
-  }) => void;
+  }) => Promise<void>;
   initialOfficialAccounts: OfficialAccount[];
   initialSelectedAccountIds: string[];
   initialOaGroups: string[];
@@ -41,7 +45,17 @@ export function OfficialAccountModal({
 
   const [oaEditingId, setOaEditingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setOfficialAccounts(initialOfficialAccounts);
+    setSelectedOfficialAccountIds(initialSelectedAccountIds);
+    setOaGroups(initialOaGroups);
+    setConfirmError(null);
+  }, [initialOaGroups, initialOfficialAccounts, initialSelectedAccountIds, isOpen]);
+
   if (!isOpen) return null;
 
   const openEditor = (oa?: OfficialAccount) => {
@@ -71,7 +85,6 @@ export function OfficialAccountModal({
 
     setOfficialAccounts(newAccounts);
     closeEditor();
-    toast.success(t('errors.saveSuccess'));
   };
 
   const handleDeleteOA = (id: string) => {
@@ -113,12 +126,23 @@ export function OfficialAccountModal({
     }
   };
 
-  const handleConfirmAndClose = () => {
-    onConfirm({
-      officialAccounts,
-      selectedOfficialAccountIds,
-      oaGroups
-    });
+  const handleConfirmAndClose = async () => {
+    setConfirmError(null);
+    setIsConfirming(true);
+    try {
+      await onConfirm({
+        officialAccounts,
+        selectedOfficialAccountIds,
+        oaGroups
+      });
+      toast.success(t('errors.saveSuccess'));
+    } catch (error) {
+      setConfirmError(
+        resolveUserFacingErrorMessage(error, t as unknown as ErrorTranslateFn),
+      );
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   const filteredList = officialAccounts.filter(app => selectedGroupFilter === 'all' || app.group === selectedGroupFilter);
@@ -145,6 +169,12 @@ export function OfficialAccountModal({
             <X size={18} />
           </button>
         </div>
+
+        {confirmError && (
+          <div role="alert" className="px-6 py-2 text-xs text-red-500 bg-red-500/5 border-b border-red-500/20">
+            {confirmError}
+          </div>
+        )}
 
         {/* Modal Body */}
         <div className="flex flex-1 overflow-hidden relative bg-[var(--color-kb-panel)]">
@@ -219,7 +249,7 @@ export function OfficialAccountModal({
                   </button>
                   <button 
                     onClick={handleConfirmAndClose} 
-                    disabled={selectedOfficialAccountIds.length === 0}
+                    disabled={selectedOfficialAccountIds.length === 0 || isConfirming}
                     className="px-6 py-2 text-[13px] font-bold bg-[#07c160] hover:bg-[#06ad56] disabled:opacity-40 disabled:hover:bg-[#07c160] text-white rounded-lg transition-all flex items-center gap-2"
                   >
                     {t('confirmAndContinue')}

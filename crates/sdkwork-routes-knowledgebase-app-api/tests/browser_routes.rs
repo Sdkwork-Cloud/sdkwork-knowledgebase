@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use axum::body::{to_bytes, Body};
 use axum::http::{header, Request, StatusCode};
 use sdkwork_knowledgebase_contract::browser::{
-    KnowledgeBrowserNode, KnowledgeBrowserNodePermissions, KnowledgeBrowserNodeType,
-    KnowledgeBrowserView, ListKnowledgeBrowserRequest,
+    KnowledgeBrowserListData, KnowledgeBrowserNode, KnowledgeBrowserNodePermissions,
+    KnowledgeBrowserNodeType, KnowledgeBrowserView, ListKnowledgeBrowserRequest,
 };
 use sdkwork_routes_knowledgebase_app_api::{
     build_router_with_browser, pagination::browser_list_page_data, ApiResult,
@@ -50,6 +50,12 @@ async fn app_router_exposes_browser_route_with_query_parameters() {
         "cursor",
         payload["data"]["pageInfo"]["mode"].as_str().unwrap()
     );
+    assert_eq!("node-okf", payload["data"]["parentId"].as_str().unwrap());
+    assert_eq!(
+        "drv-kb-001",
+        payload["data"]["driveSpaceId"].as_str().unwrap()
+    );
+    assert_eq!("okf_bundle", payload["data"]["view"].as_str().unwrap());
     assert_eq!(
         browser.last_request().unwrap(),
         ListKnowledgeBrowserRequest {
@@ -150,9 +156,13 @@ impl KnowledgeBrowserApi for RecordingBrowserApi {
         &self,
         _context: KnowledgeAppRequestContext,
         request: ListKnowledgeBrowserRequest,
-    ) -> ApiResult<sdkwork_utils_rust::SdkWorkPageData<KnowledgeBrowserNode>> {
+    ) -> ApiResult<KnowledgeBrowserListData> {
         *self.last_request.lock().unwrap() = Some(request.clone());
         Ok(browser_list_page_data(
+            request.space_id,
+            "drv-kb-001".to_string(),
+            request.parent_id.clone(),
+            request.view,
             vec![KnowledgeBrowserNode {
                 id: "node-index".to_string(),
                 node_type: KnowledgeBrowserNodeType::OkfConcept,

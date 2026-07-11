@@ -1,5 +1,7 @@
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::ingest::ApiMarkdownIngestPipeline;
+use sdkwork_intelligence_knowledgebase_service::ingest::{
+    ApiMarkdownIngestPipeline, ExistingMarkdownIngestJobParams,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::{
     HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError,
     PutKnowledgeObjectRequest,
@@ -85,15 +87,90 @@ async fn api_markdown_ingest_pipeline_retries_failed_job_on_replay() {
     assert_eq!(metadata.prepare_count(), 2);
 }
 
+#[tokio::test]
+async fn existing_upload_job_drive_put_failure_transitions_running_job_to_failed() {
+    let drive = RecordingDrive::default();
+    let jobs = MemoryIngestionJobStore::default();
+    let metadata = MemoryMarkdownIndexMetadataStore::default();
+    let pipeline = ApiMarkdownIngestPipeline::new(&drive, &jobs, &metadata);
+    let created = jobs
+        .create_or_get_job(CreateIngestionJobRecord {
+            space_id: 7,
+            source_type: "upload_session".to_string(),
+            idempotency_key: "upload-session-7".to_string(),
+            idempotency_fingerprint_sha256_hex: None,
+        })
+        .await
+        .unwrap();
+    drive.force_put_failure(true);
+
+    let error = pipeline
+        .run_existing_queued_job(
+            ExistingMarkdownIngestJobParams {
+                space_id: 7,
+                job_id: created.job.id,
+                title: "Upload payload".to_string(),
+                payload_markdown: "# Upload".to_string(),
+                ingest_provider: "upload-session".to_string(),
+                source_drive_prefix: format!("upload_sessions/{}", created.job.id),
+                payload_logical_path: format!("inbox/api/{}/payload.md", created.job.id),
+            },
+            None,
+        )
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("forced drive put failure"));
+    assert_eq!(
+        jobs.get_job(created.job.id).await.unwrap().state,
+        IngestionJobState::Failed
+    );
+}
+
+#[tokio::test]
+async fn drive_linkage_failure_transitions_running_job_to_failed() {
+    let drive = RecordingDrive::default();
+    let jobs = MemoryIngestionJobStore::default();
+    let metadata = MemoryMarkdownIndexMetadataStore::default();
+    let pipeline = ApiMarkdownIngestPipeline::new(&drive, &jobs, &metadata);
+    jobs.force_linkage_failure(true);
+
+    let error = pipeline
+        .run(
+            KnowledgeIngestRequest {
+                space_id: 7,
+                title: "Linkage failure".to_string(),
+                payload_markdown: "# Linkage".to_string(),
+                idempotency_key: "linkage-failure-1".to_string(),
+                source_url: None,
+            },
+            None,
+            "api-ingest",
+        )
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("forced linkage failure"));
+    assert_eq!(
+        jobs.get_job(1).await.unwrap().state,
+        IngestionJobState::Failed
+    );
+}
+
 #[derive(Default)]
 struct RecordingDrive {
     objects: Mutex<HashMap<String, Vec<u8>>>,
     write_count: Mutex<usize>,
+    force_put_failure: Mutex<bool>,
 }
 
 impl RecordingDrive {
     fn write_count(&self) -> usize {
         *self.write_count.lock().unwrap()
+    }
+
+    fn force_put_failure(&self, value: bool) {
+        *self.force_put_failure.lock().unwrap() = value;
     }
 }
 
@@ -103,6 +180,11 @@ impl KnowledgeDriveStorage for RecordingDrive {
         &self,
         request: PutKnowledgeObjectRequest,
     ) -> Result<KnowledgeObjectRef, KnowledgeStorageError> {
+        if *self.force_put_failure.lock().unwrap() {
+            return Err(KnowledgeStorageError::Internal(
+                "forced drive put failure".to_string(),
+            ));
+        }
         *self.write_count.lock().unwrap() += 1;
         self.objects
             .lock()
@@ -166,11 +248,16 @@ struct MemoryIngestionJobStore {
     by_key: Mutex<HashMap<(u64, String), u64>>,
     linkages: Mutex<HashMap<u64, DriveImportJobLinkage>>,
     force_complete_failure: Mutex<bool>,
+    force_linkage_failure: Mutex<bool>,
 }
 
 impl MemoryIngestionJobStore {
     fn force_next_complete_failure(&self, value: bool) {
         *self.force_complete_failure.lock().unwrap() = value;
+    }
+
+    fn force_linkage_failure(&self, value: bool) {
+        *self.force_linkage_failure.lock().unwrap() = value;
     }
 
     async fn get_job(&self, job_id: u64) -> Result<IngestionJob, IngestionJobStoreError> {
@@ -247,6 +334,11 @@ impl IngestionJobStore for MemoryIngestionJobStore {
         job_id: u64,
         linkage: DriveImportJobLinkage,
     ) -> Result<(), IngestionJobStoreError> {
+        if *self.force_linkage_failure.lock().unwrap() {
+            return Err(IngestionJobStoreError::Internal(
+                "forced linkage failure".to_string(),
+            ));
+        }
         if !self.by_id.lock().unwrap().contains_key(&job_id) {
             return Err(IngestionJobStoreError::NotFound(job_id));
         }

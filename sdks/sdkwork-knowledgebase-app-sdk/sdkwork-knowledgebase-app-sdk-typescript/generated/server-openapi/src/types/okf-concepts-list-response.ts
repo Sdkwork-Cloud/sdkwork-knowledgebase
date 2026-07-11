@@ -1,9 +1,8 @@
-import type { OkfConceptSummary } from './okf-concept-summary';
-import type { PageInfo } from './page-info';
+import type { OkfConceptSummaryList } from './okf-concept-summary-list';
 
 export interface OkfConceptsListResponse {
   code: 0;
-  data: unknown & Record<string, unknown>;
+  data: unknown & OkfConceptSummaryList;
   /** Server-owned request correlation id. */
   traceId: string;
 }

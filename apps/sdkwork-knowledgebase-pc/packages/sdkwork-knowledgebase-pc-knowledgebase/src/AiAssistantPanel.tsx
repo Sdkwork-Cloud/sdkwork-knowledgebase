@@ -1,16 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
-import { Send, Sparkles, X, User, Bot, Loader2, Paperclip, File, Check, Terminal, Activity, Code, Cpu, Play, CheckCircle2, Wand2, Mic, Plus } from 'lucide-react';
+import { Send, Sparkles, X, User, Bot, Loader2, Paperclip, File, Check, Terminal, Activity, Code, Cpu, Play, CheckCircle2, CircleAlert, Wand2, Mic, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AiModelSelector } from '@sdkwork/sdkwork-knowledgebase-pc-commons';
 import { DocumentMeta, FolderNode } from './services/document';
 import { AIService } from './services/ai';
 import { McpAgentService, McpToolCall } from './services/mcpAgent';
 import {
-  isKnowledgebaseApiAvailable,
-  KnowledgebaseErrorCodes,
-  shouldUseKnowledgebaseDemoFallback,
-  throwKnowledgebaseError,
+  resolveUserFacingErrorMessage,
+  type ErrorTranslateFn,
 } from 'sdkwork-knowledgebase-pc-core';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
@@ -35,17 +33,11 @@ export interface AiAssistantPanelProps {
   headerHeightClass?: string;
   onSendMessage?: (msg: string, refs: DocumentMeta[], setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>, setIsTyping: React.Dispatch<React.SetStateAction<boolean>>) => void;
   selectedArticle?: any;
-  onUpdateArticle?: (updates: any) => void;
-  onTriggerStreamRewrite?: () => void;
-  onTriggerStreamContinue?: () => void;
-  onTriggerCreateNewArticle?: (title: string, promptTopic?: string) => void;
-  onInsertHtml?: (html: string) => void;
 }
 
 export function AiAssistantPanel({
   aiWidth, isDraggingAi, onMouseDownDrag, onClose, docContent, docs = [], activeDoc, activeKbId,
-  headerHeightClass = 'h-[40px]', onSendMessage, selectedArticle, onUpdateArticle, onTriggerStreamRewrite,
-  onTriggerStreamContinue, onTriggerCreateNewArticle, onInsertHtml
+  headerHeightClass = 'h-[40px]', onSendMessage, selectedArticle
 }: AiAssistantPanelProps) {
   const { t } = useTranslation(['editor', 'mcp']);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -54,16 +46,6 @@ export function AiAssistantPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isDocSelectorOpen, setIsDocSelectorOpen] = useState(false);
   const [selectedReferences, setSelectedReferences] = useState<DocumentMeta[]>([]);
-
-  const typeInEditorIntervalRef = useRef<any>(null);
-  const typewriterIntervalRef = useRef<any>(null);
-
-  useEffect(() => {
-    return () => {
-      if (typeInEditorIntervalRef.current) clearInterval(typeInEditorIntervalRef.current);
-      if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     // Clear references when switching knowledge base
@@ -81,6 +63,14 @@ export function AiAssistantPanel({
     }
   }, [messages, isTyping]);
 
+  const appendRequestError = (error: unknown) => {
+    const content = resolveUserFacingErrorMessage(
+      error,
+      t as unknown as ErrorTranslateFn,
+    );
+    setMessages(prev => [...prev, { role: 'assistant', content }]);
+  };
+
   const handleDefaultSend = async (userMessage: string, currentRefs: DocumentMeta[]) => {
     if (onSendMessage) {
        onSendMessage(userMessage, currentRefs, setMessages, setIsTyping);
@@ -88,192 +78,28 @@ export function AiAssistantPanel({
     }
 
     try {
-      if (isKnowledgebaseApiAvailable()) {
-        const { result: responseText, toolCalls } = await AIService.generateChatResponse(
-          userMessage,
-          docContent,
-          currentRefs.map((r) => r.title).join(','),
-        );
-
-        if (toolCalls && toolCalls.length > 0) {
-          setMessages((prev) => [...prev, { role: 'assistant', content: '', toolCalls: toolCalls.map((tc) => ({ ...tc, status: 'running' as const })) }]);
-          for (let i = 0; i < toolCalls.length; i++) {
-            await new Promise((r) => setTimeout(r, 400));
-            setMessages((prev) => {
-              const newMsgs = [...prev];
-              const lastMsg = newMsgs[newMsgs.length - 1];
-              if (lastMsg && lastMsg.role === 'assistant' && lastMsg.toolCalls) {
-                lastMsg.toolCalls[i] = { ...toolCalls[i], status: 'success' };
-              }
-              return newMsgs;
-            });
-          }
-        } else {
-          setMessages((prev) => [...prev, { role: 'assistant', content: '', toolCalls: [] }]);
-        }
-
-        const insertMatch = responseText.match(/<insert_to_note>([\s\S]*?)<\/insert_to_note>/i);
-        let displayText = responseText;
-        if (insertMatch && onInsertHtml) {
-          const insertContent = insertMatch[1].trim();
-          onInsertHtml(insertContent);
-          displayText = responseText.replace(/<insert_to_note>[\s\S]*?<\/insert_to_note>/i, '').trim();
-          if (!displayText) {
-            displayText = '*(已自动执行插入文档操作)*';
-          }
-        }
-
-        const chars = Array.from(displayText);
-        let index = 0;
-        if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
-        const intervalId = setInterval(() => {
-          setMessages((prev) => {
-            const newMessages = [...prev];
-            const lastMsgIndex = newMessages.length - 1;
-            if (lastMsgIndex >= 0 && newMessages[lastMsgIndex].role === 'assistant') {
-              newMessages[lastMsgIndex].content = chars.slice(0, index + 1).join('');
-            }
-            return newMessages;
-          });
-          index++;
-          if (index >= chars.length) {
-            clearInterval(intervalId);
-            typewriterIntervalRef.current = null;
-            setIsTyping(false);
-          }
-        }, 20);
-        typewriterIntervalRef.current = intervalId;
-        return;
-      }
-
-      if (!shouldUseKnowledgebaseDemoFallback()) {
-        throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_CHAT);
-      }
-
-      // Demo-only local MCP agent for offline preview UX.
-      await new Promise(r => setTimeout(r, 650));
-      const result = McpAgentService.processUserQuery(userMessage, selectedArticle);
-      
-      const isCreateNew = userMessage.includes('新建') || userMessage.includes('新写') || userMessage.includes('写篇') || userMessage.includes('写一篇');
-      const isToolTriggered = (result.toolCalls && result.toolCalls.length > 0) || isCreateNew;
-
-      if (isToolTriggered) {
-        if (result.updatedArticleFields && Object.keys(result.updatedArticleFields).length > 0) {
-          onUpdateArticle?.(result.updatedArticleFields);
-        }
-
-        if (result.insertHtml && onInsertHtml) {
-          onInsertHtml(result.insertHtml);
-        }
-
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: result.responseText,
-          toolCalls: result.toolCalls
-        }]);
-
-        if (result.triggerStreamRewrite) {
-          onTriggerStreamRewrite?.();
-        }
-
-        if (result.triggerStreamContinue) {
-          onTriggerStreamContinue?.();
-        }
-
-        if (result.triggerCreateNewArticle) {
-          onTriggerCreateNewArticle?.(result.triggerCreateNewArticle.title, result.triggerCreateNewArticle.topic);
-        }
-
-        setIsTyping(false);
-      } else if (selectedArticle) {
-        let { result: responseText, toolCalls } = await AIService.generateChatResponse(
-           userMessage,
-           docContent,
-           currentRefs.map(r => r.title).join(',')
-        );
-
-        if (toolCalls && toolCalls.length > 0) {
-          // Simulate tool execution
-          setMessages(prev => [...prev, { role: 'assistant', content: '', toolCalls: toolCalls.map(tc => ({...tc, status: 'running'})) }]);
-          
-          for (let i = 0; i < toolCalls.length; i++) {
-             await new Promise(r => setTimeout(r, 800)); // Delay per tool
-             setMessages(prev => {
-                const newMsgs = [...prev];
-                const lastMsg = newMsgs[newMsgs.length - 1];
-                if (lastMsg && lastMsg.role === 'assistant' && lastMsg.toolCalls) {
-                   lastMsg.toolCalls[i] = { ...toolCalls[i], status: 'success' };
-                }
-                return newMsgs;
-             });
-          }
-        } else {
-             setMessages(prev => [...prev, { role: 'assistant', content: '', toolCalls: [] }]);
-        }
-
-        const insertMatch = responseText.match(/<insert_to_note>([\s\S]*?)<\/insert_to_note>/i);
-        if (insertMatch && onInsertHtml) {
-          const insertContent = insertMatch[1].trim();
-          
-          // Simulate typing effect in editor
-          let editorIndex = 0;
-          const editorChars = Array.from(insertContent);
-          
-          if (typeInEditorIntervalRef.current) clearInterval(typeInEditorIntervalRef.current);
-          const typeInEditorInterval = setInterval(() => {
-             onInsertHtml(editorChars[editorIndex]);
-             editorIndex++;
-             if (editorIndex >= editorChars.length) {
-               clearInterval(typeInEditorInterval);
-               typeInEditorIntervalRef.current = null;
-             }
-          }, 15);
-          typeInEditorIntervalRef.current = typeInEditorInterval;
-
-          responseText = responseText.replace(/<insert_to_note>[\s\S]*?<\/insert_to_note>/i, '').trim();
-          if (!responseText) {
-            responseText = '*(已自动执行插入文档操作)*';
-          }
-        }
-
-        // Typewriter effect
-        const chars = Array.from(responseText);
-        let index = 0;
-        
-        if (typewriterIntervalRef.current) clearInterval(typewriterIntervalRef.current);
-        const intervalId = setInterval(() => {
-          setMessages(prev => {
-            const newMessages = [...prev];
-            const lastMsgIndex = newMessages.length - 1;
-            if (lastMsgIndex >= 0 && newMessages[lastMsgIndex].role === 'assistant') {
-               newMessages[lastMsgIndex].content = chars.slice(0, index + 1).join('');
-            }
-            return newMessages;
-          });
-          index++;
-          if (index >= chars.length) {
-            clearInterval(intervalId);
-            typewriterIntervalRef.current = null;
-            setIsTyping(false);
-          }
-        }, 20);
-        typewriterIntervalRef.current = intervalId;
-      }
-    } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: (t('processError', { ns: 'mcp' }) || '处理请求时发生错误: ') + (e.message || '') }]);
+      const { result: responseText, toolCalls } = await AIService.generateChatResponse(
+        userMessage,
+        docContent,
+        currentRefs.map((reference) => reference.title).join(','),
+      );
+      const resolvedToolCalls = toolCalls?.map((toolCall): McpToolCall => ({
+        ...toolCall,
+        status: toolCall.status ?? 'failed',
+      }));
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: responseText,
+        toolCalls: resolvedToolCalls,
+      }]);
+    } catch (error) {
+      appendRequestError(error);
+    } finally {
       setIsTyping(false);
     }
   };
 
   const handleAbort = () => {
-    if (typeInEditorIntervalRef.current) {
-      clearInterval(typeInEditorIntervalRef.current);
-      typeInEditorIntervalRef.current = null;
-    }
-    if (typewriterIntervalRef.current) {
-      clearInterval(typewriterIntervalRef.current);
-      typewriterIntervalRef.current = null;
-    }
     setIsTyping(false);
   };
 
@@ -287,7 +113,7 @@ export function AiAssistantPanel({
     setMessages(prev => [...prev, { role: 'user', content: userMessage, references: currentRefs }]);
     setIsTyping(true);
 
-    handleDefaultSend(userMessage, currentRefs);
+    void handleDefaultSend(userMessage, currentRefs);
   };
 
   const triggerQuickTool = async (commandText: string) => {
@@ -296,7 +122,18 @@ export function AiAssistantPanel({
     setIsDocSelectorOpen(false);
     setMessages(prev => [...prev, { role: 'user', content: commandText, references: [] }]);
     setIsTyping(true);
-    await handleDefaultSend(commandText, []);
+    try {
+      const result = await McpAgentService.processUserQuery(commandText, selectedArticle);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: result.responseText,
+        toolCalls: result.toolCalls,
+      }]);
+    } catch (error) {
+      appendRequestError(error);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -450,8 +287,10 @@ export function AiAssistantPanel({
                           <div className="flex items-center px-3 py-2 text-[12px] text-slate-700 dark:text-indigo-200 font-medium">
                             {tc.status === 'running' ? (
                                 <Loader2 size={13} className="text-indigo-500 dark:text-indigo-400 animate-spin mr-2 shrink-0" />
-                            ) : (
+                            ) : tc.status === 'success' ? (
                                 <CheckCircle2 size={13} className="text-emerald-500 dark:text-emerald-400 mr-2 shrink-0" />
+                            ) : (
+                                <CircleAlert size={13} className="text-red-500 dark:text-red-400 mr-2 shrink-0" />
                             )}
                             <span className="truncate">{toolNameMap[tc.name] || tc.name}</span>
                           </div>
