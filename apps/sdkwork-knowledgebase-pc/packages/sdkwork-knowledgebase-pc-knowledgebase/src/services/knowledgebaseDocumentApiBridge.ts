@@ -1352,6 +1352,7 @@ export async function createDocument(doc: Partial<DocumentMeta>): Promise<Docume
   };
 
   trackRecentDocument(createdDoc);
+  writeLocalDocumentContent(tenantId, createdDoc.id, content, `document-${created.id}`);
   if (doc.parentId) {
     await placeDocumentInParentFolder(createdDoc.id, doc.kbId, doc.parentId);
   }

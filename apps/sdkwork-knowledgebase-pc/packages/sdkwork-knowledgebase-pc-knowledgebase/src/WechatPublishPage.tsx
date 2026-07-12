@@ -1142,7 +1142,7 @@ export function WechatPublishPage({ documents: defaultDocuments = [], onClose }:
                   {(authorHistory || []).filter(a => a !== currentOaName).map(a => <option key={a} value={a} />)}
                 </datalist>
                 
-                <div className="flex-1 flex flex-col w-full h-full min-h-[1000px]">
+                <div className="flex-1 flex flex-col w-full min-h-[500px]">
                   <TiptapEditor 
                     key={selectedArticle.id}
                     initialContent={selectedArticle.content || ''}

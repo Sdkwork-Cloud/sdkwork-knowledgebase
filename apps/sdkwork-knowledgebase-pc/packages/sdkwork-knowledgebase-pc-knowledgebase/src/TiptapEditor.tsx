@@ -439,7 +439,7 @@ export function TiptapEditor({
   );
 
   return (
-    <div className="w-full flex-1 flex flex-col h-full min-h-0 relative">
+    <div className="w-full flex-1 flex flex-col min-h-0 relative">
       {portalNode ? (
         createPortal(toolbarContent, portalNode)
       ) : (
@@ -475,7 +475,7 @@ export function TiptapEditor({
           handleAiAction={handleAiAction}
         />
       )}
-      <div className="relative flex-1 flex flex-col min-h-0 overflow-y-auto w-full h-full p-0 m-0 no-scrollbar">
+      <div className="relative flex-1 flex flex-col min-h-0 overflow-y-auto w-full p-0 m-0 no-scrollbar">
         {!hideTitle && (
           <div className="w-full flex flex-col select-text shrink-0 px-6 pt-6 pb-2 max-w-4xl mx-auto">
             <input
@@ -522,7 +522,7 @@ export function TiptapEditor({
           </div>
         )}
         {!isSourceMode && !isSplitMode && (
-          <EditorContent editor={editor} className="w-full max-w-4xl mx-auto px-6 pb-24" />
+          <EditorContent editor={editor} className="w-full max-w-4xl mx-auto px-6 pb-12" />
         )}
       </div>
     </div>
