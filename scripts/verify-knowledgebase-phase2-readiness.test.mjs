@@ -56,14 +56,18 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
     assert.match(crateMigration, /app\.current_tenant_id/);
   });
 
-  it('wires Postgres tenant session on pool checkout (Phase 2.2)', () => {
+  it('keeps Postgres tenant session deployment-bound until shared checkout is implemented', () => {
     const bootstrap = readRepoFile(
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs',
     );
     const tenantSession = readRepoFile(
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/postgres_tenant_session.rs',
     );
+    const phase2Prd = readRepoFile('docs/product/prd/PRD-phase2-commercial-saas.md');
     assert.match(bootstrap, /after_connect/);
+    assert.match(tenantSession, /deployment-bound tenant id/);
+    assert.match(phase2Prd, /Shared request checkout uses a transaction-scoped `SET LOCAL/);
+    assert.match(phase2Prd, /\[ \] Shared request checkout/);
     assert.match(bootstrap, /set_postgres_session_tenant_id/);
     assert.match(tenantSession, /require_postgres_rls_tenant_id/);
     const webAudit = readRepoFile('crates/sdkwork-routes-knowledgebase-backend-api/src/web_audit_store.rs');
@@ -108,7 +112,7 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
     const prd = readRepoFile('docs/product/prd/PRD.md');
     const phase2 = readRepoFile('docs/product/prd/PRD-phase2-commercial-saas.md');
     assert.match(prd, /PRD-phase2-commercial-saas\.md/);
-    assert.match(phase2, /Usage metering exported for billing/);
+    assert.match(phase2, /Usage metering and tenant status are exposed to operators/);
     assert.match(phase2, /ADR-20260624-phase2-postgres-rls-multi-tenant/);
   });
 });

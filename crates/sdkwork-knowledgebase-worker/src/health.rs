@@ -7,7 +7,7 @@ async fn livez() -> StatusCode {
 }
 
 async fn readyz_check(readiness: ReadinessCheck) -> Result<Json<Value>, StatusCode> {
-    sdkwork_web_bootstrap::ReadinessCheck::check(&readiness)
+    sdkwork_web_bootstrap::ReadinessCheck::check(readiness.as_ref())
         .await
         .map_err(|error| {
             tracing::warn!(?error, "knowledgebase worker readiness check failed");
@@ -56,6 +56,7 @@ mod tests {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use sdkwork_routes_knowledgebase_backend_api::DbReadinessCheck;
+    use std::sync::Arc;
     use tower::util::ServiceExt;
 
     #[tokio::test]
@@ -64,7 +65,7 @@ mod tests {
         let pool = sqlx::AnyPool::connect("sqlite::memory:")
             .await
             .expect("sqlite memory pool");
-        let app = worker_health_router(DbReadinessCheck::new(pool));
+        let app = worker_health_router(Arc::new(DbReadinessCheck::new(pool)));
         let response = app
             .oneshot(
                 Request::builder()

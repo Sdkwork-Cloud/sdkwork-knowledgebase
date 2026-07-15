@@ -17,6 +17,11 @@ pub struct RouteManifestEntry {
 pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "POST",
+        path: "/app/v3/api/knowledge/group_launches/consume",
+        operation_id: "groupLaunches.consume",
+    },
+    RouteManifestEntry {
+        method: "POST",
         path: "/app/v3/api/knowledge/spaces",
         operation_id: "spaces.create",
     },

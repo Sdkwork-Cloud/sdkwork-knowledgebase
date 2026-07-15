@@ -19,6 +19,7 @@ const families = [
       "sdkwork-knowledgebase-sdk-typescript/generated/server-openapi/sdkwork-sdk.json",
     generatedPackage:
       "sdkwork-knowledgebase-sdk-typescript/generated/server-openapi/package.json",
+    languages: ["typescript"],
     dependencies: [],
     forbiddenPathPrefixes: [
       "/app/v3/api/",
@@ -37,6 +38,7 @@ const families = [
       "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/sdkwork-sdk.json",
     generatedPackage:
       "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/package.json",
+    languages: ["typescript"],
     dependencies: [
       ["sdkwork-iam-app-sdk", "sdkwork-iam-app-api"],
       ["sdkwork-drive-app-sdk", "sdkwork-drive.app"],
@@ -63,6 +65,7 @@ const families = [
       "sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi/sdkwork-sdk.json",
     generatedPackage:
       "sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi/package.json",
+    languages: ["typescript", "rust"],
     dependencies: [
       ["sdkwork-iam-backend-sdk", "sdkwork-iam-backend-api"],
       ["sdkwork-drive-backend-sdk", "sdkwork-drive.backend"],
@@ -140,18 +143,18 @@ function queryParameterNames(operation) {
     .map((parameter) => parameter.name);
 }
 
-test("knowledgebase SDK family assemblies declare owner-only authority metadata", () => {
+test("knowledgebase SDK family manifests declare owner-only authority metadata", () => {
   for (const family of families) {
-    const assemblyPath = path.join("sdks", family.root, ".sdkwork-assembly.json");
-    assert.ok(existsSync(path.join(workspaceRoot, assemblyPath)), `${family.root} must have ${assemblyPath}`);
+    const manifestPath = path.join("sdks", family.root, family.manifest);
+    assert.ok(existsSync(path.join(workspaceRoot, manifestPath)), `${family.root} must have ${manifestPath}`);
 
-    const assembly = readJson(assemblyPath);
-    assert.equal(assembly.sdkOwner, family.owner, `${family.root} must declare sdkOwner`);
-    assert.equal(assembly.apiAuthority, family.authority, `${family.root} must declare apiAuthority`);
-    assert.equal(assembly.generationInputSpec, family.input, `${family.root} must generate from owner-only OpenAPI input`);
+    const manifest = readJson(manifestPath);
+    assert.equal(manifest.sdkOwner, family.owner, `${family.root} must declare sdkOwner`);
+    assert.equal(manifest.apiAuthority, family.authority, `${family.root} must declare apiAuthority`);
+    assert.equal(manifest.generationInputSpec, family.input, `${family.root} must generate from owner-only OpenAPI input`);
 
     assert.deepEqual(
-      assembly.sdkDependencies?.map((dependency) => ({
+      manifest.sdkDependencies?.map((dependency) => ({
         workspace: dependency.workspace,
         apiAuthority: dependency.apiAuthority,
         dependencyMode: dependency.dependencyMode,
@@ -164,6 +167,11 @@ test("knowledgebase SDK family assemblies declare owner-only authority metadata"
         generatedTransportImportPolicy: "forbidden",
       })),
       `${family.root} must declare appbase, drive, and memory as consumer SDK dependencies`,
+    );
+    assert.equal(
+      existsSync(path.join(workspaceRoot, "sdks", family.root, ".sdkwork-assembly.json")),
+      false,
+      `${family.root} must use sdk-manifest.json rather than a retired per-family assembly`,
     );
   }
 });
@@ -211,6 +219,16 @@ test("knowledgebase SDK manifests record owner and dependency boundaries outside
       manifest.generationInputSpec,
       family.input,
       `${family.root} manifest must point at owner-only OpenAPI input`,
+    );
+    assert.equal(
+      manifest.transportPackageName,
+      `${family.root}-generated-typescript`,
+      `${family.root} manifest must declare the generated TypeScript transport package`,
+    );
+    assert.deepEqual(
+      manifest.languages?.map((entry) => entry.language),
+      family.languages,
+      `${family.root} manifest must declare every generated language`,
     );
     assert.deepEqual(
       manifest.sdkDependencies?.map((dependency) => ({
@@ -264,19 +282,9 @@ test("knowledgebase SDK manifests record owner and dependency boundaries outside
 test("knowledgebase app SDK exposes composed consumer facade outside generated transport", () => {
   const manifest = readJson("sdks/sdkwork-knowledgebase-app-sdk/sdk-manifest.json");
   assert.equal(
-    manifest.composedConsumerPath,
+    manifest.typescript?.composedRoot,
     "sdkwork-knowledgebase-app-sdk-typescript",
     "app SDK manifest must declare composed consumer workspace path",
-  );
-  assert.equal(
-    manifest.composedFactory,
-    "createKnowledgebaseAppClient",
-    "app SDK manifest must declare composed consumer factory",
-  );
-  assert.equal(
-    manifest.generatedTransportPackageName,
-    "@sdkwork-internal/knowledgebase-app-sdk-generated",
-    "app SDK manifest must isolate generated transport package naming",
   );
 
   const composedPackage = readJson(
@@ -293,8 +301,14 @@ test("knowledgebase app SDK exposes composed consumer facade outside generated t
   );
   assert.equal(
     generatedPackage.name,
-    "@sdkwork-internal/knowledgebase-app-sdk-generated",
+    "sdkwork-knowledgebase-app-sdk-generated-typescript",
     "generated transport package must not reuse the public app SDK package name",
+  );
+
+  assert.equal(
+    Object.hasOwn(composedPackage.exports, "./generated"),
+    false,
+    "composed app SDK must not expose generated transport as a public subpath",
   );
 
   const composedSource = readFileSync(
@@ -308,6 +322,42 @@ test("knowledgebase app SDK exposes composed consumer facade outside generated t
     composedSource,
     /export function createKnowledgebaseAppClient/u,
     "composed app SDK entry must export createKnowledgebaseAppClient",
+  );
+});
+
+test("knowledgebase backend SDK declares a generated Rust transport", () => {
+  const manifest = readJson("sdks/sdkwork-knowledgebase-backend-sdk/sdk-manifest.json");
+  const rustEntry = manifest.languages?.find((entry) => entry.language === "rust");
+
+  assert.deepEqual(
+    rustEntry,
+    {
+      language: "rust",
+      workspace: "sdkwork-knowledgebase-backend-sdk-rust",
+      generationState: "materialized",
+      releaseState: "not_published",
+      generatedPath: "sdkwork-knowledgebase-backend-sdk-rust/generated/server-openapi",
+      manifestPath: "sdkwork-knowledgebase-backend-sdk-rust/generated/server-openapi/Cargo.toml",
+      name: "sdkwork-knowledgebase-backend-sdk-generated-rust",
+      version: "0.1.0",
+      description: "Generator-owned Rust transport SDK for sdkwork-knowledgebase-backend-api.",
+      consumerSurface: {
+        primaryClient: "SdkworkBackendClient",
+        apiPrefix: "/backend/v3/api",
+      },
+    },
+    "backend Rust output must be declared in the family manifest",
+  );
+
+  const cargoManifestPath = path.join(
+    workspaceRoot,
+    "sdks/sdkwork-knowledgebase-backend-sdk/sdkwork-knowledgebase-backend-sdk-rust/generated/server-openapi/Cargo.toml",
+  );
+  assert.ok(existsSync(cargoManifestPath), "backend Rust transport must be generated");
+  assert.match(
+    readFileSync(cargoManifestPath, "utf8"),
+    /name = "sdkwork-knowledgebase-backend-sdk-generated-rust"/u,
+    "backend Rust transport Cargo package must match the declared package",
   );
 });
 

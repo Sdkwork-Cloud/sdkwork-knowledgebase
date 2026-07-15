@@ -422,6 +422,9 @@ fn open_context() -> KnowledgeOpenApiRequestContext {
         tenant_id: 100001,
         actor_id: Some(30001),
         organization_id: Some(100),
+        request_id: "test-request-open-api".to_string(),
+        trace_id: None,
+        idempotency_key: None,
     }
 }
 

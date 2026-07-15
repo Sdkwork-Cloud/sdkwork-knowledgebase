@@ -47,16 +47,14 @@ pub fn markdown_to_typst(markdown: &str) -> String {
                 output.push_str("\")[");
             }
             Event::End(TagEnd::Link) => output.push(']'),
-            Event::Start(Tag::CodeBlock(kind)) => {
-                match kind {
-                    CodeBlockKind::Fenced(lang) if !lang.is_empty() => {
-                        output.push_str("#raw(block: true, lang: \"");
-                        output.push_str(&escape_typst_string(lang.as_ref()));
-                        output.push_str("\")[");
-                    }
-                    _ => output.push_str("#raw(block: true)["),
+            Event::Start(Tag::CodeBlock(kind)) => match kind {
+                CodeBlockKind::Fenced(lang) if !lang.is_empty() => {
+                    output.push_str("#raw(block: true, lang: \"");
+                    output.push_str(&escape_typst_string(lang.as_ref()));
+                    output.push_str("\")[");
                 }
-            }
+                _ => output.push_str("#raw(block: true)["),
+            },
             Event::End(TagEnd::CodeBlock) => output.push_str("]\n\n"),
             Event::Code(text) => {
                 output.push_str("#raw(`");
@@ -104,7 +102,9 @@ pub fn build_typst_document(_title: &str, body: &str) -> String {
 }
 
 pub fn compile_typst_to_pdf(source: &str) -> Result<Vec<u8>, String> {
-    let engine = typst_as_lib::TypstEngine::builder().main_file(source).build();
+    let engine = typst_as_lib::TypstEngine::builder()
+        .main_file(source)
+        .build();
     engine
         .with_world(|world| {
             let warned = typst::compile(world);

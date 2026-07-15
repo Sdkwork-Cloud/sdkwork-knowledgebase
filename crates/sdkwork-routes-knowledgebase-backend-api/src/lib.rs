@@ -25,7 +25,7 @@ mod web_rate_limit_store;
 
 pub use auth::{ensure_runtime_tenant, require_backend_context, require_backend_mutation_context};
 pub use error::{BackendApiError, BackendApiProblem, BackendApiResult};
-pub use health::DbReadinessCheck;
+pub use health::{DbReadinessCheck, KnowledgebaseReadinessCheck};
 pub use http_route_manifest::backend_route_manifest;
 pub use permission::{can_access_knowledge_admin, KNOWLEDGE_ADMIN_PERMISSION};
 pub use ports::{KnowledgeBackendApi, KnowledgeBackendRequestContext};

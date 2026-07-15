@@ -30,6 +30,10 @@ use sdkwork_intelligence_knowledgebase_service::{
     space::KnowledgeSpaceServiceError,
     wechat::KnowledgeWechatServiceError,
 };
+use sdkwork_intelligence_knowledgebase_service::{
+    group_space_access::GroupKnowledgeSpaceAccessAuthorizerError,
+    ports::knowledge_group_space_binding_store::KnowledgeGroupSpaceBindingStoreError,
+};
 use sdkwork_knowledgebase_contract::ProblemDetails;
 
 pub type ApiResult<T> = Result<T, ApiError>;
@@ -712,6 +716,45 @@ impl From<KnowledgeContextBindingStoreError> for ApiError {
             KnowledgeContextBindingStoreError::Internal(detail) => {
                 Self::internal("knowledge_context_binding_store_failed", detail)
             }
+        }
+    }
+}
+
+impl From<KnowledgeGroupSpaceBindingStoreError> for ApiError {
+    fn from(error: KnowledgeGroupSpaceBindingStoreError) -> Self {
+        match error {
+            KnowledgeGroupSpaceBindingStoreError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_group_knowledge_space_request", detail)
+            }
+            KnowledgeGroupSpaceBindingStoreError::NotFound(identifier) => Self::not_found(
+                "group_knowledge_space_not_found",
+                format!("group knowledge space was not found: {identifier}"),
+            ),
+            KnowledgeGroupSpaceBindingStoreError::Conflict(detail) => {
+                Self::conflict("group_knowledge_space_conflict", detail)
+            }
+            KnowledgeGroupSpaceBindingStoreError::InvalidLifecycle(detail) => {
+                Self::conflict("group_knowledge_space_invalid_lifecycle", detail)
+            }
+            KnowledgeGroupSpaceBindingStoreError::Internal(detail) => {
+                Self::internal("group_knowledge_space_store_failed", detail)
+            }
+        }
+    }
+}
+
+impl From<GroupKnowledgeSpaceAccessAuthorizerError> for ApiError {
+    fn from(error: GroupKnowledgeSpaceAccessAuthorizerError) -> Self {
+        match error {
+            GroupKnowledgeSpaceAccessAuthorizerError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_group_knowledge_space_access_request", detail)
+            }
+            GroupKnowledgeSpaceAccessAuthorizerError::Denied(detail) => Self::new(
+                StatusCode::FORBIDDEN,
+                "group_knowledge_space_access_denied",
+                detail,
+            ),
+            GroupKnowledgeSpaceAccessAuthorizerError::Store(error) => error.into(),
         }
     }
 }

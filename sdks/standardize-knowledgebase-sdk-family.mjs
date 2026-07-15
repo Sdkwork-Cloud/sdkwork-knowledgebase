@@ -116,7 +116,6 @@ const families = [
     schemaUrl: "/app/v3/openapi.json",
     input: "openapi/knowledgebase-app-api.openapi.json",
     packageName: "@sdkwork/knowledgebase-app-sdk",
-    generatedTransportPackageName: "@sdkwork-internal/knowledgebase-app-sdk-generated",
     composedPackagePath: "sdkwork-knowledgebase-app-sdk-typescript",
     composedFactory: "createKnowledgebaseAppClient",
     generatedPath: "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
@@ -150,6 +149,16 @@ const families = [
     generatedPath: "sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi",
     generatedWorkspace: "sdkwork-knowledgebase-backend-sdk-typescript",
     primaryClient: "SdkworkKnowledgebaseBackendClient",
+    additionalLanguageTargets: [
+      {
+        language: "rust",
+        workspace: "sdkwork-knowledgebase-backend-sdk-rust",
+        generatedPath: "sdkwork-knowledgebase-backend-sdk-rust/generated/server-openapi",
+        manifestPath: "sdkwork-knowledgebase-backend-sdk-rust/generated/server-openapi/Cargo.toml",
+        packageName: "sdkwork-knowledgebase-backend-sdk-generated-rust",
+        primaryClient: "SdkworkBackendClient",
+      },
+    ],
     dependencies: [
       dependency("sdkwork-iam-backend-sdk", "appbase-backend-management-capability", "/backend/v3/api", "sdkwork-iam-backend-api", appbaseBackendPackages),
       dependency("sdkwork-drive-backend-sdk", "drive-backend-management-capability", "/backend/v3/api", "sdkwork-drive.backend", driveBackendPackages),
@@ -578,15 +587,20 @@ function schemaNameFromRef(ref) {
   return ref.startsWith(prefix) ? ref.slice(prefix.length) : null;
 }
 
-function assemblyFor(family, openapi, operationCount) {
-  const languageEntry = {
+function typeScriptTransportPackageName(family) {
+  return `${family.root}-generated-typescript`;
+}
+
+function languageEntriesFor(family) {
+  const typeScriptEntry = {
     language: "typescript",
     workspace: family.generatedWorkspace,
     generationState: "materialized",
     releaseState: "not_published",
     generatedPath: family.generatedPath,
     manifestPath: `${family.generatedPath}/package.json`,
-    name: family.generatedTransportPackageName ?? family.packageName,
+    consumerPackageName: family.packageName,
+    transportPackageName: typeScriptTransportPackageName(family),
     version: family.apiVersion,
     description: `Generator-owned TypeScript transport SDK for ${family.authority}.`,
     consumerSurface: family.composedPackagePath
@@ -604,7 +618,41 @@ function assemblyFor(family, openapi, operationCount) {
         },
   };
 
+  const additionalEntries = (family.additionalLanguageTargets ?? []).map((target) => ({
+    language: target.language,
+    workspace: target.workspace,
+    generationState: "materialized",
+    releaseState: "not_published",
+    generatedPath: target.generatedPath,
+    manifestPath: target.manifestPath,
+    name: target.packageName,
+    version: family.apiVersion,
+    description: `Generator-owned ${target.language === "rust" ? "Rust" : target.language} transport SDK for ${family.authority}.`,
+    consumerSurface: {
+      primaryClient: target.primaryClient,
+      apiPrefix: family.apiPrefix,
+    },
+  }));
+
+  return [typeScriptEntry, ...additionalEntries];
+}
+
+function generatedPackagesFor(family) {
+  return Object.fromEntries(
+    languageEntriesFor(family).map((entry) => [
+      entry.language,
+      {
+        language: entry.language,
+        packageName: entry.language === "typescript" ? entry.transportPackageName : entry.name,
+        generatedOutput: entry.generatedPath,
+      },
+    ]),
+  );
+}
+
+function sdkManifestFor(family, openapi, operationCount) {
   return {
+    schemaVersion: 1,
     workspace: family.root,
     title: family.title,
     apiVersion: family.apiVersion,
@@ -615,6 +663,23 @@ function assemblyFor(family, openapi, operationCount) {
       default: family.input,
     },
     apiAuthority: family.authority,
+    sdkName: family.root,
+    sdkFamily: family.root,
+    sdkType: family.sdkTarget,
+    sdkSurface: family.sdkTarget,
+    packageName: family.packageName,
+    transportPackageName: typeScriptTransportPackageName(family),
+    apiPrefix: family.apiPrefix,
+    standardProfile: "sdkwork-v3",
+    ownerOnlyOperationCount: operationCount,
+    standardVersion,
+    managedBy: "sdks/standardize-knowledgebase-sdk-family.mjs",
+    typescript: {
+      composedRoot: family.generatedWorkspace,
+      composedEntry: `${family.generatedWorkspace}/src/index.ts`,
+      transportRoot: family.generatedPath,
+      transportEntry: `${family.generatedPath}/src/index.ts`,
+    },
     discoverySurface: {
       sdkTarget: family.sdkTarget,
       apiPrefix: family.apiPrefix,
@@ -622,7 +687,8 @@ function assemblyFor(family, openapi, operationCount) {
       generatedProtocols: ["http-openapi"],
       manualTransports: [],
     },
-    languages: [languageEntry],
+    languages: languageEntriesFor(family),
+    generatedPackages: generatedPackagesFor(family),
     sdkOwner: owner,
     sdkDependencies: family.dependencies,
     metadata: {
@@ -646,10 +712,10 @@ function componentSpecFor(family) {
       domain: "knowledgebase",
       capability: "knowledgebase",
       status: "standardized",
-      languages: ["typescript"],
+      languages: languageEntriesFor(family).map((entry) => entry.language),
       generated: true,
       private: false,
-      manifests: [".sdkwork-assembly.json", "sdk-manifest.json"],
+      manifests: ["sdk-manifest.json"],
     },
     canonicalSpecs: [
       {
@@ -678,11 +744,11 @@ function componentSpecFor(family) {
         standard: "../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md",
       },
       publicExports: [],
-      runtimeEntrypoints: [".sdkwork-assembly.json"],
+      runtimeEntrypoints: ["sdk-manifest.json"],
       sdkDependencies: family.dependencies,
-      sdkClients: [family.primaryClient],
+      sdkClients: languageEntriesFor(family).map((entry) => entry.consumerSurface.primaryClient),
       events: [],
-      configKeys: [".sdkwork-assembly.json", "sdk-manifest.json"],
+      configKeys: ["sdk-manifest.json"],
     },
     integration: {
       authority: "Root SDKWork specs remain authoritative. Local specs may extend but must not contradict them.",
@@ -690,7 +756,7 @@ function componentSpecFor(family) {
       sdkPolicy: family.composedPackagePath
         ? "Consumers import the composed TypeScript facade (`createKnowledgebaseAppClient`) from the SDK family workspace root; generated transport under `generated/server-openapi` remains generator-owned and must not be imported directly."
         : "Generated SDK clients are injected through service/runtime boundaries; consumers must not create raw HTTP clients or manual auth headers.",
-      languagePolicy: "TypeScript is the current generated package for this SDK family; additional languages must use the same owner-only OpenAPI input and sdkDependencies.",
+      languagePolicy: `Generated languages (${languageEntriesFor(family).map((entry) => entry.language).join(", ")}) use the same owner-only OpenAPI input and sdkDependencies.`,
     },
     verification: {
       commands: [
@@ -704,60 +770,6 @@ function componentSpecFor(family) {
       standardVersion,
     },
   };
-}
-
-function sdkManifestFor(family, operationCount) {
-  return {
-    schemaVersion: 1,
-    sdkName: family.root,
-    packageName: family.packageName,
-    sdkOwner: owner,
-    apiAuthority: family.authority,
-    sdkFamily: family.root,
-    sdkType: family.sdkTarget,
-    sdkSurface: family.sdkTarget,
-    language: "typescript",
-    apiPrefix: family.apiPrefix,
-    generationInputSpec: family.input,
-    generatedOutput: family.generatedPath,
-    ...(family.composedPackagePath
-      ? {
-          composedConsumerPath: family.composedPackagePath,
-          composedConsumerManifest: `${family.composedPackagePath}/package.json`,
-          composedConsumerEntry: `${family.composedPackagePath}/src/index.ts`,
-          composedFactory: family.composedFactory,
-          generatedTransportPackageName: family.generatedTransportPackageName,
-        }
-      : {}),
-    standardProfile: "sdkwork-v3",
-    sdkDependencies: family.dependencies,
-    ownerOnlyOperationCount: operationCount,
-    standardVersion,
-    managedBy: "sdks/standardize-knowledgebase-sdk-family.mjs",
-  };
-}
-
-async function alignGeneratedTransportPackageName(family) {
-  if (!family.generatedTransportPackageName) {
-    return;
-  }
-
-  const packagePath = path.join(sdksRoot, family.root, family.generatedPath, "package.json");
-  let pkg;
-  try {
-    pkg = await readJson(packagePath);
-  } catch {
-    return;
-  }
-
-  if (pkg.name === family.generatedTransportPackageName) {
-    return;
-  }
-
-  pkg.name = family.generatedTransportPackageName;
-  pkg.private = true;
-  pkg.description = `Generator-owned TypeScript transport SDK for ${family.authority}.`;
-  await writeJson(packagePath, pkg);
 }
 
 function composedAppSdkIndexSource(family) {
@@ -804,11 +816,6 @@ function composedAppSdkPackageJson(family) {
         types: "./src/index.ts",
         import: "./src/index.ts",
         default: "./src/index.ts",
-      },
-      "./generated": {
-        types: "./generated/server-openapi/src/index.ts",
-        import: "./generated/server-openapi/src/index.ts",
-        default: "./generated/server-openapi/src/index.ts",
       },
     },
     dependencies: {
@@ -868,13 +875,11 @@ async function materializeComposedAppSdk(family) {
   await writeJson(path.join(composedRoot, "package.json"), composedAppSdkPackageJson(family));
   await writeText(path.join(composedRoot, "src", "index.ts"), composedAppSdkIndexSource(family));
   await writeText(path.join(composedRoot, "tsconfig.json"), composedAppSdkTsconfigSource());
-  await alignGeneratedTransportPackageName(family);
 }
 
 async function standardizeFamily(family) {
   const { openapi, operationCount, removedOperations } = await standardizeOpenApi(family);
-  await writeJson(path.join(sdksRoot, family.root, ".sdkwork-assembly.json"), assemblyFor(family, openapi, operationCount));
-  await writeJson(path.join(sdksRoot, family.root, "sdk-manifest.json"), sdkManifestFor(family, operationCount));
+  await writeJson(path.join(sdksRoot, family.root, "sdk-manifest.json"), sdkManifestFor(family, openapi, operationCount));
   await writeJson(path.join(sdksRoot, family.root, "specs", "component.spec.json"), componentSpecFor(family));
   await materializeComposedAppSdk(family);
   return {

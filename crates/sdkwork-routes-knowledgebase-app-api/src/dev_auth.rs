@@ -17,6 +17,15 @@ use sdkwork_routes_knowledgebase_open_api::KnowledgeOpenApiRequestContext;
 use crate::KnowledgeAppRequestContext;
 
 pub fn with_dev_app_auth(router: Router, tenant_id: u64, actor_id: Option<u64>) -> Router {
+    with_dev_app_auth_for_organization(router, tenant_id, actor_id, dev_organization_id())
+}
+
+pub fn with_dev_app_auth_for_organization(
+    router: Router,
+    tenant_id: u64,
+    actor_id: Option<u64>,
+    organization_id: Option<u64>,
+) -> Router {
     router.layer(middleware::from_fn(
         move |mut request: Request, next: Next| {
             let actor_id = actor_id;
@@ -29,8 +38,11 @@ pub fn with_dev_app_auth(router: Router, tenant_id: u64, actor_id: Option<u64>) 
                     request.extensions_mut().insert(KnowledgeAppRequestContext {
                         tenant_id,
                         actor_id,
-                        organization_id: None,
+                        organization_id,
                         session_id: None,
+                        request_id: uuid::Uuid::new_v4().to_string(),
+                        trace_id: None,
+                        idempotency_key: None,
                     });
                 }
                 next.run(request).await
@@ -40,6 +52,7 @@ pub fn with_dev_app_auth(router: Router, tenant_id: u64, actor_id: Option<u64>) 
 }
 
 pub fn with_dev_backend_auth(router: Router, tenant_id: u64, operator_id: Option<u64>) -> Router {
+    let organization_id = dev_organization_id();
     router.layer(middleware::from_fn(
         move |mut request: Request, next: Next| {
             let operator_id = operator_id;
@@ -54,7 +67,7 @@ pub fn with_dev_backend_auth(router: Router, tenant_id: u64, operator_id: Option
                         .insert(KnowledgeBackendRequestContext {
                             tenant_id,
                             operator_id,
-                            organization_id: None,
+                            organization_id,
                             permission_scope: vec![KNOWLEDGE_ADMIN_PERMISSION.to_string()],
                         });
                 }
@@ -65,6 +78,7 @@ pub fn with_dev_backend_auth(router: Router, tenant_id: u64, operator_id: Option
 }
 
 pub fn with_dev_open_auth(router: Router, tenant_id: u64, actor_id: Option<u64>) -> Router {
+    let organization_id = dev_organization_id();
     router.layer(middleware::from_fn(
         move |mut request: Request, next: Next| {
             let actor_id = actor_id;
@@ -80,7 +94,10 @@ pub fn with_dev_open_auth(router: Router, tenant_id: u64, actor_id: Option<u64>)
                             api_key_id: "dev-local".to_string(),
                             tenant_id,
                             actor_id,
-                            organization_id: None,
+                            organization_id,
+                            request_id: uuid::Uuid::new_v4().to_string(),
+                            trace_id: None,
+                            idempotency_key: None,
                         });
                 }
                 next.run(request).await
@@ -96,7 +113,17 @@ pub fn inject_dev_app_context(
     Extension(KnowledgeAppRequestContext {
         tenant_id,
         actor_id,
-        organization_id: None,
+        organization_id: dev_organization_id(),
         session_id: None,
+        request_id: uuid::Uuid::new_v4().to_string(),
+        trace_id: None,
+        idempotency_key: None,
     })
+}
+
+fn dev_organization_id() -> Option<u64> {
+    std::env::var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value != 0)
 }

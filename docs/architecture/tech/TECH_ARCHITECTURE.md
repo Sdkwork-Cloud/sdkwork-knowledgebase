@@ -2,7 +2,7 @@
 
 Status: active  
 Owner: SDKWork maintainers  
-Updated: 2026-07-09<br>
+Updated: 2026-07-14<br>
 Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -22,6 +22,7 @@ Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 - [TECH-topology-standard.md](TECH-topology-standard.md)
 - [PRD-mvp-launch.md](../../product/prd/PRD-mvp-launch.md)
 - [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md)
+- [ADR-20260713-group-knowledgebase-binding-and-launch.md](../decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md)
 
 ## 1. Architecture Overview
 
@@ -53,6 +54,8 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 - Persistence: `sdkwork-knowledgebase-repository-sqlx` + `database/` lifecycle
 - HTTP boundaries: `sdkwork-routes-knowledgebase-{app,backend,open}-api`
 - Background work: `sdkwork-knowledgebase-worker` (outbox + ingest maintenance)
+- Ingestion workers claim queued jobs with a conditional queued-to-running compare-and-set, so replicas cannot process the same job concurrently. Crash recovery leases are still a pre-launch schema item.
+- Backend administrative list handlers use cursor page contracts and push ordering, filtering, and limits into database queries; full-list downloads are not a production path.
 - PC client: `apps/sdkwork-knowledgebase-pc/`
 
 ## 4. Security Model
@@ -61,6 +64,31 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 - Backend OpenAPI declares `x-sdkwork-permission: knowledge.admin` on all protected operations
 - Public ingress exposes API paths only; `/metrics` is scraped via ServiceMonitor inside the cluster
 - PC production builds disable demo/mock API fallbacks
+- Managed group spaces use `kb_group_knowledge_space_binding` instead of generic context binding.
+  The binding is scoped by tenant, organization, and IM Conversation id; group spaces are hidden
+  from generic resource routes and resolved only through the specialized launch path.
+- The group resolver requires both a synchronized IM role snapshot and direct Drive authorization.
+  Current-Owner initialization and active-content access are separate: only the current IM Owner
+  may initialize or retry failed provisioning. Once active, Owner maps to Owner, Admin to Writer,
+  Member to Reader, and Guest to no access; left, removed, and non-member actors are also denied.
+  ACL projection failure is fail-closed, and `active` binding state requires an active ACL
+  projection.
+- IM launch tickets are opaque, hash-stored, one-time, short-lived capabilities bound to verified
+  actor/session scope, binding version, and membership epoch. Browser tickets are fragment-only;
+  desktop tickets are transient deep-link data and never persistent host state.
+
+## 4.1 Managed Group Knowledgebase Boundary
+
+IM owns the Conversation roster and lifecycle. Knowledgebase owns the one-to-one managed binding,
+space/Drive lifecycle, ACL projection, and final content enforcement. Trusted IM service calls use
+the generated SDK/RPC boundary; the authenticated Knowledgebase App API consumes a ticket and
+resolves the exact binding target. IM alone applies current-Owner initialization and retry
+authorization before it requests provisioning; Knowledgebase never treats a browser-supplied role
+as authority. It accepts launch tickets only after the binding is active and the interactive caller
+is a joined non-Guest Owner, Admin, or Member. The browser opens the standalone `/group-launch`
+route under its configured public base path. The desktop handoff uses the independent Knowledgebase
+Tauri process, not an IM-owned iframe or Webview. See
+[ADR-20260713-group-knowledgebase-binding-and-launch.md](../decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md).
 
 ## 5. Deployment Topology
 

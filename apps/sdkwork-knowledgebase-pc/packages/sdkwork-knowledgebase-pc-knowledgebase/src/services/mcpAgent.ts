@@ -4,6 +4,7 @@ import {
 } from 'sdkwork-knowledgebase-pc-core';
 
 import type { WechatArticle } from './wechat';
+import { getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId } from '../workspaceMode';
 
 export interface McpToolCall {
   name: string;
@@ -23,6 +24,10 @@ export class McpAgentService {
     _query: string,
     _currentArticle?: WechatArticle,
   ): Promise<McpAgentResponse> {
+    if (getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId() !== null) {
+      throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_CHAT);
+    }
+
     throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_SDK);
   }
 }

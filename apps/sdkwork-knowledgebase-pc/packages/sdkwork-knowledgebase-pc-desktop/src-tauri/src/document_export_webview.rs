@@ -4,7 +4,11 @@ use std::sync::mpsc;
 use tauri::{AppHandle, Url, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(windows)]
-pub async fn export_html_to_pdf(app: &AppHandle, title: &str, body_html: &str) -> Result<Vec<u8>, String> {
+pub async fn export_html_to_pdf(
+    app: &AppHandle,
+    title: &str,
+    body_html: &str,
+) -> Result<Vec<u8>, String> {
     let app = app.clone();
     let title = title.to_string();
     let body_html = body_html.to_string();
@@ -13,7 +17,11 @@ pub async fn export_html_to_pdf(app: &AppHandle, title: &str, body_html: &str) -
         let (tx, rx) = mpsc::sync_channel(1);
         let app_for_thread = app.clone();
         app.run_on_main_thread(move || {
-            let _ = tx.send(export_html_to_pdf_on_main_thread(&app_for_thread, &title, &body_html));
+            let _ = tx.send(export_html_to_pdf_on_main_thread(
+                &app_for_thread,
+                &title,
+                &body_html,
+            ));
         })
         .map_err(|error| format!("failed to dispatch HTML PDF export: {error}"))?;
 
@@ -61,7 +69,8 @@ fn export_html_to_pdf_on_main_thread(
     );
     let pdf_path = std::env::temp_dir().join(format!("{label}.pdf"));
     if pdf_path.exists() {
-        std::fs::remove_file(&pdf_path).map_err(|error| format!("temp pdf cleanup failed: {error}"))?;
+        std::fs::remove_file(&pdf_path)
+            .map_err(|error| format!("temp pdf cleanup failed: {error}"))?;
     }
 
     let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
@@ -85,16 +94,20 @@ fn export_html_to_pdf_on_main_thread(
                             .controller()
                             .CoreWebView2()
                             .map_err(|error| format!("CoreWebView2 unavailable: {error}"))?;
-                        let core = core
-                            .cast::<ICoreWebView2_7>()
-                            .map_err(|_| "PrintToPdf requires WebView2 ICoreWebView2_7".to_string())?;
+                        let core = core.cast::<ICoreWebView2_7>().map_err(|_| {
+                            "PrintToPdf requires WebView2 ICoreWebView2_7".to_string()
+                        })?;
 
                         PrintToPdfCompletedHandler::wait_for_async_operation(
                             Box::new({
                                 let pdf_path_string = pdf_path_string.clone();
                                 move |handler| {
-                                    core.PrintToPdf(&HSTRING::from(&pdf_path_string), None, &handler)
-                                        .map_err(webview2_com::Error::WindowsError)
+                                    core.PrintToPdf(
+                                        &HSTRING::from(&pdf_path_string),
+                                        None,
+                                        &handler,
+                                    )
+                                    .map_err(webview2_com::Error::WindowsError)
                                 }
                             }),
                             Box::new(|result, success| {
@@ -102,7 +115,9 @@ fn export_html_to_pdf_on_main_thread(
                                 if success {
                                     Ok(())
                                 } else {
-                                    Err(windows::core::Error::from_hresult(windows::core::HRESULT(-1)))
+                                    Err(windows::core::Error::from_hresult(windows::core::HRESULT(
+                                        -1,
+                                    )))
                                 }
                             }),
                         )
@@ -118,8 +133,8 @@ fn export_html_to_pdf_on_main_thread(
         rx.recv()
             .map_err(|error| format!("PrintToPdf result channel failed: {error}"))??;
 
-        let bytes =
-            std::fs::read(&pdf_path).map_err(|error| format!("failed to read exported pdf: {error}"))?;
+        let bytes = std::fs::read(&pdf_path)
+            .map_err(|error| format!("failed to read exported pdf: {error}"))?;
 
         if bytes.starts_with(b"%PDF") {
             Ok(bytes)

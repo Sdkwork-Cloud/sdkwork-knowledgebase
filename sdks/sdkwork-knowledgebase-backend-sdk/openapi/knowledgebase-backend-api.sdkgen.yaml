@@ -8,6 +8,7 @@ sdkFamily: sdkwork-knowledgebase-backend-sdk
 standardProfile: sdkwork-v3
 languageTargets:
   - typescript
+  - rust
 ownerOnly: true
 domain: intelligence
 capability: knowledgebase

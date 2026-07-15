@@ -4,6 +4,7 @@ mod document_export_bridge;
 mod document_export_html;
 mod document_export_webview;
 mod export_save;
+mod group_launch_deep_link;
 mod resource_bridge;
 mod session_secure_store;
 mod tray_bridge;
@@ -11,20 +12,21 @@ mod tray_bridge;
 use std::sync::atomic::Ordering;
 
 use desktop_preferences::{
-    get_autostart_enabled, get_desktop_host_status, handle_close_requested, sync_desktop_preferences,
-    DesktopPreferenceState,
+    get_autostart_enabled, get_desktop_host_status, handle_close_requested,
+    sync_desktop_preferences, DesktopPreferenceState,
 };
 use document_export_bridge::export_document_pdf;
 use export_save::{locate_export_file, open_export_file, reveal_export_file, save_export_file};
 use resource_bridge::{
     fetch_binary_resource, open_external_url, read_local_resource, save_binary_resource,
 };
+use serde::Deserialize;
 use session_secure_store::{
     clear_secure_session_values, init_secure_session_state, read_secure_session_snapshot,
     remove_secure_session_value, write_secure_session_value,
 };
-use serde::Deserialize;
 use tauri::{AppHandle, Manager, WindowEvent};
+use tauri_plugin_deep_link::DeepLinkExt;
 use tray_bridge::{install_system_tray, sync_tray_locale};
 
 #[derive(Debug, Deserialize)]
@@ -60,12 +62,31 @@ fn window_control(app: AppHandle, request: WindowControlRequest) -> Result<(), S
 }
 
 fn main() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            group_launch_deep_link::route_group_knowledgebase_launch_args(app, args.as_slice());
+            group_launch_deep_link::focus_main_window(app);
+        }));
+    }
+
+    builder
+        .plugin(tauri_plugin_deep_link::init())
         .manage(DesktopPreferenceState::new(true))
+        .manage(group_launch_deep_link::GroupKnowledgebaseLaunchState::new())
         .setup(|app| {
-            init_secure_session_state(&app.handle())?;
+            init_secure_session_state(app.handle())?;
             let tray_state = install_system_tray(app.handle())?;
             app.manage(tray_state);
+
+            if let Some(urls) = app.deep_link().get_current()? {
+                group_launch_deep_link::route_group_knowledgebase_launch_urls(
+                    app.handle(),
+                    urls.iter(),
+                );
+            }
 
             let app_handle = app.handle().clone();
             let hide_to_tray = app.state::<DesktopPreferenceState>().hide_to_tray.clone();
@@ -81,6 +102,17 @@ fn main() {
                     }
                 });
             }
+
+            app.deep_link().on_open_url({
+                let app_handle = app.handle().clone();
+                move |event| {
+                    let urls = event.urls();
+                    group_launch_deep_link::route_group_knowledgebase_launch_urls(
+                        &app_handle,
+                        urls.iter(),
+                    );
+                }
+            });
 
             Ok(())
         })
@@ -102,7 +134,8 @@ fn main() {
             write_secure_session_value,
             remove_secure_session_value,
             clear_secure_session_values,
-            read_secure_session_snapshot
+            read_secure_session_snapshot,
+            group_launch_deep_link::take_pending_group_knowledgebase_launch
         ])
         .run(tauri::generate_context!())
         .expect("failed to run SDKWork Knowledgebase desktop host");

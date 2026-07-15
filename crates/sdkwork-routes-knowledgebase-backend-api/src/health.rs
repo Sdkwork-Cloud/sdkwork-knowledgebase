@@ -14,6 +14,11 @@ pub const LIVEZ: &str = "/livez";
 pub const READYZ: &str = "/readyz";
 pub const HEALTHZ: &str = "/healthz";
 
+/// Shared readiness probe used by every Knowledgebase HTTP surface. Hosts inject their complete
+/// runtime dependency check here; the default database-only implementation remains useful for
+/// isolated workers that do not own Drive dependencies.
+pub type KnowledgebaseReadinessCheck = Arc<dyn ReadinessCheck>;
+
 /// Database readiness probe for Knowledgebase `sqlx::AnyPool` connections.
 #[derive(Clone)]
 pub struct DbReadinessCheck {
@@ -41,7 +46,7 @@ impl ReadinessCheck for DbReadinessCheck {
 }
 
 pub fn knowledgebase_service_router_config(
-    readiness: Option<DbReadinessCheck>,
+    readiness: Option<KnowledgebaseReadinessCheck>,
 ) -> ServiceRouterConfig {
     // The knowledgebase observability layer (`wrap_router_with_metrics`) mounts a
     // richer `/metrics` handler that includes OKF, audit, and billing metrics in
@@ -49,7 +54,7 @@ pub fn knowledgebase_service_router_config(
     // so it does not overlap when `wrap_router_with_metrics` merges its own.
     let base = ServiceRouterConfig::default().skip_metrics();
     match readiness {
-        Some(check) => base.with_readiness_check(Arc::new(check)),
+        Some(check) => base.with_readiness_check(check),
         None => base.with_always_ready(),
     }
 }

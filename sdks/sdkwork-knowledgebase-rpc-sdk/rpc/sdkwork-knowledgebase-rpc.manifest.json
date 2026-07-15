@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.rpc.manifest",
+  "domain": "intelligence",
+  "sdkFamily": "sdkwork-knowledgebase-rpc-sdk",
+  "discoveryServiceName": "sdkwork-intelligence-internal-rpc",
+  "defaultResilienceProfile": "rpc-default",
+  "services": [
+    {
+      "package": "sdkwork.intelligence.internal.v1",
+      "service": "GroupKnowledgeSpaceLifecycleService",
+      "surface": "internal",
+      "methods": [
+        {
+          "method": "EnsureGroupKnowledgeSpace",
+          "operationId": "internal.groupKnowledgeSpaces.ensure",
+          "auth": "service-mtls",
+          "idempotency": "required",
+          "streaming": "unary",
+          "owner": "knowledgebase-internal",
+          "compatibility": "v1"
+        },
+        {
+          "method": "SynchronizeGroupKnowledgeSpaceMembers",
+          "operationId": "internal.groupKnowledgeSpaceMembers.synchronize",
+          "auth": "service-mtls",
+          "idempotency": "required",
+          "streaming": "unary",
+          "owner": "knowledgebase-internal",
+          "compatibility": "v1"
+        },
+        {
+          "method": "ArchiveGroupKnowledgeSpace",
+          "operationId": "internal.groupKnowledgeSpaces.archive",
+          "auth": "service-mtls",
+          "idempotency": "required",
+          "streaming": "unary",
+          "owner": "knowledgebase-internal",
+          "compatibility": "v1"
+        }
+      ]
+    }
+  ]
+}

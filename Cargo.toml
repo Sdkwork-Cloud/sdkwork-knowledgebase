@@ -15,6 +15,9 @@ members = [
     "crates/sdkwork-knowledgebase-contract-tests",
     "crates/sdkwork-knowledgebase-observability",
     "crates/sdkwork-knowledgebase-worker",
+    "crates/sdkwork-knowledgebase-im-rpc-adapter",
+    "crates/sdkwork-intelligence-knowledgebase-rpc",
+    "crates/sdkwork-intelligence-knowledgebase-rpc-bin",
     "crates/sdkwork-intelligence-knowledgebase-service",
     "crates/sdkwork-intelligence-knowledgebase-repository-sqlx",
     "crates/sdkwork-knowledgebase-engine-dify",
@@ -27,6 +30,9 @@ members = [
     "crates/sdkwork-knowledgebase-engine-qdrant",
     "crates/sdkwork-knowledgebase-engine-weaviate",
     "crates/sdkwork-knowledgebase-engine-haystack",
+]
+exclude = [
+    "sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-rust",
 ]
 resolver = "2"
 
@@ -71,6 +77,9 @@ sdkwork-knowledgebase-test-support = { path = "crates/sdkwork-knowledgebase-test
 sdkwork-knowledgebase-gateway-assembly = { path = "crates/sdkwork-knowledgebase-gateway-assembly" }
 sdkwork-knowledgebase-standalone-gateway = { path = "crates/sdkwork-knowledgebase-standalone-gateway" }
 sdkwork-knowledgebase-worker = { path = "crates/sdkwork-knowledgebase-worker" }
+sdkwork-knowledgebase-im-rpc-adapter = { path = "crates/sdkwork-knowledgebase-im-rpc-adapter" }
+sdkwork-intelligence-knowledgebase-rpc = { path = "crates/sdkwork-intelligence-knowledgebase-rpc" }
+sdkwork-intelligence-knowledgebase-rpc-bin = { path = "crates/sdkwork-intelligence-knowledgebase-rpc-bin" }
 sdkwork-routes-knowledgebase-app-api = { path = "crates/sdkwork-routes-knowledgebase-app-api" }
 sdkwork-routes-knowledgebase-backend-api = { path = "crates/sdkwork-routes-knowledgebase-backend-api" }
 sdkwork-routes-knowledgebase-open-api = { path = "crates/sdkwork-routes-knowledgebase-open-api" }
@@ -109,3 +118,8 @@ sdkwork-drive-config = { path = "../sdkwork-drive/crates/sdkwork-drive-config" }
 sdkwork-memory-spi = { path = "../sdkwork-memory/crates/sdkwork-memory-spi" }
 sdkwork-id-core = { path = "../sdkwork-id/packages/sdkwork-id-core" }
 sdkwork-utils-rust = { path = "../sdkwork-utils/packages/sdkwork-utils-rust" }
+sdkwork-im-rpc-sdk-rust = { path = "../sdkwork-im/sdks/sdkwork-im-rpc-sdk/sdkwork-im-rpc-sdk-rust" }
+sdkwork-knowledgebase-rpc-sdk-rust = { path = "sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-rust" }
+sdkwork-rpc-client = { path = "../sdkwork-rpc-framework/crates/sdkwork-rpc-client", features = ["tls"] }
+sdkwork-rpc-core = { path = "../sdkwork-rpc-framework/crates/sdkwork-rpc-core" }
+sdkwork-rpc-server = { path = "../sdkwork-rpc-framework/crates/sdkwork-rpc-server", features = ["tls"] }

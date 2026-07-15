@@ -16,7 +16,6 @@
     "generated": true,
     "private": false,
     "manifests": [
-      ".sdkwork-assembly.json",
       "sdk-manifest.json"
     ]
   },
@@ -50,7 +49,7 @@
     },
     "publicExports": [],
     "runtimeEntrypoints": [
-      ".sdkwork-assembly.json"
+      "sdk-manifest.json"
     ],
     "sdkDependencies": [
       {
@@ -107,7 +106,6 @@
     ],
     "events": [],
     "configKeys": [
-      ".sdkwork-assembly.json",
       "sdk-manifest.json"
     ]
   },
@@ -115,7 +113,7 @@
     "authority": "Root SDKWork specs remain authoritative. Local specs may extend but must not contradict them.",
     "dependencyPolicy": "Appbase, drive, and memory capabilities are consumed through declared dependency SDKs, not copied into generated knowledgebase transports.",
     "sdkPolicy": "Consumers import the composed TypeScript facade (`createKnowledgebaseAppClient`) from the SDK family workspace root; generated transport under `generated/server-openapi` remains generator-owned and must not be imported directly.",
-    "languagePolicy": "TypeScript is the current generated package for this SDK family; additional languages must use the same owner-only OpenAPI input and sdkDependencies."
+    "languagePolicy": "Generated languages (typescript) use the same owner-only OpenAPI input and sdkDependencies."
   },
   "verification": {
     "commands": [

@@ -121,9 +121,17 @@ export interface MusicPlayerProps {
   isTranscribing?: boolean;
   onTranscribeStart?: () => void;
   onTranscribeComplete?: (content: string) => void;
+  aiEnabled?: boolean;
 }
 
-export function MusicPlayer({ activeDoc, onToastMessage, isTranscribing, onTranscribeStart, onTranscribeComplete }: MusicPlayerProps) {
+export function MusicPlayer({
+  activeDoc,
+  onToastMessage,
+  isTranscribing,
+  onTranscribeStart,
+  onTranscribeComplete,
+  aiEnabled = true,
+}: MusicPlayerProps) {
   const demoPlaylist = shouldUseKnowledgebaseDemoFallback() ? DEMO_PLAYLIST : [];
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -150,7 +158,7 @@ export function MusicPlayer({ activeDoc, onToastMessage, isTranscribing, onTrans
 
   // Execute transcription
   useEffect(() => {
-    if (isTranscribing && onTranscribeComplete) {
+    if (aiEnabled && isTranscribing && onTranscribeComplete) {
       if (isKnowledgebaseApiAvailable() && !activeDoc.url) {
         triggerToast('音频文件缺少下载地址，无法转写。');
         onTranscribeComplete('');
@@ -169,7 +177,7 @@ export function MusicPlayer({ activeDoc, onToastMessage, isTranscribing, onTrans
         onTranscribeComplete('');
       });
     }
-  }, [isTranscribing, activeDoc, onTranscribeComplete]);
+  }, [activeDoc, aiEnabled, isTranscribing, onTranscribeComplete]);
 
   // Sync volume state with HTMLAudioElement
   useEffect(() => {
@@ -430,7 +438,7 @@ const AUDIO_TRANSCRIPT = [
 
         {/* Status & actions widget */}
         <div className="flex items-center gap-2.5 h-full shrink-0">
-          {activeDoc.type === 'audio' && (
+          {aiEnabled && activeDoc.type === 'audio' && (
             <button 
               type="button"
               className="px-2.5 h-7 flex items-center gap-1.2 bg-fuchsia-100/80 text-fuchsia-700 hover:bg-fuchsia-200 dark:bg-fuchsia-500/10 dark:text-fuchsia-400 border border-fuchsia-200/50 dark:border-fuchsia-500/20 text-[10.5px] font-bold rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:grayscale shrink-0 outline-none select-none"

@@ -7,13 +7,13 @@
     "language": "typescript",
     "sdkType": "app",
     "protocol": "http",
-    "packageName": "@sdkwork-internal/knowledgebase-app-sdk-generated"
+    "packageName": "@sdkwork/knowledgebase-app-sdk"
   },
-  "changeFingerprint": "f990694624a1a66497d8dd850a50c5a9e4b46590fa58e10ccbddc6d71903c1f1",
+  "changeFingerprint": "e05fa1f4610b405e7605465a3440dc2b2863d4c83b97d6096d3cec49977f8769",
   "changes": {
     "createdGeneratedFiles": [],
     "updatedGeneratedFiles": [
-      "package.json"
+      "src/api/knowledge.ts"
     ],
     "unchangedGeneratedFiles": [
       "bin/publish-core.mjs",
@@ -23,11 +23,11 @@
       "bin/sdk-gen.sh",
       "CHANGELOG.md",
       "LICENSE",
+      "package.json",
       "README.md",
       "sdkwork-sdk.json",
       "src/api/base.ts",
       "src/api/index.ts",
-      "src/api/knowledge.ts",
       "src/api/paths.ts",
       "src/auth/index.ts",
       "src/http/client.ts",
@@ -44,6 +44,7 @@
       "src/types/agent-profiles-update-response.ts",
       "src/types/common.ts",
       "src/types/complete-knowledge-upload-session-request.ts",
+      "src/types/consume-group-knowledgebase-launch-ticket-request.ts",
       "src/types/context-bindings-retrieve-response.ts",
       "src/types/context-bindings-update-response.ts",
       "src/types/context-packs-create-response201.ts",
@@ -65,6 +66,9 @@
       "src/types/git-imports-create-response201.ts",
       "src/types/git-syncs-create-response201.ts",
       "src/types/grant-knowledge-space-member-request.ts",
+      "src/types/group-knowledge-space-lifecycle-state.ts",
+      "src/types/group-knowledgebase-launch-target.ts",
+      "src/types/group-launches-consume-response.ts",
       "src/types/index.ts",
       "src/types/ingestion-job-state.ts",
       "src/types/ingestion-job.ts",
@@ -243,36 +247,34 @@
       "custom/build-runtime.mjs",
       "custom/README.md"
     ],
-    "backedUpFiles": [
-      "package.json"
-    ]
+    "backedUpFiles": []
   },
   "impact": {
     "schemaVersion": 1,
     "areas": [
-      "build-metadata"
+      "api-surface"
     ],
     "details": [
       {
-        "area": "build-metadata",
+        "area": "api-surface",
         "paths": [
-          "package.json"
+          "src/api/knowledge.ts"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: build-metadata. Verification is required."
+    "summary": "Detected impact areas: api-surface. Verification is required."
   },
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: build-metadata. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: api-surface. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: build-metadata.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -290,7 +292,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: build-metadata.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -308,14 +310,12 @@
   },
   "executionDecision": {
     "schemaVersion": 1,
-    "riskLevel": "high",
+    "riskLevel": "medium",
     "nextAction": "verify",
     "requiresManualReview": false,
     "applyRequiresExpectedFingerprint": false,
     "summary": "Changes have been applied. Run the required verification plan now.",
     "reasons": [
-      "backed-up-generated-files",
-      "manual-review-required",
       "verification-required"
     ]
   },

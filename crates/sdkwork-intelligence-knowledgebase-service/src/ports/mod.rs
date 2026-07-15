@@ -1,5 +1,6 @@
 pub mod commerce_store;
 pub mod drive_import_metadata_store;
+pub mod group_launch_ticket_consumer;
 pub mod knowledge_access_control;
 pub mod knowledge_agent_profile_store;
 pub mod knowledge_browser_projection_store;
@@ -15,6 +16,7 @@ pub mod knowledge_drive_storage;
 pub mod knowledge_drive_workspace;
 pub mod knowledge_embedding_store;
 pub mod knowledge_engine;
+pub mod knowledge_group_space_binding_store;
 pub mod knowledge_index_store;
 pub mod knowledge_ingestion_job_store;
 pub mod knowledge_memory_context;

@@ -1,7 +1,7 @@
 schema_version: 1
 kind: sdkwork.database.schema
 module_id: knowledgebase
-contract_version: 1.1.0
+contract_version: 1.0.0
 owner_team: knowledgebase-platform
 compliance_level: L2
 engines:
@@ -12,27 +12,21 @@ tables:
   - name: kb_space
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L2
   - name: kb_collection
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L2
   - name: kb_source
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L2
   - name: kb_drive_object_ref
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L2
   - name: kb_document
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L2
   - name: kb_document_version
     lifecycle_status: active
     owner: knowledgebase-platform
-    compatibilityLevel: L2
   - name: kb_chunk
     lifecycle_status: active
     owner: knowledgebase-platform
@@ -84,6 +78,18 @@ tables:
   - name: kb_space_context_binding
     lifecycle_status: active
     owner: knowledgebase-platform
+  - name: kb_group_knowledge_space_binding
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_group_knowledge_space_member
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_group_knowledge_space_event_inbox
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_group_knowledge_space_membership_projection
+    lifecycle_status: active
+    owner: knowledgebase-platform
   - name: kb_outbox_event
     lifecycle_status: active
     owner: knowledgebase-platform
@@ -102,7 +108,9 @@ tables:
   - name: kb_site_deployment
     lifecycle_status: active
     owner: knowledgebase-platform
+  - name: kb_audit_event
+    lifecycle_status: active
+    owner: knowledgebase-platform
   - name: web_audit_event
     lifecycle_status: active
-    owner: sdkwork-web-framework
-    compatibilityLevel: L2
+    owner: knowledgebase-platform

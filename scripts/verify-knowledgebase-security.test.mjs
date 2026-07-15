@@ -118,13 +118,14 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(openBootstrap, /organization_id/);
   });
 
-  it('gates AI demo fallbacks behind shouldUseKnowledgebaseDemoFallback', () => {
+  it('fails closed when AI APIs are unavailable', () => {
     const aiService = readRepoFile(
       'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/ai.ts',
     );
-    assert.match(aiService, /streamRewrite[\s\S]*shouldUseKnowledgebaseDemoFallback/);
-    assert.match(aiService, /speechToText[\s\S]*shouldUseKnowledgebaseDemoFallback/);
-    assert.match(aiService, /generateImage[\s\S]*shouldUseKnowledgebaseDemoFallback/);
+    assert.match(aiService, /function requireAiApi/);
+    assert.match(aiService, /isKnowledgebaseApiAvailable/);
+    assert.match(aiService, /throwKnowledgebaseError/);
+    assert.doesNotMatch(aiService, /shouldUseKnowledgebaseDemoFallback/);
   });
 
   it('avoids block_in_place in agent chat runtime bridges', () => {
@@ -166,7 +167,7 @@ describe('knowledgebase security standard alignment', () => {
       'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/components/WechatPublishSidebar.tsx',
     );
     assert.match(wechatPage, /toast\.success\(t\('wechatPublishSuccess'\)\)/);
-    assert.match(wechatPage, /toast\.success\(t\('wechatPreviewSuccess'\)\)/);
+    assert.doesNotMatch(wechatPage, /toast\.success\(t\('wechatPreviewSuccess'\)\)/);
     assert.match(sendPreviewModal, /toast\.error\(t\('wechatPreviewRecipientRequired'/);
     assert.match(sendPreviewModal, /toast\.success\(\s*\n?\s*t\('wechatPreviewSentSuccess'/);
     assert.match(publishSidebar, /toast\.success\(t\('wechatDigestGenerateSuccess'\)\)/);
@@ -280,13 +281,13 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(assetLibrary, /useApiAssets/);
   });
 
-  it('blocks WeChat scan and AI cover demo flows without demo fallback', () => {
+  it('blocks WeChat scan and AI cover synthetic flows', () => {
     const wechatPage = readRepoFile(
       'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/WechatPublishPage.tsx',
     );
-    assert.match(wechatPage, /triggerScanSimulation[\s\S]*shouldUseKnowledgebaseDemoFallback/u);
-    assert.match(wechatPage, /triggerAiCoverGeneration[\s\S]*shouldUseKnowledgebaseDemoFallback/u);
-    assert.match(wechatPage, /handleInsertConfirm[\s\S]*shouldUseKnowledgebaseDemoFallback/u);
+    assert.doesNotMatch(wechatPage, /triggerScanSimulation|triggerAiCoverGeneration/);
+    assert.match(wechatPage, /handleInsertConfirm/);
+    assert.match(wechatPage, /toastKnowledgebaseError/);
   });
 
   it('wires tenant-scoped dynamic rate limit policy from web store', () => {
@@ -298,19 +299,20 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(webAuditStore, /with_dynamic_tenant_runtime_profile_source/);
   });
 
-  it('gates WeChat applet and settings demo assets behind demo fallback', () => {
+  it('uses API-backed WeChat applets and settings without demo fallback', () => {
     const appletModal = readRepoFile(
       'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/components/WechatAppletModal.tsx',
     );
-    assert.match(appletModal, /shouldUseKnowledgebaseDemoFallback/);
+    assert.match(appletModal, /WechatService\.getApplets/);
+    assert.doesNotMatch(appletModal, /shouldUseKnowledgebaseDemoFallback/);
     const settingsModal = readRepoFile(
       'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/KnowledgeBaseSettingsModal.tsx',
     );
-    assert.match(settingsModal, /shouldUseKnowledgebaseDemoFallback/);
+    assert.match(settingsModal, /isKnowledgebaseApiAvailable|toastKnowledgebaseError/);
     const musicPlayer = readRepoFile(
       'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/components/players/MusicPlayer.tsx',
     );
-    assert.match(musicPlayer, /shouldUseKnowledgebaseDemoFallback/);
+    assert.match(musicPlayer, /isKnowledgebaseApiAvailable|toastKnowledgebaseError/);
     const widgetTemplates = readRepoFile(
       'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/utils/wechatWidgetTemplates.ts',
     );

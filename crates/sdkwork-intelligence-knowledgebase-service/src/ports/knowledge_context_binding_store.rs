@@ -6,6 +6,9 @@ use sdkwork_knowledgebase_contract::context_binding::{
 };
 use thiserror::Error;
 
+/// Generic context associations deliberately exclude `chat_group`: group-owned knowledge spaces
+/// are modeled by `KnowledgeGroupSpaceBindingStore` so lifecycle, membership epochs, and ACL
+/// projection state cannot be bypassed through this port.
 #[async_trait]
 pub trait KnowledgeContextBindingStore: Send + Sync {
     async fn create_binding(

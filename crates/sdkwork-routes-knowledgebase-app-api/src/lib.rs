@@ -17,6 +17,7 @@ mod hosted_access;
 mod hosted_backend;
 mod hosted_commerce;
 mod hosted_context_binding;
+mod hosted_group_launch;
 mod hosted_open;
 mod hosted_support;
 mod hosted_upload;
@@ -37,9 +38,9 @@ pub use http_route_manifest::app_route_manifest;
 pub use ports::{
     KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeAppRequestContext, KnowledgeBrowserApi,
     KnowledgeCommerceAppService, KnowledgeContextBindingAppService, KnowledgeDocumentAppService,
-    KnowledgeDriveImportAppService, KnowledgeGitImportAppService, KnowledgeIngestAppService,
-    KnowledgeOkfAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
-    KnowledgeUploadSessionAppService, KnowledgeWechatAppService,
+    KnowledgeDriveImportAppService, KnowledgeGitImportAppService, KnowledgeGroupLaunchAppService,
+    KnowledgeIngestAppService, KnowledgeOkfAppService, KnowledgeRetrievalAppService,
+    KnowledgeSpaceAppService, KnowledgeUploadSessionAppService, KnowledgeWechatAppService,
 };
 pub use routes::{
     build_router_with_agent_and_retrieval_services, build_router_with_agent_service,

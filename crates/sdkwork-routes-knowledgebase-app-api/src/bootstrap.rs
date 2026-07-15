@@ -1,4 +1,7 @@
 use axum::Router;
+use sdkwork_knowledgebase_contract::{
+    parse_canonical_nonnegative_signed_i64, parse_canonical_positive_signed_i64,
+};
 use sdkwork_utils_rust::is_blank;
 
 pub use sdkwork_knowledgebase_observability::{
@@ -37,7 +40,14 @@ pub fn validate_process_config() {
 
     let tenant_id = std::env::var("SDKWORK_KNOWLEDGEBASE_TENANT_ID")
         .ok()
-        .and_then(|value| value.parse::<u64>().ok())
+        .map(|value| {
+            parse_canonical_positive_signed_i64(&value).unwrap_or_else(|_| {
+                eprintln!(
+                    "SDKWORK_KNOWLEDGEBASE_TENANT_ID must be a canonical positive signed BIGINT"
+                );
+                std::process::exit(1);
+            })
+        })
         .unwrap_or(0);
     if tenant_id == 0 && !is_development_environment() {
         eprintln!(
@@ -50,7 +60,14 @@ pub fn validate_process_config() {
 pub fn resolve_deployment_tenant_id() -> u64 {
     std::env::var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID")
         .ok()
-        .and_then(|value| value.parse::<u64>().ok())
+        .map(|value| {
+            parse_canonical_nonnegative_signed_i64(&value).unwrap_or_else(|_| {
+                eprintln!(
+                    "SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID must be a canonical signed BIGINT"
+                );
+                std::process::exit(1);
+            })
+        })
         .unwrap_or(0)
 }
 

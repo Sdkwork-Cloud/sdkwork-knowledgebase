@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "workspace": "sdkwork-knowledgebase-rpc-sdk",
+  "title": "SDKWork Knowledgebase RPC SDK",
+  "apiVersion": "0.1.0",
+  "sdkOwner": "sdkwork-knowledgebase",
+  "apiAuthority": "sdkwork-knowledgebase-rpc",
+  "sdkName": "sdkwork-knowledgebase-rpc-sdk",
+  "sdkFamily": "sdkwork-knowledgebase-rpc-sdk",
+  "sdkType": "internal",
+  "sdkSurface": "internal",
+  "authoritySpec": "rpc/sdkwork-knowledgebase-rpc.manifest.json",
+  "generationInputSpec": "rpc/sdkwork-knowledgebase-rpc.manifest.json",
+  "discoverySurface": {
+    "sdkTarget": "intelligence-internal-rpc",
+    "discoveryServiceName": "sdkwork-intelligence-internal-rpc",
+    "protoRoot": "../../apis/rpc",
+    "generatedProtocols": [
+      "rpc"
+    ],
+    "surfaces": [
+      "internal"
+    ]
+  },
+  "languages": [
+    {
+      "language": "rust",
+      "workspace": "sdkwork-knowledgebase-rpc-sdk-rust",
+      "generationState": "generated",
+      "releaseState": "not_published",
+      "generatedPath": "sdkwork-knowledgebase-rpc-sdk-rust/generated/proto",
+      "packageName": "sdkwork-knowledgebase-rpc-sdk-rust",
+      "version": "0.1.0",
+      "bufTemplate": "sdkwork-knowledgebase-rpc-sdk-rust/buf.gen.yaml",
+      "methodCatalog": "sdkwork-knowledgebase-rpc-sdk-rust/rpc-methods.json",
+      "verifyCommand": "cargo check --manifest-path sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-rust/Cargo.toml",
+      "inspection": {
+        "mode": "convention",
+        "protocol": "rpc",
+        "inspectCommand": "node ../sdkwork-sdk-generator/bin/sdkgen.js inspect --protocol rpc --output sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-rust --json",
+        "requiredEvidence": [
+          "../sdk-manifest.json",
+          "../rpc/sdkwork-knowledgebase-rpc.manifest.json",
+          "buf.gen.yaml",
+          "rpc-methods.json",
+          "sdkwork-knowledgebase-rpc-sdk-rust/generated/proto"
+        ]
+      }
+    },
+    {
+      "language": "typescript",
+      "workspace": "sdkwork-knowledgebase-rpc-sdk-typescript",
+      "generationState": "generated",
+      "releaseState": "not_published",
+      "generatedPath": "sdkwork-knowledgebase-rpc-sdk-typescript/generated/proto",
+      "packageName": "@sdkwork/knowledgebase-rpc-sdk",
+      "version": "0.1.0",
+      "bufTemplate": "sdkwork-knowledgebase-rpc-sdk-typescript/buf.gen.yaml",
+      "methodCatalog": "sdkwork-knowledgebase-rpc-sdk-typescript/rpc-methods.json",
+      "verifyCommand": "npm --prefix sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-typescript run check",
+      "inspection": {
+        "mode": "convention",
+        "protocol": "rpc",
+        "inspectCommand": "node ../sdkwork-sdk-generator/bin/sdkgen.js inspect --protocol rpc --output sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-typescript --json",
+        "requiredEvidence": [
+          "../sdk-manifest.json",
+          "../rpc/sdkwork-knowledgebase-rpc.manifest.json",
+          "buf.gen.yaml",
+          "rpc-methods.json",
+          "sdkwork-knowledgebase-rpc-sdk-typescript/generated/proto"
+        ]
+      },
+      "consumerPackageName": "@sdkwork/knowledgebase-rpc-sdk",
+      "transportPackageName": "sdkwork-knowledgebase-rpc-sdk-generated-typescript"
+    }
+  ],
+  "sdkDependencies": [],
+  "dependencyApiExports": [],
+  "metadata": {
+    "protocol": "rpc",
+    "inspectionPolicy": {
+      "mode": "convention",
+      "optionalControlPlane": {
+        "emitFlag": "--emit-control-plane",
+        "purpose": [
+          "release",
+          "ci",
+          "audit",
+          "migration"
+        ]
+      }
+    },
+    "generator": "@sdkwork/sdk-generator",
+    "generatorPath": "../sdkwork-sdk-generator/bin/sdkgen.js",
+    "generatorVersion": "workspace"
+  }
+}

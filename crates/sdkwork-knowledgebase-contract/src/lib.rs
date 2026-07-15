@@ -10,6 +10,7 @@ pub mod drive;
 pub mod enums;
 pub mod git_import;
 pub mod git_sync;
+pub mod group_space;
 pub mod ids;
 pub mod ingest;
 pub mod knowledge_engine;
@@ -40,6 +41,7 @@ pub use drive::*;
 pub use enums::*;
 pub use git_import::*;
 pub use git_sync::*;
+pub use group_space::*;
 pub use ids::*;
 pub use ingest::*;
 pub use knowledge_engine::*;
@@ -58,3 +60,7 @@ pub use space_member::*;
 pub use tenant::*;
 pub use upload::*;
 pub use wechat::*;
+pub use serde_int64::{
+    parse_canonical_nonnegative_signed_i64, parse_canonical_positive_signed_i64,
+    parse_canonical_u64, CanonicalIntegerError, MAX_SIGNED_I64_AS_U64,
+};

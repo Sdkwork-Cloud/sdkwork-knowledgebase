@@ -318,6 +318,45 @@ impl SqliteKnowledgeSourceStore {
         rows.iter().map(source_from_row).collect()
     }
 
+    pub async fn list_active_sources_page(
+        &self,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeSource>, Option<String>, bool), KnowledgeSourceStoreError> {
+        let tenant_id = source_to_i64("tenant_id", self.tenant_id)?;
+        let cursor = cursor
+            .map(|value| source_to_i64("cursor", value))
+            .transpose()?;
+        let page_size = page_size.clamp(1, 200) as usize;
+        let rows = sqlx::query(
+            r#"
+            SELECT id, space_id, source_type, provider, drive_bucket, drive_prefix, CAST(metadata AS TEXT) AS metadata
+            FROM kb_source
+            WHERE tenant_id = $1 AND status = $2 AND ($3 IS NULL OR id > $3)
+            ORDER BY id ASC
+            LIMIT $4
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .bind(cursor)
+        .bind((page_size + 1) as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(source_sqlx_error)?;
+
+        let has_more = rows.len() > page_size;
+        let items = rows
+            .iter()
+            .take(page_size)
+            .map(source_from_row)
+            .collect::<Result<Vec<_>, _>>()?;
+        let next_cursor = has_more
+            .then(|| items.last().map(|item| item.id.to_string()))
+            .flatten();
+        Ok((items, next_cursor, has_more))
+    }
+
     async fn query_sources_for_space(
         &self,
         space_id: u64,

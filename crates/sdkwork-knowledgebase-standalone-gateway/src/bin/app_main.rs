@@ -2,7 +2,9 @@ use sdkwork_knowledgebase_gateway_assembly::{
     assemble_application_router, resolve_database_url, validate_process_config,
     KnowledgebaseRuntime,
 };
-use sdkwork_knowledgebase_standalone_gateway::serve_router_with_runtime_shutdown;
+use sdkwork_knowledgebase_standalone_gateway::{
+    resolve_group_launch_ticket_consumer_from_env, serve_router_with_runtime_shutdown,
+};
 use std::sync::Arc;
 
 #[tokio::main]
@@ -16,8 +18,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .unwrap_or(1);
     let listen_addr = std::env::var("SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND")
         .unwrap_or_else(|_| "127.0.0.1:18081".to_string());
+    let group_launch_ticket_consumer = resolve_group_launch_ticket_consumer_from_env().await?;
 
     let runtime = KnowledgebaseRuntime::connect(&database_url, tenant_id).await?;
+    let runtime = match group_launch_ticket_consumer {
+        Some(consumer) => runtime.with_group_launch_ticket_consumer(Arc::new(consumer)),
+        None => runtime,
+    };
     runtime.readiness_check().await?;
 
     let router = assemble_application_router(Arc::new(runtime)).await.router;

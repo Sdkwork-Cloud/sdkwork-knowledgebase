@@ -11,12 +11,21 @@ import {
   sendKnowledgeAgentMessage,
   synthesizeKnowledgeSearchAnswer,
 } from './knowledgeAgentChatService';
+import type { KnowledgebaseWorkspaceAiScope } from '../workspaceMode';
+import { getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId } from '../workspaceMode';
 import * as KnowledgeMediaTaskService from './knowledgeMediaTaskService';
 
 type ChatToolCallPayload = Pick<McpToolCall, 'name' | 'arguments'> &
   Partial<Pick<McpToolCall, 'status' | 'result'>>;
 
-function requireAiApi(code: string): void {
+function requireAiApi(code: string, scope?: KnowledgebaseWorkspaceAiScope): void {
+  if (
+    getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId() !== null
+    || scope?.persistSpaceProfileCache === false
+  ) {
+    throwKnowledgebaseError(code);
+  }
+
   if (!isKnowledgebaseApiAvailable()) {
     throwKnowledgebaseError(code);
   }
@@ -28,24 +37,26 @@ export class AIService {
     text: string,
     context: string,
     customPrompt?: string,
+    scope?: KnowledgebaseWorkspaceAiScope,
   ): Promise<string> {
-    requireAiApi(KnowledgebaseErrorCodes.API_UNAVAILABLE_AI);
+    requireAiApi(KnowledgebaseErrorCodes.API_UNAVAILABLE_AI, scope);
     const prompt = buildEditorActionPrompt(action, text, context, customPrompt);
-    return sendKnowledgeAgentMessage(prompt);
+    return sendKnowledgeAgentMessage(prompt, scope);
   }
 
   static async generateChatResponse(
     message: string,
     context?: string,
     references?: string,
+    scope?: KnowledgebaseWorkspaceAiScope,
   ): Promise<{ result: string; toolCalls?: ChatToolCallPayload[] }> {
-    requireAiApi(KnowledgebaseErrorCodes.API_UNAVAILABLE_CHAT);
+    requireAiApi(KnowledgebaseErrorCodes.API_UNAVAILABLE_CHAT, scope);
     const prompt = buildEditorActionPrompt(
       'chat',
       message,
       [context, references].filter((entry) => !isBlank(entry)).join('\n'),
     );
-    const result = await sendKnowledgeAgentMessage(prompt);
+    const result = await sendKnowledgeAgentMessage(prompt, scope);
     return { result, toolCalls: [] };
   }
 

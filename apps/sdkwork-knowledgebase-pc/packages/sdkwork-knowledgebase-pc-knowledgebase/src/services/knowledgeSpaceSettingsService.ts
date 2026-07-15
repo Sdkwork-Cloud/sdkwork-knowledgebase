@@ -26,6 +26,10 @@ interface ParsedModelParameters {
   uiModelName?: string;
 }
 
+export interface EnsureSpaceAgentProfileOptions {
+  persistCache?: boolean;
+}
+
 function readSpaceAgentProfileCache(tenantId: string, spaceId: string): string | null {
   if (typeof window === 'undefined') {
     return null;
@@ -99,10 +103,14 @@ function isLegacyContractProfile(profile: {
     || profile.modelProviderId === 'provider.model.knowledgebase-contract';
 }
 
-export async function ensureSpaceAgentProfile(spaceId: string): Promise<string> {
+export async function ensureSpaceAgentProfile(
+  spaceId: string,
+  options: EnsureSpaceAgentProfileOptions = {},
+): Promise<string> {
   const tenantId = requireKnowledgebaseTenantId();
+  const persistCache = options.persistCache ?? true;
 
-  const cached = readSpaceAgentProfileCache(tenantId, spaceId);
+  const cached = persistCache ? readSpaceAgentProfileCache(tenantId, spaceId) : null;
   const client = getKnowledgebaseAppSdkClient().client;
   if (cached && !isBlank(cached)) {
     try {
@@ -167,7 +175,9 @@ export async function ensureSpaceAgentProfile(spaceId: string): Promise<string> 
     enabled: true,
   });
 
-  writeSpaceAgentProfileCache(tenantId, spaceId, profileId);
+  if (persistCache) {
+    writeSpaceAgentProfileCache(tenantId, spaceId, profileId);
+  }
   return profileId;
 }
 

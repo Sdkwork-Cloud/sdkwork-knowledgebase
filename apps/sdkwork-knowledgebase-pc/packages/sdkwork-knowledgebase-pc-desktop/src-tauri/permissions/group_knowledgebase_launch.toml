@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-group-knowledgebase-launch"
+description = "Allows the standalone Knowledgebase renderer to read one validated pending group launch route from the native host."
+commands.allow = ["take_pending_group_knowledgebase_launch"]
+
+[[permission]]
+identifier = "deny-group-knowledgebase-launch"
+description = "Denies access to the pending group launch route command."
+commands.deny = ["take_pending_group_knowledgebase_launch"]

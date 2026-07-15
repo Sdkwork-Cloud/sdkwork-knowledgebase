@@ -285,6 +285,7 @@ where
             );
         }
 
+        // The bounded executor delegates the synchronous kernel through Tokio spawn_blocking.
         let response = run_bounded_blocking_with_timeout(self.execution_timeout, {
             let chat_request = chat_request;
             move || AgentChatService::new().invoke(&runtime, chat_request)

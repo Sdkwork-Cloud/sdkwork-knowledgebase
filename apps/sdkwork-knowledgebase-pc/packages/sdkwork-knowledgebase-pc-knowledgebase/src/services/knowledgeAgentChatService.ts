@@ -6,6 +6,7 @@ import {
   requireKnowledgebaseTenantId,
   requireNonEmptyString,
   requirePrimaryRegisteredSpaceId,
+  throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 
 import { ensureSpaceAgentProfile } from './knowledgeSpaceSettingsService';
@@ -14,6 +15,7 @@ import {
   KNOWLEDGE_AGENT_RIG_IMPLEMENTATION_ID,
   KNOWLEDGE_AGENT_RIG_MODEL_PROVIDER_ID,
 } from './knowledgeAgentDefaults';
+import { getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId } from '../workspaceMode';
 
 
 function resolvePrimarySpaceId(): string {
@@ -21,22 +23,32 @@ function resolvePrimarySpaceId(): string {
   return requirePrimaryRegisteredSpaceId();
 }
 
-async function ensureDefaultAgentProfile(spaceId: string): Promise<string> {
-  return ensureSpaceAgentProfile(spaceId);
+async function ensureDefaultAgentProfile(
+  spaceId: string,
+  persistSpaceProfileCache: boolean | undefined,
+): Promise<string> {
+  return ensureSpaceAgentProfile(spaceId, { persistCache: persistSpaceProfileCache });
+}
+
+export interface KnowledgeAgentMessageOptions {
+  mode?: KnowledgeAgentKnowledgeMode;
+  persistSpaceProfileCache?: boolean;
+  sessionId?: string;
+  spaceId?: string;
 }
 
 export async function sendKnowledgeAgentMessage(
   message: string,
-  options?: {
-    spaceId?: string;
-    sessionId?: string;
-    mode?: KnowledgeAgentKnowledgeMode;
-  },
+  options?: KnowledgeAgentMessageOptions,
 ): Promise<string> {
   requireNonEmptyString(message, KnowledgebaseErrorCodes.MESSAGE_REQUIRED);
 
+  if (getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId() !== null) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_CHAT);
+  }
+
   const spaceId = options?.spaceId ?? resolvePrimarySpaceId();
-  const profileId = await ensureDefaultAgentProfile(spaceId);
+  const profileId = await ensureDefaultAgentProfile(spaceId, options?.persistSpaceProfileCache);
   const client = requireKnowledgebaseAppSdkHttpClient();
   const profile = await client.knowledge.agentProfiles.retrieve(profileId);
 
@@ -57,6 +69,10 @@ export async function queryKnowledgeSpace(
   spaceId: string,
   query: string,
 ): Promise<string> {
+  if (getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId() !== null) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_SEARCH);
+  }
+
   if (isBlank(query)) {
     return '';
   }
@@ -73,6 +89,10 @@ export async function synthesizeKnowledgeSearchAnswer(
   query: string,
   sourcesText: string,
 ): Promise<string> {
+  if (getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId() !== null) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_SEARCH);
+  }
+
   requireKnowledgebaseTenantId();
   const spaceId = requirePrimaryRegisteredSpaceId();
 

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   bindKnowledgebaseSessionStore,
   configureKnowledgebaseAppSdk,
@@ -143,5 +143,43 @@ describe('knowledge space agent profile defaults', () => {
       uiProvider: 'SDKWork AI',
       uiModelName: 'rig.default-chat',
     });
+  });
+
+  it('does not persist an agent profile cache for an ephemeral group workspace', async () => {
+    const getItem = vi.fn(() => null);
+    const setItem = vi.fn();
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        localStorage: {
+          getItem,
+          setItem,
+          removeItem: vi.fn(),
+        },
+      },
+    });
+    bindKnowledgebaseSessionStore(
+      createStaticSessionStore({ context: { tenantId: 'tenant-1', userId: 'user-1' } }),
+    );
+    configureKnowledgebaseAppSdk({
+      client: {
+        knowledge: {
+          agentProfiles: {
+            create: async () => ({ profileId: 'group-profile-1' }),
+            bindings: {
+              bindings: async () => ({ accepted: true }),
+            },
+          },
+        },
+      } as never,
+      setTokenManager() {},
+    });
+
+    await expect(
+      ensureSpaceAgentProfile('group-space-42', { persistCache: false }),
+    ).resolves.toBe('group-profile-1');
+
+    expect(getItem).not.toHaveBeenCalled();
+    expect(setItem).not.toHaveBeenCalled();
   });
 });

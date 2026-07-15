@@ -5,6 +5,7 @@ import {
   requireNonEmptyString,
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
+import { isBlank, trim } from '@sdkwork/utils';
 
 export interface SiteDeploymentOptions {
   siteName?: string;
@@ -20,7 +21,7 @@ export interface SiteDeploymentResult {
 }
 
 export function isVerifiedSiteDeploymentUrl(value: unknown): value is string {
-  if (typeof value !== 'string' || !value.trim()) {
+  if (typeof value !== 'string' || isBlank(value)) {
     return false;
   }
   try {
@@ -48,12 +49,12 @@ export async function publishKnowledgeSite(
   const result = await client.knowledge.siteDeployments.create({
     spaceId: parseKnowledgeSpaceId(kbId),
     platform: trimmedPlatform,
-    siteName: options?.siteName?.trim() || undefined,
-    customDomain: options?.customDomain?.trim() || undefined,
+    siteName: options?.siteName && !isBlank(options.siteName) ? trim(options.siteName) : undefined,
+    customDomain: options?.customDomain && !isBlank(options.customDomain) ? trim(options.customDomain) : undefined,
     siteLogoDataUrl: options?.siteLogoDataUrl || undefined,
   });
 
-  const deploymentId = String(result.deploymentId ?? '').trim();
+  const deploymentId = trim(String(result.deploymentId ?? ''));
   if (
     result.accepted !== true
     || result.status !== 'completed'
@@ -69,6 +70,6 @@ export async function publishKnowledgeSite(
     accepted: true,
     status: 'completed',
     deploymentId,
-    url: result.url.trim(),
+    url: trim(result.url),
   };
 }

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-intelligence-knowledgebase-rpc-bin",
+    "displayName": "SDKWork Knowledgebase Internal RPC Host",
+    "version": "0.1.0",
+    "type": "rust-crate",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-intelligence-knowledgebase-rpc-bin",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "surface": "internal-rpc",
+    "languages": ["rust"],
+    "generated": false,
+    "private": true,
+    "manifests": ["Cargo.toml"]
+  },
+  "canonicalSpecs": [
+    { "file": "CODE_STYLE_SPEC.md", "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md", "purpose": "Bootstrap composition boundaries." },
+    { "file": "NAMING_SPEC.md", "path": "../../../sdkwork-specs/NAMING_SPEC.md", "purpose": "RPC host naming." },
+    { "file": "RUST_CODE_SPEC.md", "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md", "purpose": "Runtime process composition." },
+    { "file": "RUST_RPC_SPEC.md", "path": "../../../sdkwork-specs/RUST_RPC_SPEC.md", "purpose": "Server bootstrap and health requirements." },
+    { "file": "RPC_SPEC.md", "path": "../../../sdkwork-specs/RPC_SPEC.md", "purpose": "Internal RPC deployment contract." },
+    { "file": "RPC_FRAMEWORK_SPEC.md", "path": "../../../sdkwork-specs/RPC_FRAMEWORK_SPEC.md", "purpose": "mTLS framework binding." },
+    { "file": "CONFIG_SPEC.md", "path": "../../../sdkwork-specs/CONFIG_SPEC.md", "purpose": "Private runtime configuration." },
+    { "file": "ENVIRONMENT_SPEC.md", "path": "../../../sdkwork-specs/ENVIRONMENT_SPEC.md", "purpose": "RPC environment variable policy." },
+    { "file": "SECURITY_SPEC.md", "path": "../../../sdkwork-specs/SECURITY_SPEC.md", "purpose": "Strict service identity and secret handling." },
+    { "file": "TEST_SPEC.md", "path": "../../../sdkwork-specs/TEST_SPEC.md", "purpose": "Preflight and RPC host verification." }
+  ],
+  "contracts": {
+    "layerRole": "runtime-service-host",
+    "publicExports": [
+      "run_group_knowledge_space_lifecycle_rpc_from_env",
+      "sdkwork-intelligence-knowledgebase-rpc",
+      "sdkwork-intelligence-knowledgebase-repository-sqlx",
+      "sdkwork-knowledgebase-drive"
+    ],
+    "providedPorts": [
+      { "name": "groupKnowledgeSpaceLifecycleRpcHost", "export": "run_group_knowledge_space_lifecycle_rpc_from_env" }
+    ],
+    "requiredPorts": [
+      { "name": "groupKnowledgeSpaceLifecycleRpcService", "export": "sdkwork-intelligence-knowledgebase-rpc" },
+      { "name": "knowledgebaseSqlxRuntime", "export": "sdkwork-intelligence-knowledgebase-repository-sqlx" },
+      { "name": "knowledgebaseDriveAdapters", "export": "sdkwork-knowledgebase-drive" }
+    ],
+    "runtimeEntrypoints": ["src/bin/rpc_main.rs", "run_group_knowledge_space_lifecycle_rpc_from_env"],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": ["sdkwork-knowledgebase-rpc-sdk"],
+    "permissionComposition": {},
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": [],
+    "configKeys": [
+      "SDKWORK_KNOWLEDGEBASE_ENVIRONMENT",
+      "SDKWORK_KNOWLEDGEBASE_RPC_ENABLED",
+      "SDKWORK_KNOWLEDGEBASE_RPC_BIND_ADDR",
+      "SDKWORK_KNOWLEDGEBASE_RPC_TLS_ENABLED",
+      "SDKWORK_KNOWLEDGEBASE_RPC_MTLS_ENABLED",
+      "SDKWORK_KNOWLEDGEBASE_RPC_HEALTH_ENABLED",
+      "SDKWORK_KNOWLEDGEBASE_RPC_SERVER_CERT_PATH",
+      "SDKWORK_KNOWLEDGEBASE_RPC_SERVER_KEY_PATH",
+      "SDKWORK_KNOWLEDGEBASE_RPC_CLIENT_CA_CERTIFICATE_PATH",
+      "SDKWORK_KNOWLEDGEBASE_RPC_SPIFFE_TRUST_DOMAIN",
+      "SDKWORK_KNOWLEDGEBASE_RPC_IM_CALLER_CONTEXT_SIGNING_KEY",
+      "SDKWORK_KNOWLEDGEBASE_RPC_IM_CALLER_CONTEXT_SIGNING_KEY_FILE",
+      "SDKWORK_KNOWLEDGEBASE_DATABASE_URL",
+      "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",
+      "SDKWORK_KNOWLEDGEBASE_OPERATOR_ID"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "cargo test -p sdkwork-intelligence-knowledgebase-rpc-bin",
+      "cargo clippy -p sdkwork-intelligence-knowledgebase-rpc-bin --all-targets -- -D warnings"
+    ]
+  }
+}

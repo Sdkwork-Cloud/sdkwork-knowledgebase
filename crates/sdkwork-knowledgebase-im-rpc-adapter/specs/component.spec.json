@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-im-rpc-adapter",
+    "displayName": "SDKWork Knowledgebase IM RPC Adapter",
+    "version": "0.1.0",
+    "type": "rust-crate",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-im-rpc-adapter",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "surface": "internal-rpc-client-adapter",
+    "languages": ["rust"],
+    "generated": false,
+    "private": true,
+    "manifests": ["Cargo.toml"]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "COMPONENT_SPEC.md",
+      "path": "../../../sdkwork-specs/COMPONENT_SPEC.md",
+      "purpose": "Component-local contract and discovery rules."
+    },
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored adapter and generated-code boundaries."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../../../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Canonical RPC adapter naming."
+    },
+    {
+      "file": "RUST_CODE_SPEC.md",
+      "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md",
+      "purpose": "Rust dependency direction and async rules."
+    },
+    {
+      "file": "RPC_SPEC.md",
+      "path": "../../../sdkwork-specs/RPC_SPEC.md",
+      "purpose": "Internal RPC contract semantics."
+    },
+    {
+      "file": "RPC_FRAMEWORK_SPEC.md",
+      "path": "../../../sdkwork-specs/RPC_FRAMEWORK_SPEC.md",
+      "purpose": "Framework client, mTLS, and signed caller-context requirements."
+    },
+    {
+      "file": "RPC_RESILIENCE_SPEC.md",
+      "path": "../../../sdkwork-specs/RPC_RESILIENCE_SPEC.md",
+      "purpose": "RPC timeout and transport-failure behavior."
+    },
+    {
+      "file": "SECURITY_SPEC.md",
+      "path": "../../../sdkwork-specs/SECURITY_SPEC.md",
+      "purpose": "Credential, token, and secure logging requirements."
+    },
+    {
+      "file": "TEST_SPEC.md",
+      "path": "../../../sdkwork-specs/TEST_SPEC.md",
+      "purpose": "RPC adapter verification."
+    }
+  ],
+  "contracts": {
+    "layerRole": "backend-provider",
+    "publicExports": [".", "sdkwork-im-rpc-sdk-rust", "sdkwork-rpc-client", "sdkwork-rpc-core"],
+    "runtimeEntrypoints": [
+      "KnowledgebaseImGroupLaunchTicketConsumer",
+      "KnowledgebaseImGroupLaunchTicketConsumerConfig"
+    ],
+    "providedPorts": [
+      {
+        "name": "groupLaunchTicketConsumer",
+        "export": ".",
+        "target": "sdkwork_intelligence_knowledgebase_service::ports::group_launch_ticket_consumer::GroupLaunchTicketConsumer"
+      }
+    ],
+    "requiredPorts": [
+      {
+        "name": "generatedImRpcSdk",
+        "export": "sdkwork-im-rpc-sdk-rust"
+      },
+      {
+        "name": "sdkworkRpcClient",
+        "export": "sdkwork-rpc-client"
+      },
+      {
+        "name": "sdkworkRpcCore",
+        "export": "sdkwork-rpc-core"
+      }
+    ],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": ["sdkwork-im-rpc-sdk"],
+    "permissionComposition": {},
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": [],
+    "configKeys": []
+  },
+  "verification": {
+    "commands": [
+      "cargo test -p sdkwork-knowledgebase-im-rpc-adapter",
+      "cargo clippy -p sdkwork-knowledgebase-im-rpc-adapter --all-targets -- -D warnings"
+    ]
+  }
+}

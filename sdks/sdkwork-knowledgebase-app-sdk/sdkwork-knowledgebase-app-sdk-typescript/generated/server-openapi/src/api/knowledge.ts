@@ -1,7 +1,7 @@
 import { appApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList, KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PageInfo, SdkWorkCommandData, UpdateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceRequest } from '../types';
+import type { CompleteKnowledgeUploadSessionRequest, ConsumeGroupKnowledgebaseLaunchTicketRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, GroupKnowledgebaseLaunchTarget, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList, KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PageInfo, SdkWorkCommandData, UpdateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceRequest } from '../types';
 
 
 export class KnowledgeMediaTasksApi {
@@ -868,8 +868,33 @@ export class KnowledgeSpacesApi {
   }
 }
 
+export interface KnowledgeGroupLaunchesConsumeParams {
+  idempotencyKey: string;
+}
+
+export class KnowledgeGroupLaunchesApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Consume a group knowledgebase launch ticket */
+  async consume(body: ConsumeGroupKnowledgebaseLaunchTicketRequest, params: KnowledgeGroupLaunchesConsumeParams): Promise<GroupKnowledgebaseLaunchTarget> {
+    const requestHeaders = buildRequestHeaders(
+      {
+        'Idempotency-Key': { value: params.idempotencyKey, style: 'simple', explode: false },
+      },
+      {}
+    );
+    return this.client.post<GroupKnowledgebaseLaunchTarget>(appApiPath(`/knowledge/group_launches/consume`), body, undefined, requestHeaders, 'application/json');
+  }
+}
+
 export class KnowledgeApi {
   private client: HttpClient;
+  public readonly groupLaunches: KnowledgeGroupLaunchesApi;
   public readonly spaces: KnowledgeSpacesApi;
   public readonly driveImports: KnowledgeDriveImportsApi;
   public readonly gitImports: KnowledgeGitImportsApi;
@@ -889,6 +914,7 @@ export class KnowledgeApi {
 
   constructor(client: HttpClient) {
     this.client = client;
+    this.groupLaunches = new KnowledgeGroupLaunchesApi(client);
     this.spaces = new KnowledgeSpacesApi(client);
     this.driveImports = new KnowledgeDriveImportsApi(client);
     this.gitImports = new KnowledgeGitImportsApi(client);
@@ -1143,4 +1169,79 @@ function encodeQueryValue(value: string, allowReserved: boolean): string {
     .replace(/%2C/gi, ',')
     .replace(/%3B/gi, ';')
     .replace(/%3D/gi, '=');
+}
+function buildRequestHeaders(
+  headers: Record<string, HeaderParameterSpec | undefined>,
+  cookies: Record<string, HeaderParameterSpec | undefined> = {},
+): Record<string, string> | undefined {
+  const requestHeaders: Record<string, string> = {};
+
+  for (const [name, parameter] of Object.entries(headers)) {
+    const serialized = serializeParameterValue(parameter);
+    if (serialized !== undefined) {
+      requestHeaders[name] = serialized;
+    }
+  }
+
+  const cookieHeader = buildCookieHeader(cookies);
+  if (cookieHeader) {
+    requestHeaders.Cookie = requestHeaders.Cookie
+      ? `${requestHeaders.Cookie}; ${cookieHeader}`
+      : cookieHeader;
+  }
+
+  return Object.keys(requestHeaders).length > 0 ? requestHeaders : undefined;
+}
+
+interface HeaderParameterSpec {
+  value: unknown;
+  style: string;
+  explode: boolean;
+  contentType?: string;
+}
+
+function buildCookieHeader(cookies: Record<string, HeaderParameterSpec | undefined>): string | undefined {
+  const pairs: string[] = [];
+  for (const [name, parameter] of Object.entries(cookies)) {
+    const serialized = serializeParameterValue(parameter);
+    if (serialized !== undefined) {
+      pairs.push(`${encodeURIComponent(name)}=${encodeURIComponent(serialized)}`);
+    }
+  }
+  return pairs.length > 0 ? pairs.join('; ') : undefined;
+}
+
+function serializeParameterValue(parameter: HeaderParameterSpec | undefined): string | undefined {
+  const value = parameter?.value;
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (parameter?.contentType) {
+    return JSON.stringify(value);
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => serializeHeaderPrimitive(item)).join(',');
+  }
+  if (typeof value === 'object' && value !== null) {
+    return serializeHeaderObject(value as Record<string, unknown>, parameter?.explode === true);
+  }
+  return serializeHeaderPrimitive(value);
+}
+
+function serializeHeaderObject(value: Record<string, unknown>, explode: boolean): string {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== undefined && entryValue !== null);
+  if (explode) {
+    return entries.map(([key, entryValue]) => `${key}=${serializeHeaderPrimitive(entryValue)}`).join(',');
+  }
+  return entries.flatMap(([key, entryValue]) => [key, serializeHeaderPrimitive(entryValue)]).join(',');
+}
+
+function serializeHeaderPrimitive(value: unknown): string {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return String(value);
 }

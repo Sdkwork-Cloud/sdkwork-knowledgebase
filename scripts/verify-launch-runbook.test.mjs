@@ -182,8 +182,9 @@ describe('knowledgebase launch runbook alignment', () => {
     const wechatService = readRepoFile(
       'apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/wechat.ts',
     );
-    assert.match(wechatService, /assertWechatDemoFallbackAllowed/);
-    assert.match(wechatService, /shouldUseKnowledgebaseDemoFallback/);
+    assert.match(wechatService, /function requireWechatSdk/);
+    assert.match(wechatService, /isKnowledgebaseApiAvailable/);
+    assert.doesNotMatch(wechatService, /shouldUseKnowledgebaseDemoFallback|assertWechatDemoFallbackAllowed/);
   });
 
   it('does not ship debug-only Playwright flows in launch CI', () => {

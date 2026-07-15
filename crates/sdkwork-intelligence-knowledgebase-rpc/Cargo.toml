@@ -1,0 +1,28 @@
+[package]
+name = "sdkwork-intelligence-knowledgebase-rpc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Thin internal group knowledge-space lifecycle RPC adapter."
+
+[lib]
+name = "sdkwork_intelligence_knowledgebase_rpc"
+path = "src/lib.rs"
+
+[dependencies]
+async-trait.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tonic = { version = "0.14", features = ["transport"] }
+sdkwork-intelligence-knowledgebase-service.workspace = true
+sdkwork-knowledgebase-contract.workspace = true
+sdkwork-knowledgebase-rpc-sdk-rust.workspace = true
+sdkwork-rpc-core.workspace = true
+sdkwork-rpc-server.workspace = true
+sdkwork-utils-rust.workspace = true
+
+[dev-dependencies]
+rcgen = { version = "0.14", features = ["pem"] }
+tempfile = "3"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
+tokio-stream = "0.1"

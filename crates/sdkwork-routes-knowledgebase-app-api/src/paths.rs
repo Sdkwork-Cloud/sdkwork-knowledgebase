@@ -3,6 +3,7 @@ pub const LIVEZ: &str = "/livez";
 pub const READYZ: &str = "/readyz";
 pub const HEALTHZ: &str = "/healthz";
 pub const SPACES: &str = "/app/v3/api/knowledge/spaces";
+pub const GROUP_LAUNCHES_CONSUME: &str = "/app/v3/api/knowledge/group_launches/consume";
 pub const SPACE: &str = "/app/v3/api/knowledge/spaces/{space_id}";
 pub const DRIVE_IMPORTS: &str = "/app/v3/api/knowledge/drive_imports";
 pub const GIT_IMPORTS: &str = "/app/v3/api/knowledge/git_imports";

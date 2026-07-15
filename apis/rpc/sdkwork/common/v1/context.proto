@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package sdkwork.common.v1;
+
+option java_multiple_files = true;
+option java_package = "com.sdkwork.common.v1";
+option go_package = "github.com/sdkwork/knowledgebase-rpc-sdk-go/generated/proto/sdkwork/common/v1;commonv1";
+
+// Typed correlation metadata mirrors framework-verified metadata for generated clients. It is
+// never an authority source: internal service identity and caller scope come only from mTLS and
+// the signed framework caller context.
+message RequestMetadata {
+  string trace_id = 1;
+  string traceparent = 2;
+  string idempotency_key = 3;
+  string request_hash = 4;
+  string client_version = 5;
+}
+
+message ResponseMetadata {
+  string trace_id = 1;
+  string traceparent = 2;
+  string server_time = 3;
+  repeated string warnings = 4;
+  repeated string deprecation_notices = 5;
+}

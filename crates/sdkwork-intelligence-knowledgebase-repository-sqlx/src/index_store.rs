@@ -161,6 +161,43 @@ impl SqliteKnowledgeIndexStore {
         rows.iter().map(index_from_row).collect()
     }
 
+    pub async fn list_active_indexes_page(
+        &self,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<(Vec<KnowledgeIndex>, Option<String>, bool), KnowledgeIndexStoreError> {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let cursor = cursor.map(|value| to_i64("cursor", value)).transpose()?;
+        let page_size = page_size.clamp(1, 200) as usize;
+        let rows = sqlx::query(
+            r#"
+            SELECT id, tenant_id, space_id, index_kind, status
+            FROM kb_index
+            WHERE tenant_id = $1 AND status = $2 AND ($3 IS NULL OR id > $3)
+            ORDER BY id ASC
+            LIMIT $4
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(ACTIVE_STATUS)
+        .bind(cursor)
+        .bind((page_size + 1) as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_error)?;
+
+        let has_more = rows.len() > page_size;
+        let items = rows
+            .iter()
+            .take(page_size)
+            .map(index_from_row)
+            .collect::<Result<Vec<_>, _>>()?;
+        let next_cursor = has_more
+            .then(|| items.last().map(|item| item.index_id.to_string()))
+            .flatten();
+        Ok((items, next_cursor, has_more))
+    }
+
     pub async fn get_or_create_active_vector_index(
         &self,
         space_id: u64,

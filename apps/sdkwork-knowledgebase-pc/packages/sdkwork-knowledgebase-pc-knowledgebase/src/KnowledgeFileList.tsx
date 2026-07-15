@@ -39,6 +39,7 @@ export interface KnowledgeFileListProps {
   onDeleteSelection: () => void;
   onMenuCreate: (actionType: string, parentId?: string, payload?: any) => Promise<any> | void;
   onPublishDocs: (docsToPublish: DocumentMeta[]) => void;
+  publishEnabled?: boolean;
   onUpdateDocs?: () => void; // Call this when tree dropped to refresh data
   width?: number;
   isDragging?: boolean;
@@ -48,6 +49,7 @@ export interface KnowledgeFileListProps {
 export function KnowledgeFileList({
   activeKb, docs, loadingDocs, activeDoc, selectedDocIds,
   onSelectDoc, onToggleDocSelection, onClearSelection, onDeleteSelection, onMenuCreate, onPublishDocs, onUpdateDocs,
+  publishEnabled = true,
   width = 260, isDragging, onMouseDownDrag
 }: KnowledgeFileListProps) {
   const { t } = useTranslation(['kb', 'common']);
@@ -308,7 +310,8 @@ export function KnowledgeFileList({
             <div className="flex-none z-10 mx-1 mb-2 py-2 px-3 bg-[var(--color-kb-panel-active)] border border-[var(--color-kb-editor-border)] rounded-lg text-[var(--color-kb-panel-text)] text-xs flex justify-between items-center shadow-md animate-in fade-in slide-in-from-top-2">
                <span className="font-medium">{t('selectedItems', { ns: 'common', count: selectedDocIds.size })}</span>
                <div className="flex items-center space-x-3">
-                  <button onClick={() => {
+                  {publishEnabled && (
+                    <button onClick={() => {
                     const docsToPublish: DocumentMeta[] = [];
                     const findSelectedDocs = (items: (FolderNode | DocumentMeta)[], publishAll: boolean = false) => {
                       for (const item of items) {
@@ -328,7 +331,8 @@ export function KnowledgeFileList({
                     if (docsToPublish.length > 0) {
                       onPublishDocs(docsToPublish);
                     }
-                  }} className="hover:text-[var(--color-kb-accent)] transition-colors"><FileUp size={14}/></button>
+                    }} className="hover:text-[var(--color-kb-accent)] transition-colors"><FileUp size={14}/></button>
+                  )}
                   <button onClick={onDeleteSelection} className="hover:text-red-500 transition-colors" title={t('delete', { ns: 'common' })}><Trash2 size={14}/></button>
                   <button onClick={onClearSelection} className="hover:text-[var(--color-kb-text-muted)] transition-colors"><X size={14}/></button>
                </div>

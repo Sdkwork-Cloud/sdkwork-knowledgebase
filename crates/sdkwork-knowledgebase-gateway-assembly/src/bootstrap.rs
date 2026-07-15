@@ -4,7 +4,7 @@
 use axum::Router;
 use sdkwork_iam_gateway_assembly::assemble_application_business_router as assemble_iam_application_business_router;
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
-use sdkwork_routes_knowledgebase_backend_api::{health, DbReadinessCheck};
+use sdkwork_routes_knowledgebase_backend_api::health;
 use sdkwork_utils_rust::is_blank;
 use sdkwork_web_bootstrap::assemble_multi_surface_router;
 use std::sync::Arc;
@@ -91,7 +91,7 @@ pub async fn assemble_application_business_router(
 pub async fn assemble_application_router(
     runtime: Arc<KnowledgebaseRuntime>,
 ) -> ApplicationAssembly {
-    let readiness = DbReadinessCheck::new(runtime.pool().clone());
+    let readiness = runtime.readiness_check_adapter();
     let business = assemble_application_business_router(runtime).await;
     let router = assemble_multi_surface_router(
         [business.router],

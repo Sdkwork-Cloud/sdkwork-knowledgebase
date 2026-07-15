@@ -1,6 +1,7 @@
 # @sdkwork/knowledgebase-pc-knowledge
 
-Host-managed embed surface for SDKWork Knowledgebase PC.
+Generic host-managed embed surface and standalone managed-group launch route for SDKWork
+Knowledgebase PC.
 
 ## Public exports
 
@@ -8,25 +9,25 @@ Host-managed embed surface for SDKWork Knowledgebase PC.
 | --- | --- |
 | `KnowledgeView` | Full knowledge workspace for sidebar tabs and host routes |
 | `KnowledgebaseModal` | Reusable modal shell for browser and desktop hosts |
-| `KnowledgebaseHostSurface` | Inline or iframe presentation body |
+| `KnowledgebaseHostSurface` | Generic inline or iframe presentation body, never a managed group workspace |
 | `configureKnowledgebasePcRuntime` | Host `sdkPorts` wiring entrypoint |
-| `openKnowledgebaseDesktopWindow` | Opens a host-provided detached desktop window through `sdkPorts.openHostKnowledgeWindow` |
+| `GroupKnowledgebaseLaunchPage` | Fixed, ticket-authorized standalone group workspace route |
 
 ## Host integration
 
-1. Bootstrap host session/SDK ports through `configureKnowledgebasePcRuntime({ sdkPorts })`.
-2. Provide optional `openHostKnowledgeWindow` when the host supports native detached windows (IM desktop Tauri).
-3. Expose `/host-embed/knowledge` in the host router for same-origin iframe and desktop window loads.
-4. Render `KnowledgebaseModal` from chat or agent surfaces with optional `context.groupId` / `context.groupName`.
+1. Bootstrap generic host session/SDK ports through `configureKnowledgebasePcRuntime({ sdkPorts })`.
+2. Use generic embedding only when the host owns its own non-group context and access policy.
+3. Do not render `KnowledgebaseModal`, `KnowledgebaseHostSurface`, or a host-provided detached
+   window for a managed IM Conversation group.
+4. Managed group launch is `/group-launch` under the Knowledgebase public web base path. It accepts
+   an opaque fragment/deep-link ticket, removes it from visible browser state, consumes it after
+   normal authentication, and opens only the server-authorized fixed space.
 
-## Presentation modes
+## Managed Group Boundary
 
-Controlled by `VITE_SDKWORK_KNOWLEDGEBASE_HOST_PRESENTATION_MODE`:
-
-| Mode | Browser | Desktop |
-| --- | --- | --- |
-| `inline` | Modal embeds `KnowledgeView` directly | Modal embeds `KnowledgeView` directly |
-| `detached-iframe` (desktop default) | Modal embeds `KnowledgeView` directly | Modal iframe loads `/host-embed/knowledge` |
-| `detached-window` | N/A unless host provides window bridge | Host opens native window immediately |
+The managed group route is always a full Knowledgebase application surface. Its browser flow opens
+a standalone tab and its desktop flow targets the independent Knowledgebase Tauri application via
+the strict `sdkwork-knowledgebase://group-launch/<opaque-ticket>` protocol. It has no inline,
+iframe, or IM-owned detached-window presentation mode.
 
 Machine contract: `specs/component.spec.json`.

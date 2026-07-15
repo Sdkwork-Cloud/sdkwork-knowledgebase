@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ingest::{
     ApiMarkdownIngestPipeline, ExistingMarkdownIngestJobParams, KnowledgeUploadSessionService,
 };
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_access_control::KnowledgeAccessRole;
 use sdkwork_knowledgebase_contract::ingest::IngestionJob;
 use sdkwork_knowledgebase_contract::upload::{
     CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
@@ -11,8 +11,8 @@ use sdkwork_knowledgebase_contract::upload::{
 use sdkwork_utils_rust::is_blank;
 
 use crate::{
-    hosted_access::require_space_access, runtime::KnowledgebaseRuntime, ApiError, ApiResult,
-    KnowledgeAppRequestContext, KnowledgeUploadSessionAppService,
+    hosted_access::require_space_access_with_role, runtime::KnowledgebaseRuntime, ApiError,
+    ApiResult, KnowledgeAppRequestContext, KnowledgeUploadSessionAppService,
 };
 
 #[derive(Clone)]
@@ -38,11 +38,11 @@ impl HostedUploadSessionService {
     async fn run_ingest_pipeline(
         &self,
         space_id: u64,
+        drive_space_id: Option<&str>,
         title: &str,
         payload_markdown: &str,
         job_id: u64,
     ) -> ApiResult<IngestionJob> {
-        let space = self.runtime.space_store().get_space(space_id).await?;
         let pipeline = ApiMarkdownIngestPipeline::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
@@ -59,7 +59,7 @@ impl HostedUploadSessionService {
                     source_drive_prefix: format!("upload_sessions/{job_id}"),
                     payload_logical_path: format!("inbox/api/{job_id}/payload.md"),
                 },
-                space.drive_space_id.as_deref(),
+                drive_space_id,
             )
             .await
             .map_err(ApiError::from)?;
@@ -82,7 +82,13 @@ impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
         context: KnowledgeAppRequestContext,
         request: CreateKnowledgeUploadSessionRequest,
     ) -> ApiResult<KnowledgeUploadSession> {
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         let service = KnowledgeUploadSessionService::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
@@ -99,7 +105,13 @@ impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
         session_id: u64,
         request: CompleteKnowledgeUploadSessionRequest,
     ) -> ApiResult<IngestionJob> {
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        let space = require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         if request.space_id == 0 {
             return Err(ApiError::invalid_request(
                 "invalid_upload_session_request",
@@ -121,11 +133,6 @@ impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
             ));
         }
 
-        let space = self
-            .runtime
-            .space_store()
-            .get_space(request.space_id)
-            .await?;
         let upload_service = KnowledgeUploadSessionService::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
@@ -143,6 +150,7 @@ impl KnowledgeUploadSessionAppService for HostedUploadSessionService {
 
         self.run_ingest_pipeline(
             request.space_id,
+            space.drive_space_id.as_deref(),
             &request.title,
             &payload_markdown,
             session_id,

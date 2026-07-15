@@ -1,1 +1,1 @@
-export type KnowledgeSpaceStatus = 'active' | 'archived' | 'deleted';
+export type KnowledgeSpaceStatus = 'provisioning' | 'active' | 'archived' | 'deleted';

@@ -10,58 +10,80 @@ const sdkgen = path.resolve(workspaceRoot, "../sdkwork-sdk-generator/bin/sdkgen.
 const families = [
   {
     input: "sdks/sdkwork-knowledgebase-sdk/openapi/knowledgebase-open-api.openapi.json",
-    output: "sdks/sdkwork-knowledgebase-sdk/sdkwork-knowledgebase-sdk-typescript/generated/server-openapi",
     name: "sdkwork-knowledgebase-sdk",
     type: "custom",
-    packageName: "@sdkwork/knowledgebase-sdk",
     apiPrefix: "/knowledge/v3/api",
-    clientName: "SdkworkKnowledgebaseOpenClient",
+    targets: [
+      {
+        language: "typescript",
+        output: "sdks/sdkwork-knowledgebase-sdk/sdkwork-knowledgebase-sdk-typescript/generated/server-openapi",
+        packageName: "@sdkwork/knowledgebase-sdk",
+        clientName: "SdkworkKnowledgebaseOpenClient",
+      },
+    ],
   },
   {
     input: "sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json",
-    output: "sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
     name: "sdkwork-knowledgebase-app-sdk",
     type: "app",
-    packageName: "@sdkwork-internal/knowledgebase-app-sdk-generated",
     apiPrefix: "/app/v3/api",
-    clientName: "SdkworkKnowledgebaseAppClient",
+    targets: [
+      {
+        language: "typescript",
+        output: "sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
+        packageName: "@sdkwork/knowledgebase-app-sdk",
+        clientName: "SdkworkKnowledgebaseAppClient",
+      },
+    ],
   },
   {
     input: "sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json",
-    output: "sdks/sdkwork-knowledgebase-backend-sdk/sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi",
     name: "sdkwork-knowledgebase-backend-sdk",
     type: "backend",
-    packageName: "@sdkwork/knowledgebase-backend-sdk",
     apiPrefix: "/backend/v3/api",
-    clientName: "SdkworkKnowledgebaseBackendClient",
+    targets: [
+      {
+        language: "typescript",
+        output: "sdks/sdkwork-knowledgebase-backend-sdk/sdkwork-knowledgebase-backend-sdk-typescript/generated/server-openapi",
+        packageName: "@sdkwork/knowledgebase-backend-sdk",
+        clientName: "SdkworkKnowledgebaseBackendClient",
+      },
+      {
+        language: "rust",
+        output: "sdks/sdkwork-knowledgebase-backend-sdk/sdkwork-knowledgebase-backend-sdk-rust/generated/server-openapi",
+        packageName: "sdkwork-knowledgebase-backend-sdk-generated-rust",
+      },
+    ],
   },
 ];
 
-function runGenerate(family) {
+function runGenerate(family, target) {
   const args = [
     sdkgen,
     "generate",
     "-i",
     path.join(workspaceRoot, family.input),
     "-o",
-    path.join(workspaceRoot, family.output),
+    path.join(workspaceRoot, target.output),
     "-n",
     family.name,
     "-t",
     family.type,
     "-l",
-    "typescript",
+    target.language,
     "--package-name",
-    family.packageName,
+    target.packageName,
     "--api-prefix",
     family.apiPrefix,
     "--standard-profile",
     "sdkwork-v3",
     "--fixed-sdk-version",
     "0.1.0",
-    "--client-name",
-    family.clientName,
   ];
+
+  if (target.clientName) {
+    args.push("--client-name", target.clientName);
+  }
 
   const result = spawnSync("node", args, { stdio: "inherit", cwd: workspaceRoot });
   if (result.status !== 0) {
@@ -70,8 +92,10 @@ function runGenerate(family) {
 }
 
 for (const family of families) {
-  console.log(`Generating TypeScript SDK for ${family.name}`);
-  runGenerate(family);
+  for (const target of family.targets) {
+    console.log(`Generating ${target.language} SDK for ${family.name}`);
+    runGenerate(family, target);
+  }
 }
 
 console.log("Knowledgebase SDK generation completed.");

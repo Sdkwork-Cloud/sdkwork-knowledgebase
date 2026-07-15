@@ -125,6 +125,9 @@ export type { KnowledgeSiteDeploymentPreview } from './knowledge-site-deployment
 export type { KnowledgeMediaTaskType } from './knowledge-media-task-type';
 export type { KnowledgeMediaTaskRequest } from './knowledge-media-task-request';
 export type { KnowledgeMediaTaskResult } from './knowledge-media-task-result';
+export type { ConsumeGroupKnowledgebaseLaunchTicketRequest } from './consume-group-knowledgebase-launch-ticket-request';
+export type { GroupKnowledgeSpaceLifecycleState } from './group-knowledge-space-lifecycle-state';
+export type { GroupKnowledgebaseLaunchTarget } from './group-knowledgebase-launch-target';
 export type { SdkWorkApiResponse } from './sdk-work-api-response';
 export type { SdkWorkResourceData } from './sdk-work-resource-data';
 export type { SdkWorkPageData } from './sdk-work-page-data';
@@ -137,6 +140,7 @@ export type { SdkWorkResourceResponse } from './sdk-work-resource-response';
 export type { SdkWorkListResponse } from './sdk-work-list-response';
 export type { SdkWorkCommandResponse } from './sdk-work-command-response';
 export type { KnowledgeBrowserListData } from './knowledge-browser-list-data';
+export type { GroupLaunchesConsumeResponse } from './group-launches-consume-response';
 export type { SpacesCreateResponse201 } from './spaces-create-response201';
 export type { SpacesRetrieveResponse } from './spaces-retrieve-response';
 export type { SpacesUpdateResponse } from './spaces-update-response';

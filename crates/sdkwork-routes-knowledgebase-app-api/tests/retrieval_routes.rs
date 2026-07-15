@@ -19,6 +19,9 @@ fn app_request_context() -> KnowledgeAppRequestContext {
         actor_id: Some(30001),
         organization_id: None,
         session_id: None,
+        request_id: "test-request-retrieval-routes".to_string(),
+        trace_id: None,
+        idempotency_key: None,
     }
 }
 
@@ -125,6 +128,9 @@ async fn retrieval_retrieve_route_uses_tenant_from_app_request_context() {
                     actor_id: Some(30001),
                     organization_id: None,
                     session_id: None,
+                    request_id: "test-request-retrieval-route".to_string(),
+                    trace_id: None,
+                    idempotency_key: None,
                 })
                 .body(Body::empty())
                 .unwrap(),

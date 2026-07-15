@@ -192,6 +192,7 @@ fn restore_env_var(key: &str, value: Option<&str>) {
 }
 
 async fn test_runtime(env_guard: &WechatIntegrationEnvGuard) -> KnowledgebaseRuntime {
+    std::env::set_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "42");
     static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)

@@ -5908,6 +5908,7 @@
       "KnowledgeSpaceStatus": {
         "type": "string",
         "enum": [
+          "provisioning",
           "active",
           "archived",
           "deleted"
@@ -8812,6 +8813,53 @@
           }
         }
       },
+      "KnowledgeOkfConceptRevision": {
+        "type": "object",
+        "required": [
+          "id",
+          "conceptRowId",
+          "revisionNo",
+          "markdownObjectRefId",
+          "contentHash",
+          "reviewState",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "conceptRowId": {
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "revisionNo": {
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "markdownObjectRefId": {
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "contentHash": {
+            "type": "string"
+          },
+          "reviewState": {
+            "$ref": "#/components/schemas/OkfRevisionReviewState"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        }
+      },
       "KnowledgeOkfConceptRevisionList": {
         "type": "object",
         "additionalProperties": false,
@@ -8829,6 +8877,74 @@
           },
           "pageInfo": {
             "$ref": "#/components/schemas/PageInfo"
+          }
+        }
+      },
+      "OkfRevisionReviewState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "approved",
+          "rejected"
+        ]
+      },
+      "KnowledgeSpaceMemberSubjectType": {
+        "type": "string",
+        "enum": [
+          "user",
+          "group",
+          "domain",
+          "app"
+        ]
+      },
+      "KnowledgeSpaceMemberRole": {
+        "type": "string",
+        "enum": [
+          "reader",
+          "writer",
+          "owner"
+        ]
+      },
+      "KnowledgeSpaceMember": {
+        "type": "object",
+        "required": [
+          "subjectType",
+          "subjectId",
+          "role",
+          "inherited"
+        ],
+        "properties": {
+          "subjectType": {
+            "$ref": "#/components/schemas/KnowledgeSpaceMemberSubjectType"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/KnowledgeSpaceMemberRole"
+          },
+          "inherited": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KnowledgeSpaceMemberList": {
+        "type": "object",
+        "required": [
+          "members"
+        ],
+        "properties": {
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeSpaceMember"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       }

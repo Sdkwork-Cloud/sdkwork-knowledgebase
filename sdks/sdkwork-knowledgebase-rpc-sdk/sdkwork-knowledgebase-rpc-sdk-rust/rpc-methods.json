@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.rpc.methodCatalog",
+  "sdkFamily": "sdkwork-knowledgebase-rpc-sdk",
+  "domain": "intelligence",
+  "language": "rust",
+  "services": [
+    {
+      "package": "sdkwork.intelligence.internal.v1",
+      "service": "GroupKnowledgeSpaceLifecycleService",
+      "surface": "internal",
+      "methodCount": 3
+    }
+  ],
+  "methods": [
+    {
+      "methodKey": "sdkwork.intelligence.internal.v1.GroupKnowledgeSpaceLifecycleService/EnsureGroupKnowledgeSpace",
+      "package": "sdkwork.intelligence.internal.v1",
+      "service": "GroupKnowledgeSpaceLifecycleService",
+      "method": "EnsureGroupKnowledgeSpace",
+      "surface": "internal",
+      "operationId": "internal.groupKnowledgeSpaces.ensure",
+      "auth": "service-mtls",
+      "idempotency": "required",
+      "streaming": "unary",
+      "owner": "knowledgebase-internal",
+      "compatibility": "v1"
+    },
+    {
+      "methodKey": "sdkwork.intelligence.internal.v1.GroupKnowledgeSpaceLifecycleService/SynchronizeGroupKnowledgeSpaceMembers",
+      "package": "sdkwork.intelligence.internal.v1",
+      "service": "GroupKnowledgeSpaceLifecycleService",
+      "method": "SynchronizeGroupKnowledgeSpaceMembers",
+      "surface": "internal",
+      "operationId": "internal.groupKnowledgeSpaceMembers.synchronize",
+      "auth": "service-mtls",
+      "idempotency": "required",
+      "streaming": "unary",
+      "owner": "knowledgebase-internal",
+      "compatibility": "v1"
+    },
+    {
+      "methodKey": "sdkwork.intelligence.internal.v1.GroupKnowledgeSpaceLifecycleService/ArchiveGroupKnowledgeSpace",
+      "package": "sdkwork.intelligence.internal.v1",
+      "service": "GroupKnowledgeSpaceLifecycleService",
+      "method": "ArchiveGroupKnowledgeSpace",
+      "surface": "internal",
+      "operationId": "internal.groupKnowledgeSpaces.archive",
+      "auth": "service-mtls",
+      "idempotency": "required",
+      "streaming": "unary",
+      "owner": "knowledgebase-internal",
+      "compatibility": "v1"
+    }
+  ]
+}

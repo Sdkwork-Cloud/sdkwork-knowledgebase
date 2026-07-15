@@ -88,7 +88,11 @@ spec:
     # WeChat Open Platform APIs, SearXNG public web search, and Drive storage.
     # Restricted to port 443 to enforce TLS-protected egress.
     - to:
-        - namespaceSelector: {}
+        # Standard NetworkPolicy cannot express FQDNs. This permits only
+        # TLS egress; production clusters should additionally enforce an
+        # egress gateway/FQDN policy for provider allow-lists.
+        - ipBlock:
+            cidr: 0.0.0.0/0
       ports:
         - protocol: TCP
           port: 443

@@ -12,6 +12,7 @@ Owner: SDKWork Knowledgebase maintainers.
 - [provider-outage.md](provider-outage.md)
 - [rate-limit-incident.md](rate-limit-incident.md)
 - [audit-investigation.md](audit-investigation.md)
+- [RUNBOOK-group-knowledgebase-lifecycle.md](RUNBOOK-group-knowledgebase-lifecycle.md)
 - [../deployments/runbooks/backup-restore.md](../deployments/runbooks/backup-restore.md)
 
 Allowed content: operational runbooks for token rotation, tenant isolation, migration rollback, provider outage, rate-limit incidents, and audit investigation.

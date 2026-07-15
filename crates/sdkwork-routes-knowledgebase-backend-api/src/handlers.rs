@@ -36,6 +36,19 @@ macro_rules! backend_handler {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ListOkfCandidatesQuery {
     pub space_id: u64,
+    pub cursor: Option<String>,
+    #[serde(rename = "page_size")]
+    pub page_size: Option<u32>,
+}
+
+fn parse_cursor(cursor: Option<&str>) -> Result<Option<u64>, BackendApiProblem> {
+    crate::pagination::parse_u64_cursor(cursor).map_err(|_| {
+        BackendApiProblem::from(crate::error::BackendApiError::new(
+            axum::http::StatusCode::BAD_REQUEST,
+            "invalid_parameter",
+            "cursor must be a valid numeric id",
+        ))
+    })
 }
 
 async fn audit_backend_mutation<T>(
@@ -60,9 +73,20 @@ async fn audit_backend_mutation<T>(
     Ok(result)
 }
 
-backend_handler!(list_sources, |state: BackendState| async move {
-    ok_json(state.api.list_sources().await)
-});
+pub(crate) async fn list_sources(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Query(query): Query<ListSpacesQuery>,
+) -> Result<Response, BackendApiProblem> {
+    require_backend_context(&state, context)?;
+    let cursor = parse_cursor(query.cursor.as_deref())?;
+    ok_list_json(
+        state
+            .api
+            .list_sources_page(cursor.map(|id| id.to_string()), query.page_size)
+            .await,
+    )
+}
 
 pub(crate) async fn create_source(
     State(state): State<BackendState>,
@@ -90,7 +114,17 @@ pub(crate) async fn list_okf_candidates(
     Query(query): Query<ListOkfCandidatesQuery>,
 ) -> Result<Response, BackendApiProblem> {
     require_backend_context(&state, context)?;
-    ok_json(state.api.list_okf_candidates(query.space_id).await)
+    let cursor = parse_cursor(query.cursor.as_deref())?;
+    ok_list_json(
+        state
+            .api
+            .list_okf_candidates_page(
+                query.space_id,
+                cursor.map(|id| id.to_string()),
+                query.page_size,
+            )
+            .await,
+    )
 }
 
 pub(crate) async fn approve_okf_candidate(
@@ -196,9 +230,20 @@ pub(crate) async fn retrieve_okf_export(
     ok_json(state.api.retrieve_okf_export(export_id).await)
 }
 
-backend_handler!(list_okf_bundle_files, |state: BackendState| async move {
-    ok_json(state.api.list_okf_bundle_files().await)
-});
+pub(crate) async fn list_okf_bundle_files(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Query(query): Query<ListSpacesQuery>,
+) -> Result<Response, BackendApiProblem> {
+    require_backend_context(&state, context)?;
+    let cursor = parse_cursor(query.cursor.as_deref())?;
+    ok_list_json(
+        state
+            .api
+            .list_okf_bundle_files_page(cursor.map(|id| id.to_string()), query.page_size)
+            .await,
+    )
+}
 
 pub(crate) async fn create_okf_lint_run(
     State(state): State<BackendState>,
@@ -220,9 +265,20 @@ pub(crate) async fn create_okf_eval_run(
     created_json(audit_backend_mutation(&context, "okf.evalRuns.create", result).await?)
 }
 
-backend_handler!(list_indexes, |state: BackendState| async move {
-    ok_json(state.api.list_indexes().await)
-});
+pub(crate) async fn list_indexes(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Query(query): Query<ListSpacesQuery>,
+) -> Result<Response, BackendApiProblem> {
+    require_backend_context(&state, context)?;
+    let cursor = parse_cursor(query.cursor.as_deref())?;
+    ok_list_json(
+        state
+            .api
+            .list_indexes_page(cursor.map(|id| id.to_string()), query.page_size)
+            .await,
+    )
+}
 
 pub(crate) async fn create_index(
     State(state): State<BackendState>,
@@ -293,9 +349,20 @@ pub(crate) async fn update_retrieval_profile(
     ok_json(audit_backend_mutation(&context, "retrievalProfiles.update", result).await?)
 }
 
-backend_handler!(list_retrieval_traces, |state: BackendState| async move {
-    ok_json(state.api.list_retrieval_traces().await)
-});
+pub(crate) async fn list_retrieval_traces(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Query(query): Query<ListSpacesQuery>,
+) -> Result<Response, BackendApiProblem> {
+    require_backend_context(&state, context)?;
+    let cursor = parse_cursor(query.cursor.as_deref())?;
+    ok_list_json(
+        state
+            .api
+            .list_retrieval_traces_page(cursor.map(|id| id.to_string()), query.page_size)
+            .await,
+    )
+}
 
 pub(crate) async fn retrieve_retrieval_trace(
     State(state): State<BackendState>,
@@ -309,6 +376,11 @@ pub(crate) async fn retrieve_retrieval_trace(
 backend_handler!(retrieve_provider_health, |state: BackendState| async move {
     ok_json(state.api.retrieve_provider_health().await)
 });
+
+backend_handler!(
+    retrieve_group_launch_capability,
+    |state: BackendState| async move { ok_json(state.api.retrieve_group_launch_capability().await) }
+);
 
 // ============================================================================
 // Tenant status handler

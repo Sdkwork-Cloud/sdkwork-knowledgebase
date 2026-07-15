@@ -5,6 +5,140 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/app/v3/api/knowledge/group_launches/consume": {
+      "post": {
+        "operationId": "groupLaunches.consume",
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Consume a group knowledgebase launch ticket",
+        "description": "Consumes one opaque, one-time IM launch ticket for the authenticated member. Tenant, organization, actor, session, group role, conversation, and space are derived server-side and are never request-body selectors.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumeGroupKnowledgebaseLaunchTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/SdkWorkApiResponse"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "data"
+                      ],
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "required": [
+                            "item"
+                          ],
+                          "properties": {
+                            "item": {
+                              "$ref": "#/components/schemas/GroupKnowledgebaseLaunchTarget"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required or ticket is invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Ticket consumer temporarily unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AuthToken": [],
+            "AccessToken": []
+          }
+        ],
+        "x-sdkwork-owner": "sdkwork-knowledgebase",
+        "x-sdkwork-api-authority": "sdkwork-knowledgebase-app-api",
+        "x-sdkwork-request-context": "WebRequestContext",
+        "x-sdkwork-api-surface": "app-api",
+        "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
+        "x-sdkwork-auth-mode": "dual-token",
+        "x-sdkwork-permission": "knowledge.spaces.read",
+        "x-sdkwork-rate-limit-tier": "auth-critical"
+      }
+    },
     "/app/v3/api/knowledge/spaces": {
       "post": {
         "operationId": "spaces.create",
@@ -11957,6 +12091,20 @@
     }
   },
   "components": {
+    "parameters": {
+      "IdempotencyKeyHeader": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "description": "Client retry key scoped by the authenticated principal and ticket-consumption operation.",
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        }
+      }
+    },
     "schemas": {
       "CreateKnowledgeSpaceRequest": {
         "type": "object",
@@ -12045,6 +12193,7 @@
       "KnowledgeSpaceStatus": {
         "type": "string",
         "enum": [
+          "provisioning",
           "active",
           "archived",
           "deleted"
@@ -16286,6 +16435,69 @@
           }
         }
       },
+      "ConsumeGroupKnowledgebaseLaunchTicketRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ticket"
+        ],
+        "properties": {
+          "ticket": {
+            "type": "string",
+            "writeOnly": true,
+            "minLength": 48,
+            "maxLength": 48,
+            "pattern": "^gklt_[A-Za-z0-9_-]{43}$",
+            "description": "Opaque one-time IM launch ticket. It must never be persisted, logged, or copied into a URL query parameter."
+          }
+        }
+      },
+      "GroupKnowledgeSpaceLifecycleState": {
+        "type": "string",
+        "enum": [
+          "provisioning",
+          "active",
+          "failed",
+          "archived",
+          "deleted"
+        ]
+      },
+      "GroupKnowledgebaseLaunchTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "conversationId",
+          "spaceId",
+          "spaceUuid",
+          "groupName",
+          "lifecycleState"
+        ],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "spaceId": {
+            "type": "string",
+            "format": "uint64",
+            "pattern": "^[0-9]+$",
+            "x-sdkwork-int64-string": true
+          },
+          "spaceUuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "groupName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "lifecycleState": {
+            "$ref": "#/components/schemas/GroupKnowledgeSpaceLifecycleState"
+          }
+        }
+      },
       "SdkWorkApiResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -16587,6 +16799,68 @@
           },
           "pageInfo": {
             "$ref": "#/components/schemas/PageInfo"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequestProblem": {
+        "description": "Bad request",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetail"
+            }
+          }
+        }
+      },
+      "UnauthorizedProblem": {
+        "description": "Authentication required or ticket is invalid",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetail"
+            }
+          }
+        }
+      },
+      "ForbiddenProblem": {
+        "description": "Access denied",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetail"
+            }
+          }
+        }
+      },
+      "TooManyRequestsProblem": {
+        "description": "Rate limit exceeded",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetail"
+            }
+          }
+        }
+      },
+      "InternalServerErrorProblem": {
+        "description": "Internal server error",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetail"
+            }
+          }
+        }
+      },
+      "ServiceUnavailableProblem": {
+        "description": "Ticket consumer temporarily unavailable",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "$ref": "#/components/schemas/ProblemDetail"
+            }
           }
         }
       }

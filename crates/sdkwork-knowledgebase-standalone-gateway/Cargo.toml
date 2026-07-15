@@ -18,3 +18,7 @@ tower.workspace = true
 tracing = "0.1"
 sdkwork-knowledgebase-observability = { workspace = true, features = ["otel"] }
 sdkwork-knowledgebase-agent-provider.workspace = true
+sdkwork-knowledgebase-im-rpc-adapter.workspace = true
+sdkwork-rpc-core.workspace = true
+sdkwork-utils-rust.workspace = true
+thiserror.workspace = true

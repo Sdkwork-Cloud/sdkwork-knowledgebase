@@ -41,6 +41,7 @@ impl<'a> KnowledgeContextBindingService<'a> {
         drive_space_id: &str,
         request: CreateKnowledgeSpaceContextBindingRequest,
     ) -> Result<KnowledgeSpaceContextBinding, KnowledgeContextBindingServiceError> {
+        reject_chat_group_context(request.context_type)?;
         if is_blank(Some(request.context_id.as_str())) {
             return Err(KnowledgeContextBindingServiceError::InvalidRequest(
                 "context_id is required".to_string(),
@@ -94,6 +95,7 @@ impl<'a> KnowledgeContextBindingService<'a> {
             .get_binding(tenant_id, binding_id)
             .await
             .map_err(KnowledgeContextBindingServiceError::Store)?;
+        reject_chat_group_context(binding.context_type)?;
 
         if let Some(drive_perms) = self.drive_permissions {
             let revoke = RevokeDrivePermissionRequest {
@@ -124,6 +126,12 @@ impl<'a> KnowledgeContextBindingService<'a> {
         binding_id: u64,
         request: UpdateKnowledgeSpaceContextBindingRequest,
     ) -> Result<KnowledgeSpaceContextBinding, KnowledgeContextBindingServiceError> {
+        let binding = self
+            .store
+            .get_binding(tenant_id, binding_id)
+            .await
+            .map_err(KnowledgeContextBindingServiceError::Store)?;
+        reject_chat_group_context(binding.context_type)?;
         self.store
             .update_binding(tenant_id, binding_id, request)
             .await
@@ -135,10 +143,13 @@ impl<'a> KnowledgeContextBindingService<'a> {
         tenant_id: u64,
         binding_id: u64,
     ) -> Result<KnowledgeSpaceContextBinding, KnowledgeContextBindingServiceError> {
-        self.store
+        let binding = self
+            .store
             .get_binding(tenant_id, binding_id)
             .await
-            .map_err(KnowledgeContextBindingServiceError::Store)
+            .map_err(KnowledgeContextBindingServiceError::Store)?;
+        reject_chat_group_context(binding.context_type)?;
+        Ok(binding)
     }
 
     pub async fn list_space_bindings(
@@ -149,7 +160,12 @@ impl<'a> KnowledgeContextBindingService<'a> {
         cursor: Option<String>,
         page_size: Option<u32>,
     ) -> Result<KnowledgeSpaceContextBindingList, KnowledgeContextBindingServiceError> {
-        self.store
+        if matches!(context_type, Some(KnowledgeContextType::ChatGroup)) {
+            reject_chat_group_context(KnowledgeContextType::ChatGroup)?;
+        }
+
+        let listed = self
+            .store
             .list_space_bindings(
                 tenant_id,
                 ListKnowledgeSpaceContextBindingsRequest {
@@ -160,7 +176,23 @@ impl<'a> KnowledgeContextBindingService<'a> {
                 },
             )
             .await
-            .map_err(KnowledgeContextBindingServiceError::Store)
+            .map_err(KnowledgeContextBindingServiceError::Store)?;
+
+        // Stores must filter retired rows before applying their SQL/keyset window. Failing closed
+        // here prevents a nonconforming future adapter from reviving the legacy association.
+        if listed
+            .items
+            .iter()
+            .any(|binding| matches!(binding.context_type, KnowledgeContextType::ChatGroup))
+        {
+            return Err(KnowledgeContextBindingServiceError::Store(
+                KnowledgeContextBindingStoreError::Internal(
+                    "generic context binding store returned a retired chat_group binding"
+                        .to_string(),
+                ),
+            ));
+        }
+        Ok(listed)
     }
 
     pub async fn list_context_bound_spaces(
@@ -169,6 +201,7 @@ impl<'a> KnowledgeContextBindingService<'a> {
         context_type: KnowledgeContextType,
         context_id: &str,
     ) -> Result<Vec<u64>, KnowledgeContextBindingServiceError> {
+        reject_chat_group_context(context_type)?;
         if is_blank(Some(context_id)) {
             return Err(KnowledgeContextBindingServiceError::InvalidRequest(
                 "context_id is required".to_string(),
@@ -188,6 +221,18 @@ impl<'a> KnowledgeContextBindingService<'a> {
             .await
             .map_err(KnowledgeContextBindingServiceError::Store)
     }
+}
+
+fn reject_chat_group_context(
+    context_type: KnowledgeContextType,
+) -> Result<(), KnowledgeContextBindingServiceError> {
+    if matches!(context_type, KnowledgeContextType::ChatGroup) {
+        return Err(KnowledgeContextBindingServiceError::InvalidRequest(
+            "chat_group bindings are managed exclusively through the group knowledge space service"
+                .to_string(),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Error)]

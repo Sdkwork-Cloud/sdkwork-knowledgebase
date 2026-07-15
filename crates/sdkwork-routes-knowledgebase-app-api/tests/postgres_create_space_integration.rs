@@ -67,6 +67,9 @@ async fn postgres_runtime_creates_space_through_app_router() {
                     actor_id: Some(42),
                     organization_id: Some(0),
                     session_id: None,
+                    request_id: "test-request-postgres-create-one".to_string(),
+                    trace_id: None,
+                    idempotency_key: None,
                 })
                 .body(Body::from(
                     json!({
@@ -124,6 +127,9 @@ async fn postgres_runtime_creates_space_through_app_router() {
                     actor_id: Some(42),
                     organization_id: Some(0),
                     session_id: None,
+                    request_id: "test-request-postgres-create-two".to_string(),
+                    trace_id: None,
+                    idempotency_key: None,
                 })
                 .body(Body::from(
                     json!({

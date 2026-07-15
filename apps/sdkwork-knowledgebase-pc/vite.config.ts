@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'node:url';
 import {defineConfig, loadEnv} from 'vite';
 import { browserSecurityHeadersPlugin } from './config/browser/securityHeaders';
+import { toKnowledgebaseViteBasePath } from './packages/sdkwork-knowledgebase-pc-core/src/config/browserBasePath';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -61,6 +62,10 @@ function resolveManualChunk(id: string): string | undefined {
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, __dirname, '');
+  const browserBasePath = toKnowledgebaseViteBasePath(
+    env.VITE_SDKWORK_KNOWLEDGEBASE_BROWSER_BASE_PATH
+    || process.env.VITE_SDKWORK_KNOWLEDGEBASE_BROWSER_BASE_PATH,
+  );
   const deploymentProfile = (
     env.VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE
     || process.env.VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE
@@ -147,6 +152,7 @@ export default defineConfig(({mode}) => {
   };
 
   return {
+    base: browserBasePath,
     ...(mode === 'development'
       ? {
           define: {

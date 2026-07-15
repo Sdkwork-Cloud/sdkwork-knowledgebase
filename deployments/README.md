@@ -13,7 +13,7 @@ Production deployment descriptors for the `cloud.production` topology profile.
 | `kubernetes/open-api-deployment.yaml` | Open API Deployment + Service |
 | `kubernetes/worker-deployment.yaml` | Background worker Deployment |
 | `kubernetes/ingress.yaml` | NGINX Ingress for app/backend/open API paths |
-| `kubernetes/hpa.yaml` | HorizontalPodAutoscaler for API and worker Deployments |
+| `kubernetes/hpa.yaml` | Resource-based HorizontalPodAutoscaler for API and worker Deployments; custom RPS/backlog metrics require deployed Prometheus Adapter rules |
 | `kubernetes/poddisruptionbudget.yaml` | PodDisruptionBudget for rolling update safety |
 | `kubernetes/networkpolicy.yaml` | Restrict ingress to NGINX and monitoring namespaces |
 | `kubernetes/servicemonitor.yaml` | Prometheus Operator scrape targets for `/metrics` |
@@ -80,7 +80,7 @@ pnpm test:e2e:playwright
 
 Each API/worker process is bound to a single runtime tenant via `SDKWORK_KNOWLEDGEBASE_TENANT_ID`. Authenticated request context must match that tenant; mismatches return `403` with `tenant_id_mismatch` (fail-closed). Optional `SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID` enforces the same pattern for organization scope.
 
-Multi-tenant SaaS deployments should run **one process (or dedicated database schema) per tenant**, not share a single runtime across tenants. Tenant isolation is enforced at the application layer (SQL `tenant_id` filters plus runtime guards); PostgreSQL row-level security is not required for the current single-tenant-per-process model.
+The supported production profile is **one process (or dedicated database schema) per tenant**. Tenant isolation uses SQL `tenant_id` filters, runtime guards, and deployment-bound PostgreSQL RLS context. A shared multi-tenant process is not approved until request-scoped `SET LOCAL app.current_tenant_id`, pooled-connection contamination tests, and release PostgreSQL evidence are complete.
 
 Integration coverage: `crates/sdkwork-routes-knowledgebase-app-api/tests/integration_tenant_isolation.rs`.
 

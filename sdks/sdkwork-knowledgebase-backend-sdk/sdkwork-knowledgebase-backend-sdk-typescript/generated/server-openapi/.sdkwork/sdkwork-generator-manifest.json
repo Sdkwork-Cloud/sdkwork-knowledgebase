@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "a1bc657616f3037f818a4115e425b51894863bd8353c99436adfa7e0b794aaca"
+      "sha256": "9891f4768b685875a4ed13e8dad47d23638a07eb0b95bb4a3e062ff61e162d9f"
     },
     {
       "path": "src/api/paths.ts",
@@ -132,7 +132,7 @@
     },
     {
       "path": "src/types/index.ts",
-      "sha256": "2f0bec9a1ea82c25d43fdf401606fd8dff6858359a531ed9967ab4ffd94ea9a4"
+      "sha256": "555cb3782a662fc65d16dd7c5659703ea0c286b33a7b9f1cdfaad65a204d3af0"
     },
     {
       "path": "src/types/indexes-create-response201.ts",
@@ -276,7 +276,11 @@
     },
     {
       "path": "src/types/knowledge-okf-concept-revision-list.ts",
-      "sha256": "611b7d51c351d31b46d84be2c6d41ea2a454e8560157351d6cc89ae0110cf25e"
+      "sha256": "942084c2d97936b93a7e2a24e3c2f9f87b412bd98523313abd9c4cb60e1dc0b4"
+    },
+    {
+      "path": "src/types/knowledge-okf-concept-revision.ts",
+      "sha256": "bfee15ed7c9bd6080b623e509ae4223aec0222c6f38448776cb2312e4a82dbac"
     },
     {
       "path": "src/types/knowledge-okf-profile-request.ts",
@@ -331,8 +335,24 @@
       "sha256": "6fdf3321a6d07068c9313b4e1c8c87979790633992f962b728696689e30076ef"
     },
     {
+      "path": "src/types/knowledge-space-member-list.ts",
+      "sha256": "23dcc1c2e975bcc9448035da53b293531a60397575afbbcba4a01beb82cc0e43"
+    },
+    {
+      "path": "src/types/knowledge-space-member-role.ts",
+      "sha256": "04f760b4b6e56849626d300ac72c14fda6387637bb33e338f39062a78ae52ce1"
+    },
+    {
+      "path": "src/types/knowledge-space-member-subject-type.ts",
+      "sha256": "1e90bb34a39e489758b7b05521e96fbbab97d08e68c3dfafd9c9e4639e3abb6d"
+    },
+    {
+      "path": "src/types/knowledge-space-member.ts",
+      "sha256": "1e71d8f2c89d8419c2b41dc800838fb46e742a912b45c539124c8be579b9b629"
+    },
+    {
       "path": "src/types/knowledge-space-status.ts",
-      "sha256": "e45d2f1e3992d07815387b706ab1cf980d58a1e28c2c0afdf4abea2afd95d43a"
+      "sha256": "dcf47705695bba86adf920d1ab9382356068492321b14062e97d0a014d276e32"
     },
     {
       "path": "src/types/knowledge-space.ts",
@@ -499,6 +519,10 @@
       "sha256": "804b10359060a33d6e896ccea40e1684b7156d0ec45deb35bfa8b6e601cfe9b1"
     },
     {
+      "path": "src/types/okf-revision-review-state.ts",
+      "sha256": "a69bece5dae7429922aff39de609f612fdd1627ccf6314462858950481f68b92"
+    },
+    {
       "path": "src/types/page-info.ts",
       "sha256": "0bf2b44313bc24851eb9ffb6063c1b9eb043e1e5721c8ace8882a3cfa21c932a"
     },
@@ -580,7 +604,7 @@
     },
     {
       "path": "src/types/spaces-members-list-response.ts",
-      "sha256": "09cad8f1c929d0310e3d2fcbaf5ffe6f6baa819a0c674570e32bdb07c9f63ab1"
+      "sha256": "4d4f6881db75f9aa2daeeba50af849963c82a69677203174bcb25005d5f30710"
     },
     {
       "path": "src/types/tenants-current-list-response.ts",

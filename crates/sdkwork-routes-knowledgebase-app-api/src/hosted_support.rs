@@ -9,7 +9,6 @@ use sdkwork_intelligence_knowledgebase_service::{
         knowledge_drive_storage::{KnowledgeDriveStorage, PutKnowledgeObjectRequest},
         knowledge_ingestion_job_store::{CreateIngestionJobRecord, IngestionJobStore},
         knowledge_okf_concept_store::KnowledgeOkfConceptStore,
-        knowledge_space_store::KnowledgeSpaceStore,
     },
 };
 use sdkwork_knowledgebase_contract::ingest::IngestionJobState;
@@ -186,7 +185,9 @@ pub(crate) async fn publish_okf_concept_revision(
         .get_revision_by_id(revision_id)
         .await
         .map_err(map_okf_concept_store)?;
-    let space = runtime.space_store().get_space(concept.space_id).await?;
+    let space = runtime
+        .get_space_for_authorized_operation(concept.space_id)
+        .await?;
     runtime
         .resolve_okf_bundle_engine_for_space(concept.space_id)
         .await?;
@@ -286,10 +287,9 @@ pub(crate) async fn rebuild_okf_index_document(
         .list_concept_summaries(space_id, None)
         .await
         .map_err(map_okf_concept_store)?;
-    let markdown = sdkwork_intelligence_knowledgebase_service::okf::render_index_md(
-        &runtime.space_store().get_space(space_id).await?.name,
-        &concepts,
-    );
+    let space = runtime.get_space_for_authorized_operation(space_id).await?;
+    let markdown =
+        sdkwork_intelligence_knowledgebase_service::okf::render_index_md(&space.name, &concepts);
     Ok(OkfIndexDocument { markdown })
 }
 
@@ -297,7 +297,7 @@ pub(crate) async fn persist_okf_profile(
     runtime: &crate::runtime::KnowledgebaseRuntime,
     space_id: u64,
 ) -> Result<sdkwork_knowledgebase_contract::KnowledgeOkfBundleFile, ApiError> {
-    let space = runtime.space_store().get_space(space_id).await?;
+    let space = runtime.get_space_for_authorized_operation(space_id).await?;
     let concepts = runtime
         .okf_concept_store()
         .list_concept_summaries(space_id, None)
@@ -381,7 +381,9 @@ pub(crate) async fn create_okf_bundle_export(
             .filter(|value| !value.is_empty())
             .map(str::to_string)
             .unwrap_or_else(|| format!("export-{}", file_entry.id));
-        let space = runtime.space_store().get_space(request.space_id).await?;
+        let space = runtime
+            .get_space_for_authorized_operation(request.space_id)
+            .await?;
         let staged =
             sdkwork_intelligence_knowledgebase_service::okf::stage_export_bundle_for_drive_import(
                 runtime.drive_storage(),
@@ -473,8 +475,7 @@ pub(crate) async fn create_okf_lint_run(
         ),
         || async move {
             let space = runtime_in_closure
-                .space_store()
-                .get_space(space_id)
+                .get_space_for_authorized_operation(space_id)
                 .await
                 .map_err(|error| format!("{error:?}"))?;
             let lint_result = run_okf_bundle_lint(&runtime_in_closure, space_id)

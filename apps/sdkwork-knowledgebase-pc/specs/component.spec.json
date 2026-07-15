@@ -60,6 +60,9 @@
       "@sdkwork/drive-app-sdk",
       "@sdkwork/iam-app-sdk"
     ],
+    "configKeys": [
+      "VITE_SDKWORK_KNOWLEDGEBASE_BROWSER_BASE_PATH"
+    ],
     "routeManifests": [],
     "permissionComposition": {
       "inheritanceMode": "module-catalog-with-overrides",

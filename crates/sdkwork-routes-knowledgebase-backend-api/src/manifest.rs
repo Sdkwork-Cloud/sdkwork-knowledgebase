@@ -152,6 +152,11 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     },
     RouteManifestEntry {
         method: "GET",
+        path: "/backend/v3/api/knowledge/group_launch_capability",
+        operation_id: "groupLaunchCapability.retrieve",
+    },
+    RouteManifestEntry {
+        method: "GET",
         path: "/backend/v3/api/knowledge/tenants/current",
         operation_id: "tenants.current.list",
     },

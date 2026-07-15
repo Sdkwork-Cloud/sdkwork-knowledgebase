@@ -1,5 +1,28 @@
 import { DocumentMeta } from './document';
 
+interface TabCacheEntry {
+  activeId: string | null;
+  docs: DocumentMeta[];
+}
+
+export interface KnowledgebaseTabCache {
+  closeAll(kbId: string): void;
+  closeOthers(kbId: string, docId: string): { remainingDocs: DocumentMeta[] };
+  closeToRight(kbId: string, docId: string): {
+    nextActiveId: string | null;
+    remainingDocs: DocumentMeta[];
+  };
+  closeDoc(kbId: string, docId: string): {
+    nextActiveId: string | null;
+    remainingDocs: DocumentMeta[];
+  };
+  dispose(): void;
+  getActiveDocId(kbId: string): string | null;
+  getOpenDocs(kbId: string): DocumentMeta[];
+  initKb(kbId: string): void;
+  openDoc(kbId: string, doc: DocumentMeta): void;
+}
+
 export class TabCacheService {
   private static STORAGE_KEY = 'app-tabs-cache-v2';
 
@@ -8,7 +31,7 @@ export class TabCacheService {
    * Caches the list of opened tabs and the currently active tab for each Knowledge Base.
    */
 
-  private static loadCache(): Record<string, { docs: DocumentMeta[], activeId: string | null }> {
+  private static loadCache(): Record<string, TabCacheEntry> {
     try {
       const data = localStorage.getItem(this.STORAGE_KEY);
       return data ? JSON.parse(data) : {};
@@ -17,8 +40,12 @@ export class TabCacheService {
     }
   }
 
-  private static saveCache(data: Record<string, { docs: DocumentMeta[], activeId: string | null }>) {
+  private static saveCache(data: Record<string, TabCacheEntry>) {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+  }
+
+  public static dispose(): void {
+    // Persistent workspaces intentionally retain their normal tab restoration state.
   }
 
   // Handle a new kb structure gracefully.
@@ -141,5 +168,110 @@ export class TabCacheService {
     this.saveCache(cache);
 
     return { remainingDocs, nextActiveId };
+  }
+}
+
+/** Keeps fixed group-workspace tab metadata in process memory only. */
+export class EphemeralTabCacheService implements KnowledgebaseTabCache {
+  private readonly cache = new Map<string, TabCacheEntry>();
+
+  private getOrCreateEntry(kbId: string): TabCacheEntry {
+    let entry = this.cache.get(kbId);
+    if (!entry) {
+      entry = { docs: [], activeId: null };
+      this.cache.set(kbId, entry);
+    }
+    return entry;
+  }
+
+  public initKb(kbId: string): void {
+    this.getOrCreateEntry(kbId);
+  }
+
+  public getOpenDocs(kbId: string): DocumentMeta[] {
+    return this.cache.get(kbId)?.docs ?? [];
+  }
+
+  public getActiveDocId(kbId: string): string | null {
+    return this.cache.get(kbId)?.activeId ?? null;
+  }
+
+  public openDoc(kbId: string, doc: DocumentMeta): void {
+    const entry = this.getOrCreateEntry(kbId);
+    if (doc.type !== 'folder' && !entry.docs.some((item) => item.id === doc.id)) {
+      entry.docs.push(doc);
+    }
+    entry.activeId = doc.id;
+  }
+
+  public closeDoc(kbId: string, docId: string): {
+    remainingDocs: DocumentMeta[];
+    nextActiveId: string | null;
+  } {
+    const entry = this.cache.get(kbId);
+    if (!entry) {
+      return { remainingDocs: [], nextActiveId: null };
+    }
+
+    const index = entry.docs.findIndex((doc) => doc.id === docId);
+    if (index === -1) {
+      return { remainingDocs: entry.docs, nextActiveId: entry.activeId };
+    }
+
+    const remainingDocs = entry.docs.filter((doc) => doc.id !== docId);
+    const nextActiveId = entry.activeId === docId
+      ? remainingDocs[Math.min(index, remainingDocs.length - 1)]?.id ?? null
+      : entry.activeId;
+    entry.docs = remainingDocs;
+    entry.activeId = nextActiveId;
+    return { remainingDocs, nextActiveId };
+  }
+
+  public closeOthers(kbId: string, docId: string): { remainingDocs: DocumentMeta[] } {
+    const entry = this.cache.get(kbId);
+    if (!entry) {
+      return { remainingDocs: [] };
+    }
+
+    const docToKeep = entry.docs.find((doc) => doc.id === docId);
+    entry.docs = docToKeep ? [docToKeep] : [];
+    entry.activeId = docToKeep ? docId : null;
+    return { remainingDocs: entry.docs };
+  }
+
+  public closeAll(kbId: string): void {
+    const entry = this.cache.get(kbId);
+    if (!entry) {
+      return;
+    }
+    entry.docs = [];
+    entry.activeId = null;
+  }
+
+  public closeToRight(kbId: string, docId: string): {
+    remainingDocs: DocumentMeta[];
+    nextActiveId: string | null;
+  } {
+    const entry = this.cache.get(kbId);
+    if (!entry) {
+      return { remainingDocs: [], nextActiveId: null };
+    }
+
+    const index = entry.docs.findIndex((doc) => doc.id === docId);
+    if (index === -1) {
+      return { remainingDocs: entry.docs, nextActiveId: entry.activeId };
+    }
+
+    const remainingDocs = entry.docs.slice(0, index + 1);
+    const nextActiveId = remainingDocs.some((doc) => doc.id === entry.activeId)
+      ? entry.activeId
+      : docId;
+    entry.docs = remainingDocs;
+    entry.activeId = nextActiveId;
+    return { remainingDocs, nextActiveId };
+  }
+
+  public dispose(): void {
+    this.cache.clear();
   }
 }

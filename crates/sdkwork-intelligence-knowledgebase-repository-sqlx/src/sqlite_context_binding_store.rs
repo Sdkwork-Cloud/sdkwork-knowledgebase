@@ -20,6 +20,7 @@ use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerato
 const ACTIVE_STATUS: i64 = 1;
 const DELETED_STATUS: i64 = 0;
 const INITIAL_VERSION: i64 = 0;
+const RETIRED_CHAT_GROUP_CONTEXT_TYPE: &str = "chat_group";
 
 #[derive(Debug, Clone)]
 pub struct SqliteContextBindingStore {
@@ -59,6 +60,12 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
         created_by: &str,
         request: CreateKnowledgeSpaceContextBindingRequest,
     ) -> Result<KnowledgeSpaceContextBinding, KnowledgeContextBindingStoreError> {
+        if matches!(request.context_type, KnowledgeContextType::ChatGroup) {
+            return Err(KnowledgeContextBindingStoreError::InvalidRequest(
+                "chat_group bindings are managed exclusively through the group knowledge space service"
+                    .to_string(),
+            ));
+        }
         let tenant_i64 = cb_to_i64("tenant_id", tenant_id)?;
         let space_i64 = cb_to_i64("space_id", request.space_id)?;
         let id = next_i64_id(&self.id_generator).map_err(cb_id_error)?;
@@ -128,12 +135,13 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                    context_name, access_level, status, created_by,
                    created_at, updated_at
             FROM kb_space_context_binding
-            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            WHERE tenant_id = $1 AND id = $2 AND status = $3 AND context_type <> $4
             "#,
         )
         .bind(tenant_i64)
         .bind(binding_i64)
         .bind(ACTIVE_STATUS)
+        .bind(RETIRED_CHAT_GROUP_CONTEXT_TYPE)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?;
@@ -162,7 +170,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                 access_level = COALESCE($2, access_level),
                 updated_at = {updated_at_expr},
                 version = version + 1
-            WHERE tenant_id = $4 AND id = $5 AND status = $6
+            WHERE tenant_id = $4 AND id = $5 AND status = $6 AND context_type <> $7
             RETURNING id, tenant_id, space_id, context_type, context_id,
                       context_name, access_level, status, created_by,
                       created_at, updated_at
@@ -175,6 +183,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
             .bind(tenant_i64)
             .bind(binding_i64)
             .bind(ACTIVE_STATUS)
+            .bind(RETIRED_CHAT_GROUP_CONTEXT_TYPE)
             .fetch_optional(&self.pool)
             .await
             .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?;
@@ -199,7 +208,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
             r#"
             UPDATE kb_space_context_binding
             SET status = $1, updated_at = {updated_at_expr}, version = version + 1
-            WHERE tenant_id = $3 AND id = $4 AND status = $5
+            WHERE tenant_id = $3 AND id = $4 AND status = $5 AND context_type <> $6
             "#,
         );
         let result = sqlx::query(&query)
@@ -208,6 +217,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
             .bind(tenant_i64)
             .bind(binding_i64)
             .bind(ACTIVE_STATUS)
+            .bind(RETIRED_CHAT_GROUP_CONTEXT_TYPE)
             .execute(&self.pool)
             .await
             .map_err(|e| KnowledgeContextBindingStoreError::Internal(e.to_string()))?;
@@ -243,15 +253,16 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                            created_at, updated_at
                     FROM kb_space_context_binding
                     WHERE tenant_id = $1 AND space_id = $2 AND context_type = $3 AND status = $4
-                      AND id > $5
+                      AND context_type <> $5 AND id > $6
                     ORDER BY id ASC
-                    LIMIT $6
+                    LIMIT $7
                     "#,
                 )
                 .bind(tenant_i64)
                 .bind(space_i64)
                 .bind(ctx_str)
                 .bind(ACTIVE_STATUS)
+                .bind(RETIRED_CHAT_GROUP_CONTEXT_TYPE)
                 .bind(after_id)
                 .bind(fetch_limit)
                 .fetch_all(&self.pool)
@@ -265,14 +276,16 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                            created_at, updated_at
                     FROM kb_space_context_binding
                     WHERE tenant_id = $1 AND space_id = $2 AND context_type = $3 AND status = $4
+                      AND context_type <> $5
                     ORDER BY id ASC
-                    LIMIT $5
+                    LIMIT $6
                     "#,
                 )
                 .bind(tenant_i64)
                 .bind(space_i64)
                 .bind(ctx_str)
                 .bind(ACTIVE_STATUS)
+                .bind(RETIRED_CHAT_GROUP_CONTEXT_TYPE)
                 .bind(fetch_limit)
                 .fetch_all(&self.pool)
                 .await
@@ -286,14 +299,15 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                        created_at, updated_at
                 FROM kb_space_context_binding
                 WHERE tenant_id = $1 AND space_id = $2 AND status = $3
-                  AND id > $4
+                  AND context_type <> $4 AND id > $5
                 ORDER BY id ASC
-                LIMIT $5
+                LIMIT $6
                 "#,
             )
             .bind(tenant_i64)
             .bind(space_i64)
             .bind(ACTIVE_STATUS)
+            .bind(RETIRED_CHAT_GROUP_CONTEXT_TYPE)
             .bind(after_id)
             .bind(fetch_limit)
             .fetch_all(&self.pool)
@@ -306,14 +320,15 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                        context_name, access_level, status, created_by,
                        created_at, updated_at
                 FROM kb_space_context_binding
-                WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+                WHERE tenant_id = $1 AND space_id = $2 AND status = $3 AND context_type <> $4
                 ORDER BY id ASC
-                LIMIT $4
+                LIMIT $5
                 "#,
             )
             .bind(tenant_i64)
             .bind(space_i64)
             .bind(ACTIVE_STATUS)
+            .bind(RETIRED_CHAT_GROUP_CONTEXT_TYPE)
             .bind(fetch_limit)
             .fetch_all(&self.pool)
             .await
@@ -349,14 +364,16 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
             SELECT space_id
             FROM kb_space_context_binding
             WHERE tenant_id = $1 AND context_type = $2 AND context_id = $3 AND status = $4
+              AND context_type <> $5
             ORDER BY created_at
-            LIMIT $5
+            LIMIT $6
             "#,
         )
         .bind(tenant_i64)
         .bind(ctx_str)
         .bind(&request.context_id)
         .bind(ACTIVE_STATUS)
+        .bind(RETIRED_CHAT_GROUP_CONTEXT_TYPE)
         .bind(page_size)
         .fetch_all(&self.pool)
         .await

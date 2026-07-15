@@ -47,7 +47,10 @@ impl SecureSessionState {
     }
 
     fn track_key(&self, key: &str) -> Result<(), String> {
-        let mut keys = self.keys.lock().map_err(|_| "secure session lock poisoned".to_string())?;
+        let mut keys = self
+            .keys
+            .lock()
+            .map_err(|_| "secure session lock poisoned".to_string())?;
         if !keys.iter().any(|existing| existing == key) {
             keys.push(key.to_string());
             persist_key_index(&self.keys_path, &keys)?;
@@ -56,7 +59,10 @@ impl SecureSessionState {
     }
 
     fn untrack_key(&self, key: &str) -> Result<(), String> {
-        let mut keys = self.keys.lock().map_err(|_| "secure session lock poisoned".to_string())?;
+        let mut keys = self
+            .keys
+            .lock()
+            .map_err(|_| "secure session lock poisoned".to_string())?;
         let original_len = keys.len();
         keys.retain(|existing| existing != key);
         if keys.len() != original_len {
@@ -106,7 +112,9 @@ fn migrate_legacy_snapshot(legacy_path: &Path, keys: &mut Vec<String>) -> Result
     let raw = fs::read_to_string(legacy_path).map_err(|error| error.to_string())?;
     let snapshot = serde_json::from_str::<SecureSessionSnapshot>(&raw).unwrap_or_default();
     for (key, value) in snapshot.values {
-        keyring_entry(&key)?.set_password(&value).map_err(|error| error.to_string())?;
+        keyring_entry(&key)?
+            .set_password(&value)
+            .map_err(|error| error.to_string())?;
         if !keys.iter().any(|existing| existing == &key) {
             keys.push(key);
         }
@@ -129,7 +137,9 @@ pub fn write_secure_session_value(
     state: tauri::State<'_, SecureSessionState>,
     request: SecureSessionWriteRequest,
 ) -> Result<(), String> {
-    keyring_entry(&request.key)?.set_password(&request.value).map_err(|error| error.to_string())?;
+    keyring_entry(&request.key)?
+        .set_password(&request.value)
+        .map_err(|error| error.to_string())?;
     state.track_key(&request.key)
 }
 
@@ -145,15 +155,24 @@ pub fn remove_secure_session_value(
 }
 
 #[tauri::command]
-pub fn clear_secure_session_values(state: tauri::State<'_, SecureSessionState>) -> Result<(), String> {
-    let keys = state.keys.lock().map_err(|_| "secure session lock poisoned".to_string())?.clone();
+pub fn clear_secure_session_values(
+    state: tauri::State<'_, SecureSessionState>,
+) -> Result<(), String> {
+    let keys = state
+        .keys
+        .lock()
+        .map_err(|_| "secure session lock poisoned".to_string())?
+        .clone();
     for key in keys {
         if let Ok(entry) = keyring_entry(&key) {
             let _ = entry.delete_credential();
         }
     }
     {
-        let mut keys = state.keys.lock().map_err(|_| "secure session lock poisoned".to_string())?;
+        let mut keys = state
+            .keys
+            .lock()
+            .map_err(|_| "secure session lock poisoned".to_string())?;
         keys.clear();
         persist_key_index(&state.keys_path, &keys)?;
     }
@@ -164,7 +183,11 @@ pub fn clear_secure_session_values(state: tauri::State<'_, SecureSessionState>) 
 pub fn read_secure_session_snapshot(
     state: tauri::State<'_, SecureSessionState>,
 ) -> Result<HashMap<String, String>, String> {
-    let keys = state.keys.lock().map_err(|_| "secure session lock poisoned".to_string())?.clone();
+    let keys = state
+        .keys
+        .lock()
+        .map_err(|_| "secure session lock poisoned".to_string())?
+        .clone();
     let mut values = HashMap::new();
     for key in keys {
         if let Ok(entry) = keyring_entry(&key) {

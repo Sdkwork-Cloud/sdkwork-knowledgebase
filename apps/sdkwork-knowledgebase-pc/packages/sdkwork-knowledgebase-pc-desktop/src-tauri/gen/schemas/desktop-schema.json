@@ -201,6 +201,12 @@
           "markdownDescription": "Enables the fetch_binary_resource command without any pre-configured scope."
         },
         {
+          "description": "Allows the standalone Knowledgebase renderer to read one validated pending group launch route from the native host.",
+          "type": "string",
+          "const": "allow-group-knowledgebase-launch",
+          "markdownDescription": "Allows the standalone Knowledgebase renderer to read one validated pending group launch route from the native host."
+        },
+        {
           "description": "Enables the locate_export_file command without any pre-configured scope.",
           "type": "string",
           "const": "allow-locate-export-file",
@@ -267,6 +273,12 @@
           "markdownDescription": "Enables desktop secure session token storage commands without any pre-configured scope."
         },
         {
+          "description": "Enables the take_pending_group_knowledgebase_launch command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-take-pending-group-knowledgebase-launch",
+          "markdownDescription": "Enables the take_pending_group_knowledgebase_launch command without any pre-configured scope."
+        },
+        {
           "description": "Enables the window_control command without any pre-configured scope.",
           "type": "string",
           "const": "allow-window-control",
@@ -301,6 +313,12 @@
           "type": "string",
           "const": "deny-fetch-binary-resource",
           "markdownDescription": "Denies the fetch_binary_resource command without any pre-configured scope."
+        },
+        {
+          "description": "Denies access to the pending group launch route command.",
+          "type": "string",
+          "const": "deny-group-knowledgebase-launch",
+          "markdownDescription": "Denies access to the pending group launch route command."
         },
         {
           "description": "Denies the locate_export_file command without any pre-configured scope.",
@@ -367,6 +385,12 @@
           "type": "string",
           "const": "deny-secure-session",
           "markdownDescription": "Denies desktop secure session token storage commands without any pre-configured scope."
+        },
+        {
+          "description": "Denies the take_pending_group_knowledgebase_launch command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-take-pending-group-knowledgebase-launch",
+          "markdownDescription": "Denies the take_pending_group_knowledgebase_launch command without any pre-configured scope."
         },
         {
           "description": "Denies the window_control command without any pre-configured scope.",
@@ -2395,6 +2419,60 @@
           "type": "string",
           "const": "core:window:deny-unminimize",
           "markdownDescription": "Denies the unminimize command without any pre-configured scope."
+        },
+        {
+          "description": "Allows reading the opened deep link via the get_current command\n#### This default permission set includes:\n\n- `allow-get-current`",
+          "type": "string",
+          "const": "deep-link:default",
+          "markdownDescription": "Allows reading the opened deep link via the get_current command\n#### This default permission set includes:\n\n- `allow-get-current`"
+        },
+        {
+          "description": "Enables the get_current command without any pre-configured scope.",
+          "type": "string",
+          "const": "deep-link:allow-get-current",
+          "markdownDescription": "Enables the get_current command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the is_registered command without any pre-configured scope.",
+          "type": "string",
+          "const": "deep-link:allow-is-registered",
+          "markdownDescription": "Enables the is_registered command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the register command without any pre-configured scope.",
+          "type": "string",
+          "const": "deep-link:allow-register",
+          "markdownDescription": "Enables the register command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the unregister command without any pre-configured scope.",
+          "type": "string",
+          "const": "deep-link:allow-unregister",
+          "markdownDescription": "Enables the unregister command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_current command without any pre-configured scope.",
+          "type": "string",
+          "const": "deep-link:deny-get-current",
+          "markdownDescription": "Denies the get_current command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the is_registered command without any pre-configured scope.",
+          "type": "string",
+          "const": "deep-link:deny-is-registered",
+          "markdownDescription": "Denies the is_registered command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the register command without any pre-configured scope.",
+          "type": "string",
+          "const": "deep-link:deny-register",
+          "markdownDescription": "Denies the register command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the unregister command without any pre-configured scope.",
+          "type": "string",
+          "const": "deep-link:deny-unregister",
+          "markdownDescription": "Denies the unregister command without any pre-configured scope."
         }
       ]
     },

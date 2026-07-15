@@ -52,7 +52,7 @@ Decision: SDKWork Knowledgebase remains prelaunch and must not be treated as a p
 - [x] `list_browser` enforces `ensure_runtime_tenant` like other hosted app routes
 - [x] Repository hot paths bounded: chunk load cap, drive ref prefix limit, OKF link list limits
 - [x] Agent provider `block_on_async` reuses a dedicated bridge thread/runtime (no per-call OS thread spawn)
-- [x] Worker HPA, Service, and ServiceMonitor configured
+- [x] Worker resource-based HPA, Service, and ServiceMonitor configured; custom backlog metrics remain disabled until a Prometheus Adapter rule exists
 - [x] K8s manifests include PDB, NetworkPolicy, and `securityContext`
 - [x] Ingest pipelines log failures when `mark_failed` cannot persist state
 - [x] Production topology documents mandatory Outbox webhook configuration

@@ -13,6 +13,11 @@ import {
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { AiAssistantInput } from './AiAssistantInput';
+import {
+  isKnowledgebaseWorkspaceAiEnabled,
+  resolveKnowledgebaseWorkspaceAiScope,
+  type KnowledgebaseWorkspaceMode,
+} from './workspaceMode';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -33,13 +38,15 @@ export interface AiAssistantPanelProps {
   headerHeightClass?: string;
   onSendMessage?: (msg: string, refs: DocumentMeta[], setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>, setIsTyping: React.Dispatch<React.SetStateAction<boolean>>) => void;
   selectedArticle?: any;
+  workspaceMode?: KnowledgebaseWorkspaceMode;
 }
 
 export function AiAssistantPanel({
   aiWidth, isDraggingAi, onMouseDownDrag, onClose, docContent, docs = [], activeDoc, activeKbId,
-  headerHeightClass = 'h-[40px]', onSendMessage, selectedArticle
+  headerHeightClass = 'h-[40px]', onSendMessage, selectedArticle, workspaceMode = 'standard',
 }: AiAssistantPanelProps) {
   const { t } = useTranslation(['editor', 'mcp']);
+  const aiEnabled = isKnowledgebaseWorkspaceAiEnabled(workspaceMode);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -63,6 +70,10 @@ export function AiAssistantPanel({
     }
   }, [messages, isTyping]);
 
+  if (!aiEnabled) {
+    return null;
+  }
+
   const appendRequestError = (error: unknown) => {
     const content = resolveUserFacingErrorMessage(
       error,
@@ -72,16 +83,18 @@ export function AiAssistantPanel({
   };
 
   const handleDefaultSend = async (userMessage: string, currentRefs: DocumentMeta[]) => {
-    if (onSendMessage) {
+    if (onSendMessage && workspaceMode === 'standard') {
        onSendMessage(userMessage, currentRefs, setMessages, setIsTyping);
        return;
     }
 
     try {
+      const scope = resolveKnowledgebaseWorkspaceAiScope(workspaceMode, activeKbId);
       const { result: responseText, toolCalls } = await AIService.generateChatResponse(
         userMessage,
         docContent,
         currentRefs.map((reference) => reference.title).join(','),
+        scope,
       );
       const resolvedToolCalls = toolCalls?.map((toolCall): McpToolCall => ({
         ...toolCall,

@@ -4,6 +4,7 @@ use sdkwork_knowledgebase_contract::{
         CreateKnowledgeSpaceContextBindingRequest, KnowledgeContextType,
         KnowledgeSpaceContextBinding, UpdateKnowledgeSpaceContextBindingRequest,
     },
+    group_space::{ConsumeGroupKnowledgebaseLaunchTicketRequest, GroupKnowledgebaseLaunchTarget},
     upload::{
         CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
         KnowledgeUploadSession,
@@ -41,6 +42,9 @@ pub struct KnowledgeAppRequestContext {
     pub actor_id: Option<u64>,
     pub organization_id: Option<u64>,
     pub session_id: Option<String>,
+    pub request_id: String,
+    pub trace_id: Option<String>,
+    pub idempotency_key: Option<String>,
 }
 
 #[async_trait]
@@ -92,6 +96,17 @@ pub trait KnowledgeSpaceAppService: Send + Sync + 'static {
         subject_type: KnowledgeSpaceMemberSubjectType,
         subject_id: String,
     ) -> ApiResult<()>;
+}
+
+/// User-facing ticket-consumption surface. Trusted IM provisioning and membership synchronization
+/// deliberately do not share this App API boundary.
+#[async_trait]
+pub trait KnowledgeGroupLaunchAppService: Send + Sync + 'static {
+    async fn consume_group_launch_ticket(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: ConsumeGroupKnowledgebaseLaunchTicketRequest,
+    ) -> ApiResult<GroupKnowledgebaseLaunchTarget>;
 }
 
 #[async_trait]
@@ -587,6 +602,14 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _subject_id: String,
     ) -> ApiResult<()> {
         Err(ApiError::unsupported_operation("spaces.members.delete"))
+    }
+
+    async fn consume_group_launch_ticket(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _request: ConsumeGroupKnowledgebaseLaunchTicketRequest,
+    ) -> ApiResult<GroupKnowledgebaseLaunchTarget> {
+        Err(ApiError::unsupported_operation("groupLaunches.consume"))
     }
 
     async fn create_drive_import(

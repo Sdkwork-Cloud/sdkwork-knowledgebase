@@ -53,10 +53,7 @@ fn normalize_local_path(raw: &str) -> Result<PathBuf, String> {
         return Err("local path is empty".to_string());
     }
 
-    let without_scheme = trimmed
-        .strip_prefix("file://")
-        .unwrap_or(trimmed)
-        .trim();
+    let without_scheme = trimmed.strip_prefix("file://").unwrap_or(trimmed).trim();
 
     let path = PathBuf::from(without_scheme);
     if !path.is_absolute() {
@@ -110,9 +107,7 @@ async fn ensure_public_resolved_target(url: &Url) -> Result<(), String> {
     let port = url.port_or_known_default().unwrap_or(443);
     if let Ok(ip) = host.parse::<IpAddr>() {
         if is_blocked_ip(ip) {
-            return Err(
-                "resource URL must not target private or loopback addresses".to_string(),
-            );
+            return Err("resource URL must not target private or loopback addresses".to_string());
         }
         return Ok(());
     }
@@ -126,9 +121,7 @@ async fn ensure_public_resolved_target(url: &Url) -> Result<(), String> {
     for address in addresses {
         resolved_any = true;
         if is_blocked_ip(address.ip()) {
-            return Err(
-                "resource URL resolves to a private or loopback address".to_string(),
-            );
+            return Err("resource URL resolves to a private or loopback address".to_string());
         }
     }
     if !resolved_any {
@@ -141,12 +134,7 @@ fn is_blocked_hostname(host: &str) -> bool {
     let normalized = host.trim().trim_end_matches('.').to_ascii_lowercase();
     matches!(
         normalized.as_str(),
-        "localhost"
-            | "metadata.google.internal"
-            | "metadata"
-            | "127.0.0.1"
-            | "::1"
-            | "0.0.0.0"
+        "localhost" | "metadata.google.internal" | "metadata" | "127.0.0.1" | "::1" | "0.0.0.0"
     ) || normalized.ends_with(".localhost")
         || normalized.ends_with(".local")
         || normalized.ends_with(".internal")
@@ -174,7 +162,7 @@ fn is_blocked_ipv6(ip: Ipv6Addr) -> bool {
 
 fn allowed_local_roots(app: &tauri::AppHandle) -> Result<Vec<PathBuf>, String> {
     let mut roots = Vec::new();
-    if let Some(home) = app.path().home_dir().ok() {
+    if let Ok(home) = app.path().home_dir() {
         roots.push(home);
     }
     if let Ok(app_data) = app.path().app_data_dir() {
@@ -218,7 +206,10 @@ fn payload_from_bytes(bytes: Vec<u8>, mime_type: Option<String>) -> BinaryResour
     }
 }
 
-pub fn binary_payload_from_bytes(bytes: Vec<u8>, mime_type: Option<String>) -> BinaryResourcePayload {
+pub fn binary_payload_from_bytes(
+    bytes: Vec<u8>,
+    mime_type: Option<String>,
+) -> BinaryResourcePayload {
     payload_from_bytes(bytes, mime_type)
 }
 
@@ -264,7 +255,8 @@ pub async fn fetch_binary_resource(
         break;
     }
 
-    let response = response.ok_or_else(|| "resource fetch did not return a response".to_string())?;
+    let response =
+        response.ok_or_else(|| "resource fetch did not return a response".to_string())?;
     if !response.status().is_success() {
         return Err(format!(
             "resource fetch failed with status {}",
@@ -338,7 +330,8 @@ pub fn save_binary_resource(request: SaveBinaryResourceRequest) -> Result<bool, 
         .decode(request.data_base64.as_bytes())
         .map_err(|error| format!("invalid save payload: {error}"))?;
 
-    let response = save_bytes_to_export_path(bytes, &request.suggested_name, ExportSaveMode::Downloads)?;
+    let response =
+        save_bytes_to_export_path(bytes, &request.suggested_name, ExportSaveMode::Downloads)?;
     Ok(response.saved)
 }
 

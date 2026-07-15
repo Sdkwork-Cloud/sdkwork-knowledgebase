@@ -34,12 +34,12 @@ use crate::{
     auth::{require_app_context, RequiredAppContext},
     paths, ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeBrowserApi,
     KnowledgeCommerceAppService, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
-    KnowledgeGitImportAppService, KnowledgeIngestAppService, KnowledgeOkfAppService,
-    KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
+    KnowledgeGitImportAppService, KnowledgeGroupLaunchAppService, KnowledgeIngestAppService,
+    KnowledgeOkfAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
 };
-use sdkwork_routes_knowledgebase_backend_api::DbReadinessCheck;
+use sdkwork_routes_knowledgebase_backend_api::KnowledgebaseReadinessCheck;
 
-pub use sdkwork_routes_knowledgebase_backend_api::DbReadinessCheck as ReadinessCheck;
+pub use sdkwork_routes_knowledgebase_backend_api::KnowledgebaseReadinessCheck as ReadinessCheck;
 
 #[derive(Clone)]
 struct AppState {
@@ -106,6 +106,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub fn build_router_with_full_app_api(
     space: Arc<dyn KnowledgeSpaceAppService>,
+    group_launch: Arc<dyn KnowledgeGroupLaunchAppService>,
     drive_import: Arc<dyn KnowledgeDriveImportAppService>,
     git_import: Arc<dyn KnowledgeGitImportAppService>,
     ingest: Arc<dyn KnowledgeIngestAppService>,
@@ -121,6 +122,7 @@ pub fn build_router_with_full_app_api(
 ) -> Router {
     build_router_with_shared_app_api(Arc::new(FullAppApi::new(
         space,
+        group_launch,
         drive_import,
         git_import,
         ingest,
@@ -144,13 +146,17 @@ pub fn build_router_with_shared_app_api(api: Arc<dyn KnowledgeAppApi>) -> Router
 /// via `sdkwork_routes_knowledgebase_backend_api::health`, not on this router.
 pub fn build_router_with_shared_app_api_and_readiness(
     api: Arc<dyn KnowledgeAppApi>,
-    _readiness: Option<DbReadinessCheck>,
+    _readiness: Option<KnowledgebaseReadinessCheck>,
 ) -> Router {
     build_router_with_shared_app_api(api)
 }
 
 fn build_business_router(api: Arc<dyn KnowledgeAppApi>) -> Router {
     Router::new()
+        .route(
+            paths::GROUP_LAUNCHES_CONSUME,
+            post(consume_group_launch_ticket),
+        )
         .route(paths::SPACES, post(create_space))
         .route(
             paths::SPACE,
@@ -317,6 +323,22 @@ async fn create_space(
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
     created_json(state.api.create_space(context, request).await)
+}
+
+async fn consume_group_launch_ticket(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Json(request): Json<
+        sdkwork_knowledgebase_contract::group_space::ConsumeGroupKnowledgebaseLaunchTicketRequest,
+    >,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .consume_group_launch_ticket(context, request)
+            .await,
+    )
 }
 
 async fn retrieve_space(

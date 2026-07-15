@@ -40,6 +40,9 @@ pub struct KnowledgeSpace {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum KnowledgeSpaceStatus {
+    /// Internal-only state used while a managed space is being initialized. Generic app routes
+    /// must not list or retrieve it.
+    Provisioning,
     Active,
     Archived,
     Deleted,

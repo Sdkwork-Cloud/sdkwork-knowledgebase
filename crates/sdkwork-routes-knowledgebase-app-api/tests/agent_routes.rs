@@ -380,6 +380,9 @@ fn request(method: &str, uri: &str, body: impl Into<String>) -> Request<Body> {
             actor_id: Some(30001),
             organization_id: None,
             session_id: None,
+            request_id: "test-request-agent-routes".to_string(),
+            trace_id: None,
+            idempotency_key: None,
         })
         .body(Body::from(body.into()))
         .unwrap()

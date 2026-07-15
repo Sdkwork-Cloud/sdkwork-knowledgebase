@@ -99,16 +99,14 @@ pub fn read_autostart_enabled() -> Result<bool, String> {
             .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Run")
             .map_err(|error| error.to_string())?;
 
-        let stored: String = run
-            .get_value(AUTOSTART_REGISTRY_VALUE)
-            .unwrap_or_default();
+        let stored: String = run.get_value(AUTOSTART_REGISTRY_VALUE).unwrap_or_default();
         if stored.is_empty() {
             return Ok(false);
         }
 
         let current_exe = std::env::current_exe().map_err(|error| error.to_string())?;
         let stored_path = PathBuf::from(stored.trim_matches('"'));
-        return Ok(paths_equivalent(&stored_path, &current_exe));
+        Ok(paths_equivalent(&stored_path, &current_exe))
     }
 
     #[cfg(target_os = "macos")]
@@ -152,7 +150,7 @@ pub fn set_autostart_enabled(enabled: bool) -> Result<(), String> {
             let _ = run.delete_value(AUTOSTART_REGISTRY_VALUE);
         }
 
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]

@@ -6,6 +6,7 @@ import { KnowledgebaseErrorCodes } from 'sdkwork-knowledgebase-pc-core';
 
 import { McpConsolePanel } from '../components/McpConsolePanel';
 import { McpAgentService } from './mcpAgent';
+import { activateEphemeralFixedKnowledgebaseWorkspace } from '../workspaceMode';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -26,6 +27,17 @@ describe('MCP agent execution boundary', () => {
     await expect(operation).rejects.toMatchObject({
       code: KnowledgebaseErrorCodes.API_UNAVAILABLE_SDK,
     });
+  });
+
+  it('rejects quick tools in an active fixed group workspace', async () => {
+    const releaseWorkspace = activateEphemeralFixedKnowledgebaseWorkspace('group-space-42');
+    try {
+      await expect(McpAgentService.processUserQuery('Apply a layout tool')).rejects.toMatchObject({
+        code: KnowledgebaseErrorCodes.API_UNAVAILABLE_CHAT,
+      });
+    } finally {
+      releaseWorkspace();
+    }
   });
 
   it('renders the MCP console as unavailable without active tools or fake connections', () => {

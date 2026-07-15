@@ -24,6 +24,11 @@ import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, shouldUseKnowledg
 import { createTiptapExportContentProvider } from './components/DocumentExport';
 import { sanitizeEditorHtml } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
 import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
+import {
+  isKnowledgebaseWorkspaceAiEnabled,
+  resolveKnowledgebaseWorkspaceAiScope,
+  type KnowledgebaseWorkspaceMode,
+} from './workspaceMode';
 
 export interface TiptapEditorProps extends ReactKeyedComponentProps {
   initialContent: string;
@@ -42,6 +47,7 @@ export interface TiptapEditorProps extends ReactKeyedComponentProps {
   toolbarConfig?: UniversalToolbarGroup[];
   kbId?: string | null;
   parentFolderId?: string | null;
+  workspaceMode?: KnowledgebaseWorkspaceMode;
 }
 
 const StyleGlobalExtension = Extension.create({
@@ -73,10 +79,12 @@ const StyleGlobalExtension = Extension.create({
 export function TiptapEditor({ 
   initialContent, mode = 'richtext', onChange, onEditorReady, docTitle = '', onTitleChange, hideTitle = false,
   onOpenImageGallery, onWechatScan, onOpenAiImage, onAudioInsert, onAudioGallery, onVideoGallery, toolbarConfig,
-  kbId, parentFolderId,
+  kbId, parentFolderId, workspaceMode = 'standard',
 }: TiptapEditorProps) {
   const { t } = useTranslation('editor');
   const { t: tErrors } = useTranslation('errors');
+  const aiEnabled = isKnowledgebaseWorkspaceAiEnabled(workspaceMode);
+  const isEphemeralFixedWorkspace = workspaceMode === 'ephemeral-fixed';
   const [title, setTitle] = useState(docTitle);
 
   useEffect(() => {
@@ -293,6 +301,15 @@ export function TiptapEditor({
 
   const handleAiAction = async (action: string, customPrompt?: string) => {
     if (!editor) return;
+
+    if (!aiEnabled) {
+      try {
+        throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_AI);
+      } catch (error) {
+        toastKnowledgebaseError(error, tErrors);
+      }
+      return;
+    }
     
     setAiLoading(true);
     const selection = editor.state.selection;
@@ -300,7 +317,8 @@ export function TiptapEditor({
     const context = editor.getText();
     
     try {
-      const result = await AIService.handleAIAction(action, text, context, customPrompt);
+      const scope = resolveKnowledgebaseWorkspaceAiScope(workspaceMode, kbId);
+      const result = await AIService.handleAIAction(action, text, context, customPrompt, scope);
       const safeResult = mode === 'markdown' ? result : sanitizeEditorHtml(result);
       editor.commands.insertContent(safeResult);
     } catch (e: unknown) {
@@ -376,6 +394,9 @@ export function TiptapEditor({
     { type: 'view' },
     { type: 'export' }
   ];
+  const workspaceToolbarConfig = (toolbarConfig || defaultConfig).filter(
+    (group) => !isEphemeralFixedWorkspace || group.type !== 'export',
+  );
 
   const toolbarContent = (
     <>
@@ -420,7 +441,7 @@ export function TiptapEditor({
         <UniversalToolbar
           editor={editor}
           t={t}
-          config={toolbarConfig || defaultConfig}
+          config={workspaceToolbarConfig}
           handleToggleSourceMode={handleToggleSourceMode}
           isSourceMode={isSourceMode}
           isSplitMode={isSplitMode}
@@ -432,7 +453,7 @@ export function TiptapEditor({
                 setSourceCode(data);
              }
           }}
-          getExportContent={getExportContent}
+          getExportContent={isEphemeralFixedWorkspace ? undefined : getExportContent}
         />
       </div>
     </>
@@ -467,7 +488,7 @@ export function TiptapEditor({
           }}
         />
       )}
-      {editor && (
+      {editor && aiEnabled && (
         <EditorBubbleMenu 
           editor={editor}
           t={t}

@@ -7,7 +7,7 @@
     "language": "typescript",
     "sdkType": "app",
     "protocol": "http",
-    "packageName": "@sdkwork-internal/knowledgebase-app-sdk-generated"
+    "packageName": "@sdkwork/knowledgebase-app-sdk"
   },
   "generatedFiles": [
     {
@@ -44,7 +44,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "2d7861dee1f1ee10c8030b9fe29593e3f63a355e5f507bff35cacb2a67359721"
+      "sha256": "63d39fedaa0ddd8f6c1e8151fe17981e7ee7f6c495471a6ba85699bd08b4295e"
     },
     {
       "path": "sdkwork-sdk.json",
@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "089702c1e123894ec5fa3efd4581e0c2ed114702e7a6fbcc4e51824684f94c2d"
+      "sha256": "aae74774e0f7198c8f22f7a03ead86e62944d2c7aa0c12ccad4cbd4b18509f51"
     },
     {
       "path": "src/api/paths.ts",
@@ -125,6 +125,10 @@
     {
       "path": "src/types/complete-knowledge-upload-session-request.ts",
       "sha256": "75a1ba54c8912b10fa1b56214377fb41ead92d9cc0fbd55e5e0907e1f1ffcc40"
+    },
+    {
+      "path": "src/types/consume-group-knowledgebase-launch-ticket-request.ts",
+      "sha256": "43324169f44bb3ae7f33fe24211e6661e13480e923d6faf2a2d1f994b3324fac"
     },
     {
       "path": "src/types/context-bindings-retrieve-response.ts",
@@ -211,8 +215,20 @@
       "sha256": "e0accfb62ad54cd048e6c8ce55447ea8b1847de95f05e61a3470777303b21419"
     },
     {
+      "path": "src/types/group-knowledge-space-lifecycle-state.ts",
+      "sha256": "43e82029d5cec9f28e88b072c5d86324f5161811f82ec093cd5b5b83ab3767f2"
+    },
+    {
+      "path": "src/types/group-knowledgebase-launch-target.ts",
+      "sha256": "9ac1e615251162e2d8c2f436f644ea8cdd114694249dff65193c2317f201390a"
+    },
+    {
+      "path": "src/types/group-launches-consume-response.ts",
+      "sha256": "f3cb6ccbe857f020e9919ee4b57b5ea83182b19a7568426d901c560b8f1efc9e"
+    },
+    {
       "path": "src/types/index.ts",
-      "sha256": "4faff95a46158a0b06871da21f0ad0426537805e6423259125ef68302b53d8e7"
+      "sha256": "567e4981d396758e054d2ec85745bf6a0faa2cd8eb6b4abf8e163ad9e1bace6f"
     },
     {
       "path": "src/types/ingestion-job-state.ts",
@@ -528,7 +544,7 @@
     },
     {
       "path": "src/types/knowledge-space-status.ts",
-      "sha256": "e45d2f1e3992d07815387b706ab1cf980d58a1e28c2c0afdf4abea2afd95d43a"
+      "sha256": "dcf47705695bba86adf920d1ab9382356068492321b14062e97d0a014d276e32"
     },
     {
       "path": "src/types/knowledge-space.ts",

@@ -140,6 +140,59 @@ impl<'a> KnowledgeSpaceService<'a> {
         Ok(space)
     }
 
+    /// Initializes a pre-reserved group-managed space. The reservation record is intentionally
+    /// hidden from generic routes until the group aggregate finishes Drive, OKF, and ACL setup.
+    pub async fn initialize_group_managed_space(
+        &self,
+        space_id: u64,
+        owner_subject_type: &str,
+        owner_subject_id: &str,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
+        if is_blank(Some(owner_subject_type)) || is_blank(Some(owner_subject_id)) {
+            return Err(KnowledgeSpaceServiceError::InvalidRequest(
+                "group-managed space owner subject is required".to_string(),
+            ));
+        }
+        let drive_context = if self.drive_space_provisioner.is_some() {
+            Some(self.require_drive_context()?.clone())
+        } else {
+            if self.okf_bundle_initializer.requires_drive_space_binding() {
+                return Err(KnowledgeSpaceServiceError::InvalidRequest(
+                    DRIVE_WORKSPACE_INIT_DRIVE_SPACE_REQUIRED.to_string(),
+                ));
+            }
+            None
+        };
+        let space = self
+            .store
+            .get_group_provisioning_space(space_id)
+            .await
+            .map_err(KnowledgeSpaceServiceError::Store)?;
+        match self
+            .initialize_created_space(
+                space,
+                drive_context.as_ref(),
+                owner_subject_type,
+                owner_subject_id,
+            )
+            .await
+        {
+            Ok(space) => Ok(space),
+            Err(error) => Err(self.cleanup_created_space(space_id, error).await),
+        }
+    }
+
+    /// The group aggregate calls this only after its direct-user ACL projection has succeeded.
+    pub async fn activate_group_managed_space(
+        &self,
+        space_id: u64,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
+        self.store
+            .activate_group_managed_space(space_id)
+            .await
+            .map_err(KnowledgeSpaceServiceError::Store)
+    }
+
     pub async fn update_space(
         &self,
         space_id: u64,
@@ -147,7 +200,7 @@ impl<'a> KnowledgeSpaceService<'a> {
         actor_id: &str,
         request: UpdateKnowledgeSpaceRequest,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
-        self.get_space_with_access_check(space_id, tenant_id, actor_id)
+        self.get_space_with_role_check(space_id, tenant_id, actor_id, KnowledgeAccessRole::Owner)
             .await?;
 
         if request
@@ -178,13 +231,27 @@ impl<'a> KnowledgeSpaceService<'a> {
             .map_err(KnowledgeSpaceServiceError::Store)
     }
 
+    /// Updates the description of a group-managed space after the caller has already completed
+    /// IM snapshot and projected Drive owner authorization. The narrower signature prevents an
+    /// App API caller from changing IM-owned group names through the generic space update path.
+    pub async fn update_group_managed_space_description(
+        &self,
+        space_id: u64,
+        description: String,
+    ) -> Result<KnowledgeSpace, KnowledgeSpaceServiceError> {
+        self.store
+            .update_group_managed_space_description(space_id, description)
+            .await
+            .map_err(KnowledgeSpaceServiceError::Store)
+    }
+
     pub async fn delete_space(
         &self,
         space_id: u64,
         tenant_id: &str,
         actor_id: &str,
     ) -> Result<(), KnowledgeSpaceServiceError> {
-        self.get_space_with_access_check(space_id, tenant_id, actor_id)
+        self.get_space_with_role_check(space_id, tenant_id, actor_id, KnowledgeAccessRole::Owner)
             .await?;
         self.store
             .mark_space_deleted(space_id)
@@ -431,40 +498,42 @@ impl<'a> KnowledgeSpaceService<'a> {
                         .to_string(),
                 )
             })?;
-            let (drive_owner_subject_type, drive_owner_subject_id) =
-                knowledge_drive_space_owner(&space.uuid);
-            let binding = provisioner
-                .create_knowledge_drive_space(CreateKnowledgeDriveSpaceRequest {
+            if space.drive_space_id.is_none() {
+                let (drive_owner_subject_type, drive_owner_subject_id) =
+                    knowledge_drive_space_owner(&space.uuid);
+                let binding = provisioner
+                    .create_knowledge_drive_space(CreateKnowledgeDriveSpaceRequest {
+                        tenant_id: drive_context.tenant_id.clone(),
+                        knowledge_space_id: space.id,
+                        knowledge_space_uuid: space.uuid.clone(),
+                        display_name: space.name.clone(),
+                        owner_subject_type: drive_owner_subject_type.clone(),
+                        owner_subject_id: drive_owner_subject_id.clone(),
+                        operator_id: drive_context.operator_id.clone(),
+                    })
+                    .await?;
+                drive_cleanup = Some(DeleteKnowledgeDriveSpaceRequest {
                     tenant_id: drive_context.tenant_id.clone(),
-                    knowledge_space_id: space.id,
-                    knowledge_space_uuid: space.uuid.clone(),
-                    display_name: space.name.clone(),
-                    owner_subject_type: drive_owner_subject_type.clone(),
-                    owner_subject_id: drive_owner_subject_id.clone(),
+                    drive_space_id: binding.drive_space_id.clone(),
+                    owner_subject_type: drive_owner_subject_type,
+                    owner_subject_id: drive_owner_subject_id,
                     operator_id: drive_context.operator_id.clone(),
-                })
-                .await?;
-            drive_cleanup = Some(DeleteKnowledgeDriveSpaceRequest {
-                tenant_id: drive_context.tenant_id.clone(),
-                drive_space_id: binding.drive_space_id.clone(),
-                owner_subject_type: drive_owner_subject_type,
-                owner_subject_id: drive_owner_subject_id,
-                operator_id: drive_context.operator_id.clone(),
-            });
+                });
 
-            space = match self
-                .store
-                .mark_drive_space_bound(space.id, binding.drive_space_id)
-                .await
-                .map_err(KnowledgeSpaceServiceError::Store)
-            {
-                Ok(space) => space,
-                Err(error) => {
-                    return Err(self
-                        .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
-                        .await)
-                }
-            };
+                space = match self
+                    .store
+                    .mark_drive_space_bound(space.id, binding.drive_space_id)
+                    .await
+                    .map_err(KnowledgeSpaceServiceError::Store)
+                {
+                    Ok(space) => space,
+                    Err(error) => {
+                        return Err(self
+                            .cleanup_created_drive_space(drive_cleanup.as_ref(), error)
+                            .await)
+                    }
+                };
+            }
         }
 
         if space.knowledge_mode == KnowledgeAgentKnowledgeMode::OkfBundle {

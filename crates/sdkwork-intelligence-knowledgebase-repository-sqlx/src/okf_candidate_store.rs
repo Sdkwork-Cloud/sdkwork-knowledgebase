@@ -155,6 +155,65 @@ impl KnowledgeOkfCandidateStore for SqliteKnowledgeOkfCandidateStore {
             })
             .collect()
     }
+
+    async fn list_open_candidates_page(
+        &self,
+        space_id: Option<u64>,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<
+        (Vec<KnowledgeOkfCandidateListItem>, Option<String>, bool),
+        KnowledgeOkfCandidateStoreError,
+    > {
+        let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let space_id = space_id
+            .map(|value| to_i64("space_id", value))
+            .transpose()?;
+        let cursor = cursor.map(|value| to_i64("cursor", value)).transpose()?;
+        let page_size = page_size.clamp(1, 200) as usize;
+        let rows = sqlx::query_as::<_, (i64, String)>(
+            r#"
+            SELECT c.id, k.state
+            FROM kb_okf_concept c
+            INNER JOIN kb_okf_candidate k
+              ON k.tenant_id = c.tenant_id
+             AND k.space_id = c.space_id
+             AND k.concept_id = c.concept_id
+             AND k.status = $2
+            WHERE c.tenant_id = $1
+              AND c.status = $2
+              AND k.state IN ('candidate_ready', 'needs_review')
+              AND ($3 IS NULL OR c.space_id = $3)
+              AND ($4 IS NULL OR c.id > $4)
+            ORDER BY c.id ASC
+            LIMIT $5
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(OKF_CANDIDATE_ACTIVE_STATUS)
+        .bind(space_id)
+        .bind(cursor)
+        .bind((page_size + 1) as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(sqlx_error)?;
+
+        let has_more = rows.len() > page_size;
+        let items = rows
+            .into_iter()
+            .take(page_size)
+            .map(|(concept_row_id, state)| {
+                Ok(KnowledgeOkfCandidateListItem {
+                    concept_row_id: from_i64("concept_row_id", concept_row_id)?,
+                    publish_state: publish_state_from_str(&state)?,
+                })
+            })
+            .collect::<Result<Vec<_>, KnowledgeOkfCandidateStoreError>>()?;
+        let next_cursor = has_more
+            .then(|| items.last().map(|item| item.concept_row_id.to_string()))
+            .flatten();
+        Ok((items, next_cursor, has_more))
+    }
 }
 
 fn to_i64(field: &str, value: u64) -> Result<i64, KnowledgeOkfCandidateStoreError> {

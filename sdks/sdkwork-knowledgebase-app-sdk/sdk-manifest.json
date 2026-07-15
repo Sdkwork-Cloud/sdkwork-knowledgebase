@@ -1,22 +1,71 @@
 {
   "schemaVersion": 1,
-  "sdkName": "sdkwork-knowledgebase-app-sdk",
-  "packageName": "@sdkwork/knowledgebase-app-sdk",
-  "sdkOwner": "sdkwork-knowledgebase",
+  "workspace": "sdkwork-knowledgebase-app-sdk",
+  "title": "SDKWork Knowledgebase App API SDK",
+  "apiVersion": "0.1.0",
+  "openapiVersion": "3.1.2",
+  "authoritySpec": "openapi/knowledgebase-app-api.openapi.json",
+  "generationInputSpec": "openapi/knowledgebase-app-api.openapi.json",
+  "derivedSpecs": {
+    "default": "openapi/knowledgebase-app-api.openapi.json"
+  },
   "apiAuthority": "sdkwork-knowledgebase-app-api",
+  "sdkName": "sdkwork-knowledgebase-app-sdk",
   "sdkFamily": "sdkwork-knowledgebase-app-sdk",
   "sdkType": "app",
   "sdkSurface": "app",
-  "language": "typescript",
+  "packageName": "@sdkwork/knowledgebase-app-sdk",
+  "transportPackageName": "sdkwork-knowledgebase-app-sdk-generated-typescript",
   "apiPrefix": "/app/v3/api",
-  "generationInputSpec": "openapi/knowledgebase-app-api.openapi.json",
-  "generatedOutput": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
-  "composedConsumerPath": "sdkwork-knowledgebase-app-sdk-typescript",
-  "composedConsumerManifest": "sdkwork-knowledgebase-app-sdk-typescript/package.json",
-  "composedConsumerEntry": "sdkwork-knowledgebase-app-sdk-typescript/src/index.ts",
-  "composedFactory": "createKnowledgebaseAppClient",
-  "generatedTransportPackageName": "@sdkwork-internal/knowledgebase-app-sdk-generated",
   "standardProfile": "sdkwork-v3",
+  "ownerOnlyOperationCount": 70,
+  "standardVersion": "2026-06-06",
+  "managedBy": "sdks/standardize-knowledgebase-sdk-family.mjs",
+  "typescript": {
+    "composedRoot": "sdkwork-knowledgebase-app-sdk-typescript",
+    "composedEntry": "sdkwork-knowledgebase-app-sdk-typescript/src/index.ts",
+    "transportRoot": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
+    "transportEntry": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/src/index.ts"
+  },
+  "discoverySurface": {
+    "sdkTarget": "app",
+    "apiPrefix": "/app/v3/api",
+    "schemaUrl": "/app/v3/openapi.json",
+    "generatedProtocols": [
+      "http-openapi"
+    ],
+    "manualTransports": []
+  },
+  "languages": [
+    {
+      "language": "typescript",
+      "workspace": "sdkwork-knowledgebase-app-sdk-typescript",
+      "generationState": "materialized",
+      "releaseState": "not_published",
+      "generatedPath": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi",
+      "manifestPath": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/package.json",
+      "consumerPackageName": "@sdkwork/knowledgebase-app-sdk",
+      "transportPackageName": "sdkwork-knowledgebase-app-sdk-generated-typescript",
+      "version": "0.1.0",
+      "description": "Generator-owned TypeScript transport SDK for sdkwork-knowledgebase-app-api.",
+      "consumerSurface": {
+        "primaryClient": "SdkworkKnowledgebaseAppClient",
+        "factory": "createKnowledgebaseAppClient",
+        "apiPrefix": "/app/v3/api",
+        "composedManifestPath": "sdkwork-knowledgebase-app-sdk-typescript/package.json",
+        "composedEntryPath": "sdkwork-knowledgebase-app-sdk-typescript/src/index.ts",
+        "packageName": "@sdkwork/knowledgebase-app-sdk"
+      }
+    }
+  ],
+  "generatedPackages": {
+    "typescript": {
+      "language": "typescript",
+      "packageName": "sdkwork-knowledgebase-app-sdk-generated-typescript",
+      "generatedOutput": "sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi"
+    }
+  },
+  "sdkOwner": "sdkwork-knowledgebase",
   "sdkDependencies": [
     {
       "workspace": "sdkwork-iam-app-sdk",
@@ -67,7 +116,9 @@
       }
     }
   ],
-  "ownerOnlyOperationCount": 69,
-  "standardVersion": "2026-06-06",
-  "managedBy": "sdks/standardize-knowledgebase-sdk-family.mjs"
+  "metadata": {
+    "standardVersion": "2026-06-06",
+    "ownerOnlyOperationCount": 70,
+    "managedBy": "sdks/standardize-knowledgebase-sdk-family.mjs"
+  }
 }

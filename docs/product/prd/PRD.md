@@ -3,7 +3,7 @@
 Status: active
 Owner: SDKWork maintainers
 Application: sdkwork-knowledgebase
-Updated: 2026-07-09
+Updated: 2026-07-14
 Specs: REQUIREMENTS_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -34,6 +34,11 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - PC browser and desktop shell for authoring, search, and market/catalog
 - Production deployment topology (split services, worker, Postgres, probes, audit)
 - Fail-closed auth, tenant/org guards, and backend `knowledge.admin` RBAC
+- Managed IM Conversation group knowledge spaces that are created only by the current IM Owner's
+  first initialization or failed-provisioning retry, use dedicated group binding and
+  current-membership authorization, and open in the full standalone browser or Tauri Knowledgebase
+  application only for active joined non-Guest Owners, Admins, and Members. See
+  [REQ-2026-0713-group-knowledgebase.md](../requirements/REQ-2026-0713-group-knowledgebase.md).
 
 **Non-Goals (MVP)**
 
@@ -69,6 +74,11 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 5. **Operator deploys tenant** - K8s manifests + env (tenant, org, secrets, outbox webhook) -> `/readyz` green -> smoke test
 
 6. **Author manages OKF source files** - open OKF space file list -> view original files from `sources/raw` through `view=files` -> upload or create root folder using `data.parentId` -> inspect generated OKF concepts only through `view=okf_bundle`
+7. **Group member opens managed knowledge** - the current IM Owner initializes the group action or
+   retries failed provisioning -> exactly one managed space is provisioned -> after activation,
+   joined non-Guest Owner, Admin, and Member roles open only that fixed workspace through a one-time
+   ticket -> Guest, left, removed, and non-member actors are denied -> removal, role reduction, or
+   dissolution updates access and archive state without deleting documents by default
 
 ## 6. Success Metrics
 
@@ -93,6 +103,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 - `docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md`
 - `docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md`
+- `docs/product/requirements/REQ-2026-0713-group-knowledgebase.md`
+- `docs/architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md`
 - `specs/okf-knowledge-bundle.spec.json` - OKF bundle layers, browser views, and raw source file list contract
 - `../sdkwork-specs/SECURITY_SPEC.md`, `IAM_SPEC.md`, `APP_SDK_INTEGRATION_SPEC.md`
 - `deployments/README.md` - tenant isolation and observability

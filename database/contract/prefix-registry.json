@@ -5,18 +5,12 @@
     {
       "prefix": "kb_",
       "owner": "knowledgebase-platform",
-      "domain": "knowledgebase",
-      "status": "ACTIVE",
-      "compatibilityLevel": "L2",
-      "notes": "Canonical physical table prefix for SDKWork Knowledgebase-owned tables."
+      "domain": "knowledgebase"
     },
     {
       "prefix": "web_",
-      "owner": "sdkwork-web-framework",
-      "domain": "web-framework",
-      "status": "EMBEDDED",
-      "compatibilityLevel": "L2",
-      "notes": "Embedded SDKWork Web Framework audit tables bootstrapped by the Knowledgebase database lifecycle."
+      "owner": "knowledgebase-platform",
+      "domain": "knowledgebase"
     }
   ]
 }

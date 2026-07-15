@@ -10,6 +10,7 @@
     "frontendDist": "../../../dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",
@@ -28,6 +29,15 @@
       "capabilities": [
         "default"
       ]
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "sdkwork-knowledgebase"
+        ]
+      }
     }
   },
   "bundle": {

@@ -198,7 +198,7 @@ pub fn reveal_export_in_folder(raw_path: &str) -> Result<(), String> {
             .arg(format!("/select,{}", path.display()))
             .spawn()
             .map_err(|error| format!("failed to reveal export file: {error}"))?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]
@@ -281,9 +281,8 @@ pub fn locate_export_in_downloads(file_name: &str) -> Result<PathBuf, String> {
         }
     }
 
-    best.map(|(path, _)| path).ok_or_else(|| {
-        format!("export file not found in downloads folder: {safe}")
-    })
+    best.map(|(path, _)| path)
+        .ok_or_else(|| format!("export file not found in downloads folder: {safe}"))
 }
 
 fn validate_export_file_path(raw_path: &str) -> Result<PathBuf, String> {
@@ -334,10 +333,8 @@ mod tests {
 
     #[test]
     fn unique_file_path_appends_suffix_for_duplicates() {
-        let temp_dir = std::env::temp_dir().join(format!(
-            "kb-export-test-{}",
-            chrono_like_suffix()
-        ));
+        let temp_dir =
+            std::env::temp_dir().join(format!("kb-export-test-{}", chrono_like_suffix()));
         fs::create_dir_all(&temp_dir).expect("temp dir should exist");
         let first = unique_file_path(&temp_dir, "note.pdf");
         fs::write(&first, b"first").expect("write first");

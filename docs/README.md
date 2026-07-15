@@ -21,6 +21,8 @@ SDKWork Knowledgebase maintainers.
 | Open API design | [architecture/tech/TECH-2026-06-12-knowledgebase-open-api-design.md](architecture/tech/TECH-2026-06-12-knowledgebase-open-api-design.md) |
 | OKF knowledge bundle | [architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md](architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md) |
 | Agent RAG design | [architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md](architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md) |
+| Managed group knowledgebase requirement | [product/requirements/REQ-2026-0713-group-knowledgebase.md](product/requirements/REQ-2026-0713-group-knowledgebase.md) |
+| Managed group knowledgebase decision | [architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md](architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md) |
 | Tenant isolation | [runbooks/tenant-isolation.md](runbooks/tenant-isolation.md) |
 | Audit retention | [runbooks/audit-retention.md](runbooks/audit-retention.md) |
 | Phase 2 RLS ADR | [architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md](architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md) |

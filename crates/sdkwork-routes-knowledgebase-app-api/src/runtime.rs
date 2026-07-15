@@ -6,7 +6,8 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     keyword_search_backend_for_database_url, knowledgebase_health_check, KnowledgeAuditEventRecord,
     KnowledgeAuditEventStore, PgVectorKnowledgeRetrievalBackend, PgVectorLayeredRetrievalBackend,
     SqliteCommerceStore, SqliteContextBindingStore, SqliteDriveImportMetadataStore,
-    SqliteIngestionJobStore, SqliteKnowledgeAgentProfileStore, SqliteKnowledgeAuditEventStore,
+    SqliteGroupKnowledgeSpaceBindingStore, SqliteIngestionJobStore,
+    SqliteKnowledgeAgentProfileStore, SqliteKnowledgeAuditEventStore,
     SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeChunkRetrievalStore,
     SqliteKnowledgeChunkStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
     SqliteKnowledgeDriveObjectRefStore, SqliteKnowledgeEmbeddingStore, SqliteKnowledgeIndexStore,
@@ -19,14 +20,18 @@ use sdkwork_intelligence_knowledgebase_service::{
     agent::KnowledgeAgentService,
     agent_chat::KnowledgeAgentChatService,
     embedding_retrieval_backend::SharedKnowledgeRetrievalBackend,
+    group_space::KnowledgeGroupKnowledgeSpaceService,
     knowledge_engine::{
         build_default_registry, DefaultKnowledgeEngineRegistry, KnowledgeEngineRuntimeDeps,
         KnowledgeEngineSpaceResolver,
     },
+    okf::{OkfBundleFileRegistryService, OkfBundleInitializerService},
     ports::{
-        knowledge_chunk_store::KnowledgeChunkStore,
+        group_launch_ticket_consumer::GroupLaunchTicketConsumer,
+        knowledge_access_control::KnowledgeAccessRole, knowledge_chunk_store::KnowledgeChunkStore,
         knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStore,
         knowledge_drive_storage::KnowledgeDriveStorage,
+        knowledge_group_space_binding_store::KnowledgeGroupSpaceBindingStore,
         knowledge_outbox_store::KnowledgeOutboxStore,
         knowledge_retrieval_trace_store::KnowledgeRetrievalTraceStore,
         knowledge_space_store::KnowledgeSpaceStore,
@@ -36,6 +41,7 @@ use sdkwork_intelligence_knowledgebase_service::{
 use sdkwork_knowledgebase_contract::agent_chat::{
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
 };
+use sdkwork_knowledgebase_contract::parse_canonical_nonnegative_signed_i64;
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeContextPack,
@@ -48,6 +54,7 @@ use sdkwork_knowledgebase_drive::{
     KnowledgebaseKnowledgeAccessControlAdapter,
 };
 use sdkwork_utils_rust::is_blank;
+use sdkwork_web_bootstrap::{ReadinessCheck as FrameworkReadinessCheck, ReadinessFuture};
 use sqlx::AnyPool;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -68,17 +75,19 @@ use crate::{
         HostedGitImportService, HostedIngestService, HostedOkfService, HostedSpaceService,
     },
     hosted_access::{
-        ensure_runtime_tenant, require_actor_id, require_agent_binding_space_access,
-        require_agent_profile_space_access, require_bindings_space_access, require_space_access,
+        ensure_runtime_tenant, require_actor_id, require_agent_binding_space_access_with_role,
+        require_agent_profile_space_access, require_agent_profile_space_access_with_role,
+        require_bindings_space_access, require_space_access,
     },
     hosted_backend::HostedBackendApi,
     hosted_commerce::HostedCommerceService,
     hosted_context_binding::HostedContextBindingService,
+    hosted_group_launch::HostedGroupLaunchService,
     hosted_open::HostedOpenApi,
     hosted_upload::HostedUploadSessionService,
     hosted_wechat::HostedWechatService,
     ApiError, ApiResult, KnowledgeAgentAppService, KnowledgeAppRequestContext,
-    KnowledgeRetrievalAppService, ReadinessCheck,
+    KnowledgeRetrievalAppService,
 };
 
 const DEFAULT_DRIVE_PROVIDER_ID: &str = "sdkwork-knowledgebase-local";
@@ -114,6 +123,8 @@ pub struct KnowledgebaseRuntime {
     outbox_dispatcher: Arc<dyn sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_dispatcher::KnowledgeOutboxDispatcher>,
     chunk_store: Arc<SqliteKnowledgeChunkStore>,
     context_binding_store: Arc<SqliteContextBindingStore>,
+    group_space_binding_store: Arc<SqliteGroupKnowledgeSpaceBindingStore>,
+    group_launch_ticket_consumer: Option<Arc<dyn GroupLaunchTicketConsumer>>,
     browser_projection_store: Arc<SqliteKnowledgeBrowserProjectionStore>,
     audit_event_store: Arc<SqliteKnowledgeAuditEventStore>,
     drive_storage: Arc<KnowledgebaseDriveStorageAdapter>,
@@ -123,6 +134,37 @@ pub struct KnowledgebaseRuntime {
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
     knowledge_engines: Arc<DefaultKnowledgeEngineRegistry>,
     commerce_store: Arc<SqliteCommerceStore>,
+}
+
+/// Bridges the host's complete runtime dependency check into the shared HTTP readiness route.
+/// The response deliberately exposes no dependency configuration or failure detail.
+#[derive(Clone)]
+pub struct KnowledgebaseRuntimeReadinessCheck {
+    runtime: KnowledgebaseRuntime,
+}
+
+impl KnowledgebaseRuntimeReadinessCheck {
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
+        Self { runtime }
+    }
+}
+
+impl FrameworkReadinessCheck for KnowledgebaseRuntimeReadinessCheck {
+    fn check(&self) -> ReadinessFuture<'_> {
+        let runtime = self.runtime.clone();
+        Box::pin(async move {
+            match runtime.readiness_check().await {
+                Ok(()) => {
+                    sdkwork_knowledgebase_observability::set_readiness_status(true);
+                    Ok(())
+                }
+                Err(_) => {
+                    sdkwork_knowledgebase_observability::set_readiness_status(false);
+                    Err("knowledgebase runtime readiness check failed".to_string())
+                }
+            }
+        })
+    }
 }
 
 impl KnowledgebaseRuntime {
@@ -401,6 +443,11 @@ impl KnowledgebaseRuntime {
             context_binding_store: Arc::new(
                 SqliteContextBindingStore::new(pool.clone()).with_database_engine(database_engine),
             ),
+            group_space_binding_store: Arc::new(
+                SqliteGroupKnowledgeSpaceBindingStore::new(pool.clone())
+                    .with_database_engine(database_engine),
+            ),
+            group_launch_ticket_consumer: None,
             browser_projection_store: Arc::new(SqliteKnowledgeBrowserProjectionStore::new(
                 pool.clone(),
                 tenant_id,
@@ -432,8 +479,34 @@ impl KnowledgebaseRuntime {
         self.tenant_id
     }
 
+    /// Production composition injects the generated IM internal RPC adapter here. A runtime
+    /// without it remains fail-closed for group-launch ticket consumption.
+    pub fn with_group_launch_ticket_consumer(
+        mut self,
+        consumer: Arc<dyn GroupLaunchTicketConsumer>,
+    ) -> Self {
+        self.group_launch_ticket_consumer = Some(consumer);
+        self
+    }
+
     pub fn organization_id(&self) -> u64 {
         self.organization_id
+    }
+
+    pub fn group_launch_capability(
+        &self,
+    ) -> sdkwork_knowledgebase_contract::group_space::GroupKnowledgebaseLaunchCapability {
+        use sdkwork_knowledgebase_contract::group_space::{
+            GroupKnowledgebaseLaunchCapability, GroupKnowledgebaseLaunchCapabilityState,
+        };
+
+        GroupKnowledgebaseLaunchCapability {
+            state: if self.group_launch_ticket_consumer.is_some() {
+                GroupKnowledgebaseLaunchCapabilityState::Configured
+            } else {
+                GroupKnowledgebaseLaunchCapabilityState::Disabled
+            },
+        }
     }
 
     pub(crate) fn commerce_store(&self) -> &SqliteCommerceStore {
@@ -457,10 +530,16 @@ impl KnowledgebaseRuntime {
         Ok(())
     }
 
+    pub fn readiness_check_adapter(
+        &self,
+    ) -> sdkwork_routes_knowledgebase_backend_api::KnowledgebaseReadinessCheck {
+        Arc::new(KnowledgebaseRuntimeReadinessCheck::new(self.clone()))
+    }
+
     pub fn build_agent_and_retrieval_router(&self) -> axum::Router {
         build_router_with_shared_app_api_and_readiness(
             Arc::new(AgentAndRetrievalHostedApi::new(self.clone())),
-            Some(ReadinessCheck::new(self.pool.clone())),
+            Some(self.readiness_check_adapter()),
         )
     }
 
@@ -470,6 +549,7 @@ impl KnowledgebaseRuntime {
         build_router_with_shared_app_api_and_readiness(
             Arc::new(FullAppApi::new(
                 Arc::new(HostedSpaceService::new(self.clone())),
+                Arc::new(HostedGroupLaunchService::new(self.clone())),
                 Arc::new(HostedDriveImportService::new(self.clone())),
                 Arc::new(HostedGitImportService::new(self.clone())),
                 Arc::new(HostedIngestService::new(self.clone())),
@@ -483,7 +563,7 @@ impl KnowledgebaseRuntime {
                 Arc::new(HostedWechatService::new(self.clone())),
                 Arc::new(HostedCommerceService::new(self.clone())),
             )),
-            Some(ReadinessCheck::new(self.pool.clone())),
+            Some(self.readiness_check_adapter()),
         )
     }
 
@@ -503,18 +583,14 @@ impl KnowledgebaseRuntime {
         sdkwork_routes_knowledgebase_backend_api::build_router_with_shared_backend_api_and_readiness(
             Arc::new(HostedBackendApi::new(self.clone())),
             self.tenant_id(),
-            Some(
-                sdkwork_routes_knowledgebase_backend_api::DbReadinessCheck::new(self.pool.clone()),
-            ),
+            Some(self.readiness_check_adapter()),
         )
     }
 
     pub fn build_open_api_router(&self) -> axum::Router {
         sdkwork_routes_knowledgebase_open_api::build_router_with_shared_open_api_and_readiness(
             Arc::new(HostedOpenApi::new(self.clone())),
-            Some(
-                sdkwork_routes_knowledgebase_backend_api::DbReadinessCheck::new(self.pool.clone()),
-            ),
+            Some(self.readiness_check_adapter()),
         )
     }
 
@@ -622,6 +698,14 @@ impl KnowledgebaseRuntime {
         &self.context_binding_store
     }
 
+    pub(crate) fn group_space_binding_store(&self) -> &SqliteGroupKnowledgeSpaceBindingStore {
+        &self.group_space_binding_store
+    }
+
+    pub(crate) fn group_launch_ticket_consumer(&self) -> Option<&dyn GroupLaunchTicketConsumer> {
+        self.group_launch_ticket_consumer.as_deref()
+    }
+
     pub(crate) fn okf_bundle_file_store(&self) -> &SqliteKnowledgeOkfBundleFileStore {
         &self.okf_bundle_file_store
     }
@@ -723,7 +807,9 @@ impl KnowledgebaseRuntime {
         use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 
         for binding in bindings {
-            let space = self.space_store().get_space(binding.space_id).await?;
+            let space = self
+                .get_space_for_authorized_operation(binding.space_id)
+                .await?;
             if space.knowledge_mode != KnowledgeAgentKnowledgeMode::Rag {
                 return Err(crate::ApiError::invalid_request(
                     "rag_retrieval_mode_required",
@@ -735,6 +821,24 @@ impl KnowledgebaseRuntime {
             }
         }
         Ok(())
+    }
+
+    /// Internal helpers may use this only after an App API authorization check or from a trusted
+    /// backend control operation. Generic `KnowledgeSpaceStore::get_space` intentionally hides
+    /// group-managed spaces; this method is the narrow escape hatch for already-authorized group
+    /// content work such as OKF export staging.
+    pub(crate) async fn get_space_for_authorized_operation(
+        &self,
+        space_id: u64,
+    ) -> Result<sdkwork_knowledgebase_contract::space::KnowledgeSpace, crate::ApiError> {
+        match self.space_store().get_space(space_id).await {
+            Ok(space) => Ok(space),
+            Err(generic_error) => self
+                .space_store()
+                .get_group_managed_space(space_id)
+                .await
+                .map_err(|_| crate::ApiError::from(generic_error)),
+        }
     }
 
     pub async fn search_knowledge_engine_for_space(
@@ -928,14 +1032,63 @@ impl KnowledgebaseRuntime {
         })
     }
 
-    pub async fn process_queued_ingestion_jobs(&self, limit: u32) -> usize {
+    pub async fn process_queued_ingestion_jobs(&self, limit: u32) -> Result<usize, String> {
         use sdkwork_intelligence_knowledgebase_service::ingest::KnowledgeIngestionJobWorkerService;
 
         KnowledgeIngestionJobWorkerService::new(self.ingestion_job_store(), self.drive_storage())
             .process_queued_jobs(limit)
             .await
             .map(|result| result.processed)
-            .unwrap_or(0)
+            .map_err(|error| error.to_string())
+    }
+
+    /// Advances bounded, durable group archive sagas for every organization in this runtime's
+    /// worker-authorized tenant. Each work item owns only one Drive ACL page or one physical
+    /// archive transition, keeping a worker tick independent from the IM relay deadline and
+    /// restart-safe from binding state.
+    pub async fn process_resumable_group_space_archives(&self, limit: u32) -> usize {
+        if self.tenant_id == 0 || limit == 0 {
+            return 0;
+        }
+        let commands = match self
+            .group_space_binding_store
+            .list_resumable_group_space_archives_for_tenant(self.tenant_id, limit.min(200))
+            .await
+        {
+            Ok(commands) => commands,
+            Err(error) => {
+                tracing::warn!(
+                    target: "sdkwork.knowledgebase",
+                    error = %error,
+                    "failed to load resumable group archive work"
+                );
+                return 0;
+            }
+        };
+        let file_registry = OkfBundleFileRegistryService::new(self.okf_bundle_file_store());
+        let okf_initializer = OkfBundleInitializerService::new(self.drive_storage())
+            .with_registry(&file_registry)
+            .with_drive_workspace(self.drive_workspace());
+        let service = KnowledgeGroupKnowledgeSpaceService::new(
+            self.group_space_binding_store(),
+            self.space_store(),
+            &okf_initializer,
+            self.drive_space_provisioner(),
+            self.access_control(),
+            self.operator_id.clone(),
+        );
+        let mut processed = 0usize;
+        for command in commands {
+            match service.resume_archiving_from_worker(command).await {
+                Ok(_) => processed += 1,
+                Err(error) => tracing::warn!(
+                    target: "sdkwork.knowledgebase",
+                    error = %error,
+                    "resumable group archive step did not converge"
+                ),
+            }
+        }
+        processed
     }
 }
 
@@ -960,7 +1113,10 @@ fn build_document_content_version(
 fn default_organization_id() -> u64 {
     std::env::var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID")
         .ok()
-        .and_then(|value| value.parse().ok())
+        .map(|value| {
+            parse_canonical_nonnegative_signed_i64(&value)
+                .expect("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID must be a canonical signed BIGINT")
+        })
         .unwrap_or(0)
 }
 
@@ -1128,7 +1284,10 @@ impl KnowledgeAgentAppService for HostedAgentService {
         ensure_runtime_tenant(&self.runtime, &context)?;
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
-        service.create_profile(request).await.map_err(Into::into)
+        service
+            .create_profile(request.with_tenant_id(context.tenant_id))
+            .await
+            .map_err(Into::into)
     }
 
     async fn retrieve_profile(
@@ -1158,9 +1317,15 @@ impl KnowledgeAgentAppService for HostedAgentService {
             .retrieve_profile(profile_id)
             .await
             .map_err(ApiError::from)?;
-        require_agent_profile_space_access(&self.runtime, &context, &existing).await?;
+        require_agent_profile_space_access_with_role(
+            &self.runtime,
+            &context,
+            &existing,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         service
-            .update_profile(profile_id, request)
+            .update_profile(profile_id, request.with_tenant_id(context.tenant_id))
             .await
             .map_err(Into::into)
     }
@@ -1176,7 +1341,13 @@ impl KnowledgeAgentAppService for HostedAgentService {
             .retrieve_profile(profile_id)
             .await
             .map_err(ApiError::from)?;
-        require_agent_profile_space_access(&self.runtime, &context, &existing).await?;
+        require_agent_profile_space_access_with_role(
+            &self.runtime,
+            &context,
+            &existing,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         service.delete_profile(profile_id).await.map_err(Into::into)
     }
 
@@ -1207,10 +1378,22 @@ impl KnowledgeAgentAppService for HostedAgentService {
             .retrieve_profile(profile_id)
             .await
             .map_err(ApiError::from)?;
-        require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
-        require_agent_binding_space_access(&self.runtime, &context, request.space_id).await?;
+        require_agent_profile_space_access_with_role(
+            &self.runtime,
+            &context,
+            &profile,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
+        require_agent_binding_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         service
-            .create_binding(profile_id, request)
+            .create_binding(profile_id, request.with_tenant_id(context.tenant_id))
             .await
             .map_err(Into::into)
     }
@@ -1228,10 +1411,26 @@ impl KnowledgeAgentAppService for HostedAgentService {
             .retrieve_profile(profile_id)
             .await
             .map_err(ApiError::from)?;
-        require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
-        require_agent_binding_space_access(&self.runtime, &context, request.space_id).await?;
+        require_agent_profile_space_access_with_role(
+            &self.runtime,
+            &context,
+            &profile,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
+        require_agent_binding_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         service
-            .update_binding(profile_id, binding_id, request)
+            .update_binding(
+                profile_id,
+                binding_id,
+                request.with_tenant_id(context.tenant_id),
+            )
             .await
             .map_err(Into::into)
     }
@@ -1248,7 +1447,13 @@ impl KnowledgeAgentAppService for HostedAgentService {
             .retrieve_profile(profile_id)
             .await
             .map_err(ApiError::from)?;
-        require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
+        require_agent_profile_space_access_with_role(
+            &self.runtime,
+            &context,
+            &profile,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         service
             .delete_binding(profile_id, binding_id)
             .await
@@ -1297,7 +1502,7 @@ impl KnowledgeAgentAppService for HostedAgentService {
         let retrieval = self.runtime.retrieval_service();
         let plan_resolver =
             RuntimeRetrievalPlanResolver::new(self.runtime.retrieval_profile_store.clone());
-        let space_mode_resolver = RuntimeSpaceModeResolver::new(self.runtime.space_store.clone());
+        let space_mode_resolver = RuntimeSpaceModeResolver::new(self.runtime.clone());
         let space_engine_client =
             Arc::new(RuntimeSpaceKnowledgeEngineClient::new(self.runtime.clone()));
         let chat_service = KnowledgeAgentChatService::new(

@@ -567,6 +567,35 @@ async fn sqlite_ingestion_jobs_are_idempotent_per_space_not_whole_tenant() {
 }
 
 #[tokio::test]
+async fn sqlite_workers_claim_each_queued_ingestion_job_once() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let store = Arc::new(SqliteIngestionJobStore::new(pool, 9001));
+    let job = create_ingestion_job(&store, 7, "drive_object", "claim-once").await;
+    let barrier = Arc::new(Barrier::new(3));
+
+    let mut workers = Vec::new();
+    for _ in 0..2 {
+        let store = Arc::clone(&store);
+        let barrier = Arc::clone(&barrier);
+        workers.push(tokio::spawn(async move {
+            barrier.wait().await;
+            store.claim_queued_jobs(20).await.unwrap()
+        }));
+    }
+    barrier.wait().await;
+
+    let mut claimed = Vec::new();
+    for worker in workers {
+        claimed.extend(worker.await.unwrap());
+    }
+
+    assert_eq!(claimed.len(), 1);
+    assert_eq!(claimed[0].id, job.id);
+    assert_eq!(claimed[0].state, IngestionJobState::Running);
+}
+
+#[tokio::test]
 async fn sqlite_inflight_count_recovers_stale_queued_and_running_upload_sessions() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;

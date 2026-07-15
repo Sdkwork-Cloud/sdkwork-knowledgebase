@@ -56,6 +56,13 @@ impl SqliteCommerceStore {
                 ), 0) AS documents_count
             FROM kb_space s
             WHERE s.tenant_id = $1 AND s.status = 1
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM kb_group_knowledge_space_binding group_binding
+                    WHERE group_binding.tenant_id = s.tenant_id
+                      AND group_binding.organization_id = s.organization_id
+                      AND group_binding.space_id = s.id
+              )
             ORDER BY s.updated_at DESC
             LIMIT 12
             "#,

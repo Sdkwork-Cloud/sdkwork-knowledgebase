@@ -12,6 +12,7 @@ use sdkwork_intelligence_knowledgebase_service::{
     imports::{KnowledgeDocumentMarkdownReader, KnowledgeGitSyncService},
     ingest::ApiMarkdownIngestPipeline,
     ports::{
+        knowledge_access_control::KnowledgeAccessRole,
         knowledge_document_store::{
             CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
         },
@@ -23,7 +24,6 @@ use sdkwork_intelligence_knowledgebase_service::{
         },
         knowledge_okf_concept_store::KnowledgeOkfConceptStore,
         knowledge_source_store::{CreateKnowledgeSourceRecord, KnowledgeSourceStore},
-        knowledge_space_store::KnowledgeSpaceStore,
     },
 };
 use sdkwork_knowledgebase_contract::source::KnowledgeSourceType;
@@ -47,8 +47,10 @@ use crate::{
     hosted_access::{
         create_space_with_context, delete_space_with_context, ensure_runtime_tenant,
         grant_space_member_with_context, list_space_members_with_context, require_document_access,
-        require_ingest_access, require_okf_concept_space_access, require_space_access,
-        revoke_space_member_with_context, update_space_with_context,
+        require_document_access_with_role, require_ingest_access, require_okf_concept_space_access,
+        require_okf_concept_space_access_with_role, require_space_access,
+        require_space_access_with_role, revoke_space_member_with_context,
+        update_space_with_context,
     },
     hosted_support::{
         build_okf_context_pack_from_engine, concept_to_summary, create_okf_bundle_export,
@@ -172,7 +174,13 @@ impl KnowledgeIngestAppService for HostedIngestService {
         request: KnowledgeIngestRequest,
     ) -> ApiResult<IngestionJob> {
         let space_id = request.space_id;
-        let space = require_space_access(&self.runtime, &context, space_id).await?;
+        let space = require_space_access_with_role(
+            &self.runtime,
+            &context,
+            space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         let pipeline = ApiMarkdownIngestPipeline::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
@@ -218,7 +226,13 @@ impl KnowledgeDriveImportAppService for HostedDriveImportService {
         context: KnowledgeAppRequestContext,
         request: KnowledgeDriveImportRequest,
     ) -> ApiResult<KnowledgeDriveImportResult> {
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         let request = resolve_drive_import_request(self.runtime.drive_tree(), request).await?;
         let service = KnowledgeDriveImportService::new(
             self.runtime.drive_storage(),
@@ -273,7 +287,13 @@ impl KnowledgeGitImportAppService for HostedGitImportService {
         request: KnowledgeGitImportRequest,
     ) -> ApiResult<KnowledgeGitImportResult> {
         let space_id = request.space_id;
-        let space = require_space_access(&self.runtime, &context, space_id).await?;
+        let space = require_space_access_with_role(
+            &self.runtime,
+            &context,
+            space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         let service = KnowledgeGitImportService::new(
             self.runtime.drive_storage(),
             self.runtime.ingestion_job_store(),
@@ -298,7 +318,13 @@ impl KnowledgeGitImportAppService for HostedGitImportService {
         request: KnowledgeGitSyncRequest,
     ) -> ApiResult<KnowledgeGitSyncResult> {
         let space_id = request.space_id;
-        require_space_access(&self.runtime, &context, space_id).await?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         let markdown_reader = RuntimeDocumentMarkdownReader::new(self.runtime.clone());
         let service = KnowledgeGitSyncService::new(self.runtime.document_store(), &markdown_reader);
         service
@@ -411,7 +437,13 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
                 "space_id is required",
             ));
         }
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         crate::tenant_quota_enforcement::ensure_tenant_can_create_document(&self.runtime).await?;
 
         let source_id = match request.source_id {
@@ -449,7 +481,13 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
         document_id: u64,
         request: CreateKnowledgeDocumentRequest,
     ) -> ApiResult<KnowledgeDocument> {
-        let document = require_document_access(&self.runtime, &context, document_id).await?;
+        let document = require_document_access_with_role(
+            &self.runtime,
+            &context,
+            document_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         if is_blank(Some(request.title.as_str())) {
             return Err(ApiError::invalid_request(
                 "invalid_knowledge_document_request",
@@ -496,7 +534,13 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
         context: KnowledgeAppRequestContext,
         document_id: u64,
     ) -> ApiResult<()> {
-        require_document_access(&self.runtime, &context, document_id).await?;
+        require_document_access_with_role(
+            &self.runtime,
+            &context,
+            document_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         self.runtime
             .document_store()
             .soft_delete_document(document_id)
@@ -539,7 +583,13 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
         document_id: u64,
         request: CreateKnowledgeDocumentVersionRequest,
     ) -> ApiResult<KnowledgeDocumentVersion> {
-        require_document_access(&self.runtime, &context, document_id).await?;
+        require_document_access_with_role(
+            &self.runtime,
+            &context,
+            document_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         if request.document_id != 0 && request.document_id != document_id {
             return Err(ApiError::invalid_request(
                 "invalid_knowledge_document_version_request",
@@ -811,7 +861,13 @@ impl KnowledgeOkfAppService for HostedOkfService {
             ));
         }
 
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         let actor = context
             .actor_id
             .map(|value| value.to_string())
@@ -846,8 +902,13 @@ impl KnowledgeOkfAppService for HostedOkfService {
         context: KnowledgeAppRequestContext,
         concept_row_id: u64,
     ) -> ApiResult<()> {
-        let space =
-            require_okf_concept_space_access(&self.runtime, &context, concept_row_id).await?;
+        let space = require_okf_concept_space_access_with_role(
+            &self.runtime,
+            &context,
+            concept_row_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         let actor = context
             .actor_id
             .map(|value| value.to_string())
@@ -1011,7 +1072,13 @@ impl KnowledgeOkfAppService for HostedOkfService {
             ));
         }
 
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         self.runtime
             .resolve_okf_bundle_engine_for_space(request.space_id)
             .await?;
@@ -1058,7 +1125,13 @@ impl KnowledgeOkfAppService for HostedOkfService {
             ));
         }
 
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        let space = require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         let query = request.query.unwrap_or_default();
         let context_pack =
             build_okf_context_pack_from_engine(&self.runtime, request.space_id, query, 4096)
@@ -1068,11 +1141,6 @@ impl KnowledgeOkfAppService for HostedOkfService {
             ApiError::internal("okf_context_pack_serialization_failed", error.to_string())
         })?;
         let logical_path = format!("context_packs/cp-{}.json", context_pack.context_pack_id);
-        let space = self
-            .runtime
-            .space_store()
-            .get_space(request.space_id)
-            .await?;
         let object_ref = self
             .runtime
             .drive_storage()
@@ -1109,7 +1177,13 @@ impl KnowledgeOkfAppService for HostedOkfService {
         context: KnowledgeAppRequestContext,
         request: OkfBundleExportRequest,
     ) -> ApiResult<KnowledgeOkfBundleFile> {
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         create_okf_bundle_export(&self.runtime, request).await
     }
 
@@ -1128,7 +1202,13 @@ impl KnowledgeOkfAppService for HostedOkfService {
         context: KnowledgeAppRequestContext,
         request: OkfBundleImportRequest,
     ) -> ApiResult<OkfBundleImportResult> {
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         let actor = context
             .actor_id
             .map(|value| value.to_string())
@@ -1141,7 +1221,13 @@ impl KnowledgeOkfAppService for HostedOkfService {
         context: KnowledgeAppRequestContext,
         request: OkfQualityRunRequest,
     ) -> ApiResult<OkfQualityRun> {
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         create_okf_lint_run(&self.runtime, request).await
     }
 }

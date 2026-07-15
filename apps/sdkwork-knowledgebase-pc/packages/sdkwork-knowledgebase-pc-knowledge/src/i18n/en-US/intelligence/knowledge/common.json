@@ -29,5 +29,10 @@
   "videoPlayerOffline": "Offline Video Player",
   "noVideoSource": "No valid streaming source found. Compatible with MP4, WebM, OGG.",
   "playSpeed": "Play Speed",
-  "adaptiveHint": "Adaptive mode maintains aspect ratio and properly fills the container."
+  "adaptiveHint": "Adaptive mode maintains aspect ratio and properly fills the container.",
+  "groupLaunch": {
+    "opening": "Opening group knowledge base",
+    "unavailable": "Group knowledge base launch is not available yet.",
+    "failed": "Unable to open this group knowledge base."
+  }
 }

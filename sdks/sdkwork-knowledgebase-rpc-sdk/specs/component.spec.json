@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-rpc-sdk",
+    "displayName": "SDKWork Knowledgebase RPC SDK",
+    "version": "0.1.0",
+    "type": "sdk-family",
+    "root": "sdkwork-knowledgebase/sdks/sdkwork-knowledgebase-rpc-sdk",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "status": "active",
+    "languages": [
+      "rust",
+      "typescript"
+    ],
+    "generated": false,
+    "private": false,
+    "manifests": [
+      "sdk-manifest.json",
+      "rpc/sdkwork-knowledgebase-rpc.manifest.json"
+    ]
+  },
+  "canonicalSpecs": [
+    {
+      "file": "RPC_SPEC.md",
+      "path": "../../../sdkwork-specs/RPC_SPEC.md",
+      "purpose": "Language-neutral gRPC and protobuf contract rules."
+    },
+    {
+      "file": "RPC_SDK_WORKSPACE_SPEC.md",
+      "path": "../../../sdkwork-specs/RPC_SDK_WORKSPACE_SPEC.md",
+      "purpose": "RPC SDK family layout, manifest, generated output, and verification rules."
+    },
+    {
+      "file": "SDK_SPEC.md",
+      "path": "../../../sdkwork-specs/SDK_SPEC.md",
+      "purpose": "SDK generation and consumer integration rules."
+    },
+    {
+      "file": "RUST_RPC_SPEC.md",
+      "path": "../../../sdkwork-specs/RUST_RPC_SPEC.md",
+      "purpose": "Generated Rust RPC client boundaries."
+    },
+    {
+      "file": "TEST_SPEC.md",
+      "path": "../../../sdkwork-specs/TEST_SPEC.md",
+      "purpose": "RPC contract and SDK verification rules."
+    },
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Generated output and public export boundaries."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../../../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Canonical RPC and SDK artifact naming."
+    }
+  ],
+  "contracts": {
+    "rpcManifest": "rpc/sdkwork-knowledgebase-rpc.manifest.json",
+    "protoRoot": "../../apis/rpc",
+    "protoPackages": [
+      "sdkwork.common.v1",
+      "sdkwork.intelligence.internal.v1"
+    ],
+    "publicExports": [
+      "sdkwork-knowledgebase-rpc-sdk-rust",
+      "@sdkwork/knowledgebase-rpc-sdk"
+    ],
+    "runtimeEntrypoints": [
+      "sdk-manifest.json",
+      "rpc/sdkwork-knowledgebase-rpc.manifest.json"
+    ],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "inspectionPolicy": {
+      "mode": "convention",
+      "protocol": "rpc",
+      "optionalControlPlane": {
+        "emitFlag": "--emit-control-plane",
+        "purpose": [
+          "release",
+          "ci",
+          "audit",
+          "migration"
+        ]
+      }
+    },
+    "generatedSdkWorkspaces": [
+      {
+        "language": "rust",
+        "workspace": "sdkwork-knowledgebase-rpc-sdk-rust",
+        "packageName": "sdkwork-knowledgebase-rpc-sdk-rust",
+        "bufTemplate": "sdkwork-knowledgebase-rpc-sdk-rust/buf.gen.yaml",
+        "generatedPath": "sdkwork-knowledgebase-rpc-sdk-rust/generated/proto",
+        "methodCatalog": "sdkwork-knowledgebase-rpc-sdk-rust/rpc-methods.json"
+      },
+      {
+        "language": "typescript",
+        "workspace": "sdkwork-knowledgebase-rpc-sdk-typescript",
+        "packageName": "@sdkwork/knowledgebase-rpc-sdk",
+        "bufTemplate": "sdkwork-knowledgebase-rpc-sdk-typescript/buf.gen.yaml",
+        "generatedPath": "sdkwork-knowledgebase-rpc-sdk-typescript/generated/proto",
+        "methodCatalog": "sdkwork-knowledgebase-rpc-sdk-typescript/rpc-methods.json"
+      }
+    ],
+    "sdkClients": [
+      "GroupKnowledgeSpaceLifecycleServiceClient"
+    ],
+    "events": [],
+    "configKeys": [
+      "sdk-manifest.json"
+    ]
+  },
+  "integration": {
+    "authority": "Root SDKWork specs remain authoritative. Local contracts may narrow but must not contradict them.",
+    "dependencyPolicy": "Consumers use generated RPC SDK clients or approved composed facades only.",
+    "sdkPolicy": "RPC clients are injected at runtime composition boundaries; business modules do not assemble raw gRPC metadata.",
+    "languagePolicy": "Generated protobuf output remains isolated from future RPC host adapters and service facades."
+  },
+  "verification": {
+    "commands": [
+      "npx --yes @bufbuild/buf@1.70.0 lint apis/rpc",
+      "node ../sdkwork-sdk-generator/bin/sdkgen.js generate --protocol rpc --input sdks/sdkwork-knowledgebase-rpc-sdk/rpc/sdkwork-knowledgebase-rpc.manifest.json --proto-root apis/rpc --output sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-rust --name SdkworkKnowledgebaseRpc --sdk-name sdkwork-knowledgebase-rpc-sdk --language rust --package-name sdkwork-knowledgebase-rpc-sdk-rust --fixed-sdk-version 0.1.0 --dry-run --no-sync-published-version",
+      "node ../sdkwork-sdk-generator/bin/sdkgen.js generate --protocol rpc --input sdks/sdkwork-knowledgebase-rpc-sdk/rpc/sdkwork-knowledgebase-rpc.manifest.json --proto-root apis/rpc --output sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-typescript --name SdkworkKnowledgebaseRpc --sdk-name sdkwork-knowledgebase-rpc-sdk --language typescript --package-name @sdkwork/knowledgebase-rpc-sdk --fixed-sdk-version 0.1.0 --dry-run --no-sync-published-version",
+      "node ../sdkwork-sdk-generator/bin/sdkgen.js inspect --protocol rpc --output sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-rust --json",
+      "node ../sdkwork-sdk-generator/bin/sdkgen.js inspect --protocol rpc --output sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-typescript --json",
+      "cargo check --manifest-path sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-rust/Cargo.toml",
+      "npm --prefix sdks/sdkwork-knowledgebase-rpc-sdk/sdkwork-knowledgebase-rpc-sdk-typescript run check"
+    ]
+  },
+  "metadata": {
+    "managedBy": "@sdkwork/sdk-generator",
+    "standardVersion": "2026-07-14"
+  }
+}

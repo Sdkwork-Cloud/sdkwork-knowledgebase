@@ -53,6 +53,9 @@ impl HostedOpenApi {
             actor_id: context.actor_id,
             organization_id: context.organization_id,
             session_id: None,
+            request_id: context.request_id.clone(),
+            trace_id: context.trace_id.clone(),
+            idempotency_key: context.idempotency_key.clone(),
         }
     }
 

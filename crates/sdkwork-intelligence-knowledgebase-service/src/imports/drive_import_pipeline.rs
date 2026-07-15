@@ -24,18 +24,22 @@ impl<'a> KnowledgeDriveImportPipelineService<'a> {
         &self,
         import: &KnowledgeDriveImportResult,
     ) -> Result<DriveImportPipelineResult, KnowledgeDriveImportPipelineServiceError> {
-        if import.job.state != sdkwork_knowledgebase_contract::ingest::IngestionJobState::Queued {
-            return Ok(DriveImportPipelineResult {
-                job: import.job.clone(),
-                index_result: None,
-            });
-        }
-
         let ingestion = KnowledgeIngestionService::new(self.jobs);
-        let job = ingestion
-            .mark_running(import.job.id)
-            .await
-            .map_err(KnowledgeDriveImportPipelineServiceError::Ingestion)?;
+        let job = match import.job.state {
+            sdkwork_knowledgebase_contract::ingest::IngestionJobState::Queued => ingestion
+                .mark_running(import.job.id)
+                .await
+                .map_err(KnowledgeDriveImportPipelineServiceError::Ingestion)?,
+            sdkwork_knowledgebase_contract::ingest::IngestionJobState::Running => {
+                import.job.clone()
+            }
+            _ => {
+                return Ok(DriveImportPipelineResult {
+                    job: import.job.clone(),
+                    index_result: None,
+                });
+            }
+        };
 
         let object_ref = drive_object_ref_to_storage_ref(&import.original_object_ref);
         let payload = match self.drive.get_object_text(&object_ref).await {

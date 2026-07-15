@@ -10,6 +10,7 @@
     "allow-window-control",
     "allow-resource-bridge",
     "allow-desktop-preferences",
-    "allow-secure-session"
+    "allow-secure-session",
+    "allow-group-knowledgebase-launch"
   ]
 }

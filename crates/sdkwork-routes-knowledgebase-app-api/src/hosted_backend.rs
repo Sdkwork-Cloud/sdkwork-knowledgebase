@@ -16,8 +16,8 @@ use sdkwork_knowledgebase_agent_provider::{
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sdkwork_knowledgebase_contract::{
-    CreateKnowledgeSourceRequest, IngestionJob, KnowledgeIndex, KnowledgeIndexList,
-    KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList,
+    CreateKnowledgeSourceRequest, GroupKnowledgebaseLaunchCapability, IngestionJob, KnowledgeIndex,
+    KnowledgeIndexList, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList,
     KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile,
     KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList,
     KnowledgeSource, KnowledgeSourceList, KnowledgeSpace, KnowledgeSpaceMemberList,
@@ -119,6 +119,12 @@ impl HostedBackendApi {
 
 #[async_trait]
 impl KnowledgeBackendApi for HostedBackendApi {
+    async fn retrieve_group_launch_capability(
+        &self,
+    ) -> BackendApiResult<GroupKnowledgebaseLaunchCapability> {
+        Ok(self.runtime.group_launch_capability())
+    }
+
     async fn list_sources(&self) -> BackendApiResult<KnowledgeSourceList> {
         let items = self
             .runtime
@@ -127,6 +133,30 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .await
             .map_err(|error| map_internal(error.to_string()))?;
         Ok(KnowledgeSourceList { items })
+    }
+
+    async fn list_sources_page(
+        &self,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeSource>> {
+        let cursor = parse_backend_cursor(cursor)?;
+        let page_size =
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+        let (items, next_cursor, has_more) = self
+            .runtime
+            .source_store()
+            .list_active_sources_page(cursor, page_size)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        Ok(
+            sdkwork_routes_knowledgebase_backend_api::pagination::cursor_page_data(
+                items,
+                next_cursor,
+                has_more,
+                page_size,
+            ),
+        )
     }
 
     async fn create_source(
@@ -209,6 +239,45 @@ impl KnowledgeBackendApi for HostedBackendApi {
             })
             .collect();
         Ok(OkfCandidateResultList { items })
+    }
+
+    async fn list_okf_candidates_page(
+        &self,
+        space_id: u64,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<OkfCandidateResult>> {
+        if space_id == 0 {
+            return Err(BackendApiError::new(
+                axum::http::StatusCode::BAD_REQUEST,
+                "invalid_okf_candidate_list_request",
+                "space_id is required",
+            ));
+        }
+        let cursor = parse_backend_cursor(cursor)?;
+        let page_size =
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+        let (items, next_cursor, has_more) = self
+            .runtime
+            .okf_candidate_store()
+            .list_open_candidates_page(Some(space_id), cursor, page_size)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        let items = items
+            .into_iter()
+            .map(|candidate| OkfCandidateResult {
+                id: candidate.concept_row_id,
+                state: candidate.publish_state.as_str().to_string(),
+            })
+            .collect();
+        Ok(
+            sdkwork_routes_knowledgebase_backend_api::pagination::cursor_page_data(
+                items,
+                next_cursor,
+                has_more,
+                page_size,
+            ),
+        )
     }
 
     async fn approve_okf_candidate(
@@ -366,6 +435,30 @@ impl KnowledgeBackendApi for HostedBackendApi {
         Ok(KnowledgeOkfBundleFileList { items })
     }
 
+    async fn list_okf_bundle_files_page(
+        &self,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeOkfBundleFile>> {
+        let cursor = parse_backend_cursor(cursor)?;
+        let page_size =
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+        let (items, next_cursor, has_more) = self
+            .runtime
+            .okf_bundle_file_store()
+            .list_file_entries_page(cursor, page_size)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        Ok(
+            sdkwork_routes_knowledgebase_backend_api::pagination::cursor_page_data(
+                items,
+                next_cursor,
+                has_more,
+                page_size,
+            ),
+        )
+    }
+
     async fn create_okf_lint_run(
         &self,
         request: OkfQualityRunRequest,
@@ -509,6 +602,30 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .await
             .map_err(|error| map_internal(error.to_string()))?;
         Ok(KnowledgeIndexList { items })
+    }
+
+    async fn list_indexes_page(
+        &self,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeIndex>> {
+        let cursor = parse_backend_cursor(cursor)?;
+        let page_size =
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+        let (items, next_cursor, has_more) = self
+            .runtime
+            .index_store()
+            .list_active_indexes_page(cursor, page_size)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        Ok(
+            sdkwork_routes_knowledgebase_backend_api::pagination::cursor_page_data(
+                items,
+                next_cursor,
+                has_more,
+                page_size,
+            ),
+        )
     }
 
     async fn create_index(
@@ -663,6 +780,39 @@ impl KnowledgeBackendApi for HostedBackendApi {
             })
             .collect();
         Ok(KnowledgeRetrievalTraceList { items })
+    }
+
+    async fn list_retrieval_traces_page(
+        &self,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeRetrievalTrace>> {
+        let cursor = parse_backend_cursor(cursor)?;
+        let page_size =
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+        let (records, next_cursor, has_more) = self
+            .runtime
+            .retrieval_store()
+            .list_trace_summaries_page(cursor, page_size)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        let items = records
+            .into_iter()
+            .map(|record| KnowledgeRetrievalTrace {
+                retrieval_trace_id: record.retrieval_trace_id,
+                status: record.status,
+                latency_ms: record.latency_ms,
+                result_count: record.result_count,
+            })
+            .collect();
+        Ok(
+            sdkwork_routes_knowledgebase_backend_api::pagination::cursor_page_data(
+                items,
+                next_cursor,
+                has_more,
+                page_size,
+            ),
+        )
     }
 
     async fn retrieve_retrieval_trace(
@@ -859,6 +1009,17 @@ impl KnowledgeBackendApi for HostedBackendApi {
             },
         )
     }
+}
+
+fn parse_backend_cursor(cursor: Option<String>) -> BackendApiResult<Option<u64>> {
+    sdkwork_routes_knowledgebase_backend_api::pagination::parse_u64_cursor(cursor.as_deref())
+        .map_err(|_| {
+            BackendApiError::new(
+                axum::http::StatusCode::BAD_REQUEST,
+                "invalid_parameter",
+                "cursor must be a valid numeric id",
+            )
+        })
 }
 
 fn map_internal(detail: String) -> BackendApiError {

@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package sdkwork.intelligence.internal.v1;
+
+import "sdkwork/common/v1/context.proto";
+
+option java_multiple_files = true;
+option java_package = "com.sdkwork.intelligence.internal.v1";
+option go_package = "github.com/sdkwork/knowledgebase-rpc-sdk-go/generated/proto/sdkwork/intelligence/internal/v1;intelligenceinternalv1";
+
+// IM is the sole caller of this service. Tenant, organization, service identity, request id,
+// trace id, and idempotency are asserted by the internal RPC framework through mTLS and a signed
+// service caller context. They must never be supplied in these business payloads.
+service GroupKnowledgeSpaceLifecycleService {
+  rpc EnsureGroupKnowledgeSpace(EnsureGroupKnowledgeSpaceRequest)
+      returns (EnsureGroupKnowledgeSpaceResponse);
+  rpc SynchronizeGroupKnowledgeSpaceMembers(SynchronizeGroupKnowledgeSpaceMembersRequest)
+      returns (SynchronizeGroupKnowledgeSpaceMembersResponse);
+  rpc ArchiveGroupKnowledgeSpace(ArchiveGroupKnowledgeSpaceRequest)
+      returns (ArchiveGroupKnowledgeSpaceResponse);
+}
+
+enum GroupKnowledgeSpaceMemberRole {
+  GROUP_KNOWLEDGE_SPACE_MEMBER_ROLE_UNSPECIFIED = 0;
+  GROUP_KNOWLEDGE_SPACE_MEMBER_ROLE_OWNER = 1;
+  GROUP_KNOWLEDGE_SPACE_MEMBER_ROLE_ADMIN = 2;
+  GROUP_KNOWLEDGE_SPACE_MEMBER_ROLE_MEMBER = 3;
+  GROUP_KNOWLEDGE_SPACE_MEMBER_ROLE_GUEST = 4;
+}
+
+enum GroupKnowledgeSpaceLifecycleState {
+  GROUP_KNOWLEDGE_SPACE_LIFECYCLE_STATE_UNSPECIFIED = 0;
+  GROUP_KNOWLEDGE_SPACE_LIFECYCLE_STATE_PROVISIONING = 1;
+  GROUP_KNOWLEDGE_SPACE_LIFECYCLE_STATE_ACTIVE = 2;
+  GROUP_KNOWLEDGE_SPACE_LIFECYCLE_STATE_FAILED = 3;
+  GROUP_KNOWLEDGE_SPACE_LIFECYCLE_STATE_ARCHIVING = 4;
+  GROUP_KNOWLEDGE_SPACE_LIFECYCLE_STATE_ARCHIVED = 5;
+  GROUP_KNOWLEDGE_SPACE_LIFECYCLE_STATE_DELETED = 6;
+}
+
+message GroupKnowledgeSpaceMember {
+  string actor_id = 1;
+  GroupKnowledgeSpaceMemberRole role = 2;
+}
+
+message EnsureGroupKnowledgeSpaceRequest {
+  string conversation_id = 1;
+  string group_name = 2;
+  string source_event_id = 3;
+  // Retained only as a SHA-256 digest by Knowledgebase.
+  string provisioning_idempotency_key = 4;
+  // Decimal signed-BIGINT text preserves precision across generated clients.
+  string membership_epoch = 5;
+  repeated GroupKnowledgeSpaceMember members = 6;
+  sdkwork.common.v1.RequestMetadata metadata = 15;
+}
+
+message SynchronizeGroupKnowledgeSpaceMembersRequest {
+  string conversation_id = 1;
+  string group_name = 2;
+  string source_event_id = 3;
+  string knowledgebase_binding_id = 4;
+  string knowledgebase_binding_uuid = 5;
+  string knowledge_space_id = 6;
+  string knowledge_space_uuid = 7;
+  string membership_epoch = 8;
+  // IM-owned link generation, deliberately distinct from Knowledgebase binding.version.
+  string upstream_link_generation = 9;
+  repeated GroupKnowledgeSpaceMember members = 10;
+  sdkwork.common.v1.RequestMetadata metadata = 15;
+}
+
+message ArchiveGroupKnowledgeSpaceRequest {
+  string conversation_id = 1;
+  string source_event_id = 2;
+  string knowledgebase_binding_id = 3;
+  string knowledgebase_binding_uuid = 4;
+  string knowledge_space_id = 5;
+  string knowledge_space_uuid = 6;
+  string membership_epoch = 7;
+  string upstream_link_generation = 8;
+  // IM-provided audit attribution only. It has no authorization effect in Knowledgebase.
+  string archived_by = 9;
+  sdkwork.common.v1.RequestMetadata metadata = 15;
+}
+
+message GroupKnowledgeSpaceLifecycle {
+  string knowledgebase_binding_id = 1;
+  string knowledgebase_binding_uuid = 2;
+  string knowledge_space_id = 3;
+  string knowledge_space_uuid = 4;
+  GroupKnowledgeSpaceLifecycleState lifecycle_state = 5;
+  string membership_epoch = 6;
+  string upstream_link_generation = 7;
+}
+
+message EnsureGroupKnowledgeSpaceResponse {
+  GroupKnowledgeSpaceLifecycle lifecycle = 1;
+  sdkwork.common.v1.ResponseMetadata metadata = 15;
+}
+
+message SynchronizeGroupKnowledgeSpaceMembersResponse {
+  GroupKnowledgeSpaceLifecycle lifecycle = 1;
+  sdkwork.common.v1.ResponseMetadata metadata = 15;
+}
+
+message ArchiveGroupKnowledgeSpaceResponse {
+  GroupKnowledgeSpaceLifecycle lifecycle = 1;
+  sdkwork.common.v1.ResponseMetadata metadata = 15;
+}

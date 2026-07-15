@@ -1,3 +1,4 @@
+use sdkwork_knowledgebase_contract::parse_canonical_positive_signed_i64;
 use sdkwork_knowledgebase_standalone_gateway::init_tracing;
 use sdkwork_knowledgebase_worker::{health, run_polling_loop};
 use sdkwork_routes_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
@@ -8,10 +9,7 @@ async fn main() {
     init_tracing("worker");
 
     let database_url = bootstrap::resolve_database_url();
-    let tenant_id = std::env::var("SDKWORK_KNOWLEDGEBASE_TENANT_ID")
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(1);
+    let tenant_id = required_worker_tenant_id();
     let interval_ms = std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_POLL_INTERVAL_MS")
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
@@ -25,6 +23,12 @@ async fn main() {
             .ok()
             .and_then(|value| value.parse::<u32>().ok())
             .unwrap_or(25);
+    let group_archive_limit =
+        std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_GROUP_ARCHIVE_BATCH_SIZE")
+            .ok()
+            .and_then(|value| value.parse::<u32>().ok())
+            .filter(|value| (1..=200).contains(value))
+            .unwrap_or(25);
     let health_addr = std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_HEALTH_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:18085".to_string());
 
@@ -37,21 +41,77 @@ async fn main() {
         .expect("knowledgebase worker readiness check failed");
 
     tracing::info!(
-        %database_url,
+        database_engine = database_engine_label(&database_url),
         tenant_id,
         interval_ms,
         outbox_limit,
         ingestion_job_limit,
+        group_archive_limit,
         %health_addr,
         "starting knowledgebase worker loop"
     );
 
-    let readiness =
-        sdkwork_routes_knowledgebase_app_api::ReadinessCheck::new(runtime.pool().clone());
+    let readiness = runtime.readiness_check_adapter();
     let health_addr_for_task = health_addr.clone();
     tokio::spawn(async move {
         health::serve_worker_health(&health_addr_for_task, readiness).await;
     });
 
-    run_polling_loop(runtime, interval_ms, outbox_limit, ingestion_job_limit).await;
+    run_polling_loop(
+        runtime,
+        interval_ms,
+        outbox_limit,
+        ingestion_job_limit,
+        group_archive_limit,
+    )
+    .await;
+}
+
+fn required_worker_tenant_id() -> u64 {
+    let value = std::env::var("SDKWORK_KNOWLEDGEBASE_TENANT_ID")
+        .expect("SDKWORK_KNOWLEDGEBASE_TENANT_ID is required for the knowledgebase worker");
+    parse_canonical_positive_signed_i64(&value)
+        .expect("SDKWORK_KNOWLEDGEBASE_TENANT_ID must be a canonical positive signed BIGINT")
+}
+
+fn database_engine_label(database_url: &str) -> &'static str {
+    let normalized = database_url.trim().to_ascii_lowercase();
+    if normalized.starts_with("postgres://") || normalized.starts_with("postgresql://") {
+        "postgres"
+    } else if normalized.starts_with("sqlite:") {
+        "sqlite"
+    } else {
+        "other"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{database_engine_label, required_worker_tenant_id};
+
+    #[test]
+    fn worker_tenant_id_requires_a_canonical_positive_signed_bigint() {
+        for invalid in ["0", "01", "+1", " 1", "1 ", "tenant", "9223372036854775808"] {
+            std::env::set_var("SDKWORK_KNOWLEDGEBASE_TENANT_ID", invalid);
+            assert!(
+                std::panic::catch_unwind(required_worker_tenant_id).is_err(),
+                "{invalid} must be rejected"
+            );
+        }
+        std::env::set_var("SDKWORK_KNOWLEDGEBASE_TENANT_ID", "9223372036854775807");
+        assert_eq!(required_worker_tenant_id(), i64::MAX as u64);
+        std::env::remove_var("SDKWORK_KNOWLEDGEBASE_TENANT_ID");
+    }
+
+    #[test]
+    fn worker_log_database_label_never_contains_a_connection_secret() {
+        assert_eq!(
+            database_engine_label("postgres://user:secret@db.internal/knowledge"),
+            "postgres"
+        );
+        assert_eq!(
+            database_engine_label("sqlite://data/knowledgebase.db?mode=rwc"),
+            "sqlite"
+        );
+    }
 }

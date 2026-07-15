@@ -4,7 +4,7 @@ use axum::{
 };
 use std::sync::Arc;
 
-use crate::{handlers, health, paths, ports::KnowledgeBackendApi, DbReadinessCheck};
+use crate::{handlers, health, paths, ports::KnowledgeBackendApi, KnowledgebaseReadinessCheck};
 
 #[derive(Clone)]
 pub struct BackendState {
@@ -29,7 +29,7 @@ pub fn build_router_with_shared_backend_api(
 pub fn build_router_with_shared_backend_api_and_readiness(
     api: Arc<dyn KnowledgeBackendApi>,
     runtime_tenant_id: u64,
-    readiness: Option<DbReadinessCheck>,
+    readiness: Option<KnowledgebaseReadinessCheck>,
 ) -> Router {
     health::mount_knowledgebase_infra_routes(
         build_business_router_with_shared_backend_api(api, runtime_tenant_id),
@@ -105,6 +105,10 @@ pub fn build_business_router_with_shared_backend_api(
         .route(
             paths::PROVIDER_HEALTH,
             get(handlers::retrieve_provider_health),
+        )
+        .route(
+            paths::GROUP_LAUNCH_CAPABILITY,
+            get(handlers::retrieve_group_launch_capability),
         )
         .route(
             paths::TENANT_LANDING,

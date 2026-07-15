@@ -1,0 +1,12 @@
+[package]
+name = "sdkwork-knowledgebase-rpc-sdk-rust"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+prost = "0.14"
+tonic = { version = "0.14", features = ["transport"] }
+tonic-prost = "0.14"
+tokio-stream = "0.1"

@@ -9,7 +9,7 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeBrowserListData, KnowledgeBrowserView, KnowledgeContextPackRequest,
     KnowledgeIngestRequest, KnowledgeRetrievalRequest, ListKnowledgeBrowserRequest,
 };
-use sdkwork_routes_knowledgebase_backend_api::{health, DbReadinessCheck};
+use sdkwork_routes_knowledgebase_backend_api::{health, KnowledgebaseReadinessCheck};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -36,7 +36,7 @@ pub fn build_router_with_shared_open_api(api: Arc<dyn KnowledgeOpenApi>) -> Rout
 
 pub fn build_router_with_shared_open_api_and_readiness(
     api: Arc<dyn KnowledgeOpenApi>,
-    readiness: Option<DbReadinessCheck>,
+    readiness: Option<KnowledgebaseReadinessCheck>,
 ) -> Router {
     health::mount_knowledgebase_infra_routes(
         build_business_router_with_shared_open_api(api),

@@ -48,6 +48,9 @@ fn app_context(
         actor_id: Some(actor_id),
         organization_id,
         session_id: None,
+        request_id: "test-request-tenant-isolation".to_string(),
+        trace_id: None,
+        idempotency_key: None,
     }
 }
 

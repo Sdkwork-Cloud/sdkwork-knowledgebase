@@ -43,6 +43,36 @@ pub trait IngestionJobStore: Send + Sync {
         limit: u32,
     ) -> Result<Vec<IngestionJob>, IngestionJobStoreError>;
 
+    /// Claims queued jobs with an atomic queued-to-running compare-and-set per job.
+    /// Competing workers may observe the same candidate page, but only the worker
+    /// whose conditional update succeeds receives the job.
+    async fn claim_queued_jobs(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<IngestionJob>, IngestionJobStoreError> {
+        let candidates = self
+            .list_jobs_by_state(IngestionJobState::Queued, limit)
+            .await?;
+        let mut claimed = Vec::with_capacity(candidates.len());
+        for candidate in candidates {
+            match self
+                .update_job_state(
+                    candidate.id,
+                    IngestionJobState::Queued,
+                    IngestionJobState::Running,
+                    None,
+                )
+                .await
+            {
+                Ok(job) => claimed.push(job),
+                Err(IngestionJobStoreError::NotFound(_))
+                | Err(IngestionJobStoreError::Conflict(_)) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(claimed)
+    }
+
     async fn fail_expired_upload_sessions(
         &self,
         _expired_before: OffsetDateTime,

@@ -73,6 +73,28 @@ pub const SQLITE_AUDIT_EVENT_MIGRATION: &str =
 pub const POSTGRES_AUDIT_EVENT_MIGRATION: &str =
     include_str!("../migrations/postgres/V202606250001__knowledgebase_audit_event.sql");
 
+pub const POSTGRES_GROUP_KNOWLEDGE_SPACE_MIGRATION: &str =
+    include_str!("../migrations/postgres/V202607130001__group_knowledge_space.sql");
+
+pub const SQLITE_GROUP_KNOWLEDGE_SPACE_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202607130001__group_knowledge_space.sql");
+
+pub const POSTGRES_GROUP_MEMBERSHIP_PROJECTION_MIGRATION: &str =
+    include_str!("../migrations/postgres/V202607130002__group_membership_projection.sql");
+
+pub const SQLITE_GROUP_MEMBERSHIP_PROJECTION_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202607130002__group_membership_projection.sql");
+
+pub const POSTGRES_GROUP_ARCHIVE_SAGA_MIGRATION: &str = include_str!(
+    "../migrations/postgres/V202607130003__group_archive_saga_and_scope_integrity.sql"
+);
+
+pub const SQLITE_GROUP_ARCHIVE_SAGA_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202607130003__group_archive_saga_and_scope_integrity.sql");
+
+pub const SQLITE_GROUP_ARCHIVE_SAGA_SCOPE_TRIGGERS_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202607130004__group_archive_saga_scope_triggers.sql");
+
 pub const SQLITE_MIGRATIONS: &[&str] = &[
     SQLITE_CORE_MIGRATION,
     SQLITE_CONTEXT_BINDING_MIGRATION,
@@ -86,6 +108,10 @@ pub const SQLITE_MIGRATIONS: &[&str] = &[
     SQLITE_PERFORMANCE_INDEXES_MIGRATION,
     SQLITE_MARKET_SITE_MIGRATION,
     SQLITE_AUDIT_EVENT_MIGRATION,
+    SQLITE_GROUP_KNOWLEDGE_SPACE_MIGRATION,
+    SQLITE_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
+    SQLITE_GROUP_ARCHIVE_SAGA_MIGRATION,
+    SQLITE_GROUP_ARCHIVE_SAGA_SCOPE_TRIGGERS_MIGRATION,
 ];
 
 pub const POSTGRES_MIGRATIONS: &[&str] = &[
@@ -102,6 +128,9 @@ pub const POSTGRES_MIGRATIONS: &[&str] = &[
     POSTGRES_PERFORMANCE_INDEXES_MIGRATION,
     POSTGRES_MARKET_SITE_MIGRATION,
     POSTGRES_AUDIT_EVENT_MIGRATION,
+    POSTGRES_GROUP_KNOWLEDGE_SPACE_MIGRATION,
+    POSTGRES_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
+    POSTGRES_GROUP_ARCHIVE_SAGA_MIGRATION,
 ];
 
 // Legacy migration SQL retained for contract tests only. Runtime PostgreSQL bootstrap uses

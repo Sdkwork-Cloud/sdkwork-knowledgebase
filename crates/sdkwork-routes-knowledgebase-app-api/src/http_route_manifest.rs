@@ -21,6 +21,13 @@ const fn knowledge_abuse_route(
 }
 
 const HTTP_ROUTES: &[HttpRoute] = &[
+    knowledge_abuse_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/group_launches/consume",
+        "groupLaunches.consume",
+        "knowledge.spaces.read",
+    )
+    .with_idempotent(true),
     knowledge_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/spaces",
@@ -439,4 +446,18 @@ const HTTP_ROUTES: &[HttpRoute] = &[
 
 pub fn app_route_manifest() -> HttpRouteManifest {
     HttpRouteManifest::new(HTTP_ROUTES)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn group_launch_consumption_requires_framework_idempotency() {
+        let manifest = app_route_manifest();
+        let route = manifest
+            .match_route("POST", "/app/v3/api/knowledge/group_launches/consume")
+            .expect("group launch consume route");
+        assert!(route.idempotent);
+    }
 }

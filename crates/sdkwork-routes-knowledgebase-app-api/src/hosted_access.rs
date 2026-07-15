@@ -1,10 +1,17 @@
 use axum::http::StatusCode;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_access_control::{
-    KnowledgeAccessRole, KnowledgeSpaceMember as ServiceSpaceMember, KnowledgeSubjectType,
+    KnowledgeAccessControl, KnowledgeAccessRole, KnowledgeSpaceMember as ServiceSpaceMember,
+    KnowledgeSubjectType,
 };
 use sdkwork_intelligence_knowledgebase_service::{
+    group_space_access::GroupKnowledgeSpaceAccessAuthorizer,
     okf::{OkfBundleFileRegistryService, OkfBundleInitializerService},
-    ports::knowledge_ingestion_job_store::IngestionJobStore,
+    ports::{
+        knowledge_access_control::KnowledgeAccessCheckRequest,
+        knowledge_group_space_binding_store::GroupKnowledgeSpaceScope,
+        knowledge_ingestion_job_store::IngestionJobStore,
+        knowledge_space_store::KnowledgeSpaceStore,
+    },
     space::KnowledgeSpaceService,
 };
 use sdkwork_knowledgebase_contract::rag::{
@@ -76,15 +83,49 @@ pub(crate) fn require_actor_id(context: &KnowledgeAppRequestContext) -> ApiResul
         })
 }
 
+/// Determines group ownership before generic space services can consult Drive ACLs. A binding in
+/// another organization is surfaced as a denial by the group authorizer, never as an ordinary
+/// space, which keeps every generic route fail-closed for group-managed resources.
+async fn is_group_managed_space(
+    runtime: &KnowledgebaseRuntime,
+    scope: GroupKnowledgeSpaceScope,
+    space_id: u64,
+) -> ApiResult<bool> {
+    GroupKnowledgeSpaceAccessAuthorizer::new(runtime.group_space_binding_store())
+        .resolve_group_managed_space(scope, space_id)
+        .await
+        .map_err(ApiError::from)
+        .map(|binding| binding.is_some())
+}
+
+fn group_managed_space_controlled_by_im() -> ApiError {
+    ApiError::new(
+        StatusCode::FORBIDDEN,
+        "group_knowledge_space_managed_by_im",
+        "group knowledge space membership and lifecycle are managed by IM",
+    )
+}
+
 pub(crate) async fn require_bindings_space_access(
     runtime: &KnowledgebaseRuntime,
     context: &KnowledgeAppRequestContext,
     bindings: &[KnowledgeRetrievalBinding],
 ) -> ApiResult<()> {
+    require_bindings_space_access_with_role(runtime, context, bindings, KnowledgeAccessRole::Reader)
+        .await
+}
+
+pub(crate) async fn require_bindings_space_access_with_role(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    bindings: &[KnowledgeRetrievalBinding],
+    required_role: KnowledgeAccessRole,
+) -> ApiResult<()> {
     let mut seen = HashSet::new();
     for binding in bindings {
         if seen.insert(binding.space_id) {
-            require_space_access(runtime, context, binding.space_id).await?;
+            require_space_access_with_role(runtime, context, binding.space_id, required_role)
+                .await?;
         }
     }
     Ok(())
@@ -95,8 +136,70 @@ pub(crate) async fn require_space_access(
     context: &KnowledgeAppRequestContext,
     space_id: u64,
 ) -> ApiResult<KnowledgeSpace> {
+    require_space_access_with_role(runtime, context, space_id, KnowledgeAccessRole::Reader).await
+}
+
+pub(crate) async fn require_space_access_with_role(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    space_id: u64,
+    required_role: KnowledgeAccessRole,
+) -> ApiResult<KnowledgeSpace> {
     ensure_runtime_tenant(runtime, context)?;
     let actor_id = require_actor_id(context)?;
+    let group_authorizer =
+        GroupKnowledgeSpaceAccessAuthorizer::new(runtime.group_space_binding_store());
+    if group_authorizer
+        .authorize(
+            GroupKnowledgeSpaceScope {
+                tenant_id: context.tenant_id,
+                organization_id: context.organization_id.unwrap_or(0),
+            },
+            space_id,
+            &actor_id,
+            required_role,
+        )
+        .await
+        .map_err(ApiError::from)?
+        .is_some()
+    {
+        let space = runtime
+            .space_store()
+            .get_group_managed_space(space_id)
+            .await
+            .map_err(ApiError::from)?;
+        let drive_space_id = space.drive_space_id.clone().ok_or_else(|| {
+            ApiError::new(
+                StatusCode::FORBIDDEN,
+                "group_knowledge_space_access_denied",
+                "group knowledge space is not bound to a Drive space",
+            )
+        })?;
+        let drive_grant = runtime
+            .access_control()
+            .check_space_access(KnowledgeAccessCheckRequest {
+                tenant_id: context.tenant_id.to_string(),
+                actor_id: actor_id.clone(),
+                drive_space_id,
+                required_role,
+            })
+            .await
+            .map_err(|_| {
+                ApiError::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "group_knowledge_space_access_check_unavailable",
+                    "group knowledge space access is temporarily unavailable",
+                )
+            })?;
+        if !drive_grant.allowed {
+            return Err(ApiError::new(
+                StatusCode::FORBIDDEN,
+                "group_knowledge_space_access_denied",
+                "group knowledge space access is denied",
+            ));
+        }
+        return Ok(space);
+    }
     let file_registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
     let okf_initializer = OkfBundleInitializerService::new(runtime.drive_storage())
         .with_registry(&file_registry)
@@ -105,7 +208,12 @@ pub(crate) async fn require_space_access(
         .with_drive_context(runtime.tenant_id_str(), runtime.operator_id())
         .with_drive_space_provisioner(runtime.drive_space_provisioner())
         .with_access_control(runtime.access_control())
-        .get_space_with_access_check(space_id, &context.tenant_id.to_string(), &actor_id)
+        .get_space_with_role_check(
+            space_id,
+            &context.tenant_id.to_string(),
+            &actor_id,
+            required_role,
+        )
         .await
         .map_err(ApiError::from)
 }
@@ -115,13 +223,23 @@ pub(crate) async fn require_document_access(
     context: &KnowledgeAppRequestContext,
     document_id: u64,
 ) -> ApiResult<KnowledgeDocument> {
+    require_document_access_with_role(runtime, context, document_id, KnowledgeAccessRole::Reader)
+        .await
+}
+
+pub(crate) async fn require_document_access_with_role(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    document_id: u64,
+    required_role: KnowledgeAccessRole,
+) -> ApiResult<KnowledgeDocument> {
     ensure_runtime_tenant(runtime, context)?;
     let document = runtime
         .document_store()
         .get_document_by_id(document_id)
         .await
         .map_err(ApiError::from)?;
-    require_space_access(runtime, context, document.space_id).await?;
+    require_space_access_with_role(runtime, context, document.space_id, required_role).await?;
     Ok(document)
 }
 
@@ -130,13 +248,22 @@ pub(crate) async fn require_ingest_access(
     context: &KnowledgeAppRequestContext,
     ingest_id: u64,
 ) -> ApiResult<IngestionJob> {
+    require_ingest_access_with_role(runtime, context, ingest_id, KnowledgeAccessRole::Reader).await
+}
+
+pub(crate) async fn require_ingest_access_with_role(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    ingest_id: u64,
+    required_role: KnowledgeAccessRole,
+) -> ApiResult<IngestionJob> {
     ensure_runtime_tenant(runtime, context)?;
     let job = runtime
         .ingestion_job_store()
         .get_job(ingest_id)
         .await
         .map_err(ApiError::from)?;
-    require_space_access(runtime, context, job.space_id).await?;
+    require_space_access_with_role(runtime, context, job.space_id, required_role).await?;
     Ok(job)
 }
 
@@ -145,13 +272,28 @@ pub(crate) async fn require_okf_concept_space_access(
     context: &KnowledgeAppRequestContext,
     concept_row_id: u64,
 ) -> ApiResult<KnowledgeSpace> {
+    require_okf_concept_space_access_with_role(
+        runtime,
+        context,
+        concept_row_id,
+        KnowledgeAccessRole::Reader,
+    )
+    .await
+}
+
+pub(crate) async fn require_okf_concept_space_access_with_role(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    concept_row_id: u64,
+    required_role: KnowledgeAccessRole,
+) -> ApiResult<KnowledgeSpace> {
     ensure_runtime_tenant(runtime, context)?;
     let concept = runtime
         .okf_concept_store()
         .get_concept_by_row_id(concept_row_id)
         .await
         .map_err(map_okf_concept_store_error)?;
-    require_space_access(runtime, context, concept.space_id).await
+    require_space_access_with_role(runtime, context, concept.space_id, required_role).await
 }
 
 pub(crate) async fn create_space_with_context(
@@ -181,6 +323,33 @@ pub(crate) async fn update_space_with_context(
 ) -> ApiResult<KnowledgeSpace> {
     ensure_runtime_tenant(runtime, context)?;
     let actor_id = require_actor_id(context)?;
+    let scope = GroupKnowledgeSpaceScope {
+        tenant_id: context.tenant_id,
+        organization_id: context.organization_id.unwrap_or(0),
+    };
+    if is_group_managed_space(runtime, scope, space_id).await? {
+        if request.name.is_some() {
+            return Err(group_managed_space_controlled_by_im());
+        }
+        let Some(description) = request.description else {
+            return Err(ApiError::invalid_request(
+                "invalid_group_knowledge_space_update",
+                "a group knowledge space update must include a description",
+            ));
+        };
+        // Description is KB-owned metadata, but its mutation still requires the current IM
+        // group owner snapshot plus the matching projected Drive ACL.
+        require_space_access_with_role(runtime, context, space_id, KnowledgeAccessRole::Owner)
+            .await?;
+        let file_registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
+        let okf_initializer = OkfBundleInitializerService::new(runtime.drive_storage())
+            .with_registry(&file_registry)
+            .with_drive_workspace(runtime.drive_workspace());
+        return KnowledgeSpaceService::new(runtime.space_store(), &okf_initializer)
+            .update_group_managed_space_description(space_id, description)
+            .await
+            .map_err(ApiError::from);
+    }
     let file_registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
     let okf_initializer = OkfBundleInitializerService::new(runtime.drive_storage())
         .with_registry(&file_registry)
@@ -200,6 +369,18 @@ pub(crate) async fn delete_space_with_context(
     space_id: u64,
 ) -> ApiResult<()> {
     ensure_runtime_tenant(runtime, context)?;
+    if is_group_managed_space(
+        runtime,
+        GroupKnowledgeSpaceScope {
+            tenant_id: context.tenant_id,
+            organization_id: context.organization_id.unwrap_or(0),
+        },
+        space_id,
+    )
+    .await?
+    {
+        return Err(group_managed_space_controlled_by_im());
+    }
     let actor_id = require_actor_id(context)?;
     let file_registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
     let okf_initializer = OkfBundleInitializerService::new(runtime.drive_storage())
@@ -277,6 +458,21 @@ pub(crate) async fn list_space_members_with_context(
     page_size: Option<u32>,
 ) -> ApiResult<SdkWorkPageData<KnowledgeSpaceMember>> {
     ensure_runtime_tenant(runtime, context)?;
+    if is_group_managed_space(
+        runtime,
+        GroupKnowledgeSpaceScope {
+            tenant_id: context.tenant_id,
+            organization_id: context.organization_id.unwrap_or(0),
+        },
+        space_id,
+    )
+    .await?
+    {
+        // The generic Drive member list is not an authority for group membership. Keep this
+        // fail-closed until the IM snapshot list has its own paginated App API surface.
+        require_space_access(runtime, context, space_id).await?;
+        return Err(group_managed_space_controlled_by_im());
+    }
     let actor_id = require_actor_id(context)?;
     let file_registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
     let okf_initializer = OkfBundleInitializerService::new(runtime.drive_storage())
@@ -311,6 +507,18 @@ pub(crate) async fn list_space_members_admin_with_runtime(
     cursor: Option<String>,
     page_size: Option<u32>,
 ) -> ApiResult<KnowledgeSpaceMemberList> {
+    if is_group_managed_space(
+        runtime,
+        GroupKnowledgeSpaceScope {
+            tenant_id: runtime.tenant_id(),
+            organization_id: runtime.organization_id(),
+        },
+        space_id,
+    )
+    .await?
+    {
+        return Err(group_managed_space_controlled_by_im());
+    }
     let file_registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
     let okf_initializer = OkfBundleInitializerService::new(runtime.drive_storage())
         .with_registry(&file_registry)
@@ -336,6 +544,18 @@ pub(crate) async fn grant_space_member_with_context(
     request: GrantKnowledgeSpaceMemberRequest,
 ) -> ApiResult<()> {
     ensure_runtime_tenant(runtime, context)?;
+    if is_group_managed_space(
+        runtime,
+        GroupKnowledgeSpaceScope {
+            tenant_id: context.tenant_id,
+            organization_id: context.organization_id.unwrap_or(0),
+        },
+        space_id,
+    )
+    .await?
+    {
+        return Err(group_managed_space_controlled_by_im());
+    }
     let actor_id = require_actor_id(context)?;
     if is_blank(Some(request.subject_id.as_str())) {
         return Err(ApiError::new(
@@ -379,6 +599,18 @@ pub(crate) async fn revoke_space_member_with_context(
     subject_id: &str,
 ) -> ApiResult<()> {
     ensure_runtime_tenant(runtime, context)?;
+    if is_group_managed_space(
+        runtime,
+        GroupKnowledgeSpaceScope {
+            tenant_id: context.tenant_id,
+            organization_id: context.organization_id.unwrap_or(0),
+        },
+        space_id,
+    )
+    .await?
+    {
+        return Err(group_managed_space_controlled_by_im());
+    }
     let actor_id = require_actor_id(context)?;
     if is_blank(Some(subject_id)) {
         return Err(ApiError::new(
@@ -417,6 +649,21 @@ pub(crate) async fn require_enabled_agent_bindings_space_access(
     context: &KnowledgeAppRequestContext,
     bindings: &[KnowledgeAgentBinding],
 ) -> ApiResult<()> {
+    require_enabled_agent_bindings_space_access_with_role(
+        runtime,
+        context,
+        bindings,
+        KnowledgeAccessRole::Reader,
+    )
+    .await
+}
+
+pub(crate) async fn require_enabled_agent_bindings_space_access_with_role(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    bindings: &[KnowledgeAgentBinding],
+    required_role: KnowledgeAccessRole,
+) -> ApiResult<()> {
     let retrieval_bindings: Vec<KnowledgeRetrievalBinding> = bindings
         .iter()
         .filter(|binding| binding.enabled)
@@ -430,10 +677,20 @@ pub(crate) async fn require_enabled_agent_bindings_space_access(
             min_score: binding.min_score,
         })
         .collect();
-    require_bindings_space_access(runtime, context, &retrieval_bindings).await
+    require_bindings_space_access_with_role(runtime, context, &retrieval_bindings, required_role)
+        .await
 }
 
 pub(crate) async fn require_agent_profile_space_access(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    profile: &KnowledgeAgentProfile,
+) -> ApiResult<()> {
+    ensure_agent_profile_tenant(runtime, context, profile)?;
+    require_enabled_agent_bindings_space_access(runtime, context, &profile.bindings).await
+}
+
+fn ensure_agent_profile_tenant(
     runtime: &KnowledgebaseRuntime,
     context: &KnowledgeAppRequestContext,
     profile: &KnowledgeAgentProfile,
@@ -446,15 +703,32 @@ pub(crate) async fn require_agent_profile_space_access(
             "agent profile tenant does not match authenticated tenant",
         ));
     }
-    require_enabled_agent_bindings_space_access(runtime, context, &profile.bindings).await
+    Ok(())
 }
 
-pub(crate) async fn require_agent_binding_space_access(
+pub(crate) async fn require_agent_profile_space_access_with_role(
+    runtime: &KnowledgebaseRuntime,
+    context: &KnowledgeAppRequestContext,
+    profile: &KnowledgeAgentProfile,
+    required_role: KnowledgeAccessRole,
+) -> ApiResult<()> {
+    ensure_agent_profile_tenant(runtime, context, profile)?;
+    require_enabled_agent_bindings_space_access_with_role(
+        runtime,
+        context,
+        &profile.bindings,
+        required_role,
+    )
+    .await
+}
+
+pub(crate) async fn require_agent_binding_space_access_with_role(
     runtime: &KnowledgebaseRuntime,
     context: &KnowledgeAppRequestContext,
     space_id: u64,
+    required_role: KnowledgeAccessRole,
 ) -> ApiResult<()> {
-    require_space_access(runtime, context, space_id).await?;
+    require_space_access_with_role(runtime, context, space_id, required_role).await?;
     Ok(())
 }
 

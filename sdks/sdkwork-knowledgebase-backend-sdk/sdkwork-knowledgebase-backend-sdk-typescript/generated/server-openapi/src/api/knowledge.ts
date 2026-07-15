@@ -1,7 +1,7 @@
 import { backendApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult, CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, IngestionJob, KnowledgeAuditEventExport, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeSpace, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, PageInfo } from '../types';
+import type { AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult, CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, IngestionJob, KnowledgeAuditEventExport, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeSpace, KnowledgeSpaceMemberList, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, PageInfo } from '../types';
 
 
 export class KnowledgeComplianceAuditEventsAnonymizeActorApi {
@@ -70,12 +70,12 @@ export class KnowledgeSpacesMembersApi {
 
 
 /** List knowledge space members */
-  async list(spaceId: string, params?: KnowledgeSpacesMembersListParams): Promise<unknown> {
+  async list(spaceId: string, params?: KnowledgeSpacesMembersListParams): Promise<KnowledgeSpaceMemberList> {
     const query = buildQueryString([
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<unknown>(appendQueryString(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), query));
+    return this.client.get<KnowledgeSpaceMemberList>(appendQueryString(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), query));
   }
 }
 

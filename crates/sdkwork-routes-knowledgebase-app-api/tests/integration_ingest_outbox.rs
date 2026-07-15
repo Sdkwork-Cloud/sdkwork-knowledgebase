@@ -10,7 +10,12 @@ use tower::util::ServiceExt;
 #[tokio::test]
 async fn ingest_appends_outbox_event_and_worker_publishes_it() {
     let runtime = test_runtime().await;
-    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let app = dev_auth::with_dev_app_auth_for_organization(
+        runtime.build_full_app_router(),
+        1,
+        Some(42),
+        Some(runtime.organization_id()),
+    );
     let space_id = create_space(&app).await;
 
     let response = app
@@ -47,7 +52,9 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
     .expect("count pending outbox");
     assert_eq!(pending, 1);
 
-    let tick = run_maintenance_tick(&runtime, 10, 10).await;
+    let tick = run_maintenance_tick(&runtime, 10, 10, 10)
+        .await
+        .expect("maintenance tick");
     assert_eq!(tick.outbox_published, 1);
 
     let still_pending: i64 = sqlx::query_scalar(
@@ -137,6 +144,7 @@ async fn test_runtime() -> KnowledgebaseRuntime {
     let database_url = format!("sqlite://{relative_database_path}?mode=rwc");
 
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
+    std::env::set_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "42");
     std::env::remove_var("SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_URL");
     std::env::remove_var("SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_SECRET");
 

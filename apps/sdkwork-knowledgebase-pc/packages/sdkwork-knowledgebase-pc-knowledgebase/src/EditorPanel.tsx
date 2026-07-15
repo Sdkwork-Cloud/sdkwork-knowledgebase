@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { BookOpen, Share2, Pin, Sparkles, FileUp, Music, Video, FileText, Box, Code, Image as ImageIcon, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Tabs } from './components/Tabs';
 import { DocumentMeta, KnowledgeBase, FolderNode } from './services/document';
-import { AIService } from './services/ai';
 import { useTranslation } from 'react-i18next';
 import { TiptapEditor } from './TiptapEditor';
 import { CodeEditorPanel } from './CodeEditorPanel';
@@ -12,6 +11,10 @@ import { useHydratedViewerDocument } from './hooks/useHydratedViewerDocument';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { AssetLibraryModal } from './components/AssetLibraryModal';
 import { sanitizeEditorHtml } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
+import {
+  isKnowledgebaseWorkspaceAiEnabled,
+  type KnowledgebaseWorkspaceMode,
+} from './workspaceMode';
 
 export interface EditorPanelProps {
   activeKb: KnowledgeBase | null;
@@ -34,6 +37,8 @@ export interface EditorPanelProps {
   aiWidth?: number;
   isDraggingAi?: boolean;
   onMouseDownDragAi?: () => void;
+  publishEnabled?: boolean;
+  workspaceMode?: KnowledgebaseWorkspaceMode;
 }
 
 const getTabIcon = (type: string) => {
@@ -76,9 +81,12 @@ export function EditorPanel({
   docs = [],
   aiWidth = 420,
   isDraggingAi = false,
-  onMouseDownDragAi
+  onMouseDownDragAi,
+  publishEnabled = true,
+  workspaceMode = 'standard',
 }: EditorPanelProps) {
   const { t } = useTranslation('editor');
+  const aiEnabled = isKnowledgebaseWorkspaceAiEnabled(workspaceMode);
 
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, docId: string, docTitle: string } | null>(null);
 
@@ -142,8 +150,9 @@ export function EditorPanel({
         onContextMenu={handleTabContextMenu}
         onBarContextMenu={handleBarContextMenu}
         rightActions={
-          <div className="flex items-center h-[39px] px-3 gap-1.5 shrink-0 border-l border-zinc-200/80 dark:border-[var(--color-kb-panel-border)]/55 bg-zinc-50/50 dark:bg-black/10 select-none z-30 w-[190px] justify-end">
-            <button 
+          <div className={`flex items-center h-[39px] px-3 gap-1.5 shrink-0 border-l border-zinc-200/80 dark:border-[var(--color-kb-panel-border)]/55 bg-zinc-50/50 dark:bg-black/10 select-none z-30 w-[190px] justify-end ${!publishEnabled && !aiEnabled ? 'hidden' : ''}`}>
+            {publishEnabled && (
+              <button
               type="button"
               disabled={!activeDoc}
               onClick={() => activeDoc && onPublishDoc(activeDoc)} 
@@ -151,6 +160,8 @@ export function EditorPanel({
             >
               {t('publish')}
             </button>
+            )}
+            {aiEnabled && (
             <div className="flex items-center space-x-1 border border-zinc-200/80 dark:border-transparent bg-white dark:bg-black/20 p-0.5 rounded-lg shadow-sm shrink-0">
               <button 
                 disabled={!activeDoc}
@@ -174,6 +185,7 @@ export function EditorPanel({
                 <Sparkles size={13} strokeWidth={2.5} />
               </button>
             </div>
+            )}
           </div>
         }
       />
@@ -274,6 +286,7 @@ export function EditorPanel({
                       onTitleChange={(newTitle) => onTitleChange?.(activeDoc.id, newTitle)}
                       onEditorReady={setActiveEditor}
                       kbId={activeKb?.id}
+                      workspaceMode={workspaceMode}
                       parentFolderId={activeDoc.parentId}
                       onOpenImageGallery={() => {
                         setAssetLibraryTab('image');
@@ -315,9 +328,10 @@ export function EditorPanel({
                         onChange={onContentChange}
                         docTitle={activeDoc.title}
                         onTitleChange={(newTitle) => onTitleChange?.(activeDoc.id, newTitle)}
-                        onEditorReady={setActiveEditor}
-                        kbId={activeKb?.id}
-                        parentFolderId={activeDoc.parentId}
+                      onEditorReady={setActiveEditor}
+                      kbId={activeKb?.id}
+                      workspaceMode={workspaceMode}
+                      parentFolderId={activeDoc.parentId}
                         onOpenImageGallery={() => {
                           setAssetLibraryTab('image');
                           setAssetLibraryOpen(true);
@@ -372,6 +386,7 @@ export function EditorPanel({
                     onTitleChange(activeDoc.id, newTitle);
                   }
                 }}
+                workspaceMode={workspaceMode}
               />
             )}
 
@@ -396,7 +411,7 @@ export function EditorPanel({
         </div>
 
         {/* Right: AI Assistant Workspace Panel */}
-        {isAIOpen && (
+        {aiEnabled && isAIOpen && (
           <AiAssistantPanel 
             aiWidth={aiWidth}
             isDraggingAi={isDraggingAi}
@@ -407,6 +422,7 @@ export function EditorPanel({
             activeDoc={activeDoc}
             activeKbId={activeKb?.id}
             headerHeightClass="h-[40px]"
+            workspaceMode={workspaceMode}
           />
         )}
       </div>

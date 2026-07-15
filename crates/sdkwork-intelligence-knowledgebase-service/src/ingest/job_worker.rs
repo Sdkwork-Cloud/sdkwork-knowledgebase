@@ -15,9 +15,7 @@ use sdkwork_knowledgebase_contract::document::{
     KnowledgeDocumentState, KnowledgeDocumentVersionState, KnowledgeDocumentVisibility,
 };
 
-use sdkwork_knowledgebase_contract::ingest::{
-    IngestionJob, IngestionJobState, KnowledgeDriveImportResult,
-};
+use sdkwork_knowledgebase_contract::ingest::{IngestionJob, KnowledgeDriveImportResult};
 
 use sdkwork_knowledgebase_contract::source::KnowledgeSourceType;
 
@@ -45,27 +43,40 @@ impl<'a> KnowledgeIngestionJobWorkerService<'a> {
     ) -> Result<IngestionJobWorkerBatchResult, KnowledgeIngestionJobWorkerServiceError> {
         let jobs = self
             .jobs
-            .list_jobs_by_state(IngestionJobState::Queued, limit)
+            .claim_queued_jobs(limit)
             .await
             .map_err(KnowledgeIngestionJobWorkerServiceError::Store)?;
 
         let mut processed = 0usize;
 
-        let mut skipped = 0usize;
+        let skipped = 0usize;
 
         let mut failed = 0usize;
 
         for job in jobs {
             if job.source_type != KnowledgeSourceType::DriveObject.as_str() {
-                skipped += 1;
-
+                self.fail_claimed_job(
+                    job.id,
+                    format!("unsupported queued ingestion job type: {}", job.source_type),
+                )
+                .await;
+                failed += 1;
                 continue;
             }
 
-            let Some(import) = self.resolve_drive_import(&job).await? else {
-                skipped += 1;
-
-                continue;
+            let import = match self.resolve_drive_import(&job).await {
+                Ok(Some(import)) => import,
+                Ok(None) => {
+                    self.fail_claimed_job(job.id, "drive import linkage is missing".to_string())
+                        .await;
+                    failed += 1;
+                    continue;
+                }
+                Err(error) => {
+                    self.fail_claimed_job(job.id, error.to_string()).await;
+                    failed += 1;
+                    continue;
+                }
             };
 
             match self.process_drive_import_result(&import).await {
@@ -82,17 +93,6 @@ impl<'a> KnowledgeIngestionJobWorkerService<'a> {
 
                     );
 
-                    let ingestion = KnowledgeIngestionService::new(self.jobs);
-
-                    if let Err(mark_error) = ingestion.mark_failed(job.id, format!("{error}")).await
-                    {
-                        tracing::error!(
-                            job_id = job.id,
-                            ?mark_error,
-                            "failed to mark ingestion job as failed after worker processing error"
-                        );
-                    }
-
                     failed += 1;
                 }
             }
@@ -105,6 +105,17 @@ impl<'a> KnowledgeIngestionJobWorkerService<'a> {
 
             failed,
         })
+    }
+
+    async fn fail_claimed_job(&self, job_id: u64, detail: String) {
+        let ingestion = KnowledgeIngestionService::new(self.jobs);
+        if let Err(error) = ingestion.mark_failed(job_id, detail).await {
+            tracing::error!(
+                job_id,
+                ?error,
+                "failed to mark claimed ingestion job as failed"
+            );
+        }
     }
 
     async fn resolve_drive_import(

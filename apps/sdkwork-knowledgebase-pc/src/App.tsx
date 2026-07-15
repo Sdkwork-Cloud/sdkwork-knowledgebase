@@ -1,4 +1,4 @@
-import React, { Suspense, useMemo, type ErrorInfo, type ReactNode } from 'react';
+import React, { Suspense, useMemo, useRef, type ErrorInfo, type ReactNode } from 'react';
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { SdkworkSessionAuthBrowserRoot } from '@sdkwork/auth-pc-react';
@@ -6,6 +6,9 @@ import {
   KnowledgebaseAuthGate,
   KnowledgebaseErrorCodes,
   KnowledgebaseRuntimeProvider,
+  captureGroupKnowledgebaseLaunchTicket,
+  GROUP_KNOWLEDGEBASE_LAUNCH_PATH,
+  sanitizeGroupKnowledgebaseLaunchAuthLocation,
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 
@@ -18,6 +21,7 @@ import {
   resolveKnowledgebaseAuthRuntimeConfig,
 } from './bootstrap/knowledgebaseAuthConfig';
 import { KnowledgebaseAuthShell } from './components/KnowledgebaseAuthShell';
+import { GroupKnowledgebaseDesktopLaunchBridge } from './components/GroupKnowledgebaseDesktopLaunchBridge';
 
 const AppShell = React.lazy(() =>
   import('@sdkwork/sdkwork-knowledgebase-pc-shell').then((module) => ({
@@ -34,6 +38,12 @@ const KnowledgebaseAdminConsole = React.lazy(() =>
 const WechatPublishPage = React.lazy(() =>
   import('@sdkwork/sdkwork-knowledgebase-pc-knowledgebase/WechatPublishPage').then((module) => ({
     default: module.WechatPublishPage,
+  })),
+);
+
+const GroupKnowledgebaseLaunchPage = React.lazy(() =>
+  import('@sdkwork/knowledgebase-pc-knowledge').then((module) => ({
+    default: module.GroupKnowledgebaseLaunchPage,
   })),
 );
 
@@ -105,7 +115,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <KnowledgebaseRuntimeProvider runtime={runtime}>
-        <BrowserRouter>
+        <BrowserRouter basename={runtime.config.browserBasePath}>
           <SdkworkSessionAuthBrowserRoot>
             <KnowledgebaseAppRoutes runtime={runtime} />
           </SdkworkSessionAuthBrowserRoot>
@@ -133,21 +143,35 @@ function KnowledgebaseAppRoutes({
     </KnowledgebaseAuthShell>
   ), [getIamRuntime]);
 
+  const capturedGroupLaunchHashRef = useRef<string | null>(null);
+  const groupLaunchLocationKey = `${location.pathname}${location.search}${location.hash ?? ''}`;
+  const hasCapturedGroupLaunchTicket = capturedGroupLaunchHashRef.current === groupLaunchLocationKey;
+  const isGroupKnowledgebaseLaunch = location.pathname === GROUP_KNOWLEDGEBASE_LAUNCH_PATH;
+  if (isGroupKnowledgebaseLaunch && !hasCapturedGroupLaunchTicket) {
+    captureGroupKnowledgebaseLaunchTicket(location);
+    capturedGroupLaunchHashRef.current = groupLaunchLocationKey;
+  }
+  const authGateLocation = sanitizeGroupKnowledgebaseLaunchAuthLocation(location);
+
   return (
-    <KnowledgebaseAuthGate
-      authRoutes={authRoutes}
-      location={location}
-      navigate={(to, options) => navigate(to, options)}
-      session={runtime.session}
-    >
-      <Suspense fallback={<KnowledgebaseRouteFallback label="Loading Knowledgebase workspace" />}>
-        <Routes>
-          <Route path="/" element={<AppShell />} />
-          <Route path="/admin" element={<KnowledgebaseAdminConsole />} />
-          <Route path="/wechat-publish" element={<WechatPublishPage />} />
-        </Routes>
-      </Suspense>
-    </KnowledgebaseAuthGate>
+    <>
+      <GroupKnowledgebaseDesktopLaunchBridge />
+      <KnowledgebaseAuthGate
+        authRoutes={authRoutes}
+        location={authGateLocation}
+        navigate={(to, options) => navigate(to, options)}
+        session={runtime.session}
+      >
+        <Suspense fallback={<KnowledgebaseRouteFallback label="Loading Knowledgebase workspace" />}>
+          <Routes>
+            <Route path="/" element={<AppShell />} />
+            <Route path="/admin" element={<KnowledgebaseAdminConsole />} />
+            <Route path="/wechat-publish" element={<WechatPublishPage />} />
+            <Route path={GROUP_KNOWLEDGEBASE_LAUNCH_PATH} element={<GroupKnowledgebaseLaunchPage />} />
+          </Routes>
+        </Suspense>
+      </KnowledgebaseAuthGate>
+    </>
   );
 }
 

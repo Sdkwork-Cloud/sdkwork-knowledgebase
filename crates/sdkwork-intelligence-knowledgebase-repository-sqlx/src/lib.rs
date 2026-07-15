@@ -23,6 +23,7 @@ mod sqlite_chunk_store;
 mod sqlite_commerce_store;
 mod sqlite_context_binding_store;
 mod sqlite_drive_import_metadata_store;
+mod sqlite_group_space_binding_store;
 mod sqlite_import_stores;
 mod sqlite_knowledge_document_metadata_transaction;
 mod sqlite_markdown_index_metadata_store;
@@ -71,6 +72,7 @@ pub use sqlite_chunk_store::SqliteKnowledgeChunkStore;
 pub use sqlite_commerce_store::SqliteCommerceStore;
 pub use sqlite_context_binding_store::SqliteContextBindingStore;
 pub use sqlite_drive_import_metadata_store::SqliteDriveImportMetadataStore;
+pub use sqlite_group_space_binding_store::SqliteGroupKnowledgeSpaceBindingStore;
 pub use sqlite_import_stores::{
     SqliteIngestionJobStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
     SqliteKnowledgeSourceStore,

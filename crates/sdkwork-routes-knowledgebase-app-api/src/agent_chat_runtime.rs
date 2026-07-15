@@ -1,13 +1,9 @@
 use sdkwork_agent_kernel::{KnowledgeDocument, KnowledgeDocumentFilter, KnowledgeDocumentKind};
-use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSpaceStore,
-};
+use sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeRetrievalProfileStore;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
     format_scoped_document_id, parse_namespace_space_id, parse_scoped_document_id,
 };
-use sdkwork_intelligence_knowledgebase_service::ports::{
-    knowledge_engine::KnowledgeEngine, knowledge_space_store::KnowledgeSpaceStore,
-};
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::KnowledgeEngine;
 use sdkwork_knowledgebase_agent_provider::async_bridge::block_on_async;
 use sdkwork_knowledgebase_agent_provider::{
     retrieval_methods_for_strategy, KnowledgeRetrievalPlan, KnowledgeRetrievalPlanResolver,
@@ -67,12 +63,12 @@ impl KnowledgeRetrievalPlanResolver for RuntimeRetrievalPlanResolver {
 
 #[derive(Clone)]
 pub struct RuntimeSpaceModeResolver {
-    store: Arc<SqliteKnowledgeSpaceStore>,
+    runtime: KnowledgebaseRuntime,
 }
 
 impl RuntimeSpaceModeResolver {
-    pub fn new(store: Arc<SqliteKnowledgeSpaceStore>) -> Self {
-        Self { store }
+    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
+        Self { runtime }
     }
 }
 
@@ -83,8 +79,8 @@ impl KnowledgeSpaceModeResolver for RuntimeSpaceModeResolver {
         space_id: u64,
     ) -> Result<KnowledgeAgentKnowledgeMode, String> {
         let space = self
-            .store
-            .get_space(space_id)
+            .runtime
+            .get_space_for_authorized_operation(space_id)
             .await
             .map_err(|error| error.to_string())?;
         Ok(space.knowledge_mode)
@@ -128,6 +124,9 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
             actor_id: request.actor_id,
             organization_id: None,
             session_id: None,
+            request_id: uuid::Uuid::new_v4().to_string(),
+            trace_id: None,
+            idempotency_key: None,
         };
         block_on_async(async move { retrieval.retrieve(context, request).await })
             .map_err(|error| error.to_string())?

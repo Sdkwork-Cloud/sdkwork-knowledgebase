@@ -111,6 +111,48 @@ impl SqliteKnowledgeChunkRetrievalStore {
 
         rows.into_iter().map(trace_record_from_row).collect()
     }
+
+    pub async fn list_trace_summaries_page(
+        &self,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<
+        (Vec<KnowledgeRetrievalTraceRecord>, Option<String>, bool),
+        KnowledgeRetrievalTraceStoreError,
+    > {
+        let tenant_id = trace_to_i64("tenant_id", self.tenant_id)?;
+        let cursor = cursor
+            .map(|value| trace_to_i64("cursor", value))
+            .transpose()?;
+        let page_size = page_size.clamp(1, 200) as usize;
+        let rows = sqlx::query(
+            r#"
+            SELECT tenant_id, id AS retrieval_trace_id, actor_id, retrieval_profile_id,
+                   query_text_redacted, latency_ms, result_count, status
+            FROM kb_retrieval_trace
+            WHERE tenant_id = $1 AND ($2 IS NULL OR id > $2)
+            ORDER BY id ASC
+            LIMIT $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(cursor)
+        .bind((page_size + 1) as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(trace_sqlx_error)?;
+
+        let has_more = rows.len() > page_size;
+        let items = rows
+            .into_iter()
+            .take(page_size)
+            .map(trace_record_from_row)
+            .collect::<Result<Vec<_>, _>>()?;
+        let next_cursor = has_more
+            .then(|| items.last().map(|item| item.retrieval_trace_id.to_string()))
+            .flatten();
+        Ok((items, next_cursor, has_more))
+    }
 }
 
 #[async_trait]

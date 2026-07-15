@@ -1,8 +1,10 @@
 use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
     POSTGRES_ACCESS_MODE_MIGRATION, POSTGRES_AGENT_IMPLEMENTATION_MIGRATION,
-    POSTGRES_CONTEXT_BINDING_MIGRATION, POSTGRES_CORE_MIGRATION, POSTGRES_OUTBOX_MIGRATION,
-    POSTGRES_PGVECTOR_MIGRATION, SQLITE_ACCESS_MODE_MIGRATION,
+    POSTGRES_CONTEXT_BINDING_MIGRATION, POSTGRES_CORE_MIGRATION,
+    POSTGRES_GROUP_KNOWLEDGE_SPACE_MIGRATION, POSTGRES_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
+    POSTGRES_OUTBOX_MIGRATION, POSTGRES_PGVECTOR_MIGRATION, SQLITE_ACCESS_MODE_MIGRATION,
     SQLITE_AGENT_IMPLEMENTATION_MIGRATION, SQLITE_CONTEXT_BINDING_MIGRATION, SQLITE_CORE_MIGRATION,
+    SQLITE_GROUP_KNOWLEDGE_SPACE_MIGRATION, SQLITE_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
     SQLITE_OUTBOX_MIGRATION,
 };
 use std::collections::BTreeSet;
@@ -552,10 +554,7 @@ fn runtime_sql_value_bindings_are_generated_by_database_dialect() {
         ("index_store.rs", INDEX_STORE_SOURCE),
         ("okf_concept_link_store.rs", OKF_CONCEPT_LINK_STORE_SOURCE),
         ("okf_concept_store.rs", OKF_CONCEPT_STORE_SOURCE),
-        (
-            "retrieval_profile_store.rs",
-            RETRIEVAL_PROFILE_STORE_SOURCE,
-        ),
+        ("retrieval_profile_store.rs", RETRIEVAL_PROFILE_STORE_SOURCE),
         ("retrieval_store.rs", RETRIEVAL_STORE_SOURCE),
         ("sqlite_commerce_store.rs", SQLITE_COMMERCE_STORE_SOURCE),
         (
@@ -633,8 +632,8 @@ fn runtime_sql_value_bindings_are_generated_by_database_dialect() {
             SQLITE_OKF_CONCEPT_TRANSACTION_SOURCE,
             SQLITE_OUTBOX_STORE_SOURCE,
         ]
-            .iter()
-            .any(|source| source.contains("sql_json_expr")),
+        .iter()
+        .any(|source| source.contains("sql_json_expr")),
         "runtime repositories must generate PostgreSQL JSONB casts through SqlTimestampDialect"
     );
     for (file, source, projection) in [
@@ -754,6 +753,159 @@ fn app_root_database_baselines_are_engine_specific_single_snapshots() {
         assert!(
             !APP_ROOT_SQLITE_BASELINE.contains(forbidden),
             "sqlite baseline must not contain postgres-only syntax: {forbidden}"
+        );
+    }
+}
+
+#[test]
+fn group_aggregate_baseline_preserves_postgres_rls_for_every_tenant_table() {
+    let rls_section_start = APP_ROOT_POSTGRES_BASELINE
+        .find("FOR table_name IN")
+        .expect("postgres baseline must define the group aggregate RLS loop");
+    let rls_section = &APP_ROOT_POSTGRES_BASELINE[rls_section_start..];
+
+    for table in [
+        "kb_group_knowledge_space_binding",
+        "kb_group_knowledge_space_member",
+        "kb_group_knowledge_space_event_inbox",
+        "kb_group_knowledge_space_membership_projection",
+    ] {
+        assert!(
+            rls_section.contains(&format!("'{table}'")),
+            "postgres baseline RLS loop must include {table}"
+        );
+    }
+    for required_statement in [
+        "ALTER TABLE %I ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE %I FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_isolation ON %I",
+        "current_setting(''app.current_tenant_id'', true)::bigint",
+    ] {
+        assert!(
+            rls_section.contains(required_statement),
+            "postgres baseline RLS loop is missing {required_statement}"
+        );
+    }
+
+    for table in [
+        "kb_group_knowledge_space_binding",
+        "kb_group_knowledge_space_member",
+        "kb_group_knowledge_space_event_inbox",
+    ] {
+        assert!(
+            POSTGRES_GROUP_KNOWLEDGE_SPACE_MIGRATION.contains(&format!("'{table}'")),
+            "group aggregate migration must protect {table}"
+        );
+    }
+    for required_statement in [
+        "ALTER TABLE kb_group_knowledge_space_membership_projection ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE kb_group_knowledge_space_membership_projection FORCE ROW LEVEL SECURITY",
+        "CREATE POLICY tenant_isolation",
+        "current_setting('app.current_tenant_id', true)::bigint",
+    ] {
+        assert!(
+            POSTGRES_GROUP_MEMBERSHIP_PROJECTION_MIGRATION.contains(required_statement),
+            "membership projection migration is missing {required_statement}"
+        );
+    }
+}
+
+#[test]
+fn group_aggregate_requires_a_canonical_nonzero_organization_in_every_schema_path() {
+    for (name, source, declaration, constraint) in [
+        (
+            "postgres baseline binding",
+            APP_ROOT_POSTGRES_BASELINE,
+            "organization_id BIGINT NOT NULL,",
+            "ck_kb_group_knowledge_space_binding_organization",
+        ),
+        (
+            "postgres migration binding",
+            POSTGRES_GROUP_KNOWLEDGE_SPACE_MIGRATION,
+            "organization_id BIGINT NOT NULL,",
+            "ck_kb_group_knowledge_space_binding_organization",
+        ),
+        (
+            "postgres baseline projection",
+            APP_ROOT_POSTGRES_BASELINE,
+            "organization_id BIGINT NOT NULL,",
+            "ck_kb_group_knowledge_space_membership_projection_organization",
+        ),
+        (
+            "postgres migration projection",
+            POSTGRES_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
+            "organization_id BIGINT NOT NULL,",
+            "ck_kb_group_knowledge_space_membership_projection_organization",
+        ),
+    ] {
+        assert!(
+            source.contains(declaration),
+            "{name} must not default organization_id to zero"
+        );
+        assert!(
+            source.contains(constraint),
+            "{name} is missing its named organization constraint"
+        );
+    }
+
+    for (name, source) in [
+        ("sqlite baseline", APP_ROOT_SQLITE_BASELINE),
+        (
+            "sqlite aggregate migration",
+            SQLITE_GROUP_KNOWLEDGE_SPACE_MIGRATION,
+        ),
+        (
+            "sqlite membership projection migration",
+            SQLITE_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
+        ),
+    ] {
+        let group_section = if name == "sqlite baseline" {
+            let start = source
+                .find("CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_binding")
+                .expect("sqlite baseline must contain group aggregate tables");
+            &source[start..]
+        } else {
+            source
+        };
+        assert!(
+            !group_section.contains("organization_id INTEGER NOT NULL DEFAULT 0"),
+            "{name} must not default a group organization_id to zero"
+        );
+        assert!(
+            group_section.contains("CHECK (organization_id > 0)"),
+            "{name} must reject zero organization_id in greenfield DDL"
+        );
+    }
+
+    for table in ["binding", "member", "event_inbox", "membership_projection"] {
+        let migration = if table == "membership_projection" {
+            SQLITE_GROUP_MEMBERSHIP_PROJECTION_MIGRATION
+        } else {
+            SQLITE_GROUP_KNOWLEDGE_SPACE_MIGRATION
+        };
+        assert!(
+            migration.contains(&format!("trg_kb_group_space_{table}_organization_insert")),
+            "SQLite upgrade migration is missing the {table} organization insert guard"
+        );
+        assert!(
+            migration.contains(&format!("trg_kb_group_space_{table}_organization_update")),
+            "SQLite upgrade migration is missing the {table} organization update guard"
+        );
+    }
+
+    for table in [
+        "kb_group_knowledge_space_binding",
+        "kb_group_knowledge_space_member",
+        "kb_group_knowledge_space_event_inbox",
+        "kb_group_knowledge_space_membership_projection",
+    ] {
+        assert!(
+            APP_ROOT_POSTGRES_BASELINE.contains(&format!("CREATE TABLE IF NOT EXISTS {table}")),
+            "postgres baseline is missing {table}"
+        );
+        assert!(
+            APP_ROOT_SQLITE_BASELINE.contains(&format!("CREATE TABLE IF NOT EXISTS {table}")),
+            "sqlite baseline is missing {table}"
         );
     }
 }

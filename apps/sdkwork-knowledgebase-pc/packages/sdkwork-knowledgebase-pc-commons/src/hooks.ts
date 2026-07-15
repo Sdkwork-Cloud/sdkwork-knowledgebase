@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 
-export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
+export interface UseLocalStorageOptions {
+  enabled?: boolean;
+}
+
+export function useLocalStorage<T>(
+  key: string,
+  initialValue: T,
+  options: UseLocalStorageOptions = {},
+): [T, (value: T | ((val: T) => T)) => void] {
+  const enabled = options.enabled ?? true;
   const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === "undefined") {
+    if (!enabled || typeof window === "undefined") {
       return initialValue;
     }
     try {
@@ -18,7 +27,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
     try {
       setStoredValue((prev) => {
         const valueToStore = value instanceof Function ? value(prev) : value;
-        if (typeof window !== "undefined") {
+        if (enabled && typeof window !== "undefined") {
           window.localStorage.setItem(key, JSON.stringify(valueToStore));
           queueMicrotask(() => {
             window.dispatchEvent(new CustomEvent('local-storage', { detail: { key, value: valueToStore } }));
@@ -29,9 +38,12 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
     } catch (error) {
       console.warn(`Error setting localStorage key "${key}":`, error);
     }
-  }, [key]);
+  }, [enabled, key]);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     const handleStorageChange = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail.key === key) {
@@ -53,7 +65,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
       window.removeEventListener('local-storage', handleStorageChange);
       window.removeEventListener('storage', handleNativeStorage);
     };
-  }, [key]);
+  }, [enabled, key]);
 
   return [storedValue, setValue];
 }

@@ -175,6 +175,12 @@ const HTTP_ROUTES: &[HttpRoute] = &[
     ),
     HttpRoute::dual_token(
         HttpMethod::Get,
+        "/backend/v3/api/knowledge/group_launch_capability",
+        "knowledge",
+        "groupLaunchCapability.retrieve",
+    ),
+    HttpRoute::dual_token(
+        HttpMethod::Get,
         "/backend/v3/api/knowledge/tenants/current",
         "knowledge",
         "tenants.current.list",

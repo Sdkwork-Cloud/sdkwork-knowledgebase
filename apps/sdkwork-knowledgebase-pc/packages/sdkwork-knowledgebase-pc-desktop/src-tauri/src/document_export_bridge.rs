@@ -57,17 +57,19 @@ pub async fn export_document_pdf(
 ) -> Result<BinaryResourcePayload, String> {
     match select_strategy(&request) {
         NativePdfStrategy::MarkdownTypst => {
-            let markdown = request
-                .markdown
-                .as_ref()
-                .map(String::as_str)
-                .unwrap_or("");
+            let markdown = request.markdown.as_deref().unwrap_or("");
             let bytes = export_markdown_to_pdf(&request.title, markdown)?;
-            Ok(binary_payload_from_bytes(bytes, Some("application/pdf".to_string())))
+            Ok(binary_payload_from_bytes(
+                bytes,
+                Some("application/pdf".to_string()),
+            ))
         }
         NativePdfStrategy::HtmlWebView => {
             let bytes = export_html_to_pdf(&app, &request.title, &request.html).await?;
-            Ok(binary_payload_from_bytes(bytes, Some("application/pdf".to_string())))
+            Ok(binary_payload_from_bytes(
+                bytes,
+                Some("application/pdf".to_string()),
+            ))
         }
         NativePdfStrategy::Unavailable => Err(
             "native PDF export is unavailable for this content; use canvas fallback".to_string(),

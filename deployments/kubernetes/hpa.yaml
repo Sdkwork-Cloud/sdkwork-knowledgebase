@@ -25,15 +25,6 @@ spec:
         target:
           type: Utilization
           averageUtilization: 80
-    # Custom metric: HTTP request rate per pod (requires prometheus-adapter).
-    # Metric registered by servicemonitor.yaml on path /metrics.
-    - type: Pods
-      pods:
-        metric:
-          name: sdkwork_knowledgebase_http_requests_per_second
-        target:
-          type: AverageValue
-          averageValue: "200"
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 60
@@ -80,13 +71,6 @@ spec:
         target:
           type: Utilization
           averageUtilization: 80
-    - type: Pods
-      pods:
-        metric:
-          name: sdkwork_knowledgebase_http_requests_per_second
-        target:
-          type: AverageValue
-          averageValue: "150"
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 60
@@ -133,13 +117,6 @@ spec:
         target:
           type: Utilization
           averageUtilization: 80
-    - type: Pods
-      pods:
-        metric:
-          name: sdkwork_knowledgebase_http_requests_per_second
-        target:
-          type: AverageValue
-          averageValue: "150"
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 60
@@ -186,15 +163,6 @@ spec:
         target:
           type: Utilization
           averageUtilization: 80
-    # Custom metric: outbox pending depth per pod (requires prometheus-adapter).
-    # Drives scale-up when ingestion backlog accumulates.
-    - type: Pods
-      pods:
-        metric:
-          name: sdkwork_knowledgebase_outbox_pending
-        target:
-          type: AverageValue
-          averageValue: "100"
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 60

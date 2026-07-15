@@ -33,6 +33,10 @@ const backendOpenApiPath = path.join(
 );
 
 const appOperations = [
+  resource('post', '/app/v3/api/knowledge/group_launches/consume', {
+    operationId: 'groupLaunches.consume',
+    itemRef: '#/components/schemas/GroupKnowledgebaseLaunchTarget',
+  }),
   resource('get', '/app/v3/api/knowledge/documents/{documentId}/content', {
     operationId: 'documents.content.list',
     itemRef: '#/components/schemas/KnowledgeDocumentContent',

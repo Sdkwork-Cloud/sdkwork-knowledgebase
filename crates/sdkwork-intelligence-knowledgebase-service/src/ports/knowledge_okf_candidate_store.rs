@@ -21,6 +21,21 @@ pub trait KnowledgeOkfCandidateStore: Send + Sync {
         &self,
         space_id: Option<u64>,
     ) -> Result<Vec<KnowledgeOkfCandidateListItem>, KnowledgeOkfCandidateStoreError>;
+
+    async fn list_open_candidates_page(
+        &self,
+        space_id: Option<u64>,
+        cursor: Option<u64>,
+        page_size: u32,
+    ) -> Result<
+        (Vec<KnowledgeOkfCandidateListItem>, Option<String>, bool),
+        KnowledgeOkfCandidateStoreError,
+    > {
+        let _ = (space_id, cursor, page_size);
+        Err(KnowledgeOkfCandidateStoreError::Internal(
+            "paginated OKF candidate listing is unsupported by this store".to_string(),
+        ))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

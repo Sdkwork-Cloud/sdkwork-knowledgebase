@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-intelligence-knowledgebase-rpc",
+    "displayName": "SDKWork Knowledgebase Internal RPC Adapter",
+    "version": "0.1.0",
+    "type": "rust-crate",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-intelligence-knowledgebase-rpc",
+    "domain": "intelligence",
+    "capability": "knowledgebase",
+    "surface": "internal-rpc",
+    "languages": ["rust"],
+    "generated": false,
+    "private": true,
+    "manifests": ["Cargo.toml"]
+  },
+  "canonicalSpecs": [
+    { "file": "CODE_STYLE_SPEC.md", "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md", "purpose": "Adapter boundaries and generated code ownership." },
+    { "file": "NAMING_SPEC.md", "path": "../../../sdkwork-specs/NAMING_SPEC.md", "purpose": "RPC artifact identity." },
+    { "file": "RUST_CODE_SPEC.md", "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md", "purpose": "Rust module and dependency direction." },
+    { "file": "RUST_RPC_SPEC.md", "path": "../../../sdkwork-specs/RUST_RPC_SPEC.md", "purpose": "Generated server adapter rules." },
+    { "file": "RPC_SPEC.md", "path": "../../../sdkwork-specs/RPC_SPEC.md", "purpose": "Internal RPC contract semantics." },
+    { "file": "RPC_FRAMEWORK_SPEC.md", "path": "../../../sdkwork-specs/RPC_FRAMEWORK_SPEC.md", "purpose": "Framework server pipeline." },
+    { "file": "SECURITY_SPEC.md", "path": "../../../sdkwork-specs/SECURITY_SPEC.md", "purpose": "mTLS and caller-context admission." },
+    { "file": "TEST_SPEC.md", "path": "../../../sdkwork-specs/TEST_SPEC.md", "purpose": "RPC adapter verification." }
+  ],
+  "contracts": {
+    "layerRole": "backend-service",
+    "publicExports": ["GroupKnowledgeSpaceLifecycleRpcService", "GroupKnowledgeSpaceLifecycleRuntime", "sdkwork-knowledgebase-rpc-sdk-rust"],
+    "providedPorts": [
+      { "name": "groupKnowledgeSpaceLifecycleRpcService", "export": "GroupKnowledgeSpaceLifecycleRpcService" }
+    ],
+    "requiredPorts": [
+      { "name": "groupKnowledgeSpaceLifecycleRuntime", "export": "GroupKnowledgeSpaceLifecycleRuntime" },
+      { "name": "generatedKnowledgebaseRpcSdk", "export": "sdkwork-knowledgebase-rpc-sdk-rust" }
+    ],
+    "runtimeEntrypoints": ["GroupKnowledgeSpaceLifecycleRpcService"],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": ["sdkwork-knowledgebase-rpc-sdk"],
+    "permissionComposition": {},
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": [],
+    "configKeys": []
+  },
+  "verification": {
+    "commands": [
+      "cargo test -p sdkwork-intelligence-knowledgebase-rpc",
+      "cargo clippy -p sdkwork-intelligence-knowledgebase-rpc --all-targets -- -D warnings"
+    ]
+  }
+}

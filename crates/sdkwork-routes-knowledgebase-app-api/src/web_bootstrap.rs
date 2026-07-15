@@ -50,6 +50,9 @@ fn knowledge_app_context_from_web_request(
         actor_id,
         organization_id,
         session_id,
+        request_id: context.request_id.0.clone(),
+        trace_id: context.trace_id.clone(),
+        idempotency_key: context.idempotency_key().map(str::to_owned),
     })
 }
 

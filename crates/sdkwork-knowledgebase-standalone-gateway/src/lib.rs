@@ -1,5 +1,6 @@
 mod config;
 mod error;
+mod group_launch_ticket_consumer_config;
 mod server;
 
 use axum::Router;
@@ -8,6 +9,9 @@ use sdkwork_knowledgebase_observability::tracing_support;
 
 pub use config::GatewayConfigError;
 pub use error::{GatewayRuntimeError, GatewayServeError, GatewaySignalError};
+pub use group_launch_ticket_consumer_config::{
+    resolve_group_launch_ticket_consumer_from_env, GroupLaunchTicketConsumerConfigError,
+};
 
 use config::GatewayServerConfig;
 use server::{run_with_runtime_cleanup, serve_router_with_config};

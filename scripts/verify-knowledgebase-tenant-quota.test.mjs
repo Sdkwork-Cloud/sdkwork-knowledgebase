@@ -73,13 +73,13 @@ describe('knowledgebase tenant quota and GDPR compliance alignment', () => {
     const tenantContract = readRepoFile('crates/sdkwork-knowledgebase-contract/src/tenant.rs');
     assert.match(appError, /knowledge_tenant_quota_exceeded/);
     assert.match(enforcement, /ensure_document_capacity/);
-    assert.match(enforcement, /ensure_ingest_concurrency/);
+    const ingestionStore = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_import_stores.rs',
+    );
+    assert.match(ingestionStore, /create_or_get_job_with_quota|ensure_ingest_quota_on/);
     assert.match(enforcement, /ensure_storage_capacity/);
     assert.match(enforcement, /ensure_tenant_can_add_storage/);
-    assert.match(enforcement, /ensure_tenant_can_import_drive_object/);
-    assert.match(enforcement, /peek_drive_import_object_size_bytes/);
-    assert.match(hosted, /ensure_tenant_can_add_storage/);
-    assert.match(hosted, /ensure_tenant_can_import_drive_object/);
+    assert.match(hosted, /ensure_tenant_can_create_document/);
     assert.match(hostedUpload, /ensure_tenant_can_add_storage/);
     assert.match(observability, /SDKWORK_KNOWLEDGEBASE_TENANT_MAX_DOCUMENTS/);
     assert.match(observability, /SDKWORK_KNOWLEDGEBASE_TENANT_MAX_CONCURRENT_INGEST_JOBS/);

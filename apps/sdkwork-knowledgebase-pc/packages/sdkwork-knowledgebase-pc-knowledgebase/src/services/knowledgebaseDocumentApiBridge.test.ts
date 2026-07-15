@@ -8,7 +8,12 @@ import {
   type SessionStore,
 } from 'sdkwork-knowledgebase-pc-core';
 
-import { createDocument } from './knowledgebaseDocumentApiBridge';
+import {
+  createDocument,
+  getDocumentContent,
+  saveDocumentContent,
+} from './knowledgebaseDocumentApiBridge';
+import { activateEphemeralFixedKnowledgebaseWorkspace } from '../workspaceMode';
 
 const EMPTY_SESSION_STORE: SessionStore = createStaticSessionStore({});
 
@@ -177,4 +182,133 @@ describe('KnowledgebaseDocumentApiBridge.createDocument', () => {
     expect(created.kbId).toBe('42');
     expect(readLocalDocumentContent('tenant-1', '991')).toBe('# Research Note');
   });
+
+  it('does not access browser storage for an active fixed group workspace', async () => {
+    const localStorage = createStorageSpy();
+    const sessionStorage = createStorageSpy();
+    const directContentLookup = vi.fn(async () => ({
+      documentId: '991',
+      contentMarkdown: '# Group-only document',
+      contentVersion: 'group-v1',
+    }));
+    const directDocumentLookup = vi.fn();
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: { localStorage, sessionStorage },
+    });
+    bindTenantContext('tenant-1');
+    configureKnowledgebaseAppSdk({
+      client: {
+        knowledge: {
+          documents: {
+            retrieve: directDocumentLookup,
+            content: {
+              list: directContentLookup,
+            },
+          },
+          ingests: {
+            create: async () => ({ id: 'ingest-group-1', state: 'succeeded' }),
+          },
+          retrievals: {
+            create: async () => ({
+              hits: [
+                {
+                  documentId: '991',
+                  title: 'Group source',
+                  content: '# Group-only document',
+                },
+              ],
+            }),
+          },
+          spaces: {
+            browser: {
+              list: async () => ({
+                spaceId: '420',
+                parentId: null,
+                view: 'files',
+                pageSize: 100,
+                items: [
+                  {
+                    id: 'browser-doc-991',
+                    nodeType: 'document',
+                    name: 'Group source',
+                    path: '/Group source.md',
+                    documentId: '991',
+                    mimeType: 'text/markdown',
+                    updatedAt: '2026-07-13T00:00:00.000Z',
+                    permissions: {
+                      canRead: true,
+                      canWrite: true,
+                      canDelete: true,
+                    },
+                  },
+                  {
+                    id: 'browser-doc-992',
+                    nodeType: 'document',
+                    name: 'Group draft',
+                    path: '/Group draft.md',
+                    documentId: '992',
+                    mimeType: 'text/markdown',
+                    updatedAt: '2026-07-13T00:00:00.000Z',
+                    permissions: {
+                      canRead: true,
+                      canWrite: true,
+                      canDelete: true,
+                    },
+                  },
+                ],
+                pageInfo: {
+                  mode: 'cursor',
+                  hasMore: false,
+                  nextCursor: null,
+                },
+              }),
+            },
+          },
+        },
+      } as never,
+      setTokenManager() {
+        // Test fake; token propagation is covered by pc-core SDK bootstrap tests.
+      },
+    });
+    setKnowledgebaseApiEnabled(true);
+
+    const releaseWorkspace = activateEphemeralFixedKnowledgebaseWorkspace('420');
+    try {
+      await expect(getDocumentContent('991')).resolves.toBe('# Group-only document');
+      await expect(saveDocumentContent('991', '# Updated group document')).resolves.toBe(true);
+      await expect(createDocument({
+        kbId: '420',
+        title: 'Group draft',
+        type: 'markdown',
+        content: '# New group draft',
+      })).resolves.toMatchObject({ id: '992', kbId: '420' });
+    } finally {
+      releaseWorkspace();
+    }
+
+    expect(directContentLookup).not.toHaveBeenCalled();
+    expect(directDocumentLookup).not.toHaveBeenCalled();
+    expectStorageUnused(localStorage);
+    expectStorageUnused(sessionStorage);
+  });
 });
+
+function createStorageSpy(): Storage {
+  return {
+    get length() {
+      return 0;
+    },
+    clear: vi.fn(),
+    getItem: vi.fn(() => null),
+    key: vi.fn(() => null),
+    removeItem: vi.fn(),
+    setItem: vi.fn(),
+  };
+}
+
+function expectStorageUnused(storage: Storage): void {
+  expect(storage.getItem).not.toHaveBeenCalled();
+  expect(storage.setItem).not.toHaveBeenCalled();
+  expect(storage.removeItem).not.toHaveBeenCalled();
+}

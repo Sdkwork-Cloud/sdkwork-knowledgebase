@@ -1,0 +1,22 @@
+[package]
+name = "sdkwork-knowledgebase-im-rpc-adapter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Trusted generated IM RPC adapter for Knowledgebase group-launch tickets."
+
+[dependencies]
+async-trait.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["time"] }
+tonic = { version = "0.14", features = ["transport"] }
+url = "2"
+sdkwork-utils-rust.workspace = true
+sdkwork-intelligence-knowledgebase-service.workspace = true
+sdkwork-knowledgebase-contract.workspace = true
+sdkwork-im-rpc-sdk-rust.workspace = true
+sdkwork-rpc-client.workspace = true
+sdkwork-rpc-core.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

@@ -10,6 +10,7 @@ import {
   requirePrimaryRegisteredSpaceId,
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
+import { getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId } from '../workspaceMode';
 
 export interface MediaTaskContext {
   spaceId?: string;
@@ -35,6 +36,10 @@ function parseDocumentId(documentId?: string): string | undefined {
 }
 
 function resolveSpaceId(context?: MediaTaskContext): string {
+  if (getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId() !== null) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.API_UNAVAILABLE_AI);
+  }
+
   const spaceId = context?.spaceId;
   if (!isBlank(spaceId)) {
     return parseKnowledgeSpaceId(spaceId);

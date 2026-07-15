@@ -1,15 +1,16 @@
 use async_trait::async_trait;
 use sdkwork_knowledgebase_contract::{
     AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult,
-    CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, IngestionJob,
-    KnowledgeAuditEventExport, KnowledgeIndex, KnowledgeIndexList, KnowledgeIndexRequest,
-    KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList, KnowledgeOkfProfileRequest,
-    KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest,
-    KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList, KnowledgeSource, KnowledgeSourceList,
-    KnowledgeSpace, KnowledgeSpaceMemberList, KnowledgeTenantStatus, OkfBundleExportRequest,
-    OkfBundleImportRequest, OkfBundleImportResult, OkfCandidateResult, OkfCandidateResultList,
-    OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary,
-    OkfIndexDocument, OkfIndexRebuildRequest, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
+    CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest,
+    GroupKnowledgebaseLaunchCapability, IngestionJob, KnowledgeAuditEventExport, KnowledgeIndex,
+    KnowledgeIndexList, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfBundleFileList,
+    KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile,
+    KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeRetrievalTraceList,
+    KnowledgeSource, KnowledgeSourceList, KnowledgeSpace, KnowledgeSpaceMemberList,
+    KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult,
+    OkfCandidateResult, OkfCandidateResultList, OkfCandidateReviewRequest, OkfCompileJobRequest,
+    OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfIndexRebuildRequest,
+    OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
 use sdkwork_utils_rust::SdkWorkPageData;
 
@@ -25,8 +26,30 @@ pub struct KnowledgeBackendRequestContext {
 
 #[async_trait]
 pub trait KnowledgeBackendApi: Send + Sync + 'static {
+    async fn retrieve_group_launch_capability(
+        &self,
+    ) -> BackendApiResult<GroupKnowledgebaseLaunchCapability> {
+        Err(BackendApiError::unsupported_operation(
+            "groupLaunchCapability.retrieve",
+        ))
+    }
+
     async fn list_sources(&self) -> BackendApiResult<KnowledgeSourceList> {
         Err(BackendApiError::unsupported_operation("sources.list"))
+    }
+
+    async fn list_sources_page(
+        &self,
+        _cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeSource>> {
+        let legacy = self.list_sources().await?;
+        Ok(crate::pagination::cursor_page_data(
+            legacy.items,
+            None,
+            false,
+            crate::pagination::normalize_page_size(page_size),
+        ))
     }
 
     async fn create_source(
@@ -51,6 +74,21 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
     ) -> BackendApiResult<OkfCandidateResultList> {
         Err(BackendApiError::unsupported_operation(
             "okf.candidates.list",
+        ))
+    }
+
+    async fn list_okf_candidates_page(
+        &self,
+        space_id: u64,
+        _cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<OkfCandidateResult>> {
+        let legacy = self.list_okf_candidates(space_id).await?;
+        Ok(crate::pagination::cursor_page_data(
+            legacy.items,
+            None,
+            false,
+            crate::pagination::normalize_page_size(page_size),
         ))
     }
 
@@ -147,6 +185,20 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
         ))
     }
 
+    async fn list_okf_bundle_files_page(
+        &self,
+        _cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeOkfBundleFile>> {
+        let legacy = self.list_okf_bundle_files().await?;
+        Ok(crate::pagination::cursor_page_data(
+            legacy.items,
+            None,
+            false,
+            crate::pagination::normalize_page_size(page_size),
+        ))
+    }
+
     async fn create_okf_lint_run(
         &self,
         _request: OkfQualityRunRequest,
@@ -167,6 +219,20 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
 
     async fn list_indexes(&self) -> BackendApiResult<KnowledgeIndexList> {
         Err(BackendApiError::unsupported_operation("indexes.list"))
+    }
+
+    async fn list_indexes_page(
+        &self,
+        _cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeIndex>> {
+        let legacy = self.list_indexes().await?;
+        Ok(crate::pagination::cursor_page_data(
+            legacy.items,
+            None,
+            false,
+            crate::pagination::normalize_page_size(page_size),
+        ))
     }
 
     async fn create_index(
@@ -219,6 +285,20 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
     async fn list_retrieval_traces(&self) -> BackendApiResult<KnowledgeRetrievalTraceList> {
         Err(BackendApiError::unsupported_operation(
             "retrievalTraces.list",
+        ))
+    }
+
+    async fn list_retrieval_traces_page(
+        &self,
+        _cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeRetrievalTrace>> {
+        let legacy = self.list_retrieval_traces().await?;
+        Ok(crate::pagination::cursor_page_data(
+            legacy.items,
+            None,
+            false,
+            crate::pagination::normalize_page_size(page_size),
         ))
     }
 

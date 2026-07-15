@@ -29,5 +29,10 @@
   "videoPlayerOffline": "视频文件播放器",
   "noVideoSource": "无有效流源进行加载。本系统支持 MP4, WebM, OGG 等高保真主流视频资产自适应播放。",
   "playSpeed": "倍速播放 Speed",
-  "adaptiveHint": "自适应控制：维持宽高比例，安全且智能适应并最大化充满主体。"
+  "adaptiveHint": "自适应控制：维持宽高比例，安全且智能适应并最大化充满主体。",
+  "groupLaunch": {
+    "opening": "正在打开群组知识库",
+    "unavailable": "群组知识库启动暂不可用。",
+    "failed": "无法打开此群组知识库。"
+  }
 }

@@ -1,17 +1,19 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::{
     context_binding::KnowledgeContextBindingService,
-    ports::knowledge_space_store::KnowledgeSpaceStore,
+    ports::knowledge_access_control::KnowledgeAccessRole,
 };
 use sdkwork_knowledgebase_contract::context_binding::{
     CreateKnowledgeSpaceContextBindingRequest, KnowledgeContextType, KnowledgeSpaceContextBinding,
     UpdateKnowledgeSpaceContextBindingRequest,
 };
+use sdkwork_knowledgebase_contract::space::KnowledgeSpace;
 use sdkwork_utils_rust::SdkWorkPageData;
 
 use crate::{
-    hosted_access::require_space_access, runtime::KnowledgebaseRuntime, ApiError, ApiResult,
-    KnowledgeAppRequestContext, KnowledgeContextBindingAppService,
+    hosted_access::{require_space_access, require_space_access_with_role},
+    runtime::KnowledgebaseRuntime,
+    ApiError, ApiResult, KnowledgeAppRequestContext, KnowledgeContextBindingAppService,
 };
 
 #[derive(Clone)]
@@ -31,17 +33,11 @@ impl HostedContextBindingService {
             .unwrap_or_else(|| fallback.to_string())
     }
 
-    async fn drive_space_id_for_space(&self, space_id: u64) -> ApiResult<String> {
-        let space = self
-            .runtime
-            .space_store()
-            .get_space(space_id)
-            .await
-            .map_err(ApiError::from)?;
-        space.drive_space_id.ok_or_else(|| {
+    fn drive_space_id_for_space(space: &KnowledgeSpace) -> ApiResult<String> {
+        space.drive_space_id.clone().ok_or_else(|| {
             ApiError::invalid_request(
                 "knowledge_space_not_drive_bound",
-                format!("knowledge space {space_id} is not bound to a drive space"),
+                format!("knowledge space {} is not bound to a drive space", space.id),
             )
         })
     }
@@ -90,9 +86,15 @@ impl KnowledgeContextBindingAppService for HostedContextBindingService {
                 "spaceId in body must match spaceId in path",
             ));
         }
-        require_space_access(&self.runtime, &context, space_id).await?;
+        let space = require_space_access_with_role(
+            &self.runtime,
+            &context,
+            space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
 
-        let drive_space_id = self.drive_space_id_for_space(space_id).await?;
+        let drive_space_id = Self::drive_space_id_for_space(&space)?;
         let created_by = Self::created_by(&context, self.runtime.operator_id());
         let service = KnowledgeContextBindingService::new(self.runtime.context_binding_store());
         service
@@ -107,10 +109,12 @@ impl KnowledgeContextBindingAppService for HostedContextBindingService {
         binding_id: u64,
     ) -> ApiResult<KnowledgeSpaceContextBinding> {
         let service = KnowledgeContextBindingService::new(self.runtime.context_binding_store());
-        service
+        let binding = service
             .get_binding(context.tenant_id, binding_id)
             .await
-            .map_err(Into::into)
+            .map_err(ApiError::from)?;
+        require_space_access(&self.runtime, &context, binding.space_id).await?;
+        Ok(binding)
     }
 
     async fn update_context_binding(
@@ -120,6 +124,17 @@ impl KnowledgeContextBindingAppService for HostedContextBindingService {
         request: UpdateKnowledgeSpaceContextBindingRequest,
     ) -> ApiResult<KnowledgeSpaceContextBinding> {
         let service = KnowledgeContextBindingService::new(self.runtime.context_binding_store());
+        let existing = service
+            .get_binding(context.tenant_id, binding_id)
+            .await
+            .map_err(ApiError::from)?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            existing.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         service
             .update_binding(context.tenant_id, binding_id, request)
             .await
@@ -136,7 +151,14 @@ impl KnowledgeContextBindingAppService for HostedContextBindingService {
             .get_binding(context.tenant_id, binding_id)
             .await
             .map_err(ApiError::from)?;
-        let drive_space_id = self.drive_space_id_for_space(binding.space_id).await?;
+        let space = require_space_access_with_role(
+            &self.runtime,
+            &context,
+            binding.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
+        let drive_space_id = Self::drive_space_id_for_space(&space)?;
         let operator_id = Self::created_by(&context, self.runtime.operator_id());
         service
             .unbind_context(context.tenant_id, binding_id, &drive_space_id, &operator_id)

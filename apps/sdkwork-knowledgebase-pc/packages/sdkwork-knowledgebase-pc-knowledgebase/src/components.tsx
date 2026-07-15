@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -14,11 +14,14 @@ import {
 } from 'sdkwork-knowledgebase-pc-core';
 import { findDocInTree } from './utils/docTreeUtils';
 import { DocumentService, FolderNode, DocumentMeta, KnowledgeBase } from './services/document';
-import { TabCacheService } from './services/tabService';
+import {
+  EphemeralTabCacheService,
+  TabCacheService,
+  type KnowledgebaseTabCache,
+} from './services/tabService';
 import { KnowledgeBaseList } from './KnowledgeBaseList';
 import { KnowledgeFileList } from './KnowledgeFileList';
 import { EditorPanel } from './EditorPanel';
-import { AiAssistantPanel } from './AiAssistantPanel';
 import { CreateKbModal } from './CreateKbModal';
 import { PublishModal } from './PublishModal';
 import { DeployWebsiteModal } from './DeployWebsiteModal';
@@ -32,16 +35,41 @@ import { KnowledgeBaseMarketView } from './KnowledgeBaseMarketView';
 import { GitIntegrationModal } from './components/GitIntegrationModal';
 import { toastKnowledgebaseError } from './components/ui/toastKnowledgebaseError';
 import { toast } from './components/ui/toast-manager';
+import { invalidateKnowledgeBrowserNodeCacheForSpaceIds } from './services/knowledgeBrowserListService';
+import {
+  activateEphemeralFixedKnowledgebaseWorkspace,
+  shouldPersistKnowledgebaseWorkspaceState,
+  type KnowledgebaseWorkspaceMode,
+} from './workspaceMode';
 
 export * from './components/ui/toast-manager';
 export * from './services/tabService';
 export interface KnowledgeBaseAppProps {
   activeTab?: 'kb' | 'market';
+  /** Locks the workspace to one server-authorized space with no fallback selection. */
+  fixedKnowledgeBase?: KnowledgeBase;
   onActiveTabChange?: (tab: 'kb' | 'market') => void;
+  /** Uses memory-only state for a server-authorized fixed group workspace. */
+  workspaceMode?: KnowledgebaseWorkspaceMode;
 }
 
-export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }: KnowledgeBaseAppProps = {}) {
-  const [localActiveTab, setLocalActiveTab] = useLocalStorage<'kb' | 'market'>('app-kb-active-tab', 'kb');
+export function KnowledgeBaseApp({
+  activeTab: propActiveTab,
+  fixedKnowledgeBase,
+  onActiveTabChange,
+  workspaceMode = 'standard',
+}: KnowledgeBaseAppProps = {}) {
+  const fixedKnowledgeBaseId = fixedKnowledgeBase?.id.trim() || undefined;
+  const effectiveWorkspaceMode: KnowledgebaseWorkspaceMode = fixedKnowledgeBaseId
+    ? 'ephemeral-fixed'
+    : workspaceMode;
+  const isEphemeralFixedWorkspace = effectiveWorkspaceMode === 'ephemeral-fixed';
+  const persistWorkspaceState = shouldPersistKnowledgebaseWorkspaceState(effectiveWorkspaceMode);
+  const [localActiveTab, setLocalActiveTab] = useLocalStorage<'kb' | 'market'>(
+    'app-kb-active-tab',
+    'kb',
+    { enabled: persistWorkspaceState },
+  );
   const activeTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
   
   const setActiveTab = (tab: 'kb' | 'market') => {
@@ -54,7 +82,14 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
 
   const { t } = useTranslation(['kb', 'common']);
   const navigate = useNavigate();
-  const [activeKb, setActiveKb] = useLocalStorage<KnowledgeBase | null>('app-active-kb', null);
+  const [storedActiveKb, setStoredActiveKb] = useLocalStorage<KnowledgeBase | null>(
+    'app-active-kb',
+    null,
+    { enabled: persistWorkspaceState },
+  );
+  const [fixedActiveKb, setFixedActiveKb] = useState<KnowledgeBase | null>(null);
+  const activeKb = fixedKnowledgeBase ? fixedActiveKb : storedActiveKb;
+  const setActiveKb = fixedKnowledgeBase ? setFixedActiveKb : setStoredActiveKb;
   const [activeDoc, setActiveDoc] = useState<DocumentMeta | null>(null);
   const [openDocs, setOpenDocs] = useState<DocumentMeta[]>([]);
   const [kbs, setKbs] = useState<{ team: KnowledgeBase[], personal: KnowledgeBase[], public: KnowledgeBase[] }>({ team: [], personal: [], public: [] });
@@ -62,12 +97,28 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
   const [docContent, setDocContent] = useState<string>('');
   const [loadingKbs, setLoadingKbs] = useState<boolean>(true);
   const [loadingDocs, setLoadingDocs] = useState<boolean>(false);
-  const [isAIOpen, setIsAIOpen] = useLocalStorage<boolean>('app-is-ai-open', true);
-  const [aiWidth, setAiWidth] = useLocalStorage<number>('app-ai-width', 420);
+  const [isAIOpen, setIsAIOpen] = useLocalStorage<boolean>(
+    'app-is-ai-open',
+    true,
+    { enabled: persistWorkspaceState },
+  );
+  const [aiWidth, setAiWidth] = useLocalStorage<number>(
+    'app-ai-width',
+    420,
+    { enabled: persistWorkspaceState },
+  );
   const [isDraggingAi, setIsDraggingAi] = useState<boolean>(false);
-  const [kbsWidth, setKbsWidth] = useLocalStorage<number>('app-kbs-width', 240);
+  const [kbsWidth, setKbsWidth] = useLocalStorage<number>(
+    'app-kbs-width',
+    240,
+    { enabled: persistWorkspaceState },
+  );
   const [isDraggingKbs, setIsDraggingKbs] = useState<boolean>(false);
-  const [docsWidth, setDocsWidth] = useLocalStorage<number>('app-docs-width', 340);
+  const [docsWidth, setDocsWidth] = useLocalStorage<number>(
+    'app-docs-width',
+    340,
+    { enabled: persistWorkspaceState },
+  );
   const [isDraggingDocs, setIsDraggingDocs] = useState<boolean>(false);
   
   const [isCreateKbModalOpen, setIsCreateKbModalOpen] = useState<boolean>(false);
@@ -85,6 +136,27 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
   const [gitModalMode, setGitModalMode] = useState<'import' | 'sync' | null>(null);
   const [gitModalKb, setGitModalKb] = useState<KnowledgeBase | null>(null);
   const [cloudDriveKb, setCloudDriveKb] = useState<KnowledgeBase | null>(null);
+  const tabCache = useMemo<KnowledgebaseTabCache>(() => {
+    return persistWorkspaceState ? TabCacheService : new EphemeralTabCacheService();
+  }, [persistWorkspaceState]);
+
+  useEffect(() => {
+    if (!isEphemeralFixedWorkspace || !fixedKnowledgeBaseId) {
+      return undefined;
+    }
+
+    const releaseWorkspace = activateEphemeralFixedKnowledgebaseWorkspace(fixedKnowledgeBaseId);
+    return () => {
+      releaseWorkspace();
+      invalidateKnowledgeBrowserNodeCacheForSpaceIds(fixedKnowledgeBaseId);
+    };
+  }, [fixedKnowledgeBaseId, isEphemeralFixedWorkspace]);
+
+  useEffect(() => {
+    return () => {
+      tabCache.dispose();
+    };
+  }, [tabCache]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -124,10 +196,23 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
     let cancelled = false;
 
     const loadKnowledgeBases = async () => {
+      if (isEphemeralFixedWorkspace && (!fixedKnowledgeBase || !fixedKnowledgeBaseId)) {
+        setKbs({ team: [], personal: [], public: [] });
+        setLoadingKbs(false);
+        return;
+      }
+
       if (!getKnowledgebaseTenantId()) {
         window.setTimeout(() => {
           void loadKnowledgeBases();
         }, 300);
+        return;
+      }
+
+      if (fixedKnowledgeBase && fixedKnowledgeBaseId) {
+        setKbs({ team: [], personal: [], public: [] });
+        setLoadingKbs(false);
+        handleSelectKb(fixedKnowledgeBase, true);
         return;
       }
 
@@ -174,8 +259,8 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
     
     const kbId = currentKbId || activeKb?.id || doc.kbId;
     if (kbId) {
-      TabCacheService.openDoc(kbId, doc);
-      setOpenDocs(TabCacheService.getOpenDocs(kbId));
+      tabCache.openDoc(kbId, doc);
+      setOpenDocs(tabCache.getOpenDocs(kbId));
     } else {
       // Fallback
       if (doc.type !== 'folder') {
@@ -193,15 +278,18 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
     } else {
       setDocContent('');
     }
-  }, [activeKb]);
+  }, [activeKb, tabCache]);
 
   const handleSelectKb = useCallback((kb: KnowledgeBase, preserveState = false) => {
+    if (fixedKnowledgeBaseId && kb.id !== fixedKnowledgeBaseId) {
+      return;
+    }
     setActiveKb(kb);
     setActiveTab('kb'); // Force switch back to KB docs view upon selecting a KB
-    TabCacheService.initKb(kb.id);
+    tabCache.initKb(kb.id);
     
-    const cachedDocs = TabCacheService.getOpenDocs(kb.id);
-    const cachedActiveId = TabCacheService.getActiveDocId(kb.id);
+    const cachedDocs = tabCache.getOpenDocs(kb.id);
+    const cachedActiveId = tabCache.getActiveDocId(kb.id);
     setOpenDocs(cachedDocs);
     setActiveDoc(null);
     setDocContent('');
@@ -238,22 +326,24 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         }
       }
 
-      const intent = readKbNavIntent();
-      if (intent?.highlight && intent.docId && intent.kbId === kb.id) {
-        const located = findDocInTree(data, intent.docId);
-        const parentId = located?.parentId ?? intent.parentId ?? null;
-        window.setTimeout(() => {
-          dispatchLocateKbFile({ docId: intent.docId!, parentId });
-          clearKbNavIntent();
-        }, 150);
+      if (persistWorkspaceState) {
+        const intent = readKbNavIntent();
+        if (intent?.highlight && intent.docId && intent.kbId === kb.id) {
+          const located = findDocInTree(data, intent.docId);
+          const parentId = located?.parentId ?? intent.parentId ?? null;
+          window.setTimeout(() => {
+            dispatchLocateKbFile({ docId: intent.docId!, parentId });
+            clearKbNavIntent();
+          }, 150);
+        }
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleSelectDoc, setActiveKb, setActiveDoc, setOpenDocs]);
+  }, [fixedKnowledgeBaseId, handleSelectDoc, persistWorkspaceState, setActiveKb, setActiveDoc, setOpenDocs, tabCache]);
 
   const handleCloseDoc = useCallback((docId: string) => {
     if (!activeKb) return;
-    const { remainingDocs, nextActiveId } = TabCacheService.closeDoc(activeKb.id, docId);
+    const { remainingDocs, nextActiveId } = tabCache.closeDoc(activeKb.id, docId);
     setOpenDocs(remainingDocs);
     if (!nextActiveId) {
       setActiveDoc(null);
@@ -262,21 +352,21 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
       const nextDoc = remainingDocs.find(d => d.id === nextActiveId);
       if (nextDoc) handleSelectDoc(nextDoc, activeKb.id);
     }
-  }, [activeKb, activeDoc, handleSelectDoc]);
+  }, [activeKb, activeDoc, handleSelectDoc, tabCache]);
 
   const handleCloseOthers = useCallback((docId: string) => {
     if (!activeKb) return;
-    const { remainingDocs } = TabCacheService.closeOthers(activeKb.id, docId);
+    const { remainingDocs } = tabCache.closeOthers(activeKb.id, docId);
     setOpenDocs(remainingDocs);
     if (!activeDoc || activeDoc.id !== docId) {
       const target = remainingDocs.find(d => d.id === docId);
       if (target) handleSelectDoc(target, activeKb.id);
     }
-  }, [activeKb, activeDoc, handleSelectDoc]);
+  }, [activeKb, activeDoc, handleSelectDoc, tabCache]);
 
   const handleCloseToRight = useCallback((docId: string) => {
     if (!activeKb) return;
-    const { remainingDocs, nextActiveId } = TabCacheService.closeToRight(activeKb.id, docId);
+    const { remainingDocs, nextActiveId } = tabCache.closeToRight(activeKb.id, docId);
     setOpenDocs(remainingDocs);
     if (!nextActiveId) {
        setActiveDoc(null);
@@ -285,16 +375,16 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
        const target = remainingDocs.find(d => d.id === nextActiveId);
        if (target) handleSelectDoc(target, activeKb.id);
     }
-  }, [activeKb, activeDoc, handleSelectDoc]);
+  }, [activeKb, activeDoc, handleSelectDoc, tabCache]);
 
   const handleCloseAll = useCallback(() => {
     if (activeKb) {
-      TabCacheService.closeAll(activeKb.id);
+      tabCache.closeAll(activeKb.id);
     }
     setOpenDocs([]);
     setActiveDoc(null);
     setDocContent('');
-  }, [activeKb]);
+  }, [activeKb, tabCache]);
 
   const handleTitleChange = useCallback(async (docId: string, newTitle: string) => {
     // 1. Update active list/state
@@ -533,9 +623,13 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
     }
   };
 
+  if (isEphemeralFixedWorkspace && !fixedKnowledgeBaseId) {
+    return <div className="flex-1 bg-[var(--color-kb-bg-app)]" />;
+  }
+
   return (
     <div className="flex-1 flex overflow-hidden">
-      {activeTab !== 'market' && (
+      {!isEphemeralFixedWorkspace && activeTab !== 'market' && (
         <KnowledgeBaseList 
           kbs={kbs} loadingKbs={loadingKbs} activeKb={activeKb} 
           width={kbsWidth} isDragging={isDraggingKbs} onMouseDownDrag={() => setIsDraggingKbs(true)}
@@ -581,7 +675,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         />
       )}
 
-      {activeTab === 'market' ? (
+      {!isEphemeralFixedWorkspace && activeTab === 'market' ? (
         <KnowledgeBaseMarketView 
           onSubscribedChange={() => {
             DocumentService.getKnowledgeBases().then(data => {
@@ -617,9 +711,13 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
             }}
             onMenuCreate={handleMenuCreate}
             onPublishDocs={(docs) => {
+              if (isEphemeralFixedWorkspace) {
+                return;
+              }
               setPublishDocsContext(docs);
               setIsPublishModalOpen(true);
             }}
+            publishEnabled={!isEphemeralFixedWorkspace}
             onUpdateDocs={() => {
               if (activeKb) {
                 DocumentService.getDocuments(activeKb.id).then(setDocs);
@@ -648,6 +746,9 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
               }
             }}
             onPublishDoc={(doc) => {
+              if (isEphemeralFixedWorkspace) {
+                return;
+              }
               if (selectedDocIds.size > 0) {
                 const docsToPublish: DocumentMeta[] = [];
                 const findSelectedDocs = (items: (FolderNode | DocumentMeta)[]) => {
@@ -680,11 +781,13 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
             aiWidth={aiWidth}
             isDraggingAi={isDraggingAi}
             onMouseDownDragAi={() => setIsDraggingAi(true)}
+            workspaceMode={effectiveWorkspaceMode}
+            publishEnabled={!isEphemeralFixedWorkspace}
           />
         </>
       )}
 
-      {isCreateKbModalOpen && (
+      {!isEphemeralFixedWorkspace && isCreateKbModalOpen && (
         <CreateKbModal 
           newKbTitle={newKbTitle} setNewKbTitle={setNewKbTitle}
           newKbType={newKbType} setNewKbType={setNewKbType}
@@ -695,7 +798,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         />
       )}
 
-      {isPublishModalOpen && (
+      {!isEphemeralFixedWorkspace && isPublishModalOpen && (
         <PublishModal 
           documents={publishDocsContext}
           onClose={() => {
@@ -709,7 +812,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         />
       )}
 
-      {isDeployModalOpen && (
+      {!isEphemeralFixedWorkspace && isDeployModalOpen && (
         <DeployWebsiteModal 
           isOpen={isDeployModalOpen}
           activeKb={deployActiveKb}
@@ -721,7 +824,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         />
       )}
 
-      {settingsKb && (
+      {!isEphemeralFixedWorkspace && settingsKb && (
         <KnowledgeBaseSettingsModal
           kb={settingsKb}
           onClose={() => setSettingsKb(null)}
@@ -741,7 +844,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         />
       )}
 
-      {isMarketOpen && (
+      {!isEphemeralFixedWorkspace && isMarketOpen && (
         <KnowledgeBaseMarketModal
           onClose={() => setIsMarketOpen(false)}
           onSubscribedChange={() => {
@@ -760,7 +863,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         />
       )}
 
-      {gitModalKb && gitModalMode && (
+      {!isEphemeralFixedWorkspace && gitModalKb && gitModalMode && (
         <GitIntegrationModal
           mode={gitModalMode}
           kb={gitModalKb}
@@ -780,7 +883,7 @@ export function KnowledgeBaseApp({ activeTab: propActiveTab, onActiveTabChange }
         />
       )}
 
-      {cloudDriveKb && (
+      {!isEphemeralFixedWorkspace && cloudDriveKb && (
         <CloudDriveModal
           isOpen={!!cloudDriveKb}
           onClose={() => setCloudDriveKb(null)}

@@ -62,6 +62,7 @@ import {
 
 import type { DocumentMeta, FolderNode, KnowledgeBase } from './document';
 import { normalizeSdkWorkListPage } from './sdkWorkListPage';
+import { getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId } from '../workspaceMode';
 
 function requireTenantId(): string {
   return requireKnowledgebaseTenantId();
@@ -73,6 +74,38 @@ function requireSdkClient() {
 
 function spaceIdFromKbId(kbId: string): string {
   return parseKnowledgeSpaceId(kbId);
+}
+
+function getEphemeralWorkspaceSpaceId(): string | null {
+  return getActiveEphemeralFixedKnowledgebaseWorkspaceSpaceId();
+}
+
+function shouldPersistBrowserWorkspaceState(): boolean {
+  return getEphemeralWorkspaceSpaceId() === null;
+}
+
+function requireWorkspaceSpaceId(kbId: string): string {
+  const spaceId = spaceIdFromKbId(kbId);
+  const ephemeralSpaceId = getEphemeralWorkspaceSpaceId();
+  if (ephemeralSpaceId !== null && ephemeralSpaceId !== spaceId) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.SPACE_REQUIRED);
+  }
+  return spaceId;
+}
+
+function requireRegisteredOrEphemeralWorkspaceSpace(kbId: string): string {
+  const spaceId = requireWorkspaceSpaceId(kbId);
+  if (getEphemeralWorkspaceSpaceId() === null) {
+    requireRegisteredSpaceId(kbId);
+  }
+  return spaceId;
+}
+
+function assertEphemeralWorkspaceSpaceId(spaceId: string): void {
+  const ephemeralSpaceId = getEphemeralWorkspaceSpaceId();
+  if (ephemeralSpaceId !== null && ephemeralSpaceId !== spaceId) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.SPACE_REQUIRED);
+  }
 }
 
 function formatBytes(bytes: string | number | null | undefined): string | undefined {
@@ -251,6 +284,21 @@ export async function getKnowledgeBases(): Promise<{
   personal: KnowledgeBase[];
   public: KnowledgeBase[];
 }> {
+  const ephemeralSpaceId = getEphemeralWorkspaceSpaceId();
+  if (ephemeralSpaceId !== null) {
+    const space = await requireSdkClient().knowledge.spaces.retrieve(ephemeralSpaceId);
+    return {
+      team: [{
+        id: ephemeralSpaceId,
+        title: space.name,
+        icon: '📘',
+        type: 'team',
+      }],
+      personal: [],
+      public: [],
+    };
+  }
+
   const tenantId = requireTenantId();
   const client = requireSdkClient();
   let registry = readRegisteredSpaces(tenantId);
@@ -283,6 +331,10 @@ export async function getKnowledgeBases(): Promise<{
 export async function createKnowledgeBase(
   kb: Partial<KnowledgeBase>,
 ): Promise<KnowledgeBase> {
+  if (getEphemeralWorkspaceSpaceId() !== null) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.UNSUPPORTED_OPERATION);
+  }
+
   const tenantId = requireTenantId();
   const client = requireSdkClient();
   const kbType = kb.type ?? 'personal';
@@ -319,6 +371,10 @@ export async function updateKnowledgeBase(
   id: string,
   updates: Partial<KnowledgeBase>,
 ): Promise<KnowledgeBase> {
+  if (getEphemeralWorkspaceSpaceId() !== null) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.UNSUPPORTED_OPERATION);
+  }
+
   const tenantId = requireTenantId();
   const spaceId = spaceIdFromKbId(id);
   const client = requireSdkClient();
@@ -386,6 +442,10 @@ export async function hydrateKnowledgeBase(kb: KnowledgeBase): Promise<Knowledge
 }
 
 export async function deleteKnowledgeBase(id: string): Promise<boolean> {
+  if (getEphemeralWorkspaceSpaceId() !== null) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.UNSUPPORTED_OPERATION);
+  }
+
   const tenantId = requireTenantId();
   const spaceId = spaceIdFromKbId(id);
   const client = requireSdkClient();
@@ -395,7 +455,7 @@ export async function deleteKnowledgeBase(id: string): Promise<boolean> {
 }
 
 export async function getDocuments(kbId: string): Promise<(FolderNode | DocumentMeta)[]> {
-  const spaceId = spaceIdFromKbId(kbId);
+  const spaceId = requireWorkspaceSpaceId(kbId);
   await ensureKnowledgeBrowserFolderLoaded(spaceId, null);
   const nodes = await listLoadedKnowledgeBrowserNodes(spaceId);
   const grouped = groupDocumentsByParent(nodes, kbId);
@@ -428,7 +488,7 @@ export async function ensureFolderChildrenLoaded(
   kbId: string,
   folderId: string | null,
 ): Promise<void> {
-  const spaceId = spaceIdFromKbId(kbId);
+  const spaceId = requireWorkspaceSpaceId(kbId);
   await ensureKnowledgeBrowserFolderLoaded(spaceId, folderId);
 }
 
@@ -476,6 +536,15 @@ async function readBrowserNodeContent(
 async function resolveBrowserNodeByDocumentId(
   documentId: string,
 ): Promise<{ spaceId: string; node: KnowledgeBrowserNode } | null> {
+  const ephemeralSpaceId = getEphemeralWorkspaceSpaceId();
+  if (ephemeralSpaceId !== null) {
+    const okfRef = parseOkfDocumentId(documentId);
+    if (okfRef) {
+      assertEphemeralWorkspaceSpaceId(okfRef.spaceId);
+    }
+    return resolveBrowserNodeInSpace(ephemeralSpaceId, documentId);
+  }
+
   const tenantId = getKnowledgebaseTenantId();
   if (!tenantId) {
     return null;
@@ -522,7 +591,7 @@ async function resolveBrowserNodeInSpace(
     }
 
     const documentIdForSdk = parseSafeNumericDocumentId(documentId);
-    if (documentIdForSdk) {
+    if (documentIdForSdk && shouldPersistBrowserWorkspaceState()) {
       try {
         const document = await requireSdkClient().knowledge.documents.retrieve(documentIdForSdk);
         if (document.spaceId === spaceId && document.originalFileDriveNodeId) {
@@ -560,40 +629,50 @@ async function resolveBrowserNodeInSpace(
 }
 
 export async function getDocumentContent(id: string): Promise<string> {
-  const tenantId = requireTenantId();
+  const persistBrowserState = shouldPersistBrowserWorkspaceState();
+  const tenantId = persistBrowserState ? requireTenantId() : null;
   const numericDocumentId = parseSafeNumericDocumentId(id);
 
-  if (numericDocumentId !== null) {
+  if (numericDocumentId !== null && persistBrowserState) {
     const authoritative = await fetchKnowledgeDocumentContent(numericDocumentId);
     if (authoritative?.contentMarkdown !== undefined) {
       const contentVersion = authoritative.contentVersion?.trim()
         || authoritative.contentSource?.trim()
         || `document-${authoritative.documentId}`;
-      const cached = readLocalDocumentContent(tenantId, id, contentVersion);
-      if (cached !== undefined) {
-        return cached;
+      if (tenantId !== null) {
+        const cached = readLocalDocumentContent(tenantId, id, contentVersion);
+        if (cached !== undefined) {
+          return cached;
+        }
       }
       if (authoritative.contentMarkdown.trim()) {
-        writeLocalDocumentContent(tenantId, id, authoritative.contentMarkdown, contentVersion);
+        if (tenantId !== null) {
+          writeLocalDocumentContent(tenantId, id, authoritative.contentMarkdown, contentVersion);
+        }
         return authoritative.contentMarkdown;
       }
     }
   }
 
-  const cached = readLocalDocumentContent(tenantId, id);
-  if (cached !== undefined) {
-    const recent = readRecentDocuments(tenantId).find((entry) => entry.id === id);
-    if (recent) {
-      touchRecentDocument(tenantId, recent);
+  if (tenantId !== null) {
+    const cached = readLocalDocumentContent(tenantId, id);
+    if (cached !== undefined) {
+      const recent = readRecentDocuments(tenantId).find((entry) => entry.id === id);
+      if (recent) {
+        touchRecentDocument(tenantId, recent);
+      }
+      return cached;
     }
-    return cached;
   }
 
   const okfRef = parseOkfDocumentId(id);
   if (okfRef) {
     try {
+      assertEphemeralWorkspaceSpaceId(okfRef.spaceId);
       const content = await readOkfConceptMarkdown(okfRef.spaceId, okfRef.conceptRowId);
-      writeLocalDocumentContent(tenantId, id, content, `okf-${okfRef.conceptRowId}`);
+      if (tenantId !== null) {
+        writeLocalDocumentContent(tenantId, id, content, `okf-${okfRef.conceptRowId}`);
+      }
       return content;
     } catch (error) {
       console.warn('[KnowledgebaseDocumentApiBridge] okf concept read failed.', error);
@@ -601,9 +680,10 @@ export async function getDocumentContent(id: string): Promise<string> {
   }
 
   const client = requireSdkClient();
-  if (numericDocumentId !== null) {
+  if (numericDocumentId !== null && persistBrowserState) {
     try {
       const document = await client.knowledge.documents.retrieve(String(numericDocumentId));
+      assertEphemeralWorkspaceSpaceId(String(document.spaceId));
       trackRecentDocument({
         id: String(document.id),
         title: document.title,
@@ -617,7 +697,9 @@ export async function getDocumentContent(id: string): Promise<string> {
         document.title,
       );
       if (indexed) {
-        writeLocalDocumentContent(tenantId, id, indexed, `indexed-${document.id}`);
+        if (tenantId !== null) {
+          writeLocalDocumentContent(tenantId, id, indexed, `indexed-${document.id}`);
+        }
         return indexed;
       }
       return `# ${document.title}\n\nThis document is indexed in Knowledgebase but no retrieval chunks were found yet.`;
@@ -631,7 +713,9 @@ export async function getDocumentContent(id: string): Promise<string> {
     try {
       const content = await readBrowserNodeContent(browserMatch.node, browserMatch.spaceId);
       if (content) {
-        writeLocalDocumentContent(tenantId, id, content);
+        if (tenantId !== null) {
+          writeLocalDocumentContent(tenantId, id, content);
+        }
         return content;
       }
     } catch (error) {
@@ -654,11 +738,15 @@ function parseSafeNumericDocumentId(id: string): string | null {
 }
 
 export async function saveDocumentContent(id: string, content: string): Promise<boolean> {
-  const tenantId = requireTenantId();
-  writeLocalDocumentContent(tenantId, id, content);
+  const persistBrowserState = shouldPersistBrowserWorkspaceState();
+  const tenantId = persistBrowserState ? requireTenantId() : null;
+  if (tenantId !== null) {
+    writeLocalDocumentContent(tenantId, id, content);
+  }
 
   const okfRef = parseOkfDocumentId(id);
   if (okfRef) {
+    assertEphemeralWorkspaceSpaceId(okfRef.spaceId);
     const client = requireSdkClient();
     const concept = await client.knowledge.okf.concepts.retrieve(String(okfRef.conceptRowId));
     await client.knowledge.okf.concepts.update({
@@ -672,17 +760,35 @@ export async function saveDocumentContent(id: string, content: string): Promise<
     return true;
   }
 
-  const numericDocumentId = await resolveNumericDocumentId(id);
+  const ephemeralSpaceId = getEphemeralWorkspaceSpaceId();
+  const scopedBrowserMatch = ephemeralSpaceId !== null
+    ? await resolveBrowserNodeByDocumentId(id)
+    : null;
+  const numericDocumentId = ephemeralSpaceId !== null
+    ? scopedBrowserMatch?.node.documentId ?? null
+    : await resolveNumericDocumentId(id);
   if (!numericDocumentId) {
     throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_NOT_INDEXED);
   }
 
   try {
     const client = requireSdkClient();
-    const document = await client.knowledge.documents.retrieve(String(numericDocumentId));
+    let spaceId: string;
+    let title: string;
+    if (ephemeralSpaceId !== null) {
+      if (!scopedBrowserMatch) {
+        throwKnowledgebaseError(KnowledgebaseErrorCodes.DOCUMENT_RESOLVE_FAILED);
+      }
+      spaceId = ephemeralSpaceId;
+      title = scopedBrowserMatch.node.name;
+    } else {
+      const document = await client.knowledge.documents.retrieve(String(numericDocumentId));
+      spaceId = String(document.spaceId);
+      title = document.title;
+    }
     const job = await client.knowledge.ingests.create({
-      spaceId: document.spaceId,
-      title: document.title,
+      spaceId,
+      title,
       payloadMarkdown: content,
       idempotencyKey: `pc-save-${numericDocumentId}`.slice(0, 128),
     });
@@ -692,13 +798,15 @@ export async function saveDocumentContent(id: string, content: string): Promise<
         cause: finalJob.errorMessage ?? undefined,
       });
     }
-    writeLocalDocumentContent(
-      tenantId,
-      id,
-      content,
-      `ingest-${finalJob.id}`,
-    );
-    invalidateKnowledgeBrowserNodeCacheForSpaceIds(document.spaceId);
+    if (tenantId !== null) {
+      writeLocalDocumentContent(
+        tenantId,
+        id,
+        content,
+        `ingest-${finalJob.id}`,
+      );
+    }
+    invalidateKnowledgeBrowserNodeCacheForSpaceIds(spaceId);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throwKnowledgebaseError(KnowledgebaseErrorCodes.OPERATION_FAILED, { cause: detail });
@@ -891,6 +999,7 @@ export async function placeDocumentInParentFolder(
 
 export async function updateDocument(id: string, updates: Partial<DocumentMeta>): Promise<boolean> {
   if (updates.kbId !== undefined) {
+    requireWorkspaceSpaceId(updates.kbId);
     const sourceKbId = await resolveDocumentKbId(id);
     if (sourceKbId && updates.kbId !== sourceKbId) {
       let moved: DocumentMeta | null = null;
@@ -1025,6 +1134,10 @@ export async function searchAll(query: string): Promise<{
   kbs: KnowledgeBase[];
   docs: DocumentMeta[];
 }> {
+  if (getEphemeralWorkspaceSpaceId() !== null) {
+    return { kbs: [], docs: [] };
+  }
+
   const tenantId = requireTenantId();
   const client = requireSdkClient();
   const trimmedQuery = query.trim();
@@ -1124,6 +1237,10 @@ async function searchOkfConceptDocs(
 }
 
 function trackRecentDocument(doc: Pick<DocumentMeta, 'id' | 'title' | 'type' | 'kbId' | 'author'>): void {
+  if (!shouldPersistBrowserWorkspaceState()) {
+    return;
+  }
+
   const tenantId = getKnowledgebaseTenantId();
   if (!tenantId || doc.type === 'folder') {
     return;
@@ -1182,6 +1299,10 @@ async function collectRecentDocumentsFromSpaces(limit: number): Promise<Document
 }
 
 export async function getRecentDocuments(limit: number = 8): Promise<DocumentMeta[]> {
+  if (!shouldPersistBrowserWorkspaceState()) {
+    return [];
+  }
+
   const tenantId = requireTenantId();
   const cached = readRecentDocuments(tenantId)
     .filter((entry) => entry.type !== 'folder')
@@ -1211,6 +1332,10 @@ export async function getRecentDocuments(limit: number = 8): Promise<DocumentMet
 }
 
 export async function touchDocument(id: string): Promise<boolean> {
+  if (!shouldPersistBrowserWorkspaceState()) {
+    return false;
+  }
+
   const tenantId = requireTenantId();
   const existing = readRecentDocuments(tenantId).find((entry) => entry.id === id);
   if (existing) {
@@ -1258,12 +1383,13 @@ export async function touchDocument(id: string): Promise<boolean> {
 }
 
 export async function createDocument(doc: Partial<DocumentMeta>): Promise<DocumentMeta> {
-  const tenantId = requireTenantId();
+  const persistBrowserState = shouldPersistBrowserWorkspaceState();
+  const tenantId = persistBrowserState ? requireTenantId() : null;
   const client = requireSdkClient();
   if (!doc.kbId) {
     throwKnowledgebaseError(KnowledgebaseErrorCodes.KB_ID_REQUIRED);
   }
-  requireRegisteredSpaceId(doc.kbId);
+  const spaceId = requireRegisteredOrEphemeralWorkspaceSpace(doc.kbId);
 
   if (doc.type === 'folder') {
     if (!isKnowledgebaseDriveApiAvailable()) {
@@ -1299,7 +1425,6 @@ export async function createDocument(doc: Partial<DocumentMeta>): Promise<Docume
     };
   }
 
-  const spaceId = spaceIdFromKbId(doc.kbId);
   const title = doc.title?.trim() || 'Untitled';
   const content = doc.content ?? '';
   if (!isBlank(content)) {
@@ -1326,7 +1451,9 @@ export async function createDocument(doc: Partial<DocumentMeta>): Promise<Docume
       author: doc.author ?? 'Knowledgebase',
       content,
     };
-    writeLocalDocumentContent(tenantId, createdDoc.id, content, `ingest-${finalJob.id}`);
+    if (tenantId !== null) {
+      writeLocalDocumentContent(tenantId, createdDoc.id, content, `ingest-${finalJob.id}`);
+    }
     trackRecentDocument(createdDoc);
     if (doc.parentId) {
       await placeDocumentInParentFolder(createdDoc.id, doc.kbId, doc.parentId);
@@ -1352,7 +1479,9 @@ export async function createDocument(doc: Partial<DocumentMeta>): Promise<Docume
   };
 
   trackRecentDocument(createdDoc);
-  writeLocalDocumentContent(tenantId, createdDoc.id, content, `document-${created.id}`);
+  if (tenantId !== null) {
+    writeLocalDocumentContent(tenantId, createdDoc.id, content, `document-${created.id}`);
+  }
   if (doc.parentId) {
     await placeDocumentInParentFolder(createdDoc.id, doc.kbId, doc.parentId);
   }
@@ -1363,6 +1492,7 @@ export async function createDocument(doc: Partial<DocumentMeta>): Promise<Docume
 async function resolveDocumentKbId(id: string): Promise<string | null> {
   const okfRef = parseOkfDocumentId(id);
   if (okfRef) {
+    assertEphemeralWorkspaceSpaceId(String(okfRef.spaceId));
     return String(okfRef.spaceId);
   }
 
@@ -1375,6 +1505,7 @@ async function resolveDocumentKbId(id: string): Promise<string | null> {
   if (documentIdForSdk) {
     try {
       const document = await requireSdkClient().knowledge.documents.retrieve(documentIdForSdk);
+      assertEphemeralWorkspaceSpaceId(String(document.spaceId));
       return String(document.spaceId);
     } catch {
       return null;
@@ -1432,9 +1563,10 @@ export async function copyDocument(
   targetParentId: string | null,
   options?: { titleSuffix?: string },
 ): Promise<DocumentMeta> {
-  requireRegisteredSpaceId(targetKbId);
+  requireRegisteredOrEphemeralWorkspaceSpace(targetKbId);
   const okfRef = parseOkfDocumentId(sourceId);
   if (okfRef) {
+    assertEphemeralWorkspaceSpaceId(String(okfRef.spaceId));
     const created = await copyOkfConcept(
       okfRef.spaceId,
       okfRef.conceptRowId,
@@ -1533,12 +1665,16 @@ export async function copyDocument(
 }
 
 export async function deleteDocument(id: string): Promise<boolean> {
-  const tenantId = requireTenantId();
-  removeLocalDocumentContent(tenantId, id);
-  removeRecentDocument(tenantId, id);
+  const persistBrowserState = shouldPersistBrowserWorkspaceState();
+  const tenantId = persistBrowserState ? requireTenantId() : null;
+  if (tenantId !== null) {
+    removeLocalDocumentContent(tenantId, id);
+    removeRecentDocument(tenantId, id);
+  }
 
   if (parseOkfDocumentId(id)) {
     const okfRef = parseOkfDocumentId(id)!;
+    assertEphemeralWorkspaceSpaceId(String(okfRef.spaceId));
     const client = requireSdkClient();
     await client.knowledge.okf.concepts.delete(String(okfRef.conceptRowId));
     invalidateKnowledgeBrowserNodeCacheForSpaceIds(okfRef.spaceId);

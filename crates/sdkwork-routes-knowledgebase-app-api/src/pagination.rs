@@ -4,8 +4,8 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeBrowserListData, KnowledgeBrowserNode, KnowledgeBrowserView,
 };
 use sdkwork_utils_rust::{
-    base64url_decode, base64url_encode, PageInfo, PageMode, SdkWorkPageData, SdkWorkResultCode,
-    DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE,
+    base64url_decode, base64url_encode, is_blank, PageInfo, PageMode, SdkWorkPageData,
+    SdkWorkResultCode, DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE,
 };
 use serde::{Deserialize, Serialize};
 
@@ -60,7 +60,7 @@ pub fn encode_okf_concept_cursor(
     space_id: u64,
     after_concept_id: &str,
 ) -> Result<String, SdkWorkResultCode> {
-    if after_concept_id.trim().is_empty() {
+    if is_blank(Some(after_concept_id)) {
         return Err(SdkWorkResultCode::InvalidParameter);
     }
     encode_okf_cursor(&OkfConceptCursor {
@@ -87,7 +87,7 @@ pub fn parse_okf_concept_cursor(
         || payload.kind != OKF_CONCEPT_CURSOR_KIND
         || payload.tenant_id != tenant_id
         || payload.space_id != space_id
-        || payload.after_concept_id.trim().is_empty()
+        || is_blank(Some(&payload.after_concept_id))
     {
         return Err(SdkWorkResultCode::InvalidParameter);
     }
@@ -151,7 +151,7 @@ fn decode_okf_cursor(cursor: Option<&str>) -> Result<Option<Vec<u8>>, SdkWorkRes
     let Some(cursor) = cursor else {
         return Ok(None);
     };
-    if cursor.is_empty()
+    if is_blank(Some(cursor))
         || cursor.trim() != cursor
         || cursor.len() > MAX_OKF_CURSOR_LENGTH
         || cursor.bytes().all(|byte| byte.is_ascii_digit())
@@ -165,7 +165,7 @@ fn decode_okf_cursor(cursor: Option<&str>) -> Result<Option<Vec<u8>>, SdkWorkRes
 
 /// Parse an opaque numeric id cursor for keyset pagination.
 pub fn parse_u64_cursor(cursor: Option<&str>) -> Result<Option<u64>, SdkWorkResultCode> {
-    let Some(cursor) = cursor.map(str::trim).filter(|value| !value.is_empty()) else {
+    let Some(cursor) = cursor.map(str::trim).filter(|value| !is_blank(Some(value))) else {
         return Ok(None);
     };
     cursor

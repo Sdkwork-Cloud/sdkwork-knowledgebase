@@ -6,8 +6,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::commerce_store::{
     KnowledgeMarketStore, KnowledgeMarketStoreError, KnowledgeSiteDeploymentStore,
     KnowledgeSiteDeploymentStoreError,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_access_control::KnowledgeAccessRole;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_chunk_store::KnowledgeChunkStore;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
 use sdkwork_knowledgebase_contract::market::{
     KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest,
     KnowledgeMarketSubscriptionResult,
@@ -22,7 +22,10 @@ use sdkwork_utils_rust::{is_blank, SdkWorkPageData};
 
 use crate::{
     hosted::RuntimeDocumentMarkdownReader,
-    hosted_access::{ensure_runtime_tenant, require_actor_id, require_space_access},
+    hosted_access::{
+        ensure_runtime_tenant, require_actor_id, require_space_access,
+        require_space_access_with_role,
+    },
     runtime::KnowledgebaseRuntime,
     ApiError, ApiResult, KnowledgeAppRequestContext, KnowledgeCommerceAppService,
 };
@@ -128,7 +131,13 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
         request: KnowledgeSiteDeploymentRequest,
     ) -> ApiResult<KnowledgeSiteDeploymentResult> {
         ensure_runtime_tenant(&self.runtime, &context)?;
-        let space = require_space_access(&self.runtime, &context, request.space_id).await?;
+        let space = require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         let markdown_reader = RuntimeDocumentMarkdownReader::new(self.runtime.clone());
         let service = KnowledgeSiteDeploymentService::new(
             self.runtime.document_store(),
@@ -161,13 +170,7 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
             .get_deployment(context.tenant_id, deployment_id)
             .await
             .map_err(map_site_deployment_store_error)?;
-        require_space_access(&self.runtime, &context, record.space_id).await?;
-        let space = self
-            .runtime
-            .space_store()
-            .get_space(record.space_id)
-            .await
-            .map_err(ApiError::from)?;
+        let space = require_space_access(&self.runtime, &context, record.space_id).await?;
         let markdown_reader = RuntimeDocumentMarkdownReader::new(self.runtime.clone());
         let service = KnowledgeSiteDeploymentService::new(
             self.runtime.document_store(),
@@ -198,7 +201,13 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
                 "space_id is required",
             ));
         }
-        require_space_access(&self.runtime, &context, request.space_id).await?;
+        require_space_access_with_role(
+            &self.runtime,
+            &context,
+            request.space_id,
+            KnowledgeAccessRole::Writer,
+        )
+        .await?;
         match request.task_type {
             KnowledgeMediaTaskType::SpeechToText => {
                 if let Some(document_id) = request.document_id.filter(|value| *value > 0) {

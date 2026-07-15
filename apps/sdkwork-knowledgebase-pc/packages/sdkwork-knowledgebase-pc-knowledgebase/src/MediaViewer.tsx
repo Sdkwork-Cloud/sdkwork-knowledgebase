@@ -6,6 +6,10 @@ import { VideoPlayer } from './components/players/VideoPlayer';
 import { FileDownloader } from './components/players/FileDownloader';
 import { MusicPlayer } from './components/players/MusicPlayer';
 import { useHydratedViewerDocument } from './hooks/useHydratedViewerDocument';
+import {
+  isKnowledgebaseWorkspaceAiEnabled,
+  type KnowledgebaseWorkspaceMode,
+} from './workspaceMode';
 
 export interface MediaViewerProps {
   activeDoc: DocumentMeta;
@@ -17,6 +21,7 @@ export interface MediaViewerProps {
   onTitleChange?: (title: string) => void;
   activeKb?: KnowledgeBase | null;
   onUpdateDocs?: () => void;
+  workspaceMode?: KnowledgebaseWorkspaceMode;
 }
 
 export function MediaViewer({ 
@@ -28,10 +33,12 @@ export function MediaViewer({
   onTranscribeComplete,
   onTitleChange,
   activeKb,
-  onUpdateDocs
+  onUpdateDocs,
+  workspaceMode = 'standard',
 }: MediaViewerProps) {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const viewDoc = useHydratedViewerDocument(activeDoc);
+  const aiEnabled = isKnowledgebaseWorkspaceAiEnabled(workspaceMode);
 
   // Clear toast after timeout
   useEffect(() => {
@@ -82,6 +89,7 @@ export function MediaViewer({
             isTranscribing={isTranscribing}
             onTranscribeStart={onTranscribeStart}
             onTranscribeComplete={onTranscribeComplete}
+            aiEnabled={aiEnabled}
           />
         )}
 

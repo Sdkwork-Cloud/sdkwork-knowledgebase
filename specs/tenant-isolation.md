@@ -86,9 +86,10 @@ Additional guard functions enforce scope at the handler level:
 `SDKWORK_KNOWLEDGEBASE_TENANT_ID`. Postgres pool `after_connect` sets
 `app.current_tenant_id` to that deployment tenant.
 
-**Phase 2 (shared SaaS):** authenticated request tenant must be applied on **every**
-connection `acquire()` via `set_postgres_session_tenant_id` before tenant-scoped SQL.
-Deployment env tenant remains the fail-closed fallback for worker-only processes.
+**Phase 2 (shared SaaS):** authenticated request tenant must be applied with `SET LOCAL`
+inside every tenant-scoped transaction. The current `after_connect` behavior binds a
+deployment tenant and does not implement shared request checkout. Deployment env tenant
+remains the fail-closed mode for dedicated API and worker processes.
 
 RLS policy `tenant_isolation` on all tenant-scoped tables:
   ```sql
@@ -155,7 +156,7 @@ knowledgebase statistics:
 ### 5.3 Cross-Deployment Isolation
 
 - Each tenant runs in its own API/worker process (Phase 1)
-- Shared Postgres instance (Phase 2+) uses RLS session context per connection
+- Shared Postgres requires request-scoped transaction context and pooled-connection contamination tests; this profile is not yet enabled
 - No cross-tenant data access is possible even if token validation is bypassed
 
 ### 5.4 Tenant Business Quotas (Phase 2+)
@@ -168,7 +169,7 @@ Business quotas are enforced in app-api handlers and surfaced to operators throu
 | `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_DOCUMENTS` | platform default | Document create |
 | `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_CONCURRENT_INGEST_JOBS` | platform default | Ingest start / post-enqueue verify |
 | `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_RETRIEVALS_PER_MINUTE` | platform default | Retrieval rate limit store |
-| `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_STORAGE_BYTES` | 100 GiB | Markdown ingest, upload session complete, and drive import (projected against `SUM(kb_drive_object_ref.size_bytes)` for active refs) |
+| `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_STORAGE_BYTES` | 100 GiB | Measured upload/object-ref writes; Drive import projected-size reservation remains required before shared SaaS release |
 
 Quota violations return `ProblemDetail` with code `60002` (`knowledge_tenant_quota_exceeded`).
 

@@ -29,15 +29,7 @@ pub fn install_system_tray(app: &AppHandle) -> Result<TrayMenuState, Box<dyn std
     let settings_item = MenuItem::with_id(app, "tray-settings", "Settings", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "tray-quit", "Quit", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(
-        app,
-        &[
-            &show_item,
-            &settings_item,
-            &separator,
-            &quit_item,
-        ],
-    )?;
+    let menu = Menu::with_items(app, &[&show_item, &settings_item, &separator, &quit_item])?;
 
     let tray_icon = TrayIconBuilder::with_id(TRAY_ICON_ID)
         .icon(

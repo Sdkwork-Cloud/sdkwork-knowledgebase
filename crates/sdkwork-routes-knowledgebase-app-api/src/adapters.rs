@@ -355,6 +355,7 @@ impl KnowledgeAppApi for AgentAndRetrievalAppApi {
 
 pub struct FullAppApi {
     space: Arc<dyn KnowledgeSpaceAppService>,
+    group_launch: Arc<dyn crate::KnowledgeGroupLaunchAppService>,
     drive_import: Arc<dyn KnowledgeDriveImportAppService>,
     git_import: Arc<dyn KnowledgeGitImportAppService>,
     ingest: Arc<dyn KnowledgeIngestAppService>,
@@ -373,6 +374,7 @@ impl FullAppApi {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         space: Arc<dyn KnowledgeSpaceAppService>,
+        group_launch: Arc<dyn crate::KnowledgeGroupLaunchAppService>,
         drive_import: Arc<dyn KnowledgeDriveImportAppService>,
         git_import: Arc<dyn KnowledgeGitImportAppService>,
         ingest: Arc<dyn KnowledgeIngestAppService>,
@@ -388,6 +390,7 @@ impl FullAppApi {
     ) -> Self {
         Self {
             space,
+            group_launch,
             drive_import,
             git_import,
             ingest,
@@ -471,6 +474,17 @@ impl KnowledgeAppApi for FullAppApi {
     ) -> ApiResult<()> {
         self.space
             .revoke_space_member(context, space_id, subject_type, subject_id)
+            .await
+    }
+
+    async fn consume_group_launch_ticket(
+        &self,
+        context: KnowledgeAppRequestContext,
+        request: sdkwork_knowledgebase_contract::group_space::ConsumeGroupKnowledgebaseLaunchTicketRequest,
+    ) -> ApiResult<sdkwork_knowledgebase_contract::group_space::GroupKnowledgebaseLaunchTarget>
+    {
+        self.group_launch
+            .consume_group_launch_ticket(context, request)
             .await
     }
 

@@ -1,6 +1,11 @@
 import { isBlank, trim } from '@sdkwork/utils';
 
-import { buildDependencySdkBaseUrls } from '../composition/dependency-runtime.js';import { resolveKnowledgebaseFeatureFlags, type KnowledgebaseFeatureFlags } from './knowledgebaseFeatureFlags';
+import { buildDependencySdkBaseUrls } from '../composition/dependency-runtime.js';
+import { normalizeKnowledgebaseBrowserBasePath } from './browserBasePath';
+import {
+  resolveKnowledgebaseFeatureFlags,
+  type KnowledgebaseFeatureFlags,
+} from './knowledgebaseFeatureFlags';
 export type SdkworkEnvironment = 'development' | 'test' | 'staging' | 'production';
 export type SdkworkConfigProfile = 'dev' | 'test' | 'staging' | 'prod';
 export type SdkworkBuildMode = 'development' | 'test' | 'staging' | 'production';
@@ -45,6 +50,7 @@ export interface KnowledgebaseRuntimeConfig {
   configProfile: SdkworkConfigProfile;
   buildMode: SdkworkBuildMode;
   runtimeTarget: SdkworkRuntimeTarget;
+  browserBasePath: string;
   appKey: 'sdkwork-knowledgebase-pc';
   appApiBaseUrl: string;
   backendApiBaseUrl: string;
@@ -61,6 +67,7 @@ export interface RuntimeEnv {
   VITE_SDKWORK_KNOWLEDGEBASE_CONFIG_PROFILE?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_BUILD_MODE?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET?: string;
+  VITE_SDKWORK_KNOWLEDGEBASE_BROWSER_BASE_PATH?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL?: string;
   VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL?: string;
@@ -321,6 +328,9 @@ export function detectRuntimeTargetFromEnv(env: RuntimeEnv = import.meta.env): S
 export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): KnowledgebaseRuntimeConfig {
   const environment = normalizeEnvironment(env.VITE_SDKWORK_KNOWLEDGEBASE_ENVIRONMENT, env);
   const runtimeTarget = detectRuntimeTargetFromEnv(env);
+  const browserBasePath = normalizeKnowledgebaseBrowserBasePath(
+    env.VITE_SDKWORK_KNOWLEDGEBASE_BROWSER_BASE_PATH,
+  );
   const deploymentProfile = normalizeDeploymentProfile(
     env.VITE_SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE,
     env,
@@ -388,6 +398,7 @@ export function createRuntimeConfig(env: RuntimeEnv = import.meta.env): Knowledg
     configProfile,
     buildMode,
     runtimeTarget,
+    browserBasePath,
     appKey: APP_KEY,
     appApiBaseUrl: resolvedAppApiBaseUrl,
     backendApiBaseUrl: resolvedBackendApiBaseUrl,
