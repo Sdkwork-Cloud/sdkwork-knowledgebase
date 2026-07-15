@@ -14,7 +14,7 @@
     "enableDemoMode": false
   },
   "auth": {
-    "tokenStorage": "browser-session"
+    "tokenStorage": "browser-local"
   },
   "notes": "Production browser runtime example aligned with the cloud.production topology profile."
 }

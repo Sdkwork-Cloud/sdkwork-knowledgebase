@@ -10,7 +10,9 @@ use sdkwork_routes_knowledgebase_app_api::{
     wrap_router_with_web_framework, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
 };
 use sdkwork_web_core::RouteAuth;
-use sdkwork_web_core::{access_token_jwt, auth_token_jwt_with_permissions};
+use sdkwork_web_core::{
+    access_token_jwt, auth_token_jwt_with_permissions, encode_unsigned_test_jwt,
+};
 use std::sync::{Arc, Mutex};
 use tower::util::ServiceExt;
 
@@ -89,6 +91,51 @@ async fn web_framework_accepts_dev_jwt_dual_tokens_before_handler() {
 
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(service.tenant_ids(), vec![100001]);
+    std::env::remove_var("SDKWORK_ENV");
+    std::env::remove_var("SDKWORK_IAM_ALLOW_DEV_AUTH_FALLBACK");
+}
+
+#[tokio::test]
+async fn web_framework_prefers_auth_token_tenant_and_organization_context() {
+    std::env::set_var("SDKWORK_ENV", "dev");
+    std::env::set_var("SDKWORK_IAM_ALLOW_DEV_AUTH_FALLBACK", "true");
+    let service = RecordingBrowserApi::default();
+    let app = wrap_router_with_web_framework(
+        IamWebRequestContextResolver::new(None),
+        build_router_with_browser(service.clone()),
+    );
+    let auth = format!(
+        "Bearer {}",
+        encode_unsigned_test_jwt(serde_json::json!({
+            "token_type": "auth",
+            "tenant_id": "100001",
+            "organization_id": "200001",
+            "login_scope": "ORGANIZATION",
+            "user_id": "30001",
+            "session_id": "session-1",
+            "app_id": "sdkwork-knowledgebase",
+            "auth_level": "password",
+            "permission_scope": "knowledge.spaces.read"
+        }))
+    );
+    let access = access_token_jwt("100001", "30001", "session-1", "sdkwork-knowledgebase");
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/app/v3/api/knowledge/spaces/7/browser")
+                .header("Authorization", auth)
+                .header("Access-Token", access)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(service.tenant_ids(), vec![100001]);
+    assert_eq!(service.organization_ids(), vec![Some(200001)]);
     std::env::remove_var("SDKWORK_ENV");
     std::env::remove_var("SDKWORK_IAM_ALLOW_DEV_AUTH_FALLBACK");
 }
@@ -184,11 +231,16 @@ impl KnowledgeBrowserApi for EmptyBrowserApi {
 #[derive(Clone, Default)]
 struct RecordingBrowserApi {
     tenant_ids: Arc<Mutex<Vec<u64>>>,
+    organization_ids: Arc<Mutex<Vec<Option<u64>>>>,
 }
 
 impl RecordingBrowserApi {
     fn tenant_ids(&self) -> Vec<u64> {
         self.tenant_ids.lock().unwrap().clone()
+    }
+
+    fn organization_ids(&self) -> Vec<Option<u64>> {
+        self.organization_ids.lock().unwrap().clone()
     }
 }
 
@@ -200,6 +252,10 @@ impl KnowledgeBrowserApi for RecordingBrowserApi {
         request: ListKnowledgeBrowserRequest,
     ) -> ApiResult<KnowledgeBrowserListData> {
         self.tenant_ids.lock().unwrap().push(context.tenant_id);
+        self.organization_ids
+            .lock()
+            .unwrap()
+            .push(context.organization_id);
         Ok(browser_list_page_data(
             request.space_id,
             "drv-kb-001".to_string(),

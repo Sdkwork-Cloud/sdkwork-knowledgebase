@@ -13,6 +13,7 @@ export interface PcReactRuntimeSession {
 }
 
 const SESSION_STORAGE_KEY = DEFAULT_SESSION_STORAGE_KEY;
+let runtimeSessionCache: PcReactRuntimeSession = {};
 
 function readStorage(): Storage | undefined {
   if (typeof window === 'undefined') {
@@ -20,13 +21,21 @@ function readStorage(): Storage | undefined {
   }
 
   const tokenStorage = createRuntimeConfig(import.meta.env).auth.tokenStorage;
-  if (tokenStorage === 'browser-local') {
+  if (tokenStorage === 'browser-local' || tokenStorage === 'browser-session') {
+    migrateLegacyBrowserSession();
     return window.localStorage;
   }
-  if (tokenStorage === 'browser-session' || tokenStorage === 'os-secure-storage') {
-    return window.sessionStorage;
-  }
   return undefined;
+}
+
+function migrateLegacyBrowserSession(): void {
+  const legacySession = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+  if (legacySession && !window.localStorage.getItem(SESSION_STORAGE_KEY)) {
+    window.localStorage.setItem(SESSION_STORAGE_KEY, legacySession);
+  }
+  if (legacySession) {
+    window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  }
 }
 
 function normalizeToken(value: unknown): string | undefined {
@@ -35,6 +44,11 @@ function normalizeToken(value: unknown): string | undefined {
 }
 
 function readStoredSession(): PcReactRuntimeSession {
+  const tokenStorage = createRuntimeConfig(import.meta.env).auth.tokenStorage;
+  if (tokenStorage === 'os-secure-storage') {
+    return runtimeSessionCache;
+  }
+
   const storage = readStorage();
   if (!storage) {
     return {};
@@ -60,6 +74,14 @@ export function readPcReactRuntimeSession(): PcReactRuntimeSession {
   return readStoredSession();
 }
 
+export function primePcReactRuntimeSessionCache(session: PcReactRuntimeSession): void {
+  runtimeSessionCache = {
+    accessToken: normalizeToken(session.accessToken),
+    authToken: normalizeToken(session.authToken),
+    refreshToken: normalizeToken(session.refreshToken),
+  };
+}
+
 export function persistPcReactRuntimeSession(
   tokens: PcReactRuntimeSession,
 ): PcReactRuntimeSession {
@@ -75,6 +97,7 @@ export function persistPcReactRuntimeSession(
       ? normalizeToken(tokens.refreshToken)
       : current.refreshToken,
   };
+  runtimeSessionCache = next;
   const storage = readStorage();
 
   if (storage) {
@@ -89,6 +112,7 @@ export function persistPcReactRuntimeSession(
 }
 
 export function clearPcReactRuntimeSession(): void {
+  runtimeSessionCache = {};
   readStorage()?.removeItem(SESSION_STORAGE_KEY);
 }
 

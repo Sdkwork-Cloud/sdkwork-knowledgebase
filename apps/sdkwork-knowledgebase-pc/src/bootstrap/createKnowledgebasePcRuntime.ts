@@ -5,6 +5,7 @@ import {
   createKnowledgebaseSessionTokenManager,
   createRuntimeConfig,
   createSessionStore,
+  DEFAULT_SESSION_STORAGE_KEY,
   configureKnowledgebaseAppSdk,
   configureKnowledgebaseDriveAppSdk,
   bindKnowledgebaseSessionStore,
@@ -21,6 +22,7 @@ import {
 } from 'sdkwork-knowledgebase-pc-admin-core';
 
 import { createKnowledgebaseIamRuntime } from './knowledgebaseIamRuntime';
+import { primePcReactRuntimeSessionCache } from './sdkworkCorePcReactShim';
 
 export function createKnowledgebasePcRuntime(): KnowledgebasePcRuntime {
   const config = createRuntimeConfig(import.meta.env);
@@ -43,6 +45,11 @@ export function createKnowledgebasePcRuntime(): KnowledgebasePcRuntime {
     sdkClients: [appSdkClient, backendSdkClient, driveSdkClient],
     session,
     tokenManager,
+  });
+
+  primePcReactRuntimeSessionCache(session.getSnapshot());
+  session.subscribe((snapshot) => {
+    primePcReactRuntimeSessionCache(snapshot);
   });
 
   bindKnowledgebaseSessionStore(session);
@@ -78,16 +85,24 @@ function resolveSessionStorage(
   if (typeof window === 'undefined') {
     return undefined;
   }
-  if (tokenStorage === 'browser-local') {
+  if (tokenStorage === 'browser-local' || tokenStorage === 'browser-session') {
+    migrateLegacyBrowserSession();
     return window.localStorage;
   }
   if (tokenStorage === 'os-secure-storage') {
     return createDesktopSecureSessionStorage();
   }
-  if (tokenStorage === 'browser-session') {
-    return window.sessionStorage;
-  }
   return undefined;
+}
+
+function migrateLegacyBrowserSession(): void {
+  const legacySession = window.sessionStorage.getItem(DEFAULT_SESSION_STORAGE_KEY);
+  if (legacySession && !window.localStorage.getItem(DEFAULT_SESSION_STORAGE_KEY)) {
+    window.localStorage.setItem(DEFAULT_SESSION_STORAGE_KEY, legacySession);
+  }
+  if (legacySession) {
+    window.sessionStorage.removeItem(DEFAULT_SESSION_STORAGE_KEY);
+  }
 }
 
 function createDesktopSecureSessionStorage(): SessionStorageLike | undefined {
@@ -95,7 +110,7 @@ function createDesktopSecureSessionStorage(): SessionStorageLike | undefined {
     __TAURI__?: { core?: { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> } };
   }).__TAURI__;
   if (!tauri?.core?.invoke) {
-    return window.sessionStorage;
+    return undefined;
   }
 
   const memory = new Map<string, string>();

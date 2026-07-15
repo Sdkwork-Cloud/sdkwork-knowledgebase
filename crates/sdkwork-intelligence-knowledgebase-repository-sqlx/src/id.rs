@@ -156,6 +156,9 @@ fn hash_identifier_to_node_id(identifier: &str) -> u16 {
 
 fn map_snowflake_error(error: SnowflakeIdError) -> KnowledgeIdGeneratorError {
     match error {
+        SnowflakeIdError::LeaseUnavailable => KnowledgeIdGeneratorError::Internal(
+            "snowflake node lease is unavailable; refusing to generate an unfenced id".to_string(),
+        ),
         SnowflakeIdError::InvalidNodeId {
             node_id,
             max_node_id,
