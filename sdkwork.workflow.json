@@ -157,9 +157,7 @@
       "formats": ["tar.gz"],
       "runner": "ubuntu-24.04",
       "outputGlobs": [
-        "target/release/sdkwork-knowledgebase-app-api*",
-        "target/release/sdkwork-knowledgebase-backend-api*",
-        "target/release/sdkwork-knowledgebase-open-api*",
+        "target/release/sdkwork-knowledgebase-standalone-gateway*",
         "target/release/sdkwork-knowledgebase-worker*"
       ],
       "deploymentProfile": "standalone",

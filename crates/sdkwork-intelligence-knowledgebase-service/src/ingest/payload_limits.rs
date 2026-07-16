@@ -29,14 +29,22 @@ pub fn validate_markdown_payload(payload: &str) -> Result<(), PayloadLimitError>
 }
 
 pub fn split_oversized_paragraph(content: &str, max_chars: usize) -> Vec<String> {
-    if content.len() <= max_chars {
+    if max_chars == 0 || content.is_empty() {
+        return Vec::new();
+    }
+    if content.chars().count() <= max_chars {
         return vec![content.to_string()];
     }
 
     let mut segments = Vec::new();
     let mut start = 0usize;
     while start < content.len() {
-        let end = (start + max_chars).min(content.len());
+        let remaining = &content[start..];
+        let end = remaining
+            .char_indices()
+            .nth(max_chars)
+            .map(|(offset, _)| start + offset)
+            .unwrap_or(content.len());
         let mut split_at = end;
         if end < content.len() {
             if let Some(relative) = content[start..end].rfind('\n') {
@@ -71,6 +79,23 @@ mod tests {
         assert!(segments.len() > 1);
         assert!(segments
             .iter()
-            .all(|segment| segment.len() <= MAX_MARKDOWN_CHUNK_CHARS));
+            .all(|segment| segment.chars().count() <= MAX_MARKDOWN_CHUNK_CHARS));
+    }
+
+    #[test]
+    fn splits_multibyte_paragraphs_only_on_utf8_boundaries() {
+        let content = "知识库".repeat(4_000);
+        let segments = split_oversized_paragraph(&content, MAX_MARKDOWN_CHUNK_CHARS);
+
+        assert_eq!(segments.concat(), content);
+        assert!(segments.len() > 1);
+        assert!(segments
+            .iter()
+            .all(|segment| segment.chars().count() <= MAX_MARKDOWN_CHUNK_CHARS));
+    }
+
+    #[test]
+    fn zero_character_limit_returns_no_segments() {
+        assert!(split_oversized_paragraph("content", 0).is_empty());
     }
 }

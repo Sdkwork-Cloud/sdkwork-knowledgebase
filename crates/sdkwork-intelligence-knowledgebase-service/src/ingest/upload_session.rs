@@ -141,7 +141,10 @@ impl<'a> KnowledgeUploadSessionService<'a> {
             })?;
 
         self.drive
-            .get_object_text(&object_ref)
+            .get_object_text_bounded(
+                &object_ref,
+                crate::ingest::MAX_MARKDOWN_PAYLOAD_BYTES as u64,
+            )
             .await
             .map_err(KnowledgeUploadSessionServiceError::Storage)
             .and_then(|payload| {

@@ -152,7 +152,7 @@ impl KnowledgebaseImGroupLaunchTicketConsumer {
             .filter(|value| !is_blank(Some(value)))
             .ok_or(GroupLaunchTicketConsumerError::Unauthorized)?;
         if !is_positive_signed_bigint(caller.tenant_id)
-            || !is_positive_signed_bigint(caller.organization_id)
+            || !is_nonnegative_signed_bigint(caller.organization_id)
             || is_blank(Some(caller.actor_id.as_str()))
             || is_blank(Some(caller.request_id.as_str()))
             || is_blank(Some(caller.trace_id.as_str()))
@@ -321,6 +321,10 @@ fn is_positive_signed_bigint(value: u64) -> bool {
     (1..=i64::MAX as u64).contains(&value)
 }
 
+fn is_nonnegative_signed_bigint(value: u64) -> bool {
+    value <= i64::MAX as u64
+}
+
 #[derive(Debug, Error)]
 pub enum KnowledgebaseImRpcAdapterError {
     #[error("invalid Knowledgebase IM RPC configuration: {0}")]
@@ -396,12 +400,12 @@ mod tests {
             Err(GroupLaunchTicketConsumerError::Unauthorized)
         ));
 
-        let mut tenant_wide_scope = caller();
-        tenant_wide_scope.organization_id = 0;
-        assert!(matches!(
-            KnowledgebaseImGroupLaunchTicketConsumer::signed_caller_context(&tenant_wide_scope),
-            Err(GroupLaunchTicketConsumerError::Unauthorized)
-        ));
+        let mut tenant_scope = caller();
+        tenant_scope.organization_id = 0;
+        let tenant_context =
+            KnowledgebaseImGroupLaunchTicketConsumer::signed_caller_context(&tenant_scope)
+                .expect("tenant-scoped caller context");
+        assert_eq!(tenant_context.organization_id, "0");
 
         let mut tenant_overflow = caller();
         tenant_overflow.tenant_id = i64::MAX as u64 + 1;

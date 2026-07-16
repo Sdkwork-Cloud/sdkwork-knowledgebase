@@ -1,11 +1,13 @@
 use async_trait::async_trait;
+use sdkwork_database_id::{NodeAllocatorConfig, NodeLease, SnowflakeNodeAllocator};
 use sdkwork_drive_storage_local::LocalDriveObjectStore;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     connect_knowledgebase_and_install_schema, connect_postgres_pool,
-    default_knowledge_id_generator, is_postgres_database_url,
-    keyword_search_backend_for_database_url, knowledgebase_health_check, KnowledgeAuditEventRecord,
-    KnowledgeAuditEventStore, PgVectorKnowledgeRetrievalBackend, PgVectorLayeredRetrievalBackend,
-    SqliteCommerceStore, SqliteContextBindingStore, SqliteDriveImportMetadataStore,
+    default_knowledge_id_generator, install_default_knowledge_id_generator,
+    is_postgres_database_url, keyword_search_backend_for_database_url, knowledgebase_health_check,
+    KnowledgeAuditEventRecord, KnowledgeAuditEventStore, PgVectorKnowledgeRetrievalBackend,
+    PgVectorLayeredRetrievalBackend, SnowflakeKnowledgeIdGenerator, SqliteCommerceStore,
+    SqliteContextBindingStore, SqliteDriveImportMetadataStore,
     SqliteGroupKnowledgeSpaceBindingStore, SqliteIngestionJobStore,
     SqliteKnowledgeAgentProfileStore, SqliteKnowledgeAuditEventStore,
     SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeChunkRetrievalStore,
@@ -59,6 +61,7 @@ use sqlx::AnyPool;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::OnceCell;
 
 use sdkwork_knowledgebase_agent_provider::{
     resolve_claw_router_client_from_env, ClawRouterEmbeddingClient,
@@ -92,6 +95,9 @@ use crate::{
 
 const DEFAULT_DRIVE_PROVIDER_ID: &str = "sdkwork-knowledgebase-local";
 const DEFAULT_DRIVE_BUCKET: &str = "knowledgebase";
+const KNOWLEDGEBASE_ID_SERVICE_NAME: &str = "sdkwork-knowledgebase";
+
+static RUNTIME_NODE_LEASE: OnceCell<Option<NodeLease>> = OnceCell::const_new();
 
 #[derive(Clone)]
 pub struct KnowledgebaseRuntime {
@@ -134,6 +140,7 @@ pub struct KnowledgebaseRuntime {
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
     knowledge_engines: Arc<DefaultKnowledgeEngineRegistry>,
     commerce_store: Arc<SqliteCommerceStore>,
+    snowflake_node_lease: Option<NodeLease>,
 }
 
 /// Bridges the host's complete runtime dependency check into the shared HTTP readiness route.
@@ -147,6 +154,71 @@ impl KnowledgebaseRuntimeReadinessCheck {
     pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
     }
+}
+
+async fn initialize_runtime_id_generator(
+    database_url: &str,
+) -> Result<Option<NodeLease>, sqlx::Error> {
+    let lease = RUNTIME_NODE_LEASE
+        .get_or_try_init(|| async {
+            if let Ok(node_id) = std::env::var("SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID") {
+                if sdkwork_knowledgebase_observability::is_production_like_environment()
+                    && !environment_flag_enabled(
+                        "SDKWORK_KNOWLEDGEBASE_ALLOW_STATIC_SNOWFLAKE_NODE_ID",
+                    )
+                {
+                    return Err(configuration_error(
+                        "static Snowflake node IDs require SDKWORK_KNOWLEDGEBASE_ALLOW_STATIC_SNOWFLAKE_NODE_ID=true in production-like environments",
+                    ));
+                }
+                let generator = SnowflakeKnowledgeIdGenerator::from_node_id_config(Some(&node_id))
+                    .map_err(|error| configuration_error(error.to_string()))?;
+                install_default_knowledge_id_generator(generator)
+                    .map_err(|error| configuration_error(error.to_string()))?;
+                return Ok(None);
+            }
+
+            let database_lease_enabled =
+                sdkwork_knowledgebase_observability::is_production_like_environment()
+                    || environment_flag_enabled(
+                        "SDKWORK_KNOWLEDGEBASE_DATABASE_NODE_LEASE_ENABLED",
+                    );
+            if !database_lease_enabled {
+                return Ok(None);
+            }
+
+            let database_pool =
+                sdkwork_intelligence_knowledgebase_repository_sqlx::db::connect_knowledgebase_pool_from_url(
+                    database_url,
+                )
+                .await
+                .map_err(|error| configuration_error(error.to_string()))?;
+            let config = NodeAllocatorConfig::from_service_name(KNOWLEDGEBASE_ID_SERVICE_NAME);
+            let (generator, lease) =
+                SnowflakeNodeAllocator::allocate_process_generator(&database_pool, &config)
+                    .await
+                    .map_err(|error| configuration_error(error.to_string()))?;
+            install_default_knowledge_id_generator(SnowflakeKnowledgeIdGenerator::from_generator(
+                generator,
+            ))
+            .map_err(|error| configuration_error(error.to_string()))?;
+            Ok(Some(lease))
+        })
+        .await?;
+    Ok(lease.clone())
+}
+
+fn environment_flag_enabled(name: &str) -> bool {
+    std::env::var(name).ok().is_some_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
+
+fn configuration_error(message: impl Into<String>) -> sqlx::Error {
+    sqlx::Error::Configuration(message.into().into())
 }
 
 impl FrameworkReadinessCheck for KnowledgebaseRuntimeReadinessCheck {
@@ -170,6 +242,7 @@ impl FrameworkReadinessCheck for KnowledgebaseRuntimeReadinessCheck {
 impl KnowledgebaseRuntime {
     pub async fn connect(database_url: &str, tenant_id: u64) -> Result<Self, sqlx::Error> {
         let pool = connect_knowledgebase_and_install_schema(database_url).await?;
+        let snowflake_node_lease = initialize_runtime_id_generator(database_url).await?;
         let drive_pool = connect_knowledgebase_drive_pool(database_url).await?;
         let pg_pool: Option<sqlx::PgPool> = if is_postgres_database_url(database_url) {
             connect_postgres_pool(database_url).await.ok()
@@ -192,6 +265,7 @@ impl KnowledgebaseRuntime {
             keyword_backend,
             pg_pool,
             database_engine,
+            snowflake_node_lease,
         ))
     }
 
@@ -206,6 +280,7 @@ impl KnowledgebaseRuntime {
         keyword_backend: sdkwork_intelligence_knowledgebase_repository_sqlx::KeywordSearchBackend,
         pg_pool: Option<sqlx::PgPool>,
         database_engine: sdkwork_database_config::DatabaseEngine,
+        snowflake_node_lease: Option<NodeLease>,
     ) -> Self {
         let tenant_id_str = tenant_id.to_string();
         let quota_limits =
@@ -468,6 +543,7 @@ impl KnowledgebaseRuntime {
             commerce_store: Arc::new(
                 SqliteCommerceStore::new(pool.clone()).with_database_engine(database_engine),
             ),
+            snowflake_node_lease,
         }
     }
 
@@ -521,6 +597,15 @@ impl KnowledgebaseRuntime {
     }
 
     pub async fn readiness_check(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        if self
+            .snowflake_node_lease
+            .as_ref()
+            .is_some_and(|lease| !lease.is_healthy())
+        {
+            return Err(Box::new(std::io::Error::other(
+                "snowflake node lease is unhealthy",
+            )));
+        }
         knowledgebase_health_check(&self.pool)
             .await
             .map_err(|error| Box::new(error) as Box<dyn std::error::Error + Send + Sync>)?;
@@ -966,13 +1051,11 @@ impl KnowledgebaseRuntime {
         use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::KnowledgeObjectRef;
         use sdkwork_knowledgebase_contract::document::KnowledgeDocumentContent;
 
-        let versions = self
+        let latest = self
             .version_store()
-            .list_versions_for_document(document_id)
+            .get_latest_version_for_document(document_id)
             .await
-            .map_err(|error| error.to_string())?;
-        let latest = versions
-            .last()
+            .map_err(|error| error.to_string())?
             .ok_or_else(|| "document has no versions".to_string())?;
         let object_ref = self
             .object_ref_store()
@@ -1006,7 +1089,7 @@ impl KnowledgebaseRuntime {
                     content_markdown: content,
                     content_source: content_source.clone(),
                     content_version: build_document_content_version(
-                        latest,
+                        &latest,
                         object_ref.drive_etag.as_deref(),
                         &content_source,
                     ),
@@ -1028,15 +1111,20 @@ impl KnowledgebaseRuntime {
             document_id,
             content_markdown: chunks.join("\n\n"),
             content_source: content_source.clone(),
-            content_version: build_document_content_version(latest, None, &content_source),
+            content_version: build_document_content_version(&latest, None, &content_source),
         })
     }
 
-    pub async fn process_queued_ingestion_jobs(&self, limit: u32) -> Result<usize, String> {
+    pub async fn process_queued_ingestion_jobs(
+        &self,
+        worker_id: &str,
+        lease_duration: time::Duration,
+        limit: u32,
+    ) -> Result<usize, String> {
         use sdkwork_intelligence_knowledgebase_service::ingest::KnowledgeIngestionJobWorkerService;
 
         KnowledgeIngestionJobWorkerService::new(self.ingestion_job_store(), self.drive_storage())
-            .process_queued_jobs(limit)
+            .process_queued_jobs(worker_id, lease_duration, limit)
             .await
             .map(|result| result.processed)
             .map_err(|error| error.to_string())

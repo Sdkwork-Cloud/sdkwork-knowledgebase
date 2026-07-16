@@ -446,6 +446,10 @@ CREATE TABLE IF NOT EXISTS kb_ingestion_job (
     trace_id VARCHAR(128),
     error_code VARCHAR(128),
     error_detail VARCHAR(4000),
+    claim_owner VARCHAR(255),
+    claim_token VARCHAR(64),
+    lease_expires_at TIMESTAMP,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
     started_at TIMESTAMP,
     finished_at TIMESTAMP,
     metadata JSONB,
@@ -711,7 +715,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_binding (
     CONSTRAINT ck_kb_group_knowledge_space_binding_tenant
         CHECK (tenant_id > 0),
     CONSTRAINT ck_kb_group_knowledge_space_binding_organization
-        CHECK (organization_id > 0),
+        CHECK (organization_id >= 0),
     FOREIGN KEY (space_id) REFERENCES kb_space(id)
 );
 
@@ -768,7 +772,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_member (
     CONSTRAINT ck_kb_group_knowledge_space_member_tenant
         CHECK (tenant_id > 0),
     CONSTRAINT ck_kb_group_knowledge_space_member_organization
-        CHECK (organization_id > 0),
+        CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -800,7 +804,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_event_inbox (
     CONSTRAINT ck_kb_group_knowledge_space_event_inbox_tenant
         CHECK (tenant_id > 0),
     CONSTRAINT ck_kb_group_knowledge_space_event_inbox_organization
-        CHECK (organization_id > 0),
+        CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -838,7 +842,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_membership_projection (
     CONSTRAINT ck_kb_group_knowledge_space_membership_projection_tenant
         CHECK (tenant_id > 0),
     CONSTRAINT ck_kb_group_knowledge_space_membership_projection_organization
-        CHECK (organization_id > 0),
+        CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -993,6 +997,17 @@ ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS claimed_at VARCHAR(64);
 -- source: crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606230001__knowledgebase_performance_indexes.sql
 CREATE INDEX IF NOT EXISTS idx_kb_ingestion_job_tenant_state_status
     ON kb_ingestion_job (tenant_id, state, status);
+
+CREATE INDEX IF NOT EXISTS idx_kb_ingestion_job_claimable
+    ON kb_ingestion_job (
+        tenant_id,
+        status,
+        job_type,
+        state,
+        lease_expires_at,
+        priority DESC,
+        id
+    );
 
 CREATE INDEX IF NOT EXISTS idx_kb_outbox_stale_claim
     ON kb_outbox_event (tenant_id, status, claimed_at);

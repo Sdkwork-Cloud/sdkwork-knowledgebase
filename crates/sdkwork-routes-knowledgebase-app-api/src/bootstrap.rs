@@ -104,16 +104,9 @@ fn validate_secrets_encryption_for_production() {
 }
 
 fn validate_snowflake_node_id_for_production() {
-    if !is_production_like_environment() {
-        return;
-    }
-
     let node_id = std::env::var("SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID").ok();
     let Some(node_id) = node_id else {
-        eprintln!(
-            "SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID must be set for production-like environments"
-        );
-        std::process::exit(1);
+        return;
     };
     if is_blank(Some(node_id.as_str())) {
         eprintln!("SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID must not be empty");
@@ -125,6 +118,16 @@ fn validate_snowflake_node_id_for_production() {
         )
     {
         eprintln!("invalid SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID: {error}");
+        std::process::exit(1);
+    }
+    if is_production_like_environment()
+        && !std::env::var("SDKWORK_KNOWLEDGEBASE_ALLOW_STATIC_SNOWFLAKE_NODE_ID")
+            .ok()
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"))
+    {
+        eprintln!(
+            "static SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID requires SDKWORK_KNOWLEDGEBASE_ALLOW_STATIC_SNOWFLAKE_NODE_ID=true in production-like environments"
+        );
         std::process::exit(1);
     }
 }

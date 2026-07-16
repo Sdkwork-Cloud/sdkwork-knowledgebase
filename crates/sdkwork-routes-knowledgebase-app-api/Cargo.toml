@@ -21,6 +21,7 @@ sdkwork-routes-knowledgebase-open-api.workspace = true
 sdkwork-drive-storage-local = { workspace = true }
 sdkwork-intelligence-knowledgebase-service.workspace = true
 sdkwork-intelligence-knowledgebase-repository-sqlx.workspace = true
+sdkwork-database-id.workspace = true
 sdkwork-database-config.workspace = true
 sdkwork-knowledgebase-agent-provider.workspace = true
 sdkwork-knowledgebase-engine-dify.workspace = true
@@ -39,6 +40,7 @@ sdkwork-knowledgebase-observability.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net"] }
 tracing = "0.1"
+time.workspace = true
 uuid.workspace = true
 url = "2"
 

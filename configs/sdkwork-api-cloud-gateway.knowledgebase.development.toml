@@ -64,11 +64,11 @@ baseUrl = "http://127.0.0.1:18081"
 
 [[upstreams]]
 serviceId = "sdkwork-knowledgebase-backend-api"
-baseUrl = "http://127.0.0.1:18082"
+baseUrl = "http://127.0.0.1:18081"
 
 [[upstreams]]
 serviceId = "sdkwork-knowledgebase-open-api"
-baseUrl = "http://127.0.0.1:18083"
+baseUrl = "http://127.0.0.1:18081"
 
 [cors]
 allowAnyOrigin = true

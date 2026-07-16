@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_binding (
     CHECK (lifecycle_state <> 'active' OR acl_projection_state = 'active'),
     CHECK (membership_epoch >= 0),
     CHECK (tenant_id > 0),
-    CHECK (organization_id > 0),
+    CHECK (organization_id >= 0),
     FOREIGN KEY (space_id) REFERENCES kb_space(id)
 );
 
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_member (
     ),
     CHECK (membership_epoch >= 0),
     CHECK (tenant_id > 0),
-    CHECK (organization_id > 0),
+    CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_event_inbox (
     applied_at TEXT NOT NULL,
     PRIMARY KEY (id),
     CHECK (tenant_id > 0),
-    CHECK (organization_id > 0),
+    CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -153,46 +153,46 @@ BEGIN
     SELECT RAISE(ABORT, 'group member role and access level must match');
 END;
 
--- Existing SQLite tables cannot receive a new CHECK constraint. Keep the group-only
--- organization boundary equivalent to greenfield schemas for both writes and updates.
+-- Existing SQLite tables cannot receive a new CHECK constraint. Preserve the
+-- nonnegative token-derived scope boundary for both writes and updates.
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_binding_organization_insert
 BEFORE INSERT ON kb_group_knowledge_space_binding
-WHEN NEW.organization_id <= 0
+WHEN NEW.organization_id < 0
 BEGIN
-    SELECT RAISE(ABORT, 'group knowledge space organization_id must be greater than zero');
+    SELECT RAISE(ABORT, 'group knowledge space organization_id must not be negative');
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_binding_organization_update
 BEFORE UPDATE OF organization_id ON kb_group_knowledge_space_binding
-WHEN NEW.organization_id <= 0
+WHEN NEW.organization_id < 0
 BEGIN
-    SELECT RAISE(ABORT, 'group knowledge space organization_id must be greater than zero');
+    SELECT RAISE(ABORT, 'group knowledge space organization_id must not be negative');
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_member_organization_insert
 BEFORE INSERT ON kb_group_knowledge_space_member
-WHEN NEW.organization_id <= 0
+WHEN NEW.organization_id < 0
 BEGIN
-    SELECT RAISE(ABORT, 'group knowledge space organization_id must be greater than zero');
+    SELECT RAISE(ABORT, 'group knowledge space organization_id must not be negative');
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_member_organization_update
 BEFORE UPDATE OF organization_id ON kb_group_knowledge_space_member
-WHEN NEW.organization_id <= 0
+WHEN NEW.organization_id < 0
 BEGIN
-    SELECT RAISE(ABORT, 'group knowledge space organization_id must be greater than zero');
+    SELECT RAISE(ABORT, 'group knowledge space organization_id must not be negative');
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_event_inbox_organization_insert
 BEFORE INSERT ON kb_group_knowledge_space_event_inbox
-WHEN NEW.organization_id <= 0
+WHEN NEW.organization_id < 0
 BEGIN
-    SELECT RAISE(ABORT, 'group knowledge space organization_id must be greater than zero');
+    SELECT RAISE(ABORT, 'group knowledge space organization_id must not be negative');
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_event_inbox_organization_update
 BEFORE UPDATE OF organization_id ON kb_group_knowledge_space_event_inbox
-WHEN NEW.organization_id <= 0
+WHEN NEW.organization_id < 0
 BEGIN
-    SELECT RAISE(ABORT, 'group knowledge space organization_id must be greater than zero');
+    SELECT RAISE(ABORT, 'group knowledge space organization_id must not be negative');
 END;

@@ -26,7 +26,7 @@ Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## 1. Architecture Overview
 
-SDKWork Knowledgebase is a Rust backend with separately deployable API and worker processes plus a PC React client (browser + optional Tauri desktop). Each production deployment binds **one tenant per API/worker process** with fail-closed tenant and organization guards.
+SDKWork Knowledgebase is a Rust backend with a horizontally scalable application public-ingress process, a separately scalable worker process, and a PC React client (browser + optional Tauri desktop). The public ingress mounts app-api, backend-api, and open-api route surfaces on one application-plane listener. Each production deployment binds **one tenant per ingress/worker process** with fail-closed tenant and organization guards.
 
 | Surface | Prefix | SDK family | Auth |
 |---------|--------|------------|------|
@@ -54,7 +54,10 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 - Persistence: `sdkwork-knowledgebase-repository-sqlx` + `database/` lifecycle
 - HTTP boundaries: `sdkwork-routes-knowledgebase-{app,backend,open}-api`
 - Background work: `sdkwork-knowledgebase-worker` (outbox + ingest maintenance)
-- Ingestion workers claim queued jobs with a conditional queued-to-running compare-and-set, so replicas cannot process the same job concurrently. Crash recovery leases are still a pre-launch schema item.
+- Ingestion workers atomically claim Drive jobs with owner/token leases, renew leases during processing, reclaim expired work after crashes, and fence stale workers from success or failure commits. Chunk replacement, job completion, and outbox append remain one database transaction.
+- Production Snowflake generators obtain fenced node IDs from `sdkwork_node_registry`. Lease loss disables ID generation and fails runtime readiness; Kubernetes supplies only the pod UID identity, never a hashed node ID.
+- Media tasks consume the generated `clawrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
+- Static site deployment writes a bounded, escaped HTML artifact to Drive and returns a public URL only when `SDKWORK_KNOWLEDGEBASE_SITE_PUBLIC_BASE_URL` names the HTTPS object gateway that serves the same artifact namespace.
 - Backend administrative list handlers use cursor page contracts and push ordering, filtering, and limits into database queries; full-list downloads are not a production path.
 - PC client: `apps/sdkwork-knowledgebase-pc/`
 
@@ -92,7 +95,7 @@ Tauri process, not an IM-owned iframe or Webview. See
 
 ## 5. Deployment Topology
 
-Production uses `cloud.production`; API and worker process decomposition is implementation detail inside that profile. The current Kubernetes descriptors run separate Deployments for app-api, backend-api, open-api, and worker. See `deployments/README.md` and `configs/topology/`.
+Production uses `cloud.production`; process decomposition remains an implementation detail inside that profile. Kubernetes runs one replicated `application.public-ingress` Deployment for all application HTTP route surfaces and one replicated worker Deployment. The platform cloud gateway preserves distinct app/backend/open authorities while routing them to the same bounded public-ingress Service. See `deployments/README.md` and `configs/topology/`.
 
 ## 6. Verification
 

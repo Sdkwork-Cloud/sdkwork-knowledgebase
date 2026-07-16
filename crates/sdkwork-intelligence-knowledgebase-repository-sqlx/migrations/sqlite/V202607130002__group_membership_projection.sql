@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_membership_projection (
     CHECK (projection_state IN ('pending', 'failed', 'completed')),
     CHECK (target_membership_epoch >= 0),
     CHECK (tenant_id > 0),
-    CHECK (organization_id > 0),
+    CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -44,14 +44,14 @@ CREATE INDEX IF NOT EXISTS idx_kb_group_knowledge_space_membership_projection_le
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_membership_projection_organization_insert
 BEFORE INSERT ON kb_group_knowledge_space_membership_projection
-WHEN NEW.organization_id <= 0
+WHEN NEW.organization_id < 0
 BEGIN
-    SELECT RAISE(ABORT, 'group knowledge space organization_id must be greater than zero');
+    SELECT RAISE(ABORT, 'group knowledge space organization_id must not be negative');
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_membership_projection_organization_update
 BEFORE UPDATE OF organization_id ON kb_group_knowledge_space_membership_projection
-WHEN NEW.organization_id <= 0
+WHEN NEW.organization_id < 0
 BEGIN
-    SELECT RAISE(ABORT, 'group knowledge space organization_id must be greater than zero');
+    SELECT RAISE(ABORT, 'group knowledge space organization_id must not be negative');
 END;

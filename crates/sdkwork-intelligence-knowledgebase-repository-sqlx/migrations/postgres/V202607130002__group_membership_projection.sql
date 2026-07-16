@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_membership_projection (
     CONSTRAINT ck_kb_group_knowledge_space_membership_projection_tenant
         CHECK (tenant_id > 0),
     CONSTRAINT ck_kb_group_knowledge_space_membership_projection_organization
-        CHECK (organization_id > 0),
+        CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -66,7 +66,7 @@ BEGIN
     ) THEN
         ALTER TABLE kb_group_knowledge_space_membership_projection
             ADD CONSTRAINT ck_kb_group_knowledge_space_membership_projection_organization
-            CHECK (organization_id > 0);
+            CHECK (organization_id >= 0);
     END IF;
 END $$;
 

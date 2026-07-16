@@ -193,6 +193,7 @@ impl<'a> ApiMarkdownIngestPipeline<'a> {
         let completed = ingestion
             .complete_with_chunks_and_outbox(CompleteRunningIngestionRecord {
                 job_id: job.id,
+                claim_token: None,
                 document_version_id,
                 chunks: index_result.chunk_records,
                 outbox: ingest_success_outbox_record(&job),

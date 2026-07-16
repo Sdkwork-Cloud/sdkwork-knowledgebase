@@ -82,6 +82,21 @@ impl<'a> KnowledgeIngestionService<'a> {
         .await
     }
 
+    pub async fn mark_failed_with_claim(
+        &self,
+        job_id: u64,
+        claim_token: &str,
+        error_message: impl Into<String>,
+    ) -> Result<IngestionJob, KnowledgeIngestionServiceError> {
+        let updated = self
+            .store
+            .fail_claimed_ingestion_job(job_id, claim_token, error_message.into())
+            .await
+            .map_err(KnowledgeIngestionServiceError::Store)?;
+        record_ingest_job_failed(deployment_tenant_id(), updated.id, updated.space_id);
+        Ok(updated)
+    }
+
     pub async fn finalize_success_with_outbox(
         &self,
         job_id: u64,
@@ -252,7 +267,10 @@ impl<'a> KnowledgeApiPayloadIngestService<'a> {
                 Ok(existing_payload) => {
                     let resolved_payload_markdown = self
                         .drive
-                        .get_object_text(&existing_payload)
+                        .get_object_text_bounded(
+                            &existing_payload,
+                            crate::ingest::MAX_MARKDOWN_PAYLOAD_BYTES as u64,
+                        )
                         .await
                         .unwrap_or_else(|_| payload_markdown.clone());
                     return Ok(ApiPayloadIngestResult {

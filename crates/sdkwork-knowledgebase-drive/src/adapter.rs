@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_drive_storage_contract::{
-    DriveByteRange, DriveObjectLocator, DriveObjectStore, DriveObjectStoreError,
-    DriveObjectStoreErrorKind, HeadObjectRequest, PutObjectRequest, ReadObjectRangeRequest,
+    DeleteObjectRequest, DriveByteRange, DriveObjectLocator, DriveObjectStore,
+    DriveObjectStoreError, DriveObjectStoreErrorKind, HeadObjectRequest, PutObjectRequest,
+    ReadObjectRangeRequest,
 };
 use sdkwork_drive_workspace_service::application::space_service::{
     CreateSpaceCommand, DeleteSpaceCommand, GetSpaceCommand, SqlDriveSpaceService,
@@ -26,8 +27,9 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_space::{
     KnowledgeDriveSpaceProvisioner, KnowledgeDriveSpaceProvisionerError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_storage::{
-    HeadKnowledgeObjectRequest, KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError,
-    PutKnowledgeObjectRequest,
+    object_read_limit_error, validate_object_read_size, HeadKnowledgeObjectRequest,
+    KnowledgeDriveStorage, KnowledgeObjectRef, KnowledgeStorageError, PutKnowledgeObjectRequest,
+    DEFAULT_MAX_KNOWLEDGE_OBJECT_READ_BYTES,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_workspace::{
     EnsureKnowledgeDriveNodeKind, EnsureKnowledgeDriveNodeRequest,
@@ -369,19 +371,53 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
         })
     }
 
+    async fn delete_object(
+        &self,
+        object_ref: &KnowledgeObjectRef,
+    ) -> Result<(), KnowledgeStorageError> {
+        if object_ref.storage_provider_id != self.storage_provider_id {
+            return Err(KnowledgeStorageError::InvalidRequest(
+                "storage_provider_id does not match adapter provider".to_string(),
+            ));
+        }
+        match self
+            .store
+            .delete_object(DeleteObjectRequest {
+                locator: DriveObjectLocator {
+                    bucket: object_ref.bucket.clone(),
+                    object_key: object_ref.object_key.clone(),
+                },
+            })
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(error) if error.kind == DriveObjectStoreErrorKind::NotFound => Ok(()),
+            Err(error) => Err(map_drive_error(error)),
+        }
+    }
+
     async fn get_object_text(
         &self,
         object_ref: &KnowledgeObjectRef,
     ) -> Result<String, KnowledgeStorageError> {
-        let bytes = self.get_object_bytes(object_ref).await?;
-        String::from_utf8(bytes)
-            .map_err(|error| KnowledgeStorageError::InvalidRequest(error.to_string()))
+        self.get_object_text_bounded(object_ref, DEFAULT_MAX_KNOWLEDGE_OBJECT_READ_BYTES)
+            .await
     }
 
     async fn get_object_bytes(
         &self,
         object_ref: &KnowledgeObjectRef,
     ) -> Result<Vec<u8>, KnowledgeStorageError> {
+        self.get_object_bytes_bounded(object_ref, DEFAULT_MAX_KNOWLEDGE_OBJECT_READ_BYTES)
+            .await
+    }
+
+    async fn get_object_bytes_bounded(
+        &self,
+        object_ref: &KnowledgeObjectRef,
+        max_bytes: u64,
+    ) -> Result<Vec<u8>, KnowledgeStorageError> {
+        validate_object_read_size(object_ref, max_bytes)?;
         if object_ref.size_bytes == 0 {
             return Ok(Vec::new());
         }
@@ -402,8 +438,13 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
             .await
             .map_err(map_drive_error)?;
 
-        let mut bytes = Vec::new();
+        let initial_capacity = usize::try_from(object_ref.size_bytes).unwrap_or(0);
+        let mut bytes = Vec::with_capacity(initial_capacity);
         while let Some(chunk) = stream.next_chunk().await.map_err(map_drive_error)? {
+            let next_size = bytes.len().saturating_add(chunk.len()) as u64;
+            if next_size > max_bytes {
+                return Err(object_read_limit_error(next_size, max_bytes));
+            }
             bytes.extend_from_slice(&chunk);
         }
 

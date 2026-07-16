@@ -723,7 +723,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_binding (
     CHECK (lifecycle_state <> 'active' OR acl_projection_state = 'active'),
     CHECK (membership_epoch >= 0),
     CHECK (tenant_id > 0),
-    CHECK (organization_id > 0),
+    CHECK (organization_id >= 0),
     FOREIGN KEY (space_id) REFERENCES kb_space(id)
 );
 
@@ -773,7 +773,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_member (
     ),
     CHECK (membership_epoch >= 0),
     CHECK (tenant_id > 0),
-    CHECK (organization_id > 0),
+    CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -800,7 +800,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_event_inbox (
     applied_at TEXT NOT NULL,
     PRIMARY KEY (id),
     CHECK (tenant_id > 0),
-    CHECK (organization_id > 0),
+    CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -834,7 +834,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_membership_projection (
     CHECK (projection_state IN ('pending', 'failed', 'completed')),
     CHECK (target_membership_epoch >= 0),
     CHECK (tenant_id > 0),
-    CHECK (organization_id > 0),
+    CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );

@@ -34,7 +34,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: sdkwork-knowledgebase-backend-api
+                name: sdkwork-knowledgebase-app-api
                 port:
                   name: http
     - host: knowledge.sdkwork.com
@@ -44,6 +44,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: sdkwork-knowledgebase-open-api
+                name: sdkwork-knowledgebase-app-api
                 port:
                   name: http

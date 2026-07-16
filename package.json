@@ -8,7 +8,7 @@
     "@sdkwork/app-topology": "workspace:*"
   },
   "scripts": {
-    "dev": "pnpm dev:browser",
+    "stop": "node ../sdkwork-specs/tools/stop-sdkwork-workspace-processes.mjs --workspace .",    "dev": "pnpm dev:browser",
     "dev:browser": "pnpm dev:browser:postgres:standalone",
     "dev:browser:postgres": "pnpm dev:browser:postgres:standalone",
     "dev:browser:postgres:standalone": "node scripts/knowledgebase-dev.mjs --target browser --deployment-profile standalone --database postgres --dev-env-file .env.postgres",
@@ -35,7 +35,7 @@
     "test:e2e:playwright": "pnpm --dir apps/sdkwork-knowledgebase-pc run test:e2e",
     "test:topology": "node --test --experimental-test-isolation=none scripts/verify-knowledgebase-topology.test.mjs",
     "test:frontend": "pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-commons test && pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-core test && pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-search test && pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase test && pnpm --dir apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-shell test",
-    "check": "pnpm check:architecture-alignment && pnpm check:app-composition && pnpm check:pc-app-hygiene && pnpm check:source-hygiene && pnpm check:utils-integration && pnpm check:pnpm-script-standard && pnpm check:agent-workflow-standard && pnpm check:okf-standard && pnpm check:external-engine-catalog && pnpm check:knowledge-engine-spi && pnpm check:verification-pipeline",
+    "check": "pnpm api:materialize:check && pnpm check:architecture-alignment && pnpm check:app-composition && pnpm check:pc-app-hygiene && pnpm check:source-hygiene && pnpm check:utils-integration && pnpm check:pnpm-script-standard && pnpm check:agent-workflow-standard && pnpm check:okf-standard && pnpm check:external-engine-catalog && pnpm check:knowledge-engine-spi && pnpm check:verification-pipeline",
     "check:app-composition": "node ../sdkwork-specs/tools/verify-repo.mjs --root .",
     "check:utils-integration": "node tools/check_utils_integration_standard.mjs",
     "check:okf-standard": "node tools/check_okf_knowledge_bundle_standard.mjs",

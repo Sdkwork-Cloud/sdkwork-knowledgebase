@@ -28,6 +28,7 @@ describe('knowledgebase security standard alignment', () => {
     );
     assert.doesNotMatch(bootstrap, /SDKWORK_KNOWLEDGEBASE_DEV_AUTH_BYPASS/);
     assert.match(bootstrap, /validate_snowflake_node_id_for_production/);
+    assert.match(bootstrap, /ALLOW_STATIC_SNOWFLAKE_NODE_ID/);
     const appBootstrap = readRepoFile(
       'crates/sdkwork-routes-knowledgebase-app-api/src/web_bootstrap.rs',
     );

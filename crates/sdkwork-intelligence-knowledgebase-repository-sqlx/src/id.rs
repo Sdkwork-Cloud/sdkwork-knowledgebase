@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use sdkwork_database_id::{max_snowflake_node_id, SnowflakeIdError, SnowflakeIdGenerator};
+use sdkwork_database_id::{SnowflakeIdError, SnowflakeIdGenerator};
 
 static DEFAULT_ID_GENERATOR: OnceLock<Arc<dyn KnowledgeIdGenerator>> = OnceLock::new();
 
@@ -75,6 +75,10 @@ impl SnowflakeKnowledgeIdGenerator {
         })
     }
 
+    pub fn from_generator(inner: SnowflakeIdGenerator) -> Self {
+        Self { inner }
+    }
+
     pub fn from_node_id_config(value: Option<&str>) -> Result<Self, KnowledgeIdGeneratorError> {
         let Some(value) = value else {
             return Self::new(0);
@@ -85,7 +89,11 @@ impl SnowflakeKnowledgeIdGenerator {
                 "snowflake node id is required when configured".to_string(),
             ));
         }
-        let node_id = parse_or_hash_node_id(value)?;
+        let node_id = value.parse::<u16>().map_err(|_| {
+            KnowledgeIdGeneratorError::Internal(
+                "snowflake node id must be a decimal integer from 0 through 1023".to_string(),
+            )
+        })?;
         Self::new(node_id)
     }
 
@@ -119,6 +127,16 @@ pub fn default_knowledge_id_generator() -> Arc<dyn KnowledgeIdGenerator> {
         .clone()
 }
 
+pub fn install_default_knowledge_id_generator(
+    generator: SnowflakeKnowledgeIdGenerator,
+) -> Result<(), KnowledgeIdGeneratorError> {
+    DEFAULT_ID_GENERATOR.set(Arc::new(generator)).map_err(|_| {
+        KnowledgeIdGeneratorError::Internal(
+            "knowledgebase ID generator was used before runtime initialization".to_string(),
+        )
+    })
+}
+
 fn knowledge_id_generator_from_config(value: Option<&str>) -> Arc<dyn KnowledgeIdGenerator> {
     match SnowflakeKnowledgeIdGenerator::from_node_id_config(value) {
         Ok(generator) => Arc::new(generator),
@@ -133,25 +151,6 @@ pub(crate) fn next_i64_id(
     i64::try_from(id).map_err(|_| {
         KnowledgeIdGeneratorError::Internal("snowflake id exceeds signed int64 range".to_string())
     })
-}
-
-/// Parses a numeric node id or deterministically hashes orchestration identifiers
-/// (for example Kubernetes pod names) into the valid Snowflake node id range.
-fn parse_or_hash_node_id(value: &str) -> Result<u16, KnowledgeIdGeneratorError> {
-    if let Ok(node_id) = value.parse::<u16>() {
-        return Ok(node_id);
-    }
-
-    Ok(hash_identifier_to_node_id(value))
-}
-
-fn hash_identifier_to_node_id(identifier: &str) -> u16 {
-    let mut hash: u64 = 0xcbf29ce484222325;
-    for byte in identifier.as_bytes() {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    (hash as u16) & max_snowflake_node_id()
 }
 
 fn map_snowflake_error(error: SnowflakeIdError) -> KnowledgeIdGeneratorError {
@@ -208,17 +207,12 @@ mod tests {
     }
 
     #[test]
-    fn orchestration_identifier_hashes_to_stable_node_id() {
-        let first = SnowflakeKnowledgeIdGenerator::from_node_id_config(Some(
+    fn orchestration_identifiers_are_rejected_as_static_node_ids() {
+        let error = SnowflakeKnowledgeIdGenerator::from_node_id_config(Some(
             "sdkwork-knowledgebase-app-api-7f4d9c8b5-xk2jp",
         ))
-        .expect("pod name should hash to a valid node id");
-        let second = SnowflakeKnowledgeIdGenerator::from_node_id_config(Some(
-            "sdkwork-knowledgebase-app-api-7f4d9c8b5-xk2jp",
-        ))
-        .expect("pod name should hash to a valid node id");
+        .unwrap_err();
 
-        assert_eq!(first.node_id(), second.node_id());
-        assert!(first.node_id() <= max_snowflake_node_id());
+        assert!(error.to_string().contains("decimal integer"));
     }
 }

@@ -32,7 +32,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - Secure multi-surface API (app / backend / open) with SDK-first clients
 - Knowledge spaces with Drive-backed storage, ingest, and RAG retrieval
 - PC browser and desktop shell for authoring, search, and market/catalog
-- Production deployment topology (split services, worker, Postgres, probes, audit)
+- Production deployment topology (replicated application public ingress, worker, Postgres, probes, audit)
 - Fail-closed auth, tenant/org guards, and backend `knowledge.admin` RBAC
 - Managed IM Conversation group knowledge spaces that are created only by the current IM Owner's
   first initialization or failed-provisioning retry, use dedicated group binding and
@@ -52,6 +52,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 **In scope**
 
 - App API: spaces, documents, browser, ingest, retrieval, agent chat, WeChat, market, site deploy
+- Provider-backed media tasks: ClawRouter SDK image generation and speech-to-text; requests fail closed when provider configuration is absent
+- Drive-backed static site publishing: enabled only when an HTTPS public object gateway is configured; unsupported third-party hosting is not reported as successful
 - Backend API: sources, OKF compile/candidates, indexes, retrieval profiles/traces
 - Open API: retrieval, context packs, ingest, document/browser read
 - Worker: outbox dispatch, ingestion maintenance

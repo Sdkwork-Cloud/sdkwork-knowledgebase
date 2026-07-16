@@ -18,7 +18,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_re
     SDKWORK_DRIVE_PROVIDER_KIND,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::{
-    CompleteRunningIngestionRecord, CreateIngestionJobRecord, IngestionJobStore,
+    ClaimIngestionJobsRequest, CompleteRunningIngestionRecord, CreateIngestionJobRecord,
+    IngestionJobStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore,
@@ -31,6 +32,7 @@ use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
 use sdkwork_knowledgebase_test_support::fake_drive::FakeKnowledgeDriveStorage;
 use sqlx::{AnyPool, Row};
 use std::sync::Arc;
+use time::Duration;
 use tokio::sync::Barrier;
 
 #[tokio::test]
@@ -575,12 +577,19 @@ async fn sqlite_workers_claim_each_queued_ingestion_job_once() {
     let barrier = Arc::new(Barrier::new(3));
 
     let mut workers = Vec::new();
-    for _ in 0..2 {
+    for worker_number in 0..2 {
         let store = Arc::clone(&store);
         let barrier = Arc::clone(&barrier);
         workers.push(tokio::spawn(async move {
             barrier.wait().await;
-            store.claim_queued_jobs(20).await.unwrap()
+            store
+                .claim_ingestion_jobs(ClaimIngestionJobsRequest {
+                    claim_owner: format!("worker-{worker_number}"),
+                    lease_duration: Duration::minutes(5),
+                    limit: 20,
+                })
+                .await
+                .unwrap()
         }));
     }
     barrier.wait().await;
@@ -591,8 +600,76 @@ async fn sqlite_workers_claim_each_queued_ingestion_job_once() {
     }
 
     assert_eq!(claimed.len(), 1);
-    assert_eq!(claimed[0].id, job.id);
-    assert_eq!(claimed[0].state, IngestionJobState::Running);
+    assert_eq!(claimed[0].job.id, job.id);
+    assert_eq!(claimed[0].job.state, IngestionJobState::Running);
+    assert_eq!(claimed[0].attempt_count, 1);
+}
+
+#[tokio::test]
+async fn sqlite_expired_ingestion_lease_is_reclaimed_and_stale_worker_is_fenced() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let store = SqliteIngestionJobStore::new(pool.clone(), 9001);
+    let job = create_ingestion_job(&store, 7, "drive_object", "lease-reclaim").await;
+
+    let first = store
+        .claim_ingestion_jobs(ClaimIngestionJobsRequest {
+            claim_owner: "worker-a".to_string(),
+            lease_duration: Duration::minutes(5),
+            limit: 1,
+        })
+        .await
+        .unwrap()
+        .pop()
+        .unwrap();
+    let renewed_until = store
+        .renew_ingestion_job_lease(job.id, &first.claim_token, Duration::minutes(5))
+        .await
+        .unwrap();
+    assert!(renewed_until >= first.lease_expires_at);
+    assert!(store
+        .renew_ingestion_job_lease(job.id, "not-the-current-token", Duration::minutes(5))
+        .await
+        .is_err());
+    sqlx::query(
+        "UPDATE kb_ingestion_job SET lease_expires_at = '2026-01-01T00:00:00Z' WHERE id = $1",
+    )
+    .bind(job.id as i64)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let second = store
+        .claim_ingestion_jobs(ClaimIngestionJobsRequest {
+            claim_owner: "worker-b".to_string(),
+            lease_duration: Duration::minutes(5),
+            limit: 1,
+        })
+        .await
+        .unwrap()
+        .pop()
+        .unwrap();
+
+    assert_ne!(first.claim_token, second.claim_token);
+    assert_eq!(second.attempt_count, 2);
+    assert!(store
+        .fail_claimed_ingestion_job(job.id, &first.claim_token, "stale failure".to_string())
+        .await
+        .is_err());
+    let failed = store
+        .fail_claimed_ingestion_job(job.id, &second.claim_token, "current failure".to_string())
+        .await
+        .unwrap();
+    assert_eq!(failed.state, IngestionJobState::Failed);
+
+    let lease_fields: (Option<String>, Option<String>, Option<String>, i64) = sqlx::query_as(
+        "SELECT claim_owner, claim_token, CAST(lease_expires_at AS TEXT), attempt_count FROM kb_ingestion_job WHERE id = $1",
+    )
+    .bind(job.id as i64)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(lease_fields, (None, None, None, 2));
 }
 
 #[tokio::test]
@@ -733,7 +810,11 @@ async fn sqlite_stale_upload_session_scan_uses_existing_state_index() {
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!(details.contains("idx_kb_ingestion_job_tenant_state_status"));
+    assert!(
+        details.contains("idx_kb_ingestion_job_tenant_state_status")
+            || details.contains("idx_kb_ingestion_job_claimable"),
+        "stale upload-session scan must use a bounded ingestion-job index: {details}"
+    );
 }
 
 #[tokio::test]
@@ -1140,15 +1221,18 @@ async fn sqlite_ingestion_job_store_completes_chunks_job_and_outbox_atomically()
         })
         .await
         .unwrap();
-    let running = jobs
-        .update_job_state(
-            created.job.id,
-            IngestionJobState::Queued,
-            IngestionJobState::Running,
-            None,
-        )
+    let claimed = jobs
+        .claim_ingestion_jobs(ClaimIngestionJobsRequest {
+            claim_owner: "completion-worker".to_string(),
+            lease_duration: Duration::minutes(5),
+            limit: 1,
+        })
         .await
+        .unwrap()
+        .pop()
         .unwrap();
+    assert_eq!(claimed.job.id, created.job.id);
+    let running = claimed.job;
     let chunks = split_markdown_chunks(
         7,
         document.id,
@@ -1158,6 +1242,7 @@ async fn sqlite_ingestion_job_store_completes_chunks_job_and_outbox_atomically()
     let completed = jobs
         .complete_running_ingestion_with_chunks_and_outbox(CompleteRunningIngestionRecord {
             job_id: running.id,
+            claim_token: Some(claimed.claim_token),
             document_version_id: version.id,
             chunks,
             outbox: ingest_success_outbox_record(&running),

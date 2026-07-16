@@ -4,6 +4,4 @@ rules:
   ignoreTables: []
   ignoreColumns: []
   severityOverrides:
-    prefix_mismatch:
-      kb_: "error"
-      web_: "error"
+    prefix_mismatch: error

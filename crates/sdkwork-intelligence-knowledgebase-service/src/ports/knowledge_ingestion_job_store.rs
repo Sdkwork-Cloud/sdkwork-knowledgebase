@@ -10,6 +10,8 @@ use crate::tenant_quota::TenantQuotaExceeded;
 
 pub const KNOWLEDGE_UPLOAD_SESSION_TTL: Duration = Duration::hours(24);
 pub const STALE_UPLOAD_SESSION_RECOVERY_BATCH_SIZE: u32 = 100;
+pub const DEFAULT_INGESTION_JOB_LEASE: Duration = Duration::minutes(5);
+pub const MAX_INGESTION_JOB_LEASE: Duration = Duration::hours(1);
 
 #[async_trait]
 pub trait IngestionJobStore: Send + Sync {
@@ -43,34 +45,35 @@ pub trait IngestionJobStore: Send + Sync {
         limit: u32,
     ) -> Result<Vec<IngestionJob>, IngestionJobStoreError>;
 
-    /// Claims queued jobs with an atomic queued-to-running compare-and-set per job.
-    /// Competing workers may observe the same candidate page, but only the worker
-    /// whose conditional update succeeds receives the job.
-    async fn claim_queued_jobs(
+    async fn claim_ingestion_jobs(
         &self,
-        limit: u32,
-    ) -> Result<Vec<IngestionJob>, IngestionJobStoreError> {
-        let candidates = self
-            .list_jobs_by_state(IngestionJobState::Queued, limit)
-            .await?;
-        let mut claimed = Vec::with_capacity(candidates.len());
-        for candidate in candidates {
-            match self
-                .update_job_state(
-                    candidate.id,
-                    IngestionJobState::Queued,
-                    IngestionJobState::Running,
-                    None,
-                )
-                .await
-            {
-                Ok(job) => claimed.push(job),
-                Err(IngestionJobStoreError::NotFound(_))
-                | Err(IngestionJobStoreError::Conflict(_)) => {}
-                Err(error) => return Err(error),
-            }
-        }
-        Ok(claimed)
+        _request: ClaimIngestionJobsRequest,
+    ) -> Result<Vec<ClaimedIngestionJob>, IngestionJobStoreError> {
+        Err(IngestionJobStoreError::Internal(
+            "ingestion job store does not support leased claims".to_string(),
+        ))
+    }
+
+    async fn renew_ingestion_job_lease(
+        &self,
+        _job_id: u64,
+        _claim_token: &str,
+        _lease_duration: Duration,
+    ) -> Result<OffsetDateTime, IngestionJobStoreError> {
+        Err(IngestionJobStoreError::Internal(
+            "ingestion job store does not support lease renewal".to_string(),
+        ))
+    }
+
+    async fn fail_claimed_ingestion_job(
+        &self,
+        _job_id: u64,
+        _claim_token: &str,
+        _error_message: String,
+    ) -> Result<IngestionJob, IngestionJobStoreError> {
+        Err(IngestionJobStoreError::Internal(
+            "ingestion job store does not support fenced failure".to_string(),
+        ))
     }
 
     async fn fail_expired_upload_sessions(
@@ -109,9 +112,25 @@ pub trait IngestionJobStore: Send + Sync {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompleteRunningIngestionRecord {
     pub job_id: u64,
+    pub claim_token: Option<String>,
     pub document_version_id: u64,
     pub chunks: Vec<CreateKnowledgeChunkRecord>,
     pub outbox: AppendOutboxEventRecord,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClaimIngestionJobsRequest {
+    pub claim_owner: String,
+    pub lease_duration: Duration,
+    pub limit: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClaimedIngestionJob {
+    pub job: IngestionJob,
+    pub claim_token: String,
+    pub lease_expires_at: OffsetDateTime,
+    pub attempt_count: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

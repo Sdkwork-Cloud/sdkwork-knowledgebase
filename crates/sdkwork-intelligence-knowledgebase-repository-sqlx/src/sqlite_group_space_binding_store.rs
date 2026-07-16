@@ -3598,11 +3598,6 @@ fn validate_scope(
     scope: GroupKnowledgeSpaceScope,
 ) -> Result<(), KnowledgeGroupSpaceBindingStoreError> {
     validate_tenant_id(scope.tenant_id)?;
-    if scope.organization_id == 0 {
-        return Err(KnowledgeGroupSpaceBindingStoreError::InvalidRequest(
-            "organization_id is required for a group knowledge space".to_string(),
-        ));
-    }
     if scope.organization_id > MAX_GROUP_SCOPE_ID {
         return Err(KnowledgeGroupSpaceBindingStoreError::InvalidRequest(
             "organization_id exceeds the signed BIGINT group knowledge space boundary".to_string(),

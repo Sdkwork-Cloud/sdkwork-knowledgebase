@@ -34,10 +34,16 @@ spec:
               value: production
             - name: SDKWORK_KNOWLEDGEBASE_WORKER_HEALTH_ADDR
               value: "0.0.0.0:18085"
-            - name: SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID
+            - name: SDKWORK_KNOWLEDGEBASE_WORKER_ID
               valueFrom:
                 fieldRef:
-                  fieldPath: metadata.name
+                  fieldPath: metadata.uid
+            - name: SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_JOB_LEASE_SECONDS
+              value: "300"
+            - name: SDKWORK_NODE_INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
           envFrom:
             - secretRef:
                 name: sdkwork-knowledgebase-runtime

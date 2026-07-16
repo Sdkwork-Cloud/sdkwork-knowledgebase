@@ -54,8 +54,8 @@ pub use db::{
 pub use drive_object_ref_store::SqliteKnowledgeDriveObjectRefStore;
 pub use embedding_store::SqliteKnowledgeEmbeddingStore;
 pub use id::{
-    default_knowledge_id_generator, KnowledgeIdGenerator, KnowledgeIdGeneratorError,
-    SnowflakeKnowledgeIdGenerator,
+    default_knowledge_id_generator, install_default_knowledge_id_generator, KnowledgeIdGenerator,
+    KnowledgeIdGeneratorError, SnowflakeKnowledgeIdGenerator,
 };
 pub use index_store::{KnowledgeIndexStoreError, SqliteKnowledgeIndexStore};
 pub use keyword_search::{keyword_search_backend_for_database_url, KeywordSearchBackend};

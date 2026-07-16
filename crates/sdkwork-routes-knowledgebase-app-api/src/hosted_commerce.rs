@@ -1,13 +1,16 @@
 use async_trait::async_trait;
+use clawrouter_open_sdk::{
+    OpenAiAudioTranscriptionRequest, OpenAiFileReferenceInput, OpenAiImageGenerationRequest,
+};
 use sdkwork_intelligence_knowledgebase_service::commerce::{
     KnowledgeSiteDeploymentService, KnowledgeSiteDeploymentServiceError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::commerce_store::{
     KnowledgeMarketStore, KnowledgeMarketStoreError, KnowledgeSiteDeploymentStore,
-    KnowledgeSiteDeploymentStoreError,
+    KnowledgeSiteDeploymentStoreError, KnowledgeSitePublisher, KnowledgeSitePublisherError,
+    PublishKnowledgeSiteRequest, PublishedKnowledgeSite,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_access_control::KnowledgeAccessRole;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_chunk_store::KnowledgeChunkStore;
 use sdkwork_knowledgebase_contract::market::{
     KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest,
     KnowledgeMarketSubscriptionResult,
@@ -139,12 +142,21 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
         )
         .await?;
         let markdown_reader = RuntimeDocumentMarkdownReader::new(self.runtime.clone());
+        let publisher = DriveStaticSitePublisher::from_env().map_err(|_| {
+            ApiError::new(
+                axum::http::StatusCode::SERVICE_UNAVAILABLE,
+                "site_deployment_publisher_unavailable",
+                "the static site publisher configuration is invalid",
+            )
+        })?;
         let service = KnowledgeSiteDeploymentService::new(
             self.runtime.document_store(),
             &markdown_reader,
             self.runtime.commerce_store(),
             self.runtime.drive_storage(),
-            None,
+            publisher
+                .as_ref()
+                .map(|publisher| publisher as &dyn KnowledgeSitePublisher),
         );
         service
             .create_deployment(context.tenant_id, request, space.drive_space_id.as_deref())
@@ -210,69 +222,289 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
         .await?;
         match request.task_type {
             KnowledgeMediaTaskType::SpeechToText => {
-                if let Some(document_id) = request.document_id.filter(|value| *value > 0) {
-                    let versions = self
-                        .runtime
-                        .version_store()
-                        .list_versions_for_document(document_id)
-                        .await
-                        .map_err(|error| {
-                            ApiError::internal(
-                                "media_task_version_lookup_failed",
-                                error.to_string(),
-                            )
-                        })?;
-                    if let Some(version) = versions.last() {
-                        let chunks = self
-                            .runtime
-                            .chunk_store()
-                            .list_chunk_texts_for_document_version(version.id)
-                            .await
-                            .map_err(|error| {
-                                ApiError::internal(
-                                    "media_task_chunk_lookup_failed",
-                                    error.to_string(),
-                                )
-                            })?;
-                        if !chunks.is_empty() {
-                            return Ok(KnowledgeMediaTaskResult {
-                                accepted: true,
-                                status: "completed".to_string(),
-                                url: request.source_url.clone(),
-                                resolution: None,
-                                text: Some(chunks.join("\n\n")),
-                                suggestions: Vec::new(),
-                                similars: Vec::new(),
-                            });
-                        }
-                    }
+                let source_url = require_https_media_url(request.source_url.as_deref())?;
+                let client = resolve_media_client("media_transcription_provider_unavailable")?;
+                let mut file = OpenAiFileReferenceInput::default();
+                file.additional_properties
+                    .insert("url".to_string(), serde_json::Value::String(source_url));
+                let transcription = client
+                    .audio()
+                    .create_transcription(&OpenAiAudioTranscriptionRequest {
+                        file,
+                        language: None,
+                        model: media_model(
+                            "SDKWORK_KNOWLEDGEBASE_TRANSCRIPTION_MODEL",
+                            "openai/whisper-1",
+                        ),
+                        prompt: normalize_optional_media_text(request.prompt.as_deref(), 4_000)?,
+                        response_format: Some("json".to_string()),
+                    })
+                    .await
+                    .map_err(|error| media_provider_error("media_transcription_failed", &error))?;
+                if is_blank(Some(transcription.text.as_str())) {
+                    return Err(ApiError::new(
+                        axum::http::StatusCode::BAD_GATEWAY,
+                        "media_transcription_invalid_response",
+                        "transcription provider returned no text",
+                    ));
                 }
-
-                Err(ApiError::new(
-                    axum::http::StatusCode::SERVICE_UNAVAILABLE,
-                    "media_transcription_provider_unavailable",
-                    "no transcription provider or derived transcript is available",
-                ))
+                Ok(KnowledgeMediaTaskResult {
+                    accepted: true,
+                    status: "completed".to_string(),
+                    url: request.source_url,
+                    resolution: None,
+                    text: Some(transcription.text),
+                    suggestions: Vec::new(),
+                    similars: Vec::new(),
+                })
             }
             KnowledgeMediaTaskType::GenerateImage => {
-                request
-                    .prompt
-                    .as_deref()
-                    .filter(|value| !is_blank(Some(value)))
+                let prompt = normalize_optional_media_text(request.prompt.as_deref(), 4_000)?
                     .ok_or_else(|| {
                         ApiError::invalid_request(
                             "invalid_media_task_request",
                             "prompt is required",
                         )
                     })?;
-                Err(ApiError::new(
-                    axum::http::StatusCode::SERVICE_UNAVAILABLE,
-                    "media_image_provider_unavailable",
-                    "no image generation provider is configured",
-                ))
+                let resolution = image_resolution(request.aspect_mode.as_deref())?;
+                let quality = image_quality(request.style_mode.as_deref())?;
+                let client = resolve_media_client("media_image_provider_unavailable")?;
+                let result = client
+                    .images()
+                    .create_generation(&OpenAiImageGenerationRequest {
+                        model: media_model(
+                            "SDKWORK_KNOWLEDGEBASE_IMAGE_GENERATION_MODEL",
+                            "openai/gpt-image-1",
+                        ),
+                        n: Some(1),
+                        prompt,
+                        quality,
+                        response_format: Some("url".to_string()),
+                        size: Some(resolution.to_string()),
+                    })
+                    .await
+                    .map_err(|error| {
+                        media_provider_error("media_image_generation_failed", &error)
+                    })?;
+                let image = result.data.into_iter().next().ok_or_else(|| {
+                    ApiError::new(
+                        axum::http::StatusCode::BAD_GATEWAY,
+                        "media_image_invalid_response",
+                        "image provider returned no output",
+                    )
+                })?;
+                let image_url = require_https_provider_url(image.url.as_deref())?;
+                Ok(KnowledgeMediaTaskResult {
+                    accepted: true,
+                    status: "completed".to_string(),
+                    url: Some(image_url),
+                    resolution: Some(resolution.to_string()),
+                    text: None,
+                    suggestions: image.revised_prompt.into_iter().collect(),
+                    similars: Vec::new(),
+                })
             }
         }
     }
+}
+
+struct DriveStaticSitePublisher {
+    public_base_url: url::Url,
+}
+
+impl DriveStaticSitePublisher {
+    fn from_env() -> Result<Option<Self>, String> {
+        let Some(value) = std::env::var("SDKWORK_KNOWLEDGEBASE_SITE_PUBLIC_BASE_URL")
+            .ok()
+            .filter(|value| !is_blank(Some(value.as_str())))
+        else {
+            return Ok(None);
+        };
+        let public_base_url = url::Url::parse(value.trim())
+            .map_err(|error| format!("invalid static site public base URL: {error}"))?;
+        if public_base_url.scheme() != "https"
+            || public_base_url.host_str().is_none()
+            || !public_base_url.username().is_empty()
+            || public_base_url.query().is_some()
+            || public_base_url.fragment().is_some()
+        {
+            return Err(
+                "static site public base URL must be absolute HTTPS without credentials, query, or fragment"
+                    .to_string(),
+            );
+        }
+        Ok(Some(Self { public_base_url }))
+    }
+}
+
+#[async_trait]
+impl KnowledgeSitePublisher for DriveStaticSitePublisher {
+    async fn publish_site(
+        &self,
+        request: PublishKnowledgeSiteRequest,
+    ) -> Result<PublishedKnowledgeSite, KnowledgeSitePublisherError> {
+        if let Some(custom_domain) = request
+            .custom_domain
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            if !self
+                .public_base_url
+                .host_str()
+                .is_some_and(|host| host.eq_ignore_ascii_case(custom_domain))
+            {
+                return Err(KnowledgeSitePublisherError::InvalidRequest(
+                    "custom_domain must match the configured static site public host".to_string(),
+                ));
+            }
+        }
+        let mut public_url = self.public_base_url.clone();
+        let mut segments = public_url.path_segments_mut().map_err(|_| {
+            KnowledgeSitePublisherError::InvalidRequest(
+                "static site public base URL cannot contain path segments".to_string(),
+            )
+        })?;
+        segments.pop_if_empty();
+        for segment in request.preview_object_key.split('/') {
+            if segment.is_empty() || segment == "." || segment == ".." {
+                return Err(KnowledgeSitePublisherError::InvalidRequest(
+                    "preview object key contains an invalid path segment".to_string(),
+                ));
+            }
+            segments.push(segment);
+        }
+        drop(segments);
+        Ok(PublishedKnowledgeSite {
+            public_url: public_url.to_string(),
+        })
+    }
+}
+
+fn resolve_media_client(
+    unavailable_code: &'static str,
+) -> ApiResult<clawrouter_open_sdk::SdkworkAiClient> {
+    sdkwork_knowledgebase_agent_provider::resolve_claw_router_client_from_env().map_err(|_| {
+        ApiError::new(
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            unavailable_code,
+            "the configured media provider is unavailable",
+        )
+    })
+}
+
+fn media_model(environment_key: &str, default_model: &str) -> String {
+    std::env::var(environment_key)
+        .ok()
+        .filter(|value| !is_blank(Some(value.as_str())))
+        .unwrap_or_else(|| default_model.to_string())
+}
+
+fn normalize_optional_media_text(
+    value: Option<&str>,
+    max_chars: usize,
+) -> ApiResult<Option<String>> {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    if value.chars().count() > max_chars {
+        return Err(ApiError::invalid_request(
+            "invalid_media_task_request",
+            format!("media text exceeds {max_chars} characters"),
+        ));
+    }
+    Ok(Some(value.to_string()))
+}
+
+fn require_https_media_url(value: Option<&str>) -> ApiResult<String> {
+    let value = value
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && value.len() <= 2_048)
+        .ok_or_else(|| {
+            ApiError::invalid_request(
+                "invalid_media_task_request",
+                "source_url is required and must not exceed 2048 bytes",
+            )
+        })?;
+    let url = url::Url::parse(value).map_err(|_| {
+        ApiError::invalid_request(
+            "invalid_media_task_request",
+            "source_url must be a valid URL",
+        )
+    })?;
+    if url.scheme() != "https" || url.host_str().is_none() || !url.username().is_empty() {
+        return Err(ApiError::invalid_request(
+            "invalid_media_task_request",
+            "source_url must be an absolute HTTPS URL without user information",
+        ));
+    }
+    let blocked_host = match url.host() {
+        Some(url::Host::Domain(domain)) => {
+            domain.eq_ignore_ascii_case("localhost")
+                || domain.to_ascii_lowercase().ends_with(".localhost")
+        }
+        Some(url::Host::Ipv4(address)) => {
+            address.is_private()
+                || address.is_loopback()
+                || address.is_link_local()
+                || address.is_broadcast()
+                || address.is_documentation()
+                || address.is_unspecified()
+        }
+        Some(url::Host::Ipv6(address)) => {
+            address.is_loopback() || address.is_unspecified() || address.is_unique_local()
+        }
+        None => true,
+    };
+    if blocked_host {
+        return Err(ApiError::invalid_request(
+            "invalid_media_task_request",
+            "source_url host is not allowed",
+        ));
+    }
+    Ok(url.to_string())
+}
+
+fn require_https_provider_url(value: Option<&str>) -> ApiResult<String> {
+    require_https_media_url(value).map_err(|_| {
+        ApiError::new(
+            axum::http::StatusCode::BAD_GATEWAY,
+            "media_image_invalid_response",
+            "image provider returned an invalid URL",
+        )
+    })
+}
+
+fn image_resolution(aspect_mode: Option<&str>) -> ApiResult<&'static str> {
+    match aspect_mode.map(str::trim).filter(|value| !value.is_empty()) {
+        None | Some("square") | Some("1:1") => Ok("1024x1024"),
+        Some("landscape") | Some("3:2") | Some("16:9") => Ok("1536x1024"),
+        Some("portrait") | Some("2:3") | Some("9:16") => Ok("1024x1536"),
+        Some(_) => Err(ApiError::invalid_request(
+            "invalid_media_task_request",
+            "aspect_mode must be square, landscape, portrait, 1:1, 3:2, 2:3, 16:9, or 9:16",
+        )),
+    }
+}
+
+fn image_quality(style_mode: Option<&str>) -> ApiResult<Option<String>> {
+    match style_mode.map(str::trim).filter(|value| !value.is_empty()) {
+        None | Some("auto") => Ok(Some("auto".to_string())),
+        Some(value @ ("low" | "medium" | "high")) => Ok(Some(value.to_string())),
+        Some(_) => Err(ApiError::invalid_request(
+            "invalid_media_task_request",
+            "style_mode must be auto, low, medium, or high",
+        )),
+    }
+}
+
+fn media_provider_error(code: &'static str, error: &clawrouter_open_sdk::SdkworkError) -> ApiError {
+    tracing::warn!(error = %error, "Claw Router media request failed");
+    ApiError::new(
+        axum::http::StatusCode::BAD_GATEWAY,
+        code,
+        "the media provider request failed",
+    )
 }
 
 fn map_market_error(error: KnowledgeMarketStoreError) -> ApiError {

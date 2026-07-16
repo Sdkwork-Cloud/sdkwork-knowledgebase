@@ -13,6 +13,12 @@ const APP_ROOT_POSTGRES_BASELINE: &str =
     include_str!("../../../database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql");
 const APP_ROOT_SQLITE_BASELINE: &str =
     include_str!("../../../database/ddl/baseline/sqlite/0001_knowledgebase_baseline.sql");
+const APP_ROOT_POSTGRES_TENANT_SCOPE_MIGRATION: &str = include_str!(
+    "../../../database/migrations/postgres/202607160001_group_knowledgebase_tenant_scope.up.sql"
+);
+const APP_ROOT_SQLITE_TENANT_SCOPE_MIGRATION: &str = include_str!(
+    "../../../database/migrations/sqlite/202607160001_group_knowledgebase_tenant_scope.up.sql"
+);
 const AGENT_PROFILE_STORE_SOURCE: &str = include_str!("../src/agent_profile_store.rs");
 const AUDIT_EVENT_STORE_SOURCE: &str = include_str!("../src/audit_event_store.rs");
 const DRIVE_OBJECT_REF_STORE_SOURCE: &str = include_str!("../src/drive_object_ref_store.rs");
@@ -811,7 +817,7 @@ fn group_aggregate_baseline_preserves_postgres_rls_for_every_tenant_table() {
 }
 
 #[test]
-fn group_aggregate_requires_a_canonical_nonzero_organization_in_every_schema_path() {
+fn group_aggregate_accepts_the_canonical_tenant_scope_in_every_schema_path() {
     for (name, source, declaration, constraint) in [
         (
             "postgres baseline binding",
@@ -872,8 +878,8 @@ fn group_aggregate_requires_a_canonical_nonzero_organization_in_every_schema_pat
             "{name} must not default a group organization_id to zero"
         );
         assert!(
-            group_section.contains("CHECK (organization_id > 0)"),
-            "{name} must reject zero organization_id in greenfield DDL"
+            group_section.contains("CHECK (organization_id >= 0)"),
+            "{name} must accept the zero tenant-scope organization sentinel in greenfield DDL"
         );
     }
 
@@ -906,6 +912,29 @@ fn group_aggregate_requires_a_canonical_nonzero_organization_in_every_schema_pat
         assert!(
             APP_ROOT_SQLITE_BASELINE.contains(&format!("CREATE TABLE IF NOT EXISTS {table}")),
             "sqlite baseline is missing {table}"
+        );
+    }
+}
+
+#[test]
+fn group_tenant_scope_upgrade_migrations_match_the_greenfield_contract() {
+    assert_eq!(
+        APP_ROOT_POSTGRES_TENANT_SCOPE_MIGRATION
+            .matches("CHECK (organization_id >= 0)")
+            .count(),
+        4,
+        "PostgreSQL upgrade must relax all four group aggregate scope constraints",
+    );
+    assert!(APP_ROOT_SQLITE_TENANT_SCOPE_MIGRATION.contains("CHECK (organization_id >= 0)"));
+    for table in [
+        "kb_group_knowledge_space_binding",
+        "kb_group_knowledge_space_member",
+        "kb_group_knowledge_space_event_inbox",
+        "kb_group_knowledge_space_membership_projection",
+    ] {
+        assert!(
+            APP_ROOT_SQLITE_TENANT_SCOPE_MIGRATION.contains(&format!("CREATE TABLE {table}")),
+            "SQLite upgrade must rebuild {table} with the tenant-scope contract",
         );
     }
 }

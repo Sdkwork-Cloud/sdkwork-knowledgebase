@@ -17,13 +17,15 @@ pub enum MaintenanceTickError {
 
 pub async fn run_maintenance_tick(
     runtime: &KnowledgebaseRuntime,
+    worker_id: &str,
+    ingestion_job_lease: time::Duration,
     outbox_limit: u32,
     ingestion_job_limit: u32,
     group_archive_limit: u32,
 ) -> Result<MaintenanceTickResult, MaintenanceTickError> {
     let outbox_published = runtime.publish_pending_outbox_events(outbox_limit).await;
     let ingestion_jobs_processed = runtime
-        .process_queued_ingestion_jobs(ingestion_job_limit)
+        .process_queued_ingestion_jobs(worker_id, ingestion_job_lease, ingestion_job_limit)
         .await
         .map_err(MaintenanceTickError::Ingestion)?;
     let group_archives_processed = runtime
@@ -38,6 +40,8 @@ pub async fn run_maintenance_tick(
 
 pub async fn run_polling_loop(
     runtime: KnowledgebaseRuntime,
+    worker_id: String,
+    ingestion_job_lease: time::Duration,
     interval_ms: u64,
     outbox_limit: u32,
     ingestion_job_limit: u32,
@@ -49,6 +53,8 @@ pub async fn run_polling_loop(
             _ = ticker.tick() => {
                 match run_maintenance_tick(
                     &runtime,
+                    &worker_id,
+                    ingestion_job_lease,
                     outbox_limit,
                     ingestion_job_limit,
                     group_archive_limit,

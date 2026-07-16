@@ -23,6 +23,13 @@ async fn main() {
             .ok()
             .and_then(|value| value.parse::<u32>().ok())
             .unwrap_or(25);
+    let ingestion_job_lease_seconds =
+        std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_JOB_LEASE_SECONDS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| (30..=3_600).contains(value))
+            .unwrap_or(300);
+    let worker_id = resolve_worker_id();
     let group_archive_limit =
         std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_GROUP_ARCHIVE_BATCH_SIZE")
             .ok()
@@ -46,6 +53,8 @@ async fn main() {
         interval_ms,
         outbox_limit,
         ingestion_job_limit,
+        ingestion_job_lease_seconds,
+        worker_id = %worker_id,
         group_archive_limit,
         %health_addr,
         "starting knowledgebase worker loop"
@@ -59,12 +68,31 @@ async fn main() {
 
     run_polling_loop(
         runtime,
+        worker_id,
+        time::Duration::seconds(ingestion_job_lease_seconds as i64),
         interval_ms,
         outbox_limit,
         ingestion_job_limit,
         group_archive_limit,
     )
     .await;
+}
+
+fn resolve_worker_id() -> String {
+    for key in [
+        "SDKWORK_KNOWLEDGEBASE_WORKER_ID",
+        "POD_UID",
+        "HOSTNAME",
+        "COMPUTERNAME",
+    ] {
+        if let Ok(value) = std::env::var(key) {
+            let value = value.trim();
+            if !value.is_empty() && value.chars().count() <= 255 {
+                return value.to_string();
+            }
+        }
+    }
+    format!("knowledgebase-worker-process-{}", std::process::id())
 }
 
 fn required_worker_tenant_id() -> u64 {
@@ -87,7 +115,7 @@ fn database_engine_label(database_url: &str) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{database_engine_label, required_worker_tenant_id};
+    use super::{database_engine_label, required_worker_tenant_id, resolve_worker_id};
 
     #[test]
     fn worker_tenant_id_requires_a_canonical_positive_signed_bigint() {
@@ -113,5 +141,12 @@ mod tests {
             database_engine_label("sqlite://data/knowledgebase.db?mode=rwc"),
             "sqlite"
         );
+    }
+
+    #[test]
+    fn worker_identity_prefers_explicit_stable_identity() {
+        std::env::set_var("SDKWORK_KNOWLEDGEBASE_WORKER_ID", "pod-uid-123");
+        assert_eq!(resolve_worker_id(), "pod-uid-123");
+        std::env::remove_var("SDKWORK_KNOWLEDGEBASE_WORKER_ID");
     }
 }

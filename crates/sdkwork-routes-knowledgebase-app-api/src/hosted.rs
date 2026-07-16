@@ -16,9 +16,7 @@ use sdkwork_intelligence_knowledgebase_service::{
         knowledge_document_store::{
             CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
         },
-        knowledge_document_version_store::{
-            CreateKnowledgeDocumentVersionRecord, KnowledgeDocumentVersionStore,
-        },
+        knowledge_document_version_store::CreateNextKnowledgeDocumentVersionRecord,
         knowledge_okf_bundle_file_store::{
             CreateKnowledgeOkfBundleFileRecord, KnowledgeOkfBundleFileStore,
         },
@@ -602,24 +600,10 @@ impl KnowledgeDocumentAppService for HostedDocumentService {
             .await
             .map_err(ApiError::from)?;
 
-        let existing = self
-            .runtime
-            .version_store()
-            .list_versions_for_document(document_id)
-            .await
-            .map_err(map_document_version_error)?;
-        let version_no = existing
-            .iter()
-            .map(|version| version.version_no)
-            .max()
-            .unwrap_or(0)
-            .saturating_add(1);
-
         self.runtime
             .version_store()
-            .create_document_version(CreateKnowledgeDocumentVersionRecord {
+            .create_next_document_version(CreateNextKnowledgeDocumentVersionRecord {
                 document_id,
-                version_no,
                 original_object_ref_id: request.original_object_ref_id,
                 checksum_sha256_hex: request.checksum_sha256_hex,
                 size_bytes: request.size_bytes,
@@ -1157,7 +1141,8 @@ impl KnowledgeOkfAppService for HostedOkfService {
             )
             .await?;
 
-        self.runtime
+        let file_entry = self
+            .runtime
             .okf_bundle_file_store()
             .create_file_entry(CreateKnowledgeOkfBundleFileRecord {
                 space_id: request.space_id,
@@ -1168,8 +1153,30 @@ impl KnowledgeOkfAppService for HostedOkfService {
                 drive_object_key: object_ref.object_key.clone(),
                 checksum_sha256_hex: object_ref.checksum_sha256_hex.clone(),
             })
-            .await
-            .map_err(map_okf_bundle_file_error)
+            .await;
+        match file_entry {
+            Ok(file_entry) => Ok(file_entry),
+            Err(error) => {
+                if let Err(compensation_error) = self
+                    .runtime
+                    .drive_storage()
+                    .delete_object(&object_ref)
+                    .await
+                {
+                    tracing::error!(
+                        object_key = %object_ref.object_key,
+                        error = %error,
+                        compensation_error = %compensation_error,
+                        "context pack metadata persistence and Drive compensation both failed"
+                    );
+                    return Err(ApiError::internal(
+                        "okf_context_pack_compensation_failed",
+                        "context pack cleanup failed after metadata persistence failure",
+                    ));
+                }
+                Err(map_okf_bundle_file_error(error))
+            }
+        }
     }
 
     async fn create_okf_export(

@@ -41,6 +41,9 @@ spec:
         - podSelector:
             matchLabels:
               app: sdkwork-knowledgebase
+        - podSelector:
+            matchLabels:
+              app: sdkwork-api-cloud-gateway
       ports:
         - protocol: TCP
           port: 8080

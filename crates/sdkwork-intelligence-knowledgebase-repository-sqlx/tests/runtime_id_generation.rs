@@ -128,10 +128,10 @@ fn snowflake_generator_accepts_configured_node_id_and_rejects_invalid_values() {
             .contains("exceeds max node id")
     );
     assert!(
-        SnowflakeKnowledgeIdGenerator::from_node_id_config(Some("abc"))
-            .expect("orchestration identifiers hash to valid node ids")
-            .node_id()
-            <= sdkwork_database_id::max_snowflake_node_id()
+        SnowflakeKnowledgeIdGenerator::from_node_id_config(Some("pod-name"))
+            .unwrap_err()
+            .to_string()
+            .contains("decimal integer")
     );
     assert!(
         SnowflakeKnowledgeIdGenerator::from_node_id_config(Some("   "))

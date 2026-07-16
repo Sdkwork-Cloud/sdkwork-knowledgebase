@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_binding (
     CONSTRAINT ck_kb_group_knowledge_space_binding_tenant
         CHECK (tenant_id > 0),
     CONSTRAINT ck_kb_group_knowledge_space_binding_organization
-        CHECK (organization_id > 0),
+        CHECK (organization_id >= 0),
     FOREIGN KEY (space_id) REFERENCES kb_space(id)
 );
 
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_member (
     CONSTRAINT ck_kb_group_knowledge_space_member_tenant
         CHECK (tenant_id > 0),
     CONSTRAINT ck_kb_group_knowledge_space_member_organization
-        CHECK (organization_id > 0),
+        CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS kb_group_knowledge_space_event_inbox (
     CONSTRAINT ck_kb_group_knowledge_space_event_inbox_tenant
         CHECK (tenant_id > 0),
     CONSTRAINT ck_kb_group_knowledge_space_event_inbox_organization
-        CHECK (organization_id > 0),
+        CHECK (organization_id >= 0),
     FOREIGN KEY (tenant_id, organization_id, binding_id)
         REFERENCES kb_group_knowledge_space_binding(tenant_id, organization_id, id)
 );
@@ -187,7 +187,7 @@ BEGIN
     ) THEN
         ALTER TABLE kb_group_knowledge_space_binding
             ADD CONSTRAINT ck_kb_group_knowledge_space_binding_organization
-            CHECK (organization_id > 0);
+            CHECK (organization_id >= 0);
     END IF;
     ALTER TABLE kb_group_knowledge_space_member
         ALTER COLUMN organization_id DROP DEFAULT;
@@ -207,7 +207,7 @@ BEGIN
     ) THEN
         ALTER TABLE kb_group_knowledge_space_member
             ADD CONSTRAINT ck_kb_group_knowledge_space_member_organization
-            CHECK (organization_id > 0);
+            CHECK (organization_id >= 0);
     END IF;
     ALTER TABLE kb_group_knowledge_space_event_inbox
         ALTER COLUMN organization_id DROP DEFAULT;
@@ -227,7 +227,7 @@ BEGIN
     ) THEN
         ALTER TABLE kb_group_knowledge_space_event_inbox
             ADD CONSTRAINT ck_kb_group_knowledge_space_event_inbox_organization
-            CHECK (organization_id > 0);
+            CHECK (organization_id >= 0);
     END IF;
 END $$;
 

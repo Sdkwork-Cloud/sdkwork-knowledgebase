@@ -116,6 +116,14 @@ impl KnowledgeDriveStorage for FakeKnowledgeDriveStorage {
         Ok(object.object_ref.clone())
     }
 
+    async fn delete_object(
+        &self,
+        object_ref: &KnowledgeObjectRef,
+    ) -> Result<(), KnowledgeStorageError> {
+        self.objects.lock().await.remove(&object_ref.object_key);
+        Ok(())
+    }
+
     async fn get_object_text(
         &self,
         object_ref: &KnowledgeObjectRef,

@@ -22,6 +22,17 @@ const APP_SOURCE_CHUNKS = [
   ['packages/sdkwork-knowledgebase-pc-commons/src/', 'feature-commons'],
 ] as const;
 
+const APP_SOURCE_SUB_CHUNKS = [
+  [
+    [
+      'packages/sdkwork-knowledgebase-pc-knowledgebase/src/components/players/',
+      'packages/sdkwork-knowledgebase-pc-knowledgebase/src/MediaViewer.tsx',
+      'packages/sdkwork-knowledgebase-pc-knowledgebase/src/PdfViewer.tsx',
+    ],
+    'feature-media-viewers',
+  ],
+] as const;
+
 const VENDOR_CHUNKS = [
   [
     'vendor-react',
@@ -35,7 +46,8 @@ const VENDOR_CHUNKS = [
   ['vendor-monaco', ['@monaco-editor', 'monaco-editor']],
   ['vendor-editor', ['@tiptap', 'prosemirror', '@codemirror', '/codemirror/', 'orderedmap', 'w3c-keyname']],
   ['vendor-pdf', ['pdfjs', 'react-pdf']],
-  ['vendor-export', ['html2canvas', 'jspdf', 'canvg', 'rgbcolor']],
+  ['vendor-canvas', ['html2canvas', 'canvg', 'rgbcolor']],
+  ['vendor-pdf-export', ['jspdf']],
   [
     'vendor-markdown',
     ['@uiw/react-md-editor', 'marked', 'highlight.js', 'rehype', 'remark', 'mdast', 'hast', 'unist', 'dompurify'],
@@ -47,6 +59,12 @@ const VENDOR_CHUNKS = [
 
 function resolveManualChunk(id: string): string | undefined {
   const normalizedId = id.replace(/\\/g, '/');
+  const appSourceSubChunk = APP_SOURCE_SUB_CHUNKS.find(([fragments]) =>
+    fragments.some((fragment) => normalizedId.includes(fragment)),
+  );
+  if (appSourceSubChunk) {
+    return appSourceSubChunk[1];
+  }
   const appSourceChunk = APP_SOURCE_CHUNKS.find(([fragment]) => normalizedId.includes(fragment));
   if (appSourceChunk) {
     return appSourceChunk[1];
@@ -58,6 +76,29 @@ function resolveManualChunk(id: string): string | undefined {
     fragments.some((fragment) => normalizedId.includes(fragment)),
   );
   return vendorChunk?.[0] ?? 'vendor';
+}
+
+const MAX_JAVASCRIPT_CHUNK_BYTES = 650 * 1024;
+
+function bundleSizeBudgetPlugin() {
+  return {
+    name: 'sdkwork-knowledgebase-bundle-size-budget',
+    apply: 'build' as const,
+    generateBundle(_options: unknown, bundle: Record<string, { type: string; code?: string }>) {
+      const oversized = Object.entries(bundle)
+        .filter(([, output]) => output.type === 'chunk')
+        .map(([fileName, output]) => ({ fileName, bytes: Buffer.byteLength(output.code || '', 'utf8') }))
+        .filter(({ bytes }) => bytes > MAX_JAVASCRIPT_CHUNK_BYTES);
+      if (oversized.length > 0) {
+        const details = oversized
+          .map(({ fileName, bytes }) => `${fileName}: ${bytes} bytes`)
+          .join(', ');
+        throw new Error(
+          `JavaScript chunk budget exceeded (${MAX_JAVASCRIPT_CHUNK_BYTES} bytes): ${details}`,
+        );
+      }
+    },
+  };
 }
 
 export default defineConfig(({mode}) => {
@@ -162,7 +203,12 @@ export default defineConfig(({mode}) => {
           },
         }
       : {}),
-    plugins: [react(), tailwindcss(), browserSecurityHeadersPlugin(mode === 'development')],
+    plugins: [
+      react(),
+      tailwindcss(),
+      browserSecurityHeadersPlugin(mode === 'development'),
+      bundleSizeBudgetPlugin(),
+    ],
     build: {
       rollupOptions: {
         output: {

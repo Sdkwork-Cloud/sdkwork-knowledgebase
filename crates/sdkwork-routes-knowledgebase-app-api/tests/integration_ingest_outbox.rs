@@ -52,9 +52,16 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
     .expect("count pending outbox");
     assert_eq!(pending, 1);
 
-    let tick = run_maintenance_tick(&runtime, 10, 10, 10)
-        .await
-        .expect("maintenance tick");
+    let tick = run_maintenance_tick(
+        &runtime,
+        "integration-worker",
+        time::Duration::minutes(5),
+        10,
+        10,
+        10,
+    )
+    .await
+    .expect("maintenance tick");
     assert_eq!(tick.outbox_published, 1);
 
     let still_pending: i64 = sqlx::query_scalar(

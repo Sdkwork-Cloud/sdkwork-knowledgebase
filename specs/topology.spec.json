@@ -103,15 +103,15 @@
   "components": {
     "appApiRouter": {
       "crate": "sdkwork-knowledgebase-standalone-gateway",
-      "binary": "sdkwork-knowledgebase-app-api"
+      "binary": "sdkwork-knowledgebase-standalone-gateway"
     },
     "backendApiRouter": {
       "crate": "sdkwork-knowledgebase-standalone-gateway",
-      "binary": "sdkwork-knowledgebase-backend-api"
+      "binary": "sdkwork-knowledgebase-standalone-gateway"
     },
     "openApiRouter": {
       "crate": "sdkwork-knowledgebase-standalone-gateway",
-      "binary": "sdkwork-knowledgebase-open-api"
+      "binary": "sdkwork-knowledgebase-standalone-gateway"
     },
     "cloudGateway": {
       "crate": "sdkwork-api-cloud-gateway",

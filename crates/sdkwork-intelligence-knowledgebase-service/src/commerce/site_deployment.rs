@@ -17,6 +17,8 @@ use crate::ports::knowledge_drive_storage::{
 
 const MAX_DEPLOYMENT_DOCUMENTS: usize = 64;
 const MAX_DOCUMENT_BYTES: usize = 512 * 1024;
+const MAX_DEPLOYMENT_TOTAL_BYTES: usize = 8 * 1024 * 1024;
+const MAX_SITE_LOGO_DATA_URL_BYTES: usize = 512 * 1024;
 
 #[derive(Debug, Error)]
 pub enum KnowledgeSiteDeploymentServiceError {
@@ -68,6 +70,7 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
         drive_space_id: Option<&str>,
     ) -> Result<KnowledgeSiteDeploymentResult, KnowledgeSiteDeploymentServiceError> {
         validate_site_deployment_request(&request)?;
+        validate_site_deployment_content(&request)?;
         let publisher = self
             .publisher
             .ok_or(KnowledgeSiteDeploymentServiceError::PublisherUnavailable)?;
@@ -78,6 +81,7 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
             .await?;
 
         let mut sections = Vec::new();
+        let mut total_document_bytes = 0usize;
         for document in documents {
             let markdown = self
                 .markdown
@@ -89,6 +93,21 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
             }
             if markdown.len() > MAX_DOCUMENT_BYTES {
                 continue;
+            }
+            total_document_bytes = total_document_bytes
+                .checked_add(markdown.len())
+                .ok_or_else(|| {
+                    KnowledgeSiteDeploymentServiceError::InvalidRequest(
+                        "site deployment content size overflow".to_string(),
+                    )
+                })?;
+            if total_document_bytes > MAX_DEPLOYMENT_TOTAL_BYTES {
+                return Err(KnowledgeSiteDeploymentServiceError::InvalidRequest(
+                    format!(
+                        "site deployment content exceeds {} bytes",
+                        MAX_DEPLOYMENT_TOTAL_BYTES
+                    ),
+                ));
             }
             sections.push((document.title.clone(), markdown));
             if sections.len() >= MAX_DEPLOYMENT_DOCUMENTS {
@@ -107,17 +126,17 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
             .as_deref()
             .filter(|value| !is_blank(Some(value)))
             .unwrap_or("Knowledge Base");
+        let platform = request.platform.trim().to_ascii_lowercase();
         let html =
             render_static_site_html(site_name, request.site_logo_data_url.as_deref(), &sections);
         let slug = build_site_slug(site_name, request.space_id);
         let preview_object_key = format!(
             "site-deployments/{}/{}-{}.html",
-            request.space_id,
-            slug,
-            request.platform.trim().to_ascii_lowercase()
+            request.space_id, slug, platform
         );
 
-        self.drive
+        let preview_object_ref = self
+            .drive
             .put_object(
                 PutKnowledgeObjectRequest {
                     logical_path: preview_object_key.clone(),
@@ -132,31 +151,62 @@ impl<'a> KnowledgeSiteDeploymentService<'a> {
             .await
             .map_err(|error| KnowledgeSiteDeploymentServiceError::Storage(error.to_string()))?;
 
-        let published = publisher
+        let published = match publisher
             .publish_site(PublishKnowledgeSiteRequest {
                 tenant_id,
                 space_id: request.space_id,
-                platform: request.platform.trim().to_string(),
+                platform: platform.clone(),
                 site_name: site_name.to_string(),
                 custom_domain: request.custom_domain.clone(),
                 preview_object_key: preview_object_key.clone(),
             })
-            .await?;
-        validate_published_url(&published.public_url)?;
+            .await
+        {
+            Ok(published) => published,
+            Err(error) => {
+                if let Err(compensation_error) = self.drive.delete_object(&preview_object_ref).await
+                {
+                    return Err(KnowledgeSiteDeploymentServiceError::Storage(format!(
+                        "site publisher failed ({error}); preview cleanup also failed ({compensation_error})"
+                    )));
+                }
+                return Err(KnowledgeSiteDeploymentServiceError::Publisher(error));
+            }
+        };
+        if let Err(error) = validate_published_url(&published.public_url) {
+            if let Err(compensation_error) = self.drive.delete_object(&preview_object_ref).await {
+                return Err(KnowledgeSiteDeploymentServiceError::Storage(format!(
+                    "site publisher returned an invalid URL ({error}); preview cleanup also failed ({compensation_error})"
+                )));
+            }
+            return Err(error);
+        }
 
-        let record = self
+        let record = match self
             .deployments
             .create_deployment(CreateSiteDeploymentRecord {
                 tenant_id,
                 space_id: request.space_id,
-                platform: request.platform.trim().to_string(),
+                platform,
                 site_name: Some(site_name.to_string()),
                 custom_domain: request.custom_domain.clone(),
                 site_logo_data_url: request.site_logo_data_url.clone(),
                 deployed_url: published.public_url,
                 preview_object_key,
             })
-            .await?;
+            .await
+        {
+            Ok(record) => record,
+            Err(error) => {
+                if let Err(compensation_error) = self.drive.delete_object(&preview_object_ref).await
+                {
+                    return Err(KnowledgeSiteDeploymentServiceError::Storage(format!(
+                        "site deployment persistence failed ({error}); preview cleanup also failed ({compensation_error})"
+                    )));
+                }
+                return Err(KnowledgeSiteDeploymentServiceError::Store(error));
+            }
+        };
 
         Ok(deployment_result(&record))
     }
@@ -206,6 +256,51 @@ fn validate_published_url(url: &str) -> Result<(), KnowledgeSiteDeploymentServic
     Ok(())
 }
 
+fn validate_site_deployment_content(
+    request: &KnowledgeSiteDeploymentRequest,
+) -> Result<(), KnowledgeSiteDeploymentServiceError> {
+    let platform = request.platform.trim();
+    if platform.len() > 64
+        || !platform
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
+    {
+        return Err(KnowledgeSiteDeploymentServiceError::InvalidRequest(
+            "platform must contain at most 64 ASCII letters, digits, hyphens, or underscores"
+                .to_string(),
+        ));
+    }
+    if request
+        .site_name
+        .as_deref()
+        .is_some_and(|site_name| site_name.trim().chars().count() > 128)
+    {
+        return Err(KnowledgeSiteDeploymentServiceError::InvalidRequest(
+            "site_name exceeds 128 characters".to_string(),
+        ));
+    }
+    if let Some(logo) = request
+        .site_logo_data_url
+        .as_deref()
+        .filter(|value| !is_blank(Some(value)))
+    {
+        let supported = [
+            "data:image/png;base64,",
+            "data:image/jpeg;base64,",
+            "data:image/webp;base64,",
+        ]
+        .iter()
+        .any(|prefix| logo.starts_with(prefix));
+        if !supported || logo.len() > MAX_SITE_LOGO_DATA_URL_BYTES {
+            return Err(KnowledgeSiteDeploymentServiceError::InvalidRequest(format!(
+                "site_logo_data_url must be a PNG, JPEG, or WebP base64 data URL no larger than {} bytes",
+                MAX_SITE_LOGO_DATA_URL_BYTES
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn build_site_slug(site_name: &str, space_id: u64) -> String {
     let slug: String = site_name
         .trim()
@@ -235,6 +330,7 @@ fn render_static_site_html(
     logo_data_url: Option<&str>,
     sections: &[(String, String)],
 ) -> String {
+    let escaped_site_name = html_escape(site_name);
     let logo_html = logo_data_url
         .filter(|value| !is_blank(Some(value)))
         .map(|url| {
@@ -262,7 +358,7 @@ fn render_static_site_html(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{site_name}</title>
+  <title>{escaped_site_name}</title>
   <style>
     body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }}
     header {{ background: #0f766e; color: white; padding: 24px 32px; display: flex; align-items: center; gap: 16px; }}
@@ -276,7 +372,7 @@ fn render_static_site_html(
 <body>
   <header>
     {logo_html}
-    <h1>{site_name}</h1>
+    <h1>{escaped_site_name}</h1>
   </header>
   <main>
     {body}
@@ -301,5 +397,44 @@ mod tests {
     #[test]
     fn build_site_slug_sanitizes_title() {
         assert_eq!(build_site_slug("Hello World!", 42), "hello-world");
+    }
+
+    #[test]
+    fn static_site_html_escapes_site_name_and_document_content() {
+        let html = render_static_site_html(
+            "</title><script>alert(1)</script>",
+            None,
+            &[(
+                "<img onerror=alert(1)>".to_string(),
+                "<script>x</script>".to_string(),
+            )],
+        );
+
+        assert!(!html.contains("<script>alert(1)</script>"));
+        assert!(!html.contains("<script>x</script>"));
+        assert!(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
+    }
+
+    #[test]
+    fn site_deployment_rejects_path_injection_and_active_svg_logos() {
+        let invalid_platform = KnowledgeSiteDeploymentRequest {
+            space_id: 1,
+            platform: "../public".to_string(),
+            site_name: None,
+            custom_domain: None,
+            site_logo_data_url: None,
+        };
+        assert!(validate_site_deployment_content(&invalid_platform).is_err());
+
+        let active_logo = KnowledgeSiteDeploymentRequest {
+            space_id: 1,
+            platform: "static".to_string(),
+            site_name: None,
+            custom_domain: None,
+            site_logo_data_url: Some(
+                "data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+".to_string(),
+            ),
+        };
+        assert!(validate_site_deployment_content(&active_logo).is_err());
     }
 }

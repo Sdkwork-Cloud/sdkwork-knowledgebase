@@ -3,7 +3,7 @@ use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::{
     AppendOutboxEventRecord, KnowledgeOutboxStore, KnowledgeOutboxStoreError, PendingOutboxEvent,
 };
-use sdkwork_utils_rust::is_blank;
+use sdkwork_utils_rust::{is_blank, truncate};
 use sqlx::{AnyPool, Row};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -371,10 +371,21 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
 
 fn truncate_outbox_error(error_message: &str) -> String {
     const MAX_OUTBOX_ERROR_LEN: usize = 1024;
-    if error_message.len() <= MAX_OUTBOX_ERROR_LEN {
-        return error_message.to_string();
+    truncate(error_message, MAX_OUTBOX_ERROR_LEN, Some(""))
+}
+
+#[cfg(test)]
+mod truncation_tests {
+    use super::truncate_outbox_error;
+
+    #[test]
+    fn truncates_unicode_error_without_splitting_utf8() {
+        let message = "上游错误".repeat(400);
+        let truncated = truncate_outbox_error(&message);
+
+        assert_eq!(truncated.chars().count(), 1024);
+        assert!(message.starts_with(&truncated));
     }
-    error_message[..MAX_OUTBOX_ERROR_LEN].to_string()
 }
 
 fn to_i64(field: &str, value: u64) -> Result<i64, KnowledgeOutboxStoreError> {

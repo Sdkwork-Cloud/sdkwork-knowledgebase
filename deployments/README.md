@@ -6,11 +6,9 @@ Production deployment descriptors for the `cloud.production` topology profile.
 
 | Path | Purpose |
 |------|---------|
-| `docker/Dockerfile.api` | App / Backend / Open API server image (single binary via `KB_API_BINARY`) |
+| `docker/Dockerfile.api` | Single application public-ingress image hosting app/backend/open route surfaces |
 | `docker/Dockerfile.worker` | Background worker (outbox + ingestion maintenance) |
 | `kubernetes/app-api-deployment.yaml` | App API Deployment + Service |
-| `kubernetes/backend-api-deployment.yaml` | Backend API Deployment + Service |
-| `kubernetes/open-api-deployment.yaml` | Open API Deployment + Service |
 | `kubernetes/worker-deployment.yaml` | Background worker Deployment |
 | `kubernetes/ingress.yaml` | NGINX Ingress for app/backend/open API paths |
 | `kubernetes/hpa.yaml` | Resource-based HorizontalPodAutoscaler for API and worker Deployments; custom RPS/backlog metrics require deployed Prometheus Adapter rules |
@@ -24,8 +22,8 @@ Production deployment descriptors for the `cloud.production` topology profile.
 
 1. Build and push images (replace registry):
    ```bash
-   docker build -f deployments/docker/Dockerfile.api -t registry.sdkwork.com/apps/sdkwork-knowledgebase/api:0.1.0 .
-   docker build -f deployments/docker/Dockerfile.worker -t registry.sdkwork.com/apps/sdkwork-knowledgebase/worker:0.1.0 .
+   docker build -f deployments/docker/Dockerfile.api -t registry.sdkwork.com/apps/sdkwork-knowledgebase/api:0.1.0 ..
+   docker build -f deployments/docker/Dockerfile.worker -t registry.sdkwork.com/apps/sdkwork-knowledgebase/worker:0.1.0 ..
    ```
 2. Apply secrets and config from `configs/topology/cloud.production.env`.
 3. Apply manifests:
@@ -43,6 +41,11 @@ Production deployment descriptors for the `cloud.production` topology profile.
 | `RUST_LOG` | Tracing filter (e.g. `info,sdkwork_knowledgebase_standalone_gateway=debug`) |
 | `SDKWORK_KNOWLEDGEBASE_LOG_FORMAT` | Set to `json` for structured JSON logs in production aggregators |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | When set, API/worker processes export traces over OTLP/HTTP (requires `otel` feature build) |
+| `SDKWORK_NODE_INSTANCE_ID` | Stable per-process allocator identity; Kubernetes injects the pod UID |
+| `SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_JOB_LEASE_SECONDS` | Worker job lease TTL, 30-3600 seconds; default `300` |
+| `SDKWORK_KNOWLEDGEBASE_SITE_PUBLIC_BASE_URL` | HTTPS public object gateway prefix that serves Drive-backed static site artifacts |
+
+Production ID generation uses the shared `sdkwork_node_registry` database table. The allocator heartbeats a fenced node lease and `/readyz` fails if the lease becomes unhealthy. Do not set `SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID` in normal deployments; a static numeric override additionally requires `SDKWORK_KNOWLEDGEBASE_ALLOW_STATIC_SNOWFLAKE_NODE_ID=true` in production-like environments.
 | `OTEL_SERVICE_NAME` | Overrides the default OpenTelemetry service name per process |
 
 HTTP APIs emit an `x-request-id` response header (or echo inbound `x-request-id`) for request correlation. Prometheus metrics are exposed at `GET /metrics` on API and worker health processes, including `knowledgebase_health_status` (updated by `/readyz`). **Do not expose `/metrics` on public ingress**; use in-cluster ServiceMonitor scraping only.
@@ -60,7 +63,7 @@ SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL=https://knowledgebase.sdkwork.com pnpm test
 Internal metrics smoke (optional, run from an in-cluster network path only):
 
 ```bash
-SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS=http://sdkwork-knowledgebase-app-api,http://sdkwork-knowledgebase-backend-api,http://sdkwork-knowledgebase-open-api,http://sdkwork-knowledgebase-worker:18085 pnpm test:smoke
+SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS=http://sdkwork-knowledgebase-app-api,http://sdkwork-knowledgebase-worker:18085 pnpm test:smoke
 ```
 
 Optional PC renderer shell probe (requires a running Vite preview or dev server):

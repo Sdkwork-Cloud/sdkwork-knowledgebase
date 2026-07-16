@@ -135,7 +135,7 @@ sdks/
       sdkwork-routes-knowledgebase-open-api.route-manifest.json
   sdkwork-knowledgebase-sdk/
     README.md
-    .sdkwork-assembly.json
+    sdk-manifest.json
     sdk-manifest.json
     specs/
       README.md
@@ -149,7 +149,7 @@ sdks/
 The materialization script `sdks/standardize-knowledgebase-sdk-family.mjs` becomes the single owner for SDK family metadata:
 
 - Include the open family beside app and backend families.
-- Write `.sdkwork-assembly.json`, `sdk-manifest.json`, and `specs/component.spec.json`.
+- Write `sdk-manifest.json`, `sdk-manifest.json`, and `specs/component.spec.json`.
 - Ensure `sdkDependencies` is explicit and `[]` for the open family unless a dependency SDK is required.
 - Set owner metadata on the OpenAPI document and every operation.
 - Keep generated transport output free of ownership overlays.

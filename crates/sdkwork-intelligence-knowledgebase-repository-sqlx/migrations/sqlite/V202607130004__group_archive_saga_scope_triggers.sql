@@ -87,7 +87,7 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_member_scope_binding_insert
 BEFORE INSERT ON kb_group_knowledge_space_member
-WHEN NEW.organization_id > 0 AND NOT EXISTS (
+WHEN NOT EXISTS (
     SELECT 1 FROM kb_group_knowledge_space_binding binding
     WHERE binding.id = NEW.binding_id
       AND binding.tenant_id = NEW.tenant_id
@@ -99,7 +99,7 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_member_scope_binding_update
 BEFORE UPDATE OF tenant_id, organization_id, binding_id ON kb_group_knowledge_space_member
-WHEN NEW.organization_id > 0 AND NOT EXISTS (
+WHEN NOT EXISTS (
     SELECT 1 FROM kb_group_knowledge_space_binding binding
     WHERE binding.id = NEW.binding_id
       AND binding.tenant_id = NEW.tenant_id
@@ -111,7 +111,7 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_event_scope_binding_insert
 BEFORE INSERT ON kb_group_knowledge_space_event_inbox
-WHEN NEW.binding_id IS NOT NULL AND NEW.organization_id > 0 AND NOT EXISTS (
+WHEN NEW.binding_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM kb_group_knowledge_space_binding binding
     WHERE binding.id = NEW.binding_id
       AND binding.tenant_id = NEW.tenant_id
@@ -123,7 +123,7 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_event_scope_binding_update
 BEFORE UPDATE OF tenant_id, organization_id, binding_id ON kb_group_knowledge_space_event_inbox
-WHEN NEW.binding_id IS NOT NULL AND NEW.organization_id > 0 AND NOT EXISTS (
+WHEN NEW.binding_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM kb_group_knowledge_space_binding binding
     WHERE binding.id = NEW.binding_id
       AND binding.tenant_id = NEW.tenant_id
@@ -135,7 +135,7 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_projection_scope_binding_insert
 BEFORE INSERT ON kb_group_knowledge_space_membership_projection
-WHEN NEW.organization_id > 0 AND NOT EXISTS (
+WHEN NOT EXISTS (
     SELECT 1 FROM kb_group_knowledge_space_binding binding
     WHERE binding.id = NEW.binding_id
       AND binding.tenant_id = NEW.tenant_id
@@ -147,7 +147,7 @@ END;
 
 CREATE TRIGGER IF NOT EXISTS trg_kb_group_space_projection_scope_binding_update
 BEFORE UPDATE OF tenant_id, organization_id, binding_id ON kb_group_knowledge_space_membership_projection
-WHEN NEW.organization_id > 0 AND NOT EXISTS (
+WHEN NOT EXISTS (
     SELECT 1 FROM kb_group_knowledge_space_binding binding
     WHERE binding.id = NEW.binding_id
       AND binding.tenant_id = NEW.tenant_id

@@ -110,6 +110,9 @@ test('declares SDKWork v4 deployment topology spec and profile env files for sdk
   assert.ok(spec.surfaces['application.backend-http']);
   assert.ok(spec.surfaces['application.open-http']);
   assert.ok(spec.surfaces['platform.api-gateway']);
+  assert.equal(spec.components.appApiRouter.binary, 'sdkwork-knowledgebase-standalone-gateway');
+  assert.equal(spec.components.backendApiRouter.binary, 'sdkwork-knowledgebase-standalone-gateway');
+  assert.equal(spec.components.openApiRouter.binary, 'sdkwork-knowledgebase-standalone-gateway');
 
   for (const profileId of [
     'standalone.development',
@@ -385,19 +388,49 @@ test('production cloud topology orchestrates background worker and health probes
   const workerSource = await read('crates/sdkwork-knowledgebase-worker/src/lib.rs');
   assert.match(workerSource, /shutdown_signal/);
 
+  const ingressManifest = await read('deployments/kubernetes/app-api-deployment.yaml');
+  assert.match(ingressManifest, /path: \/livez/);
+  assert.match(ingressManifest, /path: \/readyz/);
+  assert.doesNotMatch(ingressManifest, /KB_API_BINARY/);
+  assert.match(ingressManifest, /SDKWORK_NODE_INSTANCE_ID/);
+  assert.doesNotMatch(ingressManifest, /SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID/);
+  assert.equal(await exists('deployments/kubernetes/backend-api-deployment.yaml'), false);
+  assert.equal(await exists('deployments/kubernetes/open-api-deployment.yaml'), false);
+
+  const apiDockerfile = await read('deployments/docker/Dockerfile.api');
+  assert.match(apiDockerfile, /cargo build --release -p sdkwork-knowledgebase-standalone-gateway/);
+  assert.doesNotMatch(apiDockerfile, /sdkwork-knowledgebase-api-server|KB_API_BINARY/);
+
+  const gatewayConfig = await read(
+    'configs/sdkwork-api-cloud-gateway.knowledgebase.production.toml',
+  );
+  assert.equal(
+    gatewayConfig.match(/baseUrl = "http:\/\/sdkwork-knowledgebase-app-api:80"/gu)?.length,
+    3,
+  );
+  const ingressRouting = await read('deployments/kubernetes/ingress.yaml');
+  assert.equal(
+    ingressRouting.match(/name: sdkwork-knowledgebase-app-api/gu)?.length,
+    3,
+  );
   for (const manifestPath of [
-    'deployments/kubernetes/app-api-deployment.yaml',
-    'deployments/kubernetes/backend-api-deployment.yaml',
-    'deployments/kubernetes/open-api-deployment.yaml',
+    'deployments/kubernetes/hpa.yaml',
+    'deployments/kubernetes/poddisruptionbudget.yaml',
+    'deployments/kubernetes/servicemonitor.yaml',
   ]) {
     const manifest = await read(manifestPath);
-    assert.match(manifest, /path: \/livez/);
-    assert.match(manifest, /path: \/readyz/);
+    assert.doesNotMatch(manifest, /sdkwork-knowledgebase-(?:backend|open)-api/);
   }
 
   const workerManifest = await read('deployments/kubernetes/worker-deployment.yaml');
   assert.match(workerManifest, /terminationGracePeriodSeconds/);
-  assert.match(workerManifest, /SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID/);
+  assert.match(workerManifest, /SDKWORK_NODE_INSTANCE_ID/);
+  assert.match(workerManifest, /SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_JOB_LEASE_SECONDS/);
+  assert.doesNotMatch(workerManifest, /SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID/);
+
+  const runtimeSource = await read('crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs');
+  assert.match(runtimeSource, /SnowflakeNodeAllocator::allocate_process_generator/);
+  assert.match(runtimeSource, /snowflake node lease is unhealthy/);
 });
 
 test('standalone gateway reads the single application ingress bind env key', async () => {

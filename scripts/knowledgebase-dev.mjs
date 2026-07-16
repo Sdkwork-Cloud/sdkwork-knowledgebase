@@ -26,6 +26,7 @@ import {
   waitForHttpHealthy,
 } from './lib/knowledgebase-topology.mjs';
 import { mergeRepoDevBootstrapAccessTokenEnv, readApplicationManifest, resolveRepoApplicationManifestPath } from './lib/knowledgebase-dev-bootstrap-access-token-env.mjs';
+import { redactDatabaseUrl } from './lib/redact-database-url.mjs';
 
 const HEALTH_PATH = '/healthz';
 const HEALTH_TIMEOUT_MS = 2000;
@@ -203,7 +204,9 @@ function resolvePostgresKnowledgebaseDatabaseUrl(sourceEnv) {
     );
   }
   if (!/^postgres(?:ql)?:\/\//i.test(direct)) {
-    throw new Error(`Knowledgebase PostgreSQL dev profile requires a postgres URL, got: ${direct}`);
+    throw new Error(
+      `Knowledgebase PostgreSQL dev profile requires a postgres URL, got: ${redactDatabaseUrl(direct)}`,
+    );
   }
   return direct;
 }
@@ -455,7 +458,7 @@ async function main() {
 
   if (settings.dryRun) {
     console.log(
-      `[sdkwork-knowledgebase] profile=${profileId} deploymentProfile=${settings.deploymentProfile} database=${settings.database} target=${settings.target} knowledgeDatabase=${runtimeEnv.SDKWORK_KNOWLEDGEBASE_DATABASE_URL} iamDatabase=${runtimeEnv.SDKWORK_IAM_DATABASE_URL ?? runtimeEnv.SDKWORK_CLAW_DATABASE_URL ?? 'unknown'}`,
+      `[sdkwork-knowledgebase] profile=${profileId} deploymentProfile=${settings.deploymentProfile} database=${settings.database} target=${settings.target} knowledgeDatabase=${redactDatabaseUrl(runtimeEnv.SDKWORK_KNOWLEDGEBASE_DATABASE_URL)} iamDatabase=${redactDatabaseUrl(runtimeEnv.SDKWORK_IAM_DATABASE_URL ?? runtimeEnv.SDKWORK_CLAW_DATABASE_URL)}`,
     );
     for (const entry of processes) {
       console.log(`[${entry.label}] ${entry.command} ${entry.args.join(' ')}`);

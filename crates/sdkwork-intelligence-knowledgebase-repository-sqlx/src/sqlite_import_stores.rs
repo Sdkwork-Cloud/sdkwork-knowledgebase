@@ -5,13 +5,15 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_store:
     KnowledgeDocumentStoreError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_version_store::{
-    CreateKnowledgeDocumentVersionRecord, KnowledgeDocumentVersionStore,
-    KnowledgeDocumentVersionStoreError,
+    CreateKnowledgeDocumentVersionRecord, CreateNextKnowledgeDocumentVersionRecord,
+    KnowledgeDocumentVersionStore, KnowledgeDocumentVersionStoreError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_store::{
-    CompleteRunningIngestionRecord, CompletedIngestionResult, CreateIngestionJobRecord,
-    CreateOrGetIngestionJobResult, DriveImportJobLinkage, IngestionJobLifecycle, IngestionJobStore,
-    IngestionJobStoreError, KNOWLEDGE_UPLOAD_SESSION_TTL, STALE_UPLOAD_SESSION_RECOVERY_BATCH_SIZE,
+    ClaimIngestionJobsRequest, ClaimedIngestionJob, CompleteRunningIngestionRecord,
+    CompletedIngestionResult, CreateIngestionJobRecord, CreateOrGetIngestionJobResult,
+    DriveImportJobLinkage, IngestionJobLifecycle, IngestionJobStore, IngestionJobStoreError,
+    KNOWLEDGE_UPLOAD_SESSION_TTL, MAX_INGESTION_JOB_LEASE,
+    STALE_UPLOAD_SESSION_RECOVERY_BATCH_SIZE,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::AppendOutboxEventRecord;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
@@ -28,10 +30,10 @@ use sdkwork_knowledgebase_contract::document::{
 use sdkwork_knowledgebase_contract::ingest::{IngestionJob, IngestionJobState};
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
-use sdkwork_utils_rust::is_blank;
+use sdkwork_utils_rust::{is_blank, truncate};
 use sqlx::{any::AnyRow, AnyConnection, AnyPool, Row};
 use std::sync::Arc;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::chunk_transaction::replace_version_chunks_in_transaction;
@@ -1063,6 +1065,142 @@ pub struct SqliteKnowledgeDocumentVersionStore {
 }
 
 impl SqliteKnowledgeDocumentVersionStore {
+    pub async fn create_next_document_version(
+        &self,
+        record: CreateNextKnowledgeDocumentVersionRecord,
+    ) -> Result<KnowledgeDocumentVersion, KnowledgeDocumentVersionStoreError> {
+        let tenant_id = version_to_i64("tenant_id", self.tenant_id)?;
+        let document_id = version_to_i64("document_id", record.document_id)?;
+        let original_object_ref_id =
+            version_to_i64("original_object_ref_id", record.original_object_ref_id)?;
+        let size_bytes = version_to_i64("size_bytes", record.size_bytes)?;
+        let generated_id = next_i64_id(&self.id_generator).map_err(version_id_error)?;
+        let now = version_now()?;
+        let mut transaction = self.pool.begin().await.map_err(version_sqlx_error)?;
+
+        let locked = sqlx::query(
+            "UPDATE kb_document SET version = version WHERE tenant_id = $1 AND id = $2 AND status = $3",
+        )
+        .bind(tenant_id)
+        .bind(document_id)
+        .bind(ACTIVE_STATUS)
+        .execute(&mut *transaction)
+        .await
+        .map_err(version_sqlx_error)?;
+        if locked.rows_affected() != 1 {
+            return Err(KnowledgeDocumentVersionStoreError::Internal(format!(
+                "active document not found: {}",
+                record.document_id
+            )));
+        }
+
+        let latest_version_no = sqlx::query_scalar::<_, Option<i64>>(
+            r#"
+            SELECT MAX(version_no)
+            FROM kb_document_version
+            WHERE tenant_id = $1 AND document_id = $2 AND status = $3
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(document_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(version_sqlx_error)?
+        .unwrap_or(0);
+        let version_no = latest_version_no.checked_add(1).ok_or_else(|| {
+            KnowledgeDocumentVersionStoreError::Internal(
+                "document version number exceeds the supported range".to_string(),
+            )
+        })?;
+
+        let submitted_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$15");
+        let insert_query = format!(
+            r#"
+            INSERT INTO kb_document_version (
+                id, uuid, tenant_id, document_id, version_no, original_object_ref_id,
+                checksum_sha256_hex, size_bytes, mime_type, parse_state, index_state,
+                submitted_at, status, created_at, updated_at, version
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {submitted_at_expr}, $13, {created_at_expr}, {updated_at_expr}, $16)
+            RETURNING id, document_id, version_no, original_object_ref_id,
+                      checksum_sha256_hex, size_bytes, mime_type, parse_state, index_state
+            "#
+        );
+        let row = sqlx::query(&insert_query)
+            .bind(generated_id)
+            .bind(Uuid::new_v4().to_string())
+            .bind(tenant_id)
+            .bind(document_id)
+            .bind(version_no)
+            .bind(original_object_ref_id)
+            .bind(record.checksum_sha256_hex)
+            .bind(size_bytes)
+            .bind(record.mime_type)
+            .bind(version_state_code(KnowledgeDocumentVersionState::Pending))
+            .bind(version_state_code(KnowledgeDocumentVersionState::Pending))
+            .bind(now.clone())
+            .bind(ACTIVE_STATUS)
+            .bind(now.clone())
+            .bind(now.clone())
+            .bind(INITIAL_VERSION)
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(version_sqlx_error)?;
+        let version = document_version_from_row(&row)?;
+
+        let current_version_updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let update_document_query = format!(
+            r#"
+            UPDATE kb_document
+            SET current_version_id = $1,
+                updated_at = {current_version_updated_at_expr},
+                version = version + 1
+            WHERE tenant_id = $3 AND id = $4 AND status = $5
+            "#
+        );
+        sqlx::query(&update_document_query)
+            .bind(generated_id)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(document_id)
+            .bind(ACTIVE_STATUS)
+            .execute(&mut *transaction)
+            .await
+            .map_err(version_sqlx_error)?;
+
+        transaction.commit().await.map_err(version_sqlx_error)?;
+        Ok(version)
+    }
+
+    pub async fn get_latest_version_for_document(
+        &self,
+        document_id: u64,
+    ) -> Result<Option<KnowledgeDocumentVersion>, KnowledgeDocumentVersionStoreError> {
+        let tenant_id = version_to_i64("tenant_id", self.tenant_id)?;
+        let document_id = version_to_i64("document_id", document_id)?;
+        let row = sqlx::query(
+            r#"
+            SELECT id, document_id, version_no, original_object_ref_id, checksum_sha256_hex,
+                   size_bytes, mime_type, parse_state, index_state
+            FROM kb_document_version
+            WHERE tenant_id = $1 AND document_id = $2 AND status = $3
+            ORDER BY version_no DESC, id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(document_id)
+        .bind(ACTIVE_STATUS)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(version_sqlx_error)?;
+
+        row.as_ref().map(document_version_from_row).transpose()
+    }
+
     pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
         Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
     }
@@ -1302,31 +1440,6 @@ impl SqliteKnowledgeDocumentVersionStore {
         Ok(())
     }
 
-    pub async fn list_versions_for_document(
-        &self,
-        document_id: u64,
-    ) -> Result<Vec<KnowledgeDocumentVersion>, KnowledgeDocumentVersionStoreError> {
-        let tenant_id = version_to_i64("tenant_id", self.tenant_id)?;
-        let document_id = version_to_i64("document_id", document_id)?;
-        let rows = sqlx::query(
-            r#"
-            SELECT id, document_id, version_no, original_object_ref_id, checksum_sha256_hex, size_bytes, mime_type, parse_state, index_state
-            FROM kb_document_version
-            WHERE tenant_id = $1 AND document_id = $2 AND status = $3
-            ORDER BY version_no ASC
-            LIMIT 200
-            "#,
-        )
-        .bind(tenant_id)
-        .bind(document_id)
-        .bind(ACTIVE_STATUS)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(version_sqlx_error)?;
-
-        rows.iter().map(document_version_from_row).collect()
-    }
-
     pub async fn list_versions_page_for_document(
         &self,
         document_id: u64,
@@ -1487,7 +1600,8 @@ impl SqliteIngestionJobStore {
 
         let current_row = sqlx::query(
             r#"
-            SELECT id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail,
+                   CAST(metadata AS TEXT) AS metadata, claim_token
             FROM kb_ingestion_job
             WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
@@ -1508,14 +1622,29 @@ impl SqliteIngestionJobStore {
                 IngestionJobState::Succeeded
             )));
         }
+        let claim_token: Option<String> =
+            current_row.try_get("claim_token").map_err(job_sqlx_error)?;
+        if claim_token.is_some() {
+            return Err(IngestionJobStoreError::Conflict(
+                "ingestion job is owned by a leased worker".to_string(),
+            ));
+        }
 
         let now = job_now()?;
         let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
         let update_query = format!(
             r#"
             UPDATE kb_ingestion_job
-            SET state = $1, error_detail = NULL, updated_at = {updated_at_expr}, version = version + 1
+            SET state = $1,
+                error_detail = NULL,
+                claim_owner = NULL,
+                claim_token = NULL,
+                lease_expires_at = NULL,
+                finished_at = {updated_at_expr},
+                updated_at = {updated_at_expr},
+                version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5 AND state = $6
+              AND claim_token IS NULL
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
         );
@@ -1593,7 +1722,8 @@ impl SqliteIngestionJobStore {
 
         let current_row = sqlx::query(
             r#"
-            SELECT id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
+            SELECT id, space_id, job_type, idempotency_key, state, error_detail,
+                   CAST(metadata AS TEXT) AS metadata, claim_token
             FROM kb_ingestion_job
             WHERE tenant_id = $1 AND id = $2 AND status = $3
             "#,
@@ -1614,6 +1744,13 @@ impl SqliteIngestionJobStore {
                 IngestionJobState::Succeeded
             )));
         }
+        let current_claim_token: Option<String> =
+            current_row.try_get("claim_token").map_err(job_sqlx_error)?;
+        if current_claim_token.as_deref() != record.claim_token.as_deref() {
+            return Err(IngestionJobStoreError::Conflict(
+                "ingestion job lease is no longer owned by this worker".to_string(),
+            ));
+        }
 
         let chunk_count = replace_version_chunks_in_transaction(
             &mut transaction,
@@ -1632,8 +1769,19 @@ impl SqliteIngestionJobStore {
         let update_query = format!(
             r#"
             UPDATE kb_ingestion_job
-            SET state = $1, error_detail = NULL, updated_at = {updated_at_expr}, version = version + 1
+            SET state = $1,
+                error_detail = NULL,
+                claim_owner = NULL,
+                claim_token = NULL,
+                lease_expires_at = NULL,
+                finished_at = {updated_at_expr},
+                updated_at = {updated_at_expr},
+                version = version + 1
             WHERE tenant_id = $3 AND id = $4 AND status = $5 AND state = $6
+              AND (
+                  ($7 IS NULL AND claim_token IS NULL)
+                  OR (claim_token = $7 AND lease_expires_at > {updated_at_expr})
+              )
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
         );
@@ -1644,9 +1792,15 @@ impl SqliteIngestionJobStore {
             .bind(job_id_i64)
             .bind(ACTIVE_STATUS)
             .bind(ingestion_state_code(IngestionJobState::Running))
-            .fetch_one(&mut *transaction)
+            .bind(record.claim_token.as_deref())
+            .fetch_optional(&mut *transaction)
             .await
-            .map_err(|error| job_fetch_error(job_id_i64, error))?;
+            .map_err(job_sqlx_error)?
+            .ok_or_else(|| {
+                IngestionJobStoreError::Conflict(
+                    "ingestion job lease was lost before completion".to_string(),
+                )
+            })?;
 
         let outbox_id = next_i64_id(&self.id_generator)
             .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
@@ -1772,8 +1926,16 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         let query = format!(
             r#"
             UPDATE kb_ingestion_job
-            SET state = $1, error_detail = $2, updated_at = {updated_at_expr}, version = version + 1
+            SET state = $1,
+                error_detail = $2,
+                claim_owner = NULL,
+                claim_token = NULL,
+                lease_expires_at = NULL,
+                finished_at = CASE WHEN $1 IN (2, 3, 4) THEN {updated_at_expr} ELSE finished_at END,
+                updated_at = {updated_at_expr},
+                version = version + 1
             WHERE tenant_id = $4 AND id = $5 AND status = $6 AND state = $7
+              AND claim_token IS NULL
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
         );
@@ -1895,6 +2057,223 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
 
         rows.into_iter().map(|row| job_from_row(&row)).collect()
+    }
+
+    async fn claim_ingestion_jobs(
+        &self,
+        request: ClaimIngestionJobsRequest,
+    ) -> Result<Vec<ClaimedIngestionJob>, IngestionJobStoreError> {
+        validate_claim_request(&request)?;
+        if request.limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let now = OffsetDateTime::now_utc();
+        let lease_expires_at = now.checked_add(request.lease_duration).ok_or_else(|| {
+            IngestionJobStoreError::Conflict("ingestion job lease expiry overflow".to_string())
+        })?;
+        let now_text = format_job_timestamp(now)?;
+        let lease_expires_at_text = format_job_timestamp(lease_expires_at)?;
+        let limit = i64::from(request.limit.min(200));
+        let now_expr = self.timestamp_dialect.sql_timestamp_expr("$6");
+        let candidates_query = format!(
+            r#"
+            SELECT id
+            FROM kb_ingestion_job
+            WHERE tenant_id = $1
+              AND status = $2
+              AND job_type = $3
+              AND (
+                  state = $4
+                  OR (state = $5 AND lease_expires_at IS NOT NULL AND lease_expires_at <= {now_expr})
+              )
+            ORDER BY priority DESC, id ASC
+            LIMIT $7
+            "#,
+        );
+        let candidate_rows = sqlx::query(&candidates_query)
+            .bind(tenant_id)
+            .bind(ACTIVE_STATUS)
+            .bind(KnowledgeSourceType::DriveObject.as_str())
+            .bind(ingestion_state_code(IngestionJobState::Queued))
+            .bind(ingestion_state_code(IngestionJobState::Running))
+            .bind(&now_text)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(job_sqlx_error)?;
+
+        let lease_expr = self.timestamp_dialect.sql_timestamp_expr("$4");
+        let update_now_expr = self.timestamp_dialect.sql_timestamp_expr("$5");
+        let update_query = format!(
+            r#"
+            UPDATE kb_ingestion_job
+            SET state = $1,
+                claim_owner = $2,
+                claim_token = $3,
+                lease_expires_at = {lease_expr},
+                attempt_count = attempt_count + 1,
+                error_detail = NULL,
+                started_at = COALESCE(started_at, {update_now_expr}),
+                finished_at = NULL,
+                updated_at = {update_now_expr},
+                version = version + 1
+            WHERE tenant_id = $6
+              AND id = $7
+              AND status = $8
+              AND job_type = $9
+              AND (
+                  state = $10
+                  OR (
+                      state = $11
+                      AND lease_expires_at IS NOT NULL
+                      AND lease_expires_at <= {update_now_expr}
+                  )
+              )
+            RETURNING id, space_id, job_type, idempotency_key, state, error_detail,
+                      CAST(metadata AS TEXT) AS metadata, attempt_count
+            "#,
+        );
+
+        let mut claimed = Vec::with_capacity(candidate_rows.len());
+        for candidate in candidate_rows {
+            let job_id: i64 = candidate.try_get("id").map_err(job_sqlx_error)?;
+            let claim_token = Uuid::new_v4().to_string();
+            let row = sqlx::query(&update_query)
+                .bind(ingestion_state_code(IngestionJobState::Running))
+                .bind(&request.claim_owner)
+                .bind(&claim_token)
+                .bind(&lease_expires_at_text)
+                .bind(&now_text)
+                .bind(tenant_id)
+                .bind(job_id)
+                .bind(ACTIVE_STATUS)
+                .bind(KnowledgeSourceType::DriveObject.as_str())
+                .bind(ingestion_state_code(IngestionJobState::Queued))
+                .bind(ingestion_state_code(IngestionJobState::Running))
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(job_sqlx_error)?;
+            let Some(row) = row else {
+                continue;
+            };
+            let attempt_count: i64 = row.try_get("attempt_count").map_err(job_sqlx_error)?;
+            claimed.push(ClaimedIngestionJob {
+                job: job_from_row(&row)?,
+                claim_token,
+                lease_expires_at,
+                attempt_count: u32::try_from(attempt_count).map_err(|error| {
+                    IngestionJobStoreError::Internal(format!(
+                        "invalid ingestion job attempt_count {attempt_count}: {error}"
+                    ))
+                })?,
+            });
+        }
+        Ok(claimed)
+    }
+
+    async fn renew_ingestion_job_lease(
+        &self,
+        job_id: u64,
+        claim_token: &str,
+        lease_duration: Duration,
+    ) -> Result<OffsetDateTime, IngestionJobStoreError> {
+        validate_claim_token(claim_token)?;
+        validate_lease_duration(lease_duration)?;
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let job_id_i64 = job_to_i64("job_id", job_id)?;
+        let now = OffsetDateTime::now_utc();
+        let lease_expires_at = now.checked_add(lease_duration).ok_or_else(|| {
+            IngestionJobStoreError::Conflict("ingestion job lease expiry overflow".to_string())
+        })?;
+        let now_text = format_job_timestamp(now)?;
+        let lease_expires_at_text = format_job_timestamp(lease_expires_at)?;
+        let expiry_expr = self.timestamp_dialect.sql_timestamp_expr("$1");
+        let now_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let query = format!(
+            r#"
+            UPDATE kb_ingestion_job
+            SET lease_expires_at = {expiry_expr},
+                updated_at = {now_expr},
+                version = version + 1
+            WHERE tenant_id = $3
+              AND id = $4
+              AND status = $5
+              AND state = $6
+              AND claim_token = $7
+              AND lease_expires_at > {now_expr}
+            "#,
+        );
+        let result = sqlx::query(&query)
+            .bind(&lease_expires_at_text)
+            .bind(&now_text)
+            .bind(tenant_id)
+            .bind(job_id_i64)
+            .bind(ACTIVE_STATUS)
+            .bind(ingestion_state_code(IngestionJobState::Running))
+            .bind(claim_token)
+            .execute(&self.pool)
+            .await
+            .map_err(job_sqlx_error)?;
+        if result.rows_affected() != 1 {
+            return Err(IngestionJobStoreError::Conflict(
+                "ingestion job lease is expired or no longer owned by this worker".to_string(),
+            ));
+        }
+        Ok(lease_expires_at)
+    }
+
+    async fn fail_claimed_ingestion_job(
+        &self,
+        job_id: u64,
+        claim_token: &str,
+        error_message: String,
+    ) -> Result<IngestionJob, IngestionJobStoreError> {
+        validate_claim_token(claim_token)?;
+        let tenant_id = job_to_i64("tenant_id", self.tenant_id)?;
+        let job_id_i64 = job_to_i64("job_id", job_id)?;
+        let now = job_now()?;
+        let now_expr = self.timestamp_dialect.sql_timestamp_expr("$3");
+        let query = format!(
+            r#"
+            UPDATE kb_ingestion_job
+            SET state = $1,
+                error_detail = $2,
+                claim_owner = NULL,
+                claim_token = NULL,
+                lease_expires_at = NULL,
+                finished_at = {now_expr},
+                updated_at = {now_expr},
+                version = version + 1
+            WHERE tenant_id = $4
+              AND id = $5
+              AND status = $6
+              AND state = $7
+              AND claim_token = $8
+              AND lease_expires_at > {now_expr}
+            RETURNING id, space_id, job_type, idempotency_key, state, error_detail,
+                      CAST(metadata AS TEXT) AS metadata
+            "#,
+        );
+        let row = sqlx::query(&query)
+            .bind(ingestion_state_code(IngestionJobState::Failed))
+            .bind(truncate(&error_message, 4000, Some("")))
+            .bind(&now)
+            .bind(tenant_id)
+            .bind(job_id_i64)
+            .bind(ACTIVE_STATUS)
+            .bind(ingestion_state_code(IngestionJobState::Running))
+            .bind(claim_token)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(job_sqlx_error)?
+            .ok_or_else(|| {
+                IngestionJobStoreError::Conflict(
+                    "ingestion job lease is expired or no longer owned by this worker".to_string(),
+                )
+            })?;
+        job_from_row(&row)
     }
 
     async fn fail_expired_upload_sessions(
@@ -2586,6 +2965,47 @@ fn version_now() -> Result<String, KnowledgeDocumentVersionStoreError> {
 
 fn job_now() -> Result<String, IngestionJobStoreError> {
     now_rfc3339().map_err(IngestionJobStoreError::Internal)
+}
+
+fn format_job_timestamp(value: OffsetDateTime) -> Result<String, IngestionJobStoreError> {
+    value
+        .format(&Rfc3339)
+        .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))
+}
+
+fn validate_claim_request(
+    request: &ClaimIngestionJobsRequest,
+) -> Result<(), IngestionJobStoreError> {
+    if is_blank(Some(request.claim_owner.as_str())) {
+        return Err(IngestionJobStoreError::Conflict(
+            "ingestion job claim_owner is required".to_string(),
+        ));
+    }
+    if request.claim_owner.chars().count() > 255 {
+        return Err(IngestionJobStoreError::Conflict(
+            "ingestion job claim_owner exceeds 255 characters".to_string(),
+        ));
+    }
+    validate_lease_duration(request.lease_duration)
+}
+
+fn validate_claim_token(claim_token: &str) -> Result<(), IngestionJobStoreError> {
+    if is_blank(Some(claim_token)) || claim_token.len() > 64 {
+        return Err(IngestionJobStoreError::Conflict(
+            "invalid ingestion job claim_token".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_lease_duration(lease_duration: Duration) -> Result<(), IngestionJobStoreError> {
+    if !lease_duration.is_positive() || lease_duration > MAX_INGESTION_JOB_LEASE {
+        return Err(IngestionJobStoreError::Conflict(format!(
+            "ingestion job lease must be greater than zero and at most {} seconds",
+            MAX_INGESTION_JOB_LEASE.whole_seconds()
+        )));
+    }
+    Ok(())
 }
 
 fn now_rfc3339() -> Result<String, String> {

@@ -47,7 +47,7 @@ export function resolveDefaultBackendSdkBaseUrl(profileEnv = {}) {
   return (
     profileEnv.SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL
     ?? profileEnv.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL
-    ?? 'http://127.0.0.1:18082'
+    ?? 'http://127.0.0.1:18081'
   );
 }
 
@@ -55,7 +55,7 @@ export function resolveDefaultOpenSdkBaseUrl(profileEnv = {}) {
   return (
     profileEnv.SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL
     ?? profileEnv.VITE_SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL
-    ?? 'http://127.0.0.1:18083'
+    ?? 'http://127.0.0.1:18081'
   );
 }
 

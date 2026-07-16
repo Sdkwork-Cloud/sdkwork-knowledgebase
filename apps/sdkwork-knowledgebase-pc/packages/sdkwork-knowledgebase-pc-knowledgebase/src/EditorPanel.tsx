@@ -5,8 +5,6 @@ import { DocumentMeta, KnowledgeBase, FolderNode } from './services/document';
 import { useTranslation } from 'react-i18next';
 import { TiptapEditor } from './TiptapEditor';
 import { CodeEditorPanel } from './CodeEditorPanel';
-import { MediaViewer } from './MediaViewer';
-import { PdfViewer } from './PdfViewer';
 import { useHydratedViewerDocument } from './hooks/useHydratedViewerDocument';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { AssetLibraryModal } from './components/AssetLibraryModal';
@@ -15,6 +13,16 @@ import {
   isKnowledgebaseWorkspaceAiEnabled,
   type KnowledgebaseWorkspaceMode,
 } from './workspaceMode';
+
+const MediaViewer = React.lazy(async () => {
+  const module = await import('./MediaViewer');
+  return { default: module.MediaViewer };
+});
+
+const PdfViewer = React.lazy(async () => {
+  const module = await import('./PdfViewer');
+  return { default: module.PdfViewer };
+});
 
 export interface EditorPanelProps {
   activeKb: KnowledgeBase | null;
@@ -361,33 +369,37 @@ export function EditorPanel({
             )}
 
             {activeDoc?.type === 'pdf' && pdfViewDoc && (
-              <PdfViewer activeDoc={pdfViewDoc} />
+              <React.Suspense fallback={<div className="h-full w-full bg-[var(--color-kb-editor)]" />}>
+                <PdfViewer activeDoc={pdfViewDoc} />
+              </React.Suspense>
             )}
 
             {activeDoc && ['image', 'video', 'audio', 'music', 'file'].includes(activeDoc.type) && (
-              <MediaViewer 
-                activeDoc={activeDoc} 
-                docContent={docContent}
-                activeKb={activeKb}
-                onUpdateDocs={onUpdateDocs}
-                onContentChange={(content) => {
-                  onContentChange(content);
-                }}
-                isTranscribing={!!transcribingDocs[activeDoc.id]}
-                onTranscribeStart={() => {
-                  setTranscribingDocs(prev => ({ ...prev, [activeDoc.id]: true }));
-                }}
-                onTranscribeComplete={(text) => {
-                  onContentChange(text);
-                  setTranscribingDocs(prev => ({ ...prev, [activeDoc.id]: false }));
-                }}
-                onTitleChange={(newTitle) => {
-                  if (onTitleChange) {
-                    onTitleChange(activeDoc.id, newTitle);
-                  }
-                }}
-                workspaceMode={workspaceMode}
-              />
+              <React.Suspense fallback={<div className="h-full w-full bg-[var(--color-kb-editor)]" />}>
+                <MediaViewer
+                  activeDoc={activeDoc}
+                  docContent={docContent}
+                  activeKb={activeKb}
+                  onUpdateDocs={onUpdateDocs}
+                  onContentChange={(content) => {
+                    onContentChange(content);
+                  }}
+                  isTranscribing={!!transcribingDocs[activeDoc.id]}
+                  onTranscribeStart={() => {
+                    setTranscribingDocs(prev => ({ ...prev, [activeDoc.id]: true }));
+                  }}
+                  onTranscribeComplete={(text) => {
+                    onContentChange(text);
+                    setTranscribingDocs(prev => ({ ...prev, [activeDoc.id]: false }));
+                  }}
+                  onTitleChange={(newTitle) => {
+                    if (onTitleChange) {
+                      onTitleChange(activeDoc.id, newTitle);
+                    }
+                  }}
+                  workspaceMode={workspaceMode}
+                />
+              </React.Suspense>
             )}
 
             {!activeDoc && !loadingDocs && (

@@ -24,6 +24,23 @@ impl<'a> KnowledgeDriveImportPipelineService<'a> {
         &self,
         import: &KnowledgeDriveImportResult,
     ) -> Result<DriveImportPipelineResult, KnowledgeDriveImportPipelineServiceError> {
+        self.process_import_result_with_claim(import, None).await
+    }
+
+    pub async fn process_claimed_import_result(
+        &self,
+        import: &KnowledgeDriveImportResult,
+        claim_token: &str,
+    ) -> Result<DriveImportPipelineResult, KnowledgeDriveImportPipelineServiceError> {
+        self.process_import_result_with_claim(import, Some(claim_token))
+            .await
+    }
+
+    async fn process_import_result_with_claim(
+        &self,
+        import: &KnowledgeDriveImportResult,
+        claim_token: Option<&str>,
+    ) -> Result<DriveImportPipelineResult, KnowledgeDriveImportPipelineServiceError> {
         let ingestion = KnowledgeIngestionService::new(self.jobs);
         let job = match import.job.state {
             sdkwork_knowledgebase_contract::ingest::IngestionJobState::Queued => ingestion
@@ -42,12 +59,23 @@ impl<'a> KnowledgeDriveImportPipelineService<'a> {
         };
 
         let object_ref = drive_object_ref_to_storage_ref(&import.original_object_ref);
-        let payload = match self.drive.get_object_text(&object_ref).await {
+        let payload = match self
+            .drive
+            .get_object_text_bounded(
+                &object_ref,
+                crate::ingest::MAX_MARKDOWN_PAYLOAD_BYTES as u64,
+            )
+            .await
+        {
             Ok(payload) => payload,
             Err(error) => {
-                if let Err(mark_error) = ingestion
-                    .mark_failed(job.id, format!("drive storage read failed: {error:?}"))
-                    .await
+                if let Err(mark_error) = mark_ingestion_failed(
+                    &ingestion,
+                    job.id,
+                    claim_token,
+                    format!("drive storage read failed: {error:?}"),
+                )
+                .await
                 {
                     tracing::error!(
                         job_id = job.id,
@@ -61,7 +89,10 @@ impl<'a> KnowledgeDriveImportPipelineService<'a> {
 
         if let Err(limit_error) = validate_markdown_payload(&payload) {
             let failure_message = format!("drive import payload rejected: {limit_error}");
-            if let Err(mark_error) = ingestion.mark_failed(job.id, failure_message.clone()).await {
+            if let Err(mark_error) =
+                mark_ingestion_failed(&ingestion, job.id, claim_token, failure_message.clone())
+                    .await
+            {
                 tracing::error!(
                     job_id = job.id,
                     ?mark_error,
@@ -82,6 +113,7 @@ impl<'a> KnowledgeDriveImportPipelineService<'a> {
         let completed = match ingestion
             .complete_with_chunks_and_outbox(CompleteRunningIngestionRecord {
                 job_id: job.id,
+                claim_token: claim_token.map(str::to_string),
                 document_version_id: import.version.id,
                 chunks: chunk_records,
                 outbox: ingest_success_outbox_record(&job),
@@ -90,7 +122,10 @@ impl<'a> KnowledgeDriveImportPipelineService<'a> {
         {
             Ok(completed) => completed,
             Err(error) => {
-                if let Err(mark_error) = ingestion.mark_failed(job.id, format!("{error:?}")).await {
+                if let Err(mark_error) =
+                    mark_ingestion_failed(&ingestion, job.id, claim_token, format!("{error:?}"))
+                        .await
+                {
                     tracing::error!(
                         job_id = job.id,
                         ?mark_error,
@@ -108,6 +143,22 @@ impl<'a> KnowledgeDriveImportPipelineService<'a> {
                 chunk_count: completed.chunk_count,
             }),
         })
+    }
+}
+
+async fn mark_ingestion_failed(
+    ingestion: &KnowledgeIngestionService<'_>,
+    job_id: u64,
+    claim_token: Option<&str>,
+    detail: String,
+) -> Result<IngestionJob, crate::ingest::KnowledgeIngestionServiceError> {
+    match claim_token {
+        Some(claim_token) => {
+            ingestion
+                .mark_failed_with_claim(job_id, claim_token, detail)
+                .await
+        }
+        None => ingestion.mark_failed(job_id, detail).await,
     }
 }
 

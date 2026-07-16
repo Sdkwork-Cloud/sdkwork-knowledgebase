@@ -15,7 +15,8 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
    - Database password (`SDKWORK_CLAW_DATABASE_PASSWORD_FILE`)
    - Secrets encryption key (`SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY_FILE`)
    - Outbox webhook URL and signing secret
-   - Unique `SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID` per pod/process
+   - Database-backed Snowflake node lease identity for every ingress/worker replica
+   - No static `SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID` unless an emergency change record explicitly enables the override
 2. Apply topology from `configs/topology/cloud.production.env`.
 3. Ensure public ingress exposes app/backend/open API paths only. **Do not expose `/metrics` on ingress**; Prometheus scrapes in-cluster via ServiceMonitor.
 4. Run repository gates:
@@ -44,7 +45,7 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
    SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL=https://knowledgebase.example.com pnpm test:smoke
    ```
    Public smoke checks only probe `/livez` and `/readyz`; `/metrics` remains in-cluster only.
-   For production deployments with separate API and worker processes, probe each process independently:
+   Probe the application public ingress and worker independently; app/backend/open URLs are logical route authorities on the same ingress:
    ```bash
    SDKWORK_KNOWLEDGEBASE_SMOKE_APP_URL=https://knowledgebase.example.com \
    SDKWORK_KNOWLEDGEBASE_SMOKE_BACKEND_URL=https://knowledgebase-admin.example.com \
@@ -54,7 +55,7 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
    ```
 3. Optional internal metrics smoke, run only from an in-cluster network path:
    ```bash
-   SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS=http://sdkwork-knowledgebase-app-api,http://sdkwork-knowledgebase-backend-api,http://sdkwork-knowledgebase-open-api,http://sdkwork-knowledgebase-worker:18085 \
+   SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS=http://sdkwork-knowledgebase-app-api,http://sdkwork-knowledgebase-worker:18085 \
    pnpm test:smoke
    ```
 4. Optional authenticated admin probe:
@@ -76,7 +77,7 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
 1. Set `SDKWORK_KNOWLEDGEBASE_LOG_FORMAT=json` in production topology for structured log aggregation.
 2. When an OTLP collector is available, set:
    - `OTEL_EXPORTER_OTLP_ENDPOINT`
-   - `OTEL_SERVICE_NAME` per process (`sdkwork-knowledgebase-app-api`, `sdkwork-knowledgebase-backend-api`, `sdkwork-knowledgebase-open-api`, `sdkwork-knowledgebase-worker`)
+   - `OTEL_SERVICE_NAME` per process (`sdkwork-knowledgebase-public-ingress`, `sdkwork-knowledgebase-worker`)
 3. Confirm ServiceMonitor targets scrape `/metrics` in-cluster and dashboards include:
    - `knowledgebase_health_status`
    - `knowledge_api_requests_total`

@@ -60,15 +60,15 @@ coverage = "knowledgebase-open-api-upstream-routes"
 
 [[upstreams]]
 serviceId = "sdkwork-knowledgebase-app-api"
-baseUrl = "http://sdkwork-knowledgebase-app-api:18081"
+baseUrl = "http://sdkwork-knowledgebase-app-api:80"
 
 [[upstreams]]
 serviceId = "sdkwork-knowledgebase-backend-api"
-baseUrl = "http://sdkwork-knowledgebase-backend-api:18082"
+baseUrl = "http://sdkwork-knowledgebase-app-api:80"
 
 [[upstreams]]
 serviceId = "sdkwork-knowledgebase-open-api"
-baseUrl = "http://sdkwork-knowledgebase-open-api:18083"
+baseUrl = "http://sdkwork-knowledgebase-app-api:80"
 
 [cors]
 allowAnyOrigin = false

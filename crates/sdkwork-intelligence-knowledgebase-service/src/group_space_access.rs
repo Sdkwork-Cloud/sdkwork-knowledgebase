@@ -23,8 +23,8 @@ impl<'a> GroupKnowledgeSpaceAccessAuthorizer<'a> {
         Self { binding_store }
     }
 
-    /// Resolves whether a tenant-owned space is group-managed before applying organization or
-    /// membership checks. A group-managed space in another organization is deliberately an
+    /// Resolves whether a tenant-owned space is group-managed before applying exact scope or
+    /// membership checks. A group-managed space in another token-derived scope is deliberately an
     /// authorization failure, not an ordinary-space miss, so it cannot fall through to generic
     /// Drive ACL logic.
     pub async fn resolve_group_managed_space(
@@ -32,9 +32,9 @@ impl<'a> GroupKnowledgeSpaceAccessAuthorizer<'a> {
         scope: GroupKnowledgeSpaceScope,
         space_id: u64,
     ) -> Result<Option<GroupKnowledgeSpaceBinding>, GroupKnowledgeSpaceAccessAuthorizerError> {
-        if space_id == 0 || scope.tenant_id == 0 || scope.organization_id == 0 {
+        if space_id == 0 || scope.tenant_id == 0 {
             return Err(GroupKnowledgeSpaceAccessAuthorizerError::InvalidRequest(
-                "tenant_id, organization_id, and space_id are required".to_string(),
+                "tenant_id and space_id are required".to_string(),
             ));
         }
 
@@ -49,7 +49,7 @@ impl<'a> GroupKnowledgeSpaceAccessAuthorizer<'a> {
 
         if binding.organization_id != scope.organization_id {
             return Err(GroupKnowledgeSpaceAccessAuthorizerError::Denied(
-                "group knowledge space belongs to a different organization".to_string(),
+                "group knowledge space belongs to a different authenticated scope".to_string(),
             ));
         }
 

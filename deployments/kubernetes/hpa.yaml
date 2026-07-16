@@ -11,7 +11,7 @@ spec:
     kind: Deployment
     name: sdkwork-knowledgebase-app-api
   minReplicas: 2
-  maxReplicas: 8
+  maxReplicas: 12
   metrics:
     - type: Resource
       resource:
@@ -24,10 +24,10 @@ spec:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 75
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 60
+      stabilizationWindowSeconds: 30
       policies:
         - type: Percent
           value: 100
@@ -40,99 +40,7 @@ spec:
       stabilizationWindowSeconds: 300
       policies:
         - type: Percent
-          value: 50
-          periodSeconds: 60
-      selectPolicy: Min
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: sdkwork-knowledgebase-backend-api
-  labels:
-    app: sdkwork-knowledgebase
-    component: backend-api
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: sdkwork-knowledgebase-backend-api
-  minReplicas: 2
-  maxReplicas: 6
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 80
-  behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 60
-      policies:
-        - type: Percent
-          value: 100
-          periodSeconds: 60
-        - type: Pods
-          value: 2
-          periodSeconds: 60
-      selectPolicy: Max
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Percent
-          value: 50
-          periodSeconds: 60
-      selectPolicy: Min
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: sdkwork-knowledgebase-open-api
-  labels:
-    app: sdkwork-knowledgebase
-    component: open-api
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: sdkwork-knowledgebase-open-api
-  minReplicas: 2
-  maxReplicas: 6
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 80
-  behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 60
-      policies:
-        - type: Percent
-          value: 100
-          periodSeconds: 60
-        - type: Pods
-          value: 2
-          periodSeconds: 60
-      selectPolicy: Max
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Percent
-          value: 50
+          value: 25
           periodSeconds: 60
       selectPolicy: Min
 ---
@@ -162,7 +70,7 @@ spec:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 75
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 60

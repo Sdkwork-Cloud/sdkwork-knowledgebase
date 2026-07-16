@@ -239,7 +239,7 @@ All database objects created by SDKWork Knowledgebase use the `kb_` prefix for t
 
 ### 9.1 Runtime ID strategy
 
-All persistent `kb_*` tables use `id` as an `int64` internal primary key. Runtime insert paths generate and bind `id` explicitly via a Snowflake ID generator (`SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID`, range 0–1023). Public API identifiers use UUID strings.
+All persistent `kb_*` tables use `id` as an `int64` internal primary key. Runtime insert paths generate and bind `id` explicitly through the SDKWork database-backed Snowflake allocator (leased node range 0–1023 with heartbeat and fencing). Public API identifiers use UUID strings. A numeric `SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID` is permitted only as an explicitly approved development or emergency override.
 
 Common columns for core L2 tables: `id`, `uuid`, `tenant_id`, `organization_id`, `status`, `created_at`, `updated_at`, `version`, optional soft-delete fields.
 

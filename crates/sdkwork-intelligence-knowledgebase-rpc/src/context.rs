@@ -1,6 +1,7 @@
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_group_space_binding_store::GroupKnowledgeSpaceScope;
 use sdkwork_knowledgebase_contract::{
-    group_space::GROUP_KNOWLEDGE_SPACE_ACTOR_ID_MAX_LENGTH, parse_canonical_positive_signed_i64,
+    group_space::GROUP_KNOWLEDGE_SPACE_ACTOR_ID_MAX_LENGTH, parse_canonical_nonnegative_signed_i64,
+    parse_canonical_positive_signed_i64,
 };
 use sdkwork_rpc_framework_core::RpcCallerActorKind;
 use sdkwork_rpc_server::{
@@ -46,8 +47,9 @@ pub fn require_group_knowledge_space_lifecycle_caller<T>(
 
     let tenant_id = parse_canonical_positive_signed_i64(&caller_context.tenant_id)
         .map_err(|_| Status::unauthenticated("internal group lifecycle scope is invalid"))?;
-    let organization_id = parse_canonical_positive_signed_i64(&caller_context.organization_id)
-        .map_err(|_| Status::unauthenticated("internal group lifecycle scope is invalid"))?;
+    let organization_id =
+        parse_canonical_nonnegative_signed_i64(&caller_context.organization_id)
+            .map_err(|_| Status::unauthenticated("internal group lifecycle scope is invalid"))?;
     if caller_context.actor_id.len() > GROUP_KNOWLEDGE_SPACE_ACTOR_ID_MAX_LENGTH
         || is_blank(Some(caller_context.request_id.as_str()))
     {
@@ -119,6 +121,16 @@ mod tests {
             .expect("verified IM service context");
         assert_eq!(caller.actor_id, IM_SERVICE_ID);
         assert_eq!(caller.scope.organization_id, 2);
+
+        let mut tenant_request = request();
+        tenant_request
+            .extensions_mut()
+            .get_mut::<VerifiedRpcCallerContext>()
+            .expect("caller context")
+            .organization_id = "0".to_string();
+        let tenant_caller = require_group_knowledge_space_lifecycle_caller(&tenant_request)
+            .expect("verified tenant-scoped IM service context");
+        assert_eq!(tenant_caller.scope.organization_id, 0);
     }
 
     #[test]

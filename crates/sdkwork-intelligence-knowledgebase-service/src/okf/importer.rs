@@ -17,6 +17,9 @@ use sdkwork_utils_rust::is_blank;
 use serde::Deserialize;
 use thiserror::Error;
 
+const MAX_OKF_IMPORT_FILES: usize = 512;
+const MAX_OKF_IMPORT_TOTAL_BYTES: usize = 32 * 1024 * 1024;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportOkfBundleFile {
     pub bundle_relative_path: String,
@@ -62,6 +65,7 @@ impl<'a> OkfBundleImporterService<'a> {
                 "at least one bundle file is required".to_string(),
             ));
         }
+        validate_import_file_budget(&request.files)?;
 
         let mut skipped_files = Vec::new();
         let mut conformance_errors = Vec::new();
@@ -376,12 +380,27 @@ pub async fn load_import_bundle_from_drive(
     let import_root = drive_import_root(space_id, import_id);
     let (manifest_path, manifest_files) =
         read_import_manifest_files(drive, &import_root, drive_space_id).await?;
+    if manifest_files.len() > MAX_OKF_IMPORT_FILES {
+        return Err(OkfBundleImporterError::InvalidRequest(format!(
+            "import manifest at {manifest_path} lists {} files; maximum is {MAX_OKF_IMPORT_FILES}",
+            manifest_files.len()
+        )));
+    }
 
-    let mut files = Vec::new();
+    let mut files = Vec::with_capacity(manifest_files.len());
+    let mut total_bytes = 0usize;
     for batch in manifest_files.chunks(OKF_IMPORT_CONCURRENCY) {
-        files.extend(
-            read_import_bundle_file_batch(drive, &import_root, drive_space_id, batch).await?,
-        );
+        let batch_files =
+            read_import_bundle_file_batch(drive, &import_root, drive_space_id, batch).await?;
+        for file in &batch_files {
+            total_bytes = total_bytes
+                .checked_add(file.markdown.len())
+                .ok_or_else(import_size_overflow)?;
+            if total_bytes > MAX_OKF_IMPORT_TOTAL_BYTES {
+                return Err(import_total_size_error(total_bytes));
+            }
+        }
+        files.extend(batch_files);
     }
 
     if files.is_empty() {
@@ -390,6 +409,39 @@ pub async fn load_import_bundle_from_drive(
         )));
     }
     Ok(files)
+}
+
+fn validate_import_file_budget(
+    files: &[ImportOkfBundleFile],
+) -> Result<(), OkfBundleImporterError> {
+    if files.len() > MAX_OKF_IMPORT_FILES {
+        return Err(OkfBundleImporterError::InvalidRequest(format!(
+            "bundle import contains {} files; maximum is {MAX_OKF_IMPORT_FILES}",
+            files.len()
+        )));
+    }
+    let mut total_bytes = 0usize;
+    for file in files {
+        total_bytes = total_bytes
+            .checked_add(file.markdown.len())
+            .ok_or_else(import_size_overflow)?;
+        if total_bytes > MAX_OKF_IMPORT_TOTAL_BYTES {
+            return Err(import_total_size_error(total_bytes));
+        }
+    }
+    Ok(())
+}
+
+fn import_size_overflow() -> OkfBundleImporterError {
+    OkfBundleImporterError::InvalidRequest(
+        "bundle import total size exceeds the supported range".to_string(),
+    )
+}
+
+fn import_total_size_error(actual_bytes: usize) -> OkfBundleImporterError {
+    OkfBundleImporterError::InvalidRequest(format!(
+        "bundle import size {actual_bytes} exceeds maximum {MAX_OKF_IMPORT_TOTAL_BYTES} bytes"
+    ))
 }
 
 async fn read_import_bundle_file_batch(
@@ -717,5 +769,33 @@ files:
         let json = r#"{"files":["entities/a.md"]}"#;
         let files = parse_bundle_manifest_files(json).expect("json manifest");
         assert_eq!(files, vec!["entities/a.md".to_string()]);
+    }
+
+    #[test]
+    fn import_budget_rejects_excessive_file_count() {
+        let files = (0..=MAX_OKF_IMPORT_FILES)
+            .map(|index| ImportOkfBundleFile {
+                bundle_relative_path: format!("entities/{index}.md"),
+                markdown: "# concept".to_string(),
+            })
+            .collect::<Vec<_>>();
+
+        assert!(matches!(
+            validate_import_file_budget(&files),
+            Err(OkfBundleImporterError::InvalidRequest(_))
+        ));
+    }
+
+    #[test]
+    fn import_budget_rejects_excessive_total_bytes() {
+        let files = vec![ImportOkfBundleFile {
+            bundle_relative_path: "entities/large.md".to_string(),
+            markdown: "x".repeat(MAX_OKF_IMPORT_TOTAL_BYTES + 1),
+        }];
+
+        assert!(matches!(
+            validate_import_file_budget(&files),
+            Err(OkfBundleImporterError::InvalidRequest(_))
+        ));
     }
 }

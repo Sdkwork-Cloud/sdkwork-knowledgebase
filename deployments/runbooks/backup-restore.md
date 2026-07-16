@@ -33,4 +33,5 @@ Document `SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_URL` and signing secret rotation 
 - [ ] `/livez` returns 200 on all API pods
 - [ ] `/readyz` returns 200 when database and drive pools are healthy
 - [ ] Worker processes queued ingestion jobs after restore
-- [ ] Snowflake node IDs are unique per pod (`SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID`)
+- [ ] Every restored API/worker replica has a healthy row in `sdkwork_node_registry`
+- [ ] `/readyz` fails when the fenced Snowflake node lease cannot be renewed

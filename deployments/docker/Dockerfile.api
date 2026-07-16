@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
 FROM rust:1-bookworm AS builder
-WORKDIR /src
-COPY . .
-RUN cargo build --release -p sdkwork-knowledgebase-api-server --features sdkwork-knowledgebase-observability/otel
+WORKDIR /src/sdkwork-knowledgebase
+COPY . /src
+RUN cargo build --release -p sdkwork-knowledgebase-standalone-gateway --features sdkwork-knowledgebase-observability/otel
 
 FROM debian:bookworm-slim
 RUN apt-get update \
@@ -11,10 +11,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-ARG KB_API_BINARY=sdkwork-knowledgebase-app-api
-ENV KB_API_BINARY=${KB_API_BINARY}
-
-COPY --from=builder /src/target/release/${KB_API_BINARY} /app/knowledgebase-api
+COPY --from=builder /src/target/release/sdkwork-knowledgebase-standalone-gateway /app/knowledgebase-api
 
 ENV SDKWORK_KNOWLEDGEBASE_ENVIRONMENT=production
 EXPOSE 8080

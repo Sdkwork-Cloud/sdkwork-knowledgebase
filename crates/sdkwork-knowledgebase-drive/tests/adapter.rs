@@ -243,6 +243,52 @@ async fn adapter_puts_and_reads_objects_through_drive_object_store() {
 }
 
 #[tokio::test]
+async fn adapter_deletes_objects_idempotently_for_saga_compensation() {
+    let store = Arc::new(FakeDriveObjectStore::default());
+    let adapter =
+        KnowledgebaseDriveStorageAdapter::new(store.clone(), "provider-kb", "kb-bucket", "tenant");
+    let object_ref = adapter
+        .put_object(
+            PutKnowledgeObjectRequest::text("okf/revision.md", "concept_revision", "body", None)
+                .with_space_uuid("space"),
+        )
+        .await
+        .unwrap();
+
+    adapter.delete_object(&object_ref).await.unwrap();
+    adapter.delete_object(&object_ref).await.unwrap();
+
+    assert!(!store
+        .objects
+        .lock()
+        .unwrap()
+        .contains_key(&object_ref.object_key));
+}
+
+#[tokio::test]
+async fn adapter_rejects_oversized_reads_before_opening_drive_stream() {
+    let store = Arc::new(FakeDriveObjectStore::default());
+    let adapter =
+        KnowledgebaseDriveStorageAdapter::new(store.clone(), "provider-kb", "kb-bucket", "tenant");
+    let mut object_ref = adapter
+        .put_object(
+            PutKnowledgeObjectRequest::text("okf/index.md", "bundle_index", "# Index", None)
+                .with_space_uuid("space"),
+        )
+        .await
+        .unwrap();
+    object_ref.size_bytes = 1025;
+
+    let error = adapter
+        .get_object_bytes_bounded(&object_ref, 1024)
+        .await
+        .unwrap_err();
+
+    assert!(matches!(error, KnowledgeStorageError::InvalidRequest(_)));
+    assert_eq!(store.read_count(), 0);
+}
+
+#[tokio::test]
 async fn storage_adapter_returns_computed_checksum_when_request_omits_checksum() {
     let store = Arc::new(FakeDriveObjectStore::default());
     let adapter =

@@ -27,6 +27,15 @@ pub struct CreateKnowledgeDocumentVersionRecord {
     pub mime_type: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CreateNextKnowledgeDocumentVersionRecord {
+    pub document_id: u64,
+    pub original_object_ref_id: u64,
+    pub checksum_sha256_hex: Option<String>,
+    pub size_bytes: u64,
+    pub mime_type: Option<String>,
+}
+
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum KnowledgeDocumentVersionStoreError {
     #[error("knowledge document version store internal error: {0}")]
