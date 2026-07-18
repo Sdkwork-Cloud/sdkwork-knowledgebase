@@ -19,6 +19,45 @@ use sqlx::AnyPool;
 const SQLITE_GROUP_TENANT_SCOPE_MIGRATION: &str = include_str!(
     "../../../database/migrations/sqlite/202607160001_group_knowledgebase_tenant_scope.up.sql"
 );
+const SQLITE_GROUP_SPACE_EXPAND_MIGRATION: &str =
+    include_str!("../../../database/migrations/sqlite/202607150001_group_knowledge_space.up.sql");
+
+#[tokio::test]
+async fn anchored_database_upgrade_creates_group_tables_before_scope_correction() {
+    let pool =
+        sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_pool("sqlite::memory:")
+            .await
+            .expect("sqlite pool");
+    sqlx::query("CREATE TABLE kb_space (id INTEGER PRIMARY KEY)")
+        .execute(&pool)
+        .await
+        .expect("create lifecycle baseline anchor");
+
+    sqlx::raw_sql(SQLITE_GROUP_SPACE_EXPAND_MIGRATION)
+        .execute(&pool)
+        .await
+        .expect("apply group-space expand migration");
+    sqlx::raw_sql(SQLITE_GROUP_TENANT_SCOPE_MIGRATION)
+        .execute(&pool)
+        .await
+        .expect("apply dependent tenant-scope correction");
+
+    for table in [
+        "kb_group_knowledge_space_binding",
+        "kb_group_knowledge_space_member",
+        "kb_group_knowledge_space_event_inbox",
+        "kb_group_knowledge_space_membership_projection",
+    ] {
+        let exists: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = $1",
+        )
+        .bind(table)
+        .fetch_one(&pool)
+        .await
+        .expect("inspect upgraded schema");
+        assert_eq!(exists, 1, "anchored upgrade must create {table}");
+    }
+}
 
 #[tokio::test]
 async fn tenant_first_group_lookup_denies_a_different_organization_without_generic_fallback() {

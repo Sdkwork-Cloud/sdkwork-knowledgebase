@@ -13,6 +13,10 @@ const APP_ROOT_POSTGRES_BASELINE: &str =
     include_str!("../../../database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql");
 const APP_ROOT_SQLITE_BASELINE: &str =
     include_str!("../../../database/ddl/baseline/sqlite/0001_knowledgebase_baseline.sql");
+const APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION: &str =
+    include_str!("../../../database/migrations/postgres/202607150001_group_knowledge_space.up.sql");
+const APP_ROOT_SQLITE_GROUP_SPACE_MIGRATION: &str =
+    include_str!("../../../database/migrations/sqlite/202607150001_group_knowledge_space.up.sql");
 const APP_ROOT_POSTGRES_TENANT_SCOPE_MIGRATION: &str = include_str!(
     "../../../database/migrations/postgres/202607160001_group_knowledgebase_tenant_scope.up.sql"
 );
@@ -937,6 +941,35 @@ fn group_tenant_scope_upgrade_migrations_match_the_greenfield_contract() {
             "SQLite upgrade must rebuild {table} with the tenant-scope contract",
         );
     }
+}
+
+#[test]
+fn runtime_group_space_expand_migrations_precede_dependent_scope_corrections() {
+    assert!("202607150001" < "202607160001");
+
+    for (engine, migration) in [
+        ("postgres", APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION),
+        ("sqlite", APP_ROOT_SQLITE_GROUP_SPACE_MIGRATION),
+    ] {
+        for table in [
+            "kb_group_knowledge_space_binding",
+            "kb_group_knowledge_space_member",
+            "kb_group_knowledge_space_event_inbox",
+            "kb_group_knowledge_space_membership_projection",
+        ] {
+            assert!(
+                migration.contains(&format!("CREATE TABLE IF NOT EXISTS {table}")),
+                "{engine} runtime expand migration must create {table} before dependent corrections",
+            );
+        }
+    }
+
+    assert!(APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION
+        .contains("ALTER TABLE %I ENABLE ROW LEVEL SECURITY"));
+    assert!(
+        APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION.contains("ALTER TABLE %I FORCE ROW LEVEL SECURITY")
+    );
+    assert!(APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION.contains("CREATE POLICY tenant_isolation"));
 }
 
 fn defined_database_objects(migration: &'static str, prefix: &str) -> BTreeSet<&'static str> {
