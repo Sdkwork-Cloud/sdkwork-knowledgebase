@@ -1,43 +1,13 @@
-use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
-    CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
-};
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineError, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
     KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
-use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_chroma::{
     ChromaConnectorConfig, ChromaKnowledgeEngine, DEFAULT_CHROMA_DATABASE, DEFAULT_CHROMA_TENANT,
 };
-use std::collections::HashMap;
-use std::sync::Arc;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
-
-struct MockSourceStore {
-    sources: HashMap<u64, Vec<KnowledgeSource>>,
-}
-
-#[async_trait]
-impl KnowledgeSourceStore for MockSourceStore {
-    async fn create_source(
-        &self,
-        _record: CreateKnowledgeSourceRecord,
-    ) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
-        Err(KnowledgeSourceStoreError::Internal(
-            "unsupported in test fake".to_string(),
-        ))
-    }
-
-    async fn list_sources_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
-        Ok(self.sources.get(&space_id).cloned().unwrap_or_default())
-    }
-}
 
 fn collection_base_path(collection_id: &str) -> String {
     format!(
@@ -46,7 +16,7 @@ fn collection_base_path(collection_id: &str) -> String {
 }
 
 #[tokio::test]
-async fn chroma_search_uses_space_connector_metadata_collection_id() {
+async fn chroma_search_uses_configured_remote_resource_id() {
     let mock_server = MockServer::start().await;
     let collection_id = "603a7b51-ae7c-4b0a-8865-e454ed2f6766";
     Mock::given(method("POST"))
@@ -69,25 +39,11 @@ async fn chroma_search_uses_space_connector_metadata_collection_id() {
     let config = ChromaConnectorConfig {
         base_url: mock_server.uri(),
         api_key: Some("test-api-key".to_string()),
-        default_collection_id: None,
+        default_collection_id: Some(collection_id.to_string()),
         tenant: DEFAULT_CHROMA_TENANT.to_string(),
         database: DEFAULT_CHROMA_DATABASE.to_string(),
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("chroma".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(format!(r#"{{"datasetId":"{collection_id}"}}"#)),
-            }],
-        )]),
-    });
-    let engine = ChromaKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = ChromaKnowledgeEngine::with_config(config);
 
     let result = engine
         .search(KnowledgeEngineSearchRequest {
@@ -124,25 +80,11 @@ async fn chroma_read_document_fetches_record_by_id() {
     let config = ChromaConnectorConfig {
         base_url: mock_server.uri(),
         api_key: Some("test-api-key".to_string()),
-        default_collection_id: None,
+        default_collection_id: Some(collection_id.to_string()),
         tenant: DEFAULT_CHROMA_TENANT.to_string(),
         database: DEFAULT_CHROMA_DATABASE.to_string(),
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("chroma".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(format!(r#"{{"datasetId":"{collection_id}"}}"#)),
-            }],
-        )]),
-    });
-    let engine = ChromaKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = ChromaKnowledgeEngine::with_config(config);
 
     let document = engine
         .read_document(KnowledgeEngineReadRequest {
@@ -168,7 +110,7 @@ async fn chroma_list_documents_is_explicitly_unsupported() {
         tenant: DEFAULT_CHROMA_TENANT.to_string(),
         database: DEFAULT_CHROMA_DATABASE.to_string(),
     };
-    let engine = ChromaKnowledgeEngine::with_config(config, None);
+    let engine = ChromaKnowledgeEngine::with_config(config);
 
     let error = engine
         .list_documents(KnowledgeEngineListRequest {
@@ -190,16 +132,13 @@ async fn assert_chroma_health(upstream_status: u16, expected: KnowledgeEngineHea
         .expect(if upstream_status >= 500 { 3 } else { 1 })
         .mount(&mock_server)
         .await;
-    let engine = ChromaKnowledgeEngine::with_config(
-        ChromaConnectorConfig {
+    let engine = ChromaKnowledgeEngine::with_config(ChromaConnectorConfig {
             base_url: mock_server.uri(),
             api_key: None,
             default_collection_id: Some("health-collection".to_string()),
             tenant: DEFAULT_CHROMA_TENANT.to_string(),
             database: DEFAULT_CHROMA_DATABASE.to_string(),
-        },
-        None,
-    );
+        });
 
     assert_eq!(engine.health().await.expect("health").status, expected);
 }

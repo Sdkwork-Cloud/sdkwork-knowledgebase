@@ -1,44 +1,14 @@
-use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
-    CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
-};
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineError, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
     KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
-use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_qdrant::{QdrantConnectorConfig, QdrantKnowledgeEngine};
-use std::collections::HashMap;
-use std::sync::Arc;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-struct MockSourceStore {
-    sources: HashMap<u64, Vec<KnowledgeSource>>,
-}
-
-#[async_trait]
-impl KnowledgeSourceStore for MockSourceStore {
-    async fn create_source(
-        &self,
-        _record: CreateKnowledgeSourceRecord,
-    ) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
-        Err(KnowledgeSourceStoreError::Internal(
-            "unsupported in test fake".to_string(),
-        ))
-    }
-
-    async fn list_sources_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
-        Ok(self.sources.get(&space_id).cloned().unwrap_or_default())
-    }
-}
-
 #[tokio::test]
-async fn qdrant_search_uses_space_connector_metadata_collection_name() {
+async fn qdrant_search_uses_configured_remote_resource_id() {
     let mock_server = MockServer::start().await;
     let collection_name = "policies";
     Mock::given(method("POST"))
@@ -63,25 +33,11 @@ async fn qdrant_search_uses_space_connector_metadata_collection_name() {
     let config = QdrantConnectorConfig {
         base_url: mock_server.uri(),
         api_key: Some("test-api-key".to_string()),
-        default_collection_name: None,
+        default_collection_name: Some(collection_name.to_string()),
         query_model: Some("sentence-transformers/all-minilm-l6-v2".to_string()),
         using_vector: None,
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("qdrant".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(r#"{"datasetId":"policies"}"#.to_string()),
-            }],
-        )]),
-    });
-    let engine = QdrantKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = QdrantKnowledgeEngine::with_config(config);
 
     let result = engine
         .search(KnowledgeEngineSearchRequest {
@@ -121,25 +77,11 @@ async fn qdrant_read_document_fetches_point_by_id() {
     let config = QdrantConnectorConfig {
         base_url: mock_server.uri(),
         api_key: Some("test-api-key".to_string()),
-        default_collection_name: None,
+        default_collection_name: Some(collection_name.to_string()),
         query_model: Some("sentence-transformers/all-minilm-l6-v2".to_string()),
         using_vector: None,
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("qdrant".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(r#"{"datasetId":"policies"}"#.to_string()),
-            }],
-        )]),
-    });
-    let engine = QdrantKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = QdrantKnowledgeEngine::with_config(config);
 
     let document = engine
         .read_document(KnowledgeEngineReadRequest {
@@ -165,7 +107,7 @@ async fn qdrant_list_documents_is_explicitly_unsupported() {
         query_model: Some("sentence-transformers/all-minilm-l6-v2".to_string()),
         using_vector: None,
     };
-    let engine = QdrantKnowledgeEngine::with_config(config, None);
+    let engine = QdrantKnowledgeEngine::with_config(config);
 
     let error = engine
         .list_documents(KnowledgeEngineListRequest {
@@ -187,16 +129,13 @@ async fn assert_qdrant_health(upstream_status: u16, expected: KnowledgeEngineHea
         .expect(if upstream_status >= 500 { 3 } else { 1 })
         .mount(&mock_server)
         .await;
-    let engine = QdrantKnowledgeEngine::with_config(
-        QdrantConnectorConfig {
+    let engine = QdrantKnowledgeEngine::with_config(QdrantConnectorConfig {
             base_url: mock_server.uri(),
             api_key: None,
             default_collection_name: Some("health-collection".to_string()),
             query_model: Some("health-model".to_string()),
             using_vector: None,
-        },
-        None,
-    );
+        });
 
     assert_eq!(engine.health().await.expect("health").status, expected);
 }

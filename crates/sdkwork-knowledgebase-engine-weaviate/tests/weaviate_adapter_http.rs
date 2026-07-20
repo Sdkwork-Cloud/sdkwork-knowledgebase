@@ -1,47 +1,17 @@
-use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
-    CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
-};
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineError, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
     KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
-use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_weaviate::{
     WeaviateConnectorConfig, WeaviateKnowledgeEngine, DEFAULT_WEAVIATE_CONTENT_PROPERTY,
     DEFAULT_WEAVIATE_TITLE_PROPERTY,
 };
-use std::collections::HashMap;
-use std::sync::Arc;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-struct MockSourceStore {
-    sources: HashMap<u64, Vec<KnowledgeSource>>,
-}
-
-#[async_trait]
-impl KnowledgeSourceStore for MockSourceStore {
-    async fn create_source(
-        &self,
-        _record: CreateKnowledgeSourceRecord,
-    ) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
-        Err(KnowledgeSourceStoreError::Internal(
-            "unsupported in test fake".to_string(),
-        ))
-    }
-
-    async fn list_sources_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
-        Ok(self.sources.get(&space_id).cloned().unwrap_or_default())
-    }
-}
-
 #[tokio::test]
-async fn weaviate_search_uses_space_connector_metadata_class_name() {
+async fn weaviate_search_uses_configured_remote_resource_id() {
     let mock_server = MockServer::start().await;
     let class_name = "KnowledgeChunk";
     Mock::given(method("POST"))
@@ -66,25 +36,11 @@ async fn weaviate_search_uses_space_connector_metadata_class_name() {
     let config = WeaviateConnectorConfig {
         base_url: mock_server.uri(),
         api_key: Some("test-api-key".to_string()),
-        default_class_name: None,
+        default_class_name: Some(class_name.to_string()),
         title_property: DEFAULT_WEAVIATE_TITLE_PROPERTY.to_string(),
         content_property: DEFAULT_WEAVIATE_CONTENT_PROPERTY.to_string(),
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("weaviate".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(format!(r#"{{"datasetId":"{class_name}"}}"#)),
-            }],
-        )]),
-    });
-    let engine = WeaviateKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = WeaviateKnowledgeEngine::with_config(config);
 
     let result = engine
         .search(KnowledgeEngineSearchRequest {
@@ -120,25 +76,11 @@ async fn weaviate_read_document_fetches_object_by_id() {
     let config = WeaviateConnectorConfig {
         base_url: mock_server.uri(),
         api_key: Some("test-api-key".to_string()),
-        default_class_name: None,
+        default_class_name: Some(class_name.to_string()),
         title_property: DEFAULT_WEAVIATE_TITLE_PROPERTY.to_string(),
         content_property: DEFAULT_WEAVIATE_CONTENT_PROPERTY.to_string(),
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("weaviate".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(format!(r#"{{"datasetId":"{class_name}"}}"#)),
-            }],
-        )]),
-    });
-    let engine = WeaviateKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = WeaviateKnowledgeEngine::with_config(config);
 
     let document = engine
         .read_document(KnowledgeEngineReadRequest {
@@ -163,7 +105,7 @@ async fn weaviate_list_documents_is_explicitly_unsupported() {
         title_property: DEFAULT_WEAVIATE_TITLE_PROPERTY.to_string(),
         content_property: DEFAULT_WEAVIATE_CONTENT_PROPERTY.to_string(),
     };
-    let engine = WeaviateKnowledgeEngine::with_config(config, None);
+    let engine = WeaviateKnowledgeEngine::with_config(config);
 
     let error = engine
         .list_documents(KnowledgeEngineListRequest {
@@ -185,16 +127,13 @@ async fn assert_weaviate_health(upstream_status: u16, expected: KnowledgeEngineH
         .expect(if upstream_status >= 500 { 3 } else { 1 })
         .mount(&mock_server)
         .await;
-    let engine = WeaviateKnowledgeEngine::with_config(
-        WeaviateConnectorConfig {
+    let engine = WeaviateKnowledgeEngine::with_config(WeaviateConnectorConfig {
             base_url: mock_server.uri(),
             api_key: None,
             default_class_name: Some("HealthClass".to_string()),
             title_property: DEFAULT_WEAVIATE_TITLE_PROPERTY.to_string(),
             content_property: DEFAULT_WEAVIATE_CONTENT_PROPERTY.to_string(),
-        },
-        None,
-    );
+        });
 
     assert_eq!(engine.health().await.expect("health").status, expected);
 }

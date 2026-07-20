@@ -1,23 +1,12 @@
-use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
-    CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
-};
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineHealthStatus, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
-use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_flowise::{
     chunk_id_from_content, FlowiseConnectorConfig, FlowiseKnowledgeEngine,
 };
-use std::collections::HashMap;
-use std::sync::Arc;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
-
-struct MockSourceStore {
-    sources: HashMap<u64, Vec<KnowledgeSource>>,
-}
 
 async fn assert_flowise_health(upstream_status: u16, expected: KnowledgeEngineHealthStatus) {
     let mock_server = MockServer::start().await;
@@ -27,14 +16,11 @@ async fn assert_flowise_health(upstream_status: u16, expected: KnowledgeEngineHe
         .expect(if upstream_status >= 500 { 3 } else { 1 })
         .mount(&mock_server)
         .await;
-    let engine = FlowiseKnowledgeEngine::with_config(
-        FlowiseConnectorConfig {
-            base_url: mock_server.uri(),
-            api_key: "health-key".to_string(),
-            default_store_id: Some("health-store".to_string()),
-        },
-        None,
-    );
+    let engine = FlowiseKnowledgeEngine::with_config(FlowiseConnectorConfig {
+        base_url: mock_server.uri(),
+        api_key: "health-key".to_string(),
+        default_store_id: Some("health-store".to_string()),
+    });
 
     assert_eq!(engine.health().await.expect("health").status, expected);
 }
@@ -45,27 +31,8 @@ async fn flowise_health_maps_upstream_availability() {
     assert_flowise_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
-#[async_trait]
-impl KnowledgeSourceStore for MockSourceStore {
-    async fn create_source(
-        &self,
-        _record: CreateKnowledgeSourceRecord,
-    ) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
-        Err(KnowledgeSourceStoreError::Internal(
-            "unsupported in test fake".to_string(),
-        ))
-    }
-
-    async fn list_sources_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
-        Ok(self.sources.get(&space_id).cloned().unwrap_or_default())
-    }
-}
-
 #[tokio::test]
-async fn flowise_search_uses_space_connector_metadata_store_id() {
+async fn flowise_search_uses_configured_remote_resource_id() {
     let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/api/v1/document-store/vectorstore/query"))
@@ -85,25 +52,9 @@ async fn flowise_search_uses_space_connector_metadata_store_id() {
     let config = FlowiseConnectorConfig {
         base_url: mock_server.uri(),
         api_key: "test-api-key".to_string(),
-        default_store_id: None,
+        default_store_id: Some("603a7b51-ae7c-4b0a-8865-e454ed2f6766".to_string()),
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("flowise".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(
-                    r#"{"datasetId":"603a7b51-ae7c-4b0a-8865-e454ed2f6766"}"#.to_string(),
-                ),
-            }],
-        )]),
-    });
-    let engine = FlowiseKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = FlowiseKnowledgeEngine::with_config(config);
 
     let result = engine
         .search(KnowledgeEngineSearchRequest {
@@ -145,25 +96,9 @@ async fn flowise_read_document_resolves_chunk_from_vector_query() {
     let config = FlowiseConnectorConfig {
         base_url: mock_server.uri(),
         api_key: "test-api-key".to_string(),
-        default_store_id: None,
+        default_store_id: Some("603a7b51-ae7c-4b0a-8865-e454ed2f6766".to_string()),
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("flowise".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(
-                    r#"{"datasetId":"603a7b51-ae7c-4b0a-8865-e454ed2f6766"}"#.to_string(),
-                ),
-            }],
-        )]),
-    });
-    let engine = FlowiseKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = FlowiseKnowledgeEngine::with_config(config);
     let chunk_id = chunk_id_from_content("full chunk body");
 
     let document = engine

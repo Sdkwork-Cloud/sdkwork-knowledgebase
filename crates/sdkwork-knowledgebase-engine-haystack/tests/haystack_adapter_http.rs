@@ -1,46 +1,16 @@
-use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
-    CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
-};
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineError, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
     KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
-use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_haystack::{
     HaystackConnectorConfig, HaystackDeploymentMode, HaystackKnowledgeEngine,
 };
-use std::collections::HashMap;
-use std::sync::Arc;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-struct MockSourceStore {
-    sources: HashMap<u64, Vec<KnowledgeSource>>,
-}
-
-#[async_trait]
-impl KnowledgeSourceStore for MockSourceStore {
-    async fn create_source(
-        &self,
-        _record: CreateKnowledgeSourceRecord,
-    ) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
-        Err(KnowledgeSourceStoreError::Internal(
-            "unsupported in test fake".to_string(),
-        ))
-    }
-
-    async fn list_sources_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
-        Ok(self.sources.get(&space_id).cloned().unwrap_or_default())
-    }
-}
-
 #[tokio::test]
-async fn haystack_search_uses_space_connector_metadata_pipeline_name() {
+async fn haystack_search_uses_configured_remote_resource_id() {
     let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/retrieval_pipeline/run"))
@@ -63,26 +33,12 @@ async fn haystack_search_uses_space_connector_metadata_pipeline_name() {
     let config = HaystackConnectorConfig {
         base_url: mock_server.uri(),
         api_key: None,
-        default_pipeline: None,
+        default_pipeline: Some("retrieval_pipeline".to_string()),
         default_workspace: None,
         deployment_mode: HaystackDeploymentMode::Hayhooks,
         query_field: "query".to_string(),
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("haystack".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(r#"{"datasetId":"retrieval_pipeline"}"#.to_string()),
-            }],
-        )]),
-    });
-    let engine = HaystackKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = HaystackKnowledgeEngine::with_config(config);
 
     let result = engine
         .search(KnowledgeEngineSearchRequest {
@@ -122,26 +78,12 @@ async fn haystack_read_document_resolves_chunk_from_pipeline_run() {
     let config = HaystackConnectorConfig {
         base_url: mock_server.uri(),
         api_key: None,
-        default_pipeline: None,
+        default_pipeline: Some("retrieval_pipeline".to_string()),
         default_workspace: None,
         deployment_mode: HaystackDeploymentMode::Hayhooks,
         query_field: "query".to_string(),
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("haystack".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(r#"{"datasetId":"retrieval_pipeline"}"#.to_string()),
-            }],
-        )]),
-    });
-    let engine = HaystackKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = HaystackKnowledgeEngine::with_config(config);
 
     let document = engine
         .read_document(KnowledgeEngineReadRequest {
@@ -167,7 +109,7 @@ async fn haystack_list_documents_is_explicitly_unsupported() {
         deployment_mode: HaystackDeploymentMode::Hayhooks,
         query_field: "query".to_string(),
     };
-    let engine = HaystackKnowledgeEngine::with_config(config, None);
+    let engine = HaystackKnowledgeEngine::with_config(config);
 
     let error = engine
         .list_documents(KnowledgeEngineListRequest {
@@ -189,17 +131,14 @@ async fn assert_haystack_health(upstream_status: u16, expected: KnowledgeEngineH
         .expect(if upstream_status >= 500 { 3 } else { 1 })
         .mount(&mock_server)
         .await;
-    let engine = HaystackKnowledgeEngine::with_config(
-        HaystackConnectorConfig {
+    let engine = HaystackKnowledgeEngine::with_config(HaystackConnectorConfig {
             base_url: mock_server.uri(),
             api_key: None,
             default_pipeline: Some("health-pipeline".to_string()),
             default_workspace: None,
             deployment_mode: HaystackDeploymentMode::Hayhooks,
             query_field: "query".to_string(),
-        },
-        None,
-    );
+        });
 
     assert_eq!(engine.health().await.expect("health").status, expected);
 }
@@ -211,7 +150,7 @@ async fn haystack_health_maps_upstream_availability() {
 }
 
 #[tokio::test]
-async fn haystack_cloud_search_uses_workspace_and_pipeline_from_metadata() {
+async fn haystack_cloud_search_uses_configured_workspace_and_remote_resource() {
     let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path(
@@ -235,28 +174,12 @@ async fn haystack_cloud_search_uses_workspace_and_pipeline_from_metadata() {
     let config = HaystackConnectorConfig {
         base_url: mock_server.uri(),
         api_key: Some("cloud-key".to_string()),
-        default_pipeline: None,
-        default_workspace: None,
+        default_pipeline: Some("cloud_pipeline".to_string()),
+        default_workspace: Some("ws-space-42".to_string()),
         deployment_mode: HaystackDeploymentMode::DeepsetCloud,
         query_field: "query".to_string(),
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("haystack".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(
-                    r#"{"datasetId":"cloud_pipeline","workspaceSlug":"ws-space-42"}"#.to_string(),
-                ),
-            }],
-        )]),
-    });
-    let engine = HaystackKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = HaystackKnowledgeEngine::with_config(config);
 
     let result = engine
         .search(KnowledgeEngineSearchRequest {
