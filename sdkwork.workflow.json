@@ -113,7 +113,7 @@
       {
         "name": "Build Knowledgebase API server binaries",
         "shell": "pwsh",
-        "run": "cargo build --release -p sdkwork-knowledgebase-standalone-gateway"
+        "run": "cargo build --release -p sdkwork-api-knowledgebase-standalone-gateway"
       },
       {
         "name": "Build Knowledgebase background worker binary",
@@ -157,7 +157,7 @@
       "formats": ["tar.gz"],
       "runner": "ubuntu-24.04",
       "outputGlobs": [
-        "target/release/sdkwork-knowledgebase-standalone-gateway*",
+        "target/release/sdkwork-api-knowledgebase-standalone-gateway*",
         "target/release/sdkwork-knowledgebase-worker*"
       ],
       "deploymentProfile": "standalone",

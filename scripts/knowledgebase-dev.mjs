@@ -35,7 +35,7 @@ const MAX_STARTUP_ATTEMPTS = 60;
 
 const PC_APP_ROOT = path.join(REPO_ROOT, 'apps/sdkwork-knowledgebase-pc');
 const DESKTOP_ROOT = path.join(PC_APP_ROOT, 'packages/sdkwork-knowledgebase-pc-desktop');
-const DEFAULT_API_SERVER_CRATE = 'sdkwork-knowledgebase-standalone-gateway';
+const DEFAULT_API_SERVER_CRATE = 'sdkwork-api-knowledgebase-standalone-gateway';
 
 function cargoCommand() {
   return process.platform === 'win32' ? 'cargo.exe' : 'cargo';

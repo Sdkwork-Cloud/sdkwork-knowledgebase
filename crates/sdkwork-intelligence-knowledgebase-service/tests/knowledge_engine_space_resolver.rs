@@ -19,6 +19,11 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_sto
     KnowledgeOkfConceptProjection, KnowledgeOkfConceptStore, KnowledgeOkfConceptStoreError,
     MarkKnowledgeOkfConceptCurrentRevisionRecord, UpsertKnowledgeOkfConceptRecord,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_store::{
+    KnowledgeEngineProviderBindingStore, KnowledgeEngineProviderBindingStoreError,
+    KnowledgeEngineProviderScope, RecordKnowledgeEngineProviderTestResult,
+    ResolvedKnowledgeEngineProviderCredential,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_backend::{
     KnowledgeChunkSearchHit, KnowledgeChunkSearchRequest, KnowledgeRetrievalBackend,
     KnowledgeRetrievalBackendError,
@@ -27,11 +32,6 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_trace
     CreateKnowledgeRetrievalHitRecord, CreateKnowledgeRetrievalTraceRecord,
     KnowledgeRetrievalTraceHitRecord, KnowledgeRetrievalTraceRecord, KnowledgeRetrievalTraceStore,
     KnowledgeRetrievalTraceStoreError,
-};
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_store::{
-    KnowledgeEngineProviderBindingStore, KnowledgeEngineProviderBindingStoreError,
-    KnowledgeEngineProviderScope, RecordKnowledgeEngineProviderTestResult,
-    ResolvedKnowledgeEngineProviderCredential,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
@@ -42,7 +42,6 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
 use sdkwork_knowledgebase_contract::okf::{
     KnowledgeOkfConcept, KnowledgeOkfConceptRevision, OkfConceptSummary, OkfLogEntry,
 };
-use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::provider_binding::{
     CreateKnowledgeEngineProviderBindingRequest,
     CreateKnowledgeEngineProviderCredentialReferenceRequest, KnowledgeEngineProviderBinding,
@@ -50,6 +49,7 @@ use sdkwork_knowledgebase_contract::provider_binding::{
     KnowledgeEngineProviderCredentialReference, ListKnowledgeEngineProviderBindingsRequest,
     UpdateKnowledgeEngineProviderBindingRequest,
 };
+use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::KnowledgeSpace;
 use sdkwork_knowledgebase_engine_dify::{DifyConnectorConfig, DifyKnowledgeEngine};
 use sdkwork_knowledgebase_engine_ragflow::{RagflowConnectorConfig, RagflowKnowledgeEngine};
@@ -383,10 +383,14 @@ impl KnowledgeEngineProviderBindingStore for MockProviderBindingStore {
         space_id: u64,
     ) -> Result<Option<KnowledgeEngineProviderBinding>, KnowledgeEngineProviderBindingStoreError>
     {
-        Ok(self.active.get(&space_id).filter(|binding| {
-            binding.tenant_id == scope.tenant_id
-                && binding.organization_id == scope.organization_id
-        }).cloned())
+        Ok(self
+            .active
+            .get(&space_id)
+            .filter(|binding| {
+                binding.tenant_id == scope.tenant_id
+                    && binding.organization_id == scope.organization_id
+            })
+            .cloned())
     }
 
     async fn list_bindings(
@@ -448,7 +452,7 @@ impl KnowledgeEngineProviderBindingStore for MockProviderBindingStore {
 }
 
 #[tokio::test]
-async fn native_space_mode_is_not_overridden_by_connector_source() {
+async fn native_space_mode_is_not_overridden_by_provider_binding() {
     let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
         okf: OkfNativeKnowledgeEngineDeps::minimal(
@@ -481,20 +485,10 @@ async fn native_space_mode_is_not_overridden_by_connector_source() {
                 },
             )]),
         }),
-        Arc::new(MockSourceStore {
-            sources: HashMap::from([(
-                9,
-                vec![KnowledgeSource {
-                    id: 1,
-                    space_id: 9,
-                    source_type: KnowledgeSourceType::Connector,
-                    provider: Some("dify".to_string()),
-                    drive_bucket: None,
-                    drive_prefix: None,
-                    connector_metadata_json: None,
-                }],
-            )]),
+        Arc::new(MockProviderBindingStore {
+            active: HashMap::from([(9, active_binding(1, 9, "dify"))]),
         }),
+        provider_scope(),
     );
 
     let engine = resolver
@@ -528,9 +522,10 @@ async fn explicit_native_override_wins_for_external_space() {
         Arc::new(MockSpaceStore {
             spaces: HashMap::from([(11, external_space(11))]),
         }),
-        Arc::new(MockSourceStore {
-            sources: HashMap::from([(11, vec![connector_source(1, 11, "dify")])]),
+        Arc::new(MockProviderBindingStore {
+            active: HashMap::from([(11, active_binding(2, 11, "dify"))]),
         }),
+        provider_scope(),
     );
 
     let engine = resolver
@@ -544,7 +539,7 @@ async fn explicit_native_override_wins_for_external_space() {
 }
 
 #[tokio::test]
-async fn external_space_rejects_ambiguous_provider_sources() {
+async fn external_space_uses_the_single_active_binding_as_selection_authority() {
     let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
         okf: OkfNativeKnowledgeEngineDeps::minimal(
@@ -567,32 +562,24 @@ async fn external_space_rejects_ambiguous_provider_sources() {
         Arc::new(MockSpaceStore {
             spaces: HashMap::from([(12, external_space(12))]),
         }),
-        Arc::new(MockSourceStore {
-            sources: HashMap::from([(
-                12,
-                vec![
-                    connector_source(1, 12, "dify"),
-                    connector_source(2, 12, "ragflow"),
-                ],
-            )]),
+        Arc::new(MockProviderBindingStore {
+            active: HashMap::from([(12, active_binding(3, 12, "dify"))]),
         }),
+        provider_scope(),
     );
 
-    let error = match resolver.resolve_for_space(12, None).await {
-        Ok(_) => panic!("ambiguous external providers must fail"),
-        Err(error) => error,
-    };
-    assert!(matches!(
-        error,
-        sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError::Validation(_)
-    ));
-    assert!(error
-        .to_string()
-        .contains("explicit provider binding is required"));
+    let engine = resolver
+        .resolve_for_space(12, None)
+        .await
+        .expect("resolve explicit active Provider binding");
+    assert_eq!(
+        engine.descriptor().implementation_id,
+        KnowledgeEngineId::external("dify").0
+    );
 }
 
 #[tokio::test]
-async fn resolve_for_external_mode_space_requires_connector_provider() {
+async fn resolve_for_external_mode_space_requires_active_provider_binding() {
     let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
         okf: OkfNativeKnowledgeEngineDeps::minimal(
@@ -615,20 +602,10 @@ async fn resolve_for_external_mode_space_requires_connector_provider() {
         Arc::new(MockSpaceStore {
             spaces: HashMap::from([(11, external_space.clone())]),
         }),
-        Arc::new(MockSourceStore {
-            sources: HashMap::from([(
-                11,
-                vec![KnowledgeSource {
-                    id: 2,
-                    space_id: 11,
-                    source_type: KnowledgeSourceType::Connector,
-                    provider: Some("dify".to_string()),
-                    drive_bucket: None,
-                    drive_prefix: None,
-                    connector_metadata_json: None,
-                }],
-            )]),
+        Arc::new(MockProviderBindingStore {
+            active: HashMap::from([(11, active_binding(4, 11, "dify"))]),
         }),
+        provider_scope(),
     );
 
     let engine = resolver
@@ -644,22 +621,21 @@ async fn resolve_for_external_mode_space_requires_connector_provider() {
         KnowledgeEngineId::external_agent_provider("dify")
     );
 
-    let missing_connector = KnowledgeEngineSpaceResolver::new(
+    let missing_binding = KnowledgeEngineSpaceResolver::new(
         registry,
         Arc::new(MockSpaceStore {
             spaces: HashMap::from([(11, external_space)]),
         }),
-        Arc::new(MockSourceStore {
-            sources: HashMap::new(),
-        }),
+        Arc::new(MockProviderBindingStore::default()),
+        provider_scope(),
     );
-    let result = missing_connector.resolve_for_space(11, None).await;
+    let result = missing_binding.resolve_for_space(11, None).await;
     assert!(result.is_err());
     assert!(result
         .err()
         .expect("error value")
         .to_string()
-        .contains("no external knowledge engine"));
+        .contains("no active external Provider binding"));
 }
 
 fn external_space(space_id: u64) -> KnowledgeSpace {
@@ -675,16 +651,45 @@ fn external_space(space_id: u64) -> KnowledgeSpace {
     }
 }
 
-fn connector_source(id: u64, space_id: u64, provider: &str) -> KnowledgeSource {
-    KnowledgeSource {
-        id,
-        space_id,
-        source_type: KnowledgeSourceType::Connector,
-        provider: Some(provider.to_string()),
-        drive_bucket: None,
-        drive_prefix: None,
-        connector_metadata_json: None,
+fn provider_scope() -> KnowledgeEngineProviderScope {
+    KnowledgeEngineProviderScope {
+        tenant_id: 1,
+        organization_id: 7,
     }
+}
+
+fn active_binding(id: u64, space_id: u64, provider: &str) -> KnowledgeEngineProviderBinding {
+    KnowledgeEngineProviderBinding {
+        id,
+        uuid: format!("binding-{id}"),
+        tenant_id: 1,
+        organization_id: 7,
+        space_id,
+        implementation_id: KnowledgeEngineId::external(provider).0,
+        remote_resource_type: "dataset".to_string(),
+        remote_resource_id: format!("resource-{id}"),
+        credential_reference_id: None,
+        lifecycle_state: KnowledgeEngineProviderBindingState::Active,
+        capability_snapshot: vec![
+            KnowledgeEngineCapability::Health,
+            KnowledgeEngineCapability::Search,
+            KnowledgeEngineCapability::ReadDocument,
+        ],
+        capability_snapshot_version: 1,
+        last_tested_at: Some("2026-07-20T00:00:00Z".to_string()),
+        activated_at: Some("2026-07-20T00:00:01Z".to_string()),
+        disabled_at: None,
+        last_error_category: None,
+        created_by: "tenant-admin".to_string(),
+        updated_by: "tenant-admin".to_string(),
+        created_at: "2026-07-20T00:00:00Z".to_string(),
+        updated_at: "2026-07-20T00:00:01Z".to_string(),
+        version: 1,
+    }
+}
+
+fn unsupported_provider_store() -> KnowledgeEngineProviderBindingStoreError {
+    KnowledgeEngineProviderBindingStoreError::Internal("unsupported in test fake".to_string())
 }
 
 fn configured_dify_engine() -> DifyKnowledgeEngine {

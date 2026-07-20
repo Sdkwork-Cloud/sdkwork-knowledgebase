@@ -1,5 +1,5 @@
 use sdkwork_knowledgebase_contract::parse_canonical_positive_signed_i64;
-use sdkwork_knowledgebase_standalone_gateway::init_tracing;
+use sdkwork_api_knowledgebase_standalone_gateway::init_tracing;
 use sdkwork_knowledgebase_worker::{health, run_polling_loop};
 use sdkwork_routes_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 

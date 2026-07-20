@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "crates/sdkwork-api-knowledgebase-assembly",
-    "crates/sdkwork-knowledgebase-gateway-assembly",
+    "crates/sdkwork-api-knowledgebase-assembly",
     "crates/sdkwork-knowledgebase-database-host",
     "crates/sdkwork-knowledgebase-contract",
     "crates/sdkwork-knowledgebase-agent-provider",
@@ -12,7 +12,7 @@ members = [
     "crates/sdkwork-routes-knowledgebase-app-api",
     "crates/sdkwork-routes-knowledgebase-open-api",
     "crates/sdkwork-routes-knowledgebase-backend-api",
-    "crates/sdkwork-knowledgebase-standalone-gateway",
+    "crates/sdkwork-api-knowledgebase-standalone-gateway",
     "crates/sdkwork-knowledgebase-contract-tests",
     "crates/sdkwork-knowledgebase-observability",
     "crates/sdkwork-knowledgebase-provider-runtime",
@@ -77,8 +77,8 @@ sdkwork-agent-plugin-core = { path = "../sdkwork-kernel/sdkwork-kernel-plugins/c
 sdkwork-intelligence-knowledgebase-object-key-service = { path = "crates/sdkwork-intelligence-knowledgebase-object-key-service" }
 sdkwork-knowledgebase-memory = { path = "crates/sdkwork-knowledgebase-memory" }
 sdkwork-knowledgebase-test-support = { path = "crates/sdkwork-knowledgebase-test-support" }
-sdkwork-knowledgebase-gateway-assembly = { path = "crates/sdkwork-knowledgebase-gateway-assembly" }
-sdkwork-knowledgebase-standalone-gateway = { path = "crates/sdkwork-knowledgebase-standalone-gateway" }
+sdkwork-api-knowledgebase-assembly = { path = "crates/sdkwork-api-knowledgebase-assembly" }
+sdkwork-api-knowledgebase-standalone-gateway = { path = "crates/sdkwork-api-knowledgebase-standalone-gateway" }
 sdkwork-knowledgebase-worker = { path = "crates/sdkwork-knowledgebase-worker" }
 sdkwork-knowledgebase-im-rpc-adapter = { path = "crates/sdkwork-knowledgebase-im-rpc-adapter" }
 sdkwork-intelligence-knowledgebase-rpc = { path = "crates/sdkwork-intelligence-knowledgebase-rpc" }

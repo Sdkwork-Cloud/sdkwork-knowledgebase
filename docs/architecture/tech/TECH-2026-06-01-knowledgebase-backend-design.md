@@ -150,7 +150,7 @@ sdkwork-knowledgebase/
     sdkwork-intelligence-knowledgebase-repository-sqlx/
     sdkwork-routes-knowledgebase-{app,backend,open}-api/
     sdkwork-knowledgebase-engine-*/
-    sdkwork-knowledgebase-standalone-gateway/
+    sdkwork-api-knowledgebase-standalone-gateway/
   apps/sdkwork-knowledgebase-pc/
   apis/
   sdks/

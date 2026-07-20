@@ -21,7 +21,13 @@ const requiredPaths = [
   "specs/external-knowledge-engine-catalog.spec.json",
   "external/knowledge-engines/catalog.manifest.json",
   "crates/sdkwork-knowledgebase-contract/src/knowledge_engine.rs",
+  "crates/sdkwork-knowledgebase-contract/src/provider_binding.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_engine.rs",
+  "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_provider_binding_store.rs",
+  "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/provider_binding_store.rs",
+  "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/tests/provider_binding_store.rs",
+  "database/migrations/sqlite/202607200001_knowledge_engine_provider_binding.up.sql",
+  "database/migrations/postgres/202607200001_knowledge_engine_provider_binding.up.sql",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/mod.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/okf_native.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/external_catalog.rs",
@@ -215,6 +221,11 @@ assert(
   runtimeSource.includes("KnowledgeEngineSpaceResolver"),
   "KnowledgebaseRuntime must expose KnowledgeEngineSpaceResolver",
 );
+assert(
+  runtimeSource.includes("SqlxKnowledgeEngineProviderBindingStore")
+    && runtimeSource.includes("provider_binding_store"),
+  "KnowledgebaseRuntime must wire the explicit Provider binding store",
+);
 
 const portsSource = await readFile(
   path.join(root, "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_engine.rs"),
@@ -335,6 +346,51 @@ assert(
   spaceResolverSource.includes("resolve_for_space"),
   "KnowledgeEngineSpaceResolver must implement per-space engine resolution",
 );
+assert(
+  spaceResolverSource.includes("get_active_binding_for_space")
+    && spaceResolverSource.includes("KnowledgeEngineProviderScope"),
+  "external space resolution must use the scoped active Provider binding",
+);
+for (const forbiddenInference of [
+  "KnowledgeSourceStore",
+  "implementation_id_from_provider",
+  "list_sources_for_space",
+]) {
+  assert(
+    !spaceResolverSource.includes(forbiddenInference),
+    `external space resolution must not infer Provider selection through ${forbiddenInference}`,
+  );
+}
+
+const sqliteProviderMigration = await readFile(
+  path.join(
+    root,
+    "database/migrations/sqlite/202607200001_knowledge_engine_provider_binding.up.sql",
+  ),
+  "utf8",
+);
+const postgresProviderMigration = await readFile(
+  path.join(
+    root,
+    "database/migrations/postgres/202607200001_knowledge_engine_provider_binding.up.sql",
+  ),
+  "utf8",
+);
+for (const table of [
+  "kb_provider_credential_reference",
+  "kb_provider_binding",
+  "kb_provider_migration_operation",
+]) {
+  assert(
+    sqliteProviderMigration.includes(table) && postgresProviderMigration.includes(table),
+    `Provider persistence must materialize ${table} for SQLite and PostgreSQL`,
+  );
+  assert(
+    postgresProviderMigration.includes("ENABLE ROW LEVEL SECURITY")
+      && postgresProviderMigration.includes("tenant_isolation"),
+    `PostgreSQL Provider persistence must enable tenant RLS for ${table}`,
+  );
+}
 
 const ragNativeSource = await readFile(
   path.join(

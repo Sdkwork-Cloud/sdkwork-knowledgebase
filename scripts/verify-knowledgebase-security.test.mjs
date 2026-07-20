@@ -266,7 +266,7 @@ describe('knowledgebase security standard alignment', () => {
 
   it('uses sdkwork_utils_rust is_blank in gateway bootstrap', () => {
     const gatewayBootstrap = readRepoFile(
-      'crates/sdkwork-knowledgebase-gateway-assembly/src/bootstrap.rs',
+      'crates/sdkwork-api-knowledgebase-assembly/src/bootstrap.rs',
     );
     assert.match(gatewayBootstrap, /sdkwork_utils_rust::is_blank/);
     assert.doesNotMatch(gatewayBootstrap, /\.trim\(\)\.is_empty\(\)/);

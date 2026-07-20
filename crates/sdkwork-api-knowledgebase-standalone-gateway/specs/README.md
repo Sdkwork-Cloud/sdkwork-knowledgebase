@@ -1,8 +1,8 @@
 # Component Specs
 
-This directory is the local SDKWork component contract for `sdkwork-knowledgebase-standalone-gateway`.
+This directory is the local SDKWork component contract for `sdkwork-api-knowledgebase-standalone-gateway`.
 
-- Component root: `sdkwork-knowledgebase/crates/sdkwork-knowledgebase-standalone-gateway`
+- Component root: `sdkwork-knowledgebase/crates/sdkwork-api-knowledgebase-standalone-gateway`
 - Canonical standards: `../../../sdkwork-specs/README.md`
 - Machine-readable contract: `specs/component.spec.json`
 

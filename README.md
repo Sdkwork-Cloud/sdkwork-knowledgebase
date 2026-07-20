@@ -27,7 +27,7 @@ crates/
   sdkwork-knowledgebase-drive              Adapter to sdkwork-drive storage contracts.
   sdkwork-knowledgebase-memory             Adapter from Knowledgebase context packs to sdkwork-memory SPI.
   sdkwork-knowledgebase-test-support       Test fakes and fixtures.
-  sdkwork-knowledgebase-standalone-gateway         Runnable app/backend/open HTTP API binaries.
+  sdkwork-api-knowledgebase-standalone-gateway         Runnable app/backend/open HTTP API binaries.
 sdks/
   sdkwork-knowledgebase-app-sdk            App SDK family, app-api OpenAPI authority, generated transport, and composed TypeScript facade (`createKnowledgebaseAppClient`).
   sdkwork-knowledgebase-backend-sdk        Backend SDK family, backend-api OpenAPI authority, and generated TypeScript SDK.
@@ -128,7 +128,7 @@ Default `pnpm dev` uses the topology profile `standalone.development`:
 
 | Process | Default listen | Surface |
 |--------|----------------|---------|
-| `sdkwork-knowledgebase-standalone-gateway` | `127.0.0.1:18081` | unified app/backend/open + embedded IAM app-api |
+| `sdkwork-api-knowledgebase-standalone-gateway` | `127.0.0.1:18081` | unified app/backend/open + embedded IAM app-api |
 | `sdkwork-knowledgebase-worker` | health `127.0.0.1:18085` | background worker |
 
 Cloud profiles use `configs/topology/cloud.development.env` and may autostart `sdkwork-api-cloud-gateway` on `3900`.

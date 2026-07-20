@@ -96,16 +96,16 @@
   },
   "components": {
     "appApiRouter": {
-      "crate": "sdkwork-knowledgebase-standalone-gateway",
-      "binary": "sdkwork-knowledgebase-standalone-gateway"
+      "crate": "sdkwork-api-knowledgebase-standalone-gateway",
+      "binary": "sdkwork-api-knowledgebase-standalone-gateway"
     },
     "backendApiRouter": {
-      "crate": "sdkwork-knowledgebase-standalone-gateway",
-      "binary": "sdkwork-knowledgebase-standalone-gateway"
+      "crate": "sdkwork-api-knowledgebase-standalone-gateway",
+      "binary": "sdkwork-api-knowledgebase-standalone-gateway"
     },
     "openApiRouter": {
-      "crate": "sdkwork-knowledgebase-standalone-gateway",
-      "binary": "sdkwork-knowledgebase-standalone-gateway"
+      "crate": "sdkwork-api-knowledgebase-standalone-gateway",
+      "binary": "sdkwork-api-knowledgebase-standalone-gateway"
     }
   },
   "orchestration": {
@@ -114,8 +114,8 @@
         "processes": [
           {
             "id": "application.public-ingress",
-            "crate": "sdkwork-knowledgebase-standalone-gateway",
-            "binary": "sdkwork-knowledgebase-standalone-gateway",
+            "crate": "sdkwork-api-knowledgebase-standalone-gateway",
+            "binary": "sdkwork-api-knowledgebase-standalone-gateway",
             "required": true,
             "role": "api-standalone-gateway"
           },
@@ -135,8 +135,8 @@
         "processes": [
           {
             "id": "application.public-ingress",
-            "crate": "sdkwork-knowledgebase-standalone-gateway",
-            "binary": "sdkwork-knowledgebase-standalone-gateway",
+            "crate": "sdkwork-api-knowledgebase-standalone-gateway",
+            "binary": "sdkwork-api-knowledgebase-standalone-gateway",
             "required": true,
             "role": "api-standalone-gateway"
           },
@@ -163,8 +163,8 @@
         "processes": [
           {
             "id": "application.public-ingress",
-            "crate": "sdkwork-knowledgebase-standalone-gateway",
-            "binary": "sdkwork-knowledgebase-standalone-gateway",
+            "crate": "sdkwork-api-knowledgebase-standalone-gateway",
+            "binary": "sdkwork-api-knowledgebase-standalone-gateway",
             "required": true,
             "role": "api-standalone-gateway"
           },

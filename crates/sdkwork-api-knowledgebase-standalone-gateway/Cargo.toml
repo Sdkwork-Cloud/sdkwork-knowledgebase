@@ -1,15 +1,15 @@
 [package]
-name = "sdkwork-knowledgebase-standalone-gateway"
+name = "sdkwork-api-knowledgebase-standalone-gateway"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "sdkwork-knowledgebase-standalone-gateway"
+name = "sdkwork-api-knowledgebase-standalone-gateway"
 path = "src/bin/app_main.rs"
 
 [dependencies]
-sdkwork-knowledgebase-gateway-assembly.workspace = true
+sdkwork-api-knowledgebase-assembly.workspace = true
 axum.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true

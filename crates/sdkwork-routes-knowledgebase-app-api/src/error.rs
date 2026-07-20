@@ -99,6 +99,15 @@ impl ApiError {
         )
     }
 
+    fn bad_gateway(code: impl Into<String>, internal_detail: impl Into<String>) -> Self {
+        let code_value = code.into();
+        eprintln!(
+            "[knowledgebase-app-api] bad gateway code={code_value}: {}",
+            internal_detail.into()
+        );
+        Self::new(StatusCode::BAD_GATEWAY, code_value, INTERNAL_CLIENT_DETAIL)
+    }
+
     pub fn invalid_request(code: impl Into<String>, detail: impl Into<String>) -> Self {
         Self::new(StatusCode::BAD_REQUEST, code, detail)
     }
@@ -646,6 +655,45 @@ impl From<sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError
             KnowledgeEngineError::Unsupported(detail) => {
                 Self::invalid_request("knowledge_engine_unsupported", detail)
             }
+            KnowledgeEngineError::Provider(failure) => {
+                use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineProviderErrorCategory as Category;
+                let detail = format!(
+                    "implementation_id={} binding_id={:?} operation={} category={:?} status={:?}: {}",
+                    failure.implementation_id,
+                    failure.binding_id,
+                    failure.operation,
+                    failure.category,
+                    failure.status_code,
+                    failure.safe_message
+                );
+                match failure.category {
+                    Category::NotFound => Self::not_found(
+                        "knowledge_provider_resource_not_found",
+                        failure.safe_message,
+                    ),
+                    Category::Validation | Category::Unsupported => Self::invalid_request(
+                        "knowledge_provider_request_invalid",
+                        failure.safe_message,
+                    ),
+                    Category::Timeout => {
+                        Self::gateway_timeout("knowledge_provider_timeout", detail)
+                    }
+                    Category::RateLimited
+                    | Category::Unavailable
+                    | Category::CircuitOpen
+                    | Category::BulkheadSaturated => {
+                        Self::service_unavailable("knowledge_provider_unavailable", detail)
+                    }
+                    Category::Authentication
+                    | Category::PermissionDenied
+                    | Category::InvalidResponse
+                    | Category::ResponseTooLarge
+                    | Category::InvalidTarget
+                    | Category::Internal => {
+                        Self::bad_gateway("knowledge_provider_gateway_failed", detail)
+                    }
+                }
+            }
             KnowledgeEngineError::Internal(detail) => {
                 Self::internal("knowledge_engine_failed", detail)
             }
@@ -893,6 +941,62 @@ mod tests {
             50301,
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn provider_timeout_maps_to_sanitized_gateway_timeout_problem() {
+        assert_sanitized_problem(
+            provider_error(
+                sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineProviderErrorCategory::Timeout,
+            ),
+            StatusCode::GATEWAY_TIMEOUT,
+            50401,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn provider_upstream_auth_failure_maps_to_bad_gateway_not_user_unauthorized() {
+        assert_sanitized_problem(
+            provider_error(
+                sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineProviderErrorCategory::Authentication,
+            ),
+            StatusCode::BAD_GATEWAY,
+            50201,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn provider_rate_limit_maps_to_sanitized_service_unavailable_problem() {
+        assert_sanitized_problem(
+            provider_error(
+                sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineProviderErrorCategory::RateLimited,
+            ),
+            StatusCode::SERVICE_UNAVAILABLE,
+            50301,
+        )
+        .await;
+    }
+
+    fn provider_error(
+        category: sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineProviderErrorCategory,
+    ) -> ApiError {
+        use sdkwork_knowledgebase_contract::knowledge_engine::{
+            KnowledgeEngineError, KnowledgeEngineProviderFailure, KnowledgeEngineProviderOperation,
+        };
+        ApiError::from(KnowledgeEngineError::Provider(
+            KnowledgeEngineProviderFailure {
+                category,
+                operation: KnowledgeEngineProviderOperation::Search,
+                implementation_id: "engine.knowledge.external.dify".to_string(),
+                binding_id: Some("binding-1".to_string()),
+                status_code: Some(503),
+                retryable: true,
+                retry_after_ms: Some(100),
+                safe_message: "provider request failed".to_string(),
+            },
+        ))
     }
 
     async fn assert_sanitized_problem(

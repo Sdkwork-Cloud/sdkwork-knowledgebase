@@ -63,10 +63,10 @@ describe('knowledgebase permission bootstrap alignment', () => {
   });
 
   it('gateway assembly embeds IAM through sdkwork-iam-gateway-assembly export', () => {
-    const bootstrap = readText('crates/sdkwork-knowledgebase-gateway-assembly/src/bootstrap.rs');
-    const cargoToml = readText('crates/sdkwork-knowledgebase-gateway-assembly/Cargo.toml');
+    const bootstrap = readText('crates/sdkwork-api-knowledgebase-assembly/src/bootstrap.rs');
+    const cargoToml = readText('crates/sdkwork-api-knowledgebase-assembly/Cargo.toml');
 
-    assert.match(bootstrap, /sdkwork_iam_gateway_assembly::assemble_application_business_router/);
+    assert.match(bootstrap, /sdkwork_iam_gateway_assembly::assemble_api_router/);
     assert.match(bootstrap, /SDKWORK_IAM_APP_API_HOST_MOUNTED/);
     assert.doesNotMatch(cargoToml, /sdkwork-routes-iam-app-api/);
     assert.match(cargoToml, /sdkwork_iam_gateway_assembly/);

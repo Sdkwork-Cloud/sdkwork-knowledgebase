@@ -1,8 +1,8 @@
-use sdkwork_knowledgebase_gateway_assembly::{
-    assemble_application_router, resolve_database_url, validate_process_config,
+use sdkwork_api_knowledgebase_assembly::{
+    assemble_api_router, resolve_database_url, validate_process_config,
     KnowledgebaseRuntime,
 };
-use sdkwork_knowledgebase_standalone_gateway::{
+use sdkwork_api_knowledgebase_standalone_gateway::{
     resolve_group_launch_ticket_consumer_from_env, serve_router_with_runtime_shutdown,
 };
 use std::sync::Arc;
@@ -27,10 +27,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     };
     runtime.readiness_check().await?;
 
-    let router = assemble_application_router(Arc::new(runtime)).await.router;
+    let router = assemble_api_router(Arc::new(runtime)).await.router;
     serve_router_with_runtime_shutdown(
         &listen_addr,
-        "sdkwork-knowledgebase-standalone-gateway",
+        "sdkwork-api-knowledgebase-standalone-gateway",
         router,
     )
     .await?;

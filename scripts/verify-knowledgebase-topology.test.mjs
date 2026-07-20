@@ -110,9 +110,9 @@ test('declares SDKWork v4 deployment topology spec and profile env files for sdk
   assert.ok(spec.surfaces['application.backend-http']);
   assert.ok(spec.surfaces['application.open-http']);
   assert.ok(spec.surfaces['platform.api-gateway']);
-  assert.equal(spec.components.appApiRouter.binary, 'sdkwork-knowledgebase-standalone-gateway');
-  assert.equal(spec.components.backendApiRouter.binary, 'sdkwork-knowledgebase-standalone-gateway');
-  assert.equal(spec.components.openApiRouter.binary, 'sdkwork-knowledgebase-standalone-gateway');
+  assert.equal(spec.components.appApiRouter.binary, 'sdkwork-api-knowledgebase-standalone-gateway');
+  assert.equal(spec.components.backendApiRouter.binary, 'sdkwork-api-knowledgebase-standalone-gateway');
+  assert.equal(spec.components.openApiRouter.binary, 'sdkwork-api-knowledgebase-standalone-gateway');
 
   for (const profileId of [
     'standalone.development',
@@ -250,8 +250,8 @@ test('knowledgebase topology adapter exports IAM application bootstrap env alias
 
 test('default PostgreSQL development path is not blocked by SQLite-only runtime wiring', async () => {
   const runtimeSource = await read('crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs');
-  const gatewayMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/app_main.rs');
-  const gatewayAssembly = await read('crates/sdkwork-knowledgebase-gateway-assembly/src/bootstrap.rs');
+  const gatewayMain = await read('crates/sdkwork-api-knowledgebase-standalone-gateway/src/bin/app_main.rs');
+  const gatewayAssembly = await read('crates/sdkwork-api-knowledgebase-assembly/src/bootstrap.rs');
 
   assert.doesNotMatch(
     runtimeSource,
@@ -398,7 +398,7 @@ test('production cloud topology orchestrates background worker and health probes
   assert.equal(await exists('deployments/kubernetes/open-api-deployment.yaml'), false);
 
   const apiDockerfile = await read('deployments/docker/Dockerfile.api');
-  assert.match(apiDockerfile, /cargo build --release -p sdkwork-knowledgebase-standalone-gateway/);
+  assert.match(apiDockerfile, /cargo build --release -p sdkwork-api-knowledgebase-standalone-gateway/);
   assert.doesNotMatch(apiDockerfile, /sdkwork-knowledgebase-api-server|KB_API_BINARY/);
 
   const gatewayConfig = await read(
@@ -434,11 +434,11 @@ test('production cloud topology orchestrates background worker and health probes
 });
 
 test('standalone gateway reads the single application ingress bind env key', async () => {
-  const gatewayCargo = await read('crates/sdkwork-knowledgebase-standalone-gateway/Cargo.toml');
-  const appMain = await read('crates/sdkwork-knowledgebase-standalone-gateway/src/bin/app_main.rs');
-  const gatewayAssembly = await read('crates/sdkwork-knowledgebase-gateway-assembly/src/bootstrap.rs');
+  const gatewayCargo = await read('crates/sdkwork-api-knowledgebase-standalone-gateway/Cargo.toml');
+  const appMain = await read('crates/sdkwork-api-knowledgebase-standalone-gateway/src/bin/app_main.rs');
+  const gatewayAssembly = await read('crates/sdkwork-api-knowledgebase-assembly/src/bootstrap.rs');
 
-  assert.match(gatewayCargo, /name = "sdkwork-knowledgebase-standalone-gateway"/);
+  assert.match(gatewayCargo, /name = "sdkwork-api-knowledgebase-standalone-gateway"/);
   assert.match(gatewayCargo, /path = "src\/bin\/app_main\.rs"/);
   assert.doesNotMatch(gatewayCargo, /backend_main\.rs|open_main\.rs/);
   assert.match(appMain, /SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND/);

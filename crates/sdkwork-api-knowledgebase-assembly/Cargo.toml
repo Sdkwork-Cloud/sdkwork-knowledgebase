@@ -12,6 +12,11 @@ path = "src/lib.rs"
 [dependencies]
 axum.workspace = true
 tokio.workspace = true
+sdkwork-web-bootstrap.workspace = true
+sdkwork_iam_gateway_assembly.workspace = true
+sdkwork_iam_database_host.workspace = true
+sdkwork-database-config.workspace = true
+sdkwork-utils-rust.workspace = true
 sdkwork-routes-knowledgebase-app-api.workspace = true
 sdkwork-routes-knowledgebase-backend-api.workspace = true
 sdkwork-routes-knowledgebase-open-api.workspace = true

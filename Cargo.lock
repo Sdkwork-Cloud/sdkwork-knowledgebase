@@ -2583,6 +2583,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-api-knowledgebase-assembly"
+version = "0.1.0"
+dependencies = [
+ "axum 0.8.9",
+ "sdkwork-routes-knowledgebase-app-api",
+ "sdkwork-routes-knowledgebase-backend-api",
+ "sdkwork-routes-knowledgebase-open-api",
+ "tokio",
+]
+
+[[package]]
 name = "sdkwork-database-config"
 version = "0.1.0"
 dependencies = [

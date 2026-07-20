@@ -38,7 +38,7 @@ Production deployment descriptors for the `cloud.production` topology profile.
 
 | Variable | Purpose |
 |----------|---------|
-| `RUST_LOG` | Tracing filter (e.g. `info,sdkwork_knowledgebase_standalone_gateway=debug`) |
+| `RUST_LOG` | Tracing filter (e.g. `info,sdkwork_api_knowledgebase_standalone_gateway=debug`) |
 | `SDKWORK_KNOWLEDGEBASE_LOG_FORMAT` | Set to `json` for structured JSON logs in production aggregators |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | When set, API/worker processes export traces over OTLP/HTTP (requires `otel` feature build) |
 | `SDKWORK_NODE_INSTANCE_ID` | Stable per-process allocator identity; Kubernetes injects the pod UID |

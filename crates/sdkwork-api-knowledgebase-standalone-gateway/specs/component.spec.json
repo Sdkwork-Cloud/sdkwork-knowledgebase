@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "kind": "sdkwork.component.spec",
   "component": {
-    "name": "sdkwork-knowledgebase-standalone-gateway",
+    "name": "sdkwork-api-knowledgebase-standalone-gateway",
     "displayName": "SDKWork Knowledgebase Standalone Gateway",
     "version": "0.1.0",
-    "type": "rust-standalone-gateway",
-    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-standalone-gateway",
+    "type": "rust-api-standalone-gateway",
+    "root": "crates/sdkwork-api-knowledgebase-standalone-gateway",
     "domain": "intelligence",
-    "capability": "gateway",
+    "capability": "api-gateway",
     "surface": "gateway-api",
     "languages": [
       "rust"
@@ -90,7 +90,7 @@
       "shutdown_signal"
     ],
     "runtimeEntrypoints": [
-      "sdkwork-knowledgebase-standalone-gateway",
+      "sdkwork-api-knowledgebase-standalone-gateway",
       "serve_router_with_runtime_shutdown",
       "shutdown_runtime_services",
       "shutdown_signal"
@@ -115,8 +115,8 @@
         "runtimeMode": "same-origin",
         "sameOriginAllowed": true,
         "executablePublicExport": "serve_router_with_runtime_shutdown",
-        "routerAssemblyExport": "sdkwork_knowledgebase_gateway_assembly::assemble_application_router",
-        "cargoDependency": "sdkwork-knowledgebase-gateway-assembly",
+        "routerAssemblyExport": "sdkwork_api_knowledgebase_assembly::assemble_api_router",
+        "cargoDependency": "sdkwork-api-knowledgebase-assembly",
         "coverage": "verified"
       }
     ],
@@ -134,7 +134,7 @@
   },
   "verification": {
     "commands": [
-      "cargo test -p sdkwork-knowledgebase-standalone-gateway",
+      "cargo test -p sdkwork-api-knowledgebase-standalone-gateway",
       "pnpm test:topology"
     ]
   }
