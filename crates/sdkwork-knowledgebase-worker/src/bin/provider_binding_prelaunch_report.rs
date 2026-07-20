@@ -105,6 +105,7 @@ impl ReportArguments {
     fn parse(arguments: impl IntoIterator<Item = String>) -> Result<Self, ReportCommandError> {
         let mut organization_id = None;
         let mut page_size = DEFAULT_LIST_PAGE_SIZE as u32;
+        let mut page_size_seen = false;
         let mut cursor = None;
         let mut arguments = arguments.into_iter();
         while let Some(argument) = arguments.next() {
@@ -122,7 +123,7 @@ impl ReportArguments {
                             .map_err(|_| ReportCommandError::InvalidOrganizationId)?,
                     );
                 }
-                "--page-size" => {
+                "--page-size" if !page_size_seen => {
                     let value = arguments
                         .next()
                         .ok_or(ReportCommandError::MissingArgumentValue("--page-size"))?;
@@ -131,6 +132,7 @@ impl ReportArguments {
                         .ok()
                         .filter(|value| (1..=MAX_LIST_PAGE_SIZE as u32).contains(value))
                         .ok_or(ReportCommandError::InvalidPageSize)?;
+                    page_size_seen = true;
                 }
                 "--cursor" if cursor.is_none() => {
                     let value = arguments
@@ -267,6 +269,22 @@ mod tests {
             strings(&["--organization-id", "7", "--page-size", "0"]),
             strings(&["--organization-id", "7", "--page-size", "201"]),
             strings(&["--organization-id", "7", "--cursor", ""]),
+            strings(&[
+                "--organization-id",
+                "7",
+                "--page-size",
+                "20",
+                "--page-size",
+                "20",
+            ]),
+            strings(&[
+                "--organization-id",
+                "7",
+                "--cursor",
+                "opaque-a",
+                "--cursor",
+                "opaque-b",
+            ]),
             strings(&["--organization-id", "7", "--organization-id", "8"]),
         ] {
             assert!(ReportArguments::parse(arguments).is_err());

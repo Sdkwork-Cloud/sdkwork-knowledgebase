@@ -6,6 +6,9 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_bindin
     ListKnowledgeEngineProviderBindingReadinessGapsRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_store::KnowledgeEngineProviderScope;
+use sdkwork_knowledgebase_contract::{
+    parse_canonical_nonnegative_signed_i64, parse_canonical_positive_signed_i64,
+};
 use sdkwork_utils_rust::{
     base64url_decode, base64url_encode, DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE,
 };
@@ -58,7 +61,6 @@ impl KnowledgeEngineProviderBindingReadinessStore
             SELECT
                 space.id,
                 space.uuid,
-                space.name,
                 (
                     SELECT COUNT(*)
                     FROM kb_provider_binding AS binding
@@ -126,14 +128,11 @@ fn readiness_gap_from_row(
         .try_get::<i64, _>("non_active_binding_count")
         .map_err(|_| KnowledgeEngineProviderBindingReadinessStoreError::QueryFailed)?;
     Ok(KnowledgeEngineProviderBindingReadinessGap {
-        space_id: from_i64("space_id", space_id)?,
+        space_id: from_i64(space_id)?,
         space_uuid: row
             .try_get("uuid")
             .map_err(|_| KnowledgeEngineProviderBindingReadinessStoreError::QueryFailed)?,
-        space_name: row
-            .try_get("name")
-            .map_err(|_| KnowledgeEngineProviderBindingReadinessStoreError::QueryFailed)?,
-        non_active_binding_count: from_i64("non_active_binding_count", non_active_binding_count)?,
+        non_active_binding_count: from_i64(non_active_binding_count)?,
     })
 }
 
@@ -165,9 +164,15 @@ fn decode_cursor(
     let mut parts = payload.split(':');
     let kind = parts.next();
     let version = parts.next();
-    let tenant_id = parts.next().and_then(|value| value.parse::<u64>().ok());
-    let organization_id = parts.next().and_then(|value| value.parse::<u64>().ok());
-    let space_id = parts.next().and_then(|value| value.parse::<u64>().ok());
+    let tenant_id = parts
+        .next()
+        .and_then(|value| parse_canonical_positive_signed_i64(value).ok());
+    let organization_id = parts
+        .next()
+        .and_then(|value| parse_canonical_nonnegative_signed_i64(value).ok());
+    let space_id = parts
+        .next()
+        .and_then(|value| parse_canonical_positive_signed_i64(value).ok());
     if kind != Some(CURSOR_KIND)
         || version != Some(CURSOR_VERSION)
         || tenant_id != Some(scope.tenant_id)
@@ -190,11 +195,8 @@ fn to_i64(
         .map_err(|_| invalid_request(format!("{field} exceeds the signed 64-bit range")))
 }
 
-fn from_i64(
-    field: &str,
-    value: i64,
-) -> Result<u64, KnowledgeEngineProviderBindingReadinessStoreError> {
-    u64::try_from(value).map_err(|_| invalid_request(format!("{field} must not be negative")))
+fn from_i64(value: i64) -> Result<u64, KnowledgeEngineProviderBindingReadinessStoreError> {
+    u64::try_from(value).map_err(|_| KnowledgeEngineProviderBindingReadinessStoreError::QueryFailed)
 }
 
 fn invalid_request(

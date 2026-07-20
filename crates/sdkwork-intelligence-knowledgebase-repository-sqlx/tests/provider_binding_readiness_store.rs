@@ -83,6 +83,7 @@ async fn readiness_report_is_scoped_bounded_and_never_infers_from_sources() {
     assert_eq!(first.items[1].non_active_binding_count, 4);
     let first_json = serde_json::to_string(&first).expect("serialize readiness page");
     assert!(!first_json.contains("engine.knowledge.external.dify"));
+    assert!(!first_json.contains("External space"));
     assert!(!first_json.contains("remoteResource"));
     assert!(!first_json.contains("credential"));
 
@@ -146,6 +147,12 @@ async fn readiness_report_rejects_invalid_page_and_cursor_inputs() {
         },
         ListKnowledgeEngineProviderBindingReadinessGapsRequest {
             cursor: Some("800".to_string()),
+            page_size: Some(20),
+        },
+        ListKnowledgeEngineProviderBindingReadinessGapsRequest {
+            cursor: Some(sdkwork_utils_rust::base64url_encode(
+                b"knowledgebase-provider-binding-readiness:v1:0100001:7001:800",
+            )),
             page_size: Some(20),
         },
     ] {

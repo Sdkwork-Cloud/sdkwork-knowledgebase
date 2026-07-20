@@ -36,7 +36,7 @@ async fn postgres_readiness_query_is_read_only_and_dialect_compatible_when_confi
     };
     let pool = connect_knowledgebase_any_pool_from_url(&database_url)
         .await
-        .expect("connect read-only PostgreSQL readiness pool");
+        .unwrap_or_else(|_| panic!("connect read-only PostgreSQL readiness pool"));
     let store = SqlxKnowledgeEngineProviderBindingReadinessStore::new(pool.clone());
 
     let first = store

@@ -16,7 +16,6 @@ pub struct KnowledgeEngineProviderBindingReadinessGap {
     #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub space_id: u64,
     pub space_uuid: String,
-    pub space_name: String,
     #[serde(with = "sdkwork_utils_rust::serde_uint64")]
     pub non_active_binding_count: u64,
 }
