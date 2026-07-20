@@ -1,0 +1,17 @@
+[package]
+name = "sdkwork-api-knowledgebase-assembly"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+description = "Generated API assembly for sdkwork-knowledgebase application HTTP plane."
+
+[lib]
+name = "sdkwork_api_knowledgebase_assembly"
+path = "src/lib.rs"
+
+[dependencies]
+axum.workspace = true
+tokio.workspace = true
+sdkwork-routes-knowledgebase-app-api.workspace = true
+sdkwork-routes-knowledgebase-backend-api.workspace = true
+sdkwork-routes-knowledgebase-open-api.workspace = true

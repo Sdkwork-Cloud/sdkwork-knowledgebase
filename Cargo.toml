@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/sdkwork-api-knowledgebase-assembly",
     "crates/sdkwork-knowledgebase-gateway-assembly",
     "crates/sdkwork-knowledgebase-database-host",
     "crates/sdkwork-knowledgebase-contract",

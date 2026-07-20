@@ -1,20 +1,22 @@
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    implementation_id_from_provider, KnowledgeEngineCapability, KnowledgeEngineError,
+    KnowledgeEngineCapability, KnowledgeEngineError,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
-use sdkwork_knowledgebase_contract::source::KnowledgeSourceType;
 use std::sync::Arc;
 
 use crate::ports::knowledge_engine::{
     KnowledgeEngine, KnowledgeEngineRegistry, KnowledgeEngineSpaceRegistry,
 };
-use crate::ports::knowledge_source_store::KnowledgeSourceStore;
+use crate::ports::knowledge_provider_binding_store::{
+    KnowledgeEngineProviderBindingStore, KnowledgeEngineProviderScope,
+};
 use crate::ports::knowledge_space_store::KnowledgeSpaceStore;
 
 pub struct KnowledgeEngineSpaceResolver<R> {
     registry: Arc<R>,
     space_store: Arc<dyn KnowledgeSpaceStore>,
-    source_store: Arc<dyn KnowledgeSourceStore>,
+    provider_binding_store: Arc<dyn KnowledgeEngineProviderBindingStore>,
+    provider_scope: KnowledgeEngineProviderScope,
 }
 
 impl<R> KnowledgeEngineSpaceResolver<R>
@@ -24,12 +26,14 @@ where
     pub fn new(
         registry: Arc<R>,
         space_store: Arc<dyn KnowledgeSpaceStore>,
-        source_store: Arc<dyn KnowledgeSourceStore>,
+        provider_binding_store: Arc<dyn KnowledgeEngineProviderBindingStore>,
+        provider_scope: KnowledgeEngineProviderScope,
     ) -> Self {
         Self {
             registry,
             space_store,
-            source_store,
+            provider_binding_store,
+            provider_scope,
         }
     }
 
@@ -56,51 +60,37 @@ where
         &self,
         space_id: u64,
     ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
-        let sources = self
-            .source_store
-            .list_sources_for_space(space_id)
+        let binding = self
+            .provider_binding_store
+            .get_active_binding_for_space(self.provider_scope, space_id)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        let mut resolved = Vec::new();
-        let mut resolved_ids = std::collections::HashSet::new();
-        for source in sources {
-            if source.source_type != KnowledgeSourceType::Connector {
-                continue;
-            }
-            let Some(provider) = source.provider.as_deref() else {
-                continue;
-            };
-            let Some(implementation_id) = implementation_id_from_provider(provider) else {
-                continue;
-            };
-            if let Ok(engine) = self.registry.resolve_by_id(&implementation_id) {
-                if !engine
-                    .descriptor()
-                    .supports(KnowledgeEngineCapability::Search)
-                {
-                    continue;
-                }
-                if resolved_ids.insert(implementation_id.clone()) {
-                    resolved.push((implementation_id, engine));
-                }
-            }
+            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?
+            .ok_or_else(|| {
+                KnowledgeEngineError::NotFound(format!(
+                    "no active external Provider binding for space_id={space_id}"
+                ))
+            })?;
+        if !binding
+            .capability_snapshot
+            .contains(&KnowledgeEngineCapability::Search)
+        {
+            return Err(KnowledgeEngineError::Unsupported(format!(
+                "active Provider binding_id={} has no tested search capability",
+                binding.id
+            )));
         }
 
-        match resolved.len() {
-            0 => Err(KnowledgeEngineError::NotFound(format!(
-                "no external knowledge engine registered for space_id={space_id}"
-            ))),
-            1 => Ok(resolved.pop().expect("length checked").1),
-            _ => {
-                let mut implementation_ids = resolved_ids.into_iter().collect::<Vec<_>>();
-                implementation_ids.sort();
-                Err(KnowledgeEngineError::Validation(format!(
-                    "multiple external knowledge engines are configured for space_id={space_id}: {}; explicit provider binding is required",
-                    implementation_ids.join(",")
-                )))
-            }
+        let engine = self.registry.resolve_by_id(&binding.implementation_id)?;
+        if !engine
+            .descriptor()
+            .supports(KnowledgeEngineCapability::Search)
+        {
+            return Err(KnowledgeEngineError::Unsupported(format!(
+                "Provider implementation_id={} no longer supports search",
+                binding.implementation_id
+            )));
         }
+        Ok(engine)
     }
 }
 

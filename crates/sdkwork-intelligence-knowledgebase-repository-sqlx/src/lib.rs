@@ -35,6 +35,7 @@ mod sqlite_space_stores;
 
 pub mod pgvector_layered_retrieval;
 mod postgres_pgvector_retrieval;
+mod provider_binding_store;
 mod quota_transaction;
 
 pub use agent_profile_store::SqliteKnowledgeAgentProfileStore;
@@ -64,6 +65,7 @@ pub use okf_concept_link_store::SqliteKnowledgeOkfConceptLinkStore;
 pub use okf_concept_store::SqliteKnowledgeOkfConceptStore;
 pub use pgvector_layered_retrieval::PgVectorLayeredRetrievalBackend;
 pub use postgres_pgvector_retrieval::PgVectorKnowledgeRetrievalBackend;
+pub use provider_binding_store::SqlxKnowledgeEngineProviderBindingStore;
 pub use retrieval_profile_store::{
     KnowledgeRetrievalProfileStoreError, SqliteKnowledgeRetrievalProfileStore,
 };

@@ -1,0 +1,43 @@
+{
+  "kind": "sdkwork.api.assembly",
+  "schemaVersion": 1,
+  "applicationCode": "knowledgebase",
+  "apiMode": "served",
+  "packageName": "sdkwork-api-knowledgebase-assembly",
+  "crateDir": "crates/sdkwork-api-knowledgebase-assembly",
+  "routeCrates": [
+    {
+      "packageName": "sdkwork-routes-knowledgebase-app-api",
+      "memberDir": "crates/sdkwork-routes-knowledgebase-app-api",
+      "libName": "sdkwork_routes_knowledgebase_app_api",
+      "surface": "app-api",
+      "pathPrefix": null,
+      "mountOrder": 0,
+      "componentRef": "crates/sdkwork-routes-knowledgebase-app-api/specs/component.spec.json",
+      "routeManifestRef": "crates/sdkwork-routes-knowledgebase-app-api/sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json",
+      "sourceRef": "crates/sdkwork-routes-knowledgebase-app-api/Cargo.toml"
+    },
+    {
+      "packageName": "sdkwork-routes-knowledgebase-backend-api",
+      "memberDir": "crates/sdkwork-routes-knowledgebase-backend-api",
+      "libName": "sdkwork_routes_knowledgebase_backend_api",
+      "surface": "backend-api",
+      "pathPrefix": null,
+      "mountOrder": 1,
+      "componentRef": "crates/sdkwork-routes-knowledgebase-backend-api/specs/component.spec.json",
+      "routeManifestRef": "crates/sdkwork-routes-knowledgebase-backend-api/sdks/_route-manifests/backend-api/sdkwork-routes-knowledgebase-backend-api.route-manifest.json",
+      "sourceRef": "crates/sdkwork-routes-knowledgebase-backend-api/Cargo.toml"
+    },
+    {
+      "packageName": "sdkwork-routes-knowledgebase-open-api",
+      "memberDir": "crates/sdkwork-routes-knowledgebase-open-api",
+      "libName": "sdkwork_routes_knowledgebase_open_api",
+      "surface": "open-api",
+      "pathPrefix": null,
+      "mountOrder": 2,
+      "componentRef": "crates/sdkwork-routes-knowledgebase-open-api/specs/component.spec.json",
+      "routeManifestRef": "crates/sdkwork-routes-knowledgebase-open-api/sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json",
+      "sourceRef": "crates/sdkwork-routes-knowledgebase-open-api/Cargo.toml"
+    }
+  ]
+}

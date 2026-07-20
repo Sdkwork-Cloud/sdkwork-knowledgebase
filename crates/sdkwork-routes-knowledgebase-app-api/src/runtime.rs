@@ -17,6 +17,7 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeOkfConceptLinkStore, SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
     SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
     SqliteMarkdownIndexMetadataStore, SqliteOkfConceptRevisionMetadataStore,
+    SqlxKnowledgeEngineProviderBindingStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
     agent::KnowledgeAgentService,
@@ -35,6 +36,7 @@ use sdkwork_intelligence_knowledgebase_service::{
         knowledge_drive_storage::KnowledgeDriveStorage,
         knowledge_group_space_binding_store::KnowledgeGroupSpaceBindingStore,
         knowledge_outbox_store::KnowledgeOutboxStore,
+        knowledge_provider_binding_store::KnowledgeEngineProviderScope,
         knowledge_retrieval_trace_store::KnowledgeRetrievalTraceStore,
         knowledge_space_store::KnowledgeSpaceStore,
     },
@@ -120,6 +122,7 @@ pub struct KnowledgebaseRuntime {
     okf_candidate_store: Arc<SqliteKnowledgeOkfCandidateStore>,
     document_store: Arc<SqliteKnowledgeDocumentStore>,
     source_store: Arc<SqliteKnowledgeSourceStore>,
+    provider_binding_store: Arc<SqlxKnowledgeEngineProviderBindingStore>,
     version_store: Arc<SqliteKnowledgeDocumentVersionStore>,
     object_ref_store: Arc<SqliteKnowledgeDriveObjectRefStore>,
     ingestion_job_store: Arc<SqliteIngestionJobStore>,
@@ -348,6 +351,10 @@ impl KnowledgebaseRuntime {
             SqliteKnowledgeSpaceStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
+        let provider_binding_store = Arc::new(
+            SqlxKnowledgeEngineProviderBindingStore::new(pool.clone())
+                .with_database_engine(database_engine),
+        );
         let okf_bundle_file_store = Arc::new(
             SqliteKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id)
                 .with_database_engine(database_engine),
@@ -474,6 +481,7 @@ impl KnowledgebaseRuntime {
             okf_candidate_store,
             document_store,
             source_store,
+            provider_binding_store,
             version_store: Arc::new(SqliteKnowledgeDocumentVersionStore::new(
                 pool.clone(),
                 tenant_id,
@@ -813,7 +821,11 @@ impl KnowledgebaseRuntime {
         KnowledgeEngineSpaceResolver::new(
             self.knowledge_engines.clone(),
             self.space_store.clone(),
-            self.source_store.clone(),
+            self.provider_binding_store.clone(),
+            KnowledgeEngineProviderScope {
+                tenant_id: self.tenant_id,
+                organization_id: self.organization_id,
+            },
         )
     }
 

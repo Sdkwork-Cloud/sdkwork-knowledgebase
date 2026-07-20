@@ -28,18 +28,28 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_trace
     KnowledgeRetrievalTraceHitRecord, KnowledgeRetrievalTraceRecord, KnowledgeRetrievalTraceStore,
     KnowledgeRetrievalTraceStoreError,
 };
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
-    CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_store::{
+    KnowledgeEngineProviderBindingStore, KnowledgeEngineProviderBindingStoreError,
+    KnowledgeEngineProviderScope, RecordKnowledgeEngineProviderTestResult,
+    ResolvedKnowledgeEngineProviderCredential,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
     CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
 };
-use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineId;
+use sdkwork_knowledgebase_contract::knowledge_engine::{
+    KnowledgeEngineCapability, KnowledgeEngineId,
+};
 use sdkwork_knowledgebase_contract::okf::{
     KnowledgeOkfConcept, KnowledgeOkfConceptRevision, OkfConceptSummary, OkfLogEntry,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
-use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
+use sdkwork_knowledgebase_contract::provider_binding::{
+    CreateKnowledgeEngineProviderBindingRequest,
+    CreateKnowledgeEngineProviderCredentialReferenceRequest, KnowledgeEngineProviderBinding,
+    KnowledgeEngineProviderBindingList, KnowledgeEngineProviderBindingState,
+    KnowledgeEngineProviderCredentialReference, ListKnowledgeEngineProviderBindingsRequest,
+    UpdateKnowledgeEngineProviderBindingRequest,
+};
 use sdkwork_knowledgebase_contract::space::KnowledgeSpace;
 use sdkwork_knowledgebase_engine_dify::{DifyConnectorConfig, DifyKnowledgeEngine};
 use sdkwork_knowledgebase_engine_ragflow::{RagflowConnectorConfig, RagflowKnowledgeEngine};
@@ -317,26 +327,123 @@ impl KnowledgeSpaceStore for MockSpaceStore {
     }
 }
 
-struct MockSourceStore {
-    sources: HashMap<u64, Vec<KnowledgeSource>>,
+#[derive(Default)]
+struct MockProviderBindingStore {
+    active: HashMap<u64, KnowledgeEngineProviderBinding>,
 }
 
 #[async_trait]
-impl KnowledgeSourceStore for MockSourceStore {
-    async fn create_source(
+impl KnowledgeEngineProviderBindingStore for MockProviderBindingStore {
+    async fn create_credential_reference(
         &self,
-        _record: CreateKnowledgeSourceRecord,
-    ) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
-        Err(KnowledgeSourceStoreError::Internal(
-            "unsupported in test fake".to_string(),
-        ))
+        _scope: KnowledgeEngineProviderScope,
+        _actor_id: &str,
+        _request: CreateKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> Result<KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderBindingStoreError>
+    {
+        Err(unsupported_provider_store())
     }
 
-    async fn list_sources_for_space(
+    async fn resolve_credential_reference(
         &self,
+        _scope: KnowledgeEngineProviderScope,
+        _credential_reference_id: u64,
+        _implementation_id: &str,
+    ) -> Result<ResolvedKnowledgeEngineProviderCredential, KnowledgeEngineProviderBindingStoreError>
+    {
+        Err(unsupported_provider_store())
+    }
+
+    async fn create_binding(
+        &self,
+        _scope: KnowledgeEngineProviderScope,
+        _actor_id: &str,
+        _request: CreateKnowledgeEngineProviderBindingRequest,
+    ) -> Result<KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingStoreError> {
+        Err(unsupported_provider_store())
+    }
+
+    async fn get_binding(
+        &self,
+        _scope: KnowledgeEngineProviderScope,
+        binding_id: u64,
+    ) -> Result<KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingStoreError> {
+        self.active
+            .values()
+            .find(|binding| binding.id == binding_id)
+            .cloned()
+            .ok_or(KnowledgeEngineProviderBindingStoreError::NotFound(
+                binding_id,
+            ))
+    }
+
+    async fn get_active_binding_for_space(
+        &self,
+        scope: KnowledgeEngineProviderScope,
         space_id: u64,
-    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
-        Ok(self.sources.get(&space_id).cloned().unwrap_or_default())
+    ) -> Result<Option<KnowledgeEngineProviderBinding>, KnowledgeEngineProviderBindingStoreError>
+    {
+        Ok(self.active.get(&space_id).filter(|binding| {
+            binding.tenant_id == scope.tenant_id
+                && binding.organization_id == scope.organization_id
+        }).cloned())
+    }
+
+    async fn list_bindings(
+        &self,
+        _scope: KnowledgeEngineProviderScope,
+        _request: ListKnowledgeEngineProviderBindingsRequest,
+    ) -> Result<KnowledgeEngineProviderBindingList, KnowledgeEngineProviderBindingStoreError> {
+        Err(unsupported_provider_store())
+    }
+
+    async fn update_draft_binding(
+        &self,
+        _scope: KnowledgeEngineProviderScope,
+        _binding_id: u64,
+        _actor_id: &str,
+        _request: UpdateKnowledgeEngineProviderBindingRequest,
+    ) -> Result<KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingStoreError> {
+        Err(unsupported_provider_store())
+    }
+
+    async fn begin_binding_test(
+        &self,
+        _scope: KnowledgeEngineProviderScope,
+        _binding_id: u64,
+        _actor_id: &str,
+        _expected_version: u64,
+    ) -> Result<KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingStoreError> {
+        Err(unsupported_provider_store())
+    }
+
+    async fn record_binding_test_result(
+        &self,
+        _scope: KnowledgeEngineProviderScope,
+        _binding_id: u64,
+        _result: RecordKnowledgeEngineProviderTestResult,
+    ) -> Result<KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingStoreError> {
+        Err(unsupported_provider_store())
+    }
+
+    async fn activate_binding(
+        &self,
+        _scope: KnowledgeEngineProviderScope,
+        _binding_id: u64,
+        _actor_id: &str,
+        _expected_version: u64,
+    ) -> Result<KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingStoreError> {
+        Err(unsupported_provider_store())
+    }
+
+    async fn disable_binding(
+        &self,
+        _scope: KnowledgeEngineProviderScope,
+        _binding_id: u64,
+        _actor_id: &str,
+        _expected_version: u64,
+    ) -> Result<KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingStoreError> {
+        Err(unsupported_provider_store())
     }
 }
 

@@ -15,6 +15,9 @@ async fn sqlite_file_bootstrap_uses_application_database_lifecycle() {
         "ops_database_installation_state",
         "kb_space",
         "kb_chunk_fts",
+        "kb_provider_credential_reference",
+        "kb_provider_binding",
+        "kb_provider_migration_operation",
     ] {
         assert!(
             sqlite_table_exists(&pool, table).await,

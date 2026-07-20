@@ -2,9 +2,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::knowledge_engine::{
-    KnowledgeEngineCapability, KnowledgeEngineProviderErrorCategory,
-};
+use crate::knowledge_engine::{KnowledgeEngineCapability, KnowledgeEngineProviderErrorCategory};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
