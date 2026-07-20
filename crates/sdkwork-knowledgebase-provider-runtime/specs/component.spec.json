@@ -36,7 +36,11 @@
       { "name": "knowledgebaseProviderTelemetry", "export": "." }
     ],
     "requiredPorts": [],
-    "runtimeEntrypoints": ["ProviderRuntime::new", "ProviderRuntime::for_base_url"],
+    "runtimeEntrypoints": [
+      "ProviderRuntime::new",
+      "ProviderRuntime::for_base_url",
+      "ProviderExecutionContext::from_knowledge_engine"
+    ],
     "routeManifest": null,
     "sdkClients": [],
     "sdkDependencies": [],
@@ -49,4 +53,3 @@
     "commands": ["cargo test -p sdkwork-knowledgebase-provider-runtime"]
   }
 }
-

@@ -1,8 +1,11 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use reqwest::{Method, StatusCode};
+use sdkwork_knowledgebase_contract::provider_binding::{
+    KnowledgeEngineDataScope, KnowledgeEngineExecutionContext,
+};
 use sdkwork_knowledgebase_provider_runtime::{
     ProviderErrorCategory, ProviderExecutionContext, ProviderHttpRequest, ProviderOperation,
     ProviderRuntime, ProviderRuntimeConfig, ProviderTargetPolicy, ProviderTelemetry,
@@ -27,7 +30,38 @@ fn test_config(server: &MockServer) -> ProviderRuntimeConfig {
 }
 
 fn context() -> ProviderExecutionContext {
-    ProviderExecutionContext::new("engine.knowledge.external.test", "trace-provider-001")
+    ProviderExecutionContext::from_knowledge_engine(
+        &knowledge_engine_context(Some(73), vec![42]),
+        "engine.knowledge.external.test",
+        ProviderOperation::Search,
+    )
+    .expect("valid Provider execution context")
+}
+
+fn knowledge_engine_context(
+    binding_id: Option<u64>,
+    allowed_space_ids: Vec<u64>,
+) -> KnowledgeEngineExecutionContext {
+    let deadline_unix_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time")
+        .as_millis()
+        + 60_000;
+    KnowledgeEngineExecutionContext {
+        tenant_id: 11,
+        organization_id: 12,
+        actor_id: "actor-provider-test".to_string(),
+        permission_scope: vec!["knowledge.read".to_string()],
+        data_scope: KnowledgeEngineDataScope {
+            allowed_space_ids,
+            allowed_source_ids: Vec::new(),
+            allowed_document_ids: Vec::new(),
+        },
+        space_id: 42,
+        binding_id,
+        trace_id: "trace-provider-001".to_string(),
+        deadline_unix_ms: u64::try_from(deadline_unix_ms).expect("deadline fits u64"),
+    }
 }
 
 fn get_request(server: &MockServer, operation: ProviderOperation) -> ProviderHttpRequest {
@@ -55,6 +89,47 @@ async fn runtime_propagates_trace_and_decodes_bounded_json() {
     let json: serde_json::Value = response.json().expect("json");
 
     assert_eq!(json["ok"], true);
+}
+
+#[tokio::test]
+async fn runtime_rejects_out_of_scope_space_before_http() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/resource"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(0)
+        .mount(&server)
+        .await;
+    let runtime = ProviderRuntime::new(test_config(&server)).expect("runtime");
+    let mut context = context();
+    context.data_scope.allowed_space_ids = vec![99];
+    let error = runtime
+        .execute(&context, get_request(&server, ProviderOperation::Search))
+        .await
+        .expect_err("out-of-scope space must fail");
+
+    assert_eq!(error.category, ProviderErrorCategory::PermissionDenied);
+}
+
+#[test]
+fn execution_context_requires_binding_and_live_deadline() {
+    let missing_binding = ProviderExecutionContext::from_knowledge_engine(
+        &knowledge_engine_context(None, vec![42]),
+        "engine.knowledge.external.test",
+        ProviderOperation::Read,
+    )
+    .expect_err("binding is required");
+    assert_eq!(missing_binding.category, ProviderErrorCategory::Validation);
+
+    let mut expired = knowledge_engine_context(Some(73), vec![42]);
+    expired.deadline_unix_ms = 1;
+    let expired = ProviderExecutionContext::from_knowledge_engine(
+        &expired,
+        "engine.knowledge.external.test",
+        ProviderOperation::Search,
+    )
+    .expect_err("deadline must be live");
+    assert_eq!(expired.category, ProviderErrorCategory::Timeout);
 }
 
 #[derive(Clone)]

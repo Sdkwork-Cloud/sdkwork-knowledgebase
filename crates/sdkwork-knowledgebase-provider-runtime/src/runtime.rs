@@ -1,12 +1,15 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE, RETRY_AFTER,
 };
 use reqwest::{Client, Method, StatusCode, Url};
+use sdkwork_knowledgebase_contract::provider_binding::{
+    KnowledgeEngineDataScope, KnowledgeEngineExecutionContext,
+};
 use sdkwork_utils_rust::SDKWORK_TRACE_ID_HEADER;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -21,6 +24,12 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct ProviderExecutionContext {
     pub implementation_id: String,
+    pub tenant_id: u64,
+    pub organization_id: u64,
+    pub actor_id: String,
+    pub permission_scope: Vec<String>,
+    pub data_scope: KnowledgeEngineDataScope,
+    pub space_id: u64,
     pub binding_id: Option<String>,
     pub trace_id: String,
     pub deadline: Option<Instant>,
@@ -30,6 +39,16 @@ impl ProviderExecutionContext {
     pub fn new(implementation_id: impl Into<String>, trace_id: impl Into<String>) -> Self {
         Self {
             implementation_id: implementation_id.into(),
+            tenant_id: 0,
+            organization_id: 0,
+            actor_id: String::new(),
+            permission_scope: Vec::new(),
+            data_scope: KnowledgeEngineDataScope {
+                allowed_space_ids: Vec::new(),
+                allowed_source_ids: Vec::new(),
+                allowed_document_ids: Vec::new(),
+            },
+            space_id: 0,
             binding_id: None,
             trace_id: trace_id.into(),
             deadline: None,
@@ -38,6 +57,151 @@ impl ProviderExecutionContext {
 
     pub fn for_implementation(implementation_id: impl Into<String>) -> Self {
         Self::new(implementation_id, sdkwork_utils_rust::uuid())
+    }
+
+    pub fn from_knowledge_engine(
+        context: &KnowledgeEngineExecutionContext,
+        implementation_id: impl Into<String>,
+        operation: ProviderOperation,
+    ) -> Result<Self, ProviderError> {
+        let implementation_id = implementation_id.into();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| {
+                ProviderError::new(
+                    ProviderErrorCategory::Internal,
+                    operation,
+                    implementation_id.clone(),
+                    context.binding_id.map(|value| value.to_string()),
+                    None,
+                    false,
+                    None,
+                    "system clock is unavailable",
+                )
+            })?
+            .as_millis();
+        let remaining_ms = u128::from(context.deadline_unix_ms)
+            .checked_sub(now)
+            .filter(|remaining| *remaining > 0)
+            .ok_or_else(|| {
+                ProviderError::new(
+                    ProviderErrorCategory::Timeout,
+                    operation,
+                    implementation_id.clone(),
+                    context.binding_id.map(|value| value.to_string()),
+                    None,
+                    false,
+                    None,
+                    "provider request deadline has expired",
+                )
+            })?;
+        let remaining = Duration::from_millis(u64::try_from(remaining_ms).unwrap_or(u64::MAX));
+        let deadline = Instant::now().checked_add(remaining).ok_or_else(|| {
+            ProviderError::new(
+                ProviderErrorCategory::Validation,
+                operation,
+                implementation_id.clone(),
+                context.binding_id.map(|value| value.to_string()),
+                None,
+                false,
+                None,
+                "provider request deadline is outside the supported range",
+            )
+        })?;
+        let provider_context = Self {
+            implementation_id,
+            tenant_id: context.tenant_id,
+            organization_id: context.organization_id,
+            actor_id: context.actor_id.clone(),
+            permission_scope: context.permission_scope.clone(),
+            data_scope: context.data_scope.clone(),
+            space_id: context.space_id,
+            binding_id: context.binding_id.map(|value| value.to_string()),
+            trace_id: context.trace_id.clone(),
+            deadline: Some(deadline),
+        };
+        provider_context.validate_for_operation(operation)?;
+        Ok(provider_context)
+    }
+
+    fn validate_for_operation(&self, operation: ProviderOperation) -> Result<(), ProviderError> {
+        if self.trace_id.trim().is_empty() {
+            return Err(self.context_error(
+                operation,
+                ProviderErrorCategory::Validation,
+                "provider execution trace id is required",
+            ));
+        }
+        if let Some(deadline) = self.deadline {
+            if deadline <= Instant::now() {
+                return Err(self.context_error(
+                    operation,
+                    ProviderErrorCategory::Timeout,
+                    "provider request deadline has expired",
+                ));
+            }
+        }
+        if operation == ProviderOperation::Health && self.tenant_id == 0 {
+            return Ok(());
+        }
+        if self.tenant_id == 0 || self.actor_id.trim().is_empty() {
+            return Err(self.context_error(
+                operation,
+                ProviderErrorCategory::PermissionDenied,
+                "authenticated Provider execution scope is required",
+            ));
+        }
+        if self.space_id == 0
+            || self.data_scope.allowed_space_ids.is_empty()
+            || !self.data_scope.allowed_space_ids.contains(&self.space_id)
+        {
+            return Err(self.context_error(
+                operation,
+                ProviderErrorCategory::PermissionDenied,
+                "Provider execution space is outside the authenticated data scope",
+            ));
+        }
+        if self.binding_id.as_deref().is_none_or(str::is_empty) {
+            return Err(self.context_error(
+                operation,
+                ProviderErrorCategory::Validation,
+                "active Provider binding identity is required",
+            ));
+        }
+        if self.deadline.is_none() {
+            return Err(self.context_error(
+                operation,
+                ProviderErrorCategory::Validation,
+                "provider request deadline is required",
+            ));
+        }
+        Ok(())
+    }
+
+    fn has_authenticated_scope(&self) -> bool {
+        self.tenant_id != 0
+            || !self.actor_id.is_empty()
+            || self.space_id != 0
+            || self.binding_id.is_some()
+            || self.deadline.is_some()
+    }
+
+    fn context_error(
+        &self,
+        operation: ProviderOperation,
+        category: ProviderErrorCategory,
+        safe_message: &'static str,
+    ) -> ProviderError {
+        ProviderError::new(
+            category,
+            operation,
+            self.implementation_id.clone(),
+            self.binding_id.clone(),
+            None,
+            false,
+            None,
+            safe_message,
+        )
     }
 }
 
@@ -225,6 +389,9 @@ impl ProviderRuntime {
         request: ProviderHttpRequest,
     ) -> Result<ProviderHttpResponse, ProviderError> {
         let started = Instant::now();
+        if context.has_authenticated_scope() {
+            context.validate_for_operation(request.operation)?;
+        }
         tracing::debug!(
             implementation_id = %context.implementation_id,
             operation = %request.operation,

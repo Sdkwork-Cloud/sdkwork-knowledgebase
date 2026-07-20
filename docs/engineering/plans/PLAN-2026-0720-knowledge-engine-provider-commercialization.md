@@ -41,6 +41,8 @@ decision and `MIG-2026-0720`.
 - [x] Introduce the stable provider error model with safe detail and retry metadata.
 - [x] Implement shared HTTP client policy, deadlines, cancellation, retries, `Retry-After`, circuit
   breaker, bulkhead, body limit, trace propagation, metrics, and redaction.
+- [x] Add the standard execution-context conversion and Runtime preflight validation for
+  tenant/organization/actor/data-scope/space/binding/trace/deadline before scoped HTTP execution.
 - [x] Convert all ten executable adapters; fail static checks on bare HTTP clients.
 - [x] Add deterministic wire/error/resilience tests and concurrency tests.
 
@@ -56,6 +58,8 @@ unbounded body exposure.
   the context for management authorization and scope checks.
 - [ ] Propagate the immutable execution context through every search/read Provider call and require
   tenant/space/binding/data-scope/deadline validation before credential resolution or HTTP.
+  Runtime enforcement is implemented; adapter clients and App API/Agent Chat callers still require
+  migration away from locally generated `ProviderExecutionContext::for_implementation` values.
 - [ ] Implement backend list/retrieve/create/update/test/activate/disable/sync/migrate operations
   through authored OpenAPI and regenerated composed SDKs.
 - [ ] Add worker ownership, idempotency, leases, checkpoints, optimistic concurrency, and audit.
