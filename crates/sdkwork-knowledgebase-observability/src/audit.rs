@@ -21,6 +21,8 @@ static SPACE_MEMBER_REVOKED_TOTAL: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 static BACKEND_ADMIN_OPERATION_TOTAL: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
+static PROVIDER_MIGRATION_TRANSITION_TOTAL: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
 
 static AUDIT_PERSISTENCE: Mutex<Option<AuditPersistenceHandler>> = Mutex::new(None);
 
@@ -89,6 +91,7 @@ fn reset_audit_counters_for_tests() {
     SPACE_MEMBER_GRANTED_TOTAL.store(0, Ordering::Relaxed);
     SPACE_MEMBER_REVOKED_TOTAL.store(0, Ordering::Relaxed);
     BACKEND_ADMIN_OPERATION_TOTAL.store(0, Ordering::Relaxed);
+    PROVIDER_MIGRATION_TRANSITION_TOTAL.store(0, Ordering::Relaxed);
 }
 
 pub async fn record_document_visibility_changed(
@@ -198,6 +201,38 @@ pub async fn record_backend_admin_operation(
     tenant_id: u64,
     operator_id: u64,
 ) -> Result<(), AuditPersistenceError> {
+    record_backend_admin_resource_operation(
+        operation,
+        tenant_id,
+        operator_id,
+        BackendAdminResourceAudit {
+            resource_type: "backend_operation".to_string(),
+            resource_id: None,
+            space_id: None,
+            expected_version: None,
+            result_version: None,
+            result_status: None,
+        },
+    )
+    .await
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackendAdminResourceAudit {
+    pub resource_type: String,
+    pub resource_id: Option<u64>,
+    pub space_id: Option<u64>,
+    pub expected_version: Option<u64>,
+    pub result_version: Option<u64>,
+    pub result_status: Option<String>,
+}
+
+pub async fn record_backend_admin_resource_operation(
+    operation: &str,
+    tenant_id: u64,
+    operator_id: u64,
+    resource: BackendAdminResourceAudit,
+) -> Result<(), AuditPersistenceError> {
     use std::sync::atomic::Ordering;
 
     BACKEND_ADMIN_OPERATION_TOTAL.fetch_add(1, Ordering::Relaxed);
@@ -206,18 +241,73 @@ pub async fn record_backend_admin_operation(
         operation,
         tenant_id,
         operator_id,
+        resource_type = %resource.resource_type,
+        resource_id = ?resource.resource_id,
+        space_id = ?resource.space_id,
+        expected_version = ?resource.expected_version,
+        result_version = ?resource.result_version,
+        result_status = ?resource.result_status,
         "backend admin operation executed"
     );
     persist(AuditPersistenceEvent {
         event_type: "knowledge.backend.admin_operation".to_string(),
         actor_type: "user".to_string(),
         actor_id: operator_id.to_string(),
-        resource_type: "backend_operation".to_string(),
-        resource_id: None,
+        resource_type: resource.resource_type,
+        resource_id: resource.resource_id,
         result: "success".to_string(),
         payload: Some(json!({
             "operation": operation,
             "tenant_id": tenant_id,
+            "space_id": resource.space_id,
+            "expected_version": resource.expected_version,
+            "result_version": resource.result_version,
+            "result_status": resource.result_status,
+        })),
+    })
+    .await
+}
+
+pub async fn record_provider_migration_transition(
+    tenant_id: u64,
+    worker_id: &str,
+    operation_id: u64,
+    space_id: u64,
+    previous_state: &str,
+    result_state: &str,
+    result_version: u64,
+) -> Result<(), AuditPersistenceError> {
+    use std::sync::atomic::Ordering;
+
+    PROVIDER_MIGRATION_TRANSITION_TOTAL.fetch_add(1, Ordering::Relaxed);
+    tracing::info!(
+        audit_event = "knowledge.provider_migration.transition",
+        tenant_id,
+        worker_id,
+        operation_id,
+        space_id,
+        previous_state,
+        result_state,
+        result_version,
+        "Provider migration phase transitioned"
+    );
+    persist(AuditPersistenceEvent {
+        event_type: "knowledge.provider_migration.transition".to_string(),
+        actor_type: "service".to_string(),
+        actor_id: worker_id.to_string(),
+        resource_type: "provider_migration_operation".to_string(),
+        resource_id: Some(operation_id),
+        result: if result_state == "failed" {
+            "failure".to_string()
+        } else {
+            "success".to_string()
+        },
+        payload: Some(json!({
+            "tenant_id": tenant_id,
+            "space_id": space_id,
+            "previous_state": previous_state,
+            "result_state": result_state,
+            "result_version": result_version,
         })),
     })
     .await
@@ -238,11 +328,15 @@ pub fn render_audit_prometheus_metrics() -> String {
          knowledge_audit_space_member_revoked_total {}\n\
          # HELP knowledge_audit_backend_admin_operation_total Backend admin mutation audit events.\n\
          # TYPE knowledge_audit_backend_admin_operation_total counter\n\
-         knowledge_audit_backend_admin_operation_total {}\n",
+         knowledge_audit_backend_admin_operation_total {}\n\
+         # HELP knowledge_audit_provider_migration_transition_total Provider migration transition audit events.\n\
+         # TYPE knowledge_audit_provider_migration_transition_total counter\n\
+         knowledge_audit_provider_migration_transition_total {}\n",
         DOCUMENT_VISIBILITY_CHANGED_TOTAL.load(Ordering::Relaxed),
         SPACE_MEMBER_GRANTED_TOTAL.load(Ordering::Relaxed),
         SPACE_MEMBER_REVOKED_TOTAL.load(Ordering::Relaxed),
         BACKEND_ADMIN_OPERATION_TOTAL.load(Ordering::Relaxed),
+        PROVIDER_MIGRATION_TRANSITION_TOTAL.load(Ordering::Relaxed),
     )
 }
 
@@ -319,6 +413,116 @@ mod tests {
             events.last().map(String::as_str),
             Some("knowledge.backend.admin_operation")
         );
+        reset_audit_persistence_for_tests();
+    }
+
+    #[test]
+    fn backend_admin_resource_audit_persists_only_whitelisted_provider_metadata() {
+        let _guard = audit_test_lock();
+        reset_audit_persistence_for_tests();
+        reset_audit_counters_for_tests();
+        let captured = Arc::new(Mutex::new(Vec::<AuditPersistenceEvent>::new()));
+        let sink = Arc::clone(&captured);
+        install_audit_persistence(move |event| {
+            let sink = Arc::clone(&sink);
+            async move {
+                sink.lock().expect("lock").push(event);
+                Ok(())
+            }
+        });
+
+        block_on_audit(record_backend_admin_resource_operation(
+            "spaces.providerBindings.activate",
+            100_001,
+            99,
+            BackendAdminResourceAudit {
+                resource_type: "provider_binding".to_string(),
+                resource_id: Some(42),
+                space_id: Some(7),
+                expected_version: Some(3),
+                result_version: None,
+                result_status: Some("active".to_string()),
+            },
+        ))
+        .expect("audit persistence");
+
+        let events = captured.lock().expect("lock");
+        let event = events.last().expect("provider audit event");
+        assert_eq!(event.resource_type, "provider_binding");
+        assert_eq!(event.resource_id, Some(42));
+        assert_eq!(event.actor_id, "99");
+        assert_eq!(
+            event.payload,
+            Some(json!({
+                "operation": "spaces.providerBindings.activate",
+                "tenant_id": 100_001,
+                "space_id": 7,
+                "expected_version": 3,
+                "result_version": null,
+                "result_status": "active",
+            }))
+        );
+        let serialized_event = format!("{event:?}");
+        assert!(!serialized_event.contains("referenceLocator"));
+        assert!(!serialized_event.contains("referenceFingerprint"));
+        assert!(!serialized_event.contains("remoteResourceId"));
+        assert!(!serialized_event.contains("env://"));
+        reset_audit_persistence_for_tests();
+    }
+
+    #[test]
+    fn provider_migration_audit_persists_only_transition_metadata() {
+        let _guard = audit_test_lock();
+        reset_audit_persistence_for_tests();
+        reset_audit_counters_for_tests();
+        let captured = Arc::new(Mutex::new(Vec::<AuditPersistenceEvent>::new()));
+        let sink = Arc::clone(&captured);
+        install_audit_persistence(move |event| {
+            let sink = Arc::clone(&sink);
+            async move {
+                sink.lock().expect("lock").push(event);
+                Ok(())
+            }
+        });
+
+        block_on_audit(record_provider_migration_transition(
+            100_001,
+            "provider-worker-1",
+            91,
+            7,
+            "validating",
+            "cutover",
+            8,
+        ))
+        .expect("Provider migration audit persistence");
+
+        let events = captured.lock().expect("lock");
+        let event = events.last().expect("Provider migration audit event");
+        assert_eq!(event.actor_type, "service");
+        assert_eq!(event.actor_id, "provider-worker-1");
+        assert_eq!(event.resource_type, "provider_migration_operation");
+        assert_eq!(event.resource_id, Some(91));
+        assert_eq!(
+            event.payload,
+            Some(json!({
+                "tenant_id": 100_001,
+                "space_id": 7,
+                "previous_state": "validating",
+                "result_state": "cutover",
+                "result_version": 8,
+            }))
+        );
+        let serialized_event = format!("{event:?}");
+        for forbidden in [
+            "checkpoint",
+            "claim_token",
+            "remoteResourceId",
+            "credential",
+        ] {
+            assert!(!serialized_event.contains(forbidden));
+        }
+        assert!(render_audit_prometheus_metrics()
+            .contains("knowledge_audit_provider_migration_transition_total 1"));
         reset_audit_persistence_for_tests();
     }
 

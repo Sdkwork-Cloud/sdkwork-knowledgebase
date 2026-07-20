@@ -27,7 +27,7 @@ pub use auth::{ensure_runtime_tenant, require_backend_context, require_backend_m
 pub use error::{BackendApiError, BackendApiProblem, BackendApiResult};
 pub use health::{DbReadinessCheck, KnowledgebaseReadinessCheck};
 pub use http_route_manifest::backend_route_manifest;
-pub use permission::{can_access_knowledge_admin, KNOWLEDGE_ADMIN_PERMISSION};
+pub use permission::{can_access_knowledge_admin, KNOWLEDGE_PLATFORM_MANAGE_PERMISSION};
 pub use ports::{KnowledgeBackendApi, KnowledgeBackendRequestContext};
 pub use routes::{
     build_business_router_with_shared_backend_api, build_router_with_backend_api,

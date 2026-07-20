@@ -29,8 +29,8 @@ impl AuthorizationPolicy for KnowledgeBackendAuthorizationPolicy {
         let principal = ctx.principal.as_ref().ok_or_else(|| {
             WebFrameworkError::missing_credentials("authenticated principal is required")
         })?;
-        let backend_context =
-            knowledge_backend_context_from_web_request(principal).ok_or_else(|| {
+        let backend_context = knowledge_backend_context_from_web_request(ctx, principal)
+            .ok_or_else(|| {
                 WebFrameworkError::forbidden("authenticated backend principal is required")
             })?;
         if can_access_knowledge_admin(&backend_context) {
@@ -48,7 +48,9 @@ struct KnowledgeBackendContextInjector;
 impl DomainContextInjector for KnowledgeBackendContextInjector {
     fn inject(&self, request: &mut axum::extract::Request, context: &WebRequestContext) {
         if let Some(principal) = context.principal.as_ref() {
-            if let Some(backend_context) = knowledge_backend_context_from_web_request(principal) {
+            if let Some(backend_context) =
+                knowledge_backend_context_from_web_request(context, principal)
+            {
                 request.extensions_mut().insert(backend_context);
             }
         }
@@ -56,6 +58,7 @@ impl DomainContextInjector for KnowledgeBackendContextInjector {
 }
 
 fn knowledge_backend_context_from_web_request(
+    context: &WebRequestContext,
     principal: &sdkwork_web_core::WebRequestPrincipal,
 ) -> Option<KnowledgeBackendRequestContext> {
     let tenant_id = principal.tenant_id().parse().ok()?;
@@ -68,6 +71,10 @@ fn knowledge_backend_context_from_web_request(
         operator_id,
         organization_id,
         permission_scope: principal.scopes.permission_scope.clone(),
+        trace_id: context
+            .trace_id
+            .clone()
+            .unwrap_or_else(|| context.request_id.0.clone()),
     })
 }
 

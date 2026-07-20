@@ -26,8 +26,8 @@ impl RagflowApiClient {
         Self { config, http }
     }
 
-    fn context(&self) -> ProviderExecutionContext {
-        ProviderExecutionContext::for_implementation(RAGFLOW_IMPLEMENTATION_ID)
+    fn health_context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_system_health(RAGFLOW_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self, dataset_id: &str) -> Result<(), KnowledgeEngineError> {
@@ -37,12 +37,12 @@ impl RagflowApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(&self.health_context(), request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: RagflowApiResponse<RagflowDatasetList> =
@@ -61,6 +61,7 @@ impl RagflowApiClient {
 
     pub async fn retrieve(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         dataset_id: &str,
         query: &str,
@@ -72,7 +73,7 @@ impl RagflowApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "question": query,
@@ -83,7 +84,7 @@ impl RagflowApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: RagflowApiResponse<RagflowRetrievalData> =
@@ -112,6 +113,7 @@ impl RagflowApiClient {
 
     pub async fn read_chunk(
         &self,
+        context: &ProviderExecutionContext,
         dataset_id: &str,
         document_id: &str,
         chunk_id: &str,
@@ -122,12 +124,12 @@ impl RagflowApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: RagflowApiResponse<RagflowChunkDetail> =

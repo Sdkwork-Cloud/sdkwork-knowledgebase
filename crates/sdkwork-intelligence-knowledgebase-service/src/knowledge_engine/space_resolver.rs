@@ -4,12 +4,12 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use std::sync::Arc;
 
-use crate::ports::knowledge_engine::{
-    KnowledgeEngine, KnowledgeEngineRegistry, KnowledgeEngineSpaceRegistry,
-};
+use crate::knowledge_engine::KnowledgeEngineExecutionHandle;
+use crate::ports::knowledge_engine::{KnowledgeEngineRegistry, KnowledgeEngineSpaceRegistry};
 use crate::ports::knowledge_provider_binding_store::{
     KnowledgeEngineProviderBindingStore, KnowledgeEngineProviderScope,
 };
+use crate::ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredentialResolver;
 use crate::ports::knowledge_space_store::KnowledgeSpaceStore;
 
 pub struct KnowledgeEngineSpaceResolver<R> {
@@ -17,6 +17,7 @@ pub struct KnowledgeEngineSpaceResolver<R> {
     space_store: Arc<dyn KnowledgeSpaceStore>,
     provider_binding_store: Arc<dyn KnowledgeEngineProviderBindingStore>,
     provider_scope: KnowledgeEngineProviderScope,
+    credential_resolver: Arc<dyn KnowledgeEngineProviderCredentialResolver>,
 }
 
 impl<R> KnowledgeEngineSpaceResolver<R>
@@ -28,12 +29,14 @@ where
         space_store: Arc<dyn KnowledgeSpaceStore>,
         provider_binding_store: Arc<dyn KnowledgeEngineProviderBindingStore>,
         provider_scope: KnowledgeEngineProviderScope,
+        credential_resolver: Arc<dyn KnowledgeEngineProviderCredentialResolver>,
     ) -> Self {
         Self {
             registry,
             space_store,
             provider_binding_store,
             provider_scope,
+            credential_resolver,
         }
     }
 
@@ -41,7 +44,7 @@ where
         &self,
         space_id: u64,
         mode_override: Option<KnowledgeAgentKnowledgeMode>,
-    ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
+    ) -> Result<KnowledgeEngineExecutionHandle, KnowledgeEngineError> {
         let space = self
             .space_store
             .get_space(space_id)
@@ -53,13 +56,15 @@ where
             return self.resolve_external_for_space(space_id).await;
         }
 
-        self.registry.resolve_for_mode(mode)
+        self.registry.resolve_for_mode(mode).map(|engine| {
+            KnowledgeEngineExecutionHandle::native(engine, self.provider_scope, space_id)
+        })
     }
 
     async fn resolve_external_for_space(
         &self,
         space_id: u64,
-    ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
+    ) -> Result<KnowledgeEngineExecutionHandle, KnowledgeEngineError> {
         let binding = self
             .provider_binding_store
             .get_active_binding_for_space(self.provider_scope, space_id)
@@ -81,16 +86,14 @@ where
         }
 
         let engine = self.registry.resolve_by_id(&binding.implementation_id)?;
-        if !engine
-            .descriptor()
-            .supports(KnowledgeEngineCapability::Search)
-        {
-            return Err(KnowledgeEngineError::Unsupported(format!(
-                "Provider implementation_id={} no longer supports search",
-                binding.implementation_id
-            )));
-        }
-        engine.bind_provider(&binding)
+        KnowledgeEngineExecutionHandle::external(
+            engine,
+            binding,
+            self.provider_scope,
+            space_id,
+            Some(self.provider_binding_store.clone()),
+            Some(self.credential_resolver.clone()),
+        )
     }
 }
 
@@ -103,7 +106,7 @@ where
         &self,
         space_id: u64,
         mode_override: Option<KnowledgeAgentKnowledgeMode>,
-    ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
+    ) -> Result<KnowledgeEngineExecutionHandle, KnowledgeEngineError> {
         KnowledgeEngineSpaceResolver::resolve_for_space(self, space_id, mode_override).await
     }
 }

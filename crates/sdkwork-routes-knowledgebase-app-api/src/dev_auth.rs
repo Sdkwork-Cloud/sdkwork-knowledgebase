@@ -10,7 +10,7 @@ use axum::{
     Extension, Router,
 };
 use sdkwork_routes_knowledgebase_backend_api::{
-    permission::KNOWLEDGE_ADMIN_PERMISSION, KnowledgeBackendRequestContext,
+    permission::KNOWLEDGE_PLATFORM_MANAGE_PERMISSION, KnowledgeBackendRequestContext,
 };
 use sdkwork_routes_knowledgebase_open_api::KnowledgeOpenApiRequestContext;
 
@@ -68,7 +68,8 @@ pub fn with_dev_backend_auth(router: Router, tenant_id: u64, operator_id: Option
                             tenant_id,
                             operator_id,
                             organization_id,
-                            permission_scope: vec![KNOWLEDGE_ADMIN_PERMISSION.to_string()],
+                            permission_scope: vec![KNOWLEDGE_PLATFORM_MANAGE_PERMISSION.to_string()],
+                            trace_id: uuid::Uuid::new_v4().to_string(),
                         });
                 }
                 next.run(request).await

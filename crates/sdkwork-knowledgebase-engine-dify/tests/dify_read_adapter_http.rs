@@ -1,6 +1,7 @@
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineReadRequest;
 use sdkwork_knowledgebase_engine_dify::{DifyConnectorConfig, DifyKnowledgeEngine};
+use sdkwork_knowledgebase_test_support::provider_execution::provider_execution_context;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -20,17 +21,20 @@ async fn dify_read_document_fetches_segment_detail() {
 
     let config = DifyConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "test-api-key".to_string(),
+        api_key: zeroize::Zeroizing::new("test-api-key".to_string()),
         default_dataset_id: Some("ds-42".to_string()),
     };
     let engine = DifyKnowledgeEngine::with_config(config);
 
     let document = engine
-        .read_document(KnowledgeEngineReadRequest {
-            tenant_id: 1,
-            space_id: 42,
-            document_id: "doc-1#seg-9".to_string(),
-        })
+        .read_document(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-read"),
+            KnowledgeEngineReadRequest {
+                tenant_id: 1,
+                space_id: 42,
+                document_id: "doc-1#seg-9".to_string(),
+            },
+        )
         .await
         .expect("read");
 

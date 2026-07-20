@@ -13,6 +13,20 @@ use sdkwork_intelligence_knowledgebase_service::{
 use sdkwork_knowledgebase_agent_provider::{
     resolve_claw_router_client_from_env, ClawRouterEmbeddingClient,
 };
+use sdkwork_knowledgebase_contract::provider_binding::{
+    CreateKnowledgeEngineProviderBindingRequest,
+    CreateKnowledgeEngineProviderCredentialReferenceRequest,
+    CreateKnowledgeEngineProviderMigrationOperationRequest, KnowledgeEngineDataScope,
+    KnowledgeEngineExecutionContext, KnowledgeEngineProviderBinding,
+    KnowledgeEngineProviderBindingState, KnowledgeEngineProviderCredentialReference,
+    KnowledgeEngineProviderCredentialRotationState, KnowledgeEngineProviderMigrationOperation,
+    KnowledgeEngineProviderMigrationState, ListKnowledgeEngineProviderBindingsRequest,
+    ListKnowledgeEngineProviderCredentialReferencesRequest,
+    ListKnowledgeEngineProviderMigrationOperationsRequest,
+    RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    UpdateKnowledgeEngineProviderBindingRequest,
+};
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sdkwork_knowledgebase_contract::{
@@ -27,9 +41,9 @@ use sdkwork_knowledgebase_contract::{
     OkfIndexDocument, OkfIndexRebuildRequest, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
 use sdkwork_routes_knowledgebase_backend_api::{
-    BackendApiError, BackendApiResult, KnowledgeBackendApi,
+    BackendApiError, BackendApiResult, KnowledgeBackendApi, KnowledgeBackendRequestContext,
 };
-use sdkwork_utils_rust::SdkWorkPageData;
+use sdkwork_utils_rust::{SdkWorkCommandData, SdkWorkPageData};
 
 use crate::{
     hosted_access::list_space_members_admin_with_runtime,
@@ -50,6 +64,71 @@ pub(crate) struct HostedBackendApi {
 impl HostedBackendApi {
     pub fn new(runtime: KnowledgebaseRuntime) -> Self {
         Self { runtime }
+    }
+
+    fn provider_execution_context(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: Option<u64>,
+    ) -> BackendApiResult<KnowledgeEngineExecutionContext> {
+        let operator_id = context.operator_id.ok_or_else(|| {
+            BackendApiError::new(
+                axum::http::StatusCode::FORBIDDEN,
+                "provider_management_operator_required",
+                "authenticated operator is required for Provider management",
+            )
+        })?;
+        let now_ms = sdkwork_utils_rust::to_unix_millis(sdkwork_utils_rust::now());
+        let deadline_unix_ms = u64::try_from(now_ms)
+            .ok()
+            .and_then(|value| value.checked_add(30_000))
+            .ok_or_else(|| map_internal("failed to create Provider deadline".to_string()))?;
+        let allowed_space_ids = space_id.into_iter().collect::<Vec<_>>();
+        Ok(KnowledgeEngineExecutionContext {
+            tenant_id: context.tenant_id,
+            organization_id: context
+                .organization_id
+                .unwrap_or_else(|| self.runtime.organization_id()),
+            actor_id: operator_id.to_string(),
+            permission_scope: context.permission_scope.clone(),
+            data_scope: KnowledgeEngineDataScope {
+                allowed_space_ids,
+                allowed_source_ids: Vec::new(),
+                allowed_document_ids: Vec::new(),
+            },
+            space_id: space_id.unwrap_or(0),
+            binding_id: None,
+            trace_id: context.trace_id.clone(),
+            deadline_unix_ms,
+        })
+    }
+
+    fn require_provider_migration_context(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+    ) -> BackendApiResult<String> {
+        let execution = self.provider_execution_context(context, Some(space_id))?;
+        if execution.tenant_id != self.runtime.tenant_id()
+            || execution.organization_id != self.runtime.organization_id()
+            || execution.data_scope.allowed_space_ids.as_slice() != [space_id]
+        {
+            return Err(BackendApiError::new(
+                axum::http::StatusCode::FORBIDDEN,
+                "provider_migration_scope_mismatch",
+                "Provider migration scope does not match the Knowledgebase runtime",
+            ));
+        }
+        if !sdkwork_routes_knowledgebase_backend_api::permission::can_access_knowledge_admin(
+            context,
+        ) {
+            return Err(BackendApiError::new(
+                axum::http::StatusCode::FORBIDDEN,
+                "provider_management_permission_required",
+                "knowledge.platform.manage permission is required",
+            ));
+        }
+        Ok(execution.actor_id)
     }
 
     async fn okf_space_for_log(&self) -> BackendApiResult<u64> {
@@ -835,7 +914,10 @@ impl KnowledgeBackendApi for HostedBackendApi {
         })
     }
 
-    async fn retrieve_provider_health(&self) -> BackendApiResult<KnowledgeProviderHealth> {
+    async fn retrieve_provider_health(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+    ) -> BackendApiResult<KnowledgeProviderHealth> {
         self.runtime.readiness_check().await.map_err(|error| {
             BackendApiError::new(
                 axum::http::StatusCode::SERVICE_UNAVAILABLE,
@@ -854,7 +936,7 @@ impl KnowledgeBackendApi for HostedBackendApi {
         let mut degraded = false;
 
         for descriptor in registry.list_registered() {
-            if !descriptor.supports(KnowledgeEngineCapability::Health) {
+            if !descriptor.native || !descriptor.supports(KnowledgeEngineCapability::Health) {
                 continue;
             }
             engine_ids.push(descriptor.implementation_id.clone());
@@ -874,7 +956,18 @@ impl KnowledgeBackendApi for HostedBackendApi {
                 }
             }
         }
+
+        let execution_context = self.provider_execution_context(context, None)?;
+        let external_health = self
+            .runtime
+            .knowledge_engine_provider_binding_service()
+            .probe_active_bindings_health(&execution_context)
+            .await
+            .map_err(|error| map_internal(error.to_string()))?;
+        engine_ids.extend(external_health.implementation_ids);
+        degraded |= external_health.degraded;
         engine_ids.sort();
+        engine_ids.dedup();
 
         Ok(KnowledgeProviderHealth {
             status: if degraded {
@@ -887,6 +980,332 @@ impl KnowledgeBackendApi for HostedBackendApi {
                 .format(&time::format_description::well_known::Rfc3339)
                 .ok(),
         })
+    }
+
+    async fn create_provider_credential_reference(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        request: CreateKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> BackendApiResult<KnowledgeEngineProviderCredentialReference> {
+        let execution_context = self.provider_execution_context(context, None)?;
+        self.runtime
+            .knowledge_engine_provider_binding_service()
+            .create_credential_reference(&execution_context, request)
+            .await
+            .map_err(|error| map_api_error(error.into()))
+    }
+
+    async fn list_provider_credential_references(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        implementation_id: Option<String>,
+        rotation_state: Option<KnowledgeEngineProviderCredentialRotationState>,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeEngineProviderCredentialReference>> {
+        let execution_context = self.provider_execution_context(context, None)?;
+        let normalized_page_size =
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+        let page = self
+            .runtime
+            .knowledge_engine_provider_binding_service()
+            .list_credential_references(
+                &execution_context,
+                ListKnowledgeEngineProviderCredentialReferencesRequest {
+                    implementation_id,
+                    rotation_state,
+                    cursor,
+                    page_size: Some(normalized_page_size),
+                },
+            )
+            .await
+            .map_err(|error| map_api_error(error.into()))?;
+        let has_more = page.next_cursor.is_some();
+        Ok(
+            sdkwork_routes_knowledgebase_backend_api::pagination::cursor_page_data(
+                page.items,
+                page.next_cursor,
+                has_more,
+                normalized_page_size,
+            ),
+        )
+    }
+
+    async fn retrieve_provider_credential_reference(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        credential_reference_id: u64,
+    ) -> BackendApiResult<KnowledgeEngineProviderCredentialReference> {
+        let execution_context = self.provider_execution_context(context, None)?;
+        self.runtime
+            .knowledge_engine_provider_binding_service()
+            .get_credential_reference(&execution_context, credential_reference_id)
+            .await
+            .map_err(|error| map_api_error(error.into()))
+    }
+
+    async fn rotate_provider_credential_reference(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        credential_reference_id: u64,
+        request: RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        let execution_context = self.provider_execution_context(context, None)?;
+        let credential = self
+            .runtime
+            .knowledge_engine_provider_binding_service()
+            .rotate_credential_reference(&execution_context, credential_reference_id, request)
+            .await
+            .map_err(|error| map_api_error(error.into()))?;
+        Ok(provider_command(
+            credential.id,
+            credential.rotation_state.as_str(),
+        ))
+    }
+
+    async fn revoke_provider_credential_reference(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        credential_reference_id: u64,
+        request: RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        let execution_context = self.provider_execution_context(context, None)?;
+        let credential = self
+            .runtime
+            .knowledge_engine_provider_binding_service()
+            .revoke_credential_reference(&execution_context, credential_reference_id, request)
+            .await
+            .map_err(|error| map_api_error(error.into()))?;
+        Ok(provider_command(
+            credential.id,
+            credential.rotation_state.as_str(),
+        ))
+    }
+
+    async fn list_provider_bindings(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+        lifecycle_state: Option<KnowledgeEngineProviderBindingState>,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeEngineProviderBinding>> {
+        let execution_context = self.provider_execution_context(context, Some(space_id))?;
+        let normalized_page_size =
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+        let page = self
+            .runtime
+            .knowledge_engine_provider_binding_service()
+            .list_bindings(
+                &execution_context,
+                ListKnowledgeEngineProviderBindingsRequest {
+                    space_id: Some(space_id),
+                    lifecycle_state,
+                    cursor,
+                    page_size: Some(normalized_page_size),
+                },
+            )
+            .await
+            .map_err(|error| map_api_error(error.into()))?;
+        let has_more = page.next_cursor.is_some();
+        Ok(
+            sdkwork_routes_knowledgebase_backend_api::pagination::cursor_page_data(
+                page.items,
+                page.next_cursor,
+                has_more,
+                normalized_page_size,
+            ),
+        )
+    }
+
+    async fn create_provider_binding(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        request: CreateKnowledgeEngineProviderBindingRequest,
+    ) -> BackendApiResult<KnowledgeEngineProviderBinding> {
+        let execution_context = self.provider_execution_context(context, Some(request.space_id))?;
+        self.runtime
+            .knowledge_engine_provider_binding_service()
+            .create_binding(&execution_context, request)
+            .await
+            .map_err(|error| map_api_error(error.into()))
+    }
+
+    async fn retrieve_provider_binding(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+        binding_id: u64,
+    ) -> BackendApiResult<KnowledgeEngineProviderBinding> {
+        let execution_context = self.provider_execution_context(context, Some(space_id))?;
+        self.runtime
+            .knowledge_engine_provider_binding_service()
+            .get_binding(&execution_context, binding_id)
+            .await
+            .map_err(|error| map_api_error(error.into()))
+    }
+
+    async fn update_provider_binding(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+        binding_id: u64,
+        request: UpdateKnowledgeEngineProviderBindingRequest,
+    ) -> BackendApiResult<KnowledgeEngineProviderBinding> {
+        let execution_context = self.provider_execution_context(context, Some(space_id))?;
+        self.runtime
+            .knowledge_engine_provider_binding_service()
+            .update_binding(&execution_context, binding_id, request)
+            .await
+            .map_err(|error| map_api_error(error.into()))
+    }
+
+    async fn test_provider_binding(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+        binding_id: u64,
+        expected_version: u64,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        let execution_context = self.provider_execution_context(context, Some(space_id))?;
+        let binding = self
+            .runtime
+            .knowledge_engine_provider_binding_service()
+            .test_binding(&execution_context, binding_id, expected_version)
+            .await
+            .map_err(|error| map_api_error(error.into()))?;
+        Ok(provider_command(
+            binding.id,
+            binding.lifecycle_state.as_str(),
+        ))
+    }
+
+    async fn activate_provider_binding(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+        binding_id: u64,
+        expected_version: u64,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        let execution_context = self.provider_execution_context(context, Some(space_id))?;
+        let binding = self
+            .runtime
+            .knowledge_engine_provider_binding_service()
+            .activate_binding(&execution_context, binding_id, expected_version)
+            .await
+            .map_err(|error| map_api_error(error.into()))?;
+        Ok(provider_command(
+            binding.id,
+            binding.lifecycle_state.as_str(),
+        ))
+    }
+
+    async fn disable_provider_binding(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+        binding_id: u64,
+        expected_version: u64,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        let execution_context = self.provider_execution_context(context, Some(space_id))?;
+        let binding = self
+            .runtime
+            .knowledge_engine_provider_binding_service()
+            .disable_binding(&execution_context, binding_id, expected_version)
+            .await
+            .map_err(|error| map_api_error(error.into()))?;
+        Ok(provider_command(
+            binding.id,
+            binding.lifecycle_state.as_str(),
+        ))
+    }
+
+    async fn list_provider_migrations(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+        operation_state: Option<KnowledgeEngineProviderMigrationState>,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeEngineProviderMigrationOperation>> {
+        self.require_provider_migration_context(context, space_id)?;
+        let normalized_page_size =
+            sdkwork_routes_knowledgebase_backend_api::pagination::normalize_page_size(page_size);
+        let page = self
+            .runtime
+            .knowledge_engine_provider_migration_service()
+            .list_operations(ListKnowledgeEngineProviderMigrationOperationsRequest {
+                space_id,
+                operation_state,
+                cursor,
+                page_size: Some(normalized_page_size),
+            })
+            .await
+            .map_err(map_provider_migration_error)?;
+        let has_more = page.next_cursor.is_some();
+        Ok(
+            sdkwork_routes_knowledgebase_backend_api::pagination::cursor_page_data(
+                page.items,
+                page.next_cursor,
+                has_more,
+                normalized_page_size,
+            ),
+        )
+    }
+
+    async fn create_provider_migration(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+        request: CreateKnowledgeEngineProviderMigrationOperationRequest,
+    ) -> BackendApiResult<KnowledgeEngineProviderMigrationOperation> {
+        let actor_id = self.require_provider_migration_context(context, space_id)?;
+        self.runtime
+            .knowledge_engine_provider_migration_service()
+            .create_operation(space_id, &actor_id, request)
+            .await
+            .map_err(map_provider_migration_error)
+    }
+
+    async fn retrieve_provider_migration(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+        migration_operation_id: u64,
+    ) -> BackendApiResult<KnowledgeEngineProviderMigrationOperation> {
+        self.require_provider_migration_context(context, space_id)?;
+        let operation = self
+            .runtime
+            .knowledge_engine_provider_migration_service()
+            .get_operation(migration_operation_id)
+            .await
+            .map_err(map_provider_migration_error)?;
+        require_provider_migration_space(&operation, space_id)?;
+        Ok(operation)
+    }
+
+    async fn rollback_provider_migration(
+        &self,
+        context: &KnowledgeBackendRequestContext,
+        space_id: u64,
+        migration_operation_id: u64,
+        expected_version: u64,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        let actor_id = self.require_provider_migration_context(context, space_id)?;
+        let service = self.runtime.knowledge_engine_provider_migration_service();
+        let existing = service
+            .get_operation(migration_operation_id)
+            .await
+            .map_err(map_provider_migration_error)?;
+        require_provider_migration_space(&existing, space_id)?;
+        let operation = service
+            .request_rollback(migration_operation_id, &actor_id, expected_version)
+            .await
+            .map_err(map_provider_migration_error)?;
+        Ok(provider_command(
+            operation.id,
+            operation.operation_state.as_str(),
+        ))
     }
 
     async fn retrieve_current_tenant(&self) -> BackendApiResult<KnowledgeTenantStatus> {
@@ -1038,6 +1457,77 @@ fn map_internal(detail: String) -> BackendApiError {
         "knowledgebase_store_failed",
         detail,
     )
+}
+
+fn provider_command(resource_id: u64, status: &str) -> SdkWorkCommandData {
+    SdkWorkCommandData {
+        accepted: true,
+        resource_id: Some(resource_id.to_string()),
+        status: Some(status.to_string()),
+    }
+}
+
+fn require_provider_migration_space(
+    operation: &KnowledgeEngineProviderMigrationOperation,
+    space_id: u64,
+) -> BackendApiResult<()> {
+    if operation.space_id != space_id {
+        return Err(BackendApiError::new(
+            axum::http::StatusCode::NOT_FOUND,
+            "provider_migration_not_found",
+            "Provider migration operation was not found in the requested space",
+        ));
+    }
+    Ok(())
+}
+
+fn map_provider_migration_error(
+    error: sdkwork_intelligence_knowledgebase_service::provider_migration::ProviderMigrationServiceError,
+) -> BackendApiError {
+    use sdkwork_intelligence_knowledgebase_service::ports::{
+        knowledge_provider_binding_store::KnowledgeEngineProviderBindingStoreError,
+        knowledge_provider_migration_store::KnowledgeEngineProviderMigrationStoreError,
+    };
+    use sdkwork_intelligence_knowledgebase_service::provider_migration::ProviderMigrationServiceError;
+
+    let status = match &error {
+        ProviderMigrationServiceError::InvalidRequest(_)
+        | ProviderMigrationServiceError::InvalidCheckpoint(_)
+        | ProviderMigrationServiceError::MigrationStore(
+            KnowledgeEngineProviderMigrationStoreError::InvalidRequest(_),
+        )
+        | ProviderMigrationServiceError::BindingStore(
+            KnowledgeEngineProviderBindingStoreError::InvalidRequest(_),
+        ) => axum::http::StatusCode::BAD_REQUEST,
+        ProviderMigrationServiceError::MigrationStore(
+            KnowledgeEngineProviderMigrationStoreError::NotFound(_),
+        )
+        | ProviderMigrationServiceError::BindingStore(
+            KnowledgeEngineProviderBindingStoreError::NotFound(_),
+        ) => axum::http::StatusCode::NOT_FOUND,
+        ProviderMigrationServiceError::InvalidLifecycle(_)
+        | ProviderMigrationServiceError::MigrationStore(
+            KnowledgeEngineProviderMigrationStoreError::Conflict(_)
+            | KnowledgeEngineProviderMigrationStoreError::InvalidLifecycle(_)
+            | KnowledgeEngineProviderMigrationStoreError::ClaimLost(_),
+        )
+        | ProviderMigrationServiceError::BindingStore(
+            KnowledgeEngineProviderBindingStoreError::Conflict(_)
+            | KnowledgeEngineProviderBindingStoreError::InvalidLifecycle(_)
+            | KnowledgeEngineProviderBindingStoreError::CredentialUnavailable(_),
+        ) => axum::http::StatusCode::CONFLICT,
+        ProviderMigrationServiceError::MigrationStore(
+            KnowledgeEngineProviderMigrationStoreError::Internal(_),
+        )
+        | ProviderMigrationServiceError::BindingStore(
+            KnowledgeEngineProviderBindingStoreError::Internal(_),
+        )
+        | ProviderMigrationServiceError::Internal(_)
+        | ProviderMigrationServiceError::Audit(_) => {
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+        }
+    };
+    BackendApiError::new(status, "provider_migration_failed", error.to_string())
 }
 
 fn map_api_error(error: crate::ApiError) -> BackendApiError {

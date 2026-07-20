@@ -112,6 +112,14 @@ impl ApiError {
         Self::new(StatusCode::BAD_REQUEST, code, detail)
     }
 
+    pub fn unauthorized(code: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self::new(StatusCode::UNAUTHORIZED, code, detail)
+    }
+
+    pub fn forbidden(code: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self::new(StatusCode::FORBIDDEN, code, detail)
+    }
+
     pub fn not_found(code: impl Into<String>, detail: impl Into<String>) -> Self {
         Self::new(StatusCode::NOT_FOUND, code, detail)
     }
@@ -655,6 +663,9 @@ impl From<sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError
             KnowledgeEngineError::Unsupported(detail) => {
                 Self::invalid_request("knowledge_engine_unsupported", detail)
             }
+            KnowledgeEngineError::PermissionDenied(detail) => {
+                Self::forbidden("knowledge_engine_permission_denied", detail)
+            }
             KnowledgeEngineError::Provider(failure) => {
                 use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineProviderErrorCategory as Category;
                 let detail = format!(
@@ -696,6 +707,88 @@ impl From<sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError
             }
             KnowledgeEngineError::Internal(detail) => {
                 Self::internal("knowledge_engine_failed", detail)
+            }
+        }
+    }
+}
+
+impl From<
+        sdkwork_intelligence_knowledgebase_service::provider_binding::KnowledgeEngineProviderBindingServiceError,
+    > for ApiError
+{
+    fn from(
+        error: sdkwork_intelligence_knowledgebase_service::provider_binding::KnowledgeEngineProviderBindingServiceError,
+    ) -> Self {
+        use sdkwork_intelligence_knowledgebase_service::{
+            ports::{
+                knowledge_provider_binding_store::KnowledgeEngineProviderBindingStoreError,
+                knowledge_provider_credential_resolver::KnowledgeEngineProviderCredentialError,
+            },
+            provider_binding::KnowledgeEngineProviderBindingServiceError,
+        };
+        match error {
+            KnowledgeEngineProviderBindingServiceError::InvalidRequest(detail) => {
+                Self::invalid_request("invalid_provider_management_request", detail)
+            }
+            KnowledgeEngineProviderBindingServiceError::PermissionDenied(detail) => {
+                Self::forbidden("provider_management_permission_denied", detail)
+            }
+            KnowledgeEngineProviderBindingServiceError::DeadlineExceeded => {
+                Self::gateway_timeout(
+                    "provider_management_deadline_exceeded",
+                    "Provider management deadline exceeded",
+                )
+            }
+            KnowledgeEngineProviderBindingServiceError::InvalidLifecycle(detail) => {
+                Self::conflict("provider_lifecycle_conflict", detail)
+            }
+            KnowledgeEngineProviderBindingServiceError::Store(store_error) => match store_error {
+                KnowledgeEngineProviderBindingStoreError::InvalidRequest(detail) => {
+                    Self::invalid_request("invalid_provider_management_request", detail)
+                }
+                KnowledgeEngineProviderBindingStoreError::NotFound(resource_id) => {
+                    Self::not_found(
+                        "provider_management_resource_not_found",
+                        format!("Provider management resource was not found: {resource_id}"),
+                    )
+                }
+                KnowledgeEngineProviderBindingStoreError::Conflict(detail) => {
+                    Self::conflict("provider_version_conflict", detail)
+                }
+                KnowledgeEngineProviderBindingStoreError::InvalidLifecycle(detail) => {
+                    Self::conflict("provider_lifecycle_conflict", detail)
+                }
+                KnowledgeEngineProviderBindingStoreError::CredentialUnavailable(reference_id) => {
+                    Self::service_unavailable(
+                        "provider_credential_unavailable",
+                        format!("Provider credential reference is unavailable: {reference_id}"),
+                    )
+                }
+                KnowledgeEngineProviderBindingStoreError::Internal(detail) => {
+                    Self::internal("provider_management_store_failed", detail)
+                }
+            },
+            KnowledgeEngineProviderBindingServiceError::Engine(engine_error) => {
+                engine_error.into()
+            }
+            KnowledgeEngineProviderBindingServiceError::Credential(credential_error) => {
+                match credential_error {
+                    KnowledgeEngineProviderCredentialError::InvalidReference(detail) => {
+                        Self::invalid_request("invalid_provider_credential_reference", detail)
+                    }
+                    KnowledgeEngineProviderCredentialError::Unavailable(detail) => {
+                        Self::service_unavailable("provider_credential_unavailable", detail)
+                    }
+                    KnowledgeEngineProviderCredentialError::Internal => {
+                        Self::internal(
+                            "provider_credential_resolution_failed",
+                            "Provider credential resolution failed",
+                        )
+                    }
+                }
+            }
+            KnowledgeEngineProviderBindingServiceError::Internal(detail) => {
+                Self::internal("provider_management_failed", detail)
             }
         }
     }

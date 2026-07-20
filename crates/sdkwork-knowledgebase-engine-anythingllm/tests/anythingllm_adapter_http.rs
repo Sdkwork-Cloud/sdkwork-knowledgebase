@@ -5,6 +5,7 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
 use sdkwork_knowledgebase_engine_anythingllm::{
     AnythingLlmConnectorConfig, AnythingLlmKnowledgeEngine,
 };
+use sdkwork_knowledgebase_test_support::provider_execution::provider_execution_context;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -18,7 +19,7 @@ async fn assert_anythingllm_health(upstream_status: u16, expected: KnowledgeEngi
         .await;
     let engine = AnythingLlmKnowledgeEngine::with_config(AnythingLlmConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "health-key".to_string(),
+        api_key: zeroize::Zeroizing::new("health-key".to_string()),
         default_workspace_slug: Some("health-workspace".to_string()),
     });
 
@@ -52,18 +53,21 @@ async fn anythingllm_search_uses_configured_remote_resource_id() {
 
     let config = AnythingLlmConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "test-api-key".to_string(),
+        api_key: zeroize::Zeroizing::new("test-api-key".to_string()),
         default_workspace_slug: Some("ws-space-42".to_string()),
     };
     let engine = AnythingLlmKnowledgeEngine::with_config(config);
 
     let result = engine
-        .search(KnowledgeEngineSearchRequest {
-            tenant_id: 1,
-            space_id: 42,
-            query: "hello".to_string(),
-            top_k: 3,
-        })
+        .search(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-search"),
+            KnowledgeEngineSearchRequest {
+                tenant_id: 1,
+                space_id: 42,
+                query: "hello".to_string(),
+                top_k: 3,
+            },
+        )
         .await
         .expect("search");
 
@@ -93,17 +97,20 @@ async fn anythingllm_read_document_resolves_chunk_from_vector_search() {
 
     let config = AnythingLlmConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "test-api-key".to_string(),
+        api_key: zeroize::Zeroizing::new("test-api-key".to_string()),
         default_workspace_slug: Some("ws-space-42".to_string()),
     };
     let engine = AnythingLlmKnowledgeEngine::with_config(config);
 
     let document = engine
-        .read_document(KnowledgeEngineReadRequest {
-            tenant_id: 1,
-            space_id: 42,
-            document_id: "Space Doc#chunk-9".to_string(),
-        })
+        .read_document(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-read"),
+            KnowledgeEngineReadRequest {
+                tenant_id: 1,
+                space_id: 42,
+                document_id: "Space Doc#chunk-9".to_string(),
+            },
+        )
         .await
         .expect("read");
 

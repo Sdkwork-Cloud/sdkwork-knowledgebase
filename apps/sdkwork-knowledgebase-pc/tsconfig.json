@@ -40,6 +40,9 @@
       "sdkwork-knowledgebase-pc-admin-core": [
         "./packages/sdkwork-knowledgebase-pc-admin-core/src"
       ],
+      "sdkwork-knowledgebase-pc-admin-provider": [
+        "./packages/sdkwork-knowledgebase-pc-admin-provider/src"
+      ],
       "sdkwork-knowledgebase-pc-core/config/runtimeConfig": [
         "./packages/sdkwork-knowledgebase-pc-core/src/config/runtimeConfig.ts"
       ],

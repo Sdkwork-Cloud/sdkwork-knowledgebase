@@ -10,7 +10,7 @@ use reqwest::{Client, Method, StatusCode, Url};
 use sdkwork_knowledgebase_contract::provider_binding::{
     KnowledgeEngineDataScope, KnowledgeEngineExecutionContext,
 };
-use sdkwork_utils_rust::SDKWORK_TRACE_ID_HEADER;
+use sdkwork_utils_rust::{is_blank, SDKWORK_TRACE_ID_HEADER};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tokio::sync::Semaphore;
@@ -55,7 +55,7 @@ impl ProviderExecutionContext {
         }
     }
 
-    pub fn for_implementation(implementation_id: impl Into<String>) -> Self {
+    pub fn for_system_health(implementation_id: impl Into<String>) -> Self {
         Self::new(implementation_id, sdkwork_utils_rust::uuid())
     }
 
@@ -124,8 +124,35 @@ impl ProviderExecutionContext {
         Ok(provider_context)
     }
 
+    pub fn from_knowledge_engine_request(
+        context: &KnowledgeEngineExecutionContext,
+        implementation_id: impl Into<String>,
+        operation: ProviderOperation,
+        request_tenant_id: u64,
+        request_space_id: u64,
+    ) -> Result<Self, ProviderError> {
+        let implementation_id = implementation_id.into();
+        if request_tenant_id == 0
+            || request_tenant_id != context.tenant_id
+            || request_space_id == 0
+            || request_space_id != context.space_id
+        {
+            return Err(ProviderError::new(
+                ProviderErrorCategory::PermissionDenied,
+                operation,
+                implementation_id,
+                context.binding_id.map(|value| value.to_string()),
+                None,
+                false,
+                None,
+                "Provider request scope does not match the execution context",
+            ));
+        }
+        Self::from_knowledge_engine(context, implementation_id, operation)
+    }
+
     fn validate_for_operation(&self, operation: ProviderOperation) -> Result<(), ProviderError> {
-        if self.trace_id.trim().is_empty() {
+        if is_blank(Some(self.trace_id.as_str())) {
             return Err(self.context_error(
                 operation,
                 ProviderErrorCategory::Validation,
@@ -144,7 +171,7 @@ impl ProviderExecutionContext {
         if operation == ProviderOperation::Health && self.tenant_id == 0 {
             return Ok(());
         }
-        if self.tenant_id == 0 || self.actor_id.trim().is_empty() {
+        if self.tenant_id == 0 || is_blank(Some(self.actor_id.as_str())) {
             return Err(self.context_error(
                 operation,
                 ProviderErrorCategory::PermissionDenied,
@@ -526,7 +553,7 @@ impl ProviderRuntime {
         max_response_bytes: usize,
     ) -> Result<ProviderHttpResponse, ProviderError> {
         let mut headers = request.headers.clone();
-        if !context.trace_id.trim().is_empty() {
+        if !is_blank(Some(context.trace_id.as_str())) {
             if let (Ok(name), Ok(value)) = (
                 HeaderName::from_bytes(SDKWORK_TRACE_ID_HEADER.as_bytes()),
                 HeaderValue::from_str(context.trace_id.trim()),

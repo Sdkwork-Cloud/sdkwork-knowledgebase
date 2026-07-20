@@ -132,6 +132,45 @@ fn execution_context_requires_binding_and_live_deadline() {
     assert_eq!(expired.category, ProviderErrorCategory::Timeout);
 }
 
+#[test]
+fn request_scope_must_match_authenticated_execution_context() {
+    for (tenant_id, space_id) in [(99, 42), (11, 99), (0, 42), (11, 0)] {
+        let error = ProviderExecutionContext::from_knowledge_engine_request(
+            &knowledge_engine_context(Some(73), vec![42]),
+            "engine.knowledge.external.test",
+            ProviderOperation::Search,
+            tenant_id,
+            space_id,
+        )
+        .expect_err("request scope mismatch must fail before Provider execution");
+
+        assert_eq!(error.category, ProviderErrorCategory::PermissionDenied);
+        assert_eq!(
+            error.safe_message,
+            "Provider request scope does not match the execution context"
+        );
+    }
+}
+
+#[test]
+fn request_scope_conversion_preserves_authenticated_context() {
+    let context = ProviderExecutionContext::from_knowledge_engine_request(
+        &knowledge_engine_context(Some(73), vec![42]),
+        "engine.knowledge.external.test",
+        ProviderOperation::Read,
+        11,
+        42,
+    )
+    .expect("matching request scope");
+
+    assert_eq!(context.tenant_id, 11);
+    assert_eq!(context.organization_id, 12);
+    assert_eq!(context.actor_id, "actor-provider-test");
+    assert_eq!(context.space_id, 42);
+    assert_eq!(context.binding_id.as_deref(), Some("73"));
+    assert_eq!(context.trace_id, "trace-provider-001");
+}
+
 #[derive(Clone)]
 struct FailThenSucceed {
     calls: Arc<AtomicUsize>,

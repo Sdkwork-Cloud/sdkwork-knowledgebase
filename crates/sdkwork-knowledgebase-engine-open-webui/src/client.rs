@@ -28,8 +28,8 @@ impl OpenWebuiApiClient {
         Self { config, http }
     }
 
-    fn context(&self) -> ProviderExecutionContext {
-        ProviderExecutionContext::for_implementation(OPEN_WEBUI_IMPLEMENTATION_ID)
+    fn health_context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_system_health(OPEN_WEBUI_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self, knowledge_id: &str) -> Result<(), KnowledgeEngineError> {
@@ -39,11 +39,11 @@ impl OpenWebuiApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         self.http
-            .execute(&self.context(), request)
+            .execute(&self.health_context(), request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         Ok(())
@@ -51,6 +51,7 @@ impl OpenWebuiApiClient {
 
     pub async fn query_collection(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         knowledge_id: &str,
         query: &str,
@@ -62,7 +63,7 @@ impl OpenWebuiApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "collection_names": [knowledge_id],
@@ -74,7 +75,7 @@ impl OpenWebuiApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: OpenWebuiQueryResponse =
@@ -89,13 +90,14 @@ impl OpenWebuiApiClient {
 
     pub async fn read_chunk(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         knowledge_id: &str,
         document_hint: &str,
         chunk_id: &str,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let search = self
-            .query_collection(space_id, knowledge_id, document_hint, 25)
+            .query_collection(context, space_id, knowledge_id, document_hint, 25)
             .await?;
 
         let hit = search

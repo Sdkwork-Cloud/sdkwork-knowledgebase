@@ -1,4 +1,5 @@
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredential;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineCapability, KnowledgeEngineHealthStatus, KnowledgeEngineSearchRequest,
 };
@@ -8,6 +9,7 @@ use sdkwork_knowledgebase_contract::provider_binding::{
 use sdkwork_knowledgebase_engine_dify::{
     DifyConnectorConfig, DifyKnowledgeEngine, DIFY_IMPLEMENTATION_ID,
 };
+use sdkwork_knowledgebase_test_support::provider_execution::provider_execution_context;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -21,7 +23,7 @@ async fn assert_dify_health(upstream_status: u16, expected: KnowledgeEngineHealt
         .await;
     let engine = DifyKnowledgeEngine::with_config(DifyConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "health-key".to_string(),
+        api_key: zeroize::Zeroizing::new("health-key".to_string()),
         default_dataset_id: Some("health-dataset".to_string()),
     });
 
@@ -80,20 +82,26 @@ async fn dify_search_uses_binding_owned_remote_resource_id() {
 
     let config = DifyConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "test-api-key".to_string(),
+        api_key: zeroize::Zeroizing::new("test-api-key".to_string()),
         default_dataset_id: Some("template-dataset".to_string()),
     };
     let engine = DifyKnowledgeEngine::with_config(config)
-        .bind_provider(&active_binding("binding-dataset"))
+        .bind_provider(
+            &active_binding("binding-dataset"),
+            Some(KnowledgeEngineProviderCredential::new("test-api-key").expect("test credential")),
+        )
         .expect("bind provider");
 
     let result = engine
-        .search(KnowledgeEngineSearchRequest {
-            tenant_id: 1,
-            space_id: 42,
-            query: "hello".to_string(),
-            top_k: 3,
-        })
+        .search(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-search"),
+            KnowledgeEngineSearchRequest {
+                tenant_id: 1,
+                space_id: 42,
+                query: "hello".to_string(),
+                top_k: 3,
+            },
+        )
         .await
         .expect("search");
 

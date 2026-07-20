@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Activity, ArrowLeft, Database, FileStack, Layers, ShieldAlert, Users } from 'lucide-react';
+import { Activity, ArrowLeft, Database, FileStack, Layers, ServerCog, ShieldAlert, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatBytes } from '@sdkwork/utils';
 import {
@@ -204,10 +204,20 @@ export function KnowledgebaseAdminConsole() {
           <ArrowLeft size={16} />
           {t('adminConsoleBack')}
         </button>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-lg font-semibold text-[var(--color-kb-text-heading)]">{t('adminConsoleTitle')}</h1>
           <p className="text-sm text-[var(--color-kb-text-muted)]">{t('adminConsoleSubtitle')}</p>
         </div>
+        {canAccess ? (
+          <button
+            type="button"
+            onClick={() => navigate('/admin/providers')}
+            className="inline-flex items-center gap-2 border border-[var(--color-kb-panel-border)] px-3 py-2 text-sm font-medium hover:bg-[var(--color-kb-panel-hover)]"
+          >
+            <ServerCog size={16} />
+            {t('adminConsoleProviderOperations')}
+          </button>
+        ) : null}
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-8 space-y-6">

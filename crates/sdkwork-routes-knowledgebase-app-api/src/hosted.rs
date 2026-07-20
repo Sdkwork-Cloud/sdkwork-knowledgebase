@@ -1015,9 +1015,17 @@ impl KnowledgeOkfAppService for HostedOkfService {
         }
 
         require_space_access(&self.runtime, &context, request.space_id).await?;
+        let execution_context = self
+            .runtime
+            .knowledge_engine_execution_context(&context, vec![request.space_id])?;
         let search = self
             .runtime
-            .search_knowledge_engine_for_space(request.space_id, &request.query, 8)
+            .search_knowledge_engine_for_space(
+                &execution_context,
+                request.space_id,
+                &request.query,
+                8,
+            )
             .await
             .map_err(|error| ApiError::internal("okf_engine_search_failed", error))?;
 
@@ -1117,9 +1125,17 @@ impl KnowledgeOkfAppService for HostedOkfService {
         )
         .await?;
         let query = request.query.unwrap_or_default();
-        let context_pack =
-            build_okf_context_pack_from_engine(&self.runtime, request.space_id, query, 4096)
-                .await?;
+        let execution_context = self
+            .runtime
+            .knowledge_engine_execution_context(&context, vec![request.space_id])?;
+        let context_pack = build_okf_context_pack_from_engine(
+            &self.runtime,
+            &execution_context,
+            request.space_id,
+            query,
+            4096,
+        )
+        .await?;
 
         let body = serde_json::to_vec_pretty(&context_pack).map_err(|error| {
             ApiError::internal("okf_context_pack_serialization_failed", error.to_string())

@@ -41,6 +41,12 @@ const WechatPublishPage = React.lazy(() =>
   })),
 );
 
+const ProviderAdminPage = React.lazy(() =>
+  import('sdkwork-knowledgebase-pc-admin-provider').then((module) => ({
+    default: module.ProviderAdminPage,
+  })),
+);
+
 const GroupKnowledgebaseLaunchPage = React.lazy(() =>
   import('@sdkwork/knowledgebase-pc-knowledge').then((module) => ({
     default: module.GroupKnowledgebaseLaunchPage,
@@ -166,6 +172,7 @@ function KnowledgebaseAppRoutes({
           <Routes>
             <Route path="/" element={<AppShell />} />
             <Route path="/admin" element={<KnowledgebaseAdminConsole />} />
+            <Route path="/admin/providers" element={<ProviderAdminPage />} />
             <Route path="/wechat-publish" element={<WechatPublishPage />} />
             <Route path={GROUP_KNOWLEDGEBASE_LAUNCH_PATH} element={<GroupKnowledgebaseLaunchPage />} />
           </Routes>

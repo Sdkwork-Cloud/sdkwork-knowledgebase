@@ -56,6 +56,8 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
         &runtime,
         "integration-worker",
         time::Duration::minutes(5),
+        std::time::Duration::from_secs(120),
+        10,
         10,
         10,
         10,

@@ -26,8 +26,8 @@ impl DifyApiClient {
         Self { config, http }
     }
 
-    fn context(&self) -> ProviderExecutionContext {
-        ProviderExecutionContext::for_implementation(DIFY_IMPLEMENTATION_ID)
+    fn health_context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_system_health(DIFY_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self, dataset_id: &str) -> Result<(), KnowledgeEngineError> {
@@ -37,11 +37,11 @@ impl DifyApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         self.http
-            .execute(&self.context(), request)
+            .execute(&self.health_context(), request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         Ok(())
@@ -49,6 +49,7 @@ impl DifyApiClient {
 
     pub async fn retrieve(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         dataset_id: &str,
         query: &str,
@@ -60,7 +61,7 @@ impl DifyApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "query": query,
@@ -70,7 +71,7 @@ impl DifyApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: DifyRetrieveResponse = response.json().map_err(KnowledgeEngineError::from)?;
@@ -89,6 +90,7 @@ impl DifyApiClient {
 
     pub async fn read_segment(
         &self,
+        context: &ProviderExecutionContext,
         dataset_id: &str,
         document_id: &str,
         segment_id: &str,
@@ -99,12 +101,12 @@ impl DifyApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: DifySegmentDetailResponse =

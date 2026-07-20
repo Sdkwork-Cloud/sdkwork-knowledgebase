@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "9891f4768b685875a4ed13e8dad47d23638a07eb0b95bb4a3e062ff61e162d9f"
+      "sha256": "89e16cde4e52ad3f2763c151d4cb4ca5f4ff703aae41ba1b3d9f39b798f34ffd"
     },
     {
       "path": "src/api/paths.ts",
@@ -115,6 +115,18 @@
       "sha256": "f53610a9fa207f01ad6ae655f7a00aede7ab43003ce3c8587ab02584a381898e"
     },
     {
+      "path": "src/types/create-knowledge-engine-provider-binding-request.ts",
+      "sha256": "6367c3850e868999b61a86c0506482ef6714050b215b4ae4fa4e68592813bdeb"
+    },
+    {
+      "path": "src/types/create-knowledge-engine-provider-credential-reference-request.ts",
+      "sha256": "72344299ee4df74c7c4823e2cf9b3be2cce2abc6faf75db6aac69f6032c706a4"
+    },
+    {
+      "path": "src/types/create-knowledge-engine-provider-migration-operation-request.ts",
+      "sha256": "5671fe4041856bec9978d5ae752a8e8a733bf4e62eb5111ad1abc3f6fc2cb5b7"
+    },
+    {
       "path": "src/types/create-knowledge-source-request.ts",
       "sha256": "09d8099ff4ef79845434d3dccd029b1bf1f4ca53592e45be668e0338e7f1d01a"
     },
@@ -132,7 +144,7 @@
     },
     {
       "path": "src/types/index.ts",
-      "sha256": "555cb3782a662fc65d16dd7c5659703ea0c286b33a7b9f1cdfaad65a204d3af0"
+      "sha256": "d27fce9a7aab41d09af37dbb65e4eb5aec9aca48e9ada499901ec5c3cf58e250"
     },
     {
       "path": "src/types/indexes-create-response201.ts",
@@ -245,6 +257,50 @@
     {
       "path": "src/types/knowledge-drive-object-ref.ts",
       "sha256": "1fc293b3e85f7f6060b6d350a755cb55aa29d16adc8ca7a8905ae6107297a780"
+    },
+    {
+      "path": "src/types/knowledge-engine-capability.ts",
+      "sha256": "8e66180fb678d2b06d8c2fee4857d5c04a3df1cf79d1e5ec427745ebd90ae3db"
+    },
+    {
+      "path": "src/types/knowledge-engine-provider-binding-page.ts",
+      "sha256": "3214b132b3e1a7d789afc864d67c1768ea695c73a9e931a9f5fc569269f5ac55"
+    },
+    {
+      "path": "src/types/knowledge-engine-provider-binding-state.ts",
+      "sha256": "8dfb67a143537b23ce6562161228cc80c553efcfe3f196d44ce7b20cf3c294a3"
+    },
+    {
+      "path": "src/types/knowledge-engine-provider-binding.ts",
+      "sha256": "32e24545b76ab1ee4b0343810590f0caa8782b5d4996a8c1e62371ba182924de"
+    },
+    {
+      "path": "src/types/knowledge-engine-provider-credential-reference-page.ts",
+      "sha256": "eb98ca71016675ebabed68f549e6dad7687d3a3617e719ffa59040ebbf06abb8"
+    },
+    {
+      "path": "src/types/knowledge-engine-provider-credential-reference.ts",
+      "sha256": "48ad5a9eda1130e27191dc210b734cb69f125965e8734133402fe16a73bf0370"
+    },
+    {
+      "path": "src/types/knowledge-engine-provider-credential-rotation-state.ts",
+      "sha256": "68370357e91a6780ceaf7673c8eaca2c9bda27789bafe4333fcbc3daeb2f41b7"
+    },
+    {
+      "path": "src/types/knowledge-engine-provider-error-category.ts",
+      "sha256": "fa580bf4b22a1c9ce613d97df5528476037741d229a1c3400a1a87d621d2dba6"
+    },
+    {
+      "path": "src/types/knowledge-engine-provider-migration-operation-page.ts",
+      "sha256": "ada817f6180a712900e3a7db39ed89f936522f90faa28d477f944f411b470184"
+    },
+    {
+      "path": "src/types/knowledge-engine-provider-migration-operation.ts",
+      "sha256": "dd7c0ee493f8535c57c96c7ced49081173a0a30212d58ac30511a364e0836d50"
+    },
+    {
+      "path": "src/types/knowledge-engine-provider-migration-state.ts",
+      "sha256": "691fb1d5303e38407a1018612387cd72ad2f75df5be869d5c3aec8e65e3ce21c"
     },
     {
       "path": "src/types/knowledge-filter.ts",
@@ -535,8 +591,36 @@
       "sha256": "1b080835b11fe8a05291e841dd864a0eb901bc819255ea159b46afdd1cc76c42"
     },
     {
+      "path": "src/types/provider-binding-version-command-request.ts",
+      "sha256": "c41da2461335b6534c58f4a5f25fc2ccea9df24eabb66c2c63d07461f504a420"
+    },
+    {
+      "path": "src/types/provider-credential-references-create-response201.ts",
+      "sha256": "acaef56788b0aa375f65c20683c24ed3dc2afa0cddd81db06d327a05050e7e79"
+    },
+    {
+      "path": "src/types/provider-credential-references-list-response.ts",
+      "sha256": "9beb25258643098d8cd3986d65233cac0fb12e270d9b11bb52705f2140b6f84c"
+    },
+    {
+      "path": "src/types/provider-credential-references-retrieve-response.ts",
+      "sha256": "c67842ae234833c1eb40b57cdef24fcd3a600806ecd00eb46c4cf4b23cf94535"
+    },
+    {
+      "path": "src/types/provider-credential-references-revoke-response.ts",
+      "sha256": "14877f2124e6ef9468ae7adcb16e73bf73806579eb8c4bd9c4fef4215ab77b5f"
+    },
+    {
+      "path": "src/types/provider-credential-references-rotate-response.ts",
+      "sha256": "98d65bbd90332be5c9c43bd516a400768ae43c91a753e470d21d5fd3c40b6258"
+    },
+    {
       "path": "src/types/provider-health-list-response.ts",
       "sha256": "f86adcecb4164ab688999f11acefd7fcf36bfa1f96ac1af86d1a2c9ab9d22bbd"
+    },
+    {
+      "path": "src/types/provider-migration-version-command-request.ts",
+      "sha256": "5afc3defc58fa5a6799dd214945d516ae0eba71dd9e6ad6ae6ee58a9145ff112"
     },
     {
       "path": "src/types/retrieval-profiles-create-response201.ts",
@@ -557,6 +641,14 @@
     {
       "path": "src/types/retrieval-traces-retrieve-response.ts",
       "sha256": "ed8b9ede0f6ff212c30a70b4525ea9ed98fe8dbedc5eea393edb750b43e77bdb"
+    },
+    {
+      "path": "src/types/revoke-knowledge-engine-provider-credential-reference-request.ts",
+      "sha256": "2feb4e758ea30d4ad4473fbc89a50e59ef1873c833ba88c62fbf4d092f4e0aa7"
+    },
+    {
+      "path": "src/types/rotate-knowledge-engine-provider-credential-reference-request.ts",
+      "sha256": "d02c9d8d3ad5606a3e42d36396f2bffe1838a9680f4d9cbb605a28a84cbe6414"
     },
     {
       "path": "src/types/sdk-work-api-response.ts",
@@ -607,8 +699,56 @@
       "sha256": "4d4f6881db75f9aa2daeeba50af849963c82a69677203174bcb25005d5f30710"
     },
     {
+      "path": "src/types/spaces-provider-bindings-activate-response.ts",
+      "sha256": "4e4b1f20f628b3424183e7575e695350aa3476396378f0002989bbc48c2d9b91"
+    },
+    {
+      "path": "src/types/spaces-provider-bindings-create-response201.ts",
+      "sha256": "ac1b4bea5fd77dd000ee8253b7353dbc907ec3699454df4c973b1535e95d8a42"
+    },
+    {
+      "path": "src/types/spaces-provider-bindings-disable-response.ts",
+      "sha256": "8be7088c06a13e4d874f561e8402a3673d2f4ea74802f582c8a7c9aee800cfe0"
+    },
+    {
+      "path": "src/types/spaces-provider-bindings-list-response.ts",
+      "sha256": "40ecf950c07f3575c495fd99b70a717ba550695a18458a0d5d0eeb88c98db691"
+    },
+    {
+      "path": "src/types/spaces-provider-bindings-retrieve-response.ts",
+      "sha256": "c53802ed77d62fd6c0c4de901d4f65fab0c9f3bb15753c2cf70ddf19c334c6d8"
+    },
+    {
+      "path": "src/types/spaces-provider-bindings-test-response.ts",
+      "sha256": "c919d5047293a913da76c0dab79dab70971c90d6a261fe63085555f8f284b019"
+    },
+    {
+      "path": "src/types/spaces-provider-bindings-update-response.ts",
+      "sha256": "53042bc160fc7e0c121c87979006c26bb8e78fe056ed7aa1cc560357de116ebd"
+    },
+    {
+      "path": "src/types/spaces-provider-migrations-create-response201.ts",
+      "sha256": "4af0daca80cba59ef0aebdf43ea64b954c64a6b8fcb03c01b409845d8c411739"
+    },
+    {
+      "path": "src/types/spaces-provider-migrations-list-response.ts",
+      "sha256": "9ac5093c7c7361db0b25f12ec1ae35e757ee0eef8adda5894c2dcda5095151f7"
+    },
+    {
+      "path": "src/types/spaces-provider-migrations-retrieve-response.ts",
+      "sha256": "a206e5327361c062c333d4c0e5397b278895569c8164b9c351846d8af9adc145"
+    },
+    {
+      "path": "src/types/spaces-provider-migrations-rollback-response.ts",
+      "sha256": "f6fe8c3ee131ede21010ffe64520b9a7348d5dfee4bd5f08db9ec350e4919430"
+    },
+    {
       "path": "src/types/tenants-current-list-response.ts",
       "sha256": "fa380c87c12c8fb2c2ff0164cb35899043f733da6e93c7038e438420a0f684b2"
+    },
+    {
+      "path": "src/types/update-knowledge-engine-provider-binding-request.ts",
+      "sha256": "9e330391f67bc5aeb98e71ae2d57d2a20e862a3f9f4b9503bbc5cf4a79181536"
     },
     {
       "path": "tsconfig.json",

@@ -11,6 +11,7 @@ use sdkwork_knowledgebase_contract::okf::{
     OkfConceptSummary, OkfConceptUpsertRequest, PublishKnowledgeOkfConceptRequest,
 };
 use sdkwork_knowledgebase_contract::okf_bundle_file::KnowledgeOkfBundleFile;
+use sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext;
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::OkfBundleFileKind;
 use sdkwork_utils_rust::is_blank;
@@ -207,6 +208,7 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
 
     async fn search(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineSearchRequest,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
         let pages = self
@@ -319,6 +321,7 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
 
     async fn read_document(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineReadRequest,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let pages = self
@@ -359,6 +362,7 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
 
     async fn list_documents(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         let pages = self

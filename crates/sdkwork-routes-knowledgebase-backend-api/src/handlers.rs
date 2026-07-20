@@ -3,6 +3,16 @@ use axum::{
     response::Response,
     Json,
 };
+use sdkwork_knowledgebase_contract::provider_binding::{
+    CreateKnowledgeEngineProviderBindingRequest,
+    CreateKnowledgeEngineProviderCredentialReferenceRequest,
+    CreateKnowledgeEngineProviderMigrationOperationRequest, KnowledgeEngineProviderBindingState,
+    KnowledgeEngineProviderCredentialRotationState, KnowledgeEngineProviderMigrationState,
+    ProviderBindingVersionCommandRequest, ProviderMigrationVersionCommandRequest,
+    RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    UpdateKnowledgeEngineProviderBindingRequest,
+};
 use sdkwork_knowledgebase_contract::{
     AnonymizeKnowledgeAuditSubjectRequest, CreateKnowledgeSourceRequest,
     ExportKnowledgeAuditEventsRequest, KnowledgeIndexRequest, KnowledgeOkfProfileRequest,
@@ -16,7 +26,7 @@ use crate::{
     auth::{require_backend_context, require_backend_mutation_context, RequiredBackendContext},
     error::{BackendApiProblem, BackendApiResult},
     ports::KnowledgeBackendRequestContext,
-    response::{created_json, ok_json, ok_list_json},
+    response::{command_json, created_json, ok_json, ok_list_json},
     routes::BackendState,
 };
 
@@ -57,10 +67,11 @@ async fn audit_backend_mutation<T>(
     result: BackendApiResult<T>,
 ) -> Result<BackendApiResult<T>, BackendApiProblem> {
     if result.is_ok() {
+        let operator_id = backend_audit_operator_id(context)?;
         sdkwork_knowledgebase_observability::record_backend_admin_operation(
             operation,
             context.tenant_id,
-            context.operator_id.unwrap_or(0),
+            operator_id,
         )
         .await
         .map_err(|error| {
@@ -71,6 +82,62 @@ async fn audit_backend_mutation<T>(
         })?;
     }
     Ok(result)
+}
+
+fn backend_audit_operator_id(
+    context: &KnowledgeBackendRequestContext,
+) -> Result<u64, BackendApiProblem> {
+    context.operator_id.ok_or_else(|| {
+        BackendApiProblem::from_internal(
+            "knowledge_audit_actor_missing",
+            "authenticated backend operator is required for mutation audit",
+        )
+    })
+}
+
+async fn audit_provider_mutation<T, F>(
+    context: &KnowledgeBackendRequestContext,
+    operation: &str,
+    result: BackendApiResult<T>,
+    metadata: F,
+) -> Result<BackendApiResult<T>, BackendApiProblem>
+where
+    F: FnOnce(&T) -> sdkwork_knowledgebase_observability::BackendAdminResourceAudit,
+{
+    if let Ok(value) = &result {
+        sdkwork_knowledgebase_observability::record_backend_admin_resource_operation(
+            operation,
+            context.tenant_id,
+            backend_audit_operator_id(context)?,
+            metadata(value),
+        )
+        .await
+        .map_err(|error| {
+            BackendApiProblem::from_internal(
+                "knowledge_audit_persistence_failed",
+                error.to_string(),
+            )
+        })?;
+    }
+    Ok(result)
+}
+
+fn provider_audit_metadata(
+    resource_type: &str,
+    resource_id: u64,
+    space_id: Option<u64>,
+    expected_version: Option<u64>,
+    result_version: Option<u64>,
+    result_status: Option<String>,
+) -> sdkwork_knowledgebase_observability::BackendAdminResourceAudit {
+    sdkwork_knowledgebase_observability::BackendAdminResourceAudit {
+        resource_type: resource_type.to_string(),
+        resource_id: Some(resource_id),
+        space_id,
+        expected_version,
+        result_version,
+        result_status,
+    }
 }
 
 pub(crate) async fn list_sources(
@@ -373,9 +440,432 @@ pub(crate) async fn retrieve_retrieval_trace(
     ok_json(state.api.retrieve_retrieval_trace(trace_id).await)
 }
 
-backend_handler!(retrieve_provider_health, |state: BackendState| async move {
-    ok_json(state.api.retrieve_provider_health().await)
-});
+pub(crate) async fn retrieve_provider_health(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+) -> Result<Response, BackendApiProblem> {
+    let context = require_backend_context(&state, context)?;
+    ok_json(state.api.retrieve_provider_health(&context).await)
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ListProviderCredentialReferencesQuery {
+    pub implementation_id: Option<String>,
+    pub rotation_state: Option<KnowledgeEngineProviderCredentialRotationState>,
+    pub cursor: Option<String>,
+    pub page_size: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ListProviderBindingsQuery {
+    pub lifecycle_state: Option<KnowledgeEngineProviderBindingState>,
+    pub cursor: Option<String>,
+    pub page_size: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CreateProviderBindingBody {
+    pub implementation_id: String,
+    pub remote_resource_type: String,
+    pub remote_resource_id: String,
+    #[serde(default, with = "sdkwork_utils_rust::serde_uint64::option")]
+    pub credential_reference_id: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ListProviderMigrationsQuery {
+    pub operation_state: Option<KnowledgeEngineProviderMigrationState>,
+    pub cursor: Option<String>,
+    pub page_size: Option<u32>,
+}
+
+pub(crate) async fn create_provider_credential_reference(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Json(request): Json<CreateKnowledgeEngineProviderCredentialReferenceRequest>,
+) -> Result<Response, BackendApiProblem> {
+    let context =
+        require_backend_mutation_context(&state, context, "providerCredentialReferences.create")?;
+    let result = state
+        .api
+        .create_provider_credential_reference(&context, request)
+        .await;
+    created_json(
+        audit_provider_mutation(
+            &context,
+            "providerCredentialReferences.create",
+            result,
+            |credential| {
+                provider_audit_metadata(
+                    "provider_credential_reference",
+                    credential.id,
+                    None,
+                    None,
+                    Some(credential.version),
+                    Some(credential.rotation_state.as_str().to_string()),
+                )
+            },
+        )
+        .await?,
+    )
+}
+
+pub(crate) async fn list_provider_credential_references(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Query(query): Query<ListProviderCredentialReferencesQuery>,
+) -> Result<Response, BackendApiProblem> {
+    let context = require_backend_context(&state, context)?;
+    ok_list_json(
+        state
+            .api
+            .list_provider_credential_references(
+                &context,
+                query.implementation_id,
+                query.rotation_state,
+                query.cursor,
+                query.page_size,
+            )
+            .await,
+    )
+}
+
+pub(crate) async fn retrieve_provider_credential_reference(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path(credential_reference_id): Path<u64>,
+) -> Result<Response, BackendApiProblem> {
+    let context = require_backend_context(&state, context)?;
+    ok_json(
+        state
+            .api
+            .retrieve_provider_credential_reference(&context, credential_reference_id)
+            .await,
+    )
+}
+
+pub(crate) async fn rotate_provider_credential_reference(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path(credential_reference_id): Path<u64>,
+    Json(request): Json<RotateKnowledgeEngineProviderCredentialReferenceRequest>,
+) -> Result<Response, BackendApiProblem> {
+    let context =
+        require_backend_mutation_context(&state, context, "providerCredentialReferences.rotate")?;
+    let expected_version = request.expected_version;
+    let result = state
+        .api
+        .rotate_provider_credential_reference(&context, credential_reference_id, request)
+        .await;
+    command_json(
+        audit_provider_mutation(
+            &context,
+            "providerCredentialReferences.rotate",
+            result,
+            |command| {
+                provider_audit_metadata(
+                    "provider_credential_reference",
+                    credential_reference_id,
+                    None,
+                    Some(expected_version),
+                    None,
+                    command.status.clone(),
+                )
+            },
+        )
+        .await?,
+    )
+}
+
+pub(crate) async fn revoke_provider_credential_reference(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path(credential_reference_id): Path<u64>,
+    Json(request): Json<RevokeKnowledgeEngineProviderCredentialReferenceRequest>,
+) -> Result<Response, BackendApiProblem> {
+    let context =
+        require_backend_mutation_context(&state, context, "providerCredentialReferences.revoke")?;
+    let expected_version = request.expected_version;
+    let result = state
+        .api
+        .revoke_provider_credential_reference(&context, credential_reference_id, request)
+        .await;
+    command_json(
+        audit_provider_mutation(
+            &context,
+            "providerCredentialReferences.revoke",
+            result,
+            |command| {
+                provider_audit_metadata(
+                    "provider_credential_reference",
+                    credential_reference_id,
+                    None,
+                    Some(expected_version),
+                    None,
+                    command.status.clone(),
+                )
+            },
+        )
+        .await?,
+    )
+}
+
+pub(crate) async fn list_provider_bindings(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path(space_id): Path<u64>,
+    Query(query): Query<ListProviderBindingsQuery>,
+) -> Result<Response, BackendApiProblem> {
+    let context = require_backend_context(&state, context)?;
+    ok_list_json(
+        state
+            .api
+            .list_provider_bindings(
+                &context,
+                space_id,
+                query.lifecycle_state,
+                query.cursor,
+                query.page_size,
+            )
+            .await,
+    )
+}
+
+pub(crate) async fn create_provider_binding(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path(space_id): Path<u64>,
+    Json(request): Json<CreateProviderBindingBody>,
+) -> Result<Response, BackendApiProblem> {
+    let context =
+        require_backend_mutation_context(&state, context, "spaces.providerBindings.create")?;
+    let result = state
+        .api
+        .create_provider_binding(
+            &context,
+            CreateKnowledgeEngineProviderBindingRequest {
+                space_id,
+                implementation_id: request.implementation_id,
+                remote_resource_type: request.remote_resource_type,
+                remote_resource_id: request.remote_resource_id,
+                credential_reference_id: request.credential_reference_id,
+            },
+        )
+        .await;
+    created_json(
+        audit_provider_mutation(
+            &context,
+            "spaces.providerBindings.create",
+            result,
+            |binding| {
+                provider_audit_metadata(
+                    "provider_binding",
+                    binding.id,
+                    Some(space_id),
+                    None,
+                    Some(binding.version),
+                    Some(binding.lifecycle_state.as_str().to_string()),
+                )
+            },
+        )
+        .await?,
+    )
+}
+
+pub(crate) async fn retrieve_provider_binding(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path((space_id, binding_id)): Path<(u64, u64)>,
+) -> Result<Response, BackendApiProblem> {
+    let context = require_backend_context(&state, context)?;
+    ok_json(
+        state
+            .api
+            .retrieve_provider_binding(&context, space_id, binding_id)
+            .await,
+    )
+}
+
+pub(crate) async fn update_provider_binding(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path((space_id, binding_id)): Path<(u64, u64)>,
+    Json(request): Json<UpdateKnowledgeEngineProviderBindingRequest>,
+) -> Result<Response, BackendApiProblem> {
+    let context =
+        require_backend_mutation_context(&state, context, "spaces.providerBindings.update")?;
+    let expected_version = request.expected_version;
+    let result = state
+        .api
+        .update_provider_binding(&context, space_id, binding_id, request)
+        .await;
+    ok_json(
+        audit_provider_mutation(
+            &context,
+            "spaces.providerBindings.update",
+            result,
+            |binding| {
+                provider_audit_metadata(
+                    "provider_binding",
+                    binding_id,
+                    Some(space_id),
+                    Some(expected_version),
+                    Some(binding.version),
+                    Some(binding.lifecycle_state.as_str().to_string()),
+                )
+            },
+        )
+        .await?,
+    )
+}
+
+macro_rules! provider_binding_command_handler {
+    ($name:ident, $method:ident, $operation:literal) => {
+        pub(crate) async fn $name(
+            State(state): State<BackendState>,
+            context: RequiredBackendContext,
+            Path((space_id, binding_id)): Path<(u64, u64)>,
+            Json(request): Json<ProviderBindingVersionCommandRequest>,
+        ) -> Result<Response, BackendApiProblem> {
+            let context = require_backend_mutation_context(&state, context, $operation)?;
+            let expected_version = request.expected_version;
+            let result = state
+                .api
+                .$method(&context, space_id, binding_id, expected_version)
+                .await;
+            command_json(
+                audit_provider_mutation(&context, $operation, result, |command| {
+                    provider_audit_metadata(
+                        "provider_binding",
+                        binding_id,
+                        Some(space_id),
+                        Some(expected_version),
+                        None,
+                        command.status.clone(),
+                    )
+                })
+                .await?,
+            )
+        }
+    };
+}
+
+provider_binding_command_handler!(
+    test_provider_binding,
+    test_provider_binding,
+    "spaces.providerBindings.test"
+);
+
+pub(crate) async fn list_provider_migrations(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path(space_id): Path<u64>,
+    Query(query): Query<ListProviderMigrationsQuery>,
+) -> Result<Response, BackendApiProblem> {
+    let context = require_backend_context(&state, context)?;
+    ok_list_json(
+        state
+            .api
+            .list_provider_migrations(
+                &context,
+                space_id,
+                query.operation_state,
+                query.cursor,
+                query.page_size,
+            )
+            .await,
+    )
+}
+
+pub(crate) async fn create_provider_migration(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path(space_id): Path<u64>,
+    Json(request): Json<CreateKnowledgeEngineProviderMigrationOperationRequest>,
+) -> Result<Response, BackendApiProblem> {
+    let context =
+        require_backend_mutation_context(&state, context, "spaces.providerMigrations.create")?;
+    let result = state
+        .api
+        .create_provider_migration(&context, space_id, request)
+        .await;
+    created_json(
+        audit_provider_mutation(
+            &context,
+            "spaces.providerMigrations.create",
+            result,
+            |operation| {
+                provider_audit_metadata(
+                    "provider_migration_operation",
+                    operation.id,
+                    Some(space_id),
+                    None,
+                    Some(operation.version),
+                    Some(operation.operation_state.as_str().to_string()),
+                )
+            },
+        )
+        .await?,
+    )
+}
+
+pub(crate) async fn retrieve_provider_migration(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path((space_id, migration_operation_id)): Path<(u64, u64)>,
+) -> Result<Response, BackendApiProblem> {
+    let context = require_backend_context(&state, context)?;
+    ok_json(
+        state
+            .api
+            .retrieve_provider_migration(&context, space_id, migration_operation_id)
+            .await,
+    )
+}
+
+pub(crate) async fn rollback_provider_migration(
+    State(state): State<BackendState>,
+    context: RequiredBackendContext,
+    Path((space_id, migration_operation_id)): Path<(u64, u64)>,
+    Json(request): Json<ProviderMigrationVersionCommandRequest>,
+) -> Result<Response, BackendApiProblem> {
+    let context =
+        require_backend_mutation_context(&state, context, "spaces.providerMigrations.rollback")?;
+    let expected_version = request.expected_version;
+    let result = state
+        .api
+        .rollback_provider_migration(&context, space_id, migration_operation_id, expected_version)
+        .await;
+    command_json(
+        audit_provider_mutation(
+            &context,
+            "spaces.providerMigrations.rollback",
+            result,
+            |command| {
+                provider_audit_metadata(
+                    "provider_migration_operation",
+                    migration_operation_id,
+                    Some(space_id),
+                    Some(expected_version),
+                    None,
+                    command.status.clone(),
+                )
+            },
+        )
+        .await?,
+    )
+}
+provider_binding_command_handler!(
+    activate_provider_binding,
+    activate_provider_binding,
+    "spaces.providerBindings.activate"
+);
+provider_binding_command_handler!(
+    disable_provider_binding,
+    disable_provider_binding,
+    "spaces.providerBindings.disable"
+);
 
 backend_handler!(
     retrieve_group_launch_capability,
@@ -488,6 +978,7 @@ mod tests {
             operator_id: Some(99),
             organization_id: Some(7),
             permission_scope: vec![],
+            trace_id: "trace-handler-test".to_string(),
         }
     }
 

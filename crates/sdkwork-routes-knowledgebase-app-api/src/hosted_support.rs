@@ -77,6 +77,7 @@ pub(crate) fn okf_citation_from_hit(
 
 pub(crate) async fn build_okf_context_pack_from_engine(
     runtime: &crate::runtime::KnowledgebaseRuntime,
+    execution_context: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext,
     space_id: u64,
     query: String,
     context_budget_tokens: u32,
@@ -89,7 +90,7 @@ pub(crate) async fn build_okf_context_pack_from_engine(
     }
 
     let search = runtime
-        .search_knowledge_engine_for_space(space_id, &query, 32)
+        .search_knowledge_engine_for_space(execution_context, space_id, &query, 32)
         .await
         .map_err(|error| ApiError::internal("okf_engine_search_failed", error))?;
 
@@ -100,7 +101,11 @@ pub(crate) async fn build_okf_context_pack_from_engine(
     for (rank, hit) in search.hits.into_iter().enumerate() {
         let rank = rank as u32 + 1;
         let document = runtime
-            .read_knowledge_engine_document_for_space(space_id, &hit.document.document_id)
+            .read_knowledge_engine_document_for_space(
+                execution_context,
+                space_id,
+                &hit.document.document_id,
+            )
             .await
             .map_err(|error| ApiError::internal("okf_engine_read_failed", error))?;
         let token_count = document.content.split_whitespace().count().max(1) as u32;

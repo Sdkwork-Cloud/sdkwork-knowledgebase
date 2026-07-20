@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 async-trait.workspace = true
 clawrouter-open-sdk.workspace = true
+futures.workspace = true
 sdkwork-agent-kernel.workspace = true
 sdkwork-agent-provider-rig.workspace = true
 sdkwork-agent-plugin-core.workspace = true
@@ -29,6 +30,7 @@ uuid.workspace = true
 reqwest = { workspace = true, features = ["multipart"] }
 urlencoding = "2"
 url = "2"
+zeroize.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true

@@ -36,8 +36,8 @@ impl HaystackApiClient {
         Self { config, http }
     }
 
-    fn context(&self) -> ProviderExecutionContext {
-        ProviderExecutionContext::for_implementation(HAYSTACK_IMPLEMENTATION_ID)
+    fn health_context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_system_health(HAYSTACK_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(
@@ -64,11 +64,11 @@ impl HaystackApiClient {
 
         let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .optional_bearer_auth(self.config.api_key.as_deref())
+            .optional_bearer_auth(self.config.api_key.as_ref().map(|value| value.as_str()))
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         self.http
-            .execute(&self.context(), request)
+            .execute(&self.health_context(), request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         Ok(())
@@ -76,6 +76,7 @@ impl HaystackApiClient {
 
     pub async fn search(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         workspace: Option<&str>,
         pipeline: &str,
@@ -83,9 +84,11 @@ impl HaystackApiClient {
         top_k: u32,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
         let payload = match self.config.deployment_mode {
-            HaystackDeploymentMode::Hayhooks => self.run_hayhooks_pipeline(pipeline, query).await?,
+            HaystackDeploymentMode::Hayhooks => {
+                self.run_hayhooks_pipeline(context, pipeline, query).await?
+            }
             HaystackDeploymentMode::DeepsetCloud => {
-                self.run_deepset_search(workspace, pipeline, query, top_k)
+                self.run_deepset_search(context, workspace, pipeline, query, top_k)
                     .await?
             }
         };
@@ -105,6 +108,7 @@ impl HaystackApiClient {
 
     pub async fn read_document(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         workspace: Option<&str>,
         pipeline: &str,
@@ -112,7 +116,7 @@ impl HaystackApiClient {
         chunk_id: &str,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let search = self
-            .search(space_id, workspace, pipeline, document_hint, 25)
+            .search(context, space_id, workspace, pipeline, document_hint, 25)
             .await?;
 
         let hit = search
@@ -150,6 +154,7 @@ impl HaystackApiClient {
 
     async fn run_hayhooks_pipeline(
         &self,
+        context: &ProviderExecutionContext,
         pipeline: &str,
         query: &str,
     ) -> Result<Value, KnowledgeEngineError> {
@@ -162,14 +167,14 @@ impl HaystackApiClient {
 
         let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
             .map_err(KnowledgeEngineError::from)?
-            .optional_bearer_auth(self.config.api_key.as_deref())
+            .optional_bearer_auth(self.config.api_key.as_ref().map(|value| value.as_str()))
             .map_err(KnowledgeEngineError::from)?
             .json(&body)
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         response.json().map_err(KnowledgeEngineError::from)
@@ -177,6 +182,7 @@ impl HaystackApiClient {
 
     async fn run_deepset_search(
         &self,
+        context: &ProviderExecutionContext,
         workspace: Option<&str>,
         pipeline: &str,
         query: &str,
@@ -193,7 +199,7 @@ impl HaystackApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
             .map_err(KnowledgeEngineError::from)?
-            .optional_bearer_auth(self.config.api_key.as_deref())
+            .optional_bearer_auth(self.config.api_key.as_ref().map(|value| value.as_str()))
             .map_err(KnowledgeEngineError::from)?
             .json(&json!({
                 "queries": [query],
@@ -205,7 +211,7 @@ impl HaystackApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         response.json().map_err(KnowledgeEngineError::from)

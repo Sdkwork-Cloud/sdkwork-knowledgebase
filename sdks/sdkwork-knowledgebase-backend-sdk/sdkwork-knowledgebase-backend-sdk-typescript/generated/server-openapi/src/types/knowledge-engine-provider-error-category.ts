@@ -1,0 +1,1 @@
+export type KnowledgeEngineProviderErrorCategory = 'authentication' | 'permission_denied' | 'rate_limited' | 'timeout' | 'unavailable' | 'circuit_open' | 'bulkhead_saturated' | 'invalid_response' | 'response_too_large' | 'invalid_target' | 'not_found' | 'validation' | 'unsupported' | 'internal';

@@ -11,6 +11,7 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineHealthStatus, KnowledgeEngineListRequest, KnowledgeEngineReadRequest,
     KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
 };
+use sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext;
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -198,6 +199,7 @@ impl KnowledgeEngine for CatalogExternalKnowledgeEngine {
 
     async fn search(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         _request: KnowledgeEngineSearchRequest,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(self.stub_message.clone()))
@@ -205,6 +207,7 @@ impl KnowledgeEngine for CatalogExternalKnowledgeEngine {
 
     async fn read_document(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         _request: KnowledgeEngineReadRequest,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(self.stub_message.clone()))
@@ -212,6 +215,7 @@ impl KnowledgeEngine for CatalogExternalKnowledgeEngine {
 
     async fn list_documents(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
@@ -227,7 +231,11 @@ impl ExternalKnowledgeEngine for CatalogExternalKnowledgeEngine {
         self.health().await
     }
 
-    async fn sync_sources(&self, _space_id: u64) -> Result<u32, KnowledgeEngineError> {
+    async fn sync_sources(
+        &self,
+        _context: &KnowledgeEngineExecutionContext,
+        _space_id: u64,
+    ) -> Result<u32, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(self.stub_message.clone()))
     }
 }

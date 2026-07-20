@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::api::paths::backend_path;
 use crate::api::paths::append_query_string;
 use crate::http::{SdkworkError, SdkworkHttpClient};
-use crate::models::{AnonymizeKnowledgeAuditSubjectRequest, ComplianceAuditEventsAnonymizeActorCreateResponse201, ComplianceAuditEventsExportCreateResponse201, CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, IndexesCreateResponse201, IndexesListResponse, IndexesRebuildResponse, IndexesRetrieveResponse, KnowledgeIndexRequest, KnowledgeOkfProfileRequest, KnowledgeRetrievalProfileRequest, OkfBundleExportCreateResponse201, OkfBundleExportRequest, OkfBundleExportRetrieveResponse, OkfBundleFilesListResponse, OkfBundleImportCreateResponse201, OkfBundleImportRequest, OkfBundleIndexCreateResponse201, OkfBundleIndexRebuildRequest, OkfCandidateReviewRequest, OkfCandidatesApproveResponse, OkfCandidatesListResponse, OkfCandidatesRejectResponse, OkfCompileJobRequest, OkfCompileJobsCreateResponse201, OkfConceptPublishRequest, OkfConceptsPublishResponse, OkfEvalRunsCreateResponse201, OkfLintRunsCreateResponse201, OkfLogEntriesCreateResponse201, OkfLogEntry, OkfProfileCreateResponse201, OkfProfileUpdateResponse, OkfQualityRunRequest, ProviderHealthListResponse, RetrievalProfilesCreateResponse201, RetrievalProfilesRetrieveResponse, RetrievalProfilesUpdateResponse, RetrievalTracesListResponse, RetrievalTracesRetrieveResponse, SourcesCreateResponse201, SourcesListResponse, SpacesListResponse, SpacesMembersListResponse, TenantsCurrentListResponse};
+use crate::models::{AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult, CreateKnowledgeEngineProviderBindingRequest, CreateKnowledgeEngineProviderCredentialReferenceRequest, CreateKnowledgeEngineProviderMigrationOperationRequest, CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, IngestionJob, KnowledgeAuditEventExport, KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingPage, KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderCredentialReferencePage, KnowledgeEngineProviderMigrationOperation, KnowledgeEngineProviderMigrationOperationPage, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeSpaceMemberList, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, ProviderBindingVersionCommandRequest, ProviderMigrationVersionCommandRequest, RevokeKnowledgeEngineProviderCredentialReferenceRequest, RotateKnowledgeEngineProviderCredentialReferenceRequest, SdkWorkCommandData, UpdateKnowledgeEngineProviderBindingRequest};
 
 #[derive(Clone)]
 pub struct KnowledgeApi {
@@ -16,7 +16,7 @@ impl KnowledgeApi {
     }
 
     /// List knowledge sources
-    pub async fn sources_list(&self, cursor: Option<&str>, page_size: Option<i64>) -> Result<SourcesListResponse, SdkworkError> {
+    pub async fn sources_list(&self, cursor: Option<&str>, page_size: Option<i64>) -> Result<serde_json::Value, SdkworkError> {
         let query = build_query_string(&[
             QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
             QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
@@ -26,19 +26,19 @@ impl KnowledgeApi {
     }
 
     /// Create a knowledge source
-    pub async fn sources_create(&self, body: &CreateKnowledgeSourceRequest) -> Result<SourcesCreateResponse201, SdkworkError> {
+    pub async fn sources_create(&self, body: &CreateKnowledgeSourceRequest) -> Result<KnowledgeSource, SdkworkError> {
         let path = backend_path(&"/knowledge/sources".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Create an OKF compile job
-    pub async fn okf_compile_jobs_create(&self, body: &OkfCompileJobRequest) -> Result<OkfCompileJobsCreateResponse201, SdkworkError> {
+    pub async fn okf_compile_jobs_create(&self, body: &OkfCompileJobRequest) -> Result<IngestionJob, SdkworkError> {
         let path = backend_path(&"/knowledge/okf/compile_jobs".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// List OKF candidates
-    pub async fn okf_candidates_list(&self, space_id: i64, cursor: Option<&str>, page_size: Option<i64>) -> Result<OkfCandidatesListResponse, SdkworkError> {
+    pub async fn okf_candidates_list(&self, space_id: i64, cursor: Option<&str>, page_size: Option<i64>) -> Result<serde_json::Value, SdkworkError> {
         let query = build_query_string(&[
             QueryParameterSpec::new("spaceId", space_id, "form", true, false, None),
             QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
@@ -49,61 +49,61 @@ impl KnowledgeApi {
     }
 
     /// Approve an OKF candidate
-    pub async fn okf_candidates_approve(&self, candidate_id: i64, body: &OkfCandidateReviewRequest) -> Result<OkfCandidatesApproveResponse, SdkworkError> {
+    pub async fn okf_candidates_approve(&self, candidate_id: i64, body: &OkfCandidateReviewRequest) -> Result<OkfCandidateResult, SdkworkError> {
         let path = backend_path(&format!("/knowledge/okf/candidates/{}/approve", serialize_path_parameter(candidate_id, PathParameterSpec::new("candidateId", "simple", false))));
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Reject an OKF candidate
-    pub async fn okf_candidates_reject(&self, candidate_id: i64, body: &OkfCandidateReviewRequest) -> Result<OkfCandidatesRejectResponse, SdkworkError> {
+    pub async fn okf_candidates_reject(&self, candidate_id: i64, body: &OkfCandidateReviewRequest) -> Result<OkfCandidateResult, SdkworkError> {
         let path = backend_path(&format!("/knowledge/okf/candidates/{}/reject", serialize_path_parameter(candidate_id, PathParameterSpec::new("candidateId", "simple", false))));
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Publish an OKF concept
-    pub async fn okf_concepts_publish(&self, concept_id: i64, body: &OkfConceptPublishRequest) -> Result<OkfConceptsPublishResponse, SdkworkError> {
+    pub async fn okf_concepts_publish(&self, concept_id: i64, body: &OkfConceptPublishRequest) -> Result<OkfConceptSummary, SdkworkError> {
         let path = backend_path(&format!("/knowledge/okf/concepts/{}/publish", serialize_path_parameter(concept_id, PathParameterSpec::new("conceptId", "simple", false))));
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Create an OKF profile
-    pub async fn okf_profile_create(&self, body: &KnowledgeOkfProfileRequest) -> Result<OkfProfileCreateResponse201, SdkworkError> {
+    pub async fn okf_profile_create(&self, body: &KnowledgeOkfProfileRequest) -> Result<KnowledgeOkfBundleFile, SdkworkError> {
         let path = backend_path(&"/knowledge/okf/profile".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Update an OKF profile
-    pub async fn okf_profile_update(&self, profile_id: i64, body: &KnowledgeOkfProfileRequest) -> Result<OkfProfileUpdateResponse, SdkworkError> {
+    pub async fn okf_profile_update(&self, profile_id: i64, body: &KnowledgeOkfProfileRequest) -> Result<KnowledgeOkfBundleFile, SdkworkError> {
         let path = backend_path(&format!("/knowledge/okf/profile/{}", serialize_path_parameter(profile_id, PathParameterSpec::new("profileId", "simple", false))));
         self.client.patch(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Rebuild the OKF bundle index
-    pub async fn okf_bundle_index_create(&self, body: &OkfBundleIndexRebuildRequest) -> Result<OkfBundleIndexCreateResponse201, SdkworkError> {
+    pub async fn okf_bundle_index_create(&self, body: &OkfBundleIndexRebuildRequest) -> Result<OkfIndexDocument, SdkworkError> {
         let path = backend_path(&"/knowledge/okf/index/rebuild".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Create an OKF log entry
-    pub async fn okf_log_entries_create(&self, body: &OkfLogEntry) -> Result<OkfLogEntriesCreateResponse201, SdkworkError> {
+    pub async fn okf_log_entries_create(&self, body: &OkfLogEntry) -> Result<OkfLogEntry, SdkworkError> {
         let path = backend_path(&"/knowledge/okf/log_entries".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Create an OKF bundle export
-    pub async fn okf_bundle_export_create(&self, body: &OkfBundleExportRequest) -> Result<OkfBundleExportCreateResponse201, SdkworkError> {
+    pub async fn okf_bundle_export_create(&self, body: &OkfBundleExportRequest) -> Result<KnowledgeOkfBundleFile, SdkworkError> {
         let path = backend_path(&"/knowledge/okf/exports".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Retrieve an OKF bundle export
-    pub async fn okf_bundle_export_retrieve(&self, export_id: i64) -> Result<OkfBundleExportRetrieveResponse, SdkworkError> {
+    pub async fn okf_bundle_export_retrieve(&self, export_id: i64) -> Result<KnowledgeOkfBundleFile, SdkworkError> {
         let path = backend_path(&format!("/knowledge/okf/exports/{}", serialize_path_parameter(export_id, PathParameterSpec::new("exportId", "simple", false))));
         self.client.get(&path, None, None).await
     }
 
     /// List OKF bundle files
-    pub async fn okf_bundle_files_list(&self, cursor: Option<&str>, page_size: Option<i64>) -> Result<OkfBundleFilesListResponse, SdkworkError> {
+    pub async fn okf_bundle_files_list(&self, cursor: Option<&str>, page_size: Option<i64>) -> Result<serde_json::Value, SdkworkError> {
         let query = build_query_string(&[
             QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
             QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
@@ -113,25 +113,25 @@ impl KnowledgeApi {
     }
 
     /// Create an OKF lint run
-    pub async fn okf_lint_runs_create(&self, body: &OkfQualityRunRequest) -> Result<OkfLintRunsCreateResponse201, SdkworkError> {
+    pub async fn okf_lint_runs_create(&self, body: &OkfQualityRunRequest) -> Result<OkfQualityRun, SdkworkError> {
         let path = backend_path(&"/knowledge/okf/lint_runs".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Create an OKF eval run
-    pub async fn okf_eval_runs_create(&self, body: &OkfQualityRunRequest) -> Result<OkfEvalRunsCreateResponse201, SdkworkError> {
+    pub async fn okf_eval_runs_create(&self, body: &OkfQualityRunRequest) -> Result<OkfQualityRun, SdkworkError> {
         let path = backend_path(&"/knowledge/okf/eval_runs".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Create a knowledge index
-    pub async fn indexes_create(&self, body: &KnowledgeIndexRequest) -> Result<IndexesCreateResponse201, SdkworkError> {
+    pub async fn indexes_create(&self, body: &KnowledgeIndexRequest) -> Result<KnowledgeIndex, SdkworkError> {
         let path = backend_path(&"/knowledge/indexes".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// List knowledge indexes
-    pub async fn indexes_list(&self, cursor: Option<&str>, page_size: Option<i64>) -> Result<IndexesListResponse, SdkworkError> {
+    pub async fn indexes_list(&self, cursor: Option<&str>, page_size: Option<i64>) -> Result<serde_json::Value, SdkworkError> {
         let query = build_query_string(&[
             QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
             QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
@@ -141,37 +141,37 @@ impl KnowledgeApi {
     }
 
     /// Retrieve a knowledge index
-    pub async fn indexes_retrieve(&self, index_id: &str) -> Result<IndexesRetrieveResponse, SdkworkError> {
+    pub async fn indexes_retrieve(&self, index_id: &str) -> Result<KnowledgeIndex, SdkworkError> {
         let path = backend_path(&format!("/knowledge/indexes/{}", serialize_path_parameter(index_id, PathParameterSpec::new("indexId", "simple", false))));
         self.client.get(&path, None, None).await
     }
 
     /// Rebuild a knowledge index
-    pub async fn indexes_rebuild(&self, index_id: &str, body: &OkfBundleIndexRebuildRequest) -> Result<IndexesRebuildResponse, SdkworkError> {
+    pub async fn indexes_rebuild(&self, index_id: &str, body: &OkfBundleIndexRebuildRequest) -> Result<OkfIndexDocument, SdkworkError> {
         let path = backend_path(&format!("/knowledge/indexes/{}/rebuild", serialize_path_parameter(index_id, PathParameterSpec::new("indexId", "simple", false))));
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Create a retrieval profile
-    pub async fn retrieval_profiles_create(&self, body: &KnowledgeRetrievalProfileRequest) -> Result<RetrievalProfilesCreateResponse201, SdkworkError> {
+    pub async fn retrieval_profiles_create(&self, body: &KnowledgeRetrievalProfileRequest) -> Result<KnowledgeRetrievalProfile, SdkworkError> {
         let path = backend_path(&"/knowledge/retrieval_profiles".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Retrieve a retrieval profile
-    pub async fn retrieval_profiles_retrieve(&self, profile_id: &str) -> Result<RetrievalProfilesRetrieveResponse, SdkworkError> {
+    pub async fn retrieval_profiles_retrieve(&self, profile_id: &str) -> Result<KnowledgeRetrievalProfile, SdkworkError> {
         let path = backend_path(&format!("/knowledge/retrieval_profiles/{}", serialize_path_parameter(profile_id, PathParameterSpec::new("profileId", "simple", false))));
         self.client.get(&path, None, None).await
     }
 
     /// Update a retrieval profile
-    pub async fn retrieval_profiles_update(&self, profile_id: &str, body: &KnowledgeRetrievalProfileRequest) -> Result<RetrievalProfilesUpdateResponse, SdkworkError> {
+    pub async fn retrieval_profiles_update(&self, profile_id: &str, body: &KnowledgeRetrievalProfileRequest) -> Result<KnowledgeRetrievalProfile, SdkworkError> {
         let path = backend_path(&format!("/knowledge/retrieval_profiles/{}", serialize_path_parameter(profile_id, PathParameterSpec::new("profileId", "simple", false))));
         self.client.patch(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// List retrieval traces
-    pub async fn retrieval_traces_list(&self, cursor: Option<&str>, page_size: Option<i64>) -> Result<RetrievalTracesListResponse, SdkworkError> {
+    pub async fn retrieval_traces_list(&self, cursor: Option<&str>, page_size: Option<i64>) -> Result<serde_json::Value, SdkworkError> {
         let query = build_query_string(&[
             QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
             QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
@@ -181,31 +181,31 @@ impl KnowledgeApi {
     }
 
     /// Retrieve a retrieval trace
-    pub async fn retrieval_traces_retrieve(&self, trace_id: &str) -> Result<RetrievalTracesRetrieveResponse, SdkworkError> {
+    pub async fn retrieval_traces_retrieve(&self, trace_id: &str) -> Result<KnowledgeRetrievalTrace, SdkworkError> {
         let path = backend_path(&format!("/knowledge/retrieval_traces/{}", serialize_path_parameter(trace_id, PathParameterSpec::new("traceId", "simple", false))));
         self.client.get(&path, None, None).await
     }
 
     /// Retrieve provider health status
-    pub async fn provider_health_list(&self) -> Result<ProviderHealthListResponse, SdkworkError> {
+    pub async fn provider_health_list(&self) -> Result<KnowledgeProviderHealth, SdkworkError> {
         let path = backend_path(&"/knowledge/provider_health".to_string());
         self.client.get(&path, None, None).await
     }
 
     /// Retrieve current tenant knowledgebase status
-    pub async fn tenants_current_list(&self) -> Result<TenantsCurrentListResponse, SdkworkError> {
+    pub async fn tenants_current_list(&self) -> Result<KnowledgeTenantStatus, SdkworkError> {
         let path = backend_path(&"/knowledge/tenants/current".to_string());
         self.client.get(&path, None, None).await
     }
 
     /// Import an OKF bundle from drive staging
-    pub async fn okf_bundle_import_create(&self, body: &OkfBundleImportRequest) -> Result<OkfBundleImportCreateResponse201, SdkworkError> {
+    pub async fn okf_bundle_import_create(&self, body: &OkfBundleImportRequest) -> Result<OkfBundleImportResult, SdkworkError> {
         let path = backend_path(&"/knowledge/okf/imports".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// List knowledge spaces
-    pub async fn spaces_list(&self, cursor: Option<&str>, page_size: Option<i64>) -> Result<SpacesListResponse, SdkworkError> {
+    pub async fn spaces_list(&self, cursor: Option<&str>, page_size: Option<i64>) -> Result<serde_json::Value, SdkworkError> {
         let query = build_query_string(&[
             QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
             QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
@@ -215,7 +215,7 @@ impl KnowledgeApi {
     }
 
     /// List knowledge space members
-    pub async fn spaces_members_list(&self, space_id: &str, cursor: Option<&str>, page_size: Option<i64>) -> Result<SpacesMembersListResponse, SdkworkError> {
+    pub async fn spaces_members_list(&self, space_id: &str, cursor: Option<&str>, page_size: Option<i64>) -> Result<KnowledgeSpaceMemberList, SdkworkError> {
         let query = build_query_string(&[
             QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
             QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
@@ -225,14 +225,126 @@ impl KnowledgeApi {
     }
 
     /// Export knowledge audit events for a subject
-    pub async fn compliance_audit_events_export_create(&self, body: &ExportKnowledgeAuditEventsRequest) -> Result<ComplianceAuditEventsExportCreateResponse201, SdkworkError> {
+    pub async fn compliance_audit_events_export_create(&self, body: &ExportKnowledgeAuditEventsRequest) -> Result<KnowledgeAuditEventExport, SdkworkError> {
         let path = backend_path(&"/knowledge/compliance/audit_events/export".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 
     /// Anonymize audit events for a subject
-    pub async fn compliance_audit_events_anonymize_actor_create(&self, body: &AnonymizeKnowledgeAuditSubjectRequest) -> Result<ComplianceAuditEventsAnonymizeActorCreateResponse201, SdkworkError> {
+    pub async fn compliance_audit_events_anonymize_actor_create(&self, body: &AnonymizeKnowledgeAuditSubjectRequest) -> Result<AnonymizeKnowledgeAuditSubjectResult, SdkworkError> {
         let path = backend_path(&"/knowledge/compliance/audit_events/anonymize_actor".to_string());
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// List Provider credential references
+    pub async fn provider_credential_references_list(&self, implementation_id: Option<&str>, rotation_state: Option<&str>, cursor: Option<&str>, page_size: Option<i64>) -> Result<KnowledgeEngineProviderCredentialReferencePage, SdkworkError> {
+        let query = build_query_string(&[
+            QueryParameterSpec::new("implementation_id", implementation_id, "form", true, false, None),
+            QueryParameterSpec::new("rotation_state", rotation_state, "form", true, false, None),
+            QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
+            QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
+        ]);
+        let path = append_query_string(backend_path(&"/knowledge/provider_credential_references".to_string()), &query);
+        self.client.get(&path, None, None).await
+    }
+
+    /// Create a Provider credential reference
+    pub async fn provider_credential_references_create(&self, body: &CreateKnowledgeEngineProviderCredentialReferenceRequest) -> Result<KnowledgeEngineProviderCredentialReference, SdkworkError> {
+        let path = backend_path(&"/knowledge/provider_credential_references".to_string());
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// Retrieve a Provider credential reference
+    pub async fn provider_credential_references_retrieve(&self, credential_reference_id: &str) -> Result<KnowledgeEngineProviderCredentialReference, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/provider_credential_references/{}", serialize_path_parameter(credential_reference_id, PathParameterSpec::new("credentialReferenceId", "simple", false))));
+        self.client.get(&path, None, None).await
+    }
+
+    /// Rotate a Provider credential reference
+    pub async fn provider_credential_references_rotate(&self, credential_reference_id: &str, body: &RotateKnowledgeEngineProviderCredentialReferenceRequest) -> Result<SdkWorkCommandData, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/provider_credential_references/{}/rotate", serialize_path_parameter(credential_reference_id, PathParameterSpec::new("credentialReferenceId", "simple", false))));
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// Revoke a Provider credential reference
+    pub async fn provider_credential_references_revoke(&self, credential_reference_id: &str, body: &RevokeKnowledgeEngineProviderCredentialReferenceRequest) -> Result<SdkWorkCommandData, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/provider_credential_references/{}/revoke", serialize_path_parameter(credential_reference_id, PathParameterSpec::new("credentialReferenceId", "simple", false))));
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// List Provider bindings for a knowledge space
+    pub async fn spaces_provider_bindings_list(&self, space_id: &str, lifecycle_state: Option<&str>, cursor: Option<&str>, page_size: Option<i64>) -> Result<KnowledgeEngineProviderBindingPage, SdkworkError> {
+        let query = build_query_string(&[
+            QueryParameterSpec::new("lifecycle_state", lifecycle_state, "form", true, false, None),
+            QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
+            QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
+        ]);
+        let path = append_query_string(backend_path(&format!("/knowledge/spaces/{}/provider_bindings", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)))), &query);
+        self.client.get(&path, None, None).await
+    }
+
+    /// Create a Provider binding for a knowledge space
+    pub async fn spaces_provider_bindings_create(&self, space_id: &str, body: &CreateKnowledgeEngineProviderBindingRequest) -> Result<KnowledgeEngineProviderBinding, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/spaces/{}/provider_bindings", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false))));
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// Retrieve a Provider binding
+    pub async fn spaces_provider_bindings_retrieve(&self, space_id: &str, binding_id: &str) -> Result<KnowledgeEngineProviderBinding, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/spaces/{}/provider_bindings/{}", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)), serialize_path_parameter(binding_id, PathParameterSpec::new("bindingId", "simple", false))));
+        self.client.get(&path, None, None).await
+    }
+
+    /// Update a draft Provider binding
+    pub async fn spaces_provider_bindings_update(&self, space_id: &str, binding_id: &str, body: &UpdateKnowledgeEngineProviderBindingRequest) -> Result<KnowledgeEngineProviderBinding, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/spaces/{}/provider_bindings/{}", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)), serialize_path_parameter(binding_id, PathParameterSpec::new("bindingId", "simple", false))));
+        self.client.patch(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// Test a Provider binding
+    pub async fn spaces_provider_bindings_test(&self, space_id: &str, binding_id: &str, body: &ProviderBindingVersionCommandRequest) -> Result<SdkWorkCommandData, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/spaces/{}/provider_bindings/{}/test", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)), serialize_path_parameter(binding_id, PathParameterSpec::new("bindingId", "simple", false))));
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// Activate a Provider binding
+    pub async fn spaces_provider_bindings_activate(&self, space_id: &str, binding_id: &str, body: &ProviderBindingVersionCommandRequest) -> Result<SdkWorkCommandData, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/spaces/{}/provider_bindings/{}/activate", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)), serialize_path_parameter(binding_id, PathParameterSpec::new("bindingId", "simple", false))));
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// Disable a Provider binding
+    pub async fn spaces_provider_bindings_disable(&self, space_id: &str, binding_id: &str, body: &ProviderBindingVersionCommandRequest) -> Result<SdkWorkCommandData, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/spaces/{}/provider_bindings/{}/disable", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)), serialize_path_parameter(binding_id, PathParameterSpec::new("bindingId", "simple", false))));
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// List Provider migration operations for a knowledge space
+    pub async fn spaces_provider_migrations_list(&self, space_id: &str, operation_state: Option<&str>, cursor: Option<&str>, page_size: Option<i64>) -> Result<KnowledgeEngineProviderMigrationOperationPage, SdkworkError> {
+        let query = build_query_string(&[
+            QueryParameterSpec::new("operation_state", operation_state, "form", true, false, None),
+            QueryParameterSpec::new("cursor", cursor, "form", true, false, None),
+            QueryParameterSpec::new("page_size", page_size, "form", true, false, None),
+        ]);
+        let path = append_query_string(backend_path(&format!("/knowledge/spaces/{}/provider_migrations", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)))), &query);
+        self.client.get(&path, None, None).await
+    }
+
+    /// Create a recoverable Provider migration operation
+    pub async fn spaces_provider_migrations_create(&self, space_id: &str, body: &CreateKnowledgeEngineProviderMigrationOperationRequest) -> Result<KnowledgeEngineProviderMigrationOperation, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/spaces/{}/provider_migrations", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false))));
+        self.client.post(&path, Some(body), None, None, Some("application/json")).await
+    }
+
+    /// Retrieve a Provider migration operation
+    pub async fn spaces_provider_migrations_retrieve(&self, space_id: &str, migration_operation_id: &str) -> Result<KnowledgeEngineProviderMigrationOperation, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/spaces/{}/provider_migrations/{}", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)), serialize_path_parameter(migration_operation_id, PathParameterSpec::new("migrationOperationId", "simple", false))));
+        self.client.get(&path, None, None).await
+    }
+
+    /// Request rollback of a Provider migration operation
+    pub async fn spaces_provider_migrations_rollback(&self, space_id: &str, migration_operation_id: &str, body: &ProviderMigrationVersionCommandRequest) -> Result<SdkWorkCommandData, SdkworkError> {
+        let path = backend_path(&format!("/knowledge/spaces/{}/provider_migrations/{}/rollback", serialize_path_parameter(space_id, PathParameterSpec::new("spaceId", "simple", false)), serialize_path_parameter(migration_operation_id, PathParameterSpec::new("migrationOperationId", "simple", false))));
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }
 

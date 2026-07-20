@@ -9,26 +9,29 @@ quality, management, migration, certification, and release evidence
 
 ## Executive Decision
 
-The repository has a credible modular foundation and now has deterministic P0 catalog, capability,
-selection, health, and registration behavior. It is not yet a commercial multi-provider solution.
-Current status is **prelaunch-gated / adapter-preview** because explicit binding, actor/data scope,
-credential references, shared resilience, management lifecycle, provider observability, migration,
-quality evaluation, live certification, and release evidence remain incomplete.
+The repository now has a production-oriented multi-provider implementation baseline: deterministic
+catalog/capability truth, explicit Binding authority, immutable execution context, credential
+references, shared resilience, management API/SDK, durable migration/rollback, sanitized audit and
+offline evaluation are implemented and locally verified. Current status remains
+**prelaunch-gated / certification-pending** because production secret management, operator browser acceptance,
+release PostgreSQL, live Provider/version certification, load/SLO, licensing, privacy, supply-chain,
+backup/restore, rollout, rollback, immutable artifact evidence, and human release approval are not
+facts that local code can supply.
 
 ## Maturity Scorecard
 
 | Dimension | Current | Commercial target | Primary gap |
 | --- | ---: | ---: | --- |
-| Catalog and capability truth | 4/5 | 5/5 | Keep machine checks authoritative |
-| Deterministic selection | 3/5 | 5/5 | Persisted explicit binding |
-| SPI semantic completeness | 2/5 | 5/5 | Context, optional capabilities, typed lifecycle |
-| Tenant/security isolation | 2/5 | 5/5 | Actor/data scope and credential reference boundary |
-| Resilience | 1/5 | 5/5 | Shared timeout/retry/circuit/bulkhead/body limits |
-| Observability | 2/5 | 5/5 | Per-operation metrics/traces and safe failure detail |
-| Management lifecycle | 1/5 | 5/5 | Test/activate/disable/sync/status UI and API |
-| Migration and rollback | 0/5 | 5/5 | Durable state machine and cutover evidence |
-| Retrieval quality | 1/5 | 5/5 | Versioned dataset and quantitative thresholds |
-| Provider certification | 1/5 | 5/5 | Live version matrix, licensing and SLO evidence |
+| Catalog and capability truth | 4/5 | 5/5 | Live version-pinned certification evidence |
+| Deterministic selection | 5/5 | 5/5 | Maintain active-Binding-only authority checks |
+| SPI semantic completeness | 4/5 | 5/5 | Live optional-capability certification |
+| Tenant/security isolation | 4/5 | 5/5 | Production secret-manager/KMS and PostgreSQL RLS proof |
+| Resilience | 4/5 | 5/5 | Release load/outage/SLO evidence |
+| Observability | 4/5 | 5/5 | Production dashboards, alerts, and retention proof |
+| Management lifecycle | 4/5 | 5/5 | Release-environment operator/browser acceptance |
+| Migration and rollback | 4/5 | 5/5 | Release PostgreSQL/live-provider/backup-restore proof |
+| Retrieval quality | 3/5 | 5/5 | Reviewed production-domain datasets and live results |
+| Provider certification | 2/5 | 5/5 | Live version matrix, licensing and SLO evidence |
 
 ## Provider Portfolio Truth
 
@@ -64,24 +67,44 @@ certification, supported ingest/sync, upstream-version compatibility, licensing 
   gate rejects missing health/search/read/unsupported-list contract evidence.
 - A deterministic offline evaluator now defines Recall@K, MRR, nDCG@K, citation correctness,
   failure-rate, P95 latency, and empty-query gates; reviewed production datasets/results remain open.
+- The production evaluation evidence contract rejects sample fixtures and requires at least 50
+  scored questions, three rejection cases, two reviewers, exact one-to-one Provider runs, pinned
+  versions/commits, release provenance, current evidence, and digest-bound dataset/results/report
+  artifacts. It recomputes metrics before acceptance; no real production dataset is attached yet.
+- Active tenant/organization/space Binding is the sole external selection authority; source-order
+  inference and adapter startup credential selection are absent.
+- SPI execution handles authorize tenant, organization, actor, permission/data scope, space,
+  Binding, trace, and deadline before credential resolution or Provider network access.
+- All executable adapters use the shared Provider Runtime for deadlines, retries, Retry-After,
+  circuit breaking, bulkheads, response bounds, trace propagation, metrics, and redaction.
+- Credential references, Binding lifecycle, backend management API, resource/version audit, and
+  generated TypeScript/Rust backend SDKs are implemented with secret-safe read models.
+- Provider migration uses idempotent operations, fenced leases, checkpoints, observation deferral,
+  atomic Binding cutover/rollback, retained predecessors, sanitized system audit, and Worker metrics.
+- Provider certification manifest v2 and contract suite `1.0.0` cover capability, authentication,
+  error mapping, resilience, isolation, and health for all ten executable adapters. Evidence source
+  fingerprints and shell-free complete-crate commands are enforced; all ten suites pass.
+- Live evidence has a versioned schema and anti-fabrication gate: a pinned Provider version, adapter
+  commit, release workflow, reviewer, expiry, approved licensing/security reviews, and six existing
+  SHA-256-bound release artifacts are required. The repository currently reports
+  `liveCertifiedCount = 0`; the draft template cannot pass the gate.
+- A dedicated `pc-admin-provider` UI implements credential, Binding, and migration workflows through
+  admin-core and the composed backend SDK. Actions are version-fenced and lifecycle/capability-aware;
+  locator inputs are write-only; all lists are cursor-paged; permission/loading/empty/safe-error/
+  success component states and the production build pass.
 
 ## Open Findings
 
 | Priority | Finding | Risk | Required closure |
 | --- | --- | --- | --- |
-| P0 | No persisted explicit provider binding | nondeterministic lifecycle and no safe cutover | accepted ADR, binding aggregate, migration |
-| P0 | SPI lacks actor/permission/data scope | cross-tenant or over-broad remote access | fail-closed execution context |
-| P0 | Credentials are environment/file based per adapter | weak tenant rotation and audit boundary | approved credential-reference service |
-| P0 | Adapter HTTP clients lack unified deadlines and isolation | hangs, retry storms, cascading outage | shared resilience runtime |
-| P1 | Error taxonomy collapses failures into internal errors | unsafe retry and poor operations | stable categorized provider error |
-| P1 | External lifecycle trait is erased by registry | sync/test cannot be managed generically | typed SPI v2 handles |
-| P1 | Source API is list/create only | no test/disable/update/sync workflow | management API/SDK/UI |
-| P1 | No durable migration/cutover/rollback state | provider switching can lose availability | checkpointed migration operation |
-| P1 | Provider metrics and traces are insufficient | slow incident detection and diagnosis | per-provider operation telemetry |
-| P1 | No quantitative retrieval evaluation | regressions can ship undetected | versioned evaluation suite |
 | P1 | No live provider/version certification | mocks do not prove upstream compatibility | certification matrix and release gate |
-| P2 | Catalog metadata and executable registry share concepts | discoverability can be mistaken for readiness | separate discovery and runtime projections |
-| P2 | Operator runbooks lack provider-specific failure modes | inconsistent recovery | test/sync/outage/rollback runbooks |
+| P1 | Production secret resolver is env/file only | production credential custody is incomplete | approved secret-manager/KMS resolver and rotation drill |
+| P1 | Release PostgreSQL and migration evidence missing | SQLite cannot prove production locking/RLS behavior | PostgreSQL concurrency, RLS, cutover, rollback, backup/restore evidence |
+| P1 | Release Provider UI acceptance not executed | local IAM database drift prevents an authenticated browser session | repair/review IAM PostgreSQL drift, then run accessibility and operator E2E acceptance |
+| P1 | Load/outage/SLO evidence missing | commercial capacity and recovery are unproven | versioned load, fault injection, dashboards and alert proof |
+| P1 | Supply-chain/release evidence missing | artifacts cannot be commercially published | SBOM, provenance, signature, vulnerability and immutable RC gates |
+| P2 | Production-domain evaluation datasets pending | offline sample thresholds are not business acceptance | reviewed golden datasets and per-provider results |
+| P2 | Licensing/residency/retention reviews pending | Provider use may violate commercial/data obligations | signed legal, privacy and data-processing matrix |
 
 ## Evidence Reviewed
 
@@ -90,14 +113,17 @@ certification, supported ingest/sync, upstream-version compatibility, licensing 
   crates including HTTP mock tests.
 - Local SPI specification, PRD, technical architecture, security/privacy/observability/performance,
   API/SDK/database/migration/test, and release standards.
-- Focused passing evidence: catalog and SPI checkers; contract tests; resolver/catalog/native/
-  registry tests; 59 tests across all ten adapter crates; provider-health normal and
-  external-degraded route tests.
+- Focused passing evidence: catalog/SPI checkers; contract and execution-handle tests; all ten
+  adapter HTTP/resilience suites; Binding/credential/migration SQLx tests; Hosted auth/API/Worker
+  cutover/rollback test; backend OpenAPI route tests; TypeScript/Rust generator zero-drift and
+  language builds; response-envelope, pagination, SDK ownership and consumer-import gates; Provider
+  Certification v2 unit, schema, fingerprint, catalog, and complete adapter-crate execution gates.
 
 ## Commercial Blockers And Required Review
 
-Commercial completion cannot be claimed until ADR-20260720 is accepted and implemented, real
-provider certification and release-environment PostgreSQL/load/outage/migration/rollback evidence
-is attached, licensing/security/privacy review is approved, and existing application publication
+ADR-20260720 is accepted and its local implementation baseline is complete. Commercial completion
+still cannot be claimed until real Provider certification and release-environment PostgreSQL/load/
+outage/migration/rollback/backup evidence is attached, production secret management and operator UI acceptance are
+accepted, licensing/security/privacy/supply-chain review is approved, and application publication
 gates are deliberately activated through release governance. Local code changes cannot manufacture
 those external facts.

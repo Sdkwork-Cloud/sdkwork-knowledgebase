@@ -292,7 +292,7 @@ OKF service modules live under `crates/sdkwork-intelligence-knowledgebase-servic
 | Surface | Prefix | SDK family | Auth |
 | --- | --- | --- | --- |
 | App API | `/app/v3/api` | `sdkwork-knowledgebase-app-sdk` | dual-token |
-| Backend API | `/backend/v3/api` | `sdkwork-knowledgebase-backend-sdk` | dual-token + `knowledge.admin` |
+| Backend API | `/backend/v3/api` | `sdkwork-knowledgebase-backend-sdk` | dual-token + `knowledge.platform.manage` |
 | Open API | `/knowledge/v3/api` | `sdkwork-knowledgebase-sdk` | API key |
 
 OpenAPI authorities are authored in `sdks/*/openapi/` and synchronized to `apis/` via `pnpm api:materialize`. Generated SDKs use dotted resource operation IDs.
@@ -374,7 +374,7 @@ Controls:
 - Tenant and organization context from validated token context (fail-closed).
 - Object-level authorization via `KnowledgePermissionService`.
 - Retrieval security trimming before results are returned.
-- Admin/backend operations require `knowledge.admin` or finer-grained permission codes.
+- Admin/backend operations require `knowledge.platform.manage` or finer-grained permission codes.
 - Audit events for document import, delete, permission changes, retrieval profile changes, reindex, and object reconciliation.
 - Redact tokens, drive credentials, presign material, provider secrets, and private object keys from logs and errors.
 

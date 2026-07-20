@@ -33,7 +33,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - Knowledge spaces with Drive-backed storage, ingest, and RAG retrieval
 - PC browser and desktop shell for authoring, search, and market/catalog
 - Production deployment topology (replicated application public ingress, worker, Postgres, probes, audit)
-- Fail-closed auth, tenant/org guards, and backend `knowledge.admin` RBAC
+- Fail-closed auth, tenant/org guards, and backend `knowledge.platform.manage` RBAC
 - Managed IM Conversation group knowledge spaces that are created only by the current IM Owner's
   first initialization or failed-provisioning retry, use dedicated group binding and
   current-membership authorization, and open in the full standalone browser or Tauri Knowledgebase
@@ -74,7 +74,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 1. **Author creates a space and document** - login -> create space -> create doc -> edit in TipTap -> auto-save via SDK
 2. **Member searches knowledge** - search module -> RAG answer with citations -> navigate to source doc
-3. **Admin configures ingest** - backend operator with `knowledge.admin` -> create source -> worker completes job -> retrieval returns new chunks
+3. **Admin configures ingest** - backend operator with `knowledge.platform.manage` -> create source -> worker completes job -> retrieval returns new chunks
 4. **Integrator retrieves via Open API** - API key with org context -> retrieval -> context pack for downstream agent
 5. **Operator deploys tenant** - K8s manifests + env (tenant, org, secrets, outbox webhook) -> `/readyz` green -> smoke test
 6. **Admin activates an external Provider** - create a write-only credential reference -> create a

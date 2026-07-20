@@ -9,6 +9,7 @@ mod config;
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredential;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -16,12 +17,13 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
     KnowledgeEngineSearchResult,
 };
+use sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext;
+use sdkwork_knowledgebase_provider_runtime::{ProviderExecutionContext, ProviderOperation};
 use std::sync::Arc;
 
 pub use client::RagflowApiClient;
 pub use config::{
-    RagflowConnectorConfig, RAGFLOW_BASE_URL_ENV, RAGFLOW_CREDENTIAL_ENV,
-    RAGFLOW_CREDENTIAL_FILE_ENV, RAGFLOW_DATASET_ID_ENV,
+    RagflowConnectorConfig, RAGFLOW_BASE_URL_ENV, RAGFLOW_CREDENTIAL_ENV, RAGFLOW_DATASET_ID_ENV,
 };
 
 pub const RAGFLOW_VENDOR_ID: &str = "ragflow";
@@ -72,7 +74,7 @@ impl RagflowKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "RAGFlow adapter requires {RAGFLOW_BASE_URL_ENV} and {RAGFLOW_CREDENTIAL_ENV}; an active Provider binding supplies the dataset id"
+            "RAGFlow adapter requires {RAGFLOW_BASE_URL_ENV}; an active Provider binding must supply a credential reference and the dataset id"
         )
     }
 
@@ -97,6 +99,7 @@ impl KnowledgeEngine for RagflowKnowledgeEngine {
     fn bind_provider(
         &self,
         binding: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineProviderBinding,
+        credential: Option<KnowledgeEngineProviderCredential>,
     ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
         if binding.implementation_id != RAGFLOW_IMPLEMENTATION_ID {
             return Err(KnowledgeEngineError::Validation(
@@ -107,6 +110,13 @@ impl KnowledgeEngine for RagflowKnowledgeEngine {
             .config
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
+        config.api_key = credential
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(
+                    "RAGFlow Provider binding requires a credential reference".to_string(),
+                )
+            })?
+            .into_secret();
         config.default_dataset_id = Some(binding.remote_resource_id.clone());
         Ok(Arc::new(Self::with_config(config)))
     }
@@ -153,6 +163,7 @@ impl KnowledgeEngine for RagflowKnowledgeEngine {
 
     async fn search(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineSearchRequest,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
         let Some(client) = self.client.as_ref() else {
@@ -162,13 +173,28 @@ impl KnowledgeEngine for RagflowKnowledgeEngine {
         };
 
         let dataset_id = self.required_dataset_id(request.space_id)?;
+        let provider_context = ProviderExecutionContext::from_knowledge_engine_request(
+            context,
+            RAGFLOW_IMPLEMENTATION_ID,
+            ProviderOperation::Search,
+            request.tenant_id,
+            request.space_id,
+        )
+        .map_err(KnowledgeEngineError::from)?;
         client
-            .retrieve(request.space_id, &dataset_id, &request.query, request.top_k)
+            .retrieve(
+                &provider_context,
+                request.space_id,
+                &dataset_id,
+                &request.query,
+                request.top_k,
+            )
             .await
     }
 
     async fn read_document(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineReadRequest,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let Some(client) = self.client.as_ref() else {
@@ -186,13 +212,22 @@ impl KnowledgeEngine for RagflowKnowledgeEngine {
             })?;
 
         let dataset_id = self.required_dataset_id(request.space_id)?;
+        let provider_context = ProviderExecutionContext::from_knowledge_engine_request(
+            context,
+            RAGFLOW_IMPLEMENTATION_ID,
+            ProviderOperation::Read,
+            request.tenant_id,
+            request.space_id,
+        )
+        .map_err(KnowledgeEngineError::from)?;
         client
-            .read_chunk(&dataset_id, &document_id, &chunk_id)
+            .read_chunk(&provider_context, &dataset_id, &document_id, &chunk_id)
             .await
     }
 
     async fn list_documents(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
@@ -208,7 +243,11 @@ impl ExternalKnowledgeEngine for RagflowKnowledgeEngine {
         self.health().await
     }
 
-    async fn sync_sources(&self, _space_id: u64) -> Result<u32, KnowledgeEngineError> {
+    async fn sync_sources(
+        &self,
+        _context: &KnowledgeEngineExecutionContext,
+        _space_id: u64,
+    ) -> Result<u32, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
             "RAGFlow sync_sources is unsupported at adapter tier; use RAGFlow console ingestion"
                 .to_string(),

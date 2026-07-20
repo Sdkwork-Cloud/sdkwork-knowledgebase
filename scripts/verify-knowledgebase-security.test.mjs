@@ -43,7 +43,7 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(tenantIsolationTest, /organization_id_mismatch_rejects_when_runtime_org_configured/);
   });
 
-  it('enforces backend knowledge.admin authorization policy', () => {
+  it('enforces backend knowledge.platform.manage authorization policy', () => {
     const webBootstrap = readRepoFile(
       'crates/sdkwork-routes-knowledgebase-backend-api/src/web_bootstrap.rs',
     );
@@ -203,8 +203,8 @@ describe('knowledgebase security standard alignment', () => {
         }
         const permission = operation['x-sdkwork-permission'];
         assert.ok(
-          permission === 'knowledge.platform.manage' || permission === 'knowledge.admin',
-          `backend operation ${operation.operationId ?? method} must declare knowledge.platform.manage or knowledge.admin (got ${permission ?? 'missing'})`,
+          permission === 'knowledge.platform.manage',
+          `backend operation ${operation.operationId ?? method} must declare knowledge.platform.manage (got ${permission ?? 'missing'})`,
         );
       }
     }

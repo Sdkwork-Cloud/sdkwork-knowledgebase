@@ -1,5 +1,5 @@
-use sdkwork_knowledgebase_contract::parse_canonical_positive_signed_i64;
 use sdkwork_api_knowledgebase_standalone_gateway::init_tracing;
+use sdkwork_knowledgebase_contract::parse_canonical_positive_signed_i64;
 use sdkwork_knowledgebase_worker::{health, run_polling_loop};
 use sdkwork_routes_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 
@@ -29,6 +29,18 @@ async fn main() {
             .and_then(|value| value.parse::<u64>().ok())
             .filter(|value| (30..=3_600).contains(value))
             .unwrap_or(300);
+    let provider_migration_limit =
+        std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_PROVIDER_MIGRATION_BATCH_SIZE")
+            .ok()
+            .and_then(|value| value.parse::<u32>().ok())
+            .filter(|value| (1..=200).contains(value))
+            .unwrap_or(25);
+    let provider_migration_lease_seconds =
+        std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_PROVIDER_MIGRATION_LEASE_SECONDS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| (5..=3_600).contains(value))
+            .unwrap_or(120);
     let worker_id = resolve_worker_id();
     let group_archive_limit =
         std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_GROUP_ARCHIVE_BATCH_SIZE")
@@ -54,6 +66,8 @@ async fn main() {
         outbox_limit,
         ingestion_job_limit,
         ingestion_job_lease_seconds,
+        provider_migration_limit,
+        provider_migration_lease_seconds,
         worker_id = %worker_id,
         group_archive_limit,
         %health_addr,
@@ -70,9 +84,11 @@ async fn main() {
         runtime,
         worker_id,
         time::Duration::seconds(ingestion_job_lease_seconds as i64),
+        std::time::Duration::from_secs(provider_migration_lease_seconds),
         interval_ms,
         outbox_limit,
         ingestion_job_limit,
+        provider_migration_limit,
         group_archive_limit,
     )
     .await;

@@ -6,6 +6,9 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
 use sdkwork_knowledgebase_engine_chroma::{
     ChromaConnectorConfig, ChromaKnowledgeEngine, DEFAULT_CHROMA_DATABASE, DEFAULT_CHROMA_TENANT,
 };
+use sdkwork_knowledgebase_test_support::provider_execution::{
+    knowledge_execution_context, provider_execution_context,
+};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -38,7 +41,7 @@ async fn chroma_search_uses_configured_remote_resource_id() {
 
     let config = ChromaConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: Some("test-api-key".to_string()),
+        api_key: Some(zeroize::Zeroizing::new("test-api-key".to_string())),
         default_collection_id: Some(collection_id.to_string()),
         tenant: DEFAULT_CHROMA_TENANT.to_string(),
         database: DEFAULT_CHROMA_DATABASE.to_string(),
@@ -46,12 +49,15 @@ async fn chroma_search_uses_configured_remote_resource_id() {
     let engine = ChromaKnowledgeEngine::with_config(config);
 
     let result = engine
-        .search(KnowledgeEngineSearchRequest {
-            tenant_id: 1,
-            space_id: 42,
-            query: "hello".to_string(),
-            top_k: 3,
-        })
+        .search(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-search"),
+            KnowledgeEngineSearchRequest {
+                tenant_id: 1,
+                space_id: 42,
+                query: "hello".to_string(),
+                top_k: 3,
+            },
+        )
         .await
         .expect("search");
 
@@ -79,7 +85,7 @@ async fn chroma_read_document_fetches_record_by_id() {
 
     let config = ChromaConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: Some("test-api-key".to_string()),
+        api_key: Some(zeroize::Zeroizing::new("test-api-key".to_string())),
         default_collection_id: Some(collection_id.to_string()),
         tenant: DEFAULT_CHROMA_TENANT.to_string(),
         database: DEFAULT_CHROMA_DATABASE.to_string(),
@@ -87,11 +93,14 @@ async fn chroma_read_document_fetches_record_by_id() {
     let engine = ChromaKnowledgeEngine::with_config(config);
 
     let document = engine
-        .read_document(KnowledgeEngineReadRequest {
-            tenant_id: 1,
-            space_id: 42,
-            document_id: "Space Doc#rec-9".to_string(),
-        })
+        .read_document(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-read"),
+            KnowledgeEngineReadRequest {
+                tenant_id: 1,
+                space_id: 42,
+                document_id: "Space Doc#rec-9".to_string(),
+            },
+        )
         .await
         .expect("read");
 
@@ -113,11 +122,14 @@ async fn chroma_list_documents_is_explicitly_unsupported() {
     let engine = ChromaKnowledgeEngine::with_config(config);
 
     let error = engine
-        .list_documents(KnowledgeEngineListRequest {
-            tenant_id: 1,
-            space_id: 42,
-            limit: 10,
-        })
+        .list_documents(
+            &knowledge_execution_context(1, 1, 42, None, "trace-chroma-list"),
+            KnowledgeEngineListRequest {
+                tenant_id: 1,
+                space_id: 42,
+                limit: 10,
+            },
+        )
         .await
         .expect_err("list_documents must not synthesize collection descriptors");
 
@@ -133,12 +145,12 @@ async fn assert_chroma_health(upstream_status: u16, expected: KnowledgeEngineHea
         .mount(&mock_server)
         .await;
     let engine = ChromaKnowledgeEngine::with_config(ChromaConnectorConfig {
-            base_url: mock_server.uri(),
-            api_key: None,
-            default_collection_id: Some("health-collection".to_string()),
-            tenant: DEFAULT_CHROMA_TENANT.to_string(),
-            database: DEFAULT_CHROMA_DATABASE.to_string(),
-        });
+        base_url: mock_server.uri(),
+        api_key: None,
+        default_collection_id: Some("health-collection".to_string()),
+        tenant: DEFAULT_CHROMA_TENANT.to_string(),
+        database: DEFAULT_CHROMA_DATABASE.to_string(),
+    });
 
     assert_eq!(engine.health().await.expect("health").status, expected);
 }

@@ -29,6 +29,7 @@ describe('knowledgebase verification pipeline output hygiene', () => {
   it('includes the verification pipeline guard in root check', () => {
     const packageJson = readJson('package.json');
     assert.equal(packageJson.scripts['check:verification-pipeline'], verificationPipelineTestCommand);
-    assert.match(packageJson.scripts.check, /pnpm check:verification-pipeline/);
+    assert.equal(packageJson.scripts.check, 'pnpm exec sdkwork-app check');
+    assert.match(packageJson.scripts['_sdkwork:check'], /pnpm check:verification-pipeline/);
   });
 });

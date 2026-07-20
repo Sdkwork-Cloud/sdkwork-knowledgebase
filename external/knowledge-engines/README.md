@@ -1,55 +1,66 @@
 # External Knowledge Engine Catalog
 
-SDKWork Knowledgebase uses this directory to **register** well-known open-source knowledge/RAG platforms and vector stores that can be integrated through the [Knowledge Engine SPI](../../specs/knowledge-engine-spi.spec.json).
-
-This catalog is **metadata-first**. Upstream source code is pinned optionally via git submodules under `upstream/{vendorId}/`.
+SDKWork Knowledgebase registers third-party knowledge platforms, RAG engines, retrieval
+frameworks, and vector stores through the Knowledge Engine SPI. Catalog presence, executable
+adapter status, local contract certification, and live commercial certification are separate facts.
 
 ## Layout
 
 ```text
 external/knowledge-engines/
-├── README.md                 # this file
-├── catalog.manifest.json     # authoritative vendor index
-├── vendors/
-│   └── {vendorId}/
-│       └── engine.manifest.json
-└── upstream/
-    └── {vendorId}/           # optional git submodule pin (see .gitmodules)
+|-- README.md
+|-- catalog.manifest.json
+|-- provider-certification.manifest.json
+|-- vendors/
+|   `-- {vendorId}/engine.manifest.json
+`-- upstream/
+    `-- {vendorId}/
 ```
 
-## Submodule policy
+`catalog.manifest.json` and each vendor manifest own discovery and capability metadata.
+`provider-certification.manifest.json` owns the versioned contract and live-certification matrix.
+`docs/releases/provider-certification/live-certification-evidence.schema.json` owns the live
+release-evidence record. Its checked-in template is deliberately not a certifiable record.
+Optional upstream source pins live under `upstream/{vendorId}` for compliance review, API diffing,
+and compatibility work; they are not runtime dependencies.
 
-1. **Catalog manifest** records every supported external engine (`catalog.manifest.json` + `vendors/*/engine.manifest.json`).
-2. **Git submodule** is added only when an adapter team needs upstream source locally (compliance review, API diff, contract tests).
-3. Submodule path convention: `external/knowledge-engines/upstream/{vendorId}`.
-4. Register submodule URLs in `.gitmodules` using:
-
-```bash
-git submodule add -b main https://github.com/{org}/{repo}.git external/knowledge-engines/upstream/{vendorId}
-```
-
-Or dry-run planning:
-
-```bash
-node tools/sync_external_knowledge_engine_submodules.mjs --check
-```
-
-## Integration tiers
+## Integration Tiers
 
 | Tier | Meaning |
-|------|---------|
-| `catalog` | Registered in catalog; no SDKWork adapter yet |
-| `stub` | Adapter crate skeleton + health/search contract tests |
-| `adapter` | Partial SPI (search/read/list/health) implemented |
-| `production` | Supported for space binding and agent provider registration |
+| --- | --- |
+| `catalog` | Discovery metadata only; no executable SDKWork adapter |
+| `stub` | Non-production adapter skeleton with no advertised executable capability |
+| `adapter` | Executable SDKWork adapter with the local versioned contract suite |
+| `production` | Adapter plus current live, licensing, security/privacy, and SLO evidence |
 
-## Normative specs
+An `adapter` result never implies production support. Production promotion is rejected unless the
+live evidence required by the certification policy is complete and current.
 
-- `specs/external-knowledge-engine-catalog.spec.json`
-- `specs/knowledge-engine-spi.spec.json`
+## Submodule Policy
+
+1. Add every supported engine to the catalog and its vendor manifest.
+2. Add an upstream submodule only when local source is required for compliance or compatibility.
+3. Use `external/knowledge-engines/upstream/{vendorId}` as the path.
+4. Plan and validate pins with `node tools/sync_external_knowledge_engine_submodules.mjs --check`.
 
 ## Verification
 
 ```bash
 node tools/check_external_knowledge_engine_catalog.mjs
+node tools/run_provider_certification.mjs
+node tools/run_provider_certification.mjs --execute
 ```
+
+The first certification command checks suite version, six required evidence dimensions, evidence
+source fingerprints, safe structured commands, and Provider coverage. `--execute` runs the complete
+owned adapter crate for every executable Provider without a shell. A local contract status of
+`passed` is not live certification; production tier additionally requires current upstream-version,
+licensing, security/privacy, SLO, and environment evidence. The live gate validates the evidence
+index digest plus individual quality, contract, load/SLO, outage-recovery, licensing, and
+security/privacy artifact digests. The current matrix contains ten local passes and zero live
+certifications.
+
+Normative contracts:
+
+- `specs/external-knowledge-engine-catalog.spec.json`
+- `specs/knowledge-engine-spi.spec.json`

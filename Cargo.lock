@@ -2606,6 +2606,7 @@ dependencies = [
  "sdkwork-api-iam-assembly",
  "sdkwork-database-config",
  "sdkwork-iam-database-host",
+ "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-routes-knowledgebase-app-api",
  "sdkwork-routes-knowledgebase-backend-api",
  "sdkwork-routes-knowledgebase-open-api",
@@ -3084,6 +3085,7 @@ dependencies = [
  "async-trait",
  "base64",
  "clawrouter-open-sdk",
+ "futures",
  "hmac",
  "reqwest",
  "sdkwork-agent-kernel",
@@ -3107,6 +3109,7 @@ dependencies = [
  "urlencoding",
  "uuid",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -3186,10 +3189,12 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-provider-runtime",
+ "sdkwork-knowledgebase-test-support",
  "serde",
  "serde_json",
  "tokio",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -3201,10 +3206,12 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-provider-runtime",
+ "sdkwork-knowledgebase-test-support",
  "serde",
  "serde_json",
  "tokio",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -3216,10 +3223,12 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-provider-runtime",
+ "sdkwork-knowledgebase-test-support",
  "serde",
  "serde_json",
  "tokio",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -3231,11 +3240,13 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-provider-runtime",
+ "sdkwork-knowledgebase-test-support",
  "serde",
  "serde_json",
  "sha2",
  "tokio",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -3247,11 +3258,13 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-provider-runtime",
+ "sdkwork-knowledgebase-test-support",
  "serde",
  "serde_json",
  "sha2",
  "tokio",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -3263,10 +3276,12 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-provider-runtime",
+ "sdkwork-knowledgebase-test-support",
  "serde",
  "serde_json",
  "tokio",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -3278,11 +3293,13 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-provider-runtime",
+ "sdkwork-knowledgebase-test-support",
  "serde",
  "serde_json",
  "sha2",
  "tokio",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -3294,10 +3311,12 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-provider-runtime",
+ "sdkwork-knowledgebase-test-support",
  "serde",
  "serde_json",
  "tokio",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -3309,10 +3328,12 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-provider-runtime",
+ "sdkwork-knowledgebase-test-support",
  "serde",
  "serde_json",
  "tokio",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
@@ -3324,10 +3345,12 @@ dependencies = [
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-provider-runtime",
+ "sdkwork-knowledgebase-test-support",
  "serde",
  "serde_json",
  "tokio",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]

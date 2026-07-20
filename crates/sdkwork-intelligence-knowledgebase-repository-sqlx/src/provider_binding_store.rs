@@ -15,8 +15,12 @@ use sdkwork_knowledgebase_contract::provider_binding::{
     CreateKnowledgeEngineProviderBindingRequest,
     CreateKnowledgeEngineProviderCredentialReferenceRequest, KnowledgeEngineProviderBinding,
     KnowledgeEngineProviderBindingList, KnowledgeEngineProviderBindingState,
-    KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderCredentialRotationState,
-    ListKnowledgeEngineProviderBindingsRequest, UpdateKnowledgeEngineProviderBindingRequest,
+    KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderCredentialReferenceList,
+    KnowledgeEngineProviderCredentialRotationState, ListKnowledgeEngineProviderBindingsRequest,
+    ListKnowledgeEngineProviderCredentialReferencesRequest,
+    RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    UpdateKnowledgeEngineProviderBindingRequest,
 };
 use sdkwork_utils_rust::{sha256_hash, uuid, DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE};
 use sqlx::{AnyPool, Row};
@@ -187,6 +191,172 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
             reference_locator: row.try_get("reference_locator").map_err(sqlx_row_error)?,
             version: from_i64("version", row.try_get("version").map_err(sqlx_row_error)?)?,
         })
+    }
+
+    async fn get_credential_reference(
+        &self,
+        scope: KnowledgeEngineProviderScope,
+        credential_reference_id: u64,
+    ) -> Result<KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderBindingStoreError>
+    {
+        validate_scope(scope)?;
+        let query = format!(
+            "SELECT {CREDENTIAL_COLUMNS} FROM kb_provider_credential_reference WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1",
+        );
+        let row = sqlx::query(&query)
+            .bind(to_i64("tenant_id", scope.tenant_id)?)
+            .bind(to_i64("organization_id", scope.organization_id)?)
+            .bind(to_i64("credential_reference_id", credential_reference_id)?)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(sql_error)?
+            .ok_or(KnowledgeEngineProviderBindingStoreError::NotFound(
+                credential_reference_id,
+            ))?;
+        credential_from_row(&row)
+    }
+
+    async fn list_credential_references(
+        &self,
+        scope: KnowledgeEngineProviderScope,
+        request: ListKnowledgeEngineProviderCredentialReferencesRequest,
+    ) -> Result<
+        KnowledgeEngineProviderCredentialReferenceList,
+        KnowledgeEngineProviderBindingStoreError,
+    > {
+        validate_scope(scope)?;
+        if let Some(value) = request.implementation_id.as_deref() {
+            require_text("implementation_id", value, 128)?;
+        }
+        let page_size = request
+            .page_size
+            .unwrap_or(DEFAULT_LIST_PAGE_SIZE as u32)
+            .clamp(1, MAX_LIST_PAGE_SIZE as u32);
+        let fetch_limit = i64::from(page_size) + 1;
+        let cursor = parse_cursor(request.cursor.as_deref())?;
+        let implementation_id = request.implementation_id.as_deref().map(str::trim);
+        let rotation_state = request.rotation_state.map(|state| state.as_str());
+        let query = format!(
+            r#"
+            SELECT {CREDENTIAL_COLUMNS}
+            FROM kb_provider_credential_reference
+            WHERE tenant_id = $1 AND organization_id = $2 AND status = 1
+              AND ($3 IS NULL OR implementation_id = $3)
+              AND ($4 IS NULL OR rotation_state = $4)
+              AND ($5 IS NULL OR id < $5)
+            ORDER BY id DESC
+            LIMIT $6
+            "#,
+        );
+        let rows = sqlx::query(&query)
+            .bind(to_i64("tenant_id", scope.tenant_id)?)
+            .bind(to_i64("organization_id", scope.organization_id)?)
+            .bind(implementation_id)
+            .bind(rotation_state)
+            .bind(cursor)
+            .bind(fetch_limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sql_error)?;
+        let has_more = rows.len() > page_size as usize;
+        let items = rows
+            .iter()
+            .take(page_size as usize)
+            .map(credential_from_row)
+            .collect::<Result<Vec<_>, _>>()?;
+        let next_cursor = has_more
+            .then(|| items.last().map(|item| item.id.to_string()))
+            .flatten();
+        Ok(KnowledgeEngineProviderCredentialReferenceList { items, next_cursor })
+    }
+
+    async fn rotate_credential_reference(
+        &self,
+        scope: KnowledgeEngineProviderScope,
+        credential_reference_id: u64,
+        actor_id: &str,
+        request: RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> Result<KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderBindingStoreError>
+    {
+        validate_scope(scope)?;
+        require_text("actor_id", actor_id, 128)?;
+        require_text("reference_locator", &request.reference_locator, 2_048)?;
+        let now = now()?;
+        let fingerprint = sha256_hash(request.reference_locator.as_bytes());
+        let last_rotated_at = self.dialect.sql_timestamp_expr("$8");
+        let updated_at = self.dialect.sql_timestamp_expr("$9");
+        let query = format!(
+            r#"
+            UPDATE kb_provider_credential_reference
+            SET reference_locator = $4,
+                reference_fingerprint = $5,
+                rotation_state = 'current',
+                last_rotated_at = {last_rotated_at},
+                updated_by = $6,
+                updated_at = {updated_at},
+                version = version + 1
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3
+              AND version = $7 AND rotation_state <> 'revoked' AND status = 1
+            RETURNING {CREDENTIAL_COLUMNS}
+            "#,
+        );
+        let row = sqlx::query(&query)
+            .bind(to_i64("tenant_id", scope.tenant_id)?)
+            .bind(to_i64("organization_id", scope.organization_id)?)
+            .bind(to_i64("credential_reference_id", credential_reference_id)?)
+            .bind(request.reference_locator.trim())
+            .bind(fingerprint)
+            .bind(actor_id.trim())
+            .bind(to_i64("expected_version", request.expected_version)?)
+            .bind(&now)
+            .bind(&now)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(binding_sql_error)?;
+        match row {
+            Some(row) => credential_from_row(&row),
+            None => credential_write_conflict(self, scope, credential_reference_id).await,
+        }
+    }
+
+    async fn revoke_credential_reference(
+        &self,
+        scope: KnowledgeEngineProviderScope,
+        credential_reference_id: u64,
+        actor_id: &str,
+        request: RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> Result<KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderBindingStoreError>
+    {
+        validate_scope(scope)?;
+        require_text("actor_id", actor_id, 128)?;
+        let now = now()?;
+        let updated_at = self.dialect.sql_timestamp_expr("$6");
+        let query = format!(
+            r#"
+            UPDATE kb_provider_credential_reference
+            SET rotation_state = 'revoked',
+                updated_by = $4,
+                updated_at = {updated_at},
+                version = version + 1
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3
+              AND version = $5 AND rotation_state <> 'revoked' AND status = 1
+            RETURNING {CREDENTIAL_COLUMNS}
+            "#,
+        );
+        let row = sqlx::query(&query)
+            .bind(to_i64("tenant_id", scope.tenant_id)?)
+            .bind(to_i64("organization_id", scope.organization_id)?)
+            .bind(to_i64("credential_reference_id", credential_reference_id)?)
+            .bind(actor_id.trim())
+            .bind(to_i64("expected_version", request.expected_version)?)
+            .bind(&now)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(binding_sql_error)?;
+        match row {
+            Some(row) => credential_from_row(&row),
+            None => credential_write_conflict(self, scope, credential_reference_id).await,
+        }
     }
 
     async fn create_binding(
@@ -857,6 +1027,24 @@ fn version_or_lifecycle_conflict(binding_id: u64) -> KnowledgeEngineProviderBind
     KnowledgeEngineProviderBindingStoreError::Conflict(format!(
         "binding_id={binding_id} version or lifecycle precondition failed"
     ))
+}
+
+async fn credential_write_conflict(
+    store: &SqlxKnowledgeEngineProviderBindingStore,
+    scope: KnowledgeEngineProviderScope,
+    credential_reference_id: u64,
+) -> Result<KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderBindingStoreError> {
+    let current = store
+        .get_credential_reference(scope, credential_reference_id)
+        .await?;
+    if current.rotation_state == KnowledgeEngineProviderCredentialRotationState::Revoked {
+        return Err(KnowledgeEngineProviderBindingStoreError::InvalidLifecycle(
+            format!("credential_reference_id={credential_reference_id} is revoked"),
+        ));
+    }
+    Err(KnowledgeEngineProviderBindingStoreError::Conflict(format!(
+        "credential_reference_id={credential_reference_id} version precondition failed"
+    )))
 }
 
 fn id_error(error: crate::KnowledgeIdGeneratorError) -> KnowledgeEngineProviderBindingStoreError {

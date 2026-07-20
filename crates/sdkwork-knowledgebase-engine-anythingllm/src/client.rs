@@ -26,8 +26,8 @@ impl AnythingLlmApiClient {
         Self { config, http }
     }
 
-    fn context(&self) -> ProviderExecutionContext {
-        ProviderExecutionContext::for_implementation(ANYTHINGLLM_IMPLEMENTATION_ID)
+    fn health_context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_system_health(ANYTHINGLLM_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self, workspace_slug: &str) -> Result<(), KnowledgeEngineError> {
@@ -37,11 +37,11 @@ impl AnythingLlmApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         self.http
-            .execute(&self.context(), request)
+            .execute(&self.health_context(), request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         Ok(())
@@ -49,6 +49,7 @@ impl AnythingLlmApiClient {
 
     pub async fn vector_search(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         workspace_slug: &str,
         query: &str,
@@ -60,7 +61,7 @@ impl AnythingLlmApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "query": query,
@@ -71,7 +72,7 @@ impl AnythingLlmApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: AnythingLlmVectorSearchResponse =
@@ -91,13 +92,14 @@ impl AnythingLlmApiClient {
 
     pub async fn read_chunk(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         workspace_slug: &str,
         document_hint: &str,
         chunk_id: &str,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let search = self
-            .vector_search(space_id, workspace_slug, document_hint, 25)
+            .vector_search(context, space_id, workspace_slug, document_hint, 25)
             .await?;
 
         let hit = search

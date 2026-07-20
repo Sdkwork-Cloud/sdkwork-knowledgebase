@@ -1,8 +1,55 @@
 import { backendApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult, CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, IngestionJob, KnowledgeAuditEventExport, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeSpace, KnowledgeSpaceMemberList, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, PageInfo } from '../types';
+import type { AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult, CreateKnowledgeEngineProviderBindingRequest, CreateKnowledgeEngineProviderCredentialReferenceRequest, CreateKnowledgeEngineProviderMigrationOperationRequest, CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest, IngestionJob, KnowledgeAuditEventExport, KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingPage, KnowledgeEngineProviderBindingState, KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderCredentialReferencePage, KnowledgeEngineProviderCredentialRotationState, KnowledgeEngineProviderMigrationOperation, KnowledgeEngineProviderMigrationOperationPage, KnowledgeEngineProviderMigrationState, KnowledgeIndex, KnowledgeIndexRequest, KnowledgeOkfBundleFile, KnowledgeOkfProfileRequest, KnowledgeProviderHealth, KnowledgeRetrievalProfile, KnowledgeRetrievalProfileRequest, KnowledgeRetrievalTrace, KnowledgeSource, KnowledgeSpace, KnowledgeSpaceMemberList, KnowledgeTenantStatus, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfBundleIndexRebuildRequest, OkfCandidateResult, OkfCandidateReviewRequest, OkfCompileJobRequest, OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfLogEntry, OkfQualityRun, OkfQualityRunRequest, PageInfo, ProviderBindingVersionCommandRequest, ProviderMigrationVersionCommandRequest, RevokeKnowledgeEngineProviderCredentialReferenceRequest, RotateKnowledgeEngineProviderCredentialReferenceRequest, SdkWorkCommandData, UpdateKnowledgeEngineProviderBindingRequest } from '../types';
 
+
+export interface KnowledgeProviderCredentialReferencesListParams {
+  implementationId?: string;
+  rotationState?: KnowledgeEngineProviderCredentialRotationState;
+  cursor?: string;
+  pageSize?: number;
+}
+
+export class KnowledgeProviderCredentialReferencesApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** List Provider credential references */
+  async list(params?: KnowledgeProviderCredentialReferencesListParams): Promise<KnowledgeEngineProviderCredentialReferencePage> {
+    const query = buildQueryString([
+      { name: 'implementation_id', value: params?.implementationId, style: 'form', explode: true, allowReserved: false },
+      { name: 'rotation_state', value: params?.rotationState, style: 'form', explode: true, allowReserved: false },
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<KnowledgeEngineProviderCredentialReferencePage>(appendQueryString(backendApiPath(`/knowledge/provider_credential_references`), query));
+  }
+
+/** Create a Provider credential reference */
+  async create(body: CreateKnowledgeEngineProviderCredentialReferenceRequest): Promise<KnowledgeEngineProviderCredentialReference> {
+    return this.client.post<KnowledgeEngineProviderCredentialReference>(backendApiPath(`/knowledge/provider_credential_references`), body, undefined, undefined, 'application/json');
+  }
+
+/** Retrieve a Provider credential reference */
+  async retrieve(credentialReferenceId: string): Promise<KnowledgeEngineProviderCredentialReference> {
+    return this.client.get<KnowledgeEngineProviderCredentialReference>(backendApiPath(`/knowledge/provider_credential_references/${serializePathParameter(credentialReferenceId, { name: 'credentialReferenceId', style: 'simple', explode: false })}`));
+  }
+
+/** Rotate a Provider credential reference */
+  async rotate(credentialReferenceId: string, body: RotateKnowledgeEngineProviderCredentialReferenceRequest): Promise<SdkWorkCommandData> {
+    return this.client.post<SdkWorkCommandData>(backendApiPath(`/knowledge/provider_credential_references/${serializePathParameter(credentialReferenceId, { name: 'credentialReferenceId', style: 'simple', explode: false })}/rotate`), body, undefined, undefined, 'application/json');
+  }
+
+/** Revoke a Provider credential reference */
+  async revoke(credentialReferenceId: string, body: RevokeKnowledgeEngineProviderCredentialReferenceRequest): Promise<SdkWorkCommandData> {
+    return this.client.post<SdkWorkCommandData>(backendApiPath(`/knowledge/provider_credential_references/${serializePathParameter(credentialReferenceId, { name: 'credentialReferenceId', style: 'simple', explode: false })}/revoke`), body, undefined, undefined, 'application/json');
+  }
+}
 
 export class KnowledgeComplianceAuditEventsAnonymizeActorApi {
   private client: HttpClient;
@@ -56,6 +103,101 @@ export class KnowledgeComplianceApi {
 
 }
 
+export interface KnowledgeSpacesProviderMigrationsListParams {
+  operationState?: KnowledgeEngineProviderMigrationState;
+  cursor?: string;
+  pageSize?: number;
+}
+
+export class KnowledgeSpacesProviderMigrationsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** List Provider migration operations for a knowledge space */
+  async list(spaceId: string, params?: KnowledgeSpacesProviderMigrationsListParams): Promise<KnowledgeEngineProviderMigrationOperationPage> {
+    const query = buildQueryString([
+      { name: 'operation_state', value: params?.operationState, style: 'form', explode: true, allowReserved: false },
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<KnowledgeEngineProviderMigrationOperationPage>(appendQueryString(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_migrations`), query));
+  }
+
+/** Create a recoverable Provider migration operation */
+  async create(spaceId: string, body: CreateKnowledgeEngineProviderMigrationOperationRequest): Promise<KnowledgeEngineProviderMigrationOperation> {
+    return this.client.post<KnowledgeEngineProviderMigrationOperation>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_migrations`), body, undefined, undefined, 'application/json');
+  }
+
+/** Retrieve a Provider migration operation */
+  async retrieve(spaceId: string, migrationOperationId: string): Promise<KnowledgeEngineProviderMigrationOperation> {
+    return this.client.get<KnowledgeEngineProviderMigrationOperation>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_migrations/${serializePathParameter(migrationOperationId, { name: 'migrationOperationId', style: 'simple', explode: false })}`));
+  }
+
+/** Request rollback of a Provider migration operation */
+  async rollback(spaceId: string, migrationOperationId: string, body: ProviderMigrationVersionCommandRequest): Promise<SdkWorkCommandData> {
+    return this.client.post<SdkWorkCommandData>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_migrations/${serializePathParameter(migrationOperationId, { name: 'migrationOperationId', style: 'simple', explode: false })}/rollback`), body, undefined, undefined, 'application/json');
+  }
+}
+
+export interface KnowledgeSpacesProviderBindingsListParams {
+  lifecycleState?: KnowledgeEngineProviderBindingState;
+  cursor?: string;
+  pageSize?: number;
+}
+
+export class KnowledgeSpacesProviderBindingsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** List Provider bindings for a knowledge space */
+  async list(spaceId: string, params?: KnowledgeSpacesProviderBindingsListParams): Promise<KnowledgeEngineProviderBindingPage> {
+    const query = buildQueryString([
+      { name: 'lifecycle_state', value: params?.lifecycleState, style: 'form', explode: true, allowReserved: false },
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<KnowledgeEngineProviderBindingPage>(appendQueryString(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings`), query));
+  }
+
+/** Create a Provider binding for a knowledge space */
+  async create(spaceId: string, body: CreateKnowledgeEngineProviderBindingRequest): Promise<KnowledgeEngineProviderBinding> {
+    return this.client.post<KnowledgeEngineProviderBinding>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings`), body, undefined, undefined, 'application/json');
+  }
+
+/** Retrieve a Provider binding */
+  async retrieve(spaceId: string, bindingId: string): Promise<KnowledgeEngineProviderBinding> {
+    return this.client.get<KnowledgeEngineProviderBinding>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`));
+  }
+
+/** Update a draft Provider binding */
+  async update(spaceId: string, bindingId: string, body: UpdateKnowledgeEngineProviderBindingRequest): Promise<KnowledgeEngineProviderBinding> {
+    return this.client.patch<KnowledgeEngineProviderBinding>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), body, undefined, undefined, 'application/json');
+  }
+
+/** Test a Provider binding */
+  async test(spaceId: string, bindingId: string, body: ProviderBindingVersionCommandRequest): Promise<SdkWorkCommandData> {
+    return this.client.post<SdkWorkCommandData>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}/test`), body, undefined, undefined, 'application/json');
+  }
+
+/** Activate a Provider binding */
+  async activate(spaceId: string, bindingId: string, body: ProviderBindingVersionCommandRequest): Promise<SdkWorkCommandData> {
+    return this.client.post<SdkWorkCommandData>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}/activate`), body, undefined, undefined, 'application/json');
+  }
+
+/** Disable a Provider binding */
+  async disable(spaceId: string, bindingId: string, body: ProviderBindingVersionCommandRequest): Promise<SdkWorkCommandData> {
+    return this.client.post<SdkWorkCommandData>(backendApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/provider_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}/disable`), body, undefined, undefined, 'application/json');
+  }
+}
+
 export interface KnowledgeSpacesMembersListParams {
   cursor?: string;
   pageSize?: number;
@@ -87,10 +229,14 @@ export interface KnowledgeSpacesListParams {
 export class KnowledgeSpacesApi {
   private client: HttpClient;
   public readonly members: KnowledgeSpacesMembersApi;
+  public readonly providerBindings: KnowledgeSpacesProviderBindingsApi;
+  public readonly providerMigrations: KnowledgeSpacesProviderMigrationsApi;
 
   constructor(client: HttpClient) {
     this.client = client;
     this.members = new KnowledgeSpacesMembersApi(client);
+    this.providerBindings = new KnowledgeSpacesProviderBindingsApi(client);
+    this.providerMigrations = new KnowledgeSpacesProviderMigrationsApi(client);
   }
 
 
@@ -519,6 +665,7 @@ export class KnowledgeApi {
   public readonly tenants: KnowledgeTenantsApi;
   public readonly spaces: KnowledgeSpacesApi;
   public readonly compliance: KnowledgeComplianceApi;
+  public readonly providerCredentialReferences: KnowledgeProviderCredentialReferencesApi;
 
   constructor(client: HttpClient) {
     this.client = client;
@@ -531,6 +678,7 @@ export class KnowledgeApi {
     this.tenants = new KnowledgeTenantsApi(client);
     this.spaces = new KnowledgeSpacesApi(client);
     this.compliance = new KnowledgeComplianceApi(client);
+    this.providerCredentialReferences = new KnowledgeProviderCredentialReferencesApi(client);
   }
 
 }

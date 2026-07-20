@@ -44,9 +44,8 @@ export function requireKnowledgebaseBackendApi(operation: string): void {
   }
 }
 
-const KNOWLEDGE_ADMIN_SCOPES = new Set([
+const KNOWLEDGE_PLATFORM_MANAGE_SCOPES = new Set([
   'knowledge.platform.manage',
-  'knowledge.admin',
   'knowledge.*',
 ]);
 
@@ -54,5 +53,5 @@ export function canAccessKnowledgebaseAdminConsole(permissionScope?: string[]): 
   if (!permissionScope?.length) {
     return false;
   }
-  return permissionScope.some((scope) => KNOWLEDGE_ADMIN_SCOPES.has(scope));
+  return permissionScope.some((scope) => KNOWLEDGE_PLATFORM_MANAGE_SCOPES.has(scope));
 }

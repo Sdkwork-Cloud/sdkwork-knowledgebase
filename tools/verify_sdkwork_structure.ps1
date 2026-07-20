@@ -90,8 +90,8 @@ Assert-PathExists "scripts/lib/knowledgebase-topology.mjs" "Missing topology ada
 Assert-PathExists "scripts/knowledgebase-dev.mjs" "Missing topology dev orchestrator"
 
 $topologySpec = Get-JsonFile "specs/topology.spec.json"
-if ($topologySpec.schemaVersion -ne 4) {
-    throw "specs/topology.spec.json schemaVersion must be 4"
+if ($topologySpec.schemaVersion -ne 5) {
+    throw "specs/topology.spec.json schemaVersion must be 5"
 }
 if ($topologySpec.kind -ne "sdkwork.app.topology") {
     throw "specs/topology.spec.json kind must be sdkwork.app.topology"
@@ -175,8 +175,10 @@ $packageNames = New-Object System.Collections.Generic.List[string]
 foreach ($cargoToml in $cargoTomls) {
     $relativePath = $cargoToml.FullName.Substring((Get-Location).Path.Length + 1).Replace("\", "/")
     $isAllowedAppSurfaceTauriHost = $relativePath -match '^apps/[^/]+/packages/[^/]+/src-tauri/Cargo\.toml$'
-    if ($relativePath -ne "Cargo.toml" -and !$relativePath.StartsWith("crates/") -and !$isAllowedAppSurfaceTauriHost) {
-        throw "Authored Rust package manifest must live under crates/ or an app-surface Tauri host at apps/<surface>/packages/<host>/src-tauri/Cargo.toml: $relativePath"
+    $isAuthoredSdkRustFamily = $relativePath -match '^sdks/[^/]+/[^/]+-rust/Cargo\.toml$'
+    $isGeneratedSdkTransport = $relativePath -match '^sdks/[^/]+/[^/]+-rust/generated/server-openapi/Cargo\.toml$'
+    if ($relativePath -ne "Cargo.toml" -and !$relativePath.StartsWith("crates/") -and !$isAllowedAppSurfaceTauriHost -and !$isAuthoredSdkRustFamily -and !$isGeneratedSdkTransport) {
+        throw "Rust package manifest must live under crates/, an app-surface Tauri host, an SDK Rust family, or a generator-owned SDK transport: $relativePath"
     }
 
     $match = Select-String -LiteralPath $cargoToml.FullName -Pattern '^name\s*=\s*"([^"]+)"' | Select-Object -First 1

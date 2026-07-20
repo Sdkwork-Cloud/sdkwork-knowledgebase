@@ -6,7 +6,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(scriptDir, '..');
 const checkOnly = process.argv.includes('--check');
 
-const BACKEND_PERMISSION = 'knowledge.admin';
+const BACKEND_PERMISSION = 'knowledge.platform.manage';
 const BACKEND_AUDIT_EVENT = 'knowledge.backend.admin_operation';
 
 const targets = [

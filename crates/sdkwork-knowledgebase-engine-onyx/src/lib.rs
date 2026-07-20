@@ -9,18 +9,19 @@ mod config;
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredential;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, KnowledgeEngineDescriptor,
     KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineError,
     KnowledgeEngineHealth, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
     KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
 };
+use sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext;
+use sdkwork_knowledgebase_provider_runtime::{ProviderExecutionContext, ProviderOperation};
 use std::sync::Arc;
 
 pub use client::{decode_url_document_id, encode_url_document_id, OnyxApiClient};
-pub use config::{
-    OnyxConnectorConfig, ONYX_BASE_URL_ENV, ONYX_CREDENTIAL_ENV, ONYX_CREDENTIAL_FILE_ENV,
-};
+pub use config::{OnyxConnectorConfig, ONYX_BASE_URL_ENV, ONYX_CREDENTIAL_ENV};
 
 pub const ONYX_VENDOR_ID: &str = "onyx";
 pub const ONYX_IMPLEMENTATION_ID: &str = "engine.knowledge.external.onyx";
@@ -69,7 +70,9 @@ impl OnyxKnowledgeEngine {
     }
 
     fn unconfigured_message(&self) -> String {
-        format!("Onyx adapter requires {ONYX_BASE_URL_ENV} and {ONYX_CREDENTIAL_ENV} or {ONYX_CREDENTIAL_FILE_ENV}")
+        format!(
+            "Onyx adapter requires {ONYX_BASE_URL_ENV}; an active Provider binding must supply a credential reference"
+        )
     }
 }
 
@@ -82,16 +85,24 @@ impl KnowledgeEngine for OnyxKnowledgeEngine {
     fn bind_provider(
         &self,
         binding: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineProviderBinding,
+        credential: Option<KnowledgeEngineProviderCredential>,
     ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
         if binding.implementation_id != ONYX_IMPLEMENTATION_ID {
             return Err(KnowledgeEngineError::Validation(
                 "Onyx cannot bind a different Provider implementation".to_string(),
             ));
         }
-        let config = self
+        let mut config = self
             .config
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
+        config.api_key = credential
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(
+                    "Onyx Provider binding requires a credential reference".to_string(),
+                )
+            })?
+            .into_secret();
         Ok(Arc::new(Self::with_config(config)))
     }
 
@@ -120,6 +131,7 @@ impl KnowledgeEngine for OnyxKnowledgeEngine {
 
     async fn search(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineSearchRequest,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
         let Some(client) = self.client.as_ref() else {
@@ -128,11 +140,22 @@ impl KnowledgeEngine for OnyxKnowledgeEngine {
             ));
         };
 
-        client.search(request.space_id, &request.query).await
+        let provider_context = ProviderExecutionContext::from_knowledge_engine_request(
+            context,
+            ONYX_IMPLEMENTATION_ID,
+            ProviderOperation::Search,
+            request.tenant_id,
+            request.space_id,
+        )
+        .map_err(KnowledgeEngineError::from)?;
+        client
+            .search(&provider_context, request.space_id, &request.query)
+            .await
     }
 
     async fn read_document(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineReadRequest,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let Some(client) = self.client.as_ref() else {
@@ -147,11 +170,20 @@ impl KnowledgeEngine for OnyxKnowledgeEngine {
             ));
         };
 
-        client.read_url_document(&url).await
+        let provider_context = ProviderExecutionContext::from_knowledge_engine_request(
+            context,
+            ONYX_IMPLEMENTATION_ID,
+            ProviderOperation::Read,
+            request.tenant_id,
+            request.space_id,
+        )
+        .map_err(KnowledgeEngineError::from)?;
+        client.read_url_document(&provider_context, &url).await
     }
 
     async fn list_documents(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
@@ -167,7 +199,11 @@ impl ExternalKnowledgeEngine for OnyxKnowledgeEngine {
         self.health().await
     }
 
-    async fn sync_sources(&self, _space_id: u64) -> Result<u32, KnowledgeEngineError> {
+    async fn sync_sources(
+        &self,
+        _context: &KnowledgeEngineExecutionContext,
+        _space_id: u64,
+    ) -> Result<u32, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
             "Onyx sync_sources is managed via Onyx connector admin; adapter exposes search/read only"
                 .to_string(),

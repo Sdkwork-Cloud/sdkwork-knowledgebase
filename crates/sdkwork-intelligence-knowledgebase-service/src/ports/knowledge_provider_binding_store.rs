@@ -6,7 +6,11 @@ use sdkwork_knowledgebase_contract::provider_binding::{
     CreateKnowledgeEngineProviderBindingRequest,
     CreateKnowledgeEngineProviderCredentialReferenceRequest, KnowledgeEngineProviderBinding,
     KnowledgeEngineProviderBindingList, KnowledgeEngineProviderCredentialReference,
-    ListKnowledgeEngineProviderBindingsRequest, UpdateKnowledgeEngineProviderBindingRequest,
+    KnowledgeEngineProviderCredentialReferenceList, ListKnowledgeEngineProviderBindingsRequest,
+    ListKnowledgeEngineProviderCredentialReferencesRequest,
+    RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    UpdateKnowledgeEngineProviderBindingRequest,
 };
 use thiserror::Error;
 
@@ -16,12 +20,24 @@ pub struct KnowledgeEngineProviderScope {
     pub organization_id: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ResolvedKnowledgeEngineProviderCredential {
     pub credential_reference_id: u64,
     pub implementation_id: String,
     pub reference_locator: String,
     pub version: u64,
+}
+
+impl std::fmt::Debug for ResolvedKnowledgeEngineProviderCredential {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ResolvedKnowledgeEngineProviderCredential")
+            .field("credential_reference_id", &self.credential_reference_id)
+            .field("implementation_id", &self.implementation_id)
+            .field("reference_locator", &"[REDACTED]")
+            .field("version", &self.version)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,6 +63,37 @@ pub trait KnowledgeEngineProviderBindingStore: Send + Sync {
         credential_reference_id: u64,
         implementation_id: &str,
     ) -> Result<ResolvedKnowledgeEngineProviderCredential, KnowledgeEngineProviderBindingStoreError>;
+
+    async fn get_credential_reference(
+        &self,
+        scope: KnowledgeEngineProviderScope,
+        credential_reference_id: u64,
+    ) -> Result<KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderBindingStoreError>;
+
+    async fn list_credential_references(
+        &self,
+        scope: KnowledgeEngineProviderScope,
+        request: ListKnowledgeEngineProviderCredentialReferencesRequest,
+    ) -> Result<
+        KnowledgeEngineProviderCredentialReferenceList,
+        KnowledgeEngineProviderBindingStoreError,
+    >;
+
+    async fn rotate_credential_reference(
+        &self,
+        scope: KnowledgeEngineProviderScope,
+        credential_reference_id: u64,
+        actor_id: &str,
+        request: RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> Result<KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderBindingStoreError>;
+
+    async fn revoke_credential_reference(
+        &self,
+        scope: KnowledgeEngineProviderScope,
+        credential_reference_id: u64,
+        actor_id: &str,
+        request: RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> Result<KnowledgeEngineProviderCredentialReference, KnowledgeEngineProviderBindingStoreError>;
 
     async fn create_binding(
         &self,
@@ -127,4 +174,25 @@ pub enum KnowledgeEngineProviderBindingStoreError {
     CredentialUnavailable(u64),
     #[error("knowledge engine provider binding internal error: {0}")]
     Internal(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolved_credential_reference_debug_redacts_locator() {
+        let reference = ResolvedKnowledgeEngineProviderCredential {
+            credential_reference_id: 73,
+            implementation_id: "engine.knowledge.external.dify".to_string(),
+            reference_locator: "secret://knowledgebase/dify/private".to_string(),
+            version: 4,
+        };
+
+        let rendered = format!("{reference:?}");
+
+        assert!(rendered.contains("credential_reference_id: 73"));
+        assert!(rendered.contains("[REDACTED]"));
+        assert!(!rendered.contains("secret://knowledgebase/dify/private"));
+    }
 }

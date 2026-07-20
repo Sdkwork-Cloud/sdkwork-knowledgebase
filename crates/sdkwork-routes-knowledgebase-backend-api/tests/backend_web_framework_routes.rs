@@ -117,6 +117,7 @@ async fn dev_backend_auth_rejects_missing_knowledge_admin_permission() {
                         operator_id: Some(99),
                         organization_id: None,
                         permission_scope: vec!["knowledge.spaces.read".to_string()],
+                        trace_id: "trace-insufficient-permission".to_string(),
                     });
             }
             next.run(request).await
@@ -153,7 +154,7 @@ async fn backend_router_rejects_personal_login_scope_sessions() {
             "99",
             "session-1",
             "sdkwork-knowledgebase",
-            "knowledge.admin",
+            "knowledge.platform.manage",
         )
     );
     let access =
@@ -192,9 +193,10 @@ fn with_dev_backend_auth(router: Router, tenant_id: u64, operator_id: Option<u64
                             operator_id,
                             organization_id: None,
                             permission_scope: vec![
-                                sdkwork_routes_knowledgebase_backend_api::permission::KNOWLEDGE_ADMIN_PERMISSION
+                                sdkwork_routes_knowledgebase_backend_api::permission::KNOWLEDGE_PLATFORM_MANAGE_PERMISSION
                                     .to_string(),
                             ],
+                            trace_id: "trace-backend-auth".to_string(),
                         });
                 }
                 next.run(request).await

@@ -28,6 +28,7 @@ pub mod manifest;
 pub mod pagination;
 pub mod paths;
 mod ports;
+mod provider_credential_resolver;
 mod routes;
 pub mod runtime;
 mod tenant_quota_enforcement;

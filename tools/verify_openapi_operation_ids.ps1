@@ -138,8 +138,8 @@ foreach ($specPath in $specPaths) {
 
                 if ($specPath -like "*backend-api*") {
                     $permission = $operation.'x-sdkwork-permission'
-                    if ($permission -ne "knowledge.admin") {
-                        throw "Backend OpenAPI operation must declare x-sdkwork-permission knowledge.admin: $operationId"
+                    if ($permission -ne "knowledge.platform.manage") {
+                        throw "Backend OpenAPI operation must declare x-sdkwork-permission knowledge.platform.manage: $operationId"
                     }
                 }
 

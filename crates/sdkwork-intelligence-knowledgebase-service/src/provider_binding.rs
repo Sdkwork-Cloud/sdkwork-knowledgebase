@@ -1,6 +1,8 @@
+use std::collections::BTreeSet;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use futures::{stream, StreamExt};
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineCapability, KnowledgeEngineError, KnowledgeEngineHealthStatus,
     KnowledgeEngineProviderErrorCategory,
@@ -9,9 +11,14 @@ use sdkwork_knowledgebase_contract::provider_binding::{
     CreateKnowledgeEngineProviderBindingRequest,
     CreateKnowledgeEngineProviderCredentialReferenceRequest, KnowledgeEngineExecutionContext,
     KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingList,
-    KnowledgeEngineProviderCredentialReference, ListKnowledgeEngineProviderBindingsRequest,
+    KnowledgeEngineProviderBindingState, KnowledgeEngineProviderCredentialReference,
+    KnowledgeEngineProviderCredentialReferenceList, ListKnowledgeEngineProviderBindingsRequest,
+    ListKnowledgeEngineProviderCredentialReferencesRequest,
+    RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    RotateKnowledgeEngineProviderCredentialReferenceRequest,
     UpdateKnowledgeEngineProviderBindingRequest,
 };
+use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 
 use crate::ports::knowledge_engine::KnowledgeEngineRegistry;
@@ -19,20 +26,39 @@ use crate::ports::knowledge_provider_binding_store::{
     KnowledgeEngineProviderBindingStore, KnowledgeEngineProviderBindingStoreError,
     KnowledgeEngineProviderScope, RecordKnowledgeEngineProviderTestResult,
 };
+use crate::ports::knowledge_provider_credential_resolver::{
+    KnowledgeEngineProviderCredentialError, KnowledgeEngineProviderCredentialResolver,
+};
 
-pub const KNOWLEDGE_PROVIDER_MANAGE_PERMISSION: &str = "knowledge.providers.manage";
+pub const KNOWLEDGE_PLATFORM_MANAGE_PERMISSION: &str = "knowledge.platform.manage";
+const MAX_CONCURRENT_PROVIDER_HEALTH_PROBES: usize = 8;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnowledgeEngineProviderHealthSummary {
+    pub implementation_ids: Vec<String>,
+    pub degraded: bool,
+}
 
 pub struct KnowledgeEngineProviderBindingService<R> {
     store: Arc<dyn KnowledgeEngineProviderBindingStore>,
     registry: Arc<R>,
+    credential_resolver: Arc<dyn KnowledgeEngineProviderCredentialResolver>,
 }
 
 impl<R> KnowledgeEngineProviderBindingService<R>
 where
     R: KnowledgeEngineRegistry + 'static,
 {
-    pub fn new(store: Arc<dyn KnowledgeEngineProviderBindingStore>, registry: Arc<R>) -> Self {
-        Self { store, registry }
+    pub fn new(
+        store: Arc<dyn KnowledgeEngineProviderBindingStore>,
+        registry: Arc<R>,
+        credential_resolver: Arc<dyn KnowledgeEngineProviderCredentialResolver>,
+    ) -> Self {
+        Self {
+            store,
+            registry,
+            credential_resolver,
+        }
     }
 
     pub async fn create_credential_reference(
@@ -45,6 +71,8 @@ where
     > {
         validate_management_context(context, None)?;
         self.require_executable_external_implementation(&request.implementation_id)?;
+        self.credential_resolver
+            .validate_reference_locator(&request.reference_locator)?;
         self.store
             .create_credential_reference(provider_scope(context), &context.actor_id, request)
             .await
@@ -60,6 +88,88 @@ where
         self.require_executable_external_implementation(&request.implementation_id)?;
         self.store
             .create_binding(provider_scope(context), &context.actor_id, request)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn get_credential_reference(
+        &self,
+        context: &KnowledgeEngineExecutionContext,
+        credential_reference_id: u64,
+    ) -> Result<
+        KnowledgeEngineProviderCredentialReference,
+        KnowledgeEngineProviderBindingServiceError,
+    > {
+        validate_management_context(context, None)?;
+        self.store
+            .get_credential_reference(provider_scope(context), credential_reference_id)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn list_credential_references(
+        &self,
+        context: &KnowledgeEngineExecutionContext,
+        request: ListKnowledgeEngineProviderCredentialReferencesRequest,
+    ) -> Result<
+        KnowledgeEngineProviderCredentialReferenceList,
+        KnowledgeEngineProviderBindingServiceError,
+    > {
+        validate_management_context(context, None)?;
+        if let Some(implementation_id) = request.implementation_id.as_deref() {
+            self.require_executable_external_implementation(implementation_id)?;
+        }
+        self.store
+            .list_credential_references(provider_scope(context), request)
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn rotate_credential_reference(
+        &self,
+        context: &KnowledgeEngineExecutionContext,
+        credential_reference_id: u64,
+        request: RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> Result<
+        KnowledgeEngineProviderCredentialReference,
+        KnowledgeEngineProviderBindingServiceError,
+    > {
+        validate_management_context(context, None)?;
+        let credential = self
+            .store
+            .get_credential_reference(provider_scope(context), credential_reference_id)
+            .await?;
+        self.require_executable_external_implementation(&credential.implementation_id)?;
+        self.credential_resolver
+            .validate_reference_locator(&request.reference_locator)?;
+        self.store
+            .rotate_credential_reference(
+                provider_scope(context),
+                credential_reference_id,
+                &context.actor_id,
+                request,
+            )
+            .await
+            .map_err(Into::into)
+    }
+
+    pub async fn revoke_credential_reference(
+        &self,
+        context: &KnowledgeEngineExecutionContext,
+        credential_reference_id: u64,
+        request: RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> Result<
+        KnowledgeEngineProviderCredentialReference,
+        KnowledgeEngineProviderBindingServiceError,
+    > {
+        validate_management_context(context, None)?;
+        self.store
+            .revoke_credential_reference(
+                provider_scope(context),
+                credential_reference_id,
+                &context.actor_id,
+                request,
+            )
             .await
             .map_err(Into::into)
     }
@@ -132,11 +242,12 @@ where
                 expected_version,
             )
             .await?;
+        let credential = self.resolve_binding_credential(context, &testing).await?;
         let engine = self
             .registry
             .resolve_by_id(&testing.implementation_id)
             .map_err(KnowledgeEngineProviderBindingServiceError::Engine)?
-            .bind_provider(&testing)
+            .bind_provider(&testing, credential)
             .map_err(KnowledgeEngineProviderBindingServiceError::Engine)?;
         let descriptor = engine.descriptor();
         let health = engine
@@ -162,6 +273,128 @@ where
                 },
             )
             .await
+            .map_err(Into::into)
+    }
+
+    pub async fn probe_active_bindings_health(
+        &self,
+        context: &KnowledgeEngineExecutionContext,
+    ) -> Result<KnowledgeEngineProviderHealthSummary, KnowledgeEngineProviderBindingServiceError>
+    {
+        let mut implementation_ids = BTreeSet::new();
+        let mut degraded = false;
+        let mut cursor = None;
+
+        loop {
+            validate_management_context(context, None)?;
+            let page = self
+                .store
+                .list_bindings(
+                    provider_scope(context),
+                    ListKnowledgeEngineProviderBindingsRequest {
+                        space_id: None,
+                        lifecycle_state: Some(KnowledgeEngineProviderBindingState::Active),
+                        cursor: cursor.clone(),
+                        page_size: Some(200),
+                    },
+                )
+                .await?;
+
+            for binding in &page.items {
+                implementation_ids.insert(binding.implementation_id.clone());
+            }
+            let probe_results = stream::iter(page.items.into_iter().map(|binding| async move {
+                validate_management_context(context, None)?;
+                if !binding
+                    .capability_snapshot
+                    .contains(&KnowledgeEngineCapability::Health)
+                {
+                    return Ok(false);
+                }
+                let remaining = remaining_deadline(context)?;
+                Ok(
+                    tokio::time::timeout(remaining, self.probe_binding_health(context, &binding))
+                        .await
+                        .unwrap_or(false),
+                )
+            }))
+            .buffer_unordered(MAX_CONCURRENT_PROVIDER_HEALTH_PROBES)
+            .collect::<Vec<Result<bool, KnowledgeEngineProviderBindingServiceError>>>()
+            .await;
+            for result in probe_results {
+                degraded |= !result?;
+            }
+
+            match page.next_cursor {
+                Some(next_cursor) if cursor.as_deref() != Some(next_cursor.as_str()) => {
+                    cursor = Some(next_cursor);
+                }
+                Some(_) => {
+                    return Err(KnowledgeEngineProviderBindingServiceError::Internal(
+                        "Provider binding pagination returned a repeated cursor".to_string(),
+                    ));
+                }
+                None => break,
+            }
+        }
+
+        Ok(KnowledgeEngineProviderHealthSummary {
+            implementation_ids: implementation_ids.into_iter().collect(),
+            degraded,
+        })
+    }
+
+    async fn probe_binding_health(
+        &self,
+        context: &KnowledgeEngineExecutionContext,
+        binding: &KnowledgeEngineProviderBinding,
+    ) -> bool {
+        let Ok(engine) = self.registry.resolve_by_id(&binding.implementation_id) else {
+            return false;
+        };
+        let Ok(credential) = self.resolve_binding_credential(context, binding).await else {
+            return false;
+        };
+        let Ok(engine) = engine.bind_provider(binding, credential) else {
+            return false;
+        };
+        if !engine
+            .descriptor()
+            .supports(KnowledgeEngineCapability::Health)
+        {
+            return false;
+        }
+        matches!(
+            engine.health().await,
+            Ok(health) if health.status == KnowledgeEngineHealthStatus::Available
+        )
+    }
+
+    async fn resolve_binding_credential(
+        &self,
+        context: &KnowledgeEngineExecutionContext,
+        binding: &KnowledgeEngineProviderBinding,
+    ) -> Result<
+        Option<
+            crate::ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredential,
+        >,
+        KnowledgeEngineProviderBindingServiceError,
+    > {
+        let Some(credential_reference_id) = binding.credential_reference_id else {
+            return Ok(None);
+        };
+        let reference = self
+            .store
+            .resolve_credential_reference(
+                provider_scope(context),
+                credential_reference_id,
+                &binding.implementation_id,
+            )
+            .await?;
+        self.credential_resolver
+            .resolve(&reference)
+            .await
+            .map(Some)
             .map_err(Into::into)
     }
 
@@ -251,7 +484,7 @@ fn validate_management_context(
             ),
         );
     }
-    if context.actor_id.trim().is_empty() {
+    if is_blank(Some(context.actor_id.as_str())) {
         return Err(
             KnowledgeEngineProviderBindingServiceError::PermissionDenied(
                 "authenticated actor is required".to_string(),
@@ -261,17 +494,17 @@ fn validate_management_context(
     let may_manage = context.permission_scope.iter().any(|permission| {
         matches!(
             permission.as_str(),
-            KNOWLEDGE_PROVIDER_MANAGE_PERMISSION | "knowledge.admin" | "knowledge.*"
+            KNOWLEDGE_PLATFORM_MANAGE_PERMISSION | "knowledge.*"
         )
     });
     if !may_manage {
         return Err(
             KnowledgeEngineProviderBindingServiceError::PermissionDenied(format!(
-                "{KNOWLEDGE_PROVIDER_MANAGE_PERMISSION} is required"
+                "{KNOWLEDGE_PLATFORM_MANAGE_PERMISSION} is required"
             )),
         );
     }
-    if context.trace_id.trim().is_empty() {
+    if is_blank(Some(context.trace_id.as_str())) {
         return Err(KnowledgeEngineProviderBindingServiceError::InvalidRequest(
             "trace_id is required".to_string(),
         ));
@@ -315,6 +548,22 @@ fn provider_scope(context: &KnowledgeEngineExecutionContext) -> KnowledgeEngineP
     }
 }
 
+fn remaining_deadline(
+    context: &KnowledgeEngineExecutionContext,
+) -> Result<Duration, KnowledgeEngineProviderBindingServiceError> {
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| KnowledgeEngineProviderBindingServiceError::Internal(error.to_string()))?
+        .as_millis();
+    let remaining_ms = u128::from(context.deadline_unix_ms)
+        .checked_sub(now_ms)
+        .filter(|value| *value > 0)
+        .ok_or(KnowledgeEngineProviderBindingServiceError::DeadlineExceeded)?;
+    Ok(Duration::from_millis(
+        u64::try_from(remaining_ms).unwrap_or(u64::MAX),
+    ))
+}
+
 #[derive(Debug, Error)]
 pub enum KnowledgeEngineProviderBindingServiceError {
     #[error("invalid Provider binding request: {0}")]
@@ -329,6 +578,8 @@ pub enum KnowledgeEngineProviderBindingServiceError {
     Store(#[from] KnowledgeEngineProviderBindingStoreError),
     #[error(transparent)]
     Engine(#[from] KnowledgeEngineError),
+    #[error(transparent)]
+    Credential(#[from] KnowledgeEngineProviderCredentialError),
     #[error("Provider binding internal error: {0}")]
     Internal(String),
 }
@@ -375,7 +626,7 @@ mod tests {
             tenant_id: 1,
             organization_id: 7,
             actor_id: "tenant-admin".to_string(),
-            permission_scope: vec![KNOWLEDGE_PROVIDER_MANAGE_PERMISSION.to_string()],
+            permission_scope: vec![KNOWLEDGE_PLATFORM_MANAGE_PERMISSION.to_string()],
             data_scope: KnowledgeEngineDataScope {
                 allowed_space_ids: vec![42],
                 allowed_source_ids: Vec::new(),

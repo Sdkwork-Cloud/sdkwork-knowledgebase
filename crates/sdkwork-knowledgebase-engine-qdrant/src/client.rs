@@ -27,15 +27,15 @@ impl QdrantApiClient {
         Self { config, http }
     }
 
-    fn context(&self) -> ProviderExecutionContext {
-        ProviderExecutionContext::for_implementation(QDRANT_IMPLEMENTATION_ID)
+    fn health_context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_system_health(QDRANT_IMPLEMENTATION_ID)
     }
 
     fn authed(
         &self,
         request: ProviderHttpRequest,
     ) -> Result<ProviderHttpRequest, KnowledgeEngineError> {
-        match self.config.api_key.as_deref() {
+        match self.config.api_key.as_ref().map(|value| value.as_str()) {
             Some(api_key) => request
                 .sensitive_header("api-key", api_key)
                 .map_err(KnowledgeEngineError::from),
@@ -62,7 +62,7 @@ impl QdrantApiClient {
             )?
             .idempotent(true);
         self.http
-            .execute(&self.context(), request)
+            .execute(&self.health_context(), request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         Ok(())
@@ -70,6 +70,7 @@ impl QdrantApiClient {
 
     pub async fn query_points(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         collection_name: &str,
         query: &str,
@@ -104,7 +105,7 @@ impl QdrantApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: QdrantQueryResponse = response.json().map_err(KnowledgeEngineError::from)?;
@@ -122,6 +123,7 @@ impl QdrantApiClient {
 
     pub async fn get_point(
         &self,
+        context: &ProviderExecutionContext,
         collection_name: &str,
         point_id: &str,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
@@ -140,7 +142,7 @@ impl QdrantApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: QdrantGetPointsResponse =
@@ -172,6 +174,7 @@ impl QdrantApiClient {
 
     pub async fn get_collection(
         &self,
+        context: &ProviderExecutionContext,
         collection_name: &str,
     ) -> Result<QdrantCollectionInfo, KnowledgeEngineError> {
         let url = self.collection_url(collection_name, "");
@@ -183,7 +186,7 @@ impl QdrantApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: QdrantCollectionResponse =

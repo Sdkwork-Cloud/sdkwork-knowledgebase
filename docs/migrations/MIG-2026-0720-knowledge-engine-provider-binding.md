@@ -52,7 +52,11 @@ release. Generated SDK output changes only through authored OpenAPI and the stan
    engine selection is removed in the same change; `kb_source.provider` remains non-authoritative
    source association metadata only. Adapter code cannot read `KnowledgeSourceStore` or parse
    `connector_metadata_json` into Provider remote-resource configuration.
-6. Run SQLite/PostgreSQL isolation, migration, API/SDK, provider certification, quality, load,
+6. Run Provider-to-Provider changes through the space-scoped migration operation. The target remote
+   resource must already exist and have a successful Binding test. The Worker claims one phase with
+   an expiring owner/token lease, revalidates versions/capabilities, atomically switches Bindings,
+   defers observation completion until its deadline, and retains the predecessor for rollback.
+7. Run SQLite/PostgreSQL isolation, migration, API/SDK, provider certification, quality, load,
    outage, cutover, and rollback gates before release.
 
 ## Rollback
@@ -74,6 +78,9 @@ Rollback is supported before release and during every later Provider-to-Provider
 cargo test -p sdkwork-knowledgebase-provider-runtime
 cargo test -p sdkwork-intelligence-knowledgebase-service knowledge_engine
 cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx provider_binding
+cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx --test provider_migration_store
+cargo test -p sdkwork-knowledgebase-worker
+cargo test -p sdkwork-routes-knowledgebase-app-api --test hosted_runtime_routes hosted_provider_migration_is_scoped_recoverable_and_reversible -- --exact
 node tools/check_external_knowledge_engine_catalog.mjs
 node tools/check_knowledge_engine_spi_standard.mjs
 node ../sdkwork-specs/tools/check-api-operation-patterns.mjs --workspace .

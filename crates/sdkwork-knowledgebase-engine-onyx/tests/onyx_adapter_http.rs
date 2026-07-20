@@ -3,6 +3,7 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineHealthStatus, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
 use sdkwork_knowledgebase_engine_onyx::{OnyxConnectorConfig, OnyxKnowledgeEngine};
+use sdkwork_knowledgebase_test_support::provider_execution::provider_execution_context;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -16,7 +17,7 @@ async fn assert_onyx_health(upstream_status: u16, expected: KnowledgeEngineHealt
         .await;
     let engine = OnyxKnowledgeEngine::with_config(OnyxConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "health-key".to_string(),
+        api_key: zeroize::Zeroizing::new("health-key".to_string()),
     });
 
     assert_eq!(engine.health().await.expect("health").status, expected);
@@ -46,16 +47,19 @@ async fn onyx_search_maps_unified_search_results() {
 
     let engine = OnyxKnowledgeEngine::with_config(OnyxConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "test-api-key".to_string(),
+        api_key: zeroize::Zeroizing::new("test-api-key".to_string()),
     });
 
     let result = engine
-        .search(KnowledgeEngineSearchRequest {
-            tenant_id: 1,
-            space_id: 3,
-            query: "policy".to_string(),
-            top_k: 4,
-        })
+        .search(
+            &provider_execution_context(1, 2, 3, 7, "trace-adapter-search"),
+            KnowledgeEngineSearchRequest {
+                tenant_id: 1,
+                space_id: 3,
+                query: "policy".to_string(),
+                top_k: 4,
+            },
+        )
         .await
         .expect("search");
 
@@ -83,15 +87,18 @@ async fn onyx_read_document_uses_open_urls() {
 
     let engine = OnyxKnowledgeEngine::with_config(OnyxConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "test-api-key".to_string(),
+        api_key: zeroize::Zeroizing::new("test-api-key".to_string()),
     });
 
     let document = engine
-        .read_document(KnowledgeEngineReadRequest {
-            tenant_id: 1,
-            space_id: 3,
-            document_id: "url:https://example.com/policy".to_string(),
-        })
+        .read_document(
+            &provider_execution_context(1, 2, 3, 7, "trace-adapter-read"),
+            KnowledgeEngineReadRequest {
+                tenant_id: 1,
+                space_id: 3,
+                document_id: "url:https://example.com/policy".to_string(),
+            },
+        )
         .await
         .expect("read");
 

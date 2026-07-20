@@ -126,19 +126,9 @@ foreach ($sdkRoot in $requiredGeneratedSdkRoots) {
     }
 }
 
-Invoke-Checked node tools/patch-route-manifest-extensions.mjs
-Invoke-Checked node tools/patch-knowledgebase-app-api-extensions.mjs
-Invoke-Checked node tools/sync-route-manifest-json.mjs
-Invoke-Checked node tools/sync-context-binding-openapi.mjs
-Invoke-Checked node tools/sync-upload-session-openapi.mjs
-Invoke-Checked node scripts/align-app-api-int64-string-fields.mjs
-Invoke-Checked node tools/sync-openapi-operation-metadata.mjs
-Invoke-Checked node tools/apply-knowledgebase-openapi-auth-mode.mjs
-Invoke-Checked node tools/apply-knowledgebase-openapi-permissions.mjs
-Invoke-Checked node tools/materialize-apis-authority.mjs
-Invoke-Checked node tools/materialize-apis-authority.mjs --check
-Invoke-Checked node sdks/standardize-knowledgebase-sdk-family.mjs --check
-Invoke-Checked node sdks/test/verify-sdk-ownership-boundaries.test.mjs
+Invoke-Checked pnpm api:materialize:check
+Invoke-Checked pnpm sdk:check
+Invoke-Checked pnpm api:assembly:validate
 
 $gitignore = Get-Content -Raw ".gitignore"
 foreach ($ignoredArtifact in @(
@@ -156,10 +146,6 @@ foreach ($sdkRoot in $requiredGeneratedSdkRoots) {
     foreach ($artifactName in @("node_modules", "dist", "package-lock.json")) {
         $artifactPath = Join-Path $sdkRoot $artifactName
         if (Test-Path $artifactPath) {
-            if ($artifactName -eq "node_modules") {
-                Remove-Item -Recurse -Force $artifactPath
-                continue
-            }
             $generatedSdkBuildArtifacts += $artifactPath
         }
     }

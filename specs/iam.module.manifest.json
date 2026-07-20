@@ -231,7 +231,7 @@
         "action": "manage",
         "status": "active",
         "since": "1.0.0",
-        "replacementCode": "knowledge.admin"
+        "replacementCode": null
       }
     ],
     "openapiAuthorities": []

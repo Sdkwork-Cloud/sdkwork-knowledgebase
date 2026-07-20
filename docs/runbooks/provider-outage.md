@@ -17,14 +17,17 @@ External dependency failures: embedding provider, external knowledge engines, Dr
 
 1. Identify failing dependency from structured logs and `x-request-id` trace correlation.
 2. If Redis is unavailable in production-like environments, API startup should fail closed; restore Redis before scaling replicas.
-3. For engine outages, disable the affected source/profile in backend-api and drain ingestion jobs.
+3. For engine outages, identify the active space Binding. During a migration observation window,
+   request rollback on the Provider migration operation; otherwise disable the affected Binding
+   only after confirming an approved replacement or maintenance plan.
 4. For webhook outages, verify outbox retry metrics; pause destructive replays if downstream is unhealthy.
 5. Communicate user impact: search may degrade to keyword-only when embeddings are unavailable.
 
 ## Recovery
 
 1. Restore dependency health.
-2. Re-enable sources/profiles.
+2. Retest the Provider Binding, then activate the approved Binding or verify the rollback operation
+   reached `rolled_back`.
 3. Requeue stale outbox events if required.
 4. Run smoke retrieval and a sample ingest job.
 

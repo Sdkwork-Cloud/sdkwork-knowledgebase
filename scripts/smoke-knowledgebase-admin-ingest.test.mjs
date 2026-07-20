@@ -64,11 +64,11 @@ describe('knowledgebase backend admin smoke helpers', () => {
 });
 
 describe('knowledgebase backend admin contract guards', () => {
-  it('declares knowledge.admin permission on source operations', () => {
+  it('declares knowledge.platform.manage permission on source operations', () => {
     const openapi = JSON.parse(
       readRepoFile('apis/backend-api/knowledgebase-backend-api.openapi.json'),
     );
     const listOperation = openapi.paths?.['/backend/v3/api/knowledge/sources']?.get;
-    assert.equal(listOperation?.['x-sdkwork-permission'], 'knowledge.admin');
+    assert.equal(listOperation?.['x-sdkwork-permission'], 'knowledge.platform.manage');
   });
 });

@@ -1,0 +1,33 @@
+{
+  "name": "sdkwork-knowledgebase-pc-admin-provider",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sdkwork": {
+    "surface": "backend-admin"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "i18next": "^26.3.1",
+    "lucide-react": "^0.546.0",
+    "react": "^19.0.1",
+    "react-i18next": "^17.0.8",
+    "react-router-dom": "^7.17.0",
+    "sdkwork-knowledgebase-pc-admin-core": "workspace:*",
+    "sdkwork-knowledgebase-pc-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "jsdom": "^29.1.1",
+    "vitest": "^3.2.4"
+  }
+}

@@ -6,7 +6,6 @@ import path from 'node:path';
 import process from 'node:process';
 
 import {
-  API_GATEWAY_REPO,
   DEFAULT_DEV_PROFILE_ID,
   listHealthSurfaces,
   listOrchestrationProcesses,
@@ -15,14 +14,11 @@ import {
   mergeRuntimeEnv,
   normalizeText,
   REPO_ROOT,
-  resolveCloudGatewayConfigPath,
   resolveDevProfileId,
   IAM_APPLICATION_BOOTSTRAP_ENV,
-  resolveGatewayBind,
   resolveIamDevEnv,
   resolveSurfaceBind,
   resolveSurfaceHttpUrl,
-  shouldAutostartGateway,
   waitForHttpHealthy,
 } from './lib/knowledgebase-topology.mjs';
 import { mergeRepoDevBootstrapAccessTokenEnv, readApplicationManifest, resolveRepoApplicationManifestPath } from './lib/knowledgebase-dev-bootstrap-access-token-env.mjs';
@@ -327,47 +323,10 @@ function createApiServerBinaryProcess(crate, binary, label, env) {
   };
 }
 
-function createPlatformGatewayProcess(env) {
-  const deploymentProfile = env.SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE ?? 'cloud';
-  const bind =
-    resolveSurfaceBind(env, 'platform.api-gateway') ?? resolveGatewayBind(env, deploymentProfile);
-  const gatewayConfig = resolveCloudGatewayConfigPath(env, env.SDKWORK_KNOWLEDGEBASE_ENVIRONMENT ?? 'development');
-  const args = [
-    'run',
-    '-p',
-    'sdkwork-api-cloud-gateway',
-    '--bin',
-    'sdkwork-api-cloud-gateway',
-    '--',
-    '--config',
-    gatewayConfig,
-  ];
-
-  return {
-    label: 'sdkwork-api-cloud-gateway',
-    command: cargoCommand(),
-    args,
-    cwd: API_GATEWAY_REPO,
-    env: {
-      ...env,
-      ...IAM_APPLICATION_BOOTSTRAP_ENV,
-      SDKWORK_API_CLOUD_GATEWAY_BIND: bind,
-      SDKWORK_API_CLOUD_GATEWAY_CONFIG: gatewayConfig,
-    },
-  };
-}
-
 function buildProcessesFromOrchestration(profileId, env) {
   const processes = [];
-  let gatewayScheduled = false;
-
   for (const processDef of listOrchestrationProcesses(profileId)) {
     if (processDef.id === 'platform.api-gateway') {
-      gatewayScheduled = true;
-      if (!shouldAutostartGateway(env)) {
-        continue;
-      }
-      processes.push(createPlatformGatewayProcess(env));
       continue;
     }
 
@@ -376,18 +335,11 @@ function buildProcessesFromOrchestration(profileId, env) {
     processes.push(createApiServerBinaryProcess(crate, binary, binary, env));
   }
 
-  if (!gatewayScheduled && shouldAutostartGateway(env)) {
-    processes.unshift(createPlatformGatewayProcess(env));
-  }
-
   return processes;
 }
 
 async function waitForSurfaceHealth(profileId, env) {
   const surfaces = [...listHealthSurfaces(profileId)];
-  if (shouldAutostartGateway(env) && !surfaces.includes('platform.api-gateway')) {
-    surfaces.unshift('platform.api-gateway');
-  }
   for (const surfaceId of surfaces) {
     const url = resolveSurfaceHttpUrl(env, surfaceId);
     if (!url) {

@@ -3,6 +3,10 @@
 
 use axum::Router;
 use sdkwork_api_iam_assembly::assemble_api_router as assemble_iam_application_business_router;
+use sdkwork_intelligence_knowledgebase_service::ports::group_launch_ticket_consumer::GroupLaunchTicketConsumer;
+use sdkwork_routes_knowledgebase_app_api::bootstrap::{
+    resolve_database_url, validate_process_config,
+};
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 use sdkwork_routes_knowledgebase_backend_api::health;
 use sdkwork_utils_rust::is_blank;
@@ -47,6 +51,29 @@ pub struct ApiAssembly {
     pub router: Router,
 }
 
+impl ApiAssembly {
+    pub async fn from_environment<T>(
+        group_launch_ticket_consumer: Option<T>,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>>
+    where
+        T: GroupLaunchTicketConsumer + 'static,
+    {
+        validate_process_config();
+        let database_url = resolve_database_url();
+        let tenant_id = std::env::var("SDKWORK_KNOWLEDGEBASE_TENANT_ID")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(1);
+        let runtime = KnowledgebaseRuntime::connect(&database_url, tenant_id).await?;
+        let runtime = match group_launch_ticket_consumer {
+            Some(consumer) => runtime.with_group_launch_ticket_consumer(Arc::new(consumer)),
+            None => runtime,
+        };
+        runtime.readiness_check().await?;
+        Ok(assemble_api_router(Arc::new(runtime)).await)
+    }
+}
+
 fn host_mounts_iam_app_api_routes() -> bool {
     std::env::var("SDKWORK_IAM_APP_API_HOST_MOUNTED")
         .ok()
@@ -59,9 +86,7 @@ fn host_mounts_iam_app_api_routes() -> bool {
         .unwrap_or(false)
 }
 
-pub async fn assemble_business_routes(
-    runtime: Arc<KnowledgebaseRuntime>,
-) -> ApiAssembly {
+pub async fn assemble_business_routes(runtime: Arc<KnowledgebaseRuntime>) -> ApiAssembly {
     ensure_iam_session_resolution_database_ready().await;
 
     // Embed IAM app-api business routes through sdkwork-api-iam-assembly so
@@ -88,9 +113,7 @@ pub async fn assemble_business_routes(
     ApiAssembly { router }
 }
 
-pub async fn assemble_api_router(
-    runtime: Arc<KnowledgebaseRuntime>,
-) -> ApiAssembly {
+pub async fn assemble_api_router(runtime: Arc<KnowledgebaseRuntime>) -> ApiAssembly {
     let readiness = runtime.readiness_check_adapter();
     let business = assemble_business_routes(runtime).await;
     let router = assemble_multi_surface_router(

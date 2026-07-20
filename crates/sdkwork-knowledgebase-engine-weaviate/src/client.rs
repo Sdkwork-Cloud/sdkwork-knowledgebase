@@ -27,8 +27,8 @@ impl WeaviateApiClient {
         Self { config, http }
     }
 
-    fn context(&self) -> ProviderExecutionContext {
-        ProviderExecutionContext::for_implementation(WEAVIATE_IMPLEMENTATION_ID)
+    fn health_context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_system_health(WEAVIATE_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self) -> Result<(), KnowledgeEngineError> {
@@ -38,11 +38,11 @@ impl WeaviateApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .optional_bearer_auth(self.config.api_key.as_deref())
+            .optional_bearer_auth(self.config.api_key.as_ref().map(|value| value.as_str()))
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         self.http
-            .execute(&self.context(), request)
+            .execute(&self.health_context(), request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         Ok(())
@@ -50,6 +50,7 @@ impl WeaviateApiClient {
 
     pub async fn near_text_search(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         class_name: &str,
         query: &str,
@@ -65,14 +66,14 @@ impl WeaviateApiClient {
         let url = format!("{}/v1/graphql", self.config.base_url.trim_end_matches('/'));
         let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
             .map_err(KnowledgeEngineError::from)?
-            .optional_bearer_auth(self.config.api_key.as_deref())
+            .optional_bearer_auth(self.config.api_key.as_ref().map(|value| value.as_str()))
             .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({ "query": graphql }))
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: WeaviateGraphqlResponse =
@@ -105,6 +106,7 @@ impl WeaviateApiClient {
 
     pub async fn get_object(
         &self,
+        context: &ProviderExecutionContext,
         class_name: &str,
         object_id: &str,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
@@ -114,12 +116,12 @@ impl WeaviateApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .optional_bearer_auth(self.config.api_key.as_deref())
+            .optional_bearer_auth(self.config.api_key.as_ref().map(|value| value.as_str()))
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: WeaviateObjectResponse =

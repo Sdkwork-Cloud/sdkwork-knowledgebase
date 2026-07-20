@@ -6,7 +6,7 @@
     "displayName": "SDKWork Knowledgebase Gateway Assembly",
     "version": "0.1.0",
     "type": "rust-api-assembly",
-    "root": "crates/sdkwork-api-knowledgebase-assembly",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-api-knowledgebase-assembly",
     "domain": "intelligence",
     "capability": "api-assembly",
     "surface": "api-assembly",
@@ -24,11 +24,12 @@
   "contracts": {
     "publicExports": [
       "sdkwork_api_knowledgebase_assembly::assemble_api_router",
-      "sdkwork_api_knowledgebase_assembly::assemble_api_router",
+      "sdkwork_api_knowledgebase_assembly::ApiAssembly::from_environment",
       "sdkwork_api_knowledgebase_assembly::ApiAssembly"
     ],
     "runtimeEntrypoints": [
-      "sdkwork_api_knowledgebase_assembly::assemble_api_router"
+      "sdkwork_api_knowledgebase_assembly::assemble_api_router",
+      "sdkwork_api_knowledgebase_assembly::ApiAssembly::from_environment"
     ],
     "dependencyApiSurfaces": [
       {

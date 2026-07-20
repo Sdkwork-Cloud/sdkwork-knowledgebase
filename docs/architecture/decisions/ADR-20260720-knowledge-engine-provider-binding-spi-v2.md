@@ -124,6 +124,76 @@ never access persistence or credentials outside approved ports.
   generated SDK, and migration work in this decision. Production publication still requires the
   independent release evidence and governance gates defined by SDKWork standards.
 
+## Implementation Status
+
+As of 2026-07-20, the application resolves each space to a
+`KnowledgeEngineExecutionHandle`. Search, read, and list validate immutable request-derived tenant,
+organization, actor, permission, data scope, space, binding, trace, and deadline before engine
+execution. The handle injects the persisted active Binding, resolves its current write-only
+credential reference only after authorization, and passes a one-time
+`KnowledgeEngineProviderCredential` to `bind_provider`. The secret type is non-serializable,
+redacts `Debug`, and zeroizes its owned value on drop. The default resolver accepts validated
+`env://UPPERCASE_VARIABLE` and bounded regular `file://` references and rejects unknown schemes
+without echoing locators. Credential-reference create and rotate commands validate locator syntax
+before persistence without loading the secret. There is no secret cache, so every authorized
+operation observes the current reference and cannot serve a stale cached credential after rotation
+or revocation.
+
+All ten executable adapters revalidate request tenant/space through
+`ProviderExecutionContext::from_knowledge_engine_request` before Provider Runtime HTTP and obtain
+secrets only through the Binding boundary. Required-auth Providers fail closed without a credential
+reference; Chroma, Qdrant, Weaviate, and Haystack preserve supported anonymous deployments.
+Adapter startup config reads only non-secret endpoint/vendor settings. External sync requires an
+explicit execution context. Aggregate backend health carries the authenticated Operator and trace,
+and probes external Providers only through active Bindings; credential-free infrastructure probes
+are the only permitted system-health context.
+
+The backend management authority now exposes credential-reference create/list/retrieve/rotate/revoke
+and space-scoped Binding create/list/retrieve/update/test/activate/disable operations. All operations
+use `knowledge.platform.manage`, dual-token request context, bounded cursor pagination, optimistic
+versions, resource-aware mutation audit, SDKWork v3 resource/list/command envelopes, and generated
+TypeScript and Rust backend SDK methods. Audit events whitelist resource type/id, URL space scope,
+expected/result version, and result status; they never serialize credential locators, fingerprints,
+remote resource IDs, secret values, or raw request bodies. Missing authenticated Operators fail
+closed instead of creating a synthetic audit actor. Credential read models omit locator and
+fingerprint fields. Hosted runtime tests prove secret non-disclosure, path-space isolation,
+stale-version conflict, rotation, revocation, and immediate fail-closed resolution after revocation.
+Generated list methods return named `KnowledgeEngineProviderCredentialReferencePage` and
+`KnowledgeEngineProviderBindingPage` models in both languages. The migration management authority
+adds create/list/retrieve/rollback with `KnowledgeEngineProviderMigrationOperationPage`; repeated
+generator dry-runs are idempotent with no destructive changes.
+
+The migration Worker now claims one phase at a time with owner/token leases, fences stale claims,
+revalidates source/target Binding scope, lifecycle, versions, and target capability evidence, and
+persists checkpoints between dry-run, prepare, validate, cutover, observe, complete, rollback, and
+failed states. Preparation explicitly means a pre-provisioned tested target; the Worker never
+pretends to copy remote Provider data. Cutover and rollback atomically update both Bindings and the
+operation. Observation work is not claimable before its deadline. Every phase persists a sanitized
+service audit containing only tenant, space, operation ID, state transition, and result version.
+
+Provider Certification v2 now separates local contract proof from live commercial proof. Contract
+suite `1.0.0` executes the complete owned crate for all ten executable adapters and fingerprints the
+capability, authentication, error-mapping, resilience, isolation, and health evidence sources. A
+production promotion additionally requires a pinned upstream version and a current release evidence
+index that binds the adapter commit, workflow run, reviewer, legal/security approvals, and SHA-256
+digests for quality, contract, load/SLO, outage recovery, licensing, and security/privacy reports.
+Quality evidence is accepted only for a reviewed `production-domain` dataset with minimum coverage,
+two distinct reviewers, exact query/run cardinality, pinned release provenance, three independently
+hashed artifacts, and metrics that match deterministic evaluator recomputation. Contract fixtures
+are permanently classified as non-production.
+The checked-in draft template is structurally unable to pass the certified-record validator. No
+Provider has live evidence attached, so `liveCertifiedCount` remains zero.
+
+The backend management UI is now implemented as a dedicated PC internal-admin Provider package with
+composed backend SDK services, cursor pagination, capability/lifecycle guards, write-only locator
+forms, permission boundaries, and sanitized states. This is not production completion. Production
+secret-manager/KMS resolver and credential procedures, authenticated operator browser acceptance,
+release PostgreSQL evidence, live Provider
+certification, load/SLO evidence, supply-chain evidence, and rollout/rollback proof remain open
+gates. Hosted Provider tests create explicit `draft -> testing -> active` Bindings; no production
+path chooses a Provider from `kb_source`, registry order, task-local state, an adapter-created system
+context, or startup credential availability.
+
 ## Migration And Rollback
 
 Strategy: prelaunch `no-compatibility-approved` direct cleanup with forward-safe database rollback.

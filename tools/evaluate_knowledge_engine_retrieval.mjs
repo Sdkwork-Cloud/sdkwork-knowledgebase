@@ -36,16 +36,168 @@ function round(value) {
   return Number(value.toFixed(6));
 }
 
-export function evaluateRetrieval(dataset, results) {
-  if (!dataset.datasetId || !dataset.version || !Array.isArray(dataset.queries)) {
-    throw new Error("dataset must declare datasetId, version, and queries");
+function requireCondition(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+function requireUnitInterval(value, location) {
+  requireCondition(Number.isFinite(value) && value >= 0 && value <= 1, `${location} must be between 0 and 1`);
+}
+
+export function validateRetrievalDataset(dataset, productionPolicy = undefined) {
+  requireCondition(dataset?.schemaVersion === 1, "dataset schemaVersion must be 1");
+  requireCondition(
+    dataset?.kind === "sdkwork.knowledge-engine-retrieval-golden-dataset",
+    "dataset kind is invalid",
+  );
+  requireCondition(
+    ["contract-fixture", "production-domain"].includes(dataset?.classification),
+    "dataset classification must be contract-fixture or production-domain",
+  );
+  requireCondition(typeof dataset.datasetId === "string" && dataset.datasetId.length > 0, "datasetId is required");
+  requireCondition(/^\d+\.\d+\.\d+$/u.test(dataset.version ?? ""), "dataset version must be semantic version");
+  requireCondition(Array.isArray(dataset.queries) && dataset.queries.length > 0, "dataset queries are required");
+  requireCondition(
+    Number.isInteger(dataset.defaultTopK) && dataset.defaultTopK >= 1 && dataset.defaultTopK <= 200,
+    "dataset defaultTopK must be between 1 and 200",
+  );
+
+  const thresholds = dataset.thresholds ?? {};
+  for (const key of [
+    "minRecallAtK",
+    "minMrr",
+    "minNdcgAtK",
+    "minCitationCorrectness",
+    "minEmptyQueryPassRate",
+    "maxFailureRate",
+  ]) {
+    requireUnitInterval(thresholds[key], `dataset.thresholds.${key}`);
   }
-  if (
-    results.datasetId !== dataset.datasetId
-    || results.datasetVersion !== dataset.version
-  ) {
-    throw new Error("result dataset identity/version does not match the golden dataset");
+  requireCondition(
+    Number.isFinite(thresholds.maxP95LatencyMs) && thresholds.maxP95LatencyMs > 0,
+    "dataset.thresholds.maxP95LatencyMs must be positive",
+  );
+
+  const queryIds = new Set();
+  let scoredQueryCount = 0;
+  let rejectionQueryCount = 0;
+  for (const query of dataset.queries) {
+    requireCondition(typeof query?.id === "string" && query.id.length > 0, "query id is required");
+    requireCondition(!queryIds.has(query.id), `duplicate dataset query id ${query.id}`);
+    queryIds.add(query.id);
+    requireCondition(typeof query.query === "string", `query ${query.id} text must be a string`);
+    if (query.expectRejection === true) {
+      rejectionQueryCount += 1;
+      continue;
+    }
+    scoredQueryCount += 1;
+    requireCondition(
+      Array.isArray(query.relevantDocumentIds) && query.relevantDocumentIds.length > 0,
+      `query ${query.id} must declare relevantDocumentIds`,
+    );
+    requireCondition(
+      new Set(query.relevantDocumentIds).size === query.relevantDocumentIds.length,
+      `query ${query.id} contains duplicate relevantDocumentIds`,
+    );
+    requireCondition(
+      query.relevantDocumentIds.every((documentId) => typeof documentId === "string" && documentId.length > 0),
+      `query ${query.id} contains an invalid relevantDocumentId`,
+    );
+    if (query.topK !== undefined) {
+      requireCondition(Number.isInteger(query.topK) && query.topK >= 1 && query.topK <= 200, `query ${query.id} topK is invalid`);
+    }
   }
+
+  if (dataset.classification === "production-domain") {
+    requireCondition(productionPolicy, "production-domain dataset requires production policy");
+    requireCondition(
+      scoredQueryCount >= productionPolicy.minimumScoredQueries,
+      `production-domain dataset requires at least ${productionPolicy.minimumScoredQueries} scored queries`,
+    );
+    requireCondition(
+      rejectionQueryCount >= productionPolicy.minimumRejectionQueries,
+      `production-domain dataset requires at least ${productionPolicy.minimumRejectionQueries} rejection queries`,
+    );
+    for (const key of [
+      "minRecallAtK",
+      "minMrr",
+      "minNdcgAtK",
+      "minCitationCorrectness",
+      "minEmptyQueryPassRate",
+    ]) {
+      requireCondition(
+        thresholds[key] >= productionPolicy.thresholdBounds[key],
+        `production-domain threshold ${key} must be at least ${productionPolicy.thresholdBounds[key]}`,
+      );
+    }
+    for (const key of ["maxFailureRate", "maxP95LatencyMs"]) {
+      requireCondition(
+        thresholds[key] <= productionPolicy.thresholdBounds[key],
+        `production-domain threshold ${key} must not exceed ${productionPolicy.thresholdBounds[key]}`,
+      );
+    }
+  }
+  return { scoredQueryCount, rejectionQueryCount };
+}
+
+export function validateRetrievalResults(dataset, results) {
+  requireCondition(results?.schemaVersion === 1, "results schemaVersion must be 1");
+  requireCondition(
+    results?.kind === "sdkwork.knowledge-engine-retrieval-results",
+    "results kind is invalid",
+  );
+  requireCondition(
+    results.datasetId === dataset.datasetId && results.datasetVersion === dataset.version,
+    "result dataset identity/version does not match the golden dataset",
+  );
+  requireCondition(typeof results.providerId === "string" && results.providerId.length > 0, "results providerId is required");
+  requireCondition(typeof results.providerVersion === "string" && results.providerVersion.length > 0, "results providerVersion is required");
+  requireCondition(Array.isArray(results.runs), "results runs must be an array");
+
+  const queriesById = new Map(dataset.queries.map((query) => [query.id, query]));
+  const runIds = new Set();
+  for (const run of results.runs) {
+    requireCondition(typeof run?.queryId === "string" && run.queryId.length > 0, "result queryId is required");
+    requireCondition(queriesById.has(run.queryId), `unknown result query ${run.queryId}`);
+    requireCondition(!runIds.has(run.queryId), `duplicate result run for query ${run.queryId}`);
+    runIds.add(run.queryId);
+    const query = queriesById.get(run.queryId);
+    requireCondition(Array.isArray(run.hits), `result run ${run.queryId} hits must be an array`);
+    if (query.expectRejection === true) {
+      requireCondition(typeof run.rejected === "boolean", `result run ${run.queryId} rejected must be boolean`);
+      continue;
+    }
+    requireCondition(typeof run.failed === "boolean", `result run ${run.queryId} failed must be boolean`);
+    requireCondition(
+      Number.isFinite(run.latencyMs) && run.latencyMs >= 0,
+      `result run ${run.queryId} latencyMs must be non-negative`,
+    );
+    const hitDocumentIds = new Set();
+    for (const hit of run.hits) {
+      requireCondition(
+        typeof hit?.documentId === "string" && hit.documentId.length > 0,
+        `result run ${run.queryId} contains an invalid documentId`,
+      );
+      requireCondition(
+        !hitDocumentIds.has(hit.documentId),
+        `result run ${run.queryId} contains duplicate documentId ${hit.documentId}`,
+      );
+      hitDocumentIds.add(hit.documentId);
+      requireCondition(
+        hit.citationDocumentId === undefined
+          || (typeof hit.citationDocumentId === "string" && hit.citationDocumentId.length > 0),
+        `result run ${run.queryId} contains an invalid citationDocumentId`,
+      );
+    }
+  }
+  for (const query of dataset.queries) {
+    requireCondition(runIds.has(query.id), `missing result run for query ${query.id}`);
+  }
+}
+
+export function evaluateRetrieval(dataset, results, productionPolicy = undefined) {
+  validateRetrievalDataset(dataset, productionPolicy);
+  validateRetrievalResults(dataset, results);
 
   const runsByQuery = new Map(
     (results.runs ?? []).map((run) => [run.queryId, run]),
@@ -62,9 +214,6 @@ export function evaluateRetrieval(dataset, results) {
 
   for (const query of dataset.queries) {
     const run = runsByQuery.get(query.id);
-    if (!run) {
-      throw new Error(`missing result run for query ${query.id}`);
-    }
     if (query.expectRejection) {
       emptyQueryCases += 1;
       if (run.rejected === true) emptyQueryPasses += 1;
@@ -76,9 +225,6 @@ export function evaluateRetrieval(dataset, results) {
 
     const topK = query.topK ?? dataset.defaultTopK ?? 5;
     const relevant = new Set(query.relevantDocumentIds ?? []);
-    if (relevant.size === 0) {
-      throw new Error(`query ${query.id} must declare relevantDocumentIds`);
-    }
     const hits = (run.hits ?? []).slice(0, topK);
     const relevance = hits.map((hit) => Number(relevant.has(hit.documentId)));
     const matched = new Set(
@@ -156,10 +302,12 @@ export function evaluateRetrieval(dataset, results) {
 
   return {
     kind: "sdkwork.knowledge-engine-retrieval-evaluation",
+    schemaVersion: 1,
+    evidenceClass: dataset.classification,
     datasetId: dataset.datasetId,
     datasetVersion: dataset.version,
     providerId: results.providerId,
-    providerVersion: results.providerVersion ?? null,
+    providerVersion: results.providerVersion,
     metrics,
     thresholds,
     passed: failures.length === 0,
@@ -176,11 +324,16 @@ if (process.argv[1] && import.meta.url === new URL(`file://${path.resolve(proces
   try {
     const dataset = JSON.parse(await readFile(path.resolve(datasetPath), "utf8"));
     const results = JSON.parse(await readFile(path.resolve(resultsPath), "utf8"));
-    const report = evaluateRetrieval(dataset, results);
+    const productionPolicy = dataset.classification === "production-domain"
+      ? JSON.parse(await readFile(
+        new URL("../specs/knowledge-engine-evaluation.spec.json", import.meta.url),
+        "utf8",
+      )).productionPolicy
+      : undefined;
+    const report = evaluateRetrieval(dataset, results, productionPolicy);
     console.log(JSON.stringify(report, null, 2));
     if (!report.passed) process.exit(1);
   } catch (error) {
     fail(`knowledge engine retrieval evaluation failed: ${error.message}`);
   }
 }
-

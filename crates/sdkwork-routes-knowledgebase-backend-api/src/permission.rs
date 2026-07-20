@@ -2,9 +2,6 @@ use crate::ports::KnowledgeBackendRequestContext;
 
 pub const KNOWLEDGE_PLATFORM_MANAGE_PERMISSION: &str = "knowledge.platform.manage";
 
-/// Deprecated legacy wire code retained for migration compatibility only.
-pub const KNOWLEDGE_ADMIN_PERMISSION: &str = "knowledge.admin";
-
 pub fn can_access_knowledge_admin(context: &KnowledgeBackendRequestContext) -> bool {
     context
         .permission_scope
@@ -13,9 +10,7 @@ pub fn can_access_knowledge_admin(context: &KnowledgeBackendRequestContext) -> b
 }
 
 fn is_knowledge_platform_manage_scope(scope: &str) -> bool {
-    scope == KNOWLEDGE_PLATFORM_MANAGE_PERMISSION
-        || scope == KNOWLEDGE_ADMIN_PERMISSION
-        || scope == "knowledge.*"
+    scope == KNOWLEDGE_PLATFORM_MANAGE_PERMISSION || scope == "knowledge.*"
 }
 
 #[cfg(test)]
@@ -28,6 +23,7 @@ mod tests {
             operator_id: Some(99),
             organization_id: None,
             permission_scope: scopes.iter().map(|scope| (*scope).to_string()).collect(),
+            trace_id: "trace-permission-test".to_string(),
         }
     }
 
@@ -38,9 +34,9 @@ mod tests {
     }
 
     #[test]
-    fn allows_legacy_knowledge_admin_permission() {
-        let context = context_with_scopes(&[KNOWLEDGE_ADMIN_PERMISSION]);
-        assert!(can_access_knowledge_admin(&context));
+    fn rejects_retired_knowledge_admin_permission() {
+        let context = context_with_scopes(&["knowledge.admin"]);
+        assert!(!can_access_knowledge_admin(&context));
     }
 
     #[test]

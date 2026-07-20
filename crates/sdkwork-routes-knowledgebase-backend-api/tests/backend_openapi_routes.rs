@@ -187,6 +187,148 @@ fn backend_openapi_exposes_standard_rag_admin_operations() {
 }
 
 #[test]
+fn backend_openapi_exposes_secret_safe_provider_management_contracts() {
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
+    ))
+    .unwrap();
+
+    for (operation_id, method, path) in [
+        (
+            "providerCredentialReferences.list",
+            "get",
+            "/backend/v3/api/knowledge/provider_credential_references",
+        ),
+        (
+            "providerCredentialReferences.create",
+            "post",
+            "/backend/v3/api/knowledge/provider_credential_references",
+        ),
+        (
+            "providerCredentialReferences.retrieve",
+            "get",
+            "/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}",
+        ),
+        (
+            "providerCredentialReferences.rotate",
+            "post",
+            "/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}/rotate",
+        ),
+        (
+            "providerCredentialReferences.revoke",
+            "post",
+            "/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}/revoke",
+        ),
+        (
+            "spaces.providerBindings.list",
+            "get",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings",
+        ),
+        (
+            "spaces.providerBindings.create",
+            "post",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings",
+        ),
+        (
+            "spaces.providerBindings.retrieve",
+            "get",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}",
+        ),
+        (
+            "spaces.providerBindings.update",
+            "patch",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}",
+        ),
+        (
+            "spaces.providerBindings.test",
+            "post",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}/test",
+        ),
+        (
+            "spaces.providerBindings.activate",
+            "post",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}/activate",
+        ),
+        (
+            "spaces.providerBindings.disable",
+            "post",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}/disable",
+        ),
+        (
+            "spaces.providerMigrations.list",
+            "get",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations",
+        ),
+        (
+            "spaces.providerMigrations.create",
+            "post",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations",
+        ),
+        (
+            "spaces.providerMigrations.retrieve",
+            "get",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations/{migrationOperationId}",
+        ),
+        (
+            "spaces.providerMigrations.rollback",
+            "post",
+            "/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations/{migrationOperationId}/rollback",
+        ),
+    ] {
+        let operation = &spec["paths"][path][method];
+        assert_eq!(operation["operationId"], operation_id);
+        assert_eq!(
+            operation["x-sdkwork-permission"],
+            "knowledge.platform.manage"
+        );
+        assert_eq!(
+            operation["x-sdkwork-request-context"],
+            "WebRequestContext"
+        );
+    }
+
+    let credential_schema =
+        &spec["components"]["schemas"]["KnowledgeEngineProviderCredentialReference"];
+    let credential_properties = credential_schema["properties"]
+        .as_object()
+        .expect("credential read model properties");
+    assert!(!credential_properties.contains_key("referenceLocator"));
+    assert!(!credential_properties.contains_key("referenceFingerprint"));
+    assert_eq!(
+        spec["components"]["schemas"]["CreateKnowledgeEngineProviderCredentialReferenceRequest"]
+            ["properties"]["referenceLocator"]["writeOnly"],
+        true
+    );
+    assert_eq!(
+        spec["components"]["schemas"]["RotateKnowledgeEngineProviderCredentialReferenceRequest"]
+            ["properties"]["referenceLocator"]["writeOnly"],
+        true
+    );
+    assert_named_list_response_envelope(
+        &spec,
+        "providerCredentialReferences.list",
+        "#/components/schemas/KnowledgeEngineProviderCredentialReferencePage",
+    );
+    assert_named_list_response_envelope(
+        &spec,
+        "spaces.providerBindings.list",
+        "#/components/schemas/KnowledgeEngineProviderBindingPage",
+    );
+    assert_named_list_response_envelope(
+        &spec,
+        "spaces.providerMigrations.list",
+        "#/components/schemas/KnowledgeEngineProviderMigrationOperationPage",
+    );
+    let migration_properties = spec["components"]["schemas"]
+        ["KnowledgeEngineProviderMigrationOperation"]["properties"]
+        .as_object()
+        .expect("Provider migration read model properties");
+    for internal_field in ["checkpoint", "claimOwner", "claimToken", "leaseExpiresAt"] {
+        assert!(!migration_properties.contains_key(internal_field));
+    }
+}
+
+#[test]
 fn backend_openapi_keeps_memory_context_fragments_separate_from_knowledge_chunks() {
     let spec: Value = serde_json::from_str(include_str!(
         "../../../sdks/sdkwork-knowledgebase-backend-sdk/openapi/knowledgebase-backend-api.openapi.json"
@@ -284,6 +426,21 @@ fn assert_list_response_envelope(spec: &Value, operation_id: &str, item_schema_r
     );
 }
 
+fn assert_named_list_response_envelope(spec: &Value, operation_id: &str, data_schema_ref: &str) {
+    let schema = operation_response_schema(spec, operation_id);
+    let all_of = schema["allOf"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{operation_id} must use SdkWorkApiResponse allOf envelope"));
+    assert_eq!(
+        all_of[0]["$ref"], "#/components/schemas/SdkWorkApiResponse",
+        "{operation_id} must extend SdkWorkApiResponse"
+    );
+    assert_eq!(
+        all_of[1]["properties"]["data"]["$ref"], data_schema_ref,
+        "{operation_id} must expose typed list data"
+    );
+}
+
 fn method_from_openapi(method_name: &str) -> Method {
     match method_name {
         "delete" => Method::DELETE,
@@ -302,6 +459,8 @@ fn concrete_uri(template_path: &str) -> String {
         .replace("{exportId}", "29")
         .replace("{indexId}", "37")
         .replace("{traceId}", "41")
+        .replace("{credentialReferenceId}", "43")
+        .replace("{bindingId}", "47")
         .replace("{spaceId}", "7");
     if path.ends_with("/okf/candidates") {
         format!("{path}?spaceId=7")

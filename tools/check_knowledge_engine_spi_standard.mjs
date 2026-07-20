@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { validateKnowledgeEngineEvaluationWorkspace } from "./quality_evaluation_evidence.mjs";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const violations = [];
 
@@ -16,6 +18,19 @@ const spec = JSON.parse(
   await readFile(path.join(root, "specs/knowledge-engine-spi.spec.json"), "utf8"),
 );
 
+const providerAdapterCrates = [
+  "dify",
+  "ragflow",
+  "onyx",
+  "anythingllm",
+  "open-webui",
+  "flowise",
+  "chroma",
+  "qdrant",
+  "weaviate",
+  "haystack",
+];
+
 const requiredPaths = [
   "specs/knowledge-engine-spi.spec.json",
   "specs/external-knowledge-engine-catalog.spec.json",
@@ -24,12 +39,15 @@ const requiredPaths = [
   "crates/sdkwork-knowledgebase-contract/src/provider_binding.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_engine.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_provider_binding_store.rs",
+  "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_provider_credential_resolver.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/provider_binding.rs",
   "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/provider_binding_store.rs",
   "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/tests/provider_binding_store.rs",
   "database/migrations/sqlite/202607200001_knowledge_engine_provider_binding.up.sql",
   "database/migrations/postgres/202607200001_knowledge_engine_provider_binding.up.sql",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/mod.rs",
+  "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/execution_handle.rs",
+  "crates/sdkwork-routes-knowledgebase-app-api/src/provider_credential_resolver.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/okf_native.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/external_catalog.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/rag_native.rs",
@@ -76,6 +94,10 @@ const requiredPaths = [
   "crates/sdkwork-knowledgebase-contract/tests/knowledge_engine_contract.rs",
   "tools/evaluate_knowledge_engine_retrieval.mjs",
   "tools/evaluate_knowledge_engine_retrieval.test.mjs",
+  "tools/quality_evaluation_evidence.mjs",
+  "specs/knowledge-engine-evaluation.spec.json",
+  "docs/releases/provider-certification/quality-evaluation-evidence.schema.json",
+  "docs/releases/provider-certification/quality-evaluation-evidence.template.json",
   "tests/fixtures/knowledge-engine-evaluation/v1/golden.json",
   "tests/fixtures/knowledge-engine-evaluation/v1/sample-results.json",
 ];
@@ -87,6 +109,8 @@ for (const relativePath of requiredPaths) {
     violations.push(`missing required SPI artifact: ${relativePath}`);
   }
 }
+
+violations.push(...await validateKnowledgeEngineEvaluationWorkspace(root));
 
 const runtimeSource = await readFile(
   path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs"),
@@ -208,8 +232,10 @@ assert(
 );
 assert(
   hostedBackendSource.includes("KnowledgeEngineCapability::Health")
-    && !hostedBackendSource.includes("if !descriptor.native"),
-  "provider health must check every registered engine with the health capability",
+    && hostedBackendSource.includes("if !descriptor.native")
+    && hostedBackendSource.includes("probe_active_bindings_health")
+    && hostedBackendSource.includes("KnowledgeBackendRequestContext"),
+  "provider health must probe native infrastructure directly and external Providers through authenticated active bindings",
 );
 
 assert(
@@ -226,14 +252,103 @@ const portsSource = await readFile(
   path.join(root, "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_engine.rs"),
   "utf8",
 );
+const credentialPortSource = await readFile(
+  path.join(
+    root,
+    "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_provider_credential_resolver.rs",
+  ),
+  "utf8",
+);
+const bindingStorePortSource = await readFile(
+  path.join(
+    root,
+    "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_provider_binding_store.rs",
+  ),
+  "utf8",
+);
+const runtimeCredentialResolverSource = await readFile(
+  path.join(
+    root,
+    "crates/sdkwork-routes-knowledgebase-app-api/src/provider_credential_resolver.rs",
+  ),
+  "utf8",
+);
+const providerBindingServiceSource = await readFile(
+  path.join(
+    root,
+    "crates/sdkwork-intelligence-knowledgebase-service/src/provider_binding.rs",
+  ),
+  "utf8",
+);
 
 assert(
   portsSource.includes("trait KnowledgeEngineSpaceRegistry"),
   "knowledge engine ports must declare KnowledgeEngineSpaceRegistry",
 );
 assert(
-  portsSource.includes("fn bind_provider"),
-  "KnowledgeEngine SPI v2 must bind external implementations to persisted Provider bindings",
+  /fn bind_provider\(\s*&self,\s*[^,]+,\s*[^:]+:\s*Option<KnowledgeEngineProviderCredential>,/s.test(portsSource),
+  "KnowledgeEngine SPI v2 must bind persisted Provider bindings with a one-time resolved credential",
+);
+assert(
+  credentialPortSource.includes("pub struct KnowledgeEngineProviderCredential")
+    && credentialPortSource.includes("impl std::fmt::Debug for KnowledgeEngineProviderCredential")
+    && credentialPortSource.includes("impl Drop for KnowledgeEngineProviderCredential")
+    && credentialPortSource.includes("self.value.zeroize()")
+    && /pub fn into_secret\([^)]*\) -> Zeroizing<String>/.test(credentialPortSource)
+    && !credentialPortSource.includes("Serialize"),
+  "resolved Provider credentials must be non-serializable, redacted, and zeroized on drop",
+);
+assert(
+  bindingStorePortSource.includes("impl std::fmt::Debug for ResolvedKnowledgeEngineProviderCredential")
+    && bindingStorePortSource.includes('.field("reference_locator", &"[REDACTED]")'),
+  "resolved Provider credential references must redact their write-only locator",
+);
+assert(
+  runtimeCredentialResolverSource.includes('strip_prefix("env://")')
+    && runtimeCredentialResolverSource.includes('starts_with("file://")')
+    && runtimeCredentialResolverSource.includes("MAX_PROVIDER_CREDENTIAL_BYTES")
+    && runtimeCredentialResolverSource.includes("metadata.is_file()")
+    && runtimeCredentialResolverSource.includes("unsupported Provider credential reference scheme"),
+  "runtime credential resolver must support bounded env/file references and fail closed on unknown schemes",
+);
+assert(
+  providerBindingServiceSource.includes("probe_active_bindings_health")
+    && providerBindingServiceSource.includes("buffer_unordered(MAX_CONCURRENT_PROVIDER_HEALTH_PROBES)")
+    && providerBindingServiceSource.includes("remaining_deadline(context)")
+    && providerBindingServiceSource.includes("KnowledgeEngineProviderBindingState::Active"),
+  "aggregate external Provider health must be active-binding aware, deadline-bounded, and concurrency-bounded",
+);
+assert(
+  spec.spiSurface.executionContextType === "KnowledgeEngineExecutionContext"
+    && spec.spiSurface.resolvedHandleType === "KnowledgeEngineExecutionHandle"
+    && spec.spiSurface.contextRequiredMethods?.includes("search")
+    && spec.spiSurface.contextRequiredMethods?.includes("read_document")
+    && spec.spiSurface.contextRequiredMethods?.includes("list_documents")
+    && spec.spiSurface.externalContextRequiredMethods?.includes("sync_sources"),
+  "machine SPI spec must declare the immutable execution context and binding-aware resolved handle",
+);
+assert(
+  spec.credentialBoundary?.resolverPort === "KnowledgeEngineProviderCredentialResolver"
+    && spec.credentialBoundary?.resolvedSecretType === "KnowledgeEngineProviderCredential"
+    && spec.credentialBoundary?.cachePolicy?.startsWith("No secret cache")
+    && spec.credentialBoundary?.forbidden?.includes("startup credential reads in adapter config")
+    && spec.credentialBoundary?.forbidden?.includes("credential file environment aliases")
+    && spec.credentialBoundary?.forbidden?.includes("credential lookup before authenticated scope validation"),
+  "machine SPI spec must declare the accepted binding-scoped credential boundary and its forbidden legacy paths",
+);
+assert(
+  /async fn sync_sources\(\s*&self,\s*context: &KnowledgeEngineExecutionContext,/s.test(portsSource),
+  "ExternalKnowledgeEngine sync_sources must require an explicit immutable execution context",
+);
+assert(
+  /async fn search\(\s*&self,\s*context: &KnowledgeEngineExecutionContext,/s.test(portsSource)
+    && /async fn read_document\(\s*&self,\s*context: &KnowledgeEngineExecutionContext,/s.test(portsSource)
+    && /async fn list_documents\(\s*&self,\s*context: &KnowledgeEngineExecutionContext,/s.test(portsSource),
+  "KnowledgeEngine search/read/list must require an explicit immutable execution context",
+);
+assert(
+  /Result<crate::knowledge_engine::KnowledgeEngineExecutionHandle, KnowledgeEngineError>/.test(portsSource),
+  "KnowledgeEngineSpaceRegistry must return KnowledgeEngineExecutionHandle",
 );
 
 assert(
@@ -331,9 +446,105 @@ const spaceResolverSource = await readFile(
   ),
   "utf8",
 );
+const executionHandleSource = await readFile(
+  path.join(
+    root,
+    "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/execution_handle.rs",
+  ),
+  "utf8",
+);
 assert(
   spaceResolverSource.includes("resolve_for_space"),
   "KnowledgeEngineSpaceResolver must implement per-space engine resolution",
+);
+assert(
+  spaceResolverSource.includes("Result<KnowledgeEngineExecutionHandle, KnowledgeEngineError>")
+    && spaceResolverSource.includes("KnowledgeEngineExecutionHandle::external")
+    && spaceResolverSource.includes("KnowledgeEngineExecutionHandle::native"),
+  "space resolution must return a binding-aware execution handle for native and external engines",
+);
+assert(
+  executionHandleSource.includes("fn scoped_context")
+    && executionHandleSource.includes("permission_scope")
+    && executionHandleSource.includes("allowed_space_ids")
+    && executionHandleSource.includes("deadline_unix_ms")
+    && executionHandleSource.includes("scoped.binding_id = Some(binding.id)"),
+  "execution handle must validate scope and inject the resolved binding before engine execution",
+);
+const searchMethodStart = executionHandleSource.indexOf("pub async fn search(");
+const searchMethodEnd = executionHandleSource.indexOf("pub async fn read_document(", searchMethodStart);
+const searchMethodBody = executionHandleSource.slice(searchMethodStart, searchMethodEnd);
+assert(
+  searchMethodBody.indexOf("self.scoped_context(") >= 0
+    && searchMethodBody.indexOf(".engine_for_operation(") > searchMethodBody.indexOf("self.scoped_context(")
+    && searchMethodBody.indexOf("engine.search(&context, request).await")
+      > searchMethodBody.indexOf(".engine_for_operation("),
+  "search must validate authenticated scope before binding or executing a Provider",
+);
+const operationMethodStart = executionHandleSource.indexOf("async fn engine_for_operation(");
+const operationMethodEnd = executionHandleSource.indexOf("fn scoped_context(", operationMethodStart);
+const operationMethodBody = executionHandleSource.slice(operationMethodStart, operationMethodEnd);
+assert(
+  operationMethodBody.indexOf("capability_snapshot.contains") >= 0
+    && operationMethodBody.indexOf(".resolve_credential_reference(")
+      > operationMethodBody.indexOf("capability_snapshot.contains")
+    && operationMethodBody.indexOf(".resolve(&reference)")
+      > operationMethodBody.indexOf(".resolve_credential_reference(")
+    && operationMethodBody.indexOf(".bind_provider(binding, credential)")
+      > operationMethodBody.indexOf(".resolve(&reference)"),
+  "execution handle must check the tested capability, resolve the credential reference and secret, then bind the Provider",
+);
+assert(
+  !spaceResolverSource.includes("bind_provider("),
+  "space resolution must return an unbound handle and must not resolve Provider credentials before operation authorization",
+);
+assert(
+  runtimeSource.includes("RuntimeKnowledgeEngineProviderCredentialResolver")
+    && runtimeSource.includes("credential_resolver"),
+  "KnowledgebaseRuntime must inject the Provider credential resolver into execution handles",
+);
+
+for (const adapterCrate of providerAdapterCrates) {
+  const adapterRoot = path.join(root, `crates/sdkwork-knowledgebase-engine-${adapterCrate}/src`);
+  const adapterSource = await readFile(path.join(adapterRoot, "lib.rs"), "utf8");
+  const configSource = await readFile(path.join(adapterRoot, "config.rs"), "utf8");
+  assert(
+    /fn bind_provider\(\s*&self,\s*[^,]+,\s*credential:\s*Option<KnowledgeEngineProviderCredential>,/s.test(adapterSource),
+    `${adapterCrate} adapter must consume the one-time resolved Provider credential in bind_provider`,
+  );
+  assert(
+    !configSource.includes("read_credential")
+      && !configSource.includes("read_to_string")
+      && !/std::env::var\([^)]*CREDENTIAL/.test(configSource),
+    `${adapterCrate} adapter config must not read Provider credentials during startup`,
+  );
+  assert(
+    configSource.includes("Zeroizing<String>")
+      && !/#\[derive\([^\]]*Debug[^\]]*\)\]\s*pub struct \w+ConnectorConfig/s.test(configSource),
+    `${adapterCrate} adapter config must zeroize held credentials and must not derive printable Debug`,
+  );
+  assert(
+    !configSource.includes("_CREDENTIAL_FILE_ENV"),
+    `${adapterCrate} adapter must not retain the retired credential-file environment alias`,
+  );
+}
+const providerRuntimeSource = await readFile(
+  path.join(root, "crates/sdkwork-knowledgebase-provider-runtime/src/runtime.rs"),
+  "utf8",
+);
+assert(
+  providerRuntimeSource.includes("pub fn from_knowledge_engine_request(")
+    && providerRuntimeSource.includes("request_tenant_id != context.tenant_id")
+    && providerRuntimeSource.includes("request_space_id != context.space_id"),
+  "Provider Runtime must revalidate request tenant and space before outbound execution",
+);
+assert(
+  runtimeSource.includes("fn knowledge_engine_execution_context(")
+    && runtimeSource.includes("actor_id: actor_id.to_string()")
+    && runtimeSource.includes("trace_id,")
+    && runtimeSource.includes("deadline_unix_ms,")
+    && runtimeSource.includes("binding_id: None"),
+  "App API runtime must create bounded request-derived knowledge execution contexts and leave binding selection to the resolver",
 );
 assert(
   spaceResolverSource.includes("get_active_binding_for_space")
@@ -547,6 +758,15 @@ assert(
 assert(
   hostedRoutesSource.includes("hosted_external_agent_chat_rejects_unconfigured_external_adapter"),
   "hosted runtime must include unconfigured external adapter rejection E2E",
+);
+assert(
+  (hostedRoutesSource.match(/activate_provider_binding\(/g) ?? []).length >= 30
+    && hostedRoutesSource.includes(".create_binding(")
+    && hostedRoutesSource.includes(".begin_binding_test(")
+    && hostedRoutesSource.includes(".record_binding_test_result(")
+    && hostedRoutesSource.includes(".activate_binding(")
+    && !hostedRoutesSource.includes("hosted_backend_resolves_external_space"),
+  "hosted Provider fixtures must create tested active bindings explicitly and must not treat connector sources as resolution authority",
 );
 assert(
   hostedRoutesSource.includes("hosted_okf_agent_chat_succeeds_with_published_concept_citations"),

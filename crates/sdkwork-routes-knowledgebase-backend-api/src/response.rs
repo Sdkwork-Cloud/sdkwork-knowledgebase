@@ -1,5 +1,5 @@
 use axum::{http::StatusCode, response::Response};
-use sdkwork_utils_rust::SdkWorkPageData;
+use sdkwork_utils_rust::{SdkWorkCommandData, SdkWorkPageData};
 use serde::Serialize;
 
 use crate::error::{BackendApiProblem, BackendApiResult};
@@ -42,6 +42,19 @@ where
         .map(|value| {
             sdkwork_knowledgebase_observability::request_correlation::success_json_response(
                 StatusCode::CREATED,
+                value,
+            )
+        })
+        .map_err(BackendApiProblem::from)
+}
+
+pub(crate) fn command_json(
+    result: BackendApiResult<SdkWorkCommandData>,
+) -> Result<Response, BackendApiProblem> {
+    result
+        .map(|value| {
+            sdkwork_knowledgebase_observability::request_correlation::success_command_json_response(
+                StatusCode::OK,
                 value,
             )
         })

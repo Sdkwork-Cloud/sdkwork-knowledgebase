@@ -89,7 +89,7 @@ Integration coverage: `crates/sdkwork-routes-knowledgebase-app-api/tests/integra
 
 ## Backend authorization
 
-Backend API operations require the `knowledge.admin` permission (or `knowledge.*`) on the authenticated operator's access token. Mutations are audited as `knowledge.backend.admin_operation` structured log events and exported via `knowledge_audit_backend_admin_operation_total` at `GET /metrics`.
+Backend API operations require the `knowledge.platform.manage` permission (or `knowledge.*`) on the authenticated operator's access token. Mutations are audited as `knowledge.backend.admin_operation` structured log events and exported via `knowledge_audit_backend_admin_operation_total` at `GET /metrics`.
 
 ## Related specs
 

@@ -13,7 +13,9 @@ serde_json.workspace = true
 sdkwork-intelligence-knowledgebase-service.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 sdkwork-knowledgebase-provider-runtime.workspace = true
+zeroize.workspace = true
 
 [dev-dependencies]
+sdkwork-knowledgebase-test-support.workspace = true
 tokio.workspace = true
 wiremock.workspace = true

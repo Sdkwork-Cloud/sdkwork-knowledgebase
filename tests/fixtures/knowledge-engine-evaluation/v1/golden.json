@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "sdkwork.knowledge-engine-retrieval-golden-dataset",
+  "classification": "contract-fixture",
   "datasetId": "knowledge-engine-contract-sample",
   "version": "1.0.0",
   "defaultTopK": 3,
@@ -33,4 +34,3 @@
     }
   ]
 }
-

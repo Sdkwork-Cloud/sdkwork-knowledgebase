@@ -11,12 +11,15 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineSearchResult,
 };
 use sdkwork_knowledgebase_contract::okf::{OkfBundleLintResult, OkfConceptSummary};
+use sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext;
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentKnowledgeMode, KnowledgeContextPack, KnowledgeContextPackRequest,
     KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
+
+use super::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredential;
 
 /// Core SPI implemented by every knowledge engine (native or third-party).
 #[async_trait]
@@ -26,6 +29,7 @@ pub trait KnowledgeEngine: Send + Sync {
     fn bind_provider(
         &self,
         _binding: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineProviderBinding,
+        _credential: Option<KnowledgeEngineProviderCredential>,
     ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
             "knowledge engine does not support external Provider binding".to_string(),
@@ -36,16 +40,19 @@ pub trait KnowledgeEngine: Send + Sync {
 
     async fn search(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineSearchRequest,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError>;
 
     async fn read_document(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineReadRequest,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError>;
 
     async fn list_documents(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError>;
 }
@@ -77,7 +84,7 @@ pub trait KnowledgeEngineSpaceRegistry: Send + Sync {
         &self,
         space_id: u64,
         mode_override: Option<KnowledgeAgentKnowledgeMode>,
-    ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError>;
+    ) -> Result<crate::knowledge_engine::KnowledgeEngineExecutionHandle, KnowledgeEngineError>;
 }
 
 #[derive(Default)]
@@ -268,5 +275,9 @@ pub trait RagKnowledgeEngine: KnowledgeEngine {
 pub trait ExternalKnowledgeEngine: KnowledgeEngine {
     async fn connector_health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError>;
 
-    async fn sync_sources(&self, space_id: u64) -> Result<u32, KnowledgeEngineError>;
+    async fn sync_sources(
+        &self,
+        context: &KnowledgeEngineExecutionContext,
+        space_id: u64,
+    ) -> Result<u32, KnowledgeEngineError>;
 }

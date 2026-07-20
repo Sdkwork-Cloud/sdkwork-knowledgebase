@@ -28,6 +28,30 @@ pub const RETRIEVAL_PROFILE: &str = "/backend/v3/api/knowledge/retrieval_profile
 pub const RETRIEVAL_TRACES: &str = "/backend/v3/api/knowledge/retrieval_traces";
 pub const RETRIEVAL_TRACE: &str = "/backend/v3/api/knowledge/retrieval_traces/{trace_id}";
 pub const PROVIDER_HEALTH: &str = "/backend/v3/api/knowledge/provider_health";
+pub const PROVIDER_CREDENTIAL_REFERENCES: &str =
+    "/backend/v3/api/knowledge/provider_credential_references";
+pub const PROVIDER_CREDENTIAL_REFERENCE: &str =
+    "/backend/v3/api/knowledge/provider_credential_references/{credential_reference_id}";
+pub const PROVIDER_CREDENTIAL_REFERENCE_ROTATE: &str =
+    "/backend/v3/api/knowledge/provider_credential_references/{credential_reference_id}/rotate";
+pub const PROVIDER_CREDENTIAL_REFERENCE_REVOKE: &str =
+    "/backend/v3/api/knowledge/provider_credential_references/{credential_reference_id}/revoke";
+pub const SPACE_PROVIDER_BINDINGS: &str =
+    "/backend/v3/api/knowledge/spaces/{space_id}/provider_bindings";
+pub const SPACE_PROVIDER_BINDING: &str =
+    "/backend/v3/api/knowledge/spaces/{space_id}/provider_bindings/{binding_id}";
+pub const SPACE_PROVIDER_BINDING_TEST: &str =
+    "/backend/v3/api/knowledge/spaces/{space_id}/provider_bindings/{binding_id}/test";
+pub const SPACE_PROVIDER_BINDING_ACTIVATE: &str =
+    "/backend/v3/api/knowledge/spaces/{space_id}/provider_bindings/{binding_id}/activate";
+pub const SPACE_PROVIDER_BINDING_DISABLE: &str =
+    "/backend/v3/api/knowledge/spaces/{space_id}/provider_bindings/{binding_id}/disable";
+pub const SPACE_PROVIDER_MIGRATIONS: &str =
+    "/backend/v3/api/knowledge/spaces/{space_id}/provider_migrations";
+pub const SPACE_PROVIDER_MIGRATION: &str =
+    "/backend/v3/api/knowledge/spaces/{space_id}/provider_migrations/{migration_operation_id}";
+pub const SPACE_PROVIDER_MIGRATION_ROLLBACK: &str =
+    "/backend/v3/api/knowledge/spaces/{space_id}/provider_migrations/{migration_operation_id}/rollback";
 pub const GROUP_LAUNCH_CAPABILITY: &str = "/backend/v3/api/knowledge/group_launch_capability";
 pub const TENANT_LANDING: &str = "/backend/v3/api/knowledge/tenants/current";
 pub const SPACES: &str = "/backend/v3/api/knowledge/spaces";

@@ -13,7 +13,11 @@ use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineCapability;
 use sdkwork_knowledgebase_contract::provider_binding::{
     CreateKnowledgeEngineProviderBindingRequest,
     CreateKnowledgeEngineProviderCredentialReferenceRequest, KnowledgeEngineProviderBindingState,
-    ListKnowledgeEngineProviderBindingsRequest, UpdateKnowledgeEngineProviderBindingRequest,
+    KnowledgeEngineProviderCredentialRotationState, ListKnowledgeEngineProviderBindingsRequest,
+    ListKnowledgeEngineProviderCredentialReferencesRequest,
+    RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    UpdateKnowledgeEngineProviderBindingRequest,
 };
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -235,6 +239,151 @@ async fn provider_binding_rejects_stale_versions_and_cross_implementation_creden
     assert!(matches!(
         stale,
         Err(KnowledgeEngineProviderBindingStoreError::Conflict(_))
+    ));
+}
+
+#[tokio::test]
+async fn provider_credential_lifecycle_is_paginated_versioned_and_revocation_fails_closed() {
+    let pool = provider_test_pool("provider-credential-lifecycle").await;
+    let scope = KnowledgeEngineProviderScope {
+        tenant_id: 100_003,
+        organization_id: 7_003,
+    };
+    let store = SqlxKnowledgeEngineProviderBindingStore::new(pool);
+    let first = store
+        .create_credential_reference(
+            scope,
+            "tenant-admin",
+            CreateKnowledgeEngineProviderCredentialReferenceRequest {
+                implementation_id: "engine.knowledge.external.dify".to_string(),
+                display_name: "Dify primary".to_string(),
+                reference_locator: "env://SDKWORK_DIFY_PRIMARY_KEY".to_string(),
+            },
+        )
+        .await
+        .expect("create first credential");
+    let second = store
+        .create_credential_reference(
+            scope,
+            "tenant-admin",
+            CreateKnowledgeEngineProviderCredentialReferenceRequest {
+                implementation_id: "engine.knowledge.external.ragflow".to_string(),
+                display_name: "RAGFlow primary".to_string(),
+                reference_locator: "env://SDKWORK_RAGFLOW_PRIMARY_KEY".to_string(),
+            },
+        )
+        .await
+        .expect("create second credential");
+
+    let first_page = store
+        .list_credential_references(
+            scope,
+            ListKnowledgeEngineProviderCredentialReferencesRequest {
+                implementation_id: None,
+                rotation_state: None,
+                cursor: None,
+                page_size: Some(1),
+            },
+        )
+        .await
+        .expect("list first credential page");
+    assert_eq!(first_page.items.len(), 1);
+    assert_eq!(first_page.items[0].id, second.id);
+    let second_page = store
+        .list_credential_references(
+            scope,
+            ListKnowledgeEngineProviderCredentialReferencesRequest {
+                implementation_id: None,
+                rotation_state: None,
+                cursor: first_page.next_cursor,
+                page_size: Some(1),
+            },
+        )
+        .await
+        .expect("list second credential page");
+    assert_eq!(second_page.items, vec![first.clone()]);
+    assert!(second_page.next_cursor.is_none());
+
+    let rotated = store
+        .rotate_credential_reference(
+            scope,
+            first.id,
+            "security-operator",
+            RotateKnowledgeEngineProviderCredentialReferenceRequest {
+                reference_locator: "env://SDKWORK_DIFY_ROTATED_KEY".to_string(),
+                expected_version: first.version,
+            },
+        )
+        .await
+        .expect("rotate credential");
+    assert_eq!(rotated.version, first.version + 1);
+    assert_eq!(
+        rotated.rotation_state,
+        KnowledgeEngineProviderCredentialRotationState::Current
+    );
+    assert!(rotated.last_rotated_at.is_some());
+
+    let stale_rotation = store
+        .rotate_credential_reference(
+            scope,
+            first.id,
+            "security-operator",
+            RotateKnowledgeEngineProviderCredentialReferenceRequest {
+                reference_locator: "env://SDKWORK_DIFY_STALE_KEY".to_string(),
+                expected_version: first.version,
+            },
+        )
+        .await;
+    assert!(matches!(
+        stale_rotation,
+        Err(KnowledgeEngineProviderBindingStoreError::Conflict(_))
+    ));
+
+    let revoked = store
+        .revoke_credential_reference(
+            scope,
+            first.id,
+            "security-operator",
+            RevokeKnowledgeEngineProviderCredentialReferenceRequest {
+                expected_version: rotated.version,
+            },
+        )
+        .await
+        .expect("revoke credential");
+    assert_eq!(
+        revoked.rotation_state,
+        KnowledgeEngineProviderCredentialRotationState::Revoked
+    );
+    assert!(matches!(
+        store
+            .resolve_credential_reference(scope, first.id, &first.implementation_id)
+            .await,
+        Err(KnowledgeEngineProviderBindingStoreError::CredentialUnavailable(id)) if id == first.id
+    ));
+    assert!(matches!(
+        store
+            .rotate_credential_reference(
+                scope,
+                first.id,
+                "security-operator",
+                RotateKnowledgeEngineProviderCredentialReferenceRequest {
+                    reference_locator: "env://SDKWORK_DIFY_AFTER_REVOKE".to_string(),
+                    expected_version: revoked.version,
+                },
+            )
+            .await,
+        Err(KnowledgeEngineProviderBindingStoreError::InvalidLifecycle(
+            _
+        ))
+    ));
+
+    let wrong_scope = KnowledgeEngineProviderScope {
+        tenant_id: scope.tenant_id,
+        organization_id: scope.organization_id + 1,
+    };
+    assert!(matches!(
+        store.get_credential_reference(wrong_scope, second.id).await,
+        Err(KnowledgeEngineProviderBindingStoreError::NotFound(id)) if id == second.id
     ));
 }
 

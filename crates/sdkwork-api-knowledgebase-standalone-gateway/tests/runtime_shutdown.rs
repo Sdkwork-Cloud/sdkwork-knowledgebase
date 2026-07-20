@@ -1,8 +1,8 @@
 use axum::Router;
-use sdkwork_knowledgebase_agent_provider::async_bridge::{block_on_async, AsyncBridgeError};
 use sdkwork_api_knowledgebase_standalone_gateway::{
     serve_router_with_runtime_shutdown, shutdown_runtime_services, GatewayRuntimeError,
 };
+use sdkwork_knowledgebase_agent_provider::async_bridge::{block_on_async, AsyncBridgeError};
 
 #[tokio::test]
 async fn bind_failure_still_shuts_down_runtime_services() {

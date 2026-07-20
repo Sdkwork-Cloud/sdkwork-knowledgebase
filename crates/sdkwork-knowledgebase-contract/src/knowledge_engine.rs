@@ -206,6 +206,7 @@ pub enum KnowledgeEngineError {
     NotFound(String),
     Unsupported(String),
     Validation(String),
+    PermissionDenied(String),
     Provider(KnowledgeEngineProviderFailure),
     Internal(String),
 }
@@ -218,6 +219,9 @@ impl std::fmt::Display for KnowledgeEngineError {
                 write!(f, "knowledge engine capability unsupported: {message}")
             }
             Self::Validation(message) => write!(f, "knowledge engine validation failed: {message}"),
+            Self::PermissionDenied(message) => {
+                write!(f, "knowledge engine permission denied: {message}")
+            }
             Self::Provider(failure) => write!(
                 f,
                 "knowledge provider {} failed ({:?}): {}",

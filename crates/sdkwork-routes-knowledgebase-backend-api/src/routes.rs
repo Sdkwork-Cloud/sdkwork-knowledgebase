@@ -107,6 +107,55 @@ pub fn build_business_router_with_shared_backend_api(
             get(handlers::retrieve_provider_health),
         )
         .route(
+            paths::PROVIDER_CREDENTIAL_REFERENCES,
+            get(handlers::list_provider_credential_references)
+                .post(handlers::create_provider_credential_reference),
+        )
+        .route(
+            paths::PROVIDER_CREDENTIAL_REFERENCE,
+            get(handlers::retrieve_provider_credential_reference),
+        )
+        .route(
+            paths::PROVIDER_CREDENTIAL_REFERENCE_ROTATE,
+            post(handlers::rotate_provider_credential_reference),
+        )
+        .route(
+            paths::PROVIDER_CREDENTIAL_REFERENCE_REVOKE,
+            post(handlers::revoke_provider_credential_reference),
+        )
+        .route(
+            paths::SPACE_PROVIDER_BINDINGS,
+            get(handlers::list_provider_bindings).post(handlers::create_provider_binding),
+        )
+        .route(
+            paths::SPACE_PROVIDER_BINDING,
+            get(handlers::retrieve_provider_binding).patch(handlers::update_provider_binding),
+        )
+        .route(
+            paths::SPACE_PROVIDER_BINDING_TEST,
+            post(handlers::test_provider_binding),
+        )
+        .route(
+            paths::SPACE_PROVIDER_BINDING_ACTIVATE,
+            post(handlers::activate_provider_binding),
+        )
+        .route(
+            paths::SPACE_PROVIDER_BINDING_DISABLE,
+            post(handlers::disable_provider_binding),
+        )
+        .route(
+            paths::SPACE_PROVIDER_MIGRATIONS,
+            get(handlers::list_provider_migrations).post(handlers::create_provider_migration),
+        )
+        .route(
+            paths::SPACE_PROVIDER_MIGRATION,
+            get(handlers::retrieve_provider_migration),
+        )
+        .route(
+            paths::SPACE_PROVIDER_MIGRATION_ROLLBACK,
+            post(handlers::rollback_provider_migration),
+        )
+        .route(
             paths::GROUP_LAUNCH_CAPABILITY,
             get(handlers::retrieve_group_launch_capability),
         )

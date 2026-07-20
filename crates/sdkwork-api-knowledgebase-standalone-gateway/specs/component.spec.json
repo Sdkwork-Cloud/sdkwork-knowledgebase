@@ -6,7 +6,7 @@
     "displayName": "SDKWork Knowledgebase Standalone Gateway",
     "version": "0.1.0",
     "type": "rust-api-standalone-gateway",
-    "root": "crates/sdkwork-api-knowledgebase-standalone-gateway",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-api-knowledgebase-standalone-gateway",
     "domain": "intelligence",
     "capability": "api-gateway",
     "surface": "gateway-api",

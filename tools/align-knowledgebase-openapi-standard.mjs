@@ -205,6 +205,113 @@ const backendOperations = [
     operationId: 'providerHealth.list',
     itemRef: '#/components/schemas/KnowledgeProviderHealth',
   }),
+  namedList('get', '/backend/v3/api/knowledge/provider_credential_references', {
+    operationId: 'providerCredentialReferences.list',
+    dataRef: '#/components/schemas/KnowledgeEngineProviderCredentialReferencePage',
+  }),
+  resource('post', '/backend/v3/api/knowledge/provider_credential_references', {
+    operationId: 'providerCredentialReferences.create',
+    status: '201',
+    itemRef: '#/components/schemas/KnowledgeEngineProviderCredentialReference',
+  }),
+  resource(
+    'get',
+    '/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}',
+    {
+      operationId: 'providerCredentialReferences.retrieve',
+      itemRef: '#/components/schemas/KnowledgeEngineProviderCredentialReference',
+    },
+  ),
+  command(
+    'post',
+    '/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}/rotate',
+    {
+      operationId: 'providerCredentialReferences.rotate',
+      payloadRef: '#/components/schemas/SdkWorkCommandData',
+    },
+  ),
+  command(
+    'post',
+    '/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}/revoke',
+    {
+      operationId: 'providerCredentialReferences.revoke',
+      payloadRef: '#/components/schemas/SdkWorkCommandData',
+    },
+  ),
+  namedList('get', '/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings', {
+    operationId: 'spaces.providerBindings.list',
+    dataRef: '#/components/schemas/KnowledgeEngineProviderBindingPage',
+  }),
+  resource('post', '/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings', {
+    operationId: 'spaces.providerBindings.create',
+    status: '201',
+    itemRef: '#/components/schemas/KnowledgeEngineProviderBinding',
+  }),
+  resource(
+    'get',
+    '/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}',
+    {
+      operationId: 'spaces.providerBindings.retrieve',
+      itemRef: '#/components/schemas/KnowledgeEngineProviderBinding',
+    },
+  ),
+  resource(
+    'patch',
+    '/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}',
+    {
+      operationId: 'spaces.providerBindings.update',
+      itemRef: '#/components/schemas/KnowledgeEngineProviderBinding',
+    },
+  ),
+  command(
+    'post',
+    '/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}/test',
+    {
+      operationId: 'spaces.providerBindings.test',
+      payloadRef: '#/components/schemas/SdkWorkCommandData',
+    },
+  ),
+  command(
+    'post',
+    '/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}/activate',
+    {
+      operationId: 'spaces.providerBindings.activate',
+      payloadRef: '#/components/schemas/SdkWorkCommandData',
+    },
+  ),
+  command(
+    'post',
+    '/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}/disable',
+    {
+      operationId: 'spaces.providerBindings.disable',
+      payloadRef: '#/components/schemas/SdkWorkCommandData',
+    },
+  ),
+  namedList('get', '/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations', {
+    operationId: 'spaces.providerMigrations.list',
+    dataRef: '#/components/schemas/KnowledgeEngineProviderMigrationOperationPage',
+  }),
+  resource('post', '/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations', {
+    operationId: 'spaces.providerMigrations.create',
+    status: '201',
+    itemRef: '#/components/schemas/KnowledgeEngineProviderMigrationOperation',
+  }),
+  resource(
+    'get',
+    '/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations/{migrationOperationId}',
+    {
+      operationId: 'spaces.providerMigrations.retrieve',
+      itemRef: '#/components/schemas/KnowledgeEngineProviderMigrationOperation',
+    },
+  ),
+  command(
+    'post',
+    '/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations/{migrationOperationId}/rollback',
+    {
+      operationId: 'spaces.providerMigrations.rollback',
+      payloadRef: '#/components/schemas/SdkWorkCommandData',
+    },
+  ),
   resource('get', '/backend/v3/api/knowledge/tenants/current', {
     operationId: 'tenants.current.list',
     itemRef: '#/components/schemas/KnowledgeTenantStatus',
@@ -283,8 +390,482 @@ function noContent(method, routePath, options) {
   };
 }
 
+function ensureProviderManagementContracts(spec) {
+  const schemas = spec.components?.schemas;
+  if (!schemas || typeof schemas !== 'object') {
+    throw new Error('Backend OpenAPI components.schemas is required');
+  }
+
+  schemas.KnowledgeEngineProviderBindingState ??= {
+    type: 'string',
+    enum: ['draft', 'testing', 'active', 'degraded', 'disabled', 'failed'],
+  };
+  schemas.KnowledgeEngineProviderMigrationState ??= {
+    type: 'string',
+    enum: [
+      'dry_run',
+      'preparing',
+      'validating',
+      'cutover',
+      'observing',
+      'completed',
+      'rolling_back',
+      'rolled_back',
+      'failed',
+    ],
+  };
+  schemas.KnowledgeEngineProviderCredentialRotationState ??= {
+    type: 'string',
+    enum: ['current', 'rotation_due', 'revoked'],
+  };
+  schemas.KnowledgeEngineCapability ??= {
+    type: 'string',
+    enum: ['health', 'search', 'read_document', 'list_documents', 'ingest', 'sync_sources'],
+  };
+  schemas.KnowledgeEngineProviderErrorCategory ??= {
+    type: 'string',
+    enum: [
+      'authentication',
+      'permission_denied',
+      'rate_limited',
+      'timeout',
+      'unavailable',
+      'circuit_open',
+      'bulkhead_saturated',
+      'invalid_response',
+      'response_too_large',
+      'invalid_target',
+      'not_found',
+      'validation',
+      'unsupported',
+      'internal',
+    ],
+  };
+  schemas.KnowledgeEngineProviderCredentialReference ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'uuid',
+      'tenantId',
+      'organizationId',
+      'implementationId',
+      'displayName',
+      'rotationState',
+      'createdBy',
+      'updatedBy',
+      'createdAt',
+      'updatedAt',
+      'version',
+    ],
+    properties: {
+      id: int64StringSchema(),
+      uuid: { type: 'string', format: 'uuid' },
+      tenantId: int64StringSchema(),
+      organizationId: int64StringSchema(),
+      implementationId: { type: 'string', maxLength: 128 },
+      displayName: { type: 'string', maxLength: 256 },
+      rotationState: {
+        $ref: '#/components/schemas/KnowledgeEngineProviderCredentialRotationState',
+      },
+      lastRotatedAt: nullableSchema({ type: 'string', format: 'date-time' }),
+      createdBy: { type: 'string', maxLength: 128 },
+      updatedBy: { type: 'string', maxLength: 128 },
+      createdAt: { type: 'string', format: 'date-time' },
+      updatedAt: { type: 'string', format: 'date-time' },
+      version: int64StringSchema(),
+    },
+  };
+  schemas.CreateKnowledgeEngineProviderCredentialReferenceRequest ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: ['implementationId', 'displayName', 'referenceLocator'],
+    properties: {
+      implementationId: { type: 'string', minLength: 1, maxLength: 128 },
+      displayName: { type: 'string', minLength: 1, maxLength: 256 },
+      referenceLocator: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2048,
+        writeOnly: true,
+      },
+    },
+  };
+  schemas.RotateKnowledgeEngineProviderCredentialReferenceRequest ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: ['referenceLocator', 'expectedVersion'],
+    properties: {
+      referenceLocator: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2048,
+        writeOnly: true,
+      },
+      expectedVersion: int64StringSchema(),
+    },
+  };
+  schemas.RevokeKnowledgeEngineProviderCredentialReferenceRequest ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: ['expectedVersion'],
+    properties: { expectedVersion: int64StringSchema() },
+  };
+  schemas.CreateKnowledgeEngineProviderBindingRequest ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: ['implementationId', 'remoteResourceType', 'remoteResourceId'],
+    properties: {
+      implementationId: { type: 'string', minLength: 1, maxLength: 128 },
+      remoteResourceType: { type: 'string', minLength: 1, maxLength: 64 },
+      remoteResourceId: { type: 'string', minLength: 1, maxLength: 512 },
+      credentialReferenceId: nullableSchema(int64StringSchema()),
+    },
+  };
+  schemas.UpdateKnowledgeEngineProviderBindingRequest ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: ['clearCredentialReference', 'expectedVersion'],
+    properties: {
+      remoteResourceType: nullableSchema({ type: 'string', minLength: 1, maxLength: 64 }),
+      remoteResourceId: nullableSchema({ type: 'string', minLength: 1, maxLength: 512 }),
+      credentialReferenceId: nullableSchema(int64StringSchema()),
+      clearCredentialReference: { type: 'boolean' },
+      expectedVersion: int64StringSchema(),
+    },
+  };
+  schemas.ProviderBindingVersionCommandRequest ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: ['expectedVersion'],
+    properties: { expectedVersion: int64StringSchema() },
+  };
+  schemas.ProviderMigrationVersionCommandRequest ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: ['expectedVersion'],
+    properties: { expectedVersion: int64StringSchema() },
+  };
+  schemas.CreateKnowledgeEngineProviderMigrationOperationRequest ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'sourceBindingId',
+      'targetBindingId',
+      'idempotencyKey',
+      'expectedSourceVersion',
+      'expectedTargetVersion',
+      'observationSeconds',
+    ],
+    properties: {
+      sourceBindingId: int64StringSchema(),
+      targetBindingId: int64StringSchema(),
+      idempotencyKey: { type: 'string', minLength: 1, maxLength: 128 },
+      expectedSourceVersion: int64StringSchema(),
+      expectedTargetVersion: int64StringSchema(),
+      observationSeconds: {
+        type: 'integer',
+        format: 'int32',
+        minimum: 60,
+        maximum: 604800,
+      },
+    },
+  };
+  schemas.KnowledgeEngineProviderBinding ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'uuid',
+      'tenantId',
+      'organizationId',
+      'spaceId',
+      'implementationId',
+      'remoteResourceType',
+      'remoteResourceId',
+      'lifecycleState',
+      'capabilitySnapshot',
+      'capabilitySnapshotVersion',
+      'createdBy',
+      'updatedBy',
+      'createdAt',
+      'updatedAt',
+      'version',
+    ],
+    properties: {
+      id: int64StringSchema(),
+      uuid: { type: 'string', format: 'uuid' },
+      tenantId: int64StringSchema(),
+      organizationId: int64StringSchema(),
+      spaceId: int64StringSchema(),
+      implementationId: { type: 'string', maxLength: 128 },
+      remoteResourceType: { type: 'string', maxLength: 64 },
+      remoteResourceId: { type: 'string', maxLength: 512 },
+      credentialReferenceId: nullableSchema(int64StringSchema()),
+      lifecycleState: { $ref: '#/components/schemas/KnowledgeEngineProviderBindingState' },
+      capabilitySnapshot: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/KnowledgeEngineCapability' },
+      },
+      capabilitySnapshotVersion: int64StringSchema(),
+      lastTestedAt: nullableSchema({ type: 'string', format: 'date-time' }),
+      activatedAt: nullableSchema({ type: 'string', format: 'date-time' }),
+      disabledAt: nullableSchema({ type: 'string', format: 'date-time' }),
+      lastErrorCategory: nullableSchema({
+        $ref: '#/components/schemas/KnowledgeEngineProviderErrorCategory',
+      }),
+      createdBy: { type: 'string', maxLength: 128 },
+      updatedBy: { type: 'string', maxLength: 128 },
+      createdAt: { type: 'string', format: 'date-time' },
+      updatedAt: { type: 'string', format: 'date-time' },
+      version: int64StringSchema(),
+    },
+  };
+  schemas.KnowledgeEngineProviderMigrationOperation ??= {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'uuid',
+      'tenantId',
+      'organizationId',
+      'spaceId',
+      'sourceBindingId',
+      'targetBindingId',
+      'operationState',
+      'requestedBy',
+      'attemptCount',
+      'createdAt',
+      'updatedAt',
+      'version',
+    ],
+    properties: {
+      id: int64StringSchema(),
+      uuid: { type: 'string', format: 'uuid' },
+      tenantId: int64StringSchema(),
+      organizationId: int64StringSchema(),
+      spaceId: int64StringSchema(),
+      sourceBindingId: int64StringSchema(),
+      targetBindingId: int64StringSchema(),
+      operationState: { $ref: '#/components/schemas/KnowledgeEngineProviderMigrationState' },
+      requestedBy: { type: 'string', minLength: 1, maxLength: 128 },
+      attemptCount: { type: 'integer', format: 'int32', minimum: 0 },
+      cutoverAt: nullableSchema({ type: 'string', format: 'date-time' }),
+      observationUntil: nullableSchema({ type: 'string', format: 'date-time' }),
+      completedAt: nullableSchema({ type: 'string', format: 'date-time' }),
+      lastErrorCategory: nullableSchema({
+        $ref: '#/components/schemas/KnowledgeEngineProviderErrorCategory',
+      }),
+      createdAt: { type: 'string', format: 'date-time' },
+      updatedAt: { type: 'string', format: 'date-time' },
+      version: int64StringSchema(),
+    },
+  };
+  schemas.KnowledgeEngineProviderCredentialReferencePage ??= listDataSchema(
+    '#/components/schemas/KnowledgeEngineProviderCredentialReference',
+    'One bounded cursor page of Provider credential references.',
+  );
+  schemas.KnowledgeEngineProviderBindingPage ??= listDataSchema(
+    '#/components/schemas/KnowledgeEngineProviderBinding',
+    'One bounded cursor page of Provider bindings.',
+  );
+  schemas.KnowledgeEngineProviderMigrationOperationPage ??= listDataSchema(
+    '#/components/schemas/KnowledgeEngineProviderMigrationOperation',
+    'One bounded cursor page of Provider migration operations.',
+  );
+
+  const credentialId = pathIdParameter('credentialReferenceId');
+  const spaceId = pathIdParameter('spaceId');
+  const bindingId = pathIdParameter('bindingId');
+  const migrationOperationId = pathIdParameter('migrationOperationId');
+  const cursor = queryParameter('cursor', { type: 'string' });
+  const pageSize = queryParameter('page_size', {
+    type: 'integer',
+    format: 'int32',
+    minimum: 1,
+    maximum: 200,
+    default: 20,
+  });
+  registerProviderOperation(spec, 'get', '/backend/v3/api/knowledge/provider_credential_references', {
+    operationId: 'providerCredentialReferences.list',
+    summary: 'List Provider credential references',
+    parameters: [
+      queryParameter('implementation_id', { type: 'string', maxLength: 128 }),
+      queryParameter('rotation_state', {
+        $ref: '#/components/schemas/KnowledgeEngineProviderCredentialRotationState',
+      }),
+      cursor,
+      pageSize,
+    ],
+  });
+  registerProviderOperation(spec, 'post', '/backend/v3/api/knowledge/provider_credential_references', {
+    operationId: 'providerCredentialReferences.create',
+    summary: 'Create a Provider credential reference',
+    requestSchema: '#/components/schemas/CreateKnowledgeEngineProviderCredentialReferenceRequest',
+  });
+  registerProviderOperation(
+    spec,
+    'get',
+    '/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}',
+    {
+      operationId: 'providerCredentialReferences.retrieve',
+      summary: 'Retrieve a Provider credential reference',
+      parameters: [credentialId],
+    },
+  );
+  for (const action of ['rotate', 'revoke']) {
+    registerProviderOperation(
+      spec,
+      'post',
+      `/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}/${action}`,
+      {
+        operationId: `providerCredentialReferences.${action}`,
+        summary: `${action === 'rotate' ? 'Rotate' : 'Revoke'} a Provider credential reference`,
+        parameters: [credentialId],
+        requestSchema:
+          action === 'rotate'
+            ? '#/components/schemas/RotateKnowledgeEngineProviderCredentialReferenceRequest'
+            : '#/components/schemas/RevokeKnowledgeEngineProviderCredentialReferenceRequest',
+      },
+    );
+  }
+  const bindingCollection = '/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings';
+  const bindingResource = `${bindingCollection}/{bindingId}`;
+  registerProviderOperation(spec, 'get', bindingCollection, {
+    operationId: 'spaces.providerBindings.list',
+    summary: 'List Provider bindings for a knowledge space',
+    parameters: [
+      spaceId,
+      queryParameter('lifecycle_state', {
+        $ref: '#/components/schemas/KnowledgeEngineProviderBindingState',
+      }),
+      cursor,
+      pageSize,
+    ],
+  });
+  registerProviderOperation(spec, 'post', bindingCollection, {
+    operationId: 'spaces.providerBindings.create',
+    summary: 'Create a Provider binding for a knowledge space',
+    parameters: [spaceId],
+    requestSchema: '#/components/schemas/CreateKnowledgeEngineProviderBindingRequest',
+  });
+  registerProviderOperation(spec, 'get', bindingResource, {
+    operationId: 'spaces.providerBindings.retrieve',
+    summary: 'Retrieve a Provider binding',
+    parameters: [spaceId, bindingId],
+  });
+  registerProviderOperation(spec, 'patch', bindingResource, {
+    operationId: 'spaces.providerBindings.update',
+    summary: 'Update a draft Provider binding',
+    parameters: [spaceId, bindingId],
+    requestSchema: '#/components/schemas/UpdateKnowledgeEngineProviderBindingRequest',
+  });
+  for (const action of ['test', 'activate', 'disable']) {
+    registerProviderOperation(spec, 'post', `${bindingResource}/${action}`, {
+      operationId: `spaces.providerBindings.${action}`,
+      summary: `${action[0].toUpperCase()}${action.slice(1)} a Provider binding`,
+      parameters: [spaceId, bindingId],
+      requestSchema: '#/components/schemas/ProviderBindingVersionCommandRequest',
+    });
+  }
+  const migrationCollection = '/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations';
+  const migrationResource = `${migrationCollection}/{migrationOperationId}`;
+  registerProviderOperation(spec, 'get', migrationCollection, {
+    operationId: 'spaces.providerMigrations.list',
+    summary: 'List Provider migration operations for a knowledge space',
+    parameters: [
+      spaceId,
+      queryParameter('operation_state', {
+        $ref: '#/components/schemas/KnowledgeEngineProviderMigrationState',
+      }),
+      cursor,
+      pageSize,
+    ],
+  });
+  registerProviderOperation(spec, 'post', migrationCollection, {
+    operationId: 'spaces.providerMigrations.create',
+    summary: 'Create a recoverable Provider migration operation',
+    parameters: [spaceId],
+    requestSchema: '#/components/schemas/CreateKnowledgeEngineProviderMigrationOperationRequest',
+  });
+  registerProviderOperation(spec, 'get', migrationResource, {
+    operationId: 'spaces.providerMigrations.retrieve',
+    summary: 'Retrieve a Provider migration operation',
+    parameters: [spaceId, migrationOperationId],
+  });
+  registerProviderOperation(spec, 'post', `${migrationResource}/rollback`, {
+    operationId: 'spaces.providerMigrations.rollback',
+    summary: 'Request rollback of a Provider migration operation',
+    parameters: [spaceId, migrationOperationId],
+    requestSchema: '#/components/schemas/ProviderMigrationVersionCommandRequest',
+  });
+}
+
+function registerProviderOperation(spec, method, routePath, options) {
+  spec.paths ??= {};
+  spec.paths[routePath] ??= {};
+  if (spec.paths[routePath][method]) {
+    return;
+  }
+  const template = spec.paths?.['/backend/v3/api/knowledge/provider_health']?.get;
+  if (!template) {
+    throw new Error('Provider health operation is required as backend metadata template');
+  }
+  const responses = Object.fromEntries(
+    Object.entries(template.responses ?? {})
+      .filter(([status]) => !/^2[0-9][0-9]$/u.test(status))
+      .map(([status, response]) => [status, structuredClone(response)]),
+  );
+  spec.paths[routePath][method] = {
+    operationId: options.operationId,
+    tags: ['knowledge'],
+    summary: options.summary,
+    description: options.summary,
+    parameters: structuredClone(options.parameters ?? []),
+    ...(options.requestSchema
+      ? {
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': { schema: { $ref: options.requestSchema } },
+            },
+          },
+        }
+      : {}),
+    responses,
+    security: structuredClone(template.security ?? []),
+    'x-sdkwork-owner': 'sdkwork-knowledgebase',
+    'x-sdkwork-api-authority': 'sdkwork-knowledgebase-backend-api',
+    'x-sdkwork-request-context': 'WebRequestContext',
+    'x-sdkwork-api-surface': 'backend-api',
+    'x-sdkwork-source-route-crate': 'sdkwork-routes-knowledgebase-backend-api',
+    'x-sdkwork-auth-mode': 'dual-token',
+    'x-sdkwork-rate-limit-tier': method === 'get' ? 'standard' : 'auth-critical',
+  };
+}
+
+function pathIdParameter(name) {
+  return {
+    name,
+    in: 'path',
+    required: true,
+    schema: int64StringSchema(),
+  };
+}
+
+function queryParameter(name, schema) {
+  return { name, in: 'query', required: false, schema };
+}
+
+function nullableSchema(schema) {
+  return { anyOf: [schema, { type: 'null' }] };
+}
+
 async function alignFile(filePath, operationAlignments) {
   const spec = JSON.parse(await readFile(filePath, 'utf8'));
+  if (filePath === backendOpenApiPath) {
+    ensureProviderManagementContracts(spec);
+  }
   normalizeQueryParameterNames(spec);
   for (const alignment of operationAlignments) {
     applyOperationAlignment(spec, alignment);

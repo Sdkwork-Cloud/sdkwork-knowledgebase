@@ -7,6 +7,7 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchHit,
     KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
 };
+use sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext;
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentKnowledgeMode, KnowledgeRetrievalBinding, KnowledgeRetrievalMethod,
 };
@@ -89,6 +90,7 @@ impl KnowledgeEngine for RagNativeKnowledgeEngine {
 
     async fn search(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineSearchRequest,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
         let hits = self
@@ -133,6 +135,7 @@ impl KnowledgeEngine for RagNativeKnowledgeEngine {
 
     async fn read_document(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineReadRequest,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let document_id = request.document_id.parse::<u64>().map_err(|_| {
@@ -196,6 +199,7 @@ impl KnowledgeEngine for RagNativeKnowledgeEngine {
 
     async fn list_documents(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         let documents = self

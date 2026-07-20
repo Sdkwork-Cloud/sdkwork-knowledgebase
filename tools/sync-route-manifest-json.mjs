@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.resolve(scriptDir, '..');
+const checkOnly = process.argv.includes('--check');
+const pendingChanges = [];
 
 const targets = [
   {
@@ -69,6 +71,22 @@ for (const target of targets) {
     throw new Error(`No routes parsed from ${target.manifestRs}`);
   }
   manifest.routes = routes.map((route) => buildRoute(route, manifest, target.apiSurface));
-  await writeFile(jsonPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-  console.log(`Synced ${routes.length} routes to ${target.jsonFile}`);
+  const desired = `${JSON.stringify(manifest, null, 2)}\n`;
+  const current = await readFile(jsonPath, 'utf8');
+  if (current === desired) {
+    continue;
+  }
+
+  pendingChanges.push(target.jsonFile);
+  if (!checkOnly) {
+    await writeFile(jsonPath, desired, 'utf8');
+    console.log(`Synced ${routes.length} routes to ${target.jsonFile}`);
+  }
 }
+
+if (checkOnly && pendingChanges.length > 0) {
+  console.error(JSON.stringify({ ok: false, mode: 'check', pendingChanges }, null, 2));
+  process.exit(1);
+}
+
+console.log(JSON.stringify({ ok: true, mode: checkOnly ? 'check' : 'apply' }, null, 2));

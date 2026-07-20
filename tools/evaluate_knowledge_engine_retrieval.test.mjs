@@ -55,3 +55,22 @@ test("retrieval evaluation rejects result files for another dataset version", ()
   );
 });
 
+test("retrieval evaluation rejects duplicate and unknown result runs", () => {
+  const duplicate = structuredClone(sampleResults);
+  duplicate.runs.push(structuredClone(duplicate.runs[0]));
+  assert.throws(() => evaluateRetrieval(dataset, duplicate), /duplicate result run/);
+
+  const unknown = structuredClone(sampleResults);
+  unknown.runs.push({ queryId: "unknown", failed: false, latencyMs: 1, hits: [] });
+  assert.throws(() => evaluateRetrieval(dataset, unknown), /unknown result query/);
+});
+
+test("retrieval evaluation rejects invalid schemas and negative latency", () => {
+  const wrongKind = structuredClone(sampleResults);
+  wrongKind.kind = "sdkwork.knowledge-engine-retrieval-results-template";
+  assert.throws(() => evaluateRetrieval(dataset, wrongKind), /results kind is invalid/);
+
+  const negativeLatency = structuredClone(sampleResults);
+  negativeLatency.runs[0].latencyMs = -1;
+  assert.throws(() => evaluateRetrieval(dataset, negativeLatency), /latencyMs must be non-negative/);
+});

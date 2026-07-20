@@ -122,6 +122,13 @@
   "spiSurface": {
     "trait": "KnowledgeEngine",
     "module": "knowledge_engine",
+    "executionContextType": "KnowledgeEngineExecutionContext",
+    "resolvedHandleType": "KnowledgeEngineExecutionHandle",
+    "contextRequiredMethods": [
+      "search",
+      "read_document",
+      "list_documents"
+    ],
     "requiredMethods": [
       "descriptor",
       "bind_provider",
@@ -151,6 +158,9 @@
     "externalExtensionMethods": [
       "connector_health",
       "sync_sources"
+    ],
+    "externalContextRequiredMethods": [
+      "sync_sources"
     ]
   },
   "registry": {
@@ -167,9 +177,80 @@
       "KnowledgeEngineRegistrar": ["register"],
       "KnowledgeEngineSpaceRegistry": ["resolve_for_space"]
     },
+    "spaceResolutionReturnType": "KnowledgeEngineExecutionHandle",
     "builtInImplementations": [
       "engine.knowledge.okf.native",
       "engine.knowledge.rag.native"
+    ]
+  },
+  "executionBoundary": {
+    "authority": "authenticated request context + active Provider binding",
+    "bindingInjectionOwner": "KnowledgeEngineExecutionHandle",
+    "validationOrder": [
+      "tenant",
+      "organization",
+      "actor",
+      "permission",
+      "data_scope",
+      "space",
+      "binding",
+      "trace",
+      "deadline",
+      "credential_resolution",
+      "provider_http"
+    ],
+    "requestScopeValidation": [
+      "request.tenant_id == context.tenant_id",
+      "request.space_id == context.space_id",
+      "context.space_id is present in context.data_scope.allowed_space_ids"
+    ],
+    "contextPropagation": "The request-derived actor and trace are preserved unchanged from the App API through the execution handle, adapter, Provider Runtime, and outbound HTTP request.",
+    "healthContextException": "for_system_health is limited to credential-free infrastructure probes. Binding health/test operations must use an authenticated management context and binding-scoped credential resolution; search, read, list, and sync must never create a local or system context.",
+    "forbidden": [
+      "uncontextualized search or read",
+      "adapter-local business execution context",
+      "task-local or global mutable execution context",
+      "caller-selected Provider binding",
+      "credential resolution before authorization and scope validation"
+    ]
+  },
+  "credentialBoundary": {
+    "referenceAuthority": "kb_provider_credential_reference referenced by kb_provider_binding.credential_reference_id",
+    "resolverPort": "KnowledgeEngineProviderCredentialResolver",
+    "resolvedSecretType": "KnowledgeEngineProviderCredential",
+    "supportedRuntimeSchemes": [
+      "env://UPPERCASE_VARIABLE",
+      "file://absolute-regular-file"
+    ],
+    "requiredCredentialProviders": [
+      "dify",
+      "ragflow",
+      "onyx",
+      "anythingllm",
+      "open-webui",
+      "flowise"
+    ],
+    "optionalCredentialProviders": [
+      "chroma",
+      "qdrant",
+      "weaviate",
+      "haystack"
+    ],
+    "cachePolicy": "No secret cache. Every authorized operation resolves the current reference version so rotation and revocation cannot serve stale credentials.",
+    "secretHandling": [
+      "write-only locator",
+      "redacted Debug",
+      "non-serializable secret value",
+      "zeroize on Drop",
+      "sanitized typed failures"
+    ],
+    "forbidden": [
+      "startup credential reads in adapter config",
+      "credential file environment aliases",
+      "credential lookup before authenticated scope validation",
+      "plaintext credential persistence",
+      "secret or locator logging",
+      "unknown reference scheme fallback"
     ]
   },
   "switching": {
@@ -190,11 +271,20 @@
     "integrationTiers": ["catalog", "stub", "adapter", "production"],
     "sdkRule": "Consume vendor SDK or composed facade; raw HTTP only inside adapter integration tests"
   },
+  "evaluation": {
+    "contract": "specs/knowledge-engine-evaluation.spec.json",
+    "contractFixtureClassification": "contract-fixture",
+    "productionDatasetClassification": "production-domain",
+    "productionEvidenceSchema": "docs/releases/provider-certification/quality-evaluation-evidence.schema.json",
+    "productionRule": "Production quality evidence must bind a reviewed dataset, raw Provider results, deterministic evaluation report, pinned Provider version and adapter commit, release workflow, reviewers, expiry, and matching SHA-256 digests."
+  },
   "verification": {
     "commands": [
       "cargo test -p sdkwork-knowledgebase-contract knowledge_engine",
       "cargo test -p sdkwork-intelligence-knowledgebase-service knowledge_engine",
       "node tools/check_external_knowledge_engine_catalog.mjs",
+      "node tools/run_provider_certification.mjs",
+      "node tools/run_provider_certification.mjs --execute",
       "node --test tools/evaluate_knowledge_engine_retrieval.test.mjs",
       "node tools/check_okf_knowledge_bundle_standard.mjs",
       "pnpm verify"

@@ -5,6 +5,7 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
 use sdkwork_knowledgebase_engine_flowise::{
     chunk_id_from_content, FlowiseConnectorConfig, FlowiseKnowledgeEngine,
 };
+use sdkwork_knowledgebase_test_support::provider_execution::provider_execution_context;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -18,7 +19,7 @@ async fn assert_flowise_health(upstream_status: u16, expected: KnowledgeEngineHe
         .await;
     let engine = FlowiseKnowledgeEngine::with_config(FlowiseConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "health-key".to_string(),
+        api_key: zeroize::Zeroizing::new("health-key".to_string()),
         default_store_id: Some("health-store".to_string()),
     });
 
@@ -51,18 +52,21 @@ async fn flowise_search_uses_configured_remote_resource_id() {
 
     let config = FlowiseConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "test-api-key".to_string(),
+        api_key: zeroize::Zeroizing::new("test-api-key".to_string()),
         default_store_id: Some("603a7b51-ae7c-4b0a-8865-e454ed2f6766".to_string()),
     };
     let engine = FlowiseKnowledgeEngine::with_config(config);
 
     let result = engine
-        .search(KnowledgeEngineSearchRequest {
-            tenant_id: 1,
-            space_id: 42,
-            query: "hello".to_string(),
-            top_k: 3,
-        })
+        .search(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-search"),
+            KnowledgeEngineSearchRequest {
+                tenant_id: 1,
+                space_id: 42,
+                query: "hello".to_string(),
+                top_k: 3,
+            },
+        )
         .await
         .expect("search");
 
@@ -95,18 +99,21 @@ async fn flowise_read_document_resolves_chunk_from_vector_query() {
 
     let config = FlowiseConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "test-api-key".to_string(),
+        api_key: zeroize::Zeroizing::new("test-api-key".to_string()),
         default_store_id: Some("603a7b51-ae7c-4b0a-8865-e454ed2f6766".to_string()),
     };
     let engine = FlowiseKnowledgeEngine::with_config(config);
     let chunk_id = chunk_id_from_content("full chunk body");
 
     let document = engine
-        .read_document(KnowledgeEngineReadRequest {
-            tenant_id: 1,
-            space_id: 42,
-            document_id: format!("Space Doc#{chunk_id}"),
-        })
+        .read_document(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-read"),
+            KnowledgeEngineReadRequest {
+                tenant_id: 1,
+                space_id: 42,
+                document_id: format!("Space Doc#{chunk_id}"),
+            },
+        )
         .await
         .expect("read");
 

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.knowledge-engine-evaluation.spec",
+  "owner": "sdkwork-knowledgebase",
+  "contractVersion": "1.0.0",
+  "contractFixtureDataset": "tests/fixtures/knowledge-engine-evaluation/v1/golden.json",
+  "contractFixtureResults": "tests/fixtures/knowledge-engine-evaluation/v1/sample-results.json",
+  "productionEvidenceSchema": "docs/releases/provider-certification/quality-evaluation-evidence.schema.json",
+  "productionEvidenceTemplate": "docs/releases/provider-certification/quality-evaluation-evidence.template.json",
+  "productionPolicy": {
+    "minimumScoredQueries": 50,
+    "minimumRejectionQueries": 3,
+    "minimumReviewers": 2,
+    "maximumEvidenceAgeDays": 90,
+    "thresholdBounds": {
+      "minRecallAtK": 0.75,
+      "minMrr": 0.75,
+      "minNdcgAtK": 0.75,
+      "minCitationCorrectness": 0.98,
+      "minEmptyQueryPassRate": 1.0,
+      "maxFailureRate": 0.01,
+      "maxP95LatencyMs": 2000
+    },
+    "requiredMetrics": [
+      "recallAtK",
+      "mrr",
+      "ndcgAtK",
+      "citationCorrectness",
+      "failureRate",
+      "p95LatencyMs",
+      "emptyQueryPassRate",
+      "scoredQueryCount"
+    ]
+  },
+  "rules": [
+    "Contract fixtures prove evaluator behavior only and MUST use classification contract-fixture.",
+    "Production acceptance requires a reviewed production-domain dataset, exact one-to-one query runs, a pinned Provider version and adapter commit, and an immutable release workflow reference.",
+    "Dataset, raw results, and evaluation report files MUST exist under the Provider certification artifact root and MUST match their recorded SHA-256 digests.",
+    "Draft templates, sample results, duplicate or unknown query runs, stale evidence, and failed threshold reports MUST NOT satisfy production evidence."
+  ]
+}

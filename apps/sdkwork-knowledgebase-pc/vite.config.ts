@@ -18,6 +18,7 @@ const APP_SOURCE_CHUNKS = [
   ['packages/sdkwork-knowledgebase-pc-knowledge/src/', 'feature-knowledge'],
   ['packages/sdkwork-knowledgebase-pc-search/src/', 'feature-search'],
   ['packages/sdkwork-knowledgebase-pc-shell/src/', 'feature-shell'],
+  ['packages/sdkwork-knowledgebase-pc-admin-provider/src/', 'feature-admin-provider'],
   ['packages/sdkwork-knowledgebase-pc-core/src/', 'feature-core'],
   ['packages/sdkwork-knowledgebase-pc-commons/src/', 'feature-commons'],
 ] as const;
@@ -282,6 +283,10 @@ export default defineConfig(({mode}) => {
         {
           find: '@sdkwork/sdkwork-knowledgebase-pc-shell',
           replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-shell/src/index.ts'),
+        },
+        {
+          find: 'sdkwork-knowledgebase-pc-admin-provider',
+          replacement: path.resolve(__dirname, 'packages/sdkwork-knowledgebase-pc-admin-provider/src/index.ts'),
         },
         {
           find: '@sdkwork/auth-pc-react',

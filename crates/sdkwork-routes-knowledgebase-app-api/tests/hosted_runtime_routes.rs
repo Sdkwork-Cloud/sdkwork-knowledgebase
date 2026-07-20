@@ -1,10 +1,22 @@
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
-use sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeOkfConceptStore;
+use sdkwork_intelligence_knowledgebase_repository_sqlx::{
+    SqliteKnowledgeOkfConceptStore, SqlxKnowledgeEngineProviderBindingStore,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
     KnowledgeOkfConceptStore, UpsertKnowledgeOkfConceptRecord,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_store::{
+    KnowledgeEngineProviderBindingStore, KnowledgeEngineProviderScope,
+    RecordKnowledgeEngineProviderTestResult,
+};
+use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineCapability;
+use sdkwork_knowledgebase_contract::provider_binding::{
+    CreateKnowledgeEngineProviderBindingRequest,
+    CreateKnowledgeEngineProviderCredentialReferenceRequest, KnowledgeEngineProviderBinding,
+};
 use sdkwork_knowledgebase_contract::OkfConceptPublishState;
+use sdkwork_knowledgebase_test_support::provider_execution::knowledge_execution_context;
 use sdkwork_routes_knowledgebase_app_api::{dev_auth, KnowledgebaseRuntime};
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -138,14 +150,450 @@ async fn hosted_backend_router_serves_provider_health() {
 }
 
 #[tokio::test]
+async fn hosted_backend_provider_management_is_scoped_versioned_and_secret_safe() {
+    let _env_guard = lock_external_adapter_env().await;
+    clear_external_adapter_env();
+    let _dify_base_url =
+        TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL", "http://127.0.0.1:9");
+    let _managed_credential = TempEnvVar::set("SDKWORK_DIFY_MANAGED_KEY", "managed-test-secret");
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+    let space_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Managed Provider Space","description":"Provider management contract","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_id_field(space_response, "managed Provider space id").await;
+
+    let invalid_credential_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/provider_credential_references")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"implementationId":"engine.knowledge.external.dify","displayName":"Invalid credential","referenceLocator":"secret://unapproved/provider/key"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        invalid_credential_response.status(),
+        StatusCode::BAD_REQUEST
+    );
+
+    let credential_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/backend/v3/api/knowledge/provider_credential_references")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"implementationId":"engine.knowledge.external.dify","displayName":"Dify managed credential","referenceLocator":"env://SDKWORK_DIFY_MANAGED_KEY"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let credential_status = credential_response.status();
+    let credential_raw = response_raw_json(credential_response).await;
+    assert_eq!(
+        credential_status,
+        StatusCode::CREATED,
+        "credential create failed: {credential_raw}"
+    );
+    assert_eq!(credential_raw["code"], 0);
+    assert!(credential_raw["traceId"].as_str().is_some());
+    let credential = credential_raw["data"]["item"].clone();
+    let credential_id = json_u64_field(&credential, "id").expect("credential id");
+    assert!(credential["id"].is_string());
+    assert!(credential["version"].is_string());
+    assert!(credential.get("referenceLocator").is_none());
+    assert!(!credential_raw
+        .to_string()
+        .contains("SDKWORK_DIFY_MANAGED_KEY"));
+
+    let credential_list_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/backend/v3/api/knowledge/provider_credential_references?page_size=1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(credential_list_response.status(), StatusCode::OK);
+    let credential_page = response_body_json(credential_list_response).await;
+    assert_eq!(credential_page["items"].as_array().map(Vec::len), Some(1));
+    assert_eq!(credential_page["pageInfo"]["mode"], "cursor");
+
+    let binding_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/spaces/{space_id}/provider_bindings"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "implementationId": "engine.knowledge.external.dify",
+                        "remoteResourceType": "dataset",
+                        "remoteResourceId": "managed-dataset",
+                        "credentialReferenceId": credential_id.to_string()
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(binding_response.status(), StatusCode::CREATED);
+    let binding = response_body_json(binding_response).await;
+    let binding_id = json_u64_field(&binding, "id").expect("binding id");
+    assert!(binding["spaceId"].is_string());
+    assert_eq!(binding["lifecycleState"], "draft");
+
+    let wrong_space_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/spaces/{}/provider_bindings/{binding_id}",
+                    space_id + 1
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(wrong_space_response.status(), StatusCode::FORBIDDEN);
+
+    let updated_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/spaces/{space_id}/provider_bindings/{binding_id}"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "remoteResourceId": "managed-dataset-v2",
+                        "clearCredentialReference": false,
+                        "expectedVersion": binding["version"]
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(updated_response.status(), StatusCode::OK);
+    let updated = response_body_json(updated_response).await;
+    assert_eq!(updated["remoteResourceId"], "managed-dataset-v2");
+
+    let stale_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/spaces/{space_id}/provider_bindings/{binding_id}"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "remoteResourceId": "stale-dataset",
+                        "clearCredentialReference": false,
+                        "expectedVersion": binding["version"]
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(stale_response.status(), StatusCode::CONFLICT);
+
+    let invalid_rotate_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/provider_credential_references/{credential_id}/rotate"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"referenceLocator":"secret://unapproved/rotated/key","expectedVersion":"0"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(invalid_rotate_response.status(), StatusCode::BAD_REQUEST);
+
+    let rotate_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/provider_credential_references/{credential_id}/rotate"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"referenceLocator":"env://SDKWORK_DIFY_ROTATED_MANAGED_KEY","expectedVersion":"0"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rotate_response.status(), StatusCode::OK);
+    let rotate_command = response_body_json(rotate_response).await;
+    assert_eq!(rotate_command["accepted"], true);
+    assert_eq!(rotate_command["resourceId"], credential_id.to_string());
+    assert_eq!(rotate_command["status"], "current");
+
+    let revoke_response = backend
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/provider_credential_references/{credential_id}/revoke"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"expectedVersion":"1"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(revoke_response.status(), StatusCode::OK);
+    let revoke_command = response_body_json(revoke_response).await;
+    assert_eq!(revoke_command["accepted"], true);
+    assert_eq!(revoke_command["status"], "revoked");
+}
+
+#[tokio::test]
+async fn hosted_provider_migration_is_scoped_recoverable_and_reversible() {
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+    let space_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Provider Migration Space","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_id_field(space_response, "Provider migration space id").await;
+
+    let store = SqlxKnowledgeEngineProviderBindingStore::new(runtime.pool().clone());
+    let scope = KnowledgeEngineProviderScope {
+        tenant_id: runtime.tenant_id(),
+        organization_id: runtime.organization_id(),
+    };
+    let source = create_tested_provider_binding(
+        &store,
+        scope,
+        space_id,
+        "engine.knowledge.external.dify",
+        "migration-source",
+    )
+    .await;
+    let source = store
+        .activate_binding(scope, source.id, "migration-test", source.version)
+        .await
+        .expect("activate migration source");
+    let target = create_tested_provider_binding(
+        &store,
+        scope,
+        space_id,
+        "engine.knowledge.external.ragflow",
+        "migration-target",
+    )
+    .await;
+
+    let create_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/spaces/{space_id}/provider_migrations"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "sourceBindingId": source.id.to_string(),
+                        "targetBindingId": target.id.to_string(),
+                        "idempotencyKey": "hosted-provider-migration-001",
+                        "expectedSourceVersion": source.version.to_string(),
+                        "expectedTargetVersion": target.version.to_string(),
+                        "observationSeconds": 60
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let create_status = create_response.status();
+    let create_body = response_raw_json(create_response).await;
+    assert_eq!(create_status, StatusCode::CREATED, "{create_body}");
+    let operation = create_body["data"]["item"].clone();
+    let operation_id = json_u64_field(&operation, "id").expect("migration operation id");
+    assert_eq!(operation["operationState"], "dry_run");
+    assert!(operation["version"].is_string());
+
+    let list_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/spaces/{space_id}/provider_migrations?operation_state=dry_run&page_size=1"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(list_response.status(), StatusCode::OK);
+    let page = response_body_json(list_response).await;
+    assert_eq!(page["items"].as_array().map(Vec::len), Some(1));
+    assert_eq!(page["pageInfo"]["mode"], "cursor");
+
+    let wrong_space = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/spaces/{}/provider_migrations/{operation_id}",
+                    space_id + 1
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(wrong_space.status(), StatusCode::NOT_FOUND);
+
+    let processed = runtime
+        .process_provider_migrations(
+            "hosted-provider-migration-worker",
+            std::time::Duration::from_secs(30),
+            4,
+        )
+        .await
+        .expect("process migration through cutover");
+    assert_eq!(processed.processed, 4);
+    let observing_response = backend
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/spaces/{space_id}/provider_migrations/{operation_id}"
+                ))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(observing_response.status(), StatusCode::OK);
+    let observing = response_body_json(observing_response).await;
+    assert_eq!(observing["operationState"], "observing");
+    assert_eq!(
+        store
+            .get_active_binding_for_space(scope, space_id)
+            .await
+            .expect("retrieve active target")
+            .expect("target active")
+            .id,
+        target.id
+    );
+
+    let rollback_response = backend
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!(
+                    "/backend/v3/api/knowledge/spaces/{space_id}/provider_migrations/{operation_id}/rollback"
+                ))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({ "expectedVersion": observing["version"] }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(rollback_response.status(), StatusCode::OK);
+    let rollback = response_body_json(rollback_response).await;
+    assert_eq!(rollback["accepted"], true);
+    assert_eq!(rollback["status"], "rolling_back");
+
+    let rolled_back = runtime
+        .process_provider_migrations(
+            "hosted-provider-migration-worker",
+            std::time::Duration::from_secs(30),
+            1,
+        )
+        .await
+        .expect("process Provider rollback");
+    assert_eq!(rolled_back.rolled_back, 1);
+    assert_eq!(
+        store
+            .get_active_binding_for_space(scope, space_id)
+            .await
+            .expect("retrieve restored source")
+            .expect("source restored")
+            .id,
+        source.id
+    );
+}
+
+#[tokio::test]
 async fn hosted_backend_provider_health_degrades_for_failed_external_adapter() {
     let _env_guard = lock_external_adapter_env().await;
     clear_external_adapter_env();
     let mock_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("GET"))
         .and(wiremock::matchers::path("/datasets/ds-health"))
+        .and(wiremock::matchers::header(
+            "authorization",
+            "Bearer health-test-key",
+        ))
         .respond_with(wiremock::ResponseTemplate::new(503))
-        .expect(1)
+        .expect(3)
         .mount(&mock_server)
         .await;
 
@@ -158,8 +606,32 @@ async fn hosted_backend_provider_health_degrades_for_failed_external_adapter() {
     let _dify_dataset = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_DATASET_ID", "ds-health");
 
     let runtime = test_runtime().await;
-    let app = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
-    let response = app
+    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
+    let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+    let space_response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/app/v3/api/knowledge/spaces")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"name":"Health Binding Space","description":"Binding-aware health","knowledgeMode":"external"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(space_response.status(), StatusCode::CREATED);
+    let space_id = response_id_field(space_response, "health space id").await;
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.dify",
+        "ds-health",
+    )
+    .await;
+
+    let response = backend
         .oneshot(
             Request::builder()
                 .method(Method::GET)
@@ -933,7 +1405,7 @@ async fn hosted_backend_rejects_okf_candidate() {
 }
 
 #[tokio::test]
-async fn hosted_backend_resolves_external_space_to_catalog_engine() {
+async fn hosted_backend_resolves_unconfigured_dify_without_startup_credential_access() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -970,6 +1442,13 @@ async fn hosted_backend_resolves_external_space_to_catalog_engine() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.dify",
+        "ds-unconfigured",
+    )
+    .await;
     let source_body = response_body_json(source_response).await;
     assert_eq!(source_body["provider"], "dify");
     assert_eq!(source_body["sourceType"], "connector");
@@ -977,12 +1456,12 @@ async fn hosted_backend_resolves_external_space_to_catalog_engine() {
     let implementation_id = runtime
         .resolve_knowledge_engine_implementation_id_for_space(space_id)
         .await
-        .expect("resolve external engine");
+        .expect("Provider selection must not resolve credentials");
     assert_eq!(implementation_id, "engine.knowledge.external.dify");
 }
 
 #[tokio::test]
-async fn hosted_backend_resolves_external_space_to_ragflow_engine() {
+async fn hosted_backend_resolves_unconfigured_ragflow_without_startup_credential_access() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -1019,6 +1498,13 @@ async fn hosted_backend_resolves_external_space_to_ragflow_engine() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.ragflow",
+        "resolver-ragflow",
+    )
+    .await;
     let source_body = response_body_json(source_response).await;
     assert_eq!(source_body["provider"], "ragflow");
     assert_eq!(source_body["sourceType"], "connector");
@@ -1026,12 +1512,12 @@ async fn hosted_backend_resolves_external_space_to_ragflow_engine() {
     let implementation_id = runtime
         .resolve_knowledge_engine_implementation_id_for_space(space_id)
         .await
-        .expect("resolve external engine");
+        .expect("Provider selection must not resolve credentials");
     assert_eq!(implementation_id, "engine.knowledge.external.ragflow");
 }
 
 #[tokio::test]
-async fn hosted_backend_resolves_external_space_to_onyx_engine() {
+async fn hosted_backend_resolves_unconfigured_onyx_without_startup_credential_access() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -1068,16 +1554,23 @@ async fn hosted_backend_resolves_external_space_to_onyx_engine() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.onyx",
+        "resolver-onyx",
+    )
+    .await;
 
     let implementation_id = runtime
         .resolve_knowledge_engine_implementation_id_for_space(space_id)
         .await
-        .expect("resolve external engine");
+        .expect("Provider selection must not resolve credentials");
     assert_eq!(implementation_id, "engine.knowledge.external.onyx");
 }
 
 #[tokio::test]
-async fn hosted_backend_resolves_external_space_to_anythingllm_engine() {
+async fn hosted_backend_resolves_unconfigured_anythingllm_without_startup_credential_access() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -1114,16 +1607,23 @@ async fn hosted_backend_resolves_external_space_to_anythingllm_engine() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.anythingllm",
+        "resolver-anythingllm",
+    )
+    .await;
 
     let implementation_id = runtime
         .resolve_knowledge_engine_implementation_id_for_space(space_id)
         .await
-        .expect("resolve external engine");
+        .expect("Provider selection must not resolve credentials");
     assert_eq!(implementation_id, "engine.knowledge.external.anythingllm");
 }
 
 #[tokio::test]
-async fn hosted_backend_resolves_external_space_to_open_webui_engine() {
+async fn hosted_backend_resolves_unconfigured_open_webui_without_startup_credential_access() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -1160,16 +1660,23 @@ async fn hosted_backend_resolves_external_space_to_open_webui_engine() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.open-webui",
+        "resolver-open-webui",
+    )
+    .await;
 
     let implementation_id = runtime
         .resolve_knowledge_engine_implementation_id_for_space(space_id)
         .await
-        .expect("resolve external engine");
+        .expect("Provider selection must not resolve credentials");
     assert_eq!(implementation_id, "engine.knowledge.external.open-webui");
 }
 
 #[tokio::test]
-async fn hosted_backend_resolves_external_space_to_flowise_engine() {
+async fn hosted_backend_resolves_unconfigured_flowise_without_startup_credential_access() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -1206,16 +1713,23 @@ async fn hosted_backend_resolves_external_space_to_flowise_engine() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.flowise",
+        "resolver-flowise",
+    )
+    .await;
 
     let implementation_id = runtime
         .resolve_knowledge_engine_implementation_id_for_space(space_id)
         .await
-        .expect("resolve external engine");
+        .expect("Provider selection must not resolve credentials");
     assert_eq!(implementation_id, "engine.knowledge.external.flowise");
 }
 
 #[tokio::test]
-async fn hosted_backend_resolves_external_space_to_chroma_engine() {
+async fn hosted_backend_resolves_unconfigured_chroma_without_startup_credential_access() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -1252,16 +1766,23 @@ async fn hosted_backend_resolves_external_space_to_chroma_engine() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.chroma",
+        "resolver-chroma",
+    )
+    .await;
 
     let implementation_id = runtime
         .resolve_knowledge_engine_implementation_id_for_space(space_id)
         .await
-        .expect("resolve external engine");
+        .expect("Provider selection must not resolve credentials");
     assert_eq!(implementation_id, "engine.knowledge.external.chroma");
 }
 
 #[tokio::test]
-async fn hosted_backend_resolves_external_space_to_qdrant_engine() {
+async fn hosted_backend_resolves_unconfigured_qdrant_without_startup_credential_access() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -1298,16 +1819,23 @@ async fn hosted_backend_resolves_external_space_to_qdrant_engine() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.qdrant",
+        "resolver-qdrant",
+    )
+    .await;
 
     let implementation_id = runtime
         .resolve_knowledge_engine_implementation_id_for_space(space_id)
         .await
-        .expect("resolve external engine");
+        .expect("Provider selection must not resolve credentials");
     assert_eq!(implementation_id, "engine.knowledge.external.qdrant");
 }
 
 #[tokio::test]
-async fn hosted_backend_resolves_external_space_to_weaviate_engine() {
+async fn hosted_backend_resolves_unconfigured_weaviate_without_startup_credential_access() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -1344,16 +1872,23 @@ async fn hosted_backend_resolves_external_space_to_weaviate_engine() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.weaviate",
+        "resolver-weaviate",
+    )
+    .await;
 
     let implementation_id = runtime
         .resolve_knowledge_engine_implementation_id_for_space(space_id)
         .await
-        .expect("resolve external engine");
+        .expect("Provider selection must not resolve credentials");
     assert_eq!(implementation_id, "engine.knowledge.external.weaviate");
 }
 
 #[tokio::test]
-async fn hosted_backend_resolves_external_space_to_haystack_engine() {
+async fn hosted_backend_resolves_unconfigured_haystack_without_startup_credential_access() {
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -1390,11 +1925,18 @@ async fn hosted_backend_resolves_external_space_to_haystack_engine() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.haystack",
+        "resolver-haystack",
+    )
+    .await;
 
     let implementation_id = runtime
         .resolve_knowledge_engine_implementation_id_for_space(space_id)
         .await
-        .expect("resolve external engine");
+        .expect("Provider selection must not resolve credentials");
     assert_eq!(implementation_id, "engine.knowledge.external.haystack");
 }
 
@@ -1447,6 +1989,13 @@ async fn hosted_external_agent_chat_rejects_unconfigured_external_adapter() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.dify",
+        "ds-unconfigured",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -1584,6 +2133,13 @@ async fn hosted_external_agent_chat_succeeds_with_configured_dify_adapter() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.dify",
+        "ds-hosted-e2e",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -1732,6 +2288,13 @@ async fn hosted_external_read_resolves_configured_dify_citation_document() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.dify",
+        "ds-read-e2e",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -1795,7 +2358,17 @@ async fn hosted_external_read_resolves_configured_dify_citation_document() {
     assert_eq!(local_document_id, "doc-read#seg-read");
 
     let document = runtime
-        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .read_knowledge_engine_document_for_space(
+            &knowledge_execution_context(
+                runtime.tenant_id(),
+                runtime.organization_id(),
+                space_id,
+                None,
+                "trace-hosted-runtime-read",
+            ),
+            space_id,
+            local_document_id,
+        )
         .await
         .expect("read citation document through SPI");
     assert_eq!(document.content, "hosted segment full body");
@@ -1885,6 +2458,13 @@ async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.ragflow",
+        "ds-read-ragflow",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -1948,7 +2528,17 @@ async fn hosted_external_read_resolves_configured_ragflow_citation_document() {
     assert_eq!(local_document_id, "doc-read#chunk-read");
 
     let document = runtime
-        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .read_knowledge_engine_document_for_space(
+            &knowledge_execution_context(
+                runtime.tenant_id(),
+                runtime.organization_id(),
+                space_id,
+                None,
+                "trace-hosted-runtime-read",
+            ),
+            space_id,
+            local_document_id,
+        )
         .await
         .expect("read citation document through SPI");
     assert_eq!(document.content, "hosted ragflow chunk full body");
@@ -2024,6 +2614,13 @@ async fn hosted_external_read_resolves_configured_open_webui_citation_document()
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.open-webui",
+        "kb-read-open-webui",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -2091,7 +2688,17 @@ async fn hosted_external_read_resolves_configured_open_webui_citation_document()
     );
 
     let document = runtime
-        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .read_knowledge_engine_document_for_space(
+            &knowledge_execution_context(
+                runtime.tenant_id(),
+                runtime.organization_id(),
+                space_id,
+                None,
+                "trace-hosted-runtime-read",
+            ),
+            space_id,
+            local_document_id,
+        )
         .await
         .expect("read citation document through SPI");
     assert_eq!(document.content, SNIPPET);
@@ -2169,6 +2776,13 @@ async fn hosted_external_read_resolves_configured_flowise_citation_document() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.flowise",
+        "store-read-flowise",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -2236,7 +2850,17 @@ async fn hosted_external_read_resolves_configured_flowise_citation_document() {
     );
 
     let document = runtime
-        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .read_knowledge_engine_document_for_space(
+            &knowledge_execution_context(
+                runtime.tenant_id(),
+                runtime.organization_id(),
+                space_id,
+                None,
+                "trace-hosted-runtime-read",
+            ),
+            space_id,
+            local_document_id,
+        )
         .await
         .expect("read citation document through SPI");
     assert_eq!(document.content, SNIPPET);
@@ -2336,6 +2960,13 @@ async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.qdrant",
+        collection_name,
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -2399,7 +3030,17 @@ async fn hosted_external_read_resolves_configured_qdrant_citation_document() {
     assert_eq!(local_document_id, "Hosted Qdrant Read Doc#point-read");
 
     let document = runtime
-        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .read_knowledge_engine_document_for_space(
+            &knowledge_execution_context(
+                runtime.tenant_id(),
+                runtime.organization_id(),
+                space_id,
+                None,
+                "trace-hosted-runtime-read",
+            ),
+            space_id,
+            local_document_id,
+        )
         .await
         .expect("read citation document through SPI");
     assert_eq!(document.content, SNIPPET);
@@ -2474,6 +3115,13 @@ async fn hosted_external_agent_chat_succeeds_with_configured_ragflow_adapter() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.ragflow",
+        "ds-ragflow-hosted",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -2605,6 +3253,13 @@ async fn hosted_external_agent_chat_succeeds_with_configured_onyx_adapter() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.onyx",
+        "onyx-hosted",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -2743,6 +3398,13 @@ async fn hosted_external_agent_chat_succeeds_with_configured_anythingllm_adapter
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.anythingllm",
+        "ws-hosted",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -2878,6 +3540,13 @@ async fn hosted_external_agent_chat_succeeds_with_configured_open_webui_adapter(
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.open-webui",
+        "kb-hosted",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -3015,6 +3684,13 @@ async fn hosted_external_agent_chat_succeeds_with_configured_flowise_adapter() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.flowise",
+        "store-hosted",
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -3148,6 +3824,13 @@ async fn hosted_external_agent_chat_succeeds_with_configured_chroma_adapter() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.chroma",
+        collection_id,
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -3298,6 +3981,13 @@ async fn hosted_external_read_resolves_configured_chroma_citation_document() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.chroma",
+        collection_id,
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -3361,7 +4051,17 @@ async fn hosted_external_read_resolves_configured_chroma_citation_document() {
     assert_eq!(local_document_id, "Hosted Chroma Read Doc#rec-read");
 
     let document = runtime
-        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .read_knowledge_engine_document_for_space(
+            &knowledge_execution_context(
+                runtime.tenant_id(),
+                runtime.organization_id(),
+                space_id,
+                None,
+                "trace-hosted-runtime-read",
+            ),
+            space_id,
+            local_document_id,
+        )
         .await
         .expect("read citation document through SPI");
     assert_eq!(document.content, SNIPPET);
@@ -3441,6 +4141,13 @@ async fn hosted_external_agent_chat_succeeds_with_configured_qdrant_adapter() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.qdrant",
+        collection_name,
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -3577,6 +4284,13 @@ async fn hosted_external_agent_chat_succeeds_with_configured_weaviate_adapter() 
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.weaviate",
+        class_name,
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -3729,6 +4443,13 @@ async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.weaviate",
+        class_name,
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -3792,7 +4513,17 @@ async fn hosted_external_read_resolves_configured_weaviate_citation_document() {
     assert_eq!(local_document_id, "Hosted Weaviate Read Doc#obj-read");
 
     let document = runtime
-        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .read_knowledge_engine_document_for_space(
+            &knowledge_execution_context(
+                runtime.tenant_id(),
+                runtime.organization_id(),
+                space_id,
+                None,
+                "trace-hosted-runtime-read",
+            ),
+            space_id,
+            local_document_id,
+        )
         .await
         .expect("read citation document through SPI");
     assert_eq!(document.content, SNIPPET);
@@ -3865,6 +4596,13 @@ async fn hosted_external_agent_chat_succeeds_with_configured_haystack_adapter() 
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.haystack",
+        pipeline_name,
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -4001,6 +4739,13 @@ async fn hosted_external_read_resolves_configured_haystack_citation_document() {
         .await
         .unwrap();
     assert_eq!(source_response.status(), StatusCode::CREATED);
+    activate_provider_binding(
+        &runtime,
+        space_id,
+        "engine.knowledge.external.haystack",
+        pipeline_name,
+    )
+    .await;
 
     let profile_response = app
         .clone()
@@ -4064,7 +4809,17 @@ async fn hosted_external_read_resolves_configured_haystack_citation_document() {
     assert_eq!(local_document_id, "Hosted Haystack Read Doc#doc-read");
 
     let document = runtime
-        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .read_knowledge_engine_document_for_space(
+            &knowledge_execution_context(
+                runtime.tenant_id(),
+                runtime.organization_id(),
+                space_id,
+                None,
+                "trace-hosted-runtime-read",
+            ),
+            space_id,
+            local_document_id,
+        )
         .await
         .expect("read citation document through SPI");
     assert_eq!(document.content, SNIPPET);
@@ -4173,7 +4928,17 @@ async fn hosted_okf_agent_chat_succeeds_with_published_concept_citations() {
     assert_eq!(local_document_id, "concepts/agent-target");
 
     let document = runtime
-        .read_knowledge_engine_document_for_space(space_id, local_document_id)
+        .read_knowledge_engine_document_for_space(
+            &knowledge_execution_context(
+                runtime.tenant_id(),
+                runtime.organization_id(),
+                space_id,
+                None,
+                "trace-hosted-runtime-read",
+            ),
+            space_id,
+            local_document_id,
+        )
         .await
         .expect("read OKF citation document through SPI");
     assert!(document
@@ -4472,6 +5237,142 @@ async fn test_runtime() -> KnowledgebaseRuntime {
     KnowledgebaseRuntime::connect(&database_url, 1)
         .await
         .expect("initialize hosted runtime")
+}
+
+async fn activate_provider_binding(
+    runtime: &KnowledgebaseRuntime,
+    space_id: u64,
+    implementation_id: &str,
+    remote_resource_id: &str,
+) {
+    let store = SqlxKnowledgeEngineProviderBindingStore::new(runtime.pool().clone());
+    let scope = KnowledgeEngineProviderScope {
+        tenant_id: 1,
+        organization_id: 42,
+    };
+    let actor_id = "hosted-provider-binding-test";
+    let credential_reference_id = match provider_credential_environment(implementation_id) {
+        Some(variable) if std::env::var(variable).is_ok() => Some(
+            store
+                .create_credential_reference(
+                    scope,
+                    actor_id,
+                    CreateKnowledgeEngineProviderCredentialReferenceRequest {
+                        implementation_id: implementation_id.to_string(),
+                        display_name: format!("{implementation_id} hosted test credential"),
+                        reference_locator: format!("env://{variable}"),
+                    },
+                )
+                .await
+                .expect("create Provider credential reference")
+                .id,
+        ),
+        _ => None,
+    };
+    let created = store
+        .create_binding(
+            scope,
+            actor_id,
+            CreateKnowledgeEngineProviderBindingRequest {
+                space_id,
+                implementation_id: implementation_id.to_string(),
+                remote_resource_type: "knowledge_resource".to_string(),
+                remote_resource_id: remote_resource_id.to_string(),
+                credential_reference_id,
+            },
+        )
+        .await
+        .expect("create explicit Provider binding");
+    let testing = store
+        .begin_binding_test(scope, created.id, actor_id, created.version)
+        .await
+        .expect("begin Provider binding test");
+    let tested = store
+        .record_binding_test_result(
+            scope,
+            created.id,
+            RecordKnowledgeEngineProviderTestResult {
+                expected_version: testing.version,
+                capabilities: vec![
+                    KnowledgeEngineCapability::Health,
+                    KnowledgeEngineCapability::Search,
+                    KnowledgeEngineCapability::ReadDocument,
+                ],
+                error_category: None,
+                updated_by: actor_id.to_string(),
+            },
+        )
+        .await
+        .expect("record Provider binding test result");
+    store
+        .activate_binding(scope, created.id, actor_id, tested.version)
+        .await
+        .expect("activate explicit Provider binding");
+}
+
+async fn create_tested_provider_binding(
+    store: &SqlxKnowledgeEngineProviderBindingStore,
+    scope: KnowledgeEngineProviderScope,
+    space_id: u64,
+    implementation_id: &str,
+    remote_resource_id: &str,
+) -> KnowledgeEngineProviderBinding {
+    let actor_id = "migration-test";
+    let created = store
+        .create_binding(
+            scope,
+            actor_id,
+            CreateKnowledgeEngineProviderBindingRequest {
+                space_id,
+                implementation_id: implementation_id.to_string(),
+                remote_resource_type: "dataset".to_string(),
+                remote_resource_id: remote_resource_id.to_string(),
+                credential_reference_id: None,
+            },
+        )
+        .await
+        .expect("create migration Provider binding");
+    let testing = store
+        .begin_binding_test(scope, created.id, actor_id, created.version)
+        .await
+        .expect("begin migration Provider binding test");
+    store
+        .record_binding_test_result(
+            scope,
+            created.id,
+            RecordKnowledgeEngineProviderTestResult {
+                expected_version: testing.version,
+                capabilities: vec![
+                    KnowledgeEngineCapability::Health,
+                    KnowledgeEngineCapability::Search,
+                    KnowledgeEngineCapability::ReadDocument,
+                ],
+                error_category: None,
+                updated_by: actor_id.to_string(),
+            },
+        )
+        .await
+        .expect("record migration Provider binding test")
+}
+
+fn provider_credential_environment(implementation_id: &str) -> Option<&'static str> {
+    match implementation_id {
+        "engine.knowledge.external.dify" => Some("SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL"),
+        "engine.knowledge.external.ragflow" => Some("SDKWORK_KNOWLEDGEBASE_RAGFLOW_CREDENTIAL"),
+        "engine.knowledge.external.onyx" => Some("SDKWORK_KNOWLEDGEBASE_ONYX_CREDENTIAL"),
+        "engine.knowledge.external.anythingllm" => {
+            Some("SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_CREDENTIAL")
+        }
+        "engine.knowledge.external.open-webui" => {
+            Some("SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_CREDENTIAL")
+        }
+        "engine.knowledge.external.flowise" => Some("SDKWORK_KNOWLEDGEBASE_FLOWISE_CREDENTIAL"),
+        "engine.knowledge.external.chroma" => Some("SDKWORK_KNOWLEDGEBASE_CHROMA_CREDENTIAL"),
+        "engine.knowledge.external.qdrant" => Some("SDKWORK_KNOWLEDGEBASE_QDRANT_CREDENTIAL"),
+        "engine.knowledge.external.weaviate" => Some("SDKWORK_KNOWLEDGEBASE_WEAVIATE_CREDENTIAL"),
+        "engine.knowledge.external.haystack" => Some("SDKWORK_KNOWLEDGEBASE_HAYSTACK_CREDENTIAL"),
+        _ => None,
+    }
 }
 
 async fn insert_okf_revision_fixture(pool: &sqlx::AnyPool, concept_row_id: u64, revision_no: u64) {

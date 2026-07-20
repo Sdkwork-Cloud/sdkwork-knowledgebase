@@ -169,7 +169,7 @@ test("knowledgebase SDK family manifests declare owner-only authority metadata",
       `${family.root} must declare appbase, drive, and memory as consumer SDK dependencies`,
     );
     assert.equal(
-      existsSync(path.join(workspaceRoot, "sdks", family.root, "sdk-manifest.json")),
+      existsSync(path.join(workspaceRoot, "sdks", family.root, "sdk-assembly.json")),
       false,
       `${family.root} must use sdk-manifest.json rather than a retired per-family assembly`,
     );

@@ -17,7 +17,7 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeOkfConceptLinkStore, SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
     SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
     SqliteMarkdownIndexMetadataStore, SqliteOkfConceptRevisionMetadataStore,
-    SqlxKnowledgeEngineProviderBindingStore,
+    SqlxKnowledgeEngineProviderBindingStore, SqlxKnowledgeEngineProviderMigrationStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
     agent::KnowledgeAgentService,
@@ -37,6 +37,7 @@ use sdkwork_intelligence_knowledgebase_service::{
         knowledge_group_space_binding_store::KnowledgeGroupSpaceBindingStore,
         knowledge_outbox_store::KnowledgeOutboxStore,
         knowledge_provider_binding_store::KnowledgeEngineProviderScope,
+        knowledge_provider_credential_resolver::KnowledgeEngineProviderCredentialResolver,
         knowledge_retrieval_trace_store::KnowledgeRetrievalTraceStore,
         knowledge_space_store::KnowledgeSpaceStore,
     },
@@ -123,6 +124,8 @@ pub struct KnowledgebaseRuntime {
     document_store: Arc<SqliteKnowledgeDocumentStore>,
     source_store: Arc<SqliteKnowledgeSourceStore>,
     provider_binding_store: Arc<SqlxKnowledgeEngineProviderBindingStore>,
+    provider_migration_store: Arc<SqlxKnowledgeEngineProviderMigrationStore>,
+    provider_credential_resolver: Arc<dyn KnowledgeEngineProviderCredentialResolver>,
     version_store: Arc<SqliteKnowledgeDocumentVersionStore>,
     object_ref_store: Arc<SqliteKnowledgeDriveObjectRefStore>,
     ingestion_job_store: Arc<SqliteIngestionJobStore>,
@@ -355,6 +358,13 @@ impl KnowledgebaseRuntime {
             SqlxKnowledgeEngineProviderBindingStore::new(pool.clone())
                 .with_database_engine(database_engine),
         );
+        let provider_migration_store = Arc::new(
+            SqlxKnowledgeEngineProviderMigrationStore::new(pool.clone())
+                .with_database_engine(database_engine),
+        );
+        let provider_credential_resolver = Arc::new(
+            crate::provider_credential_resolver::RuntimeKnowledgeEngineProviderCredentialResolver,
+        );
         let okf_bundle_file_store = Arc::new(
             SqliteKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id)
                 .with_database_engine(database_engine),
@@ -480,6 +490,8 @@ impl KnowledgebaseRuntime {
             document_store,
             source_store,
             provider_binding_store,
+            provider_migration_store,
+            provider_credential_resolver,
             version_store: Arc::new(SqliteKnowledgeDocumentVersionStore::new(
                 pool.clone(),
                 tenant_id,
@@ -824,7 +836,116 @@ impl KnowledgebaseRuntime {
                 tenant_id: self.tenant_id,
                 organization_id: self.organization_id,
             },
+            self.provider_credential_resolver.clone(),
         )
+    }
+
+    pub(crate) fn knowledge_engine_provider_binding_service(
+        &self,
+    ) -> sdkwork_intelligence_knowledgebase_service::provider_binding::KnowledgeEngineProviderBindingService<
+        DefaultKnowledgeEngineRegistry,
+    >{
+        sdkwork_intelligence_knowledgebase_service::provider_binding::KnowledgeEngineProviderBindingService::new(
+            self.provider_binding_store.clone(),
+            self.knowledge_engines.clone(),
+            self.provider_credential_resolver.clone(),
+        )
+    }
+
+    pub(crate) fn knowledge_engine_provider_migration_service(
+        &self,
+    ) -> sdkwork_intelligence_knowledgebase_service::provider_migration::KnowledgeEngineProviderMigrationService<
+        SqlxKnowledgeEngineProviderBindingStore,
+        SqlxKnowledgeEngineProviderMigrationStore,
+    >{
+        sdkwork_intelligence_knowledgebase_service::provider_migration::KnowledgeEngineProviderMigrationService::new(
+            self.provider_binding_store.clone(),
+            self.provider_migration_store.clone(),
+            KnowledgeEngineProviderScope {
+                tenant_id: self.tenant_id,
+                organization_id: self.organization_id,
+            },
+        )
+    }
+
+    pub(crate) fn knowledge_engine_execution_context(
+        &self,
+        request_context: &crate::KnowledgeAppRequestContext,
+        allowed_space_ids: Vec<u64>,
+    ) -> Result<
+        sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext,
+        crate::ApiError,
+    > {
+        use sdkwork_knowledgebase_contract::provider_binding::{
+            KnowledgeEngineDataScope, KnowledgeEngineExecutionContext,
+        };
+
+        if request_context.tenant_id != self.tenant_id {
+            return Err(crate::ApiError::forbidden(
+                "knowledge_engine_tenant_scope_mismatch",
+                "request tenant does not match the Knowledgebase runtime",
+            ));
+        }
+        let organization_id = request_context
+            .organization_id
+            .unwrap_or(self.organization_id);
+        if organization_id != self.organization_id {
+            return Err(crate::ApiError::forbidden(
+                "knowledge_engine_organization_scope_mismatch",
+                "request organization does not match the Knowledgebase runtime",
+            ));
+        }
+        let actor_id = request_context.actor_id.ok_or_else(|| {
+            crate::ApiError::unauthorized(
+                "knowledge_engine_actor_required",
+                "authenticated actor is required for knowledge execution",
+            )
+        })?;
+        if allowed_space_ids.contains(&0) {
+            return Err(crate::ApiError::invalid_request(
+                "knowledge_engine_space_scope_required",
+                "allowed knowledge spaces must use valid identifiers",
+            ));
+        }
+        let trace_id = request_context
+            .trace_id
+            .as_deref()
+            .filter(|value| !is_blank(Some(value)))
+            .unwrap_or(request_context.request_id.as_str())
+            .trim()
+            .to_string();
+        if trace_id.is_empty() {
+            return Err(crate::ApiError::invalid_request(
+                "knowledge_engine_trace_required",
+                "trace_id is required for knowledge execution",
+            ));
+        }
+        let now_ms = sdkwork_utils_rust::to_unix_millis(sdkwork_utils_rust::now());
+        let deadline_unix_ms = u64::try_from(now_ms)
+            .ok()
+            .and_then(|value| value.checked_add(30_000))
+            .ok_or_else(|| {
+                crate::ApiError::internal(
+                    "knowledge_engine_deadline_failed",
+                    "failed to create a bounded knowledge execution deadline",
+                )
+            })?;
+
+        Ok(KnowledgeEngineExecutionContext {
+            tenant_id: self.tenant_id,
+            organization_id: self.organization_id,
+            actor_id: actor_id.to_string(),
+            permission_scope: vec!["knowledge.read".to_string()],
+            data_scope: KnowledgeEngineDataScope {
+                allowed_space_ids,
+                allowed_source_ids: Vec::new(),
+                allowed_document_ids: Vec::new(),
+            },
+            space_id: 0,
+            binding_id: None,
+            trace_id,
+            deadline_unix_ms,
+        })
     }
 
     pub async fn resolve_knowledge_engine_implementation_id_for_space(
@@ -840,21 +961,29 @@ impl KnowledgebaseRuntime {
 
     pub async fn read_knowledge_engine_document_for_space(
         &self,
+        context: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext,
         space_id: u64,
         document_id: &str,
     ) -> Result<sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineDocument, String>
     {
         use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineReadRequest;
 
+        let mut context = context.clone();
+        context.space_id = space_id;
+        context.binding_id = None;
+
         self.knowledge_engine_space_resolver()
             .resolve_for_space(space_id, None)
             .await
             .map_err(|error| error.to_string())?
-            .read_document(KnowledgeEngineReadRequest {
-                tenant_id: self.tenant_id,
-                space_id,
-                document_id: document_id.to_string(),
-            })
+            .read_document(
+                &context,
+                KnowledgeEngineReadRequest {
+                    tenant_id: self.tenant_id,
+                    space_id,
+                    document_id: document_id.to_string(),
+                },
+            )
             .await
             .map_err(|error| error.to_string())
     }
@@ -938,6 +1067,7 @@ impl KnowledgebaseRuntime {
 
     pub async fn search_knowledge_engine_for_space(
         &self,
+        context: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext,
         space_id: u64,
         query: &str,
         top_k: u32,
@@ -945,16 +1075,23 @@ impl KnowledgebaseRuntime {
     {
         use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineSearchRequest;
 
+        let mut context = context.clone();
+        context.space_id = space_id;
+        context.binding_id = None;
+
         self.knowledge_engine_space_resolver()
             .resolve_for_space(space_id, None)
             .await
             .map_err(|error| error.to_string())?
-            .search(KnowledgeEngineSearchRequest {
-                tenant_id: self.tenant_id,
-                space_id,
-                query: query.to_string(),
-                top_k,
-            })
+            .search(
+                &context,
+                KnowledgeEngineSearchRequest {
+                    tenant_id: self.tenant_id,
+                    space_id,
+                    query: query.to_string(),
+                    top_k,
+                },
+            )
             .await
             .map_err(|error| error.to_string())
     }
@@ -1137,6 +1274,21 @@ impl KnowledgebaseRuntime {
             .process_queued_jobs(worker_id, lease_duration, limit)
             .await
             .map(|result| result.processed)
+            .map_err(|error| error.to_string())
+    }
+
+    pub async fn process_provider_migrations(
+        &self,
+        worker_id: &str,
+        lease_duration: std::time::Duration,
+        limit: u32,
+    ) -> Result<
+        sdkwork_intelligence_knowledgebase_service::provider_migration::ProviderMigrationBatchResult,
+        String,
+    >{
+        self.knowledge_engine_provider_migration_service()
+            .process_batch(worker_id, lease_duration, limit)
+            .await
             .map_err(|error| error.to_string())
     }
 
@@ -1582,7 +1734,7 @@ impl KnowledgeAgentAppService for HostedAgentService {
         &self,
         context: KnowledgeAppRequestContext,
         profile_id: u64,
-        request: KnowledgeAgentChatRequest,
+        mut request: KnowledgeAgentChatRequest,
     ) -> ApiResult<KnowledgeAgentChatResponse> {
         let retrieval = self.runtime.retrieval_service();
         let service = KnowledgeAgentService::new(self.runtime.agent_store.as_ref(), &retrieval);
@@ -1592,8 +1744,26 @@ impl KnowledgeAgentAppService for HostedAgentService {
             .map_err(ApiError::from)?;
         require_agent_profile_space_access(&self.runtime, &context, &profile).await?;
 
-        let retrieval_client = RuntimeKnowledgebaseRetrievalClient::new(self.runtime.clone());
-        let okf_client = RuntimeOkfKnowledgeClient::new(self.runtime.clone());
+        let mut allowed_space_ids = profile
+            .bindings
+            .iter()
+            .filter(|binding| binding.enabled)
+            .map(|binding| binding.space_id)
+            .collect::<Vec<_>>();
+        allowed_space_ids.sort_unstable();
+        allowed_space_ids.dedup();
+        let execution_context = self
+            .runtime
+            .knowledge_engine_execution_context(&context, allowed_space_ids)?;
+        request.tenant_id = context.tenant_id;
+        request.actor_id = context.actor_id;
+
+        let retrieval_client = RuntimeKnowledgebaseRetrievalClient::new(
+            self.runtime.clone(),
+            execution_context.clone(),
+        );
+        let okf_client =
+            RuntimeOkfKnowledgeClient::new(self.runtime.clone(), execution_context.clone());
         let claw_router_client = resolve_claw_router_client_from_env()
             .ok()
             .map(std::sync::Arc::new);
@@ -1601,8 +1771,10 @@ impl KnowledgeAgentAppService for HostedAgentService {
         let plan_resolver =
             RuntimeRetrievalPlanResolver::new(self.runtime.retrieval_profile_store.clone());
         let space_mode_resolver = RuntimeSpaceModeResolver::new(self.runtime.clone());
-        let space_engine_client =
-            Arc::new(RuntimeSpaceKnowledgeEngineClient::new(self.runtime.clone()));
+        let space_engine_client = Arc::new(RuntimeSpaceKnowledgeEngineClient::new(
+            self.runtime.clone(),
+            execution_context,
+        ));
         let chat_service = KnowledgeAgentChatService::new(
             self.runtime.agent_store.as_ref(),
             &retrieval,

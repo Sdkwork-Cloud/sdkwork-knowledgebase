@@ -8,7 +8,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const failures = [];
 const warnings = [];
 const retiredTopologyPattern = /self-hosted|cloud-hosted|--service-layout|serviceLayout|SERVICE_LAYOUT|unified-process|split-services/u;
-const v4TopologyProfileIdPattern = /^(?:standalone|cloud)\.(?:development|production)$/u;
+const v5TopologyProfileIdPattern = /^(?:standalone|cloud)\.(?:development|production)$/u;
 
 function readText(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath);
@@ -234,7 +234,7 @@ assert(
 );
 assert(
   JSON.stringify(Object.keys(topologySpec.profileFiles ?? {}).sort()) === JSON.stringify(expectedTopologyProfileIds),
-  'specs/topology.spec.json profileFiles must declare only v4 topology profile ids',
+  'specs/topology.spec.json profileFiles must declare only v5 topology profile ids',
 );
 const topologyEnvFiles = listFilesRecursive('configs/topology')
   .filter((relativePath) => relativePath.endsWith('.env'))
@@ -243,12 +243,12 @@ assert(
   JSON.stringify(topologyEnvFiles) === JSON.stringify(
     expectedTopologyProfileIds.map((profileId) => `configs/topology/${profileId}.env`).sort(),
   ),
-  'configs/topology must contain only v4 deploymentProfile.environment env files',
+  'configs/topology must contain only v5 deploymentProfile.environment env files',
 );
 for (const relativePath of topologyEnvFiles) {
   const profileId = path.basename(relativePath, '.env');
   assert(
-    v4TopologyProfileIdPattern.test(profileId),
+    v5TopologyProfileIdPattern.test(profileId),
     `${relativePath} must use deploymentProfile.environment profile id`,
   );
   const profileEnvText = readText(relativePath);
@@ -297,15 +297,15 @@ assert(
   'deployments/deploy.yaml must not contain retired topology vocabulary',
 );
 assert(
-  v4TopologyProfileIdPattern.test(deploymentYaml.match(/^defaultProfile:\s*(\S+)\s*$/mu)?.[1] ?? ''),
-  'deployments/deploy.yaml defaultProfile must use a v4 topology profile id',
+  v5TopologyProfileIdPattern.test(deploymentYaml.match(/^defaultProfile:\s*(\S+)\s*$/mu)?.[1] ?? ''),
+  'deployments/deploy.yaml defaultProfile must use a v5 topology profile id',
 );
 const deploymentProfileIds = [...deploymentYaml.matchAll(/^  ([A-Za-z0-9.-]+):\s*$/gmu)]
   .map((match) => match[1])
   .sort();
 assert(
   JSON.stringify(deploymentProfileIds) === JSON.stringify(expectedTopologyProfileIds),
-  'deployments/deploy.yaml profiles must match the v4 topology profile ids',
+  'deployments/deploy.yaml profiles must match the v5 topology profile ids',
 );
 assert(
   !retiredTopologyPattern.test(readText('deployments/kubernetes/networkpolicy.yaml')),

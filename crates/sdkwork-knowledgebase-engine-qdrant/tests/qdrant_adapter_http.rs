@@ -4,6 +4,9 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
 use sdkwork_knowledgebase_engine_qdrant::{QdrantConnectorConfig, QdrantKnowledgeEngine};
+use sdkwork_knowledgebase_test_support::provider_execution::{
+    knowledge_execution_context, provider_execution_context,
+};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -32,7 +35,7 @@ async fn qdrant_search_uses_configured_remote_resource_id() {
 
     let config = QdrantConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: Some("test-api-key".to_string()),
+        api_key: Some(zeroize::Zeroizing::new("test-api-key".to_string())),
         default_collection_name: Some(collection_name.to_string()),
         query_model: Some("sentence-transformers/all-minilm-l6-v2".to_string()),
         using_vector: None,
@@ -40,12 +43,15 @@ async fn qdrant_search_uses_configured_remote_resource_id() {
     let engine = QdrantKnowledgeEngine::with_config(config);
 
     let result = engine
-        .search(KnowledgeEngineSearchRequest {
-            tenant_id: 1,
-            space_id: 42,
-            query: "hello".to_string(),
-            top_k: 3,
-        })
+        .search(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-search"),
+            KnowledgeEngineSearchRequest {
+                tenant_id: 1,
+                space_id: 42,
+                query: "hello".to_string(),
+                top_k: 3,
+            },
+        )
         .await
         .expect("search");
 
@@ -76,7 +82,7 @@ async fn qdrant_read_document_fetches_point_by_id() {
 
     let config = QdrantConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: Some("test-api-key".to_string()),
+        api_key: Some(zeroize::Zeroizing::new("test-api-key".to_string())),
         default_collection_name: Some(collection_name.to_string()),
         query_model: Some("sentence-transformers/all-minilm-l6-v2".to_string()),
         using_vector: None,
@@ -84,11 +90,14 @@ async fn qdrant_read_document_fetches_point_by_id() {
     let engine = QdrantKnowledgeEngine::with_config(config);
 
     let document = engine
-        .read_document(KnowledgeEngineReadRequest {
-            tenant_id: 1,
-            space_id: 42,
-            document_id: "Space Doc#pt-9".to_string(),
-        })
+        .read_document(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-read"),
+            KnowledgeEngineReadRequest {
+                tenant_id: 1,
+                space_id: 42,
+                document_id: "Space Doc#pt-9".to_string(),
+            },
+        )
         .await
         .expect("read");
 
@@ -110,11 +119,14 @@ async fn qdrant_list_documents_is_explicitly_unsupported() {
     let engine = QdrantKnowledgeEngine::with_config(config);
 
     let error = engine
-        .list_documents(KnowledgeEngineListRequest {
-            tenant_id: 1,
-            space_id: 42,
-            limit: 10,
-        })
+        .list_documents(
+            &knowledge_execution_context(1, 1, 42, None, "trace-qdrant-list"),
+            KnowledgeEngineListRequest {
+                tenant_id: 1,
+                space_id: 42,
+                limit: 10,
+            },
+        )
         .await
         .expect_err("list_documents must not synthesize collection descriptors");
 
@@ -130,12 +142,12 @@ async fn assert_qdrant_health(upstream_status: u16, expected: KnowledgeEngineHea
         .mount(&mock_server)
         .await;
     let engine = QdrantKnowledgeEngine::with_config(QdrantConnectorConfig {
-            base_url: mock_server.uri(),
-            api_key: None,
-            default_collection_name: Some("health-collection".to_string()),
-            query_model: Some("health-model".to_string()),
-            using_vector: None,
-        });
+        base_url: mock_server.uri(),
+        api_key: None,
+        default_collection_name: Some("health-collection".to_string()),
+        query_model: Some("health-model".to_string()),
+        using_vector: None,
+    });
 
     assert_eq!(engine.health().await.expect("health").status, expected);
 }

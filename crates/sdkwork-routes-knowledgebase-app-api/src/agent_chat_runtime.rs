@@ -2,8 +2,8 @@ use sdkwork_agent_kernel::{KnowledgeDocument, KnowledgeDocumentFilter, Knowledge
 use sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeRetrievalProfileStore;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
     format_scoped_document_id, parse_namespace_space_id, parse_scoped_document_id,
+    KnowledgeEngineExecutionHandle,
 };
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::KnowledgeEngine;
 use sdkwork_knowledgebase_agent_provider::async_bridge::block_on_async;
 use sdkwork_knowledgebase_agent_provider::{
     retrieval_methods_for_strategy, KnowledgeRetrievalPlan, KnowledgeRetrievalPlanResolver,
@@ -14,6 +14,7 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
 use sdkwork_knowledgebase_contract::okf::OkfConceptSummary;
+use sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext;
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::rag::KnowledgeRetrievalRequest;
 use std::sync::Arc;
@@ -90,17 +91,24 @@ impl KnowledgeSpaceModeResolver for RuntimeSpaceModeResolver {
 #[derive(Clone)]
 pub struct RuntimeKnowledgebaseRetrievalClient {
     runtime: KnowledgebaseRuntime,
+    execution_context: KnowledgeEngineExecutionContext,
 }
 
 impl RuntimeKnowledgebaseRetrievalClient {
-    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
-        Self { runtime }
+    pub fn new(
+        runtime: KnowledgebaseRuntime,
+        execution_context: KnowledgeEngineExecutionContext,
+    ) -> Self {
+        Self {
+            runtime,
+            execution_context,
+        }
     }
 
     fn resolve_engine_for_space(
         &self,
         space_id: u64,
-    ) -> Result<std::sync::Arc<dyn KnowledgeEngine>, String> {
+    ) -> Result<KnowledgeEngineExecutionHandle, String> {
         let runtime = self.runtime.clone();
         block_on_async(async move {
             runtime
@@ -157,13 +165,17 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
         let engine = self.resolve_engine_for_space(space_id)?;
         let engine_kind = engine.clone();
         let tenant_id = self.runtime.tenant_id();
+        let execution_context = self.context_for_space(space_id)?;
         let document = block_on_async(async move {
             engine
-                .read_document(KnowledgeEngineReadRequest {
-                    tenant_id,
-                    space_id,
-                    document_id: scoped_id,
-                })
+                .read_document(
+                    &execution_context,
+                    KnowledgeEngineReadRequest {
+                        tenant_id,
+                        space_id,
+                        document_id: scoped_id,
+                    },
+                )
                 .await
         })
         .map_err(|error| error.to_string())?
@@ -171,7 +183,7 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
 
         Ok(KnowledgeDocument::new(
             format_scoped_document_id(space_id, &document.document_id),
-            map_engine_document_kind(engine_kind.as_ref()),
+            map_engine_document_kind(&engine_kind),
             document.title,
             document.content,
         )
@@ -187,13 +199,17 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
         let engine = self.resolve_engine_for_space(space_id)?;
         let engine_kind = engine.clone();
         let tenant_id = self.runtime.tenant_id();
+        let execution_context = self.context_for_space(space_id)?;
         let listed = block_on_async(async move {
             engine
-                .list_documents(KnowledgeEngineListRequest {
-                    tenant_id,
-                    space_id,
-                    limit: 64,
-                })
+                .list_documents(
+                    &execution_context,
+                    KnowledgeEngineListRequest {
+                        tenant_id,
+                        space_id,
+                        limit: 64,
+                    },
+                )
                 .await
         })
         .map_err(|error| error.to_string())?
@@ -205,7 +221,7 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
             .map(|item| {
                 KnowledgeDocument::new(
                     format_scoped_document_id(space_id, &item.document_id),
-                    map_engine_document_kind(engine_kind.as_ref()),
+                    map_engine_document_kind(&engine_kind),
                     item.title,
                     "",
                 )
@@ -217,20 +233,33 @@ impl KnowledgebaseRetrievalClient for RuntimeKnowledgebaseRetrievalClient {
     }
 }
 
+impl RuntimeKnowledgebaseRetrievalClient {
+    fn context_for_space(&self, space_id: u64) -> Result<KnowledgeEngineExecutionContext, String> {
+        execution_context_for_space(&self.execution_context, space_id)
+    }
+}
+
 #[derive(Clone)]
 pub struct RuntimeOkfKnowledgeClient {
     runtime: KnowledgebaseRuntime,
+    execution_context: KnowledgeEngineExecutionContext,
 }
 
 impl RuntimeOkfKnowledgeClient {
-    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
-        Self { runtime }
+    pub fn new(
+        runtime: KnowledgebaseRuntime,
+        execution_context: KnowledgeEngineExecutionContext,
+    ) -> Self {
+        Self {
+            runtime,
+            execution_context,
+        }
     }
 
     fn resolve_engine_for_space(
         &self,
         space_id: u64,
-    ) -> Result<std::sync::Arc<dyn KnowledgeEngine>, String> {
+    ) -> Result<KnowledgeEngineExecutionHandle, String> {
         let runtime = self.runtime.clone();
         block_on_async(async move {
             runtime
@@ -253,14 +282,18 @@ impl OkfKnowledgeClient for RuntimeOkfKnowledgeClient {
         let engine = self.resolve_engine_for_space(space_id)?;
         let tenant_id = self.runtime.tenant_id();
         let query = query.to_string();
+        let execution_context = execution_context_for_space(&self.execution_context, space_id)?;
         block_on_async(async move {
             let search = engine
-                .search(KnowledgeEngineSearchRequest {
-                    tenant_id,
-                    space_id,
-                    query,
-                    top_k: top_k.max(1) as u32,
-                })
+                .search(
+                    &execution_context,
+                    KnowledgeEngineSearchRequest {
+                        tenant_id,
+                        space_id,
+                        query,
+                        top_k: top_k.max(1) as u32,
+                    },
+                )
                 .await
                 .map_err(|error| error.to_string())?;
 
@@ -298,13 +331,17 @@ impl OkfKnowledgeClient for RuntimeOkfKnowledgeClient {
         let engine = self.resolve_engine_for_space(space_id)?;
         let tenant_id = self.runtime.tenant_id();
         let logical_path = logical_path.to_string();
+        let execution_context = execution_context_for_space(&self.execution_context, space_id)?;
         block_on_async(async move {
             let document = engine
-                .read_document(KnowledgeEngineReadRequest {
-                    tenant_id,
-                    space_id,
-                    document_id: logical_path,
-                })
+                .read_document(
+                    &execution_context,
+                    KnowledgeEngineReadRequest {
+                        tenant_id,
+                        space_id,
+                        document_id: logical_path,
+                    },
+                )
                 .await
                 .map_err(|error| error.to_string())?;
 
@@ -314,7 +351,7 @@ impl OkfKnowledgeClient for RuntimeOkfKnowledgeClient {
     }
 }
 
-fn map_engine_document_kind(engine: &dyn KnowledgeEngine) -> KnowledgeDocumentKind {
+fn map_engine_document_kind(engine: &KnowledgeEngineExecutionHandle) -> KnowledgeDocumentKind {
     if engine.descriptor().native {
         if engine.descriptor().implementation_id.contains("okf") {
             KnowledgeDocumentKind::Spec
@@ -329,17 +366,24 @@ fn map_engine_document_kind(engine: &dyn KnowledgeEngine) -> KnowledgeDocumentKi
 #[derive(Clone)]
 pub struct RuntimeSpaceKnowledgeEngineClient {
     runtime: KnowledgebaseRuntime,
+    execution_context: KnowledgeEngineExecutionContext,
 }
 
 impl RuntimeSpaceKnowledgeEngineClient {
-    pub fn new(runtime: KnowledgebaseRuntime) -> Self {
-        Self { runtime }
+    pub fn new(
+        runtime: KnowledgebaseRuntime,
+        execution_context: KnowledgeEngineExecutionContext,
+    ) -> Self {
+        Self {
+            runtime,
+            execution_context,
+        }
     }
 
     async fn resolve_engine_for_space(
         &self,
         space_id: u64,
-    ) -> Result<std::sync::Arc<dyn KnowledgeEngine>, String> {
+    ) -> Result<KnowledgeEngineExecutionHandle, String> {
         self.runtime
             .knowledge_engine_space_resolver()
             .resolve_for_space(space_id, None)
@@ -359,13 +403,17 @@ impl SpaceKnowledgeEngineClient for RuntimeSpaceKnowledgeEngineClient {
     ) -> Result<sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineSearchResult, String>
     {
         let engine = self.resolve_engine_for_space(space_id).await?;
+        let execution_context = execution_context_for_space(&self.execution_context, space_id)?;
         engine
-            .search(KnowledgeEngineSearchRequest {
-                tenant_id,
-                space_id,
-                query: query.to_string(),
-                top_k,
-            })
+            .search(
+                &execution_context,
+                KnowledgeEngineSearchRequest {
+                    tenant_id,
+                    space_id,
+                    query: query.to_string(),
+                    top_k,
+                },
+            )
             .await
             .map_err(|error| error.to_string())
     }
@@ -383,13 +431,32 @@ impl SpaceKnowledgeEngineClient for RuntimeSpaceKnowledgeEngineClient {
     ) -> Result<sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineDocument, String>
     {
         let engine = self.resolve_engine_for_space(space_id).await?;
+        let execution_context = execution_context_for_space(&self.execution_context, space_id)?;
         engine
-            .read_document(KnowledgeEngineReadRequest {
-                tenant_id,
-                space_id,
-                document_id: scoped_document_id.to_string(),
-            })
+            .read_document(
+                &execution_context,
+                KnowledgeEngineReadRequest {
+                    tenant_id,
+                    space_id,
+                    document_id: scoped_document_id.to_string(),
+                },
+            )
             .await
             .map_err(|error| error.to_string())
     }
+}
+
+fn execution_context_for_space(
+    context: &KnowledgeEngineExecutionContext,
+    space_id: u64,
+) -> Result<KnowledgeEngineExecutionContext, String> {
+    if !context.data_scope.allowed_space_ids.contains(&space_id) {
+        return Err(format!(
+            "space_id={space_id} is outside the authenticated knowledge execution scope"
+        ));
+    }
+    let mut scoped = context.clone();
+    scoped.space_id = space_id;
+    scoped.binding_id = None;
+    Ok(scoped)
 }

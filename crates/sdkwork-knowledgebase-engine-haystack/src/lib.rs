@@ -9,6 +9,7 @@ mod config;
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredential;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -16,13 +17,15 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
     KnowledgeEngineSearchResult,
 };
+use sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext;
+use sdkwork_knowledgebase_provider_runtime::{ProviderExecutionContext, ProviderOperation};
 use std::sync::Arc;
 
 pub use client::{chunk_id_from_content, HaystackApiClient};
 pub use config::{
     HaystackConnectorConfig, HaystackDeploymentMode, HAYSTACK_BASE_URL_ENV,
-    HAYSTACK_CREDENTIAL_ENV, HAYSTACK_CREDENTIAL_FILE_ENV, HAYSTACK_DEPLOYMENT_MODE_ENV,
-    HAYSTACK_PIPELINE_ENV, HAYSTACK_QUERY_FIELD_ENV, HAYSTACK_WORKSPACE_ENV,
+    HAYSTACK_CREDENTIAL_ENV, HAYSTACK_DEPLOYMENT_MODE_ENV, HAYSTACK_PIPELINE_ENV,
+    HAYSTACK_QUERY_FIELD_ENV, HAYSTACK_WORKSPACE_ENV,
 };
 
 pub const HAYSTACK_VENDOR_ID: &str = "haystack";
@@ -73,7 +76,7 @@ impl HaystackKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Haystack adapter requires {HAYSTACK_BASE_URL_ENV}; optional auth via {HAYSTACK_CREDENTIAL_ENV} or {HAYSTACK_CREDENTIAL_FILE_ENV}; an active Provider binding supplies the pipeline; {HAYSTACK_WORKSPACE_ENV} selects the Deepset Cloud workspace"
+            "Haystack adapter requires {HAYSTACK_BASE_URL_ENV}; an active Provider binding supplies the pipeline and may supply an optional credential reference; {HAYSTACK_WORKSPACE_ENV} selects the Deepset Cloud workspace"
         )
     }
 
@@ -104,6 +107,7 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
     fn bind_provider(
         &self,
         binding: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineProviderBinding,
+        credential: Option<KnowledgeEngineProviderCredential>,
     ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
         if binding.implementation_id != HAYSTACK_IMPLEMENTATION_ID {
             return Err(KnowledgeEngineError::Validation(
@@ -114,6 +118,7 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
             .config
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
+        config.api_key = credential.map(KnowledgeEngineProviderCredential::into_secret);
         config.default_pipeline = Some(binding.remote_resource_id.clone());
         Ok(Arc::new(Self::with_config(config)))
     }
@@ -168,6 +173,7 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
 
     async fn search(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineSearchRequest,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
         let Some(client) = self.client.as_ref() else {
@@ -178,8 +184,17 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
 
         let pipeline = self.required_pipeline(request.space_id)?;
         let workspace = self.workspace();
+        let provider_context = ProviderExecutionContext::from_knowledge_engine_request(
+            context,
+            HAYSTACK_IMPLEMENTATION_ID,
+            ProviderOperation::Search,
+            request.tenant_id,
+            request.space_id,
+        )
+        .map_err(KnowledgeEngineError::from)?;
         client
             .search(
+                &provider_context,
                 request.space_id,
                 workspace.as_deref(),
                 &pipeline,
@@ -191,6 +206,7 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
 
     async fn read_document(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineReadRequest,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let Some(client) = self.client.as_ref() else {
@@ -209,8 +225,17 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
 
         let pipeline = self.required_pipeline(request.space_id)?;
         let workspace = self.workspace();
+        let provider_context = ProviderExecutionContext::from_knowledge_engine_request(
+            context,
+            HAYSTACK_IMPLEMENTATION_ID,
+            ProviderOperation::Read,
+            request.tenant_id,
+            request.space_id,
+        )
+        .map_err(KnowledgeEngineError::from)?;
         client
             .read_document(
+                &provider_context,
                 request.space_id,
                 workspace.as_deref(),
                 &pipeline,
@@ -222,6 +247,7 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
 
     async fn list_documents(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
@@ -236,7 +262,11 @@ impl ExternalKnowledgeEngine for HaystackKnowledgeEngine {
         self.health().await
     }
 
-    async fn sync_sources(&self, _space_id: u64) -> Result<u32, KnowledgeEngineError> {
+    async fn sync_sources(
+        &self,
+        _context: &KnowledgeEngineExecutionContext,
+        _space_id: u64,
+    ) -> Result<u32, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
             "Haystack sync_sources is managed via pipeline deployment; adapter exposes search/read only"
                 .to_string(),

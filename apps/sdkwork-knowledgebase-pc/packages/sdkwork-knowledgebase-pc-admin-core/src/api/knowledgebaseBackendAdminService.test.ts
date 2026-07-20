@@ -36,6 +36,7 @@ describe('knowledgebase backend admin service helpers', () => {
 
   it('grants admin console access only to knowledge admin scopes', () => {
     expect(canAccessKnowledgebaseAdminConsole(['knowledge.read'])).toBe(false);
+    expect(canAccessKnowledgebaseAdminConsole(['knowledge.admin'])).toBe(false);
     expect(canAccessKnowledgebaseAdminConsole(['knowledge.platform.manage'])).toBe(true);
     expect(canAccessKnowledgebaseAdminConsole(['knowledge.*'])).toBe(true);
   });

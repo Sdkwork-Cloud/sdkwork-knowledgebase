@@ -28,8 +28,8 @@ impl FlowiseApiClient {
         Self { config, http }
     }
 
-    fn context(&self) -> ProviderExecutionContext {
-        ProviderExecutionContext::for_implementation(FLOWISE_IMPLEMENTATION_ID)
+    fn health_context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_system_health(FLOWISE_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self, store_id: &str) -> Result<(), KnowledgeEngineError> {
@@ -39,11 +39,11 @@ impl FlowiseApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         self.http
-            .execute(&self.context(), request)
+            .execute(&self.health_context(), request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         Ok(())
@@ -51,6 +51,7 @@ impl FlowiseApiClient {
 
     pub async fn query_vector_store(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         store_id: &str,
         query: &str,
@@ -62,7 +63,7 @@ impl FlowiseApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
             .map_err(KnowledgeEngineError::from)?
-            .bearer_auth(&self.config.api_key)
+            .bearer_auth(self.config.api_key.as_str())
             .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "storeId": store_id,
@@ -72,7 +73,7 @@ impl FlowiseApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: FlowiseVectorQueryResponse =
@@ -94,13 +95,14 @@ impl FlowiseApiClient {
 
     pub async fn read_chunk(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         store_id: &str,
         document_hint: &str,
         chunk_id: &str,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let search = self
-            .query_vector_store(space_id, store_id, document_hint, 25)
+            .query_vector_store(context, space_id, store_id, document_hint, 25)
             .await?;
 
         let hit = search

@@ -27,8 +27,8 @@ impl ChromaApiClient {
         Self { config, http }
     }
 
-    fn context(&self) -> ProviderExecutionContext {
-        ProviderExecutionContext::for_implementation(CHROMA_IMPLEMENTATION_ID)
+    fn health_context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_system_health(CHROMA_IMPLEMENTATION_ID)
     }
 
     fn collection_path(&self, collection_id: &str, suffix: &str) -> String {
@@ -47,11 +47,11 @@ impl ChromaApiClient {
         );
         let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .optional_bearer_auth(self.config.api_key.as_deref())
+            .optional_bearer_auth(self.config.api_key.as_ref().map(|value| value.as_str()))
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         self.http
-            .execute(&self.context(), request)
+            .execute(&self.health_context(), request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         Ok(())
@@ -59,6 +59,7 @@ impl ChromaApiClient {
 
     pub async fn query_collection(
         &self,
+        context: &ProviderExecutionContext,
         space_id: u64,
         collection_id: &str,
         query: &str,
@@ -67,7 +68,7 @@ impl ChromaApiClient {
         let url = format!("{}/query", self.collection_path(collection_id, ""));
         let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
             .map_err(KnowledgeEngineError::from)?
-            .optional_bearer_auth(self.config.api_key.as_deref())
+            .optional_bearer_auth(self.config.api_key.as_ref().map(|value| value.as_str()))
             .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "query_texts": [query],
@@ -78,7 +79,7 @@ impl ChromaApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: ChromaQueryResponse = response.json().map_err(KnowledgeEngineError::from)?;
@@ -92,13 +93,14 @@ impl ChromaApiClient {
 
     pub async fn get_record(
         &self,
+        context: &ProviderExecutionContext,
         collection_id: &str,
         record_id: &str,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let url = format!("{}/get", self.collection_path(collection_id, ""));
         let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::POST, url)
             .map_err(KnowledgeEngineError::from)?
-            .optional_bearer_auth(self.config.api_key.as_deref())
+            .optional_bearer_auth(self.config.api_key.as_ref().map(|value| value.as_str()))
             .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "ids": [record_id],
@@ -108,7 +110,7 @@ impl ChromaApiClient {
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         let payload: ChromaGetResponse = response.json().map_err(KnowledgeEngineError::from)?;
@@ -141,17 +143,18 @@ impl ChromaApiClient {
 
     pub async fn get_collection(
         &self,
+        context: &ProviderExecutionContext,
         collection_id: &str,
     ) -> Result<ChromaCollection, KnowledgeEngineError> {
         let url = self.collection_path(collection_id, "");
         let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::GET, url)
             .map_err(KnowledgeEngineError::from)?
-            .optional_bearer_auth(self.config.api_key.as_deref())
+            .optional_bearer_auth(self.config.api_key.as_ref().map(|value| value.as_str()))
             .map_err(KnowledgeEngineError::from)?
             .idempotent(true);
         let response = self
             .http
-            .execute(&self.context(), request)
+            .execute(context, request)
             .await
             .map_err(KnowledgeEngineError::from)?;
         response.json().map_err(KnowledgeEngineError::from)

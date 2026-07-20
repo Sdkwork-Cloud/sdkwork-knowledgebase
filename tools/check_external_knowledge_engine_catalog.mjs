@@ -2,6 +2,7 @@
 import { readFile, access, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateProviderCertification } from "./provider_certification.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const specPath = "specs/external-knowledge-engine-catalog.spec.json";
@@ -27,6 +28,7 @@ const catalog = JSON.parse(await readFile(path.join(root, catalogPath), "utf8"))
 const certification = JSON.parse(
   await readFile(path.join(root, certificationPath), "utf8"),
 );
+violations.push(...await validateProviderCertification(certification, root));
 
 assert(
   catalog.kind === "sdkwork.external-knowledge-engine-catalog",
@@ -35,6 +37,14 @@ assert(
 assert(
   certification.kind === "sdkwork.knowledge-engine-provider-certification",
   `${certificationPath} must declare kind sdkwork.knowledge-engine-provider-certification`,
+);
+assert(
+  spec.certificationManifest === certificationPath,
+  `${specPath}: certificationManifest must match the checked certification authority`,
+);
+assert(
+  spec.liveCertificationEvidenceSchema === certification.policy?.liveEvidenceSchema,
+  `${specPath}: liveCertificationEvidenceSchema must match the certification policy`,
 );
 
 const certificationsByVendor = new Map();
@@ -134,12 +144,20 @@ for (const entry of catalog.vendors ?? []) {
     assert(
       adapterCargoSource.includes(
         "sdkwork-knowledgebase-provider-runtime.workspace = true",
-      ),
-      `${vendorManifestRel}: adapter must depend on the shared Provider Runtime`,
+      ) && adapterCargoSource.includes("zeroize.workspace = true"),
+      `${vendorManifestRel}: adapter must depend on the shared Provider Runtime and zeroizing secret storage`,
     );
     assert(
       adapterClientSource.includes("ProviderRuntime"),
       `${vendorManifestRel}: adapter client must execute through ProviderRuntime`,
+    );
+    assert(
+      (adapterClientSource.match(/context:\s*&ProviderExecutionContext/g) ?? []).length >= 2,
+      `${vendorManifestRel}: adapter search/read clients must require caller-provided ProviderExecutionContext`,
+    );
+    assert(
+      !adapterClientSource.includes("for_implementation"),
+      `${vendorManifestRel}: adapter client must not fabricate business execution context`,
     );
     const forbiddenDirectHttpPatterns = [
       ["reqwest::Client", "reqwest::Client"],
@@ -158,6 +176,10 @@ for (const entry of catalog.vendors ?? []) {
       path.join(root, adapterCrate, "src/lib.rs"),
       "utf8",
     );
+    const adapterConfigSource = await readFile(
+      path.join(root, adapterCrate, "src/config.rs"),
+      "utf8",
+    );
     const forbiddenProviderAuthorityPatterns = [
       ["KnowledgeSourceStore", "source-store Provider authority"],
       ["from_runtime", "legacy runtime constructor"],
@@ -171,10 +193,27 @@ for (const entry of catalog.vendors ?? []) {
       );
     }
     assert(
-      adapterSource.includes("fn bind_provider")
+      (adapterSource.match(/from_knowledge_engine_request\(/g) ?? []).length >= 2
+        && !adapterSource.includes("ProviderExecutionContext::from_knowledge_engine("),
+      `${vendorManifestRel}: adapter search/read must validate request tenant and space through Provider Runtime`,
+    );
+    assert(
+      /fn bind_provider\(\s*&self,\s*[^,]+,\s*credential:\s*Option<KnowledgeEngineProviderCredential>,/s.test(adapterSource)
         && (vendor.vendorId === "onyx"
           || adapterSource.includes("binding.remote_resource_id")),
-      `${vendorManifestRel}: adapter must instantiate a binding-scoped remote resource`,
+      `${vendorManifestRel}: adapter must instantiate a binding-scoped remote resource with a one-time resolved credential`,
+    );
+    assert(
+      !adapterConfigSource.includes("read_credential")
+        && !adapterConfigSource.includes("read_to_string")
+        && !/std::env::var\([^)]*CREDENTIAL/.test(adapterConfigSource)
+        && !adapterConfigSource.includes("_CREDENTIAL_FILE_ENV"),
+      `${vendorManifestRel}: adapter config must not read credentials at startup or expose credential-file environment aliases`,
+    );
+    assert(
+      adapterConfigSource.includes("Zeroizing<String>")
+        && !/#\[derive\([^\]]*Debug[^\]]*\)\]\s*pub struct \w+ConnectorConfig/s.test(adapterConfigSource),
+      `${vendorManifestRel}: adapter config must zeroize held credentials and must not derive printable Debug`,
     );
     const adapterTestsDir = path.join(root, adapterCrate, "tests");
     let adapterTestSource = "";

@@ -5,6 +5,7 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
 use sdkwork_knowledgebase_engine_ragflow::{
     RagflowConnectorConfig, RagflowKnowledgeEngine, RAGFLOW_IMPLEMENTATION_ID,
 };
+use sdkwork_knowledgebase_test_support::provider_execution::provider_execution_context;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -21,7 +22,7 @@ async fn assert_ragflow_health(upstream_status: u16, expected: KnowledgeEngineHe
         .await;
     let engine = RagflowKnowledgeEngine::with_config(RagflowConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "health-key".to_string(),
+        api_key: zeroize::Zeroizing::new("health-key".to_string()),
         default_dataset_id: Some("health-dataset".to_string()),
     });
 
@@ -56,18 +57,21 @@ async fn ragflow_search_uses_configured_remote_resource_id() {
 
     let config = RagflowConnectorConfig {
         base_url: mock_server.uri(),
-        api_key: "test-api-key".to_string(),
+        api_key: zeroize::Zeroizing::new("test-api-key".to_string()),
         default_dataset_id: Some("ds-space-42".to_string()),
     };
     let engine = RagflowKnowledgeEngine::with_config(config);
 
     let result = engine
-        .search(KnowledgeEngineSearchRequest {
-            tenant_id: 1,
-            space_id: 42,
-            query: "hello".to_string(),
-            top_k: 3,
-        })
+        .search(
+            &provider_execution_context(1, 2, 42, 7, "trace-adapter-search"),
+            KnowledgeEngineSearchRequest {
+                tenant_id: 1,
+                space_id: 42,
+                query: "hello".to_string(),
+                top_k: 3,
+            },
+        )
         .await
         .expect("search");
 

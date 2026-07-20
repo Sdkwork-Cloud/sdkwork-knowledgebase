@@ -115,7 +115,7 @@ Authority-tier scopes (Stage 1 — lateral containment):
 | Scope Pattern | Permission |
 |---|---|
 | `knowledge.*` | All knowledge operations |
-| `knowledge.admin` | Admin operations (backend API) |
+| `knowledge.platform.manage` | Admin operations (backend API) |
 | `knowledge.spaces.*` | All space operations |
 | `knowledge.spaces.read` | Read spaces |
 | `knowledge.spaces.write` | Create/update spaces |

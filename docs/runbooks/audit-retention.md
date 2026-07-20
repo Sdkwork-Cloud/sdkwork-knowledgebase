@@ -23,7 +23,7 @@ Configure via operator job; canonical SQL lives under `database/operations/` whe
 
 ## GDPR export (tenant data subject request)
 
-Use the backend compliance API (requires `knowledge.platform.manage`, `knowledge.admin`, or `knowledge.*`):
+Use the backend compliance API (requires `knowledge.platform.manage` or `knowledge.*`):
 
 ```http
 POST /backend/v3/api/knowledge/compliance/audit_events/export

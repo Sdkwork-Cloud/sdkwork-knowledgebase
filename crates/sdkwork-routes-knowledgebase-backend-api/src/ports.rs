@@ -1,4 +1,14 @@
 use async_trait::async_trait;
+use sdkwork_knowledgebase_contract::provider_binding::{
+    CreateKnowledgeEngineProviderBindingRequest,
+    CreateKnowledgeEngineProviderCredentialReferenceRequest,
+    CreateKnowledgeEngineProviderMigrationOperationRequest, KnowledgeEngineProviderBinding,
+    KnowledgeEngineProviderBindingState, KnowledgeEngineProviderCredentialReference,
+    KnowledgeEngineProviderCredentialRotationState, KnowledgeEngineProviderMigrationOperation,
+    KnowledgeEngineProviderMigrationState, RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    UpdateKnowledgeEngineProviderBindingRequest,
+};
 use sdkwork_knowledgebase_contract::{
     AnonymizeKnowledgeAuditSubjectRequest, AnonymizeKnowledgeAuditSubjectResult,
     CreateKnowledgeSourceRequest, ExportKnowledgeAuditEventsRequest,
@@ -12,7 +22,7 @@ use sdkwork_knowledgebase_contract::{
     OkfConceptPublishRequest, OkfConceptSummary, OkfIndexDocument, OkfIndexRebuildRequest,
     OkfLogEntry, OkfQualityRun, OkfQualityRunRequest,
 };
-use sdkwork_utils_rust::SdkWorkPageData;
+use sdkwork_utils_rust::{SdkWorkCommandData, SdkWorkPageData};
 
 use crate::error::{BackendApiError, BackendApiResult};
 
@@ -22,6 +32,7 @@ pub struct KnowledgeBackendRequestContext {
     pub operator_id: Option<u64>,
     pub organization_id: Option<u64>,
     pub permission_scope: Vec<String>,
+    pub trace_id: String,
 }
 
 #[async_trait]
@@ -311,9 +322,196 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
         ))
     }
 
-    async fn retrieve_provider_health(&self) -> BackendApiResult<KnowledgeProviderHealth> {
+    async fn retrieve_provider_health(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+    ) -> BackendApiResult<KnowledgeProviderHealth> {
         Err(BackendApiError::unsupported_operation(
             "providerHealth.list",
+        ))
+    }
+
+    async fn create_provider_credential_reference(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _request: CreateKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> BackendApiResult<KnowledgeEngineProviderCredentialReference> {
+        Err(BackendApiError::unsupported_operation(
+            "providerCredentialReferences.create",
+        ))
+    }
+
+    async fn list_provider_credential_references(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _implementation_id: Option<String>,
+        _rotation_state: Option<KnowledgeEngineProviderCredentialRotationState>,
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeEngineProviderCredentialReference>> {
+        Err(BackendApiError::unsupported_operation(
+            "providerCredentialReferences.list",
+        ))
+    }
+
+    async fn retrieve_provider_credential_reference(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _credential_reference_id: u64,
+    ) -> BackendApiResult<KnowledgeEngineProviderCredentialReference> {
+        Err(BackendApiError::unsupported_operation(
+            "providerCredentialReferences.retrieve",
+        ))
+    }
+
+    async fn rotate_provider_credential_reference(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _credential_reference_id: u64,
+        _request: RotateKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        Err(BackendApiError::unsupported_operation(
+            "providerCredentialReferences.rotate",
+        ))
+    }
+
+    async fn revoke_provider_credential_reference(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _credential_reference_id: u64,
+        _request: RevokeKnowledgeEngineProviderCredentialReferenceRequest,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        Err(BackendApiError::unsupported_operation(
+            "providerCredentialReferences.revoke",
+        ))
+    }
+
+    async fn list_provider_bindings(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _space_id: u64,
+        _lifecycle_state: Option<KnowledgeEngineProviderBindingState>,
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeEngineProviderBinding>> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerBindings.list",
+        ))
+    }
+
+    async fn create_provider_binding(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _request: CreateKnowledgeEngineProviderBindingRequest,
+    ) -> BackendApiResult<KnowledgeEngineProviderBinding> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerBindings.create",
+        ))
+    }
+
+    async fn retrieve_provider_binding(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _space_id: u64,
+        _binding_id: u64,
+    ) -> BackendApiResult<KnowledgeEngineProviderBinding> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerBindings.retrieve",
+        ))
+    }
+
+    async fn update_provider_binding(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _space_id: u64,
+        _binding_id: u64,
+        _request: UpdateKnowledgeEngineProviderBindingRequest,
+    ) -> BackendApiResult<KnowledgeEngineProviderBinding> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerBindings.update",
+        ))
+    }
+
+    async fn test_provider_binding(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _space_id: u64,
+        _binding_id: u64,
+        _expected_version: u64,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerBindings.test",
+        ))
+    }
+
+    async fn activate_provider_binding(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _space_id: u64,
+        _binding_id: u64,
+        _expected_version: u64,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerBindings.activate",
+        ))
+    }
+
+    async fn disable_provider_binding(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _space_id: u64,
+        _binding_id: u64,
+        _expected_version: u64,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerBindings.disable",
+        ))
+    }
+
+    async fn list_provider_migrations(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _space_id: u64,
+        _operation_state: Option<KnowledgeEngineProviderMigrationState>,
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> BackendApiResult<SdkWorkPageData<KnowledgeEngineProviderMigrationOperation>> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerMigrations.list",
+        ))
+    }
+
+    async fn create_provider_migration(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _space_id: u64,
+        _request: CreateKnowledgeEngineProviderMigrationOperationRequest,
+    ) -> BackendApiResult<KnowledgeEngineProviderMigrationOperation> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerMigrations.create",
+        ))
+    }
+
+    async fn retrieve_provider_migration(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _space_id: u64,
+        _migration_operation_id: u64,
+    ) -> BackendApiResult<KnowledgeEngineProviderMigrationOperation> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerMigrations.retrieve",
+        ))
+    }
+
+    async fn rollback_provider_migration(
+        &self,
+        _context: &KnowledgeBackendRequestContext,
+        _space_id: u64,
+        _migration_operation_id: u64,
+        _expected_version: u64,
+    ) -> BackendApiResult<SdkWorkCommandData> {
+        Err(BackendApiError::unsupported_operation(
+            "spaces.providerMigrations.rollback",
         ))
     }
 

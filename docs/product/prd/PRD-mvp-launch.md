@@ -26,7 +26,7 @@ Decision: SDKWork Knowledgebase remains prelaunch and must not be treated as a p
 ### Security
 
 - [x] Public ingress does not expose `/metrics`; Prometheus scrapes via ServiceMonitor only
-- [x] Backend OpenAPI declares `x-sdkwork-permission: knowledge.admin` on all protected operations
+- [x] Backend OpenAPI declares `x-sdkwork-permission: knowledge.platform.manage` on all protected operations
 - [x] Upload session space ACL enforced (`require_space_access` on create/complete)
 - [x] Space ACL fail-closed when drive binding missing
 - [x] WeChat editor HTML sanitized before insertion
@@ -101,7 +101,7 @@ pnpm lint
 
 - [x] Author scenario: login -> create note -> edit document -> auto-save (`e2e/author.flow.spec.ts`, Playwright CI)
 - [x] Search scenario: RAG answer with citations navigates to source document (`e2e/search.flow.spec.ts`, Playwright CI)
-- [x] Admin scenario contract: backend source listing requires `knowledge.admin` (`scripts/smoke-knowledgebase-admin-ingest.test.mjs`; live probe optional via `SDKWORK_KNOWLEDGEBASE_SMOKE_BACKEND_URL`)
+- [x] Admin scenario contract: backend source listing requires `knowledge.platform.manage` (`scripts/smoke-knowledgebase-admin-ingest.test.mjs`; live probe optional via `SDKWORK_KNOWLEDGEBASE_SMOKE_BACKEND_URL`)
 - [x] Open API scenario contract: api-key `context_packs` and `retrievals` (`scripts/smoke-knowledgebase-open-api.test.mjs`; live probe optional via `SDKWORK_KNOWLEDGEBASE_SMOKE_OPEN_URL`)
 - [x] WeChat publish modal uses API-backed account selection; fan tag groups load from WeChat `tags/get` API via `wechat.officialAccounts.fanTags.list`; mass send uses `message/mass/sendall` when `sendNotification` is enabled
 - [x] WeChat publish path blocks demo fallback in production builds (`shouldUseKnowledgebaseDemoFallback`; hosted API smoke optional before cutover)

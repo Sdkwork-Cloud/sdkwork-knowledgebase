@@ -152,6 +152,86 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     },
     RouteManifestEntry {
         method: "GET",
+        path: "/backend/v3/api/knowledge/provider_credential_references",
+        operation_id: "providerCredentialReferences.list",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/provider_credential_references",
+        operation_id: "providerCredentialReferences.create",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}",
+        operation_id: "providerCredentialReferences.retrieve",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}/rotate",
+        operation_id: "providerCredentialReferences.rotate",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/provider_credential_references/{credentialReferenceId}/revoke",
+        operation_id: "providerCredentialReferences.revoke",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings",
+        operation_id: "spaces.providerBindings.list",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings",
+        operation_id: "spaces.providerBindings.create",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}",
+        operation_id: "spaces.providerBindings.retrieve",
+    },
+    RouteManifestEntry {
+        method: "PATCH",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}",
+        operation_id: "spaces.providerBindings.update",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}/test",
+        operation_id: "spaces.providerBindings.test",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}/activate",
+        operation_id: "spaces.providerBindings.activate",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_bindings/{bindingId}/disable",
+        operation_id: "spaces.providerBindings.disable",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations",
+        operation_id: "spaces.providerMigrations.list",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations",
+        operation_id: "spaces.providerMigrations.create",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations/{migrationOperationId}",
+        operation_id: "spaces.providerMigrations.retrieve",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/backend/v3/api/knowledge/spaces/{spaceId}/provider_migrations/{migrationOperationId}/rollback",
+        operation_id: "spaces.providerMigrations.rollback",
+    },
+    RouteManifestEntry {
+        method: "GET",
         path: "/backend/v3/api/knowledge/group_launch_capability",
         operation_id: "groupLaunchCapability.retrieve",
     },

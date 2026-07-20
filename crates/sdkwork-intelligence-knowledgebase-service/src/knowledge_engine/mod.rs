@@ -1,5 +1,6 @@
 //! Native and external knowledge engine implementations for the product SPI.
 
+mod execution_handle;
 mod external_catalog;
 mod kernel_bridge;
 mod okf_native;
@@ -13,6 +14,7 @@ pub use kernel_bridge::{
 };
 pub use space_resolver::KnowledgeEngineSpaceResolver;
 
+pub use execution_handle::KnowledgeEngineExecutionHandle;
 pub use external_catalog::{load_external_engines_from_catalog, CatalogExternalKnowledgeEngine};
 pub use okf_native::{OkfNativeKnowledgeEngine, OkfNativeKnowledgeEngineDeps};
 pub use okf_search::{normalize_query, rank_okf_concept, rank_okf_concepts};

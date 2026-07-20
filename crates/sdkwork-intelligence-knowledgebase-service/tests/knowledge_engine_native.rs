@@ -36,6 +36,9 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
 use sdkwork_knowledgebase_contract::okf::{
     KnowledgeOkfConcept, KnowledgeOkfConceptRevision, OkfConceptSummary, OkfLogEntry,
 };
+use sdkwork_knowledgebase_contract::provider_binding::{
+    KnowledgeEngineDataScope, KnowledgeEngineExecutionContext,
+};
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -489,36 +492,64 @@ async fn okf_native_engine_search_and_read() {
     assert_eq!(health.status, KnowledgeEngineHealthStatus::Available);
 
     let search = engine
-        .search(KnowledgeEngineSearchRequest {
-            tenant_id: 1,
-            space_id: 7,
-            query: "ownership".to_string(),
-            top_k: 5,
-        })
+        .search(
+            &native_execution_context(7),
+            KnowledgeEngineSearchRequest {
+                tenant_id: 1,
+                space_id: 7,
+                query: "ownership".to_string(),
+                top_k: 5,
+            },
+        )
         .await
         .expect("search");
     assert_eq!(search.hits.len(), 1);
     assert_eq!(search.hits[0].document.document_id, "concept-ownership");
 
     let document = engine
-        .read_document(KnowledgeEngineReadRequest {
-            tenant_id: 1,
-            space_id: 7,
-            document_id: "concept-ownership".to_string(),
-        })
+        .read_document(
+            &native_execution_context(7),
+            KnowledgeEngineReadRequest {
+                tenant_id: 1,
+                space_id: 7,
+                document_id: "concept-ownership".to_string(),
+            },
+        )
         .await
         .expect("read");
     assert_eq!(document.content, "# Ownership");
 
     let listed = engine
-        .list_documents(KnowledgeEngineListRequest {
-            tenant_id: 1,
-            space_id: 7,
-            limit: 10,
-        })
+        .list_documents(
+            &native_execution_context(7),
+            KnowledgeEngineListRequest {
+                tenant_id: 1,
+                space_id: 7,
+                limit: 10,
+            },
+        )
         .await
         .expect("list");
     assert_eq!(listed.items.len(), 1);
+}
+
+fn native_execution_context(space_id: u64) -> KnowledgeEngineExecutionContext {
+    let now_ms = sdkwork_utils_rust::to_unix_millis(sdkwork_utils_rust::now());
+    KnowledgeEngineExecutionContext {
+        tenant_id: 1,
+        organization_id: 1,
+        actor_id: "native-engine-test".to_string(),
+        permission_scope: vec!["knowledge.read".to_string()],
+        data_scope: KnowledgeEngineDataScope {
+            allowed_space_ids: vec![space_id],
+            allowed_source_ids: Vec::new(),
+            allowed_document_ids: Vec::new(),
+        },
+        space_id,
+        binding_id: None,
+        trace_id: "trace-native-engine-test".to_string(),
+        deadline_unix_ms: u64::try_from(now_ms).expect("test clock") + 60_000,
+    }
 }
 
 #[tokio::test]
@@ -554,11 +585,14 @@ async fn rag_native_engine_lists_documents_from_store() {
     );
 
     let listed = engine
-        .list_documents(KnowledgeEngineListRequest {
-            tenant_id: 1,
-            space_id: 7,
-            limit: 10,
-        })
+        .list_documents(
+            &native_execution_context(7),
+            KnowledgeEngineListRequest {
+                tenant_id: 1,
+                space_id: 7,
+                limit: 10,
+            },
+        )
         .await
         .expect("list");
     assert_eq!(listed.items.len(), 1);

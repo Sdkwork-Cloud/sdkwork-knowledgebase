@@ -5,6 +5,7 @@
   "catalogRoot": "external/knowledge-engines",
   "catalogManifest": "external/knowledge-engines/catalog.manifest.json",
   "certificationManifest": "external/knowledge-engines/provider-certification.manifest.json",
+  "liveCertificationEvidenceSchema": "docs/releases/provider-certification/live-certification-evidence.schema.json",
   "vendorManifestPattern": "external/knowledge-engines/vendors/{vendorId}/engine.manifest.json",
   "upstreamSubmoduleRoot": "external/knowledge-engines/upstream",
   "relatedSpecs": [
@@ -48,11 +49,14 @@
     "SDKWork handlers and services MUST NOT call vendor HTTP APIs directly; only approved adapter crates may integrate upstream code or APIs.",
     "Native OKF and native RAG engines are NOT listed in this catalog; they are defined in specs/knowledge-engine-spi.spec.json.",
     "Adding a vendor requires engine.manifest.json, catalog.manifest.json entry, and passing tools/check_external_knowledge_engine_catalog.mjs.",
-    "Adapter and production tiers require executable health success/degradation, search, read, and unsupported-list contract evidence; production tier additionally requires version-pinned live certification evidence."
+    "Adapter and production tiers require executable health success/degradation, search, read, and unsupported-list contract evidence; production tier additionally requires version-pinned live certification evidence.",
+    "Live certification requires a current evidence index and SHA-256-bound quality, contract, load/SLO, outage-recovery, licensing, and security/privacy release artifacts; draft templates are never certification evidence."
   ],
   "verification": {
     "commands": [
       "node tools/check_external_knowledge_engine_catalog.mjs",
+      "node tools/run_provider_certification.mjs",
+      "node tools/run_provider_certification.mjs --execute",
       "cargo test -p sdkwork-knowledgebase-contract --test knowledge_engine_contract"
     ]
   }

@@ -9,6 +9,7 @@ mod config;
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
+use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredential;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -16,13 +17,14 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
     KnowledgeEngineSearchResult,
 };
+use sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineExecutionContext;
+use sdkwork_knowledgebase_provider_runtime::{ProviderExecutionContext, ProviderOperation};
 use std::sync::Arc;
 
 pub use client::ChromaApiClient;
 pub use config::{
     ChromaConnectorConfig, CHROMA_BASE_URL_ENV, CHROMA_COLLECTION_ID_ENV, CHROMA_CREDENTIAL_ENV,
-    CHROMA_CREDENTIAL_FILE_ENV, CHROMA_DATABASE_ENV, CHROMA_TENANT_ENV, DEFAULT_CHROMA_DATABASE,
-    DEFAULT_CHROMA_TENANT,
+    CHROMA_DATABASE_ENV, CHROMA_TENANT_ENV, DEFAULT_CHROMA_DATABASE, DEFAULT_CHROMA_TENANT,
 };
 
 pub const CHROMA_VENDOR_ID: &str = "chroma";
@@ -73,7 +75,7 @@ impl ChromaKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Chroma adapter requires {CHROMA_BASE_URL_ENV}; optional auth via {CHROMA_CREDENTIAL_ENV} or {CHROMA_CREDENTIAL_FILE_ENV}; an active Provider binding supplies the collection id"
+            "Chroma adapter requires {CHROMA_BASE_URL_ENV}; an active Provider binding supplies the collection id and may supply an optional credential reference"
         )
     }
 
@@ -98,6 +100,7 @@ impl KnowledgeEngine for ChromaKnowledgeEngine {
     fn bind_provider(
         &self,
         binding: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineProviderBinding,
+        credential: Option<KnowledgeEngineProviderCredential>,
     ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
         if binding.implementation_id != CHROMA_IMPLEMENTATION_ID {
             return Err(KnowledgeEngineError::Validation(
@@ -108,6 +111,7 @@ impl KnowledgeEngine for ChromaKnowledgeEngine {
             .config
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
+        config.api_key = credential.map(KnowledgeEngineProviderCredential::into_secret);
         config.default_collection_id = Some(binding.remote_resource_id.clone());
         Ok(Arc::new(Self::with_config(config)))
     }
@@ -137,6 +141,7 @@ impl KnowledgeEngine for ChromaKnowledgeEngine {
 
     async fn search(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineSearchRequest,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
         let Some(client) = self.client.as_ref() else {
@@ -146,8 +151,17 @@ impl KnowledgeEngine for ChromaKnowledgeEngine {
         };
 
         let collection_id = self.required_collection_id(request.space_id)?;
+        let provider_context = ProviderExecutionContext::from_knowledge_engine_request(
+            context,
+            CHROMA_IMPLEMENTATION_ID,
+            ProviderOperation::Search,
+            request.tenant_id,
+            request.space_id,
+        )
+        .map_err(KnowledgeEngineError::from)?;
         client
             .query_collection(
+                &provider_context,
                 request.space_id,
                 &collection_id,
                 &request.query,
@@ -158,6 +172,7 @@ impl KnowledgeEngine for ChromaKnowledgeEngine {
 
     async fn read_document(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineReadRequest,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let Some(client) = self.client.as_ref() else {
@@ -174,11 +189,22 @@ impl KnowledgeEngine for ChromaKnowledgeEngine {
             })?;
 
         let collection_id = self.required_collection_id(request.space_id)?;
-        client.get_record(&collection_id, &record_id).await
+        let provider_context = ProviderExecutionContext::from_knowledge_engine_request(
+            context,
+            CHROMA_IMPLEMENTATION_ID,
+            ProviderOperation::Read,
+            request.tenant_id,
+            request.space_id,
+        )
+        .map_err(KnowledgeEngineError::from)?;
+        client
+            .get_record(&provider_context, &collection_id, &record_id)
+            .await
     }
 
     async fn list_documents(
         &self,
+        _context: &KnowledgeEngineExecutionContext,
         _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
@@ -193,7 +219,11 @@ impl ExternalKnowledgeEngine for ChromaKnowledgeEngine {
         self.health().await
     }
 
-    async fn sync_sources(&self, _space_id: u64) -> Result<u32, KnowledgeEngineError> {
+    async fn sync_sources(
+        &self,
+        _context: &KnowledgeEngineExecutionContext,
+        _space_id: u64,
+    ) -> Result<u32, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
             "Chroma sync_sources is managed via collection ingest APIs; adapter exposes search/read only"
                 .to_string(),

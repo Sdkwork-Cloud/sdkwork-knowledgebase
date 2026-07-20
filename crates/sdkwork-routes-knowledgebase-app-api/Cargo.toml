@@ -38,7 +38,7 @@ clawrouter-open-sdk.workspace = true
 sdkwork-agent-kernel.workspace = true
 sdkwork-knowledgebase-observability.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "fs"] }
 tracing = "0.1"
 time.workspace = true
 uuid.workspace = true
