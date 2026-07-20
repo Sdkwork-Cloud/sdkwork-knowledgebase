@@ -111,6 +111,15 @@ tables:
   - name: kb_audit_event
     lifecycle_status: active
     owner: knowledgebase-platform
+  - name: kb_provider_credential_reference
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_provider_binding
+    lifecycle_status: active
+    owner: knowledgebase-platform
+  - name: kb_provider_migration_operation
+    lifecycle_status: active
+    owner: knowledgebase-platform
   - name: web_audit_event
     lifecycle_status: active
     owner: knowledgebase-platform

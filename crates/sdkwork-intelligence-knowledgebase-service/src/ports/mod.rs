@@ -26,6 +26,7 @@ pub mod knowledge_okf_concept_link_store;
 pub mod knowledge_okf_concept_store;
 pub mod knowledge_outbox_dispatcher;
 pub mod knowledge_outbox_store;
+pub mod knowledge_provider_binding_store;
 pub mod knowledge_retrieval_backend;
 pub mod knowledge_retrieval_trace_store;
 pub mod knowledge_source_store;

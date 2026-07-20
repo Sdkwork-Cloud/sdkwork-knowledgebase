@@ -21,6 +21,7 @@ pub mod okf;
 pub mod okf_bundle_file;
 pub mod operations;
 pub mod problem;
+pub mod provider_binding;
 pub mod rag;
 mod serde_int64;
 pub mod site_deployment;
@@ -52,6 +53,7 @@ pub use okf::*;
 pub use okf_bundle_file::*;
 pub use operations::*;
 pub use problem::*;
+pub use provider_binding::*;
 pub use rag::*;
 pub use serde_int64::{
     parse_canonical_nonnegative_signed_i64, parse_canonical_positive_signed_i64,
