@@ -4,7 +4,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
 };
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
+    KnowledgeEngineError, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
+    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_weaviate::{
@@ -154,7 +155,7 @@ async fn weaviate_read_document_fetches_object_by_id() {
 }
 
 #[tokio::test]
-async fn weaviate_list_documents_returns_class_descriptor() {
+async fn weaviate_list_documents_is_explicitly_unsupported() {
     let config = WeaviateConnectorConfig {
         base_url: "http://localhost:8080".to_string(),
         api_key: None,
@@ -164,16 +165,42 @@ async fn weaviate_list_documents_returns_class_descriptor() {
     };
     let engine = WeaviateKnowledgeEngine::with_config(config, None);
 
-    let list = engine
+    let error = engine
         .list_documents(KnowledgeEngineListRequest {
             tenant_id: 1,
             space_id: 42,
             limit: 10,
         })
         .await
-        .expect("list");
+        .expect_err("list_documents must not synthesize class descriptors");
 
-    assert_eq!(list.items.len(), 1);
-    assert_eq!(list.items[0].document_id, "42/KnowledgeChunk");
-    assert_eq!(list.items[0].title, "KnowledgeChunk");
+    assert!(matches!(error, KnowledgeEngineError::Unsupported(_)));
+}
+
+async fn assert_weaviate_health(upstream_status: u16, expected: KnowledgeEngineHealthStatus) {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/.well-known/ready"))
+        .respond_with(ResponseTemplate::new(upstream_status))
+        .expect(if upstream_status >= 500 { 3 } else { 1 })
+        .mount(&mock_server)
+        .await;
+    let engine = WeaviateKnowledgeEngine::with_config(
+        WeaviateConnectorConfig {
+            base_url: mock_server.uri(),
+            api_key: None,
+            default_class_name: Some("HealthClass".to_string()),
+            title_property: DEFAULT_WEAVIATE_TITLE_PROPERTY.to_string(),
+            content_property: DEFAULT_WEAVIATE_CONTENT_PROPERTY.to_string(),
+        },
+        None,
+    );
+
+    assert_eq!(engine.health().await.expect("health").status, expected);
+}
+
+#[tokio::test]
+async fn weaviate_health_maps_upstream_availability() {
+    assert_weaviate_health(200, KnowledgeEngineHealthStatus::Available).await;
+    assert_weaviate_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }

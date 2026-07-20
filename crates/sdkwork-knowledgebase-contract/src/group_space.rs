@@ -1,8 +1,8 @@
 use crate::serde_int64::{
     deserialize_nonnegative_i64_as_u64_from_string_or_number,
     deserialize_option_positive_i64_as_u64_from_string_or_number,
-    deserialize_positive_i64_as_u64_from_string_or_number,
-    serialize_option_u64_as_string, serialize_u64_as_string,
+    deserialize_positive_i64_as_u64_from_string_or_number, serialize_option_u64_as_string,
+    serialize_u64_as_string,
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -433,9 +433,7 @@ mod tests {
         is_valid_group_knowledgebase_launch_ticket, ArchiveGroupKnowledgeSpaceRequest,
         GROUP_KNOWLEDGEBASE_LAUNCH_TICKET_LENGTH,
     };
-    use crate::{
-        parse_canonical_nonnegative_signed_i64, parse_canonical_positive_signed_i64,
-    };
+    use crate::{parse_canonical_nonnegative_signed_i64, parse_canonical_positive_signed_i64};
     use serde_json::json;
 
     fn valid_ticket() -> String {

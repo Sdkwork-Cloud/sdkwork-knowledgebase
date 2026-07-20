@@ -138,7 +138,7 @@ Run from the repository root:
 ```powershell
 pnpm dev
 # cloud development example:
-pnpm dev:browser:postgres:cloud
+pnpm dev:browser:cloud
 ```
 
 Common environment variables:

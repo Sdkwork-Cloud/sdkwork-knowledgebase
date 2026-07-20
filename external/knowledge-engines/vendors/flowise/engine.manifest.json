@@ -19,7 +19,7 @@
     "read": true,
     "list": false,
     "health": true,
-    "ingest": true,
+    "ingest": false,
     "syncSources": false
   },
   "authModels": ["api_key"],

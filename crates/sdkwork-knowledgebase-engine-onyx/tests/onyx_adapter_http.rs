@@ -1,10 +1,32 @@
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
+    KnowledgeEngineHealthStatus, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
 use sdkwork_knowledgebase_engine_onyx::{OnyxConnectorConfig, OnyxKnowledgeEngine};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
+
+async fn assert_onyx_health(upstream_status: u16, expected: KnowledgeEngineHealthStatus) {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/health"))
+        .respond_with(ResponseTemplate::new(upstream_status))
+        .expect(if upstream_status >= 500 { 3 } else { 1 })
+        .mount(&mock_server)
+        .await;
+    let engine = OnyxKnowledgeEngine::with_config(OnyxConnectorConfig {
+        base_url: mock_server.uri(),
+        api_key: "health-key".to_string(),
+    });
+
+    assert_eq!(engine.health().await.expect("health").status, expected);
+}
+
+#[tokio::test]
+async fn onyx_health_maps_upstream_availability() {
+    assert_onyx_health(200, KnowledgeEngineHealthStatus::Available).await;
+    assert_onyx_health(503, KnowledgeEngineHealthStatus::Degraded).await;
+}
 
 #[tokio::test]
 async fn onyx_search_maps_unified_search_results() {

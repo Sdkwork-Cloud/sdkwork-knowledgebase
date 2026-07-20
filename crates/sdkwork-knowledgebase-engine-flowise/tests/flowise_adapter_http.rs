@@ -4,7 +4,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
 };
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
+    KnowledgeEngineHealthStatus, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_flowise::{
@@ -17,6 +17,32 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 struct MockSourceStore {
     sources: HashMap<u64, Vec<KnowledgeSource>>,
+}
+
+async fn assert_flowise_health(upstream_status: u16, expected: KnowledgeEngineHealthStatus) {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/document-store/store/health-store"))
+        .respond_with(ResponseTemplate::new(upstream_status))
+        .expect(if upstream_status >= 500 { 3 } else { 1 })
+        .mount(&mock_server)
+        .await;
+    let engine = FlowiseKnowledgeEngine::with_config(
+        FlowiseConnectorConfig {
+            base_url: mock_server.uri(),
+            api_key: "health-key".to_string(),
+            default_store_id: Some("health-store".to_string()),
+        },
+        None,
+    );
+
+    assert_eq!(engine.health().await.expect("health").status, expected);
+}
+
+#[tokio::test]
+async fn flowise_health_maps_upstream_availability() {
+    assert_flowise_health(200, KnowledgeEngineHealthStatus::Available).await;
+    assert_flowise_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
 #[async_trait]

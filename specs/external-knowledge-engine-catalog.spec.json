@@ -4,6 +4,7 @@
   "owner": "sdkwork-knowledgebase",
   "catalogRoot": "external/knowledge-engines",
   "catalogManifest": "external/knowledge-engines/catalog.manifest.json",
+  "certificationManifest": "external/knowledge-engines/provider-certification.manifest.json",
   "vendorManifestPattern": "external/knowledge-engines/vendors/{vendorId}/engine.manifest.json",
   "upstreamSubmoduleRoot": "external/knowledge-engines/upstream",
   "relatedSpecs": [
@@ -46,7 +47,8 @@
     "Catalog metadata is authoritative for external engine registration; upstream git submodules are optional pins under external/knowledge-engines/upstream/{vendorId}.",
     "SDKWork handlers and services MUST NOT call vendor HTTP APIs directly; only approved adapter crates may integrate upstream code or APIs.",
     "Native OKF and native RAG engines are NOT listed in this catalog; they are defined in specs/knowledge-engine-spi.spec.json.",
-    "Adding a vendor requires engine.manifest.json, catalog.manifest.json entry, and passing tools/check_external_knowledge_engine_catalog.mjs."
+    "Adding a vendor requires engine.manifest.json, catalog.manifest.json entry, and passing tools/check_external_knowledge_engine_catalog.mjs.",
+    "Adapter and production tiers require executable health success/degradation, search, read, and unsupported-list contract evidence; production tier additionally requires version-pinned live certification evidence."
   ],
   "verification": {
     "commands": [

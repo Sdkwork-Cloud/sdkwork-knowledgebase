@@ -1,5 +1,6 @@
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    descriptor_for_mode, implementation_id_from_provider, KnowledgeEngineId,
+    descriptor_for_external_search_read, descriptor_for_mode, implementation_id_from_provider,
+    KnowledgeEngineCapability, KnowledgeEngineId,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 
@@ -12,6 +13,9 @@ fn okf_native_descriptor_maps_to_okf_mode() {
         KnowledgeAgentKnowledgeMode::OkfBundle
     );
     assert!(descriptor.native);
+    assert!(descriptor.supports(KnowledgeEngineCapability::Search));
+    assert!(descriptor.supports(KnowledgeEngineCapability::ReadDocument));
+    assert!(descriptor.supports(KnowledgeEngineCapability::ListDocuments));
 }
 
 #[test]
@@ -20,6 +24,9 @@ fn rag_native_descriptor_maps_to_rag_mode() {
     assert_eq!(descriptor.implementation_id, KnowledgeEngineId::RAG_NATIVE);
     assert_eq!(descriptor.knowledge_mode, KnowledgeAgentKnowledgeMode::Rag);
     assert!(descriptor.native);
+    assert!(descriptor.supports(KnowledgeEngineCapability::Search));
+    assert!(descriptor.supports(KnowledgeEngineCapability::ReadDocument));
+    assert!(descriptor.supports(KnowledgeEngineCapability::ListDocuments));
 }
 
 #[test]
@@ -30,6 +37,18 @@ fn external_mode_descriptor_is_non_native() {
         KnowledgeAgentKnowledgeMode::External
     );
     assert!(!descriptor.native);
+    assert!(descriptor.capabilities.is_empty());
+}
+
+#[test]
+fn external_search_read_descriptor_publishes_only_proven_capabilities() {
+    let descriptor = descriptor_for_external_search_read("dify", "Dify");
+    assert!(descriptor.supports(KnowledgeEngineCapability::Health));
+    assert!(descriptor.supports(KnowledgeEngineCapability::Search));
+    assert!(descriptor.supports(KnowledgeEngineCapability::ReadDocument));
+    assert!(!descriptor.supports(KnowledgeEngineCapability::ListDocuments));
+    assert!(!descriptor.supports(KnowledgeEngineCapability::Ingest));
+    assert!(!descriptor.supports(KnowledgeEngineCapability::SyncSources));
 }
 
 #[test]

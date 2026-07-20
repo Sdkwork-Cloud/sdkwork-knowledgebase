@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-import { readFile, access } from "node:fs/promises";
+import { readFile, access, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const specPath = "specs/external-knowledge-engine-catalog.spec.json";
 const catalogPath = "external/knowledge-engines/catalog.manifest.json";
+const certificationPath = "external/knowledge-engines/provider-certification.manifest.json";
 
 const vendorIdPattern = /^[a-z0-9][a-z0-9_-]*$/;
 const implementationIdPattern =
@@ -23,21 +24,49 @@ function assert(condition, message) {
 
 const spec = JSON.parse(await readFile(path.join(root, specPath), "utf8"));
 const catalog = JSON.parse(await readFile(path.join(root, catalogPath), "utf8"));
+const certification = JSON.parse(
+  await readFile(path.join(root, certificationPath), "utf8"),
+);
 
 assert(
   catalog.kind === "sdkwork.external-knowledge-engine-catalog",
   `${catalogPath} must declare kind sdkwork.external-knowledge-engine-catalog`,
 );
+assert(
+  certification.kind === "sdkwork.knowledge-engine-provider-certification",
+  `${certificationPath} must declare kind sdkwork.knowledge-engine-provider-certification`,
+);
+
+const certificationsByVendor = new Map();
+for (const provider of certification.providers ?? []) {
+  assert(
+    !certificationsByVendor.has(provider.vendorId),
+    `${certificationPath}: duplicate vendorId ${provider.vendorId}`,
+  );
+  certificationsByVendor.set(provider.vendorId, provider);
+}
 
 const categories = new Set(spec.categories);
 const tiers = new Set(spec.integrationTiers);
 const seenVendorIds = new Set();
 const seenImplementationIds = new Set();
+const runtimeAdapterSource = await readFile(
+  path.join(
+    root,
+    "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs",
+  ),
+  "utf8",
+);
 
 for (const entry of catalog.vendors ?? []) {
   const vendorManifestRel = entry.manifestPath;
   const vendorManifestAbs = path.join(root, vendorManifestRel);
   let vendor;
+  const providerCertification = certificationsByVendor.get(entry.vendorId);
+  assert(
+    providerCertification,
+    `${certificationPath}: missing provider ${entry.vendorId}`,
+  );
   try {
     vendor = JSON.parse(await readFile(vendorManifestAbs, "utf8"));
   } catch {
@@ -61,6 +90,14 @@ for (const entry of catalog.vendors ?? []) {
     `${vendorManifestRel}: implementationId must match catalog entry`,
   );
   assert(
+    vendor.integrationTier === entry.integrationTier,
+    `${vendorManifestRel}: integrationTier must match catalog entry`,
+  );
+  assert(
+    vendor.category === entry.category,
+    `${vendorManifestRel}: category must match catalog entry`,
+  );
+  assert(
     implementationIdPattern.test(vendor.implementationId),
     `${vendorManifestRel}: invalid implementationId`,
   );
@@ -71,7 +108,7 @@ for (const entry of catalog.vendors ?? []) {
   assert(categories.has(vendor.category), `${vendorManifestRel}: unknown category`);
   assert(tiers.has(vendor.integrationTier), `${vendorManifestRel}: unknown integrationTier`);
 
-  if (vendor.integrationTier === "adapter") {
+  if (["adapter", "production"].includes(vendor.integrationTier)) {
     const adapterCrate = vendor.adapterCrate
       ?? spec.adapterCratePattern.replace("{vendorId}", vendor.vendorId);
     assert(
@@ -85,6 +122,146 @@ for (const entry of catalog.vendors ?? []) {
         `${vendorManifestRel}: integrationTier adapter requires adapter crate at ${adapterCrate}`,
       );
     }
+
+    const adapterCargoSource = await readFile(
+      path.join(root, adapterCrate, "Cargo.toml"),
+      "utf8",
+    );
+    const adapterClientSource = await readFile(
+      path.join(root, adapterCrate, "src/client.rs"),
+      "utf8",
+    );
+    assert(
+      adapterCargoSource.includes(
+        "sdkwork-knowledgebase-provider-runtime.workspace = true",
+      ),
+      `${vendorManifestRel}: adapter must depend on the shared Provider Runtime`,
+    );
+    assert(
+      adapterClientSource.includes("ProviderRuntime"),
+      `${vendorManifestRel}: adapter client must execute through ProviderRuntime`,
+    );
+    const forbiddenDirectHttpPatterns = [
+      ["reqwest::Client", "reqwest::Client"],
+      ["RequestBuilder", "reqwest::RequestBuilder"],
+      ["Client::new()", "Client::new()"],
+      [".send()", "direct request send"],
+    ];
+    for (const [pattern, label] of forbiddenDirectHttpPatterns) {
+      assert(
+        !adapterClientSource.includes(pattern),
+        `${vendorManifestRel}: adapter client must not use ${label}; use ProviderRuntime`,
+      );
+    }
+
+    const adapterSource = await readFile(
+      path.join(root, adapterCrate, "src/lib.rs"),
+      "utf8",
+    );
+    const adapterTestsDir = path.join(root, adapterCrate, "tests");
+    let adapterTestSource = "";
+    try {
+      const testFiles = (await readdir(adapterTestsDir))
+        .filter((file) => file.endsWith(".rs"));
+      adapterTestSource = (
+        await Promise.all(
+          testFiles.map((file) => readFile(path.join(adapterTestsDir, file), "utf8")),
+        )
+      ).join("\n");
+    } catch {
+      violations.push(`${vendorManifestRel}: adapter tests directory is required`);
+    }
+    const runtimeCrateName = adapterCrate
+      .split("/")
+      .at(-1)
+      .replaceAll("-", "_");
+    assert(
+      runtimeAdapterSource.includes(runtimeCrateName),
+      `${vendorManifestRel}: adapter crate must be wired by knowledge_engine_adapters.rs`,
+    );
+
+    if (adapterSource.includes("descriptor_for_external_search_read")) {
+      const expectedMapping = {
+        search: true,
+        read: true,
+        list: false,
+        health: true,
+        ingest: false,
+        syncSources: false,
+      };
+      for (const [capability, expected] of Object.entries(expectedMapping)) {
+        assert(
+          vendor.spiMapping?.[capability] === expected,
+          `${vendorManifestRel}: spiMapping.${capability} must be ${expected} for the runtime descriptor`,
+        );
+      }
+    } else {
+      violations.push(
+        `${vendorManifestRel}: adapter must publish runtime capabilities through an approved descriptor helper`,
+      );
+    }
+
+    assert(
+      providerCertification?.contractGate === "required",
+      `${certificationPath}: ${vendor.vendorId} adapter contractGate must be required`,
+    );
+    assert(
+      adapterTestSource.includes("health_maps_upstream_availability")
+        && adapterTestSource.includes("KnowledgeEngineHealthStatus::Available")
+        && adapterTestSource.includes("KnowledgeEngineHealthStatus::Degraded")
+        && adapterTestSource.includes(
+          ".expect(if upstream_status >= 500 { 3 } else { 1 })",
+        ),
+      `${vendorManifestRel}: adapter certification requires health success and degradation tests`,
+    );
+    assert(
+      /async fn [a-z0-9_]*search[a-z0-9_]*\(/.test(adapterTestSource),
+      `${vendorManifestRel}: adapter certification requires an executable search test`,
+    );
+    assert(
+      /async fn [a-z0-9_]*read_document[a-z0-9_]*\(/.test(adapterTestSource),
+      `${vendorManifestRel}: adapter certification requires an executable read_document test`,
+    );
+    const listMethodStart = adapterSource.indexOf("async fn list_documents");
+    const listMethodEvidence = listMethodStart >= 0
+      ? adapterSource.slice(listMethodStart, listMethodStart + 1_200)
+      : "";
+    assert(
+      listMethodEvidence.includes("KnowledgeEngineError::Unsupported"),
+      `${vendorManifestRel}: spiMapping.list=false requires explicit Unsupported method behavior`,
+    );
+
+    const liveStatus = providerCertification?.liveCertification?.status;
+    assert(
+      liveStatus === "pending" || liveStatus === "certified",
+      `${certificationPath}: ${vendor.vendorId} liveCertification.status must be pending or certified`,
+    );
+    if (liveStatus === "certified" || vendor.integrationTier === "production") {
+      for (const field of certification.policy?.productionEvidence ?? []) {
+        assert(
+          providerCertification?.liveCertification?.[field],
+          `${certificationPath}: ${vendor.vendorId} production certification requires ${field}`,
+        );
+      }
+    }
+    if (vendor.integrationTier === "production") {
+      assert(
+        liveStatus === "certified",
+        `${certificationPath}: ${vendor.vendorId} production tier requires certified live evidence`,
+      );
+    }
+  } else {
+    for (const field of spec.requiredSpiMappingFields) {
+      assert(
+        vendor.spiMapping?.[field] === false,
+        `${vendorManifestRel}: non-adapter tier must not advertise executable spiMapping.${field}`,
+      );
+    }
+    assert(
+      providerCertification?.contractGate === "not-applicable"
+        && providerCertification?.liveCertification?.status === "not-applicable",
+      `${certificationPath}: non-executable ${vendor.vendorId} must be not-applicable`,
+    );
   }
 
   for (const field of spec.requiredUpstreamFields) {
@@ -115,6 +292,13 @@ for (const entry of catalog.vendors ?? []) {
     `duplicate implementationId ${vendor.implementationId}`,
   );
   seenImplementationIds.add(vendor.implementationId);
+}
+
+for (const vendorId of certificationsByVendor.keys()) {
+  assert(
+    seenVendorIds.has(vendorId),
+    `${certificationPath}: unknown provider ${vendorId}`,
+  );
 }
 
 const externalCatalogSource = await readFile(

@@ -64,8 +64,13 @@ const requiredPaths = [
   "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_native.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/space_resolver.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs",
+  "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_registry.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_kernel_bridge.rs",
   "crates/sdkwork-knowledgebase-contract/tests/knowledge_engine_contract.rs",
+  "tools/evaluate_knowledge_engine_retrieval.mjs",
+  "tools/evaluate_knowledge_engine_retrieval.test.mjs",
+  "tests/fixtures/knowledge-engine-evaluation/v1/golden.json",
+  "tests/fixtures/knowledge-engine-evaluation/v1/sample-results.json",
 ];
 
 for (const relativePath of requiredPaths) {
@@ -200,6 +205,11 @@ assert(
   hostedBackendSource.includes("knowledge_engine_registry"),
   "retrieve_provider_health must report registered knowledge engines",
 );
+assert(
+  hostedBackendSource.includes("KnowledgeEngineCapability::Health")
+    && !hostedBackendSource.includes("if !descriptor.native"),
+  "provider health must check every registered engine with the health capability",
+);
 
 assert(
   runtimeSource.includes("KnowledgeEngineSpaceResolver"),
@@ -219,6 +229,22 @@ assert(
 assert(
   portsSource.includes("trait KnowledgeEngineRegistrar"),
   "knowledge engine ports must declare KnowledgeEngineRegistrar (spec registry.register)",
+);
+assert(
+  portsSource.includes("Result<(), KnowledgeEngineError>")
+    && portsSource.includes("duplicate knowledge engine registration")
+    && portsSource.includes("contains_key(&id)"),
+  "knowledge engine registration must reject duplicate implementation ids without replacement",
+);
+
+const externalEngineSpec = spec.engineKinds.find((engine) => engine.id === "external");
+assert(
+  externalEngineSpec
+    && externalEngineSpec.nativeCapabilities.includes("health")
+    && externalEngineSpec.nativeCapabilities.includes("search")
+    && externalEngineSpec.nativeCapabilities.includes("read")
+    && !externalEngineSpec.nativeCapabilities.includes("list"),
+  "external engine baseline capabilities must not imply document listing",
 );
 
 const externalCatalogSource = await readFile(
@@ -266,6 +292,13 @@ assert(
     "utf8",
   )).includes("parse_compound_document_ref"),
   "contract must expose shared compound external document ref parsing",
+);
+assert(
+  (await readFile(
+    path.join(root, "crates/sdkwork-knowledgebase-contract/src/knowledge_engine.rs"),
+    "utf8",
+  )).includes("enum KnowledgeEngineCapability"),
+  "knowledge engine descriptors must publish machine-readable capabilities",
 );
 
 assert(

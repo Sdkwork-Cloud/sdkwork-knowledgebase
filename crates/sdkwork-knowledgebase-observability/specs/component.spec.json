@@ -65,6 +65,7 @@
       "wrap_router_with_metrics",
       "metrics_route",
       "metrics_handler",
+      "install_provider_metrics",
       "init_tracing_from_env"
     ],
     "providedPorts": [
@@ -83,7 +84,8 @@
     "dependencyApiExports": [],
     "dependencyApiSurfaces": [],
     "events": [
-      "AuditPersistenceEvent"
+      "AuditPersistenceEvent",
+      "ProviderTelemetryEvent"
     ],
     "configKeys": [
       "SDKWORK_KNOWLEDGEBASE_ENVIRONMENT",

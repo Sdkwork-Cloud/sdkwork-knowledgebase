@@ -28,7 +28,7 @@ Explicit development variants use suffixed commands such as:
 
 ```bash
 pnpm dev:browser:sqlite
-pnpm dev:browser:postgres:cloud
+pnpm dev:browser:cloud
 ```
 
 ## Local URLs

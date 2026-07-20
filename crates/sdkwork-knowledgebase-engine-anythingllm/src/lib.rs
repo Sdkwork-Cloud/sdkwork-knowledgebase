@@ -13,10 +13,11 @@ use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    descriptor_for_external, parse_compound_document_ref, KnowledgeEngineDescriptor,
-    KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineError,
-    KnowledgeEngineHealth, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
-    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
+    descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
+    KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
+    KnowledgeEngineError, KnowledgeEngineHealth, KnowledgeEngineHealthStatus,
+    KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
+    KnowledgeEngineSearchResult,
 };
 use std::sync::Arc;
 
@@ -81,7 +82,11 @@ impl AnythingLlmKnowledgeEngine {
         } else {
             "AnythingLLM (external adapter — unconfigured)"
         };
-        descriptor_for_external(ANYTHINGLLM_VENDOR_ID, display_name)
+        if self.config.is_some() {
+            descriptor_for_external_search_read(ANYTHINGLLM_VENDOR_ID, display_name)
+        } else {
+            descriptor_for_external(ANYTHINGLLM_VENDOR_ID, display_name)
+        }
     }
 
     fn unconfigured_message(&self) -> String {

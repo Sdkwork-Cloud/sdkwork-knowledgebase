@@ -26,6 +26,7 @@ pub mod tracing_support;
 mod otel;
 
 mod okf_metrics;
+mod provider_metrics;
 
 use axum::{
     extract::Request,
@@ -34,6 +35,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use okf_metrics::render_okf_prometheus_metrics;
+use provider_metrics::render_provider_prometheus_metrics;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
@@ -41,6 +43,7 @@ pub use okf_metrics::{
     record_okf_bundle_exported, record_okf_bundle_imported, record_okf_bundle_lint_completed,
     record_okf_concept_publish, record_okf_concept_upsert,
 };
+pub use provider_metrics::{install_provider_metrics, KnowledgebaseProviderMetrics};
 
 static REQUESTS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static REQUEST_ERRORS_TOTAL: AtomicU64 = AtomicU64::new(0);
@@ -90,7 +93,7 @@ pub async fn metrics_handler() -> impl IntoResponse {
          # HELP knowledgebase_health_status Service readiness gauge (1=ready, 0=not ready).\n\
          # TYPE knowledgebase_health_status gauge\n\
          knowledgebase_health_status {}\n\
-         {}{}{}",
+         {}{}{}{}",
         REQUESTS_TOTAL.load(Ordering::Relaxed),
         REQUEST_ERRORS_TOTAL.load(Ordering::Relaxed),
         REQUEST_AUTH_FAILURES_TOTAL.load(Ordering::Relaxed),
@@ -99,6 +102,7 @@ pub async fn metrics_handler() -> impl IntoResponse {
         render_okf_prometheus_metrics(),
         audit::render_audit_prometheus_metrics(),
         billing_metrics::render_billing_prometheus_metrics(),
+        render_provider_prometheus_metrics(),
     );
 
     (
@@ -112,6 +116,7 @@ pub async fn metrics_handler() -> impl IntoResponse {
 }
 
 pub fn metrics_route() -> axum::Router {
+    install_provider_metrics();
     axum::Router::new().route("/metrics", axum::routing::get(metrics_handler))
 }
 
@@ -155,5 +160,7 @@ mod tests {
         assert!(text.contains("kb_okf_concept_publish_total"));
         assert!(text.contains("knowledge_retrievals_total"));
         assert!(text.contains("knowledge_context_packs_total"));
+        assert!(text.contains("knowledge_provider_operations_total"));
+        assert!(text.contains("knowledge_provider_operation_duration_seconds"));
     }
 }

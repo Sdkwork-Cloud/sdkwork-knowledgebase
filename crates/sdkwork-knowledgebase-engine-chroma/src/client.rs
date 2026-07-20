@@ -1,9 +1,12 @@
 //! Chroma v2 HTTP client (adapter-local).
 
-use reqwest::{Client, RequestBuilder};
+use reqwest::Method;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineDocument, KnowledgeEngineDocumentRef, KnowledgeEngineError,
     KnowledgeEngineSearchHit, KnowledgeEngineSearchResult,
+};
+use sdkwork_knowledgebase_provider_runtime::{
+    ProviderExecutionContext, ProviderHttpRequest, ProviderOperation, ProviderRuntime,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -14,22 +17,18 @@ use crate::CHROMA_IMPLEMENTATION_ID;
 #[derive(Clone)]
 pub struct ChromaApiClient {
     config: ChromaConnectorConfig,
-    http: Client,
+    http: ProviderRuntime,
 }
 
 impl ChromaApiClient {
     pub fn new(config: ChromaConnectorConfig) -> Self {
-        Self {
-            config,
-            http: Client::new(),
-        }
+        let http = ProviderRuntime::for_base_url(&config.base_url)
+            .expect("Chroma base URL must satisfy Provider Runtime target policy");
+        Self { config, http }
     }
 
-    fn authed(&self, builder: RequestBuilder) -> RequestBuilder {
-        match self.config.api_key.as_deref() {
-            Some(api_key) => builder.bearer_auth(api_key),
-            None => builder,
-        }
+    fn context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_implementation(CHROMA_IMPLEMENTATION_ID)
     }
 
     fn collection_path(&self, collection_id: &str, suffix: &str) -> String {
@@ -46,20 +45,16 @@ impl ChromaApiClient {
             "{}/api/v2/heartbeat",
             self.config.base_url.trim_end_matches('/')
         );
-        let response = self
-            .authed(self.http.get(url))
-            .send()
+        let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
+            .optional_bearer_auth(self.config.api_key.as_deref())
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        self.http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(KnowledgeEngineError::Internal(format!(
-                "chroma connector health failed with status {}",
-                response.status()
-            )))
-        }
+            .map_err(KnowledgeEngineError::from)?;
+        Ok(())
     }
 
     pub async fn query_collection(
@@ -70,28 +65,23 @@ impl ChromaApiClient {
         top_k: u32,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
         let url = format!("{}/query", self.collection_path(collection_id, ""));
-        let response = self
-            .authed(self.http.post(url))
+        let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
+            .map_err(KnowledgeEngineError::from)?
+            .optional_bearer_auth(self.config.api_key.as_deref())
+            .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "query_texts": [query],
                 "n_results": top_k,
                 "include": ["metadatas", "documents", "distances"],
             }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "chroma query failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: ChromaQueryResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: ChromaQueryResponse = response.json().map_err(KnowledgeEngineError::from)?;
 
         let hits = map_query_response_to_hits(space_id, payload);
         Ok(KnowledgeEngineSearchResult {
@@ -106,33 +96,22 @@ impl ChromaApiClient {
         record_id: &str,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let url = format!("{}/get", self.collection_path(collection_id, ""));
-        let response = self
-            .authed(self.http.post(url))
+        let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::POST, url)
+            .map_err(KnowledgeEngineError::from)?
+            .optional_bearer_auth(self.config.api_key.as_deref())
+            .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "ids": [record_id],
                 "include": ["metadatas", "documents"],
             }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(KnowledgeEngineError::NotFound(format!(
-                "chroma record not found: collection={collection_id} id={record_id}"
-            )));
-        }
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "chroma get failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: ChromaGetResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: ChromaGetResponse = response.json().map_err(KnowledgeEngineError::from)?;
 
         let record_id_value = payload.ids.first().cloned().ok_or_else(|| {
             KnowledgeEngineError::NotFound(format!("chroma record payload missing id={record_id}"))
@@ -165,23 +144,17 @@ impl ChromaApiClient {
         collection_id: &str,
     ) -> Result<ChromaCollection, KnowledgeEngineError> {
         let url = self.collection_path(collection_id, "");
+        let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
+            .optional_bearer_auth(self.config.api_key.as_deref())
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
         let response = self
-            .authed(self.http.get(url))
-            .send()
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "chroma get collection failed with status {}",
-                response.status()
-            )));
-        }
-
-        response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))
+            .map_err(KnowledgeEngineError::from)?;
+        response.json().map_err(KnowledgeEngineError::from)
     }
 }
 

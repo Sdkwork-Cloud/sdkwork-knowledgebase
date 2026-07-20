@@ -1,9 +1,12 @@
 //! Weaviate GraphQL / REST HTTP client (adapter-local).
 
-use reqwest::{Client, RequestBuilder};
+use reqwest::Method;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineDocument, KnowledgeEngineDocumentRef, KnowledgeEngineError,
     KnowledgeEngineSearchHit, KnowledgeEngineSearchResult,
+};
+use sdkwork_knowledgebase_provider_runtime::{
+    ProviderExecutionContext, ProviderHttpRequest, ProviderOperation, ProviderRuntime,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -14,22 +17,18 @@ use crate::WEAVIATE_IMPLEMENTATION_ID;
 #[derive(Clone)]
 pub struct WeaviateApiClient {
     config: WeaviateConnectorConfig,
-    http: Client,
+    http: ProviderRuntime,
 }
 
 impl WeaviateApiClient {
     pub fn new(config: WeaviateConnectorConfig) -> Self {
-        Self {
-            config,
-            http: Client::new(),
-        }
+        let http = ProviderRuntime::for_base_url(&config.base_url)
+            .expect("Weaviate base URL must satisfy Provider Runtime target policy");
+        Self { config, http }
     }
 
-    fn authed(&self, builder: RequestBuilder) -> RequestBuilder {
-        match self.config.api_key.as_deref() {
-            Some(api_key) => builder.bearer_auth(api_key),
-            None => builder,
-        }
+    fn context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_implementation(WEAVIATE_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self) -> Result<(), KnowledgeEngineError> {
@@ -37,20 +36,16 @@ impl WeaviateApiClient {
             "{}/v1/.well-known/ready",
             self.config.base_url.trim_end_matches('/')
         );
-        let response = self
-            .authed(self.http.get(url))
-            .send()
+        let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
+            .optional_bearer_auth(self.config.api_key.as_deref())
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        self.http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(KnowledgeEngineError::Internal(format!(
-                "weaviate connector health failed with status {}",
-                response.status()
-            )))
-        }
+            .map_err(KnowledgeEngineError::from)?;
+        Ok(())
     }
 
     pub async fn near_text_search(
@@ -68,24 +63,20 @@ impl WeaviateApiClient {
             self.config.content_property,
         );
         let url = format!("{}/v1/graphql", self.config.base_url.trim_end_matches('/'));
-        let response = self
-            .authed(self.http.post(url))
+        let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
+            .map_err(KnowledgeEngineError::from)?
+            .optional_bearer_auth(self.config.api_key.as_deref())
+            .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({ "query": graphql }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "weaviate graphql search failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: WeaviateGraphqlResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: WeaviateGraphqlResponse =
+            response.json().map_err(KnowledgeEngineError::from)?;
 
         let objects = payload
             .data
@@ -121,29 +112,18 @@ impl WeaviateApiClient {
             "{}/v1/objects/{class_name}/{object_id}",
             self.config.base_url.trim_end_matches('/')
         );
+        let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
+            .optional_bearer_auth(self.config.api_key.as_deref())
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
         let response = self
-            .authed(self.http.get(url))
-            .send()
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(KnowledgeEngineError::NotFound(format!(
-                "weaviate object not found: class={class_name} id={object_id}"
-            )));
-        }
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "weaviate get object failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: WeaviateObjectResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: WeaviateObjectResponse =
+            response.json().map_err(KnowledgeEngineError::from)?;
 
         let properties = payload.properties.unwrap_or(Value::Null);
         let title = property_string(&properties, &self.config.title_property)

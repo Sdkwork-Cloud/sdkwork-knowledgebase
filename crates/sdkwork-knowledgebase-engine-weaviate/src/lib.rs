@@ -13,8 +13,8 @@ use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    descriptor_for_external, parse_compound_document_ref, KnowledgeEngineDescriptor,
-    KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineDocumentRef,
+    descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
+    KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
     KnowledgeEngineError, KnowledgeEngineHealth, KnowledgeEngineHealthStatus,
     KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
     KnowledgeEngineSearchResult,
@@ -84,7 +84,11 @@ impl WeaviateKnowledgeEngine {
         } else {
             "Weaviate (external adapter — unconfigured)"
         };
-        descriptor_for_external(WEAVIATE_VENDOR_ID, display_name)
+        if self.config.is_some() {
+            descriptor_for_external_search_read(WEAVIATE_VENDOR_ID, display_name)
+        } else {
+            descriptor_for_external(WEAVIATE_VENDOR_ID, display_name)
+        }
     }
 
     fn unconfigured_message(&self) -> String {
@@ -191,17 +195,11 @@ impl KnowledgeEngine for WeaviateKnowledgeEngine {
 
     async fn list_documents(
         &self,
-        request: KnowledgeEngineListRequest,
+        _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
-        let class_name = self.resolve_class_name_for_space(request.space_id).await?;
-
-        Ok(KnowledgeEngineDocumentList {
-            items: vec![KnowledgeEngineDocumentRef {
-                document_id: format!("{}/{}", request.space_id, class_name),
-                title: class_name.clone(),
-                source_uri: Some(format!("weaviate://class/{class_name}")),
-            }],
-        })
+        Err(KnowledgeEngineError::Unsupported(
+            "Weaviate adapter does not expose a document enumeration API".to_string(),
+        ))
     }
 }
 
@@ -213,7 +211,7 @@ impl ExternalKnowledgeEngine for WeaviateKnowledgeEngine {
 
     async fn sync_sources(&self, _space_id: u64) -> Result<u32, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
-            "Weaviate sync_sources is managed via object ingest APIs; adapter exposes search/read/list only"
+            "Weaviate sync_sources is managed via object ingest APIs; adapter exposes search/read only"
                 .to_string(),
         ))
     }

@@ -41,7 +41,8 @@ use sdkwork_knowledgebase_contract::okf::{
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_contract::space::KnowledgeSpace;
-use sdkwork_knowledgebase_engine_dify::DifyKnowledgeEngine;
+use sdkwork_knowledgebase_engine_dify::{DifyConnectorConfig, DifyKnowledgeEngine};
+use sdkwork_knowledgebase_engine_ragflow::{RagflowConnectorConfig, RagflowKnowledgeEngine};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -340,7 +341,7 @@ impl KnowledgeSourceStore for MockSourceStore {
 }
 
 #[tokio::test]
-async fn resolve_for_space_uses_connector_provider_override() {
+async fn native_space_mode_is_not_overridden_by_connector_source() {
     let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
         okf: OkfNativeKnowledgeEngineDeps::minimal(
@@ -353,7 +354,7 @@ async fn resolve_for_space_uses_connector_provider_override() {
         rag_index_store: None,
         rag_embedding_store: None,
         rag_embedder: None,
-        external_engines: vec![Arc::new(DifyKnowledgeEngine::stub())],
+        external_engines: vec![Arc::new(configured_dify_engine())],
     }));
 
     let resolver = KnowledgeEngineSpaceResolver::new(
@@ -392,11 +393,95 @@ async fn resolve_for_space_uses_connector_provider_override() {
     let engine = resolver
         .resolve_for_space(9, None)
         .await
-        .expect("resolve external override");
+        .expect("resolve native RAG mode");
     assert_eq!(
         engine.descriptor().implementation_id,
-        KnowledgeEngineId::external("dify").0
+        KnowledgeEngineId::RAG_NATIVE
     );
+}
+
+#[tokio::test]
+async fn explicit_native_override_wins_for_external_space() {
+    let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
+        tenant_id: 1,
+        okf: OkfNativeKnowledgeEngineDeps::minimal(
+            Arc::new(MockOkfConceptStore),
+            Arc::new(MockDriveStorage),
+        ),
+        rag_documents: Arc::new(MockDocumentStore),
+        retrieval_backend: Arc::new(MockRetrievalBackend),
+        retrieval_traces: Arc::new(MockRetrievalTraceStore),
+        rag_index_store: None,
+        rag_embedding_store: None,
+        rag_embedder: None,
+        external_engines: vec![Arc::new(configured_dify_engine())],
+    }));
+    let resolver = KnowledgeEngineSpaceResolver::new(
+        registry,
+        Arc::new(MockSpaceStore {
+            spaces: HashMap::from([(11, external_space(11))]),
+        }),
+        Arc::new(MockSourceStore {
+            sources: HashMap::from([(11, vec![connector_source(1, 11, "dify")])]),
+        }),
+    );
+
+    let engine = resolver
+        .resolve_for_space(11, Some(KnowledgeAgentKnowledgeMode::OkfBundle))
+        .await
+        .expect("resolve explicit OKF override");
+    assert_eq!(
+        engine.descriptor().implementation_id,
+        KnowledgeEngineId::OKF_NATIVE
+    );
+}
+
+#[tokio::test]
+async fn external_space_rejects_ambiguous_provider_sources() {
+    let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
+        tenant_id: 1,
+        okf: OkfNativeKnowledgeEngineDeps::minimal(
+            Arc::new(MockOkfConceptStore),
+            Arc::new(MockDriveStorage),
+        ),
+        rag_documents: Arc::new(MockDocumentStore),
+        retrieval_backend: Arc::new(MockRetrievalBackend),
+        retrieval_traces: Arc::new(MockRetrievalTraceStore),
+        rag_index_store: None,
+        rag_embedding_store: None,
+        rag_embedder: None,
+        external_engines: vec![
+            Arc::new(configured_dify_engine()),
+            Arc::new(configured_ragflow_engine()),
+        ],
+    }));
+    let resolver = KnowledgeEngineSpaceResolver::new(
+        registry,
+        Arc::new(MockSpaceStore {
+            spaces: HashMap::from([(12, external_space(12))]),
+        }),
+        Arc::new(MockSourceStore {
+            sources: HashMap::from([(
+                12,
+                vec![
+                    connector_source(1, 12, "dify"),
+                    connector_source(2, 12, "ragflow"),
+                ],
+            )]),
+        }),
+    );
+
+    let error = match resolver.resolve_for_space(12, None).await {
+        Ok(_) => panic!("ambiguous external providers must fail"),
+        Err(error) => error,
+    };
+    assert!(matches!(
+        error,
+        sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError::Validation(_)
+    ));
+    assert!(error
+        .to_string()
+        .contains("explicit provider binding is required"));
 }
 
 #[tokio::test]
@@ -413,19 +498,10 @@ async fn resolve_for_external_mode_space_requires_connector_provider() {
         rag_index_store: None,
         rag_embedding_store: None,
         rag_embedder: None,
-        external_engines: vec![Arc::new(DifyKnowledgeEngine::stub())],
+        external_engines: vec![Arc::new(configured_dify_engine())],
     }));
 
-    let external_space = KnowledgeSpace {
-        id: 11,
-        uuid: "space-11".to_string(),
-        name: "External Mode Space".to_string(),
-        description: None,
-        drive_space_id: Some("drive-11".to_string()),
-        status: sdkwork_knowledgebase_contract::space::KnowledgeSpaceStatus::Active,
-        okf_bundle_initialized: false,
-        knowledge_mode: KnowledgeAgentKnowledgeMode::External,
-    };
+    let external_space = external_space(11);
 
     let resolver = KnowledgeEngineSpaceResolver::new(
         registry.clone(),
@@ -477,4 +553,51 @@ async fn resolve_for_external_mode_space_requires_connector_provider() {
         .expect("error value")
         .to_string()
         .contains("no external knowledge engine"));
+}
+
+fn external_space(space_id: u64) -> KnowledgeSpace {
+    KnowledgeSpace {
+        id: space_id,
+        uuid: format!("space-{space_id}"),
+        name: "External Mode Space".to_string(),
+        description: None,
+        drive_space_id: Some(format!("drive-{space_id}")),
+        status: sdkwork_knowledgebase_contract::space::KnowledgeSpaceStatus::Active,
+        okf_bundle_initialized: false,
+        knowledge_mode: KnowledgeAgentKnowledgeMode::External,
+    }
+}
+
+fn connector_source(id: u64, space_id: u64, provider: &str) -> KnowledgeSource {
+    KnowledgeSource {
+        id,
+        space_id,
+        source_type: KnowledgeSourceType::Connector,
+        provider: Some(provider.to_string()),
+        drive_bucket: None,
+        drive_prefix: None,
+        connector_metadata_json: None,
+    }
+}
+
+fn configured_dify_engine() -> DifyKnowledgeEngine {
+    DifyKnowledgeEngine::with_config(
+        DifyConnectorConfig {
+            base_url: "http://127.0.0.1:1/v1".to_string(),
+            api_key: "test-only".to_string(),
+            default_dataset_id: None,
+        },
+        None,
+    )
+}
+
+fn configured_ragflow_engine() -> RagflowKnowledgeEngine {
+    RagflowKnowledgeEngine::with_config(
+        RagflowConnectorConfig {
+            base_url: "http://127.0.0.1:1/api/v1".to_string(),
+            api_key: "test-only".to_string(),
+            default_dataset_id: None,
+        },
+        None,
+    )
 }

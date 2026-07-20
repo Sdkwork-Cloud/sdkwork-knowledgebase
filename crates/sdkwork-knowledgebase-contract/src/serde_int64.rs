@@ -36,9 +36,7 @@ pub fn parse_canonical_positive_signed_i64(value: &str) -> Result<u64, Canonical
 }
 
 /// Parses a nonnegative, canonical decimal value that fits the signed SQL `BIGINT` range.
-pub fn parse_canonical_nonnegative_signed_i64(
-    value: &str,
-) -> Result<u64, CanonicalIntegerError> {
+pub fn parse_canonical_nonnegative_signed_i64(value: &str) -> Result<u64, CanonicalIntegerError> {
     let parsed = parse_canonical_u64(value)?;
     if parsed > MAX_SIGNED_I64_AS_U64 {
         return Err(CanonicalIntegerError::OutOfRange);
@@ -112,9 +110,7 @@ where
 {
     let value = deserialize_u64_from_string_or_number(deserializer)?;
     if value > MAX_SIGNED_I64_AS_U64 {
-        return Err(de::Error::custom(
-            "value must fit a signed 64-bit integer",
-        ));
+        return Err(de::Error::custom("value must fit a signed 64-bit integer"));
     }
     Ok(value)
 }

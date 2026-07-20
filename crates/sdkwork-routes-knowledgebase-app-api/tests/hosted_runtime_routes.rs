@@ -91,6 +91,8 @@ async fn hosted_app_router_creates_manual_document_without_client_source_id() {
 
 #[tokio::test]
 async fn hosted_backend_router_serves_provider_health() {
+    let _env_guard = lock_external_adapter_env().await;
+    clear_external_adapter_env();
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
 
@@ -124,12 +126,57 @@ async fn hosted_backend_router_serves_provider_health() {
         "providerId must include rag native engine: {provider_id}"
     );
     assert!(
-        provider_id.contains("engine.knowledge.external.dify"),
-        "providerId must include dify catalog engine: {provider_id}"
+        !provider_id.contains("engine.knowledge.external."),
+        "unconfigured external engines must not be reported as active health providers: {provider_id}"
     );
     assert!(
-        provider_id.contains("engine.knowledge.external.ragflow"),
-        "providerId must include ragflow catalog engine: {provider_id}"
+        body["checkedAt"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty()),
+        "provider health must report the check timestamp: {body}"
+    );
+}
+
+#[tokio::test]
+async fn hosted_backend_provider_health_degrades_for_failed_external_adapter() {
+    let _env_guard = lock_external_adapter_env().await;
+    clear_external_adapter_env();
+    let mock_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("GET"))
+        .and(wiremock::matchers::path("/datasets/ds-health"))
+        .respond_with(wiremock::ResponseTemplate::new(503))
+        .expect(1)
+        .mount(&mock_server)
+        .await;
+
+    let _dify_base_url = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL",
+        mock_server.uri().as_str(),
+    );
+    let _dify_credential =
+        TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL", "health-test-key");
+    let _dify_dataset = TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_DATASET_ID", "ds-health");
+
+    let runtime = test_runtime().await;
+    let app = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/backend/v3/api/knowledge/provider_health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_body_json(response).await;
+    assert_eq!(body["status"], "degraded");
+    let provider_id = body["providerId"].as_str().expect("providerId");
+    assert!(
+        provider_id.contains("engine.knowledge.external.dify"),
+        "configured Dify adapter must participate in aggregate health: {provider_id}"
     );
 }
 
@@ -4377,6 +4424,19 @@ fn clear_haystack_adapter_env() {
     ] {
         std::env::remove_var(key);
     }
+}
+
+fn clear_external_adapter_env() {
+    clear_dify_adapter_env();
+    clear_ragflow_adapter_env();
+    clear_onyx_adapter_env();
+    clear_anythingllm_adapter_env();
+    clear_open_webui_adapter_env();
+    clear_flowise_adapter_env();
+    clear_chroma_adapter_env();
+    clear_qdrant_adapter_env();
+    clear_weaviate_adapter_env();
+    clear_haystack_adapter_env();
 }
 
 async fn test_runtime() -> KnowledgebaseRuntime {

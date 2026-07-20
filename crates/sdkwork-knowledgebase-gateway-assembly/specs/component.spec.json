@@ -11,10 +11,15 @@
     "capability": "knowledgebase",
     "surface": "gateway/assembly",
     "status": "standard",
-    "languages": ["rust"],
+    "languages": [
+      "rust"
+    ],
     "generated": true,
     "private": false,
-    "manifests": ["Cargo.toml", "assembly-manifest.json"]
+    "manifests": [
+      "Cargo.toml",
+      "assembly-manifest.json"
+    ]
   },
   "contracts": {
     "publicExports": [
@@ -45,7 +50,7 @@
   "verification": {
     "commands": [
       "cargo check -p sdkwork-knowledgebase-standalone-gateway",
-      "pnpm gateway:assembly:validate"
+      "pnpm api:assembly:validate"
     ]
   }
 }

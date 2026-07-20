@@ -1,9 +1,12 @@
 //! Haystack Hayhooks / Deepset Cloud HTTP client (adapter-local).
 
-use reqwest::{Client, RequestBuilder};
+use reqwest::Method;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineDocument, KnowledgeEngineDocumentRef, KnowledgeEngineError,
     KnowledgeEngineSearchHit, KnowledgeEngineSearchResult,
+};
+use sdkwork_knowledgebase_provider_runtime::{
+    ProviderExecutionContext, ProviderHttpRequest, ProviderOperation, ProviderRuntime,
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -14,7 +17,7 @@ use crate::HAYSTACK_IMPLEMENTATION_ID;
 #[derive(Clone)]
 pub struct HaystackApiClient {
     config: HaystackConnectorConfig,
-    http: Client,
+    http: ProviderRuntime,
 }
 
 #[derive(Debug, Clone)]
@@ -28,17 +31,13 @@ struct HaystackDocumentRecord {
 
 impl HaystackApiClient {
     pub fn new(config: HaystackConnectorConfig) -> Self {
-        Self {
-            config,
-            http: Client::new(),
-        }
+        let http = ProviderRuntime::for_base_url(&config.base_url)
+            .expect("Haystack base URL must satisfy Provider Runtime target policy");
+        Self { config, http }
     }
 
-    fn authed(&self, builder: RequestBuilder) -> RequestBuilder {
-        match self.config.api_key.as_deref() {
-            Some(api_key) => builder.bearer_auth(api_key),
-            None => builder,
-        }
+    fn context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_implementation(HAYSTACK_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(
@@ -63,20 +62,16 @@ impl HaystackApiClient {
             }
         };
 
-        let response = self
-            .authed(self.http.get(url))
-            .send()
+        let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
+            .optional_bearer_auth(self.config.api_key.as_deref())
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        self.http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(KnowledgeEngineError::Internal(format!(
-                "haystack connector health failed with status {}",
-                response.status()
-            )))
-        }
+            .map_err(KnowledgeEngineError::from)?;
+        Ok(())
     }
 
     pub async fn search(
@@ -165,24 +160,19 @@ impl HaystackApiClient {
         let mut body = json!({});
         body[self.config.query_field.clone()] = Value::String(query.to_string());
 
-        let response = self
-            .authed(self.http.post(url))
+        let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
+            .map_err(KnowledgeEngineError::from)?
+            .optional_bearer_auth(self.config.api_key.as_deref())
+            .map_err(KnowledgeEngineError::from)?
             .json(&body)
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "haystack hayhooks run failed with status {}",
-                response.status()
-            )));
-        }
-
-        response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))
+            .map_err(KnowledgeEngineError::from)?;
+        response.json().map_err(KnowledgeEngineError::from)
     }
 
     async fn run_deepset_search(
@@ -201,29 +191,24 @@ impl HaystackApiClient {
             "{}/api/v1/workspaces/{workspace}/pipelines/{pipeline}/search",
             self.config.base_url.trim_end_matches('/')
         );
-        let response = self
-            .authed(self.http.post(url))
+        let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
+            .map_err(KnowledgeEngineError::from)?
+            .optional_bearer_auth(self.config.api_key.as_deref())
+            .map_err(KnowledgeEngineError::from)?
             .json(&json!({
                 "queries": [query],
                 "params": {
                     "retriever": { "top_k": top_k }
                 }
             }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "haystack cloud search failed with status {}",
-                response.status()
-            )));
-        }
-
-        response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))
+            .map_err(KnowledgeEngineError::from)?;
+        response.json().map_err(KnowledgeEngineError::from)
     }
 }
 

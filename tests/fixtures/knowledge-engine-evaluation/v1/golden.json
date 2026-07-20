@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.knowledge-engine-retrieval-golden-dataset",
+  "datasetId": "knowledge-engine-contract-sample",
+  "version": "1.0.0",
+  "defaultTopK": 3,
+  "thresholds": {
+    "minRecallAtK": 0.75,
+    "minMrr": 0.75,
+    "minNdcgAtK": 0.75,
+    "minCitationCorrectness": 1.0,
+    "minEmptyQueryPassRate": 1.0,
+    "maxFailureRate": 0.0,
+    "maxP95LatencyMs": 2000
+  },
+  "queries": [
+    {
+      "id": "policy-retention",
+      "query": "What is the document retention period?",
+      "relevantDocumentIds": ["policy-retention", "policy-archive"],
+      "expectedCitationDocumentIds": ["policy-retention", "policy-archive"]
+    },
+    {
+      "id": "incident-escalation",
+      "query": "How is a critical incident escalated?",
+      "relevantDocumentIds": ["runbook-incident"],
+      "expectedCitationDocumentIds": ["runbook-incident"]
+    },
+    {
+      "id": "empty-query",
+      "query": "",
+      "expectRejection": true
+    }
+  ]
+}
+

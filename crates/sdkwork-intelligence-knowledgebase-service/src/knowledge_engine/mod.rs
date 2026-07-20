@@ -298,7 +298,9 @@ impl KnowledgeEngineRuntimeDeps {
 pub fn build_default_registry(deps: KnowledgeEngineRuntimeDeps) -> DefaultKnowledgeEngineRegistry {
     let mut registry = InMemoryKnowledgeEngineRegistry::new();
     let okf_native = Arc::new(OkfNativeKnowledgeEngine::from_deps(deps.okf));
-    registry.register(okf_native.clone());
+    registry
+        .register(okf_native.clone())
+        .expect("OKF native knowledge engine registration must be unique");
 
     let mut rag_engine = RagNativeKnowledgeEngine::new(
         deps.tenant_id,
@@ -316,19 +318,24 @@ pub fn build_default_registry(deps: KnowledgeEngineRuntimeDeps) -> DefaultKnowle
         });
     }
     let rag_native = Arc::new(rag_engine);
-    registry.register(rag_native.clone());
+    registry
+        .register(rag_native.clone())
+        .expect("RAG native knowledge engine registration must be unique");
 
     let mut registered_ids = std::collections::HashSet::new();
     for engine in deps.external_engines {
         let implementation_id = engine.descriptor().implementation_id.clone();
-        if registered_ids.insert(implementation_id) {
-            registry.register(engine);
-        }
+        registry.register(engine).unwrap_or_else(|error| {
+            panic!("external knowledge engine registration failed: {error}")
+        });
+        registered_ids.insert(implementation_id);
     }
     for engine in load_external_engines_from_catalog() {
         let implementation_id = engine.descriptor().implementation_id.clone();
         if registered_ids.insert(implementation_id) {
-            registry.register(engine);
+            registry.register(engine).unwrap_or_else(|error| {
+                panic!("catalog knowledge engine registration failed: {error}")
+            });
         }
     }
 

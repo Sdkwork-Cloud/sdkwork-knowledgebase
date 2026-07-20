@@ -14,8 +14,8 @@ use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    descriptor_for_external, parse_compound_document_ref, KnowledgeEngineDescriptor,
-    KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineDocumentRef,
+    descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
+    KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
     KnowledgeEngineError, KnowledgeEngineHealth, KnowledgeEngineHealthStatus,
     KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
     KnowledgeEngineSearchResult,
@@ -85,7 +85,11 @@ impl HaystackKnowledgeEngine {
         } else {
             "Haystack (external adapter — unconfigured)"
         };
-        descriptor_for_external(HAYSTACK_VENDOR_ID, display_name)
+        if self.config.is_some() {
+            descriptor_for_external_search_read(HAYSTACK_VENDOR_ID, display_name)
+        } else {
+            descriptor_for_external(HAYSTACK_VENDOR_ID, display_name)
+        }
     }
 
     fn unconfigured_message(&self) -> String {
@@ -264,20 +268,11 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
 
     async fn list_documents(
         &self,
-        request: KnowledgeEngineListRequest,
+        _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
-        let pipeline = self.resolve_pipeline_for_space(request.space_id).await?;
-        let workspace = self.resolve_workspace_for_space(request.space_id).await?;
-
-        Ok(KnowledgeEngineDocumentList {
-            items: vec![KnowledgeEngineDocumentRef {
-                document_id: format!("{}/{}", request.space_id, pipeline),
-                title: workspace
-                    .map(|value| format!("{value}/{pipeline}"))
-                    .unwrap_or(pipeline.clone()),
-                source_uri: Some(format!("haystack://pipeline/{pipeline}")),
-            }],
-        })
+        Err(KnowledgeEngineError::Unsupported(
+            "Haystack adapter does not expose a document enumeration API".to_string(),
+        ))
     }
 }
 
@@ -289,7 +284,7 @@ impl ExternalKnowledgeEngine for HaystackKnowledgeEngine {
 
     async fn sync_sources(&self, _space_id: u64) -> Result<u32, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
-            "Haystack sync_sources is managed via pipeline deployment; adapter exposes search/read/list only"
+            "Haystack sync_sources is managed via pipeline deployment; adapter exposes search/read only"
                 .to_string(),
         ))
     }

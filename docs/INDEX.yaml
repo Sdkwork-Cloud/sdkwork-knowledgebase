@@ -11,6 +11,8 @@ canon:
   agentRagDesign: docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md
   groupKnowledgebaseRequirement: docs/product/requirements/REQ-2026-0713-group-knowledgebase.md
   groupKnowledgebaseDecision: docs/architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md
+  providerCommercializationRequirement: docs/product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md
+  providerSpiDecision: docs/architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md
 entries:
   - id: prd
     path: docs/product/prd/PRD.md
@@ -42,6 +44,21 @@ entries:
   - id: RUNBOOK-group-knowledgebase-lifecycle
     path: docs/runbooks/RUNBOOK-group-knowledgebase-lifecycle.md
     kind: runbook
+  - id: REQ-2026-0720
+    path: docs/product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md
+    kind: requirement
+  - id: ADR-20260720
+    path: docs/architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md
+    kind: architecture-decision
+  - id: PLAN-2026-0720
+    path: docs/engineering/plans/PLAN-2026-0720-knowledge-engine-provider-commercialization.md
+    kind: implementation-plan
+  - id: REVIEW-2026-0720
+    path: docs/engineering/reviews/REVIEW-2026-0720-knowledge-engine-provider-commercial-readiness.md
+    kind: engineering-review
+  - id: MIG-2026-0720
+    path: docs/migrations/MIG-2026-0720-knowledge-engine-provider-binding.md
+    kind: migration
 domains:
   - id: product
     path: docs/product

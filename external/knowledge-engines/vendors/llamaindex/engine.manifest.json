@@ -15,11 +15,11 @@
     "homepage": "https://www.llamaindex.ai"
   },
   "spiMapping": {
-    "search": true,
-    "read": true,
-    "list": true,
+    "search": false,
+    "read": false,
+    "list": false,
     "health": false,
-    "ingest": true,
+    "ingest": false,
     "syncSources": false
   },
   "authModels": ["api_key", "env_config"],

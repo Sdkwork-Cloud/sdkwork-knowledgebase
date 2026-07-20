@@ -107,6 +107,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - `docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md`
 - `docs/product/requirements/REQ-2026-0713-group-knowledgebase.md`
 - `docs/architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md`
+- `docs/product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md`
+- `docs/architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md`
 - `specs/okf-knowledge-bundle.spec.json` - OKF bundle layers, browser views, and raw source file list contract
 - `../sdkwork-specs/SECURITY_SPEC.md`, `IAM_SPEC.md`, `APP_SDK_INTEGRATION_SPEC.md`
 - `deployments/README.md` - tenant isolation and observability

@@ -4,7 +4,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
 };
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
+    KnowledgeEngineError, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
+    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_qdrant::{QdrantConnectorConfig, QdrantKnowledgeEngine};
@@ -155,22 +156,10 @@ async fn qdrant_read_document_fetches_point_by_id() {
 }
 
 #[tokio::test]
-async fn qdrant_list_documents_returns_collection_descriptor() {
-    let mock_server = MockServer::start().await;
+async fn qdrant_list_documents_is_explicitly_unsupported() {
     let collection_name = "policies";
-    Mock::given(method("GET"))
-        .and(path(format!("/collections/{collection_name}")))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "result": {
-                "points_count": 42
-            },
-            "status": "ok"
-        })))
-        .mount(&mock_server)
-        .await;
-
     let config = QdrantConnectorConfig {
-        base_url: mock_server.uri(),
+        base_url: "http://localhost:6333".to_string(),
         api_key: None,
         default_collection_name: Some(collection_name.to_string()),
         query_model: Some("sentence-transformers/all-minilm-l6-v2".to_string()),
@@ -178,16 +167,42 @@ async fn qdrant_list_documents_returns_collection_descriptor() {
     };
     let engine = QdrantKnowledgeEngine::with_config(config, None);
 
-    let list = engine
+    let error = engine
         .list_documents(KnowledgeEngineListRequest {
             tenant_id: 1,
             space_id: 42,
             limit: 10,
         })
         .await
-        .expect("list");
+        .expect_err("list_documents must not synthesize collection descriptors");
 
-    assert_eq!(list.items.len(), 1);
-    assert_eq!(list.items[0].document_id, format!("42/{collection_name}"));
-    assert_eq!(list.items[0].title, collection_name);
+    assert!(matches!(error, KnowledgeEngineError::Unsupported(_)));
+}
+
+async fn assert_qdrant_health(upstream_status: u16, expected: KnowledgeEngineHealthStatus) {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/collections/health-collection"))
+        .respond_with(ResponseTemplate::new(upstream_status))
+        .expect(if upstream_status >= 500 { 3 } else { 1 })
+        .mount(&mock_server)
+        .await;
+    let engine = QdrantKnowledgeEngine::with_config(
+        QdrantConnectorConfig {
+            base_url: mock_server.uri(),
+            api_key: None,
+            default_collection_name: Some("health-collection".to_string()),
+            query_model: Some("health-model".to_string()),
+            using_vector: None,
+        },
+        None,
+    );
+
+    assert_eq!(engine.health().await.expect("health").status, expected);
+}
+
+#[tokio::test]
+async fn qdrant_health_maps_upstream_availability() {
+    assert_qdrant_health(200, KnowledgeEngineHealthStatus::Available).await;
+    assert_qdrant_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }

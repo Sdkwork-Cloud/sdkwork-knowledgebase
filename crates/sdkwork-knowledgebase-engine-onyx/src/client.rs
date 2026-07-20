@@ -1,9 +1,12 @@
 //! Onyx unified search HTTP client (adapter-local; handlers must not call Onyx directly).
 
-use reqwest::Client;
+use reqwest::Method;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineDocument, KnowledgeEngineDocumentRef, KnowledgeEngineError,
     KnowledgeEngineSearchHit, KnowledgeEngineSearchResult,
+};
+use sdkwork_knowledgebase_provider_runtime::{
+    ProviderExecutionContext, ProviderHttpRequest, ProviderOperation, ProviderRuntime,
 };
 use serde::Deserialize;
 
@@ -13,35 +16,32 @@ use crate::ONYX_IMPLEMENTATION_ID;
 #[derive(Clone)]
 pub struct OnyxApiClient {
     config: OnyxConnectorConfig,
-    http: Client,
+    http: ProviderRuntime,
 }
 
 impl OnyxApiClient {
     pub fn new(config: OnyxConnectorConfig) -> Self {
-        Self {
-            config,
-            http: Client::new(),
-        }
+        let http = ProviderRuntime::for_base_url(&config.base_url)
+            .expect("Onyx base URL must satisfy Provider Runtime target policy");
+        Self { config, http }
+    }
+
+    fn context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_implementation(ONYX_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self) -> Result<(), KnowledgeEngineError> {
         let url = format!("{}/health", self.config.base_url.trim_end_matches('/'));
-        let response = self
-            .http
-            .get(url)
+        let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
             .bearer_auth(&self.config.api_key)
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        self.http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(KnowledgeEngineError::Internal(format!(
-                "onyx connector health failed with status {}",
-                response.status()
-            )))
-        }
+            .map_err(KnowledgeEngineError::from)?;
+        Ok(())
     }
 
     pub async fn search(
@@ -50,29 +50,22 @@ impl OnyxApiClient {
         query: &str,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
         let url = format!("{}/search", self.config.base_url.trim_end_matches('/'));
-        let response = self
-            .http
-            .post(url)
+        let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
+            .map_err(KnowledgeEngineError::from)?
             .bearer_auth(&self.config.api_key)
+            .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "query": query,
                 "skip_query_expansion": false,
             }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "onyx search failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: OnyxSearchResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: OnyxSearchResponse = response.json().map_err(KnowledgeEngineError::from)?;
 
         if let Some(error) = payload.error.filter(|value| !value.is_empty()) {
             return Err(KnowledgeEngineError::Internal(format!(
@@ -97,28 +90,21 @@ impl OnyxApiClient {
         url: &str,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let endpoint = format!("{}/open_urls", self.config.base_url.trim_end_matches('/'));
-        let response = self
-            .http
-            .post(endpoint)
+        let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::POST, endpoint)
+            .map_err(KnowledgeEngineError::from)?
             .bearer_auth(&self.config.api_key)
+            .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "urls": [url],
             }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "onyx open_urls failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: OnyxOpenUrlsResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: OnyxOpenUrlsResponse = response.json().map_err(KnowledgeEngineError::from)?;
 
         if let Some(error) = payload.error.filter(|value| !value.is_empty()) {
             return Err(KnowledgeEngineError::Internal(format!(

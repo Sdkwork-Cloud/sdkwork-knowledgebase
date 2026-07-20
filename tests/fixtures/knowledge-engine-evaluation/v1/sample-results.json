@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.knowledge-engine-retrieval-results",
+  "datasetId": "knowledge-engine-contract-sample",
+  "datasetVersion": "1.0.0",
+  "providerId": "engine.knowledge.contract.sample",
+  "providerVersion": "fixture-1",
+  "runs": [
+    {
+      "queryId": "policy-retention",
+      "latencyMs": 125,
+      "failed": false,
+      "hits": [
+        { "documentId": "policy-retention", "citationDocumentId": "policy-retention" },
+        { "documentId": "unrelated" },
+        { "documentId": "policy-archive", "citationDocumentId": "policy-archive" }
+      ]
+    },
+    {
+      "queryId": "incident-escalation",
+      "latencyMs": 95,
+      "failed": false,
+      "hits": [
+        { "documentId": "runbook-incident", "citationDocumentId": "runbook-incident" }
+      ]
+    },
+    {
+      "queryId": "empty-query",
+      "rejected": true,
+      "hits": []
+    }
+  ]
+}
+

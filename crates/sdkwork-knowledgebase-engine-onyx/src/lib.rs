@@ -10,10 +10,10 @@ use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    descriptor_for_external, KnowledgeEngineDescriptor, KnowledgeEngineDocument,
-    KnowledgeEngineDocumentList, KnowledgeEngineError, KnowledgeEngineHealth,
-    KnowledgeEngineHealthStatus, KnowledgeEngineListRequest, KnowledgeEngineReadRequest,
-    KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
+    descriptor_for_external, descriptor_for_external_search_read, KnowledgeEngineDescriptor,
+    KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineError,
+    KnowledgeEngineHealth, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
+    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
 };
 
 pub use client::{decode_url_document_id, encode_url_document_id, OnyxApiClient};
@@ -60,7 +60,11 @@ impl OnyxKnowledgeEngine {
         } else {
             "Onyx (external adapter — unconfigured)"
         };
-        descriptor_for_external(ONYX_VENDOR_ID, display_name)
+        if self.config.is_some() {
+            descriptor_for_external_search_read(ONYX_VENDOR_ID, display_name)
+        } else {
+            descriptor_for_external(ONYX_VENDOR_ID, display_name)
+        }
     }
 
     fn unconfigured_message(&self) -> String {

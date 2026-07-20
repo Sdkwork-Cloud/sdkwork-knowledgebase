@@ -1,0 +1,21 @@
+[package]
+name = "sdkwork-knowledgebase-provider-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Bounded and observable outbound HTTP runtime for SDKWork Knowledgebase providers"
+
+[dependencies]
+reqwest.workspace = true
+httpdate.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sdkwork-utils-rust.workspace = true
+sdkwork-knowledgebase-contract.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+wiremock.workspace = true

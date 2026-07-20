@@ -845,28 +845,36 @@ impl KnowledgeBackendApi for HostedBackendApi {
         })?;
 
         use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngineRegistry;
-        use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineHealthStatus;
+        use sdkwork_knowledgebase_contract::knowledge_engine::{
+            KnowledgeEngineCapability, KnowledgeEngineHealthStatus,
+        };
 
         let registry = self.runtime.knowledge_engine_registry();
         let mut engine_ids = Vec::new();
         let mut degraded = false;
 
         for descriptor in registry.list_registered() {
-            engine_ids.push(descriptor.implementation_id.clone());
-            if !descriptor.native {
+            if !descriptor.supports(KnowledgeEngineCapability::Health) {
                 continue;
             }
+            engine_ids.push(descriptor.implementation_id.clone());
             let engine = registry
                 .resolve_by_id(&descriptor.implementation_id)
                 .map_err(|error| map_internal(error.to_string()))?;
-            let health = engine
-                .health()
-                .await
-                .map_err(|error| map_internal(error.to_string()))?;
-            if health.status != KnowledgeEngineHealthStatus::Available {
-                degraded = true;
+            match engine.health().await {
+                Ok(health) if health.status == KnowledgeEngineHealthStatus::Available => {}
+                Ok(_) => degraded = true,
+                Err(error) => {
+                    degraded = true;
+                    tracing::warn!(
+                        implementation_id = %descriptor.implementation_id,
+                        error = %error,
+                        "knowledge engine health check failed"
+                    );
+                }
             }
         }
+        engine_ids.sort();
 
         Ok(KnowledgeProviderHealth {
             status: if degraded {
@@ -875,7 +883,9 @@ impl KnowledgeBackendApi for HostedBackendApi {
                 "ok".to_string()
             },
             provider_id: engine_ids.join(","),
-            checked_at: None,
+            checked_at: time::OffsetDateTime::now_utc()
+                .format(&time::format_description::well_known::Rfc3339)
+                .ok(),
         })
     }
 

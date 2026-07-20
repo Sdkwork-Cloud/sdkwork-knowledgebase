@@ -13,8 +13,8 @@ use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    descriptor_for_external, parse_compound_document_ref, KnowledgeEngineDescriptor,
-    KnowledgeEngineDocument, KnowledgeEngineDocumentList, KnowledgeEngineDocumentRef,
+    descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
+    KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
     KnowledgeEngineError, KnowledgeEngineHealth, KnowledgeEngineHealthStatus,
     KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
     KnowledgeEngineSearchResult,
@@ -83,7 +83,11 @@ impl QdrantKnowledgeEngine {
         } else {
             "Qdrant (external adapter — unconfigured)"
         };
-        descriptor_for_external(QDRANT_VENDOR_ID, display_name)
+        if self.config.is_some() {
+            descriptor_for_external_search_read(QDRANT_VENDOR_ID, display_name)
+        } else {
+            descriptor_for_external(QDRANT_VENDOR_ID, display_name)
+        }
     }
 
     fn unconfigured_message(&self) -> String {
@@ -214,26 +218,11 @@ impl KnowledgeEngine for QdrantKnowledgeEngine {
 
     async fn list_documents(
         &self,
-        request: KnowledgeEngineListRequest,
+        _request: KnowledgeEngineListRequest,
     ) -> Result<KnowledgeEngineDocumentList, KnowledgeEngineError> {
-        let Some(client) = self.client.as_ref() else {
-            return Err(KnowledgeEngineError::Unsupported(
-                self.unconfigured_message(),
-            ));
-        };
-
-        let collection_name = self
-            .resolve_collection_name_for_space(request.space_id)
-            .await?;
-        let _collection = client.get_collection(&collection_name).await?;
-
-        Ok(KnowledgeEngineDocumentList {
-            items: vec![KnowledgeEngineDocumentRef {
-                document_id: format!("{}/{}", request.space_id, collection_name),
-                title: collection_name.clone(),
-                source_uri: Some(format!("qdrant://collection/{collection_name}")),
-            }],
-        })
+        Err(KnowledgeEngineError::Unsupported(
+            "Qdrant adapter does not expose a document enumeration API".to_string(),
+        ))
     }
 }
 
@@ -245,7 +234,7 @@ impl ExternalKnowledgeEngine for QdrantKnowledgeEngine {
 
     async fn sync_sources(&self, _space_id: u64) -> Result<u32, KnowledgeEngineError> {
         Err(KnowledgeEngineError::Unsupported(
-            "Qdrant sync_sources is managed via point upsert APIs; adapter exposes search/read/list only"
+            "Qdrant sync_sources is managed via point upsert APIs; adapter exposes search/read only"
                 .to_string(),
         ))
     }

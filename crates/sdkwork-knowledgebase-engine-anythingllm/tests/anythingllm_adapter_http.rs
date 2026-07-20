@@ -4,7 +4,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
 };
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
+    KnowledgeEngineHealthStatus, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_anythingllm::{
@@ -17,6 +17,32 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 struct MockSourceStore {
     sources: HashMap<u64, Vec<KnowledgeSource>>,
+}
+
+async fn assert_anythingllm_health(upstream_status: u16, expected: KnowledgeEngineHealthStatus) {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/workspace/health-workspace"))
+        .respond_with(ResponseTemplate::new(upstream_status))
+        .expect(if upstream_status >= 500 { 3 } else { 1 })
+        .mount(&mock_server)
+        .await;
+    let engine = AnythingLlmKnowledgeEngine::with_config(
+        AnythingLlmConnectorConfig {
+            base_url: mock_server.uri(),
+            api_key: "health-key".to_string(),
+            default_workspace_slug: Some("health-workspace".to_string()),
+        },
+        None,
+    );
+
+    assert_eq!(engine.health().await.expect("health").status, expected);
+}
+
+#[tokio::test]
+async fn anythingllm_health_maps_upstream_availability() {
+    assert_anythingllm_health(200, KnowledgeEngineHealthStatus::Available).await;
+    assert_anythingllm_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
 #[async_trait]

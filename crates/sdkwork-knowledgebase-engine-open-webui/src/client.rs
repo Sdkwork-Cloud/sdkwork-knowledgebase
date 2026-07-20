@@ -1,9 +1,12 @@
 //! Open WebUI retrieval HTTP client (adapter-local).
 
-use reqwest::Client;
+use reqwest::Method;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineDocument, KnowledgeEngineDocumentRef, KnowledgeEngineError,
     KnowledgeEngineSearchHit, KnowledgeEngineSearchResult,
+};
+use sdkwork_knowledgebase_provider_runtime::{
+    ProviderExecutionContext, ProviderHttpRequest, ProviderOperation, ProviderRuntime,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -15,15 +18,18 @@ use crate::OPEN_WEBUI_IMPLEMENTATION_ID;
 #[derive(Clone)]
 pub struct OpenWebuiApiClient {
     config: OpenWebuiConnectorConfig,
-    http: Client,
+    http: ProviderRuntime,
 }
 
 impl OpenWebuiApiClient {
     pub fn new(config: OpenWebuiConnectorConfig) -> Self {
-        Self {
-            config,
-            http: Client::new(),
-        }
+        let http = ProviderRuntime::for_base_url(&config.base_url)
+            .expect("Open WebUI base URL must satisfy Provider Runtime target policy");
+        Self { config, http }
+    }
+
+    fn context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_implementation(OPEN_WEBUI_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self, knowledge_id: &str) -> Result<(), KnowledgeEngineError> {
@@ -31,22 +37,16 @@ impl OpenWebuiApiClient {
             "{}/api/v1/knowledge/{knowledge_id}",
             self.config.base_url.trim_end_matches('/')
         );
-        let response = self
-            .http
-            .get(url)
+        let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
             .bearer_auth(&self.config.api_key)
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        self.http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(KnowledgeEngineError::Internal(format!(
-                "open-webui connector health failed with status {}",
-                response.status()
-            )))
-        }
+            .map_err(KnowledgeEngineError::from)?;
+        Ok(())
     }
 
     pub async fn query_collection(
@@ -60,31 +60,25 @@ impl OpenWebuiApiClient {
             "{}/api/v1/retrieval/query/collection",
             self.config.base_url.trim_end_matches('/')
         );
-        let response = self
-            .http
-            .post(url)
+        let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
+            .map_err(KnowledgeEngineError::from)?
             .bearer_auth(&self.config.api_key)
+            .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "collection_names": [knowledge_id],
                 "query": query,
                 "k": top_k,
                 "hybrid": false,
             }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "open-webui query/collection failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: OpenWebuiQueryResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: OpenWebuiQueryResponse =
+            response.json().map_err(KnowledgeEngineError::from)?;
 
         let hits = map_query_response_to_hits(space_id, payload);
         Ok(KnowledgeEngineSearchResult {

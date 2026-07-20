@@ -11,42 +11,42 @@
       "vendorId": "dify",
       "manifestPath": "external/knowledge-engines/vendors/dify/engine.manifest.json",
       "implementationId": "engine.knowledge.external.dify",
-      "integrationTier": "stub",
+      "integrationTier": "adapter",
       "category": "knowledge_platform"
     },
     {
       "vendorId": "ragflow",
       "manifestPath": "external/knowledge-engines/vendors/ragflow/engine.manifest.json",
       "implementationId": "engine.knowledge.external.ragflow",
-      "integrationTier": "catalog",
+      "integrationTier": "adapter",
       "category": "rag_engine"
     },
     {
       "vendorId": "onyx",
       "manifestPath": "external/knowledge-engines/vendors/onyx/engine.manifest.json",
       "implementationId": "engine.knowledge.external.onyx",
-      "integrationTier": "catalog",
+      "integrationTier": "adapter",
       "category": "enterprise_search"
     },
     {
       "vendorId": "anythingllm",
       "manifestPath": "external/knowledge-engines/vendors/anythingllm/engine.manifest.json",
       "implementationId": "engine.knowledge.external.anythingllm",
-      "integrationTier": "catalog",
+      "integrationTier": "adapter",
       "category": "knowledge_platform"
     },
     {
       "vendorId": "open-webui",
       "manifestPath": "external/knowledge-engines/vendors/open-webui/engine.manifest.json",
       "implementationId": "engine.knowledge.external.open-webui",
-      "integrationTier": "catalog",
+      "integrationTier": "adapter",
       "category": "knowledge_platform"
     },
     {
       "vendorId": "flowise",
       "manifestPath": "external/knowledge-engines/vendors/flowise/engine.manifest.json",
       "implementationId": "engine.knowledge.external.flowise",
-      "integrationTier": "catalog",
+      "integrationTier": "adapter",
       "category": "workflow_builder"
     },
     {
@@ -67,28 +67,28 @@
       "vendorId": "haystack",
       "manifestPath": "external/knowledge-engines/vendors/haystack/engine.manifest.json",
       "implementationId": "engine.knowledge.external.haystack",
-      "integrationTier": "catalog",
+      "integrationTier": "adapter",
       "category": "retrieval_framework"
     },
     {
       "vendorId": "qdrant",
       "manifestPath": "external/knowledge-engines/vendors/qdrant/engine.manifest.json",
       "implementationId": "engine.knowledge.external.qdrant",
-      "integrationTier": "catalog",
+      "integrationTier": "adapter",
       "category": "vector_store"
     },
     {
       "vendorId": "weaviate",
       "manifestPath": "external/knowledge-engines/vendors/weaviate/engine.manifest.json",
       "implementationId": "engine.knowledge.external.weaviate",
-      "integrationTier": "catalog",
+      "integrationTier": "adapter",
       "category": "vector_store"
     },
     {
       "vendorId": "chroma",
       "manifestPath": "external/knowledge-engines/vendors/chroma/engine.manifest.json",
       "implementationId": "engine.knowledge.external.chroma",
-      "integrationTier": "catalog",
+      "integrationTier": "adapter",
       "category": "vector_store"
     }
   ]

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.knowledge-engine-provider-certification",
+  "owner": "sdkwork-knowledgebase",
+  "policy": {
+    "contractGate": "required for adapter and production tiers",
+    "liveCertification": "required for production tier",
+    "productionEvidence": [
+      "upstreamVersion",
+      "evidenceRef",
+      "verifiedAt",
+      "licensingApproval",
+      "securityPrivacyApproval",
+      "sloEvidence"
+    ]
+  },
+  "providers": [
+    { "vendorId": "dify", "contractGate": "required", "liveCertification": { "status": "pending" } },
+    { "vendorId": "ragflow", "contractGate": "required", "liveCertification": { "status": "pending" } },
+    { "vendorId": "onyx", "contractGate": "required", "liveCertification": { "status": "pending" } },
+    { "vendorId": "anythingllm", "contractGate": "required", "liveCertification": { "status": "pending" } },
+    { "vendorId": "open-webui", "contractGate": "required", "liveCertification": { "status": "pending" } },
+    { "vendorId": "flowise", "contractGate": "required", "liveCertification": { "status": "pending" } },
+    { "vendorId": "haystack", "contractGate": "required", "liveCertification": { "status": "pending" } },
+    { "vendorId": "chroma", "contractGate": "required", "liveCertification": { "status": "pending" } },
+    { "vendorId": "qdrant", "contractGate": "required", "liveCertification": { "status": "pending" } },
+    { "vendorId": "weaviate", "contractGate": "required", "liveCertification": { "status": "pending" } },
+    { "vendorId": "langchain", "contractGate": "not-applicable", "liveCertification": { "status": "not-applicable" } },
+    { "vendorId": "llamaindex", "contractGate": "not-applicable", "liveCertification": { "status": "not-applicable" } }
+  ]
+}

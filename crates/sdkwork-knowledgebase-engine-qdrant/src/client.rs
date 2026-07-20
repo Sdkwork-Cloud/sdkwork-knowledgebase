@@ -1,9 +1,12 @@
 //! Qdrant REST HTTP client (adapter-local).
 
-use reqwest::{Client, RequestBuilder};
+use reqwest::Method;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineDocument, KnowledgeEngineDocumentRef, KnowledgeEngineError,
     KnowledgeEngineSearchHit, KnowledgeEngineSearchResult,
+};
+use sdkwork_knowledgebase_provider_runtime::{
+    ProviderExecutionContext, ProviderHttpRequest, ProviderOperation, ProviderRuntime,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -14,21 +17,29 @@ use crate::QDRANT_IMPLEMENTATION_ID;
 #[derive(Clone)]
 pub struct QdrantApiClient {
     config: QdrantConnectorConfig,
-    http: Client,
+    http: ProviderRuntime,
 }
 
 impl QdrantApiClient {
     pub fn new(config: QdrantConnectorConfig) -> Self {
-        Self {
-            config,
-            http: Client::new(),
-        }
+        let http = ProviderRuntime::for_base_url(&config.base_url)
+            .expect("Qdrant base URL must satisfy Provider Runtime target policy");
+        Self { config, http }
     }
 
-    fn authed(&self, builder: RequestBuilder) -> RequestBuilder {
+    fn context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_implementation(QDRANT_IMPLEMENTATION_ID)
+    }
+
+    fn authed(
+        &self,
+        request: ProviderHttpRequest,
+    ) -> Result<ProviderHttpRequest, KnowledgeEngineError> {
         match self.config.api_key.as_deref() {
-            Some(api_key) => builder.header("api-key", api_key),
-            None => builder,
+            Some(api_key) => request
+                .sensitive_header("api-key", api_key)
+                .map_err(KnowledgeEngineError::from),
+            None => Ok(request),
         }
     }
 
@@ -44,20 +55,17 @@ impl QdrantApiClient {
         collection_name: &str,
     ) -> Result<(), KnowledgeEngineError> {
         let url = self.collection_url(collection_name, "");
-        let response = self
-            .authed(self.http.get(url))
-            .send()
+        let request = self
+            .authed(
+                ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
+                    .map_err(KnowledgeEngineError::from)?,
+            )?
+            .idempotent(true);
+        self.http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(KnowledgeEngineError::Internal(format!(
-                "qdrant connector health failed with status {}",
-                response.status()
-            )))
-        }
+            .map_err(KnowledgeEngineError::from)?;
+        Ok(())
     }
 
     pub async fn query_points(
@@ -86,24 +94,20 @@ impl QdrantApiClient {
         }
 
         let url = self.collection_url(collection_name, "/points/query");
-        let response = self
-            .authed(self.http.post(url))
+        let request = self
+            .authed(
+                ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
+                    .map_err(KnowledgeEngineError::from)?,
+            )?
             .json(&body)
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "qdrant points query failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: QdrantQueryResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: QdrantQueryResponse = response.json().map_err(KnowledgeEngineError::from)?;
 
         let hits = payload
             .result
@@ -123,27 +127,24 @@ impl QdrantApiClient {
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
         let parsed_id = parse_point_id(point_id);
         let url = self.collection_url(collection_name, "/points");
-        let response = self
-            .authed(self.http.post(url))
+        let request = self
+            .authed(
+                ProviderHttpRequest::new(ProviderOperation::Read, Method::POST, url)
+                    .map_err(KnowledgeEngineError::from)?,
+            )?
             .json(&serde_json::json!({
                 "ids": [parsed_id],
                 "with_payload": true,
             }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "qdrant get point failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: QdrantGetPointsResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: QdrantGetPointsResponse =
+            response.json().map_err(KnowledgeEngineError::from)?;
 
         let point = payload.result.into_iter().next().ok_or_else(|| {
             KnowledgeEngineError::NotFound(format!(
@@ -174,23 +175,19 @@ impl QdrantApiClient {
         collection_name: &str,
     ) -> Result<QdrantCollectionInfo, KnowledgeEngineError> {
         let url = self.collection_url(collection_name, "");
+        let request = self
+            .authed(
+                ProviderHttpRequest::new(ProviderOperation::Read, Method::GET, url)
+                    .map_err(KnowledgeEngineError::from)?,
+            )?
+            .idempotent(true);
         let response = self
-            .authed(self.http.get(url))
-            .send()
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "qdrant get collection failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: QdrantCollectionResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: QdrantCollectionResponse =
+            response.json().map_err(KnowledgeEngineError::from)?;
 
         payload.result.ok_or_else(|| {
             KnowledgeEngineError::Internal("qdrant collection payload missing result".to_string())

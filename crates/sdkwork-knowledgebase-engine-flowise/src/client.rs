@@ -1,9 +1,12 @@
 //! Flowise document-store vector query HTTP client (adapter-local).
 
-use reqwest::Client;
+use reqwest::Method;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineDocument, KnowledgeEngineDocumentRef, KnowledgeEngineError,
     KnowledgeEngineSearchHit, KnowledgeEngineSearchResult,
+};
+use sdkwork_knowledgebase_provider_runtime::{
+    ProviderExecutionContext, ProviderHttpRequest, ProviderOperation, ProviderRuntime,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -15,15 +18,18 @@ use crate::FLOWISE_IMPLEMENTATION_ID;
 #[derive(Clone)]
 pub struct FlowiseApiClient {
     config: FlowiseConnectorConfig,
-    http: Client,
+    http: ProviderRuntime,
 }
 
 impl FlowiseApiClient {
     pub fn new(config: FlowiseConnectorConfig) -> Self {
-        Self {
-            config,
-            http: Client::new(),
-        }
+        let http = ProviderRuntime::for_base_url(&config.base_url)
+            .expect("Flowise base URL must satisfy Provider Runtime target policy");
+        Self { config, http }
+    }
+
+    fn context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_implementation(FLOWISE_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self, store_id: &str) -> Result<(), KnowledgeEngineError> {
@@ -31,22 +37,16 @@ impl FlowiseApiClient {
             "{}/api/v1/document-store/store/{store_id}",
             self.config.base_url.trim_end_matches('/')
         );
-        let response = self
-            .http
-            .get(url)
+        let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
             .bearer_auth(&self.config.api_key)
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        self.http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(KnowledgeEngineError::Internal(format!(
-                "flowise connector health failed with status {}",
-                response.status()
-            )))
-        }
+            .map_err(KnowledgeEngineError::from)?;
+        Ok(())
     }
 
     pub async fn query_vector_store(
@@ -60,29 +60,23 @@ impl FlowiseApiClient {
             "{}/api/v1/document-store/vectorstore/query",
             self.config.base_url.trim_end_matches('/')
         );
-        let response = self
-            .http
-            .post(url)
+        let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
+            .map_err(KnowledgeEngineError::from)?
             .bearer_auth(&self.config.api_key)
+            .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "storeId": store_id,
                 "query": query,
             }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "flowise vectorstore query failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: FlowiseVectorQueryResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: FlowiseVectorQueryResponse =
+            response.json().map_err(KnowledgeEngineError::from)?;
 
         let hits = payload
             .docs

@@ -92,11 +92,11 @@
       "implementationIdPattern": "engine.knowledge.external.{vendor}",
       "agentProviderIdPattern": "provider.knowledge.external.{vendor}",
       "nativeCapabilities": [
+        "health",
         "search",
-        "read",
-        "list",
-        "health"
+        "read"
       ],
+      "capabilityRule": "Each provider advertises only executable descriptor capabilities proven by its adapter contract tests; list, ingest, and sync are optional and must never be inferred from category or tier.",
       "integrationRule": "Third-party access MUST live in an approved provider adapter crate; handlers and services MUST NOT use raw HTTP."
     }
   ],
@@ -154,6 +154,7 @@
     "trait": "KnowledgeEngineRegistry",
     "registrarTrait": "KnowledgeEngineRegistrar",
     "spaceRegistryTrait": "KnowledgeEngineSpaceRegistry",
+    "registrationRule": "register returns a validation error for duplicate implementationId and never replaces the previously registered engine",
     "methods": {
       "KnowledgeEngineRegistry": [
         "resolve_for_mode",
@@ -191,6 +192,7 @@
       "cargo test -p sdkwork-knowledgebase-contract knowledge_engine",
       "cargo test -p sdkwork-intelligence-knowledgebase-service knowledge_engine",
       "node tools/check_external_knowledge_engine_catalog.mjs",
+      "node --test tools/evaluate_knowledge_engine_retrieval.test.mjs",
       "node tools/check_okf_knowledge_bundle_standard.mjs",
       "pnpm verify"
     ]

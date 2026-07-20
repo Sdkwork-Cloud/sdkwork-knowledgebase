@@ -4,7 +4,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
 };
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    KnowledgeEngineListRequest, KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
+    KnowledgeEngineError, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
+    KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest,
 };
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_haystack::{
@@ -157,7 +158,7 @@ async fn haystack_read_document_resolves_chunk_from_pipeline_run() {
 }
 
 #[tokio::test]
-async fn haystack_list_documents_returns_pipeline_descriptor() {
+async fn haystack_list_documents_is_explicitly_unsupported() {
     let config = HaystackConnectorConfig {
         base_url: "http://localhost:1416".to_string(),
         api_key: None,
@@ -168,18 +169,45 @@ async fn haystack_list_documents_returns_pipeline_descriptor() {
     };
     let engine = HaystackKnowledgeEngine::with_config(config, None);
 
-    let list = engine
+    let error = engine
         .list_documents(KnowledgeEngineListRequest {
             tenant_id: 1,
             space_id: 42,
             limit: 10,
         })
         .await
-        .expect("list");
+        .expect_err("list_documents must not synthesize pipeline descriptors");
 
-    assert_eq!(list.items.len(), 1);
-    assert_eq!(list.items[0].document_id, "42/retrieval_pipeline");
-    assert_eq!(list.items[0].title, "my_workspace/retrieval_pipeline");
+    assert!(matches!(error, KnowledgeEngineError::Unsupported(_)));
+}
+
+async fn assert_haystack_health(upstream_status: u16, expected: KnowledgeEngineHealthStatus) {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/status"))
+        .respond_with(ResponseTemplate::new(upstream_status))
+        .expect(if upstream_status >= 500 { 3 } else { 1 })
+        .mount(&mock_server)
+        .await;
+    let engine = HaystackKnowledgeEngine::with_config(
+        HaystackConnectorConfig {
+            base_url: mock_server.uri(),
+            api_key: None,
+            default_pipeline: Some("health-pipeline".to_string()),
+            default_workspace: None,
+            deployment_mode: HaystackDeploymentMode::Hayhooks,
+            query_field: "query".to_string(),
+        },
+        None,
+    );
+
+    assert_eq!(engine.health().await.expect("health").status, expected);
+}
+
+#[tokio::test]
+async fn haystack_health_maps_upstream_availability() {
+    assert_haystack_health(200, KnowledgeEngineHealthStatus::Available).await;
+    assert_haystack_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
 #[tokio::test]

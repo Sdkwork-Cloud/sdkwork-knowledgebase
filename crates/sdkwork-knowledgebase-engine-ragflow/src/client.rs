@@ -1,9 +1,12 @@
 //! RAGFlow retrieval HTTP client (adapter-local; handlers must not call RAGFlow directly).
 
-use reqwest::Client;
+use reqwest::Method;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineDocument, KnowledgeEngineDocumentRef, KnowledgeEngineError,
     KnowledgeEngineSearchHit, KnowledgeEngineSearchResult,
+};
+use sdkwork_knowledgebase_provider_runtime::{
+    ProviderExecutionContext, ProviderHttpRequest, ProviderOperation, ProviderRuntime,
 };
 use serde::Deserialize;
 
@@ -13,15 +16,18 @@ use crate::RAGFLOW_IMPLEMENTATION_ID;
 #[derive(Clone)]
 pub struct RagflowApiClient {
     config: RagflowConnectorConfig,
-    http: Client,
+    http: ProviderRuntime,
 }
 
 impl RagflowApiClient {
     pub fn new(config: RagflowConnectorConfig) -> Self {
-        Self {
-            config,
-            http: Client::new(),
-        }
+        let http = ProviderRuntime::for_base_url(&config.base_url)
+            .expect("RAGFlow base URL must satisfy Provider Runtime target policy");
+        Self { config, http }
+    }
+
+    fn context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_implementation(RAGFLOW_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self, dataset_id: &str) -> Result<(), KnowledgeEngineError> {
@@ -29,25 +35,18 @@ impl RagflowApiClient {
             "{}/api/v1/datasets?id={dataset_id}",
             self.config.base_url.trim_end_matches('/')
         );
+        let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
+            .bearer_auth(&self.config.api_key)
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
         let response = self
             .http
-            .get(url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
-            .send()
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "ragflow connector health failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: RagflowApiResponse<RagflowDatasetList> = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: RagflowApiResponse<RagflowDatasetList> =
+            response.json().map_err(KnowledgeEngineError::from)?;
 
         if payload.code != 0 {
             return Err(KnowledgeEngineError::Internal(format!(
@@ -71,30 +70,24 @@ impl RagflowApiClient {
             "{}/api/v1/retrieval",
             self.config.base_url.trim_end_matches('/')
         );
-        let response = self
-            .http
-            .post(url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
+        let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
+            .map_err(KnowledgeEngineError::from)?
+            .bearer_auth(&self.config.api_key)
+            .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "question": query,
                 "dataset_ids": [dataset_id],
                 "page_size": top_k,
             }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "ragflow retrieve failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: RagflowApiResponse<RagflowRetrievalData> = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: RagflowApiResponse<RagflowRetrievalData> =
+            response.json().map_err(KnowledgeEngineError::from)?;
 
         if payload.code != 0 {
             return Err(KnowledgeEngineError::Internal(format!(
@@ -127,31 +120,18 @@ impl RagflowApiClient {
             "{}/api/v1/datasets/{dataset_id}/documents/{document_id}/chunks/{chunk_id}",
             self.config.base_url.trim_end_matches('/')
         );
+        let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
+            .bearer_auth(&self.config.api_key)
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
         let response = self
             .http
-            .get(url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
-            .send()
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(KnowledgeEngineError::NotFound(format!(
-                "ragflow chunk not found: dataset={dataset_id} document={document_id} chunk={chunk_id}"
-            )));
-        }
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "ragflow read chunk failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: RagflowApiResponse<RagflowChunkDetail> = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: RagflowApiResponse<RagflowChunkDetail> =
+            response.json().map_err(KnowledgeEngineError::from)?;
 
         if payload.code != 0 {
             return Err(KnowledgeEngineError::NotFound(format!(

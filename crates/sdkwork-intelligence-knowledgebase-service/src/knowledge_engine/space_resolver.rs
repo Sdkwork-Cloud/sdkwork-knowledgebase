@@ -1,5 +1,5 @@
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    implementation_id_from_provider, KnowledgeEngineError,
+    implementation_id_from_provider, KnowledgeEngineCapability, KnowledgeEngineError,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::source::KnowledgeSourceType;
@@ -49,23 +49,21 @@ where
             return self.resolve_external_for_space(space_id).await;
         }
 
-        if let Some(engine) = self.resolve_connector_override(space_id).await? {
-            return Ok(engine);
-        }
-
         self.registry.resolve_for_mode(mode)
     }
 
-    async fn resolve_connector_override(
+    async fn resolve_external_for_space(
         &self,
         space_id: u64,
-    ) -> Result<Option<Arc<dyn KnowledgeEngine>>, KnowledgeEngineError> {
+    ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
         let sources = self
             .source_store
             .list_sources_for_space(space_id)
             .await
             .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
 
+        let mut resolved = Vec::new();
+        let mut resolved_ids = std::collections::HashSet::new();
         for source in sources {
             if source.source_type != KnowledgeSourceType::Connector {
                 continue;
@@ -77,24 +75,32 @@ where
                 continue;
             };
             if let Ok(engine) = self.registry.resolve_by_id(&implementation_id) {
-                return Ok(Some(engine));
+                if !engine
+                    .descriptor()
+                    .supports(KnowledgeEngineCapability::Search)
+                {
+                    continue;
+                }
+                if resolved_ids.insert(implementation_id.clone()) {
+                    resolved.push((implementation_id, engine));
+                }
             }
         }
 
-        Ok(None)
-    }
-
-    async fn resolve_external_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
-        self.resolve_connector_override(space_id)
-            .await?
-            .ok_or_else(|| {
-                KnowledgeEngineError::NotFound(format!(
-                    "no external knowledge engine registered for space_id={space_id}"
-                ))
-            })
+        match resolved.len() {
+            0 => Err(KnowledgeEngineError::NotFound(format!(
+                "no external knowledge engine registered for space_id={space_id}"
+            ))),
+            1 => Ok(resolved.pop().expect("length checked").1),
+            _ => {
+                let mut implementation_ids = resolved_ids.into_iter().collect::<Vec<_>>();
+                implementation_ids.sort();
+                Err(KnowledgeEngineError::Validation(format!(
+                    "multiple external knowledge engines are configured for space_id={space_id}: {}; explicit provider binding is required",
+                    implementation_ids.join(",")
+                )))
+            }
+        }
     }
 }
 

@@ -43,7 +43,7 @@ pub trait KnowledgeEngine: Send + Sync {
 
 /// Spec-aligned registration surface (`registry.register` in `knowledge-engine-spi.spec.json`).
 pub trait KnowledgeEngineRegistrar: Send + Sync {
-    fn register(&mut self, engine: Arc<dyn KnowledgeEngine>);
+    fn register(&mut self, engine: Arc<dyn KnowledgeEngine>) -> Result<(), KnowledgeEngineError>;
 }
 
 /// Resolves and registers knowledge engines for a tenant/runtime.
@@ -81,15 +81,24 @@ impl InMemoryKnowledgeEngineRegistry {
         Self::default()
     }
 
-    pub fn register(&mut self, engine: Arc<dyn KnowledgeEngine>) {
-        KnowledgeEngineRegistrar::register(self, engine);
+    pub fn register(
+        &mut self,
+        engine: Arc<dyn KnowledgeEngine>,
+    ) -> Result<(), KnowledgeEngineError> {
+        KnowledgeEngineRegistrar::register(self, engine)
     }
 }
 
 impl KnowledgeEngineRegistrar for InMemoryKnowledgeEngineRegistry {
-    fn register(&mut self, engine: Arc<dyn KnowledgeEngine>) {
+    fn register(&mut self, engine: Arc<dyn KnowledgeEngine>) -> Result<(), KnowledgeEngineError> {
         let id = engine.descriptor().implementation_id.clone();
+        if self.engines.contains_key(&id) {
+            return Err(KnowledgeEngineError::Validation(format!(
+                "duplicate knowledge engine registration for implementation_id={id}"
+            )));
+        }
         self.engines.insert(id, engine);
+        Ok(())
     }
 }
 

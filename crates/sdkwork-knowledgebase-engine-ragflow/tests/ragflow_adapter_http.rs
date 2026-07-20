@@ -3,7 +3,9 @@ use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngin
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
 };
-use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineSearchRequest;
+use sdkwork_knowledgebase_contract::knowledge_engine::{
+    KnowledgeEngineHealthStatus, KnowledgeEngineSearchRequest,
+};
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
 use sdkwork_knowledgebase_engine_ragflow::{
     RagflowConnectorConfig, RagflowKnowledgeEngine, RAGFLOW_IMPLEMENTATION_ID,
@@ -15,6 +17,35 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 struct MockSourceStore {
     sources: HashMap<u64, Vec<KnowledgeSource>>,
+}
+
+async fn assert_ragflow_health(upstream_status: u16, expected: KnowledgeEngineHealthStatus) {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/datasets"))
+        .respond_with(
+            ResponseTemplate::new(upstream_status)
+                .set_body_json(serde_json::json!({ "code": 0, "data": {} })),
+        )
+        .expect(if upstream_status >= 500 { 3 } else { 1 })
+        .mount(&mock_server)
+        .await;
+    let engine = RagflowKnowledgeEngine::with_config(
+        RagflowConnectorConfig {
+            base_url: mock_server.uri(),
+            api_key: "health-key".to_string(),
+            default_dataset_id: Some("health-dataset".to_string()),
+        },
+        None,
+    );
+
+    assert_eq!(engine.health().await.expect("health").status, expected);
+}
+
+#[tokio::test]
+async fn ragflow_health_maps_upstream_availability() {
+    assert_ragflow_health(200, KnowledgeEngineHealthStatus::Available).await;
+    assert_ragflow_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
 #[async_trait]

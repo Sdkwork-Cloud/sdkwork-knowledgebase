@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-provider-runtime",
+    "displayName": "SDKWork Knowledgebase Provider Runtime",
+    "version": "0.1.0",
+    "type": "rust-crate",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-provider-runtime",
+    "domain": "intelligence",
+    "capability": "knowledgebase-provider-runtime",
+    "surface": "backend-service",
+    "languages": ["rust"],
+    "generated": false,
+    "private": false,
+    "manifests": ["Cargo.toml"]
+  },
+  "canonicalSpecs": [
+    { "file": "COMPONENT_SPEC.md", "path": "../../../sdkwork-specs/COMPONENT_SPEC.md", "purpose": "Component contract." },
+    { "file": "MODULE_SPEC.md", "path": "../../../sdkwork-specs/MODULE_SPEC.md", "purpose": "Reusable module boundary." },
+    { "file": "CODE_STYLE_SPEC.md", "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md", "purpose": "Source structure." },
+    { "file": "NAMING_SPEC.md", "path": "../../../sdkwork-specs/NAMING_SPEC.md", "purpose": "Canonical naming." },
+    { "file": "RUST_CODE_SPEC.md", "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md", "purpose": "Rust implementation." },
+    { "file": "SECURITY_SPEC.md", "path": "../../../sdkwork-specs/SECURITY_SPEC.md", "purpose": "Outbound security and redaction." },
+    { "file": "PRIVACY_SPEC.md", "path": "../../../sdkwork-specs/PRIVACY_SPEC.md", "purpose": "Data minimization." },
+    { "file": "OBSERVABILITY_SPEC.md", "path": "../../../sdkwork-specs/OBSERVABILITY_SPEC.md", "purpose": "Metrics and tracing." },
+    { "file": "PERFORMANCE_SPEC.md", "path": "../../../sdkwork-specs/PERFORMANCE_SPEC.md", "purpose": "Bounds and concurrency." },
+    { "file": "CONFIG_SPEC.md", "path": "../../../sdkwork-specs/CONFIG_SPEC.md", "purpose": "Typed runtime policy." },
+    { "file": "TEST_SPEC.md", "path": "../../../sdkwork-specs/TEST_SPEC.md", "purpose": "Fault-injection verification." }
+  ],
+  "contracts": {
+    "layerRole": "backend-provider",
+    "publicExports": ["."],
+    "providedPorts": [
+      { "name": "knowledgebaseProviderHttpRuntime", "export": "." },
+      { "name": "knowledgebaseProviderTelemetry", "export": "." }
+    ],
+    "requiredPorts": [],
+    "runtimeEntrypoints": ["ProviderRuntime::new", "ProviderRuntime::for_base_url"],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": ["ProviderTelemetryEvent"],
+    "configKeys": ["SDKWORK_KNOWLEDGEBASE_ENVIRONMENT"]
+  },
+  "verification": {
+    "commands": ["cargo test -p sdkwork-knowledgebase-provider-runtime"]
+  }
+}
+

@@ -1,9 +1,12 @@
 //! Dify dataset retrieve HTTP client (adapter-local; handlers must not call Dify directly).
 
-use reqwest::Client;
+use reqwest::Method;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineDocument, KnowledgeEngineDocumentRef, KnowledgeEngineError,
     KnowledgeEngineSearchHit, KnowledgeEngineSearchResult,
+};
+use sdkwork_knowledgebase_provider_runtime::{
+    ProviderExecutionContext, ProviderHttpRequest, ProviderOperation, ProviderRuntime,
 };
 use serde::Deserialize;
 
@@ -13,15 +16,18 @@ use crate::DIFY_IMPLEMENTATION_ID;
 #[derive(Clone)]
 pub struct DifyApiClient {
     config: DifyConnectorConfig,
-    http: Client,
+    http: ProviderRuntime,
 }
 
 impl DifyApiClient {
     pub fn new(config: DifyConnectorConfig) -> Self {
-        Self {
-            config,
-            http: Client::new(),
-        }
+        let http = ProviderRuntime::for_base_url(&config.base_url)
+            .expect("Dify base URL must satisfy Provider Runtime target policy");
+        Self { config, http }
+    }
+
+    fn context(&self) -> ProviderExecutionContext {
+        ProviderExecutionContext::for_implementation(DIFY_IMPLEMENTATION_ID)
     }
 
     pub async fn connector_health(&self, dataset_id: &str) -> Result<(), KnowledgeEngineError> {
@@ -29,22 +35,16 @@ impl DifyApiClient {
             "{}/datasets/{dataset_id}",
             self.config.base_url.trim_end_matches('/')
         );
-        let response = self
-            .http
-            .get(url)
+        let request = ProviderHttpRequest::new(ProviderOperation::Health, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
             .bearer_auth(&self.config.api_key)
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        self.http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(KnowledgeEngineError::Internal(format!(
-                "dify connector health failed with status {}",
-                response.status()
-            )))
-        }
+            .map_err(KnowledgeEngineError::from)?;
+        Ok(())
     }
 
     pub async fn retrieve(
@@ -58,29 +58,22 @@ impl DifyApiClient {
             "{}/datasets/{dataset_id}/retrieve",
             self.config.base_url.trim_end_matches('/')
         );
-        let response = self
-            .http
-            .post(url)
+        let request = ProviderHttpRequest::new(ProviderOperation::Search, Method::POST, url)
+            .map_err(KnowledgeEngineError::from)?
             .bearer_auth(&self.config.api_key)
+            .map_err(KnowledgeEngineError::from)?
             .json(&serde_json::json!({
                 "query": query,
                 "top_k": top_k,
             }))
-            .send()
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
+        let response = self
+            .http
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "dify retrieve failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: DifyRetrieveResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: DifyRetrieveResponse = response.json().map_err(KnowledgeEngineError::from)?;
 
         let hits = payload
             .records
@@ -104,31 +97,18 @@ impl DifyApiClient {
             "{}/datasets/{dataset_id}/documents/{document_id}/segments/{segment_id}",
             self.config.base_url.trim_end_matches('/')
         );
+        let request = ProviderHttpRequest::new(ProviderOperation::Read, Method::GET, url)
+            .map_err(KnowledgeEngineError::from)?
+            .bearer_auth(&self.config.api_key)
+            .map_err(KnowledgeEngineError::from)?
+            .idempotent(true);
         let response = self
             .http
-            .get(url)
-            .bearer_auth(&self.config.api_key)
-            .send()
+            .execute(&self.context(), request)
             .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
-
-        if response.status() == reqwest::StatusCode::NOT_FOUND {
-            return Err(KnowledgeEngineError::NotFound(format!(
-                "dify segment not found: dataset={dataset_id} document={document_id} segment={segment_id}"
-            )));
-        }
-
-        if !response.status().is_success() {
-            return Err(KnowledgeEngineError::Internal(format!(
-                "dify read segment failed with status {}",
-                response.status()
-            )));
-        }
-
-        let payload: DifySegmentDetailResponse = response
-            .json()
-            .await
-            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+            .map_err(KnowledgeEngineError::from)?;
+        let payload: DifySegmentDetailResponse =
+            response.json().map_err(KnowledgeEngineError::from)?;
 
         let segment = payload.data.ok_or_else(|| {
             KnowledgeEngineError::NotFound(format!(

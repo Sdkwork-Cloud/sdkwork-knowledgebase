@@ -17,10 +17,10 @@
   "spiMapping": {
     "search": true,
     "read": true,
-    "list": true,
+    "list": false,
     "health": true,
-    "ingest": true,
-    "syncSources": true
+    "ingest": false,
+    "syncSources": false
   },
   "authModels": ["api_key", "bearer_token"],
   "adapterCrate": "crates/sdkwork-knowledgebase-engine-ragflow",
