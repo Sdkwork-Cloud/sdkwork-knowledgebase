@@ -7,12 +7,8 @@ mod client;
 mod config;
 
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
-    resolve_connector_dataset_id_for_space, resolve_connector_workspace_slug_for_space,
-    KnowledgeEngine,
-};
+use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -24,7 +20,6 @@ use std::sync::Arc;
 
 pub use client::{chunk_id_from_content, HaystackApiClient};
 pub use config::{
-    pipeline_name_from_connector_metadata, workspace_name_from_connector_metadata,
     HaystackConnectorConfig, HaystackDeploymentMode, HAYSTACK_BASE_URL_ENV,
     HAYSTACK_CREDENTIAL_ENV, HAYSTACK_CREDENTIAL_FILE_ENV, HAYSTACK_DEPLOYMENT_MODE_ENV,
     HAYSTACK_PIPELINE_ENV, HAYSTACK_QUERY_FIELD_ENV, HAYSTACK_WORKSPACE_ENV,
@@ -37,7 +32,6 @@ pub const HAYSTACK_AGENT_PROVIDER_ID: &str = "provider.knowledge.external.haysta
 pub struct HaystackKnowledgeEngine {
     config: Option<HaystackConnectorConfig>,
     client: Option<HaystackApiClient>,
-    source_store: Option<Arc<dyn KnowledgeSourceStore>>,
 }
 
 impl HaystackKnowledgeEngine {
@@ -46,28 +40,14 @@ impl HaystackKnowledgeEngine {
         let client = config
             .as_ref()
             .map(|value| HaystackApiClient::new(value.clone()));
-        Self {
-            config,
-            client,
-            source_store: None,
-        }
+        Self { config, client }
     }
 
-    pub fn from_runtime(source_store: Arc<dyn KnowledgeSourceStore>) -> Self {
-        let mut engine = Self::from_env();
-        engine.source_store = Some(source_store);
-        engine
-    }
-
-    pub fn with_config(
-        config: HaystackConnectorConfig,
-        source_store: Option<Arc<dyn KnowledgeSourceStore>>,
-    ) -> Self {
+    pub fn with_config(config: HaystackConnectorConfig) -> Self {
         let client = HaystackApiClient::new(config.clone());
         Self {
             config: Some(config),
             client: Some(client),
-            source_store,
         }
     }
 
@@ -75,7 +55,6 @@ impl HaystackKnowledgeEngine {
         Self {
             config: None,
             client: None,
-            source_store: None,
         }
     }
 
@@ -94,67 +73,25 @@ impl HaystackKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Haystack adapter requires {HAYSTACK_BASE_URL_ENV}; optional auth via {HAYSTACK_CREDENTIAL_ENV} or {HAYSTACK_CREDENTIAL_FILE_ENV}; pipeline via {HAYSTACK_PIPELINE_ENV} or kb_source connector metadata datasetId; workspace via {HAYSTACK_WORKSPACE_ENV} or connector metadata workspaceSlug for Deepset Cloud"
+            "Haystack adapter requires {HAYSTACK_BASE_URL_ENV}; optional auth via {HAYSTACK_CREDENTIAL_ENV} or {HAYSTACK_CREDENTIAL_FILE_ENV}; an active Provider binding supplies the pipeline; {HAYSTACK_WORKSPACE_ENV} selects the Deepset Cloud workspace"
         )
     }
 
-    async fn resolve_pipeline_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<String, KnowledgeEngineError> {
-        let Some(source_store) = self.source_store.as_deref() else {
-            return self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_pipeline.clone())
-                .ok_or_else(|| {
-                    KnowledgeEngineError::Validation(format!(
-                        "Haystack search requires {HAYSTACK_PIPELINE_ENV} or kb_source connector metadata datasetId for space_id={space_id}"
-                    ))
-                });
-        };
-
-        resolve_connector_dataset_id_for_space(
-            source_store,
-            space_id,
-            HAYSTACK_IMPLEMENTATION_ID,
-            self.config
-                .as_ref()
-                .and_then(|config| config.default_pipeline.clone()),
-            HAYSTACK_PIPELINE_ENV,
-        )
-        .await
+    fn required_pipeline(&self, space_id: u64) -> Result<String, KnowledgeEngineError> {
+        self.config
+            .as_ref()
+            .and_then(|config| config.default_pipeline.clone())
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(format!(
+                    "Haystack execution requires an active Provider binding with a remote resource id for space_id={space_id}"
+                ))
+            })
     }
 
-    async fn resolve_workspace_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<Option<String>, KnowledgeEngineError> {
-        let Some(source_store) = self.source_store.as_deref() else {
-            return Ok(self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_workspace.clone()));
-        };
-
-        match resolve_connector_workspace_slug_for_space(
-            source_store,
-            space_id,
-            HAYSTACK_IMPLEMENTATION_ID,
-            self.config
-                .as_ref()
-                .and_then(|config| config.default_workspace.clone()),
-            HAYSTACK_WORKSPACE_ENV,
-        )
-        .await
-        {
-            Ok(workspace) => Ok(Some(workspace)),
-            Err(KnowledgeEngineError::Validation(_)) => Ok(self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_workspace.clone())),
-            Err(error) => Err(error),
-        }
+    fn workspace(&self) -> Option<String> {
+        self.config
+            .as_ref()
+            .and_then(|config| config.default_workspace.clone())
     }
 }
 
@@ -178,7 +115,7 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
         config.default_pipeline = Some(binding.remote_resource_id.clone());
-        Ok(Arc::new(Self::with_config(config, None)))
+        Ok(Arc::new(Self::with_config(config)))
     }
 
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {
@@ -201,7 +138,7 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
                     implementation_id: HAYSTACK_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
                     detail: Some(format!(
-                        "Haystack connector health requires {HAYSTACK_PIPELINE_ENV} or per-space kb_source connector metadata datasetId"
+                        "Haystack connector health requires an active Provider binding with a remote resource id"
                     )),
                 });
             }
@@ -239,8 +176,8 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
             ));
         };
 
-        let pipeline = self.resolve_pipeline_for_space(request.space_id).await?;
-        let workspace = self.resolve_workspace_for_space(request.space_id).await?;
+        let pipeline = self.required_pipeline(request.space_id)?;
+        let workspace = self.workspace();
         client
             .search(
                 request.space_id,
@@ -270,8 +207,8 @@ impl KnowledgeEngine for HaystackKnowledgeEngine {
                 )
             })?;
 
-        let pipeline = self.resolve_pipeline_for_space(request.space_id).await?;
-        let workspace = self.resolve_workspace_for_space(request.space_id).await?;
+        let pipeline = self.required_pipeline(request.space_id)?;
+        let workspace = self.workspace();
         client
             .read_document(
                 request.space_id,

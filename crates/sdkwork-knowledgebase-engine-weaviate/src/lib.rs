@@ -7,11 +7,8 @@ mod client;
 mod config;
 
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
-    resolve_connector_dataset_id_for_space, KnowledgeEngine,
-};
+use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -23,10 +20,9 @@ use std::sync::Arc;
 
 pub use client::WeaviateApiClient;
 pub use config::{
-    class_name_from_connector_metadata, WeaviateConnectorConfig, DEFAULT_WEAVIATE_CONTENT_PROPERTY,
-    DEFAULT_WEAVIATE_TITLE_PROPERTY, WEAVIATE_BASE_URL_ENV, WEAVIATE_CLASS_NAME_ENV,
-    WEAVIATE_CONTENT_PROPERTY_ENV, WEAVIATE_CREDENTIAL_ENV, WEAVIATE_CREDENTIAL_FILE_ENV,
-    WEAVIATE_TITLE_PROPERTY_ENV,
+    WeaviateConnectorConfig, DEFAULT_WEAVIATE_CONTENT_PROPERTY, DEFAULT_WEAVIATE_TITLE_PROPERTY,
+    WEAVIATE_BASE_URL_ENV, WEAVIATE_CLASS_NAME_ENV, WEAVIATE_CONTENT_PROPERTY_ENV,
+    WEAVIATE_CREDENTIAL_ENV, WEAVIATE_CREDENTIAL_FILE_ENV, WEAVIATE_TITLE_PROPERTY_ENV,
 };
 
 pub const WEAVIATE_VENDOR_ID: &str = "weaviate";
@@ -36,7 +32,6 @@ pub const WEAVIATE_AGENT_PROVIDER_ID: &str = "provider.knowledge.external.weavia
 pub struct WeaviateKnowledgeEngine {
     config: Option<WeaviateConnectorConfig>,
     client: Option<WeaviateApiClient>,
-    source_store: Option<Arc<dyn KnowledgeSourceStore>>,
 }
 
 impl WeaviateKnowledgeEngine {
@@ -45,28 +40,14 @@ impl WeaviateKnowledgeEngine {
         let client = config
             .as_ref()
             .map(|value| WeaviateApiClient::new(value.clone()));
-        Self {
-            config,
-            client,
-            source_store: None,
-        }
+        Self { config, client }
     }
 
-    pub fn from_runtime(source_store: Arc<dyn KnowledgeSourceStore>) -> Self {
-        let mut engine = Self::from_env();
-        engine.source_store = Some(source_store);
-        engine
-    }
-
-    pub fn with_config(
-        config: WeaviateConnectorConfig,
-        source_store: Option<Arc<dyn KnowledgeSourceStore>>,
-    ) -> Self {
+    pub fn with_config(config: WeaviateConnectorConfig) -> Self {
         let client = WeaviateApiClient::new(config.clone());
         Self {
             config: Some(config),
             client: Some(client),
-            source_store,
         }
     }
 
@@ -74,7 +55,6 @@ impl WeaviateKnowledgeEngine {
         Self {
             config: None,
             client: None,
-            source_store: None,
         }
     }
 
@@ -93,36 +73,19 @@ impl WeaviateKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Weaviate adapter requires {WEAVIATE_BASE_URL_ENV}; optional auth via {WEAVIATE_CREDENTIAL_ENV} or {WEAVIATE_CREDENTIAL_FILE_ENV}; class via {WEAVIATE_CLASS_NAME_ENV} or kb_source connector metadata datasetId"
+            "Weaviate adapter requires {WEAVIATE_BASE_URL_ENV}; optional auth via {WEAVIATE_CREDENTIAL_ENV} or {WEAVIATE_CREDENTIAL_FILE_ENV}; an active Provider binding supplies the class name"
         )
     }
 
-    async fn resolve_class_name_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<String, KnowledgeEngineError> {
-        let Some(source_store) = self.source_store.as_deref() else {
-            return self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_class_name.clone())
-                .ok_or_else(|| {
-                    KnowledgeEngineError::Validation(format!(
-                        "Weaviate search requires {WEAVIATE_CLASS_NAME_ENV} or kb_source connector metadata datasetId for space_id={space_id}"
-                    ))
-                });
-        };
-
-        resolve_connector_dataset_id_for_space(
-            source_store,
-            space_id,
-            WEAVIATE_IMPLEMENTATION_ID,
-            self.config
-                .as_ref()
-                .and_then(|config| config.default_class_name.clone()),
-            WEAVIATE_CLASS_NAME_ENV,
-        )
-        .await
+    fn required_class_name(&self, space_id: u64) -> Result<String, KnowledgeEngineError> {
+        self.config
+            .as_ref()
+            .and_then(|config| config.default_class_name.clone())
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(format!(
+                    "Weaviate execution requires an active Provider binding with a remote resource id for space_id={space_id}"
+                ))
+            })
     }
 }
 
@@ -146,7 +109,7 @@ impl KnowledgeEngine for WeaviateKnowledgeEngine {
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
         config.default_class_name = Some(binding.remote_resource_id.clone());
-        Ok(Arc::new(Self::with_config(config, None)))
+        Ok(Arc::new(Self::with_config(config)))
     }
 
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {
@@ -182,7 +145,7 @@ impl KnowledgeEngine for WeaviateKnowledgeEngine {
             ));
         };
 
-        let class_name = self.resolve_class_name_for_space(request.space_id).await?;
+        let class_name = self.required_class_name(request.space_id)?;
         client
             .near_text_search(request.space_id, &class_name, &request.query, request.top_k)
             .await
@@ -206,7 +169,7 @@ impl KnowledgeEngine for WeaviateKnowledgeEngine {
                 )
             })?;
 
-        let class_name = self.resolve_class_name_for_space(request.space_id).await?;
+        let class_name = self.required_class_name(request.space_id)?;
         client.get_object(&class_name, &object_id).await
     }
 

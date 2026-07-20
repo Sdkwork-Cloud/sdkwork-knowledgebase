@@ -1,23 +1,15 @@
-use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
-    CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
-};
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    KnowledgeEngineHealthStatus, KnowledgeEngineSearchRequest,
+    KnowledgeEngineCapability, KnowledgeEngineHealthStatus, KnowledgeEngineSearchRequest,
 };
-use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
+use sdkwork_knowledgebase_contract::provider_binding::{
+    KnowledgeEngineProviderBinding, KnowledgeEngineProviderBindingState,
+};
 use sdkwork_knowledgebase_engine_dify::{
     DifyConnectorConfig, DifyKnowledgeEngine, DIFY_IMPLEMENTATION_ID,
 };
-use std::collections::HashMap;
-use std::sync::Arc;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
-
-struct MockSourceStore {
-    sources: HashMap<u64, Vec<KnowledgeSource>>,
-}
 
 async fn assert_dify_health(upstream_status: u16, expected: KnowledgeEngineHealthStatus) {
     let mock_server = MockServer::start().await;
@@ -27,14 +19,11 @@ async fn assert_dify_health(upstream_status: u16, expected: KnowledgeEngineHealt
         .expect(if upstream_status >= 500 { 3 } else { 1 })
         .mount(&mock_server)
         .await;
-    let engine = DifyKnowledgeEngine::with_config(
-        DifyConnectorConfig {
-            base_url: mock_server.uri(),
-            api_key: "health-key".to_string(),
-            default_dataset_id: Some("health-dataset".to_string()),
-        },
-        None,
-    );
+    let engine = DifyKnowledgeEngine::with_config(DifyConnectorConfig {
+        base_url: mock_server.uri(),
+        api_key: "health-key".to_string(),
+        default_dataset_id: Some("health-dataset".to_string()),
+    });
 
     assert_eq!(engine.health().await.expect("health").status, expected);
 }
@@ -45,30 +34,37 @@ async fn dify_health_maps_upstream_availability() {
     assert_dify_health(503, KnowledgeEngineHealthStatus::Degraded).await;
 }
 
-#[async_trait]
-impl KnowledgeSourceStore for MockSourceStore {
-    async fn create_source(
-        &self,
-        _record: CreateKnowledgeSourceRecord,
-    ) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
-        Err(KnowledgeSourceStoreError::Internal(
-            "unsupported in test fake".to_string(),
-        ))
-    }
-
-    async fn list_sources_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
-        Ok(self.sources.get(&space_id).cloned().unwrap_or_default())
+fn active_binding(remote_resource_id: &str) -> KnowledgeEngineProviderBinding {
+    KnowledgeEngineProviderBinding {
+        id: 7,
+        uuid: "binding-7".to_string(),
+        tenant_id: 1,
+        organization_id: 2,
+        space_id: 42,
+        implementation_id: DIFY_IMPLEMENTATION_ID.to_string(),
+        remote_resource_type: "dataset".to_string(),
+        remote_resource_id: remote_resource_id.to_string(),
+        credential_reference_id: Some(9),
+        lifecycle_state: KnowledgeEngineProviderBindingState::Active,
+        capability_snapshot: vec![KnowledgeEngineCapability::Search],
+        capability_snapshot_version: 1,
+        last_tested_at: Some("2026-07-20T00:00:00Z".to_string()),
+        activated_at: Some("2026-07-20T00:00:01Z".to_string()),
+        disabled_at: None,
+        last_error_category: None,
+        created_by: "actor-1".to_string(),
+        updated_by: "actor-1".to_string(),
+        created_at: "2026-07-20T00:00:00Z".to_string(),
+        updated_at: "2026-07-20T00:00:01Z".to_string(),
+        version: 2,
     }
 }
 
 #[tokio::test]
-async fn dify_search_uses_space_connector_metadata_dataset_id() {
+async fn dify_search_uses_binding_owned_remote_resource_id() {
     let mock_server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/datasets/ds-space-42/retrieve"))
+        .and(path("/datasets/binding-dataset/retrieve"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "records": [{
                 "segment": {
@@ -85,23 +81,11 @@ async fn dify_search_uses_space_connector_metadata_dataset_id() {
     let config = DifyConnectorConfig {
         base_url: mock_server.uri(),
         api_key: "test-api-key".to_string(),
-        default_dataset_id: None,
+        default_dataset_id: Some("template-dataset".to_string()),
     };
-    let source_store = Arc::new(MockSourceStore {
-        sources: HashMap::from([(
-            42,
-            vec![KnowledgeSource {
-                id: 1,
-                space_id: 42,
-                source_type: KnowledgeSourceType::Connector,
-                provider: Some("dify".to_string()),
-                drive_bucket: None,
-                drive_prefix: None,
-                connector_metadata_json: Some(r#"{"datasetId":"ds-space-42"}"#.to_string()),
-            }],
-        )]),
-    });
-    let engine = DifyKnowledgeEngine::with_config(config, Some(source_store));
+    let engine = DifyKnowledgeEngine::with_config(config)
+        .bind_provider(&active_binding("binding-dataset"))
+        .expect("bind provider");
 
     let result = engine
         .search(KnowledgeEngineSearchRequest {

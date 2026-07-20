@@ -7,11 +7,8 @@ mod client;
 mod config;
 
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
-    resolve_connector_dataset_id_for_space, KnowledgeEngine,
-};
+use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -23,8 +20,8 @@ use std::sync::Arc;
 
 pub use client::DifyApiClient;
 pub use config::{
-    dataset_id_from_connector_metadata, DifyConnectorConfig, DIFY_BASE_URL_ENV,
-    DIFY_CREDENTIAL_ENV, DIFY_CREDENTIAL_FILE_ENV, DIFY_DATASET_ID_ENV,
+    DifyConnectorConfig, DIFY_BASE_URL_ENV, DIFY_CREDENTIAL_ENV, DIFY_CREDENTIAL_FILE_ENV,
+    DIFY_DATASET_ID_ENV,
 };
 
 pub const DIFY_VENDOR_ID: &str = "dify";
@@ -34,7 +31,6 @@ pub const DIFY_AGENT_PROVIDER_ID: &str = "provider.knowledge.external.dify";
 pub struct DifyKnowledgeEngine {
     config: Option<DifyConnectorConfig>,
     client: Option<DifyApiClient>,
-    source_store: Option<Arc<dyn KnowledgeSourceStore>>,
 }
 
 impl DifyKnowledgeEngine {
@@ -43,28 +39,14 @@ impl DifyKnowledgeEngine {
         let client = config
             .as_ref()
             .map(|value| DifyApiClient::new(value.clone()));
-        Self {
-            config,
-            client,
-            source_store: None,
-        }
+        Self { config, client }
     }
 
-    pub fn from_runtime(source_store: Arc<dyn KnowledgeSourceStore>) -> Self {
-        let mut engine = Self::from_env();
-        engine.source_store = Some(source_store);
-        engine
-    }
-
-    pub fn with_config(
-        config: DifyConnectorConfig,
-        source_store: Option<Arc<dyn KnowledgeSourceStore>>,
-    ) -> Self {
+    pub fn with_config(config: DifyConnectorConfig) -> Self {
         let client = DifyApiClient::new(config.clone());
         Self {
             config: Some(config),
             client: Some(client),
-            source_store,
         }
     }
 
@@ -72,7 +54,6 @@ impl DifyKnowledgeEngine {
         Self {
             config: None,
             client: None,
-            source_store: None,
         }
     }
 
@@ -91,36 +72,19 @@ impl DifyKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Dify adapter requires {DIFY_BASE_URL_ENV} and {DIFY_CREDENTIAL_ENV}; optional default dataset via {DIFY_DATASET_ID_ENV} or kb_source connector metadata datasetId"
+            "Dify adapter requires {DIFY_BASE_URL_ENV} and {DIFY_CREDENTIAL_ENV}; an active Provider binding supplies the dataset id"
         )
     }
 
-    async fn resolve_dataset_id_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<String, KnowledgeEngineError> {
-        let Some(source_store) = self.source_store.as_deref() else {
-            return self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_dataset_id.clone())
-                .ok_or_else(|| {
-                    KnowledgeEngineError::Validation(format!(
-                        "Dify search requires {DIFY_DATASET_ID_ENV} or kb_source connector metadata datasetId for space_id={space_id}"
-                    ))
-                });
-        };
-
-        resolve_connector_dataset_id_for_space(
-            source_store,
-            space_id,
-            DIFY_IMPLEMENTATION_ID,
-            self.config
-                .as_ref()
-                .and_then(|config| config.default_dataset_id.clone()),
-            DIFY_DATASET_ID_ENV,
-        )
-        .await
+    fn required_dataset_id(&self, space_id: u64) -> Result<String, KnowledgeEngineError> {
+        self.config
+            .as_ref()
+            .and_then(|config| config.default_dataset_id.clone())
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(format!(
+                    "Dify execution requires an active Provider binding with a remote resource id for space_id={space_id}"
+                ))
+            })
     }
 }
 
@@ -144,7 +108,7 @@ impl KnowledgeEngine for DifyKnowledgeEngine {
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
         config.default_dataset_id = Some(binding.remote_resource_id.clone());
-        Ok(Arc::new(Self::with_config(config, None)))
+        Ok(Arc::new(Self::with_config(config)))
     }
 
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {
@@ -167,7 +131,7 @@ impl KnowledgeEngine for DifyKnowledgeEngine {
                     implementation_id: DIFY_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
                     detail: Some(format!(
-                        "Dify connector health requires {DIFY_DATASET_ID_ENV} or per-space kb_source connector metadata datasetId"
+                        "Dify connector health requires an active Provider binding with a remote resource id"
                     )),
                 });
             }
@@ -197,7 +161,7 @@ impl KnowledgeEngine for DifyKnowledgeEngine {
             ));
         };
 
-        let dataset_id = self.resolve_dataset_id_for_space(request.space_id).await?;
+        let dataset_id = self.required_dataset_id(request.space_id)?;
         client
             .retrieve(request.space_id, &dataset_id, &request.query, request.top_k)
             .await
@@ -221,7 +185,7 @@ impl KnowledgeEngine for DifyKnowledgeEngine {
                 )
             })?;
 
-        let dataset_id = self.resolve_dataset_id_for_space(request.space_id).await?;
+        let dataset_id = self.required_dataset_id(request.space_id)?;
         client
             .read_segment(&dataset_id, &document_id, &segment_id)
             .await

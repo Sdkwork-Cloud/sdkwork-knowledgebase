@@ -7,11 +7,8 @@ mod client;
 mod config;
 
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
-    resolve_connector_dataset_id_for_space, KnowledgeEngine,
-};
+use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -23,8 +20,8 @@ use std::sync::Arc;
 
 pub use client::{chunk_id_from_content, OpenWebuiApiClient};
 pub use config::{
-    knowledge_id_from_connector_metadata, OpenWebuiConnectorConfig, OPEN_WEBUI_BASE_URL_ENV,
-    OPEN_WEBUI_CREDENTIAL_ENV, OPEN_WEBUI_CREDENTIAL_FILE_ENV, OPEN_WEBUI_KNOWLEDGE_ID_ENV,
+    OpenWebuiConnectorConfig, OPEN_WEBUI_BASE_URL_ENV, OPEN_WEBUI_CREDENTIAL_ENV,
+    OPEN_WEBUI_CREDENTIAL_FILE_ENV, OPEN_WEBUI_KNOWLEDGE_ID_ENV,
 };
 
 pub const OPEN_WEBUI_VENDOR_ID: &str = "open-webui";
@@ -34,7 +31,6 @@ pub const OPEN_WEBUI_AGENT_PROVIDER_ID: &str = "provider.knowledge.external.open
 pub struct OpenWebuiKnowledgeEngine {
     config: Option<OpenWebuiConnectorConfig>,
     client: Option<OpenWebuiApiClient>,
-    source_store: Option<Arc<dyn KnowledgeSourceStore>>,
 }
 
 impl OpenWebuiKnowledgeEngine {
@@ -43,28 +39,14 @@ impl OpenWebuiKnowledgeEngine {
         let client = config
             .as_ref()
             .map(|value| OpenWebuiApiClient::new(value.clone()));
-        Self {
-            config,
-            client,
-            source_store: None,
-        }
+        Self { config, client }
     }
 
-    pub fn from_runtime(source_store: Arc<dyn KnowledgeSourceStore>) -> Self {
-        let mut engine = Self::from_env();
-        engine.source_store = Some(source_store);
-        engine
-    }
-
-    pub fn with_config(
-        config: OpenWebuiConnectorConfig,
-        source_store: Option<Arc<dyn KnowledgeSourceStore>>,
-    ) -> Self {
+    pub fn with_config(config: OpenWebuiConnectorConfig) -> Self {
         let client = OpenWebuiApiClient::new(config.clone());
         Self {
             config: Some(config),
             client: Some(client),
-            source_store,
         }
     }
 
@@ -72,7 +54,6 @@ impl OpenWebuiKnowledgeEngine {
         Self {
             config: None,
             client: None,
-            source_store: None,
         }
     }
 
@@ -91,36 +72,19 @@ impl OpenWebuiKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Open WebUI adapter requires {OPEN_WEBUI_BASE_URL_ENV} and {OPEN_WEBUI_CREDENTIAL_ENV}; optional default knowledge collection via {OPEN_WEBUI_KNOWLEDGE_ID_ENV} or kb_source connector metadata datasetId"
+            "Open WebUI adapter requires {OPEN_WEBUI_BASE_URL_ENV} and {OPEN_WEBUI_CREDENTIAL_ENV}; an active Provider binding supplies the knowledge collection id"
         )
     }
 
-    async fn resolve_knowledge_id_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<String, KnowledgeEngineError> {
-        let Some(source_store) = self.source_store.as_deref() else {
-            return self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_knowledge_id.clone())
-                .ok_or_else(|| {
-                    KnowledgeEngineError::Validation(format!(
-                        "Open WebUI search requires {OPEN_WEBUI_KNOWLEDGE_ID_ENV} or kb_source connector metadata datasetId for space_id={space_id}"
-                    ))
-                });
-        };
-
-        resolve_connector_dataset_id_for_space(
-            source_store,
-            space_id,
-            OPEN_WEBUI_IMPLEMENTATION_ID,
-            self.config
-                .as_ref()
-                .and_then(|config| config.default_knowledge_id.clone()),
-            OPEN_WEBUI_KNOWLEDGE_ID_ENV,
-        )
-        .await
+    fn required_knowledge_id(&self, space_id: u64) -> Result<String, KnowledgeEngineError> {
+        self.config
+            .as_ref()
+            .and_then(|config| config.default_knowledge_id.clone())
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(format!(
+                    "Open WebUI execution requires an active Provider binding with a remote resource id for space_id={space_id}"
+                ))
+            })
     }
 }
 
@@ -144,7 +108,7 @@ impl KnowledgeEngine for OpenWebuiKnowledgeEngine {
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
         config.default_knowledge_id = Some(binding.remote_resource_id.clone());
-        Ok(Arc::new(Self::with_config(config, None)))
+        Ok(Arc::new(Self::with_config(config)))
     }
 
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {
@@ -167,7 +131,7 @@ impl KnowledgeEngine for OpenWebuiKnowledgeEngine {
                     implementation_id: OPEN_WEBUI_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
                     detail: Some(format!(
-                        "Open WebUI connector health requires {OPEN_WEBUI_KNOWLEDGE_ID_ENV} or per-space kb_source connector metadata datasetId"
+                        "Open WebUI connector health requires an active Provider binding with a remote resource id"
                     )),
                 });
             }
@@ -197,9 +161,7 @@ impl KnowledgeEngine for OpenWebuiKnowledgeEngine {
             ));
         };
 
-        let knowledge_id = self
-            .resolve_knowledge_id_for_space(request.space_id)
-            .await?;
+        let knowledge_id = self.required_knowledge_id(request.space_id)?;
         client
             .query_collection(
                 request.space_id,
@@ -228,9 +190,7 @@ impl KnowledgeEngine for OpenWebuiKnowledgeEngine {
                 )
             })?;
 
-        let knowledge_id = self
-            .resolve_knowledge_id_for_space(request.space_id)
-            .await?;
+        let knowledge_id = self.required_knowledge_id(request.space_id)?;
         client
             .read_chunk(request.space_id, &knowledge_id, &document_hint, &chunk_id)
             .await

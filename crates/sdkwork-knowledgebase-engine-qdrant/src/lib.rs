@@ -7,11 +7,8 @@ mod client;
 mod config;
 
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
-    resolve_connector_dataset_id_for_space, KnowledgeEngine,
-};
+use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -23,9 +20,9 @@ use std::sync::Arc;
 
 pub use client::QdrantApiClient;
 pub use config::{
-    collection_name_from_connector_metadata, QdrantConnectorConfig, QDRANT_BASE_URL_ENV,
-    QDRANT_COLLECTION_NAME_ENV, QDRANT_CREDENTIAL_ENV, QDRANT_CREDENTIAL_FILE_ENV,
-    QDRANT_QUERY_MODEL_ENV, QDRANT_USING_VECTOR_ENV,
+    QdrantConnectorConfig, QDRANT_BASE_URL_ENV, QDRANT_COLLECTION_NAME_ENV,
+    QDRANT_CREDENTIAL_ENV, QDRANT_CREDENTIAL_FILE_ENV, QDRANT_QUERY_MODEL_ENV,
+    QDRANT_USING_VECTOR_ENV,
 };
 
 pub const QDRANT_VENDOR_ID: &str = "qdrant";
@@ -35,7 +32,6 @@ pub const QDRANT_AGENT_PROVIDER_ID: &str = "provider.knowledge.external.qdrant";
 pub struct QdrantKnowledgeEngine {
     config: Option<QdrantConnectorConfig>,
     client: Option<QdrantApiClient>,
-    source_store: Option<Arc<dyn KnowledgeSourceStore>>,
 }
 
 impl QdrantKnowledgeEngine {
@@ -44,28 +40,14 @@ impl QdrantKnowledgeEngine {
         let client = config
             .as_ref()
             .map(|value| QdrantApiClient::new(value.clone()));
-        Self {
-            config,
-            client,
-            source_store: None,
-        }
+        Self { config, client }
     }
 
-    pub fn from_runtime(source_store: Arc<dyn KnowledgeSourceStore>) -> Self {
-        let mut engine = Self::from_env();
-        engine.source_store = Some(source_store);
-        engine
-    }
-
-    pub fn with_config(
-        config: QdrantConnectorConfig,
-        source_store: Option<Arc<dyn KnowledgeSourceStore>>,
-    ) -> Self {
+    pub fn with_config(config: QdrantConnectorConfig) -> Self {
         let client = QdrantApiClient::new(config.clone());
         Self {
             config: Some(config),
             client: Some(client),
-            source_store,
         }
     }
 
@@ -73,7 +55,6 @@ impl QdrantKnowledgeEngine {
         Self {
             config: None,
             client: None,
-            source_store: None,
         }
     }
 
@@ -92,36 +73,19 @@ impl QdrantKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Qdrant adapter requires {QDRANT_BASE_URL_ENV}; optional auth via {QDRANT_CREDENTIAL_ENV} or {QDRANT_CREDENTIAL_FILE_ENV}; collection via {QDRANT_COLLECTION_NAME_ENV} or kb_source connector metadata datasetId; text search via {QDRANT_QUERY_MODEL_ENV}"
+            "Qdrant adapter requires {QDRANT_BASE_URL_ENV}; optional auth via {QDRANT_CREDENTIAL_ENV} or {QDRANT_CREDENTIAL_FILE_ENV}; an active Provider binding supplies the collection name; text search uses {QDRANT_QUERY_MODEL_ENV}"
         )
     }
 
-    async fn resolve_collection_name_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<String, KnowledgeEngineError> {
-        let Some(source_store) = self.source_store.as_deref() else {
-            return self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_collection_name.clone())
-                .ok_or_else(|| {
-                    KnowledgeEngineError::Validation(format!(
-                        "Qdrant search requires {QDRANT_COLLECTION_NAME_ENV} or kb_source connector metadata datasetId for space_id={space_id}"
-                    ))
-                });
-        };
-
-        resolve_connector_dataset_id_for_space(
-            source_store,
-            space_id,
-            QDRANT_IMPLEMENTATION_ID,
-            self.config
-                .as_ref()
-                .and_then(|config| config.default_collection_name.clone()),
-            QDRANT_COLLECTION_NAME_ENV,
-        )
-        .await
+    fn required_collection_name(&self, space_id: u64) -> Result<String, KnowledgeEngineError> {
+        self.config
+            .as_ref()
+            .and_then(|config| config.default_collection_name.clone())
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(format!(
+                    "Qdrant execution requires an active Provider binding with a remote resource id for space_id={space_id}"
+                ))
+            })
     }
 }
 
@@ -145,7 +109,7 @@ impl KnowledgeEngine for QdrantKnowledgeEngine {
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
         config.default_collection_name = Some(binding.remote_resource_id.clone());
-        Ok(Arc::new(Self::with_config(config, None)))
+        Ok(Arc::new(Self::with_config(config)))
     }
 
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {
@@ -168,7 +132,7 @@ impl KnowledgeEngine for QdrantKnowledgeEngine {
                     implementation_id: QDRANT_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
                     detail: Some(format!(
-                        "Qdrant connector health requires {QDRANT_COLLECTION_NAME_ENV} or per-space kb_source connector metadata datasetId"
+                        "Qdrant connector health requires an active Provider binding with a remote resource id"
                     )),
                 });
             }
@@ -198,9 +162,7 @@ impl KnowledgeEngine for QdrantKnowledgeEngine {
             ));
         };
 
-        let collection_name = self
-            .resolve_collection_name_for_space(request.space_id)
-            .await?;
+        let collection_name = self.required_collection_name(request.space_id)?;
         client
             .query_points(
                 request.space_id,
@@ -227,9 +189,7 @@ impl KnowledgeEngine for QdrantKnowledgeEngine {
             )
         })?;
 
-        let collection_name = self
-            .resolve_collection_name_for_space(request.space_id)
-            .await?;
+        let collection_name = self.required_collection_name(request.space_id)?;
         client.get_point(&collection_name, &point_id).await
     }
 

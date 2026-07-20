@@ -7,11 +7,8 @@ mod client;
 mod config;
 
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
-    resolve_connector_workspace_slug_for_space, KnowledgeEngine,
-};
+use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -23,8 +20,8 @@ use std::sync::Arc;
 
 pub use client::AnythingLlmApiClient;
 pub use config::{
-    workspace_slug_from_connector_metadata, AnythingLlmConnectorConfig, ANYTHINGLLM_BASE_URL_ENV,
-    ANYTHINGLLM_CREDENTIAL_ENV, ANYTHINGLLM_CREDENTIAL_FILE_ENV, ANYTHINGLLM_WORKSPACE_SLUG_ENV,
+    AnythingLlmConnectorConfig, ANYTHINGLLM_BASE_URL_ENV, ANYTHINGLLM_CREDENTIAL_ENV,
+    ANYTHINGLLM_CREDENTIAL_FILE_ENV, ANYTHINGLLM_WORKSPACE_SLUG_ENV,
 };
 
 pub const ANYTHINGLLM_VENDOR_ID: &str = "anythingllm";
@@ -34,7 +31,6 @@ pub const ANYTHINGLLM_AGENT_PROVIDER_ID: &str = "provider.knowledge.external.any
 pub struct AnythingLlmKnowledgeEngine {
     config: Option<AnythingLlmConnectorConfig>,
     client: Option<AnythingLlmApiClient>,
-    source_store: Option<Arc<dyn KnowledgeSourceStore>>,
 }
 
 impl AnythingLlmKnowledgeEngine {
@@ -43,28 +39,14 @@ impl AnythingLlmKnowledgeEngine {
         let client = config
             .as_ref()
             .map(|value| AnythingLlmApiClient::new(value.clone()));
-        Self {
-            config,
-            client,
-            source_store: None,
-        }
+        Self { config, client }
     }
 
-    pub fn from_runtime(source_store: Arc<dyn KnowledgeSourceStore>) -> Self {
-        let mut engine = Self::from_env();
-        engine.source_store = Some(source_store);
-        engine
-    }
-
-    pub fn with_config(
-        config: AnythingLlmConnectorConfig,
-        source_store: Option<Arc<dyn KnowledgeSourceStore>>,
-    ) -> Self {
+    pub fn with_config(config: AnythingLlmConnectorConfig) -> Self {
         let client = AnythingLlmApiClient::new(config.clone());
         Self {
             config: Some(config),
             client: Some(client),
-            source_store,
         }
     }
 
@@ -72,7 +54,6 @@ impl AnythingLlmKnowledgeEngine {
         Self {
             config: None,
             client: None,
-            source_store: None,
         }
     }
 
@@ -91,36 +72,19 @@ impl AnythingLlmKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "AnythingLLM adapter requires {ANYTHINGLLM_BASE_URL_ENV} and {ANYTHINGLLM_CREDENTIAL_ENV} or {ANYTHINGLLM_CREDENTIAL_FILE_ENV}; optional default workspace via {ANYTHINGLLM_WORKSPACE_SLUG_ENV} or kb_source connector metadata workspaceSlug"
+            "AnythingLLM adapter requires {ANYTHINGLLM_BASE_URL_ENV} and {ANYTHINGLLM_CREDENTIAL_ENV} or {ANYTHINGLLM_CREDENTIAL_FILE_ENV}; an active Provider binding supplies the workspace slug"
         )
     }
 
-    async fn resolve_workspace_slug_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<String, KnowledgeEngineError> {
-        let Some(source_store) = self.source_store.as_deref() else {
-            return self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_workspace_slug.clone())
-                .ok_or_else(|| {
-                    KnowledgeEngineError::Validation(format!(
-                        "AnythingLLM search requires {ANYTHINGLLM_WORKSPACE_SLUG_ENV} or kb_source connector metadata workspaceSlug for space_id={space_id}"
-                    ))
-                });
-        };
-
-        resolve_connector_workspace_slug_for_space(
-            source_store,
-            space_id,
-            ANYTHINGLLM_IMPLEMENTATION_ID,
-            self.config
-                .as_ref()
-                .and_then(|config| config.default_workspace_slug.clone()),
-            ANYTHINGLLM_WORKSPACE_SLUG_ENV,
-        )
-        .await
+    fn required_workspace_slug(&self, space_id: u64) -> Result<String, KnowledgeEngineError> {
+        self.config
+            .as_ref()
+            .and_then(|config| config.default_workspace_slug.clone())
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(format!(
+                    "AnythingLLM execution requires an active Provider binding with a remote resource id for space_id={space_id}"
+                ))
+            })
     }
 }
 
@@ -144,7 +108,7 @@ impl KnowledgeEngine for AnythingLlmKnowledgeEngine {
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
         config.default_workspace_slug = Some(binding.remote_resource_id.clone());
-        Ok(Arc::new(Self::with_config(config, None)))
+        Ok(Arc::new(Self::with_config(config)))
     }
 
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {
@@ -167,7 +131,7 @@ impl KnowledgeEngine for AnythingLlmKnowledgeEngine {
                     implementation_id: ANYTHINGLLM_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
                     detail: Some(format!(
-                        "AnythingLLM connector health requires {ANYTHINGLLM_WORKSPACE_SLUG_ENV} or per-space kb_source connector metadata workspaceSlug"
+                        "AnythingLLM connector health requires an active Provider binding with a remote resource id"
                     )),
                 });
             }
@@ -197,9 +161,7 @@ impl KnowledgeEngine for AnythingLlmKnowledgeEngine {
             ));
         };
 
-        let workspace_slug = self
-            .resolve_workspace_slug_for_space(request.space_id)
-            .await?;
+        let workspace_slug = self.required_workspace_slug(request.space_id)?;
         client
             .vector_search(
                 request.space_id,
@@ -228,9 +190,7 @@ impl KnowledgeEngine for AnythingLlmKnowledgeEngine {
                 )
             })?;
 
-        let workspace_slug = self
-            .resolve_workspace_slug_for_space(request.space_id)
-            .await?;
+        let workspace_slug = self.required_workspace_slug(request.space_id)?;
         client
             .read_chunk(request.space_id, &workspace_slug, &document_hint, &chunk_id)
             .await

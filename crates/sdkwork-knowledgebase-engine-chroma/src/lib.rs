@@ -7,11 +7,8 @@ mod client;
 mod config;
 
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
-    resolve_connector_dataset_id_for_space, KnowledgeEngine,
-};
+use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -23,9 +20,9 @@ use std::sync::Arc;
 
 pub use client::ChromaApiClient;
 pub use config::{
-    collection_id_from_connector_metadata, ChromaConnectorConfig, CHROMA_BASE_URL_ENV,
-    CHROMA_COLLECTION_ID_ENV, CHROMA_CREDENTIAL_ENV, CHROMA_CREDENTIAL_FILE_ENV,
-    CHROMA_DATABASE_ENV, CHROMA_TENANT_ENV, DEFAULT_CHROMA_DATABASE, DEFAULT_CHROMA_TENANT,
+    ChromaConnectorConfig, CHROMA_BASE_URL_ENV, CHROMA_COLLECTION_ID_ENV, CHROMA_CREDENTIAL_ENV,
+    CHROMA_CREDENTIAL_FILE_ENV, CHROMA_DATABASE_ENV, CHROMA_TENANT_ENV, DEFAULT_CHROMA_DATABASE,
+    DEFAULT_CHROMA_TENANT,
 };
 
 pub const CHROMA_VENDOR_ID: &str = "chroma";
@@ -35,7 +32,6 @@ pub const CHROMA_AGENT_PROVIDER_ID: &str = "provider.knowledge.external.chroma";
 pub struct ChromaKnowledgeEngine {
     config: Option<ChromaConnectorConfig>,
     client: Option<ChromaApiClient>,
-    source_store: Option<Arc<dyn KnowledgeSourceStore>>,
 }
 
 impl ChromaKnowledgeEngine {
@@ -44,28 +40,14 @@ impl ChromaKnowledgeEngine {
         let client = config
             .as_ref()
             .map(|value| ChromaApiClient::new(value.clone()));
-        Self {
-            config,
-            client,
-            source_store: None,
-        }
+        Self { config, client }
     }
 
-    pub fn from_runtime(source_store: Arc<dyn KnowledgeSourceStore>) -> Self {
-        let mut engine = Self::from_env();
-        engine.source_store = Some(source_store);
-        engine
-    }
-
-    pub fn with_config(
-        config: ChromaConnectorConfig,
-        source_store: Option<Arc<dyn KnowledgeSourceStore>>,
-    ) -> Self {
+    pub fn with_config(config: ChromaConnectorConfig) -> Self {
         let client = ChromaApiClient::new(config.clone());
         Self {
             config: Some(config),
             client: Some(client),
-            source_store,
         }
     }
 
@@ -73,7 +55,6 @@ impl ChromaKnowledgeEngine {
         Self {
             config: None,
             client: None,
-            source_store: None,
         }
     }
 
@@ -92,36 +73,19 @@ impl ChromaKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Chroma adapter requires {CHROMA_BASE_URL_ENV}; optional auth via {CHROMA_CREDENTIAL_ENV} or {CHROMA_CREDENTIAL_FILE_ENV}; collection via {CHROMA_COLLECTION_ID_ENV} or kb_source connector metadata datasetId"
+            "Chroma adapter requires {CHROMA_BASE_URL_ENV}; optional auth via {CHROMA_CREDENTIAL_ENV} or {CHROMA_CREDENTIAL_FILE_ENV}; an active Provider binding supplies the collection id"
         )
     }
 
-    async fn resolve_collection_id_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<String, KnowledgeEngineError> {
-        let Some(source_store) = self.source_store.as_deref() else {
-            return self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_collection_id.clone())
-                .ok_or_else(|| {
-                    KnowledgeEngineError::Validation(format!(
-                        "Chroma search requires {CHROMA_COLLECTION_ID_ENV} or kb_source connector metadata datasetId for space_id={space_id}"
-                    ))
-                });
-        };
-
-        resolve_connector_dataset_id_for_space(
-            source_store,
-            space_id,
-            CHROMA_IMPLEMENTATION_ID,
-            self.config
-                .as_ref()
-                .and_then(|config| config.default_collection_id.clone()),
-            CHROMA_COLLECTION_ID_ENV,
-        )
-        .await
+    fn required_collection_id(&self, space_id: u64) -> Result<String, KnowledgeEngineError> {
+        self.config
+            .as_ref()
+            .and_then(|config| config.default_collection_id.clone())
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(format!(
+                    "Chroma execution requires an active Provider binding with a remote resource id for space_id={space_id}"
+                ))
+            })
     }
 }
 
@@ -145,7 +109,7 @@ impl KnowledgeEngine for ChromaKnowledgeEngine {
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
         config.default_collection_id = Some(binding.remote_resource_id.clone());
-        Ok(Arc::new(Self::with_config(config, None)))
+        Ok(Arc::new(Self::with_config(config)))
     }
 
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {
@@ -181,9 +145,7 @@ impl KnowledgeEngine for ChromaKnowledgeEngine {
             ));
         };
 
-        let collection_id = self
-            .resolve_collection_id_for_space(request.space_id)
-            .await?;
+        let collection_id = self.required_collection_id(request.space_id)?;
         client
             .query_collection(
                 request.space_id,
@@ -211,9 +173,7 @@ impl KnowledgeEngine for ChromaKnowledgeEngine {
                 )
             })?;
 
-        let collection_id = self
-            .resolve_collection_id_for_space(request.space_id)
-            .await?;
+        let collection_id = self.required_collection_id(request.space_id)?;
         client.get_record(&collection_id, &record_id).await
     }
 

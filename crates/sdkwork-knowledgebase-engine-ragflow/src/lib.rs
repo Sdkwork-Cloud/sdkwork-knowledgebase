@@ -7,11 +7,8 @@ mod client;
 mod config;
 
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
-    resolve_connector_dataset_id_for_space, KnowledgeEngine,
-};
+use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -23,8 +20,8 @@ use std::sync::Arc;
 
 pub use client::RagflowApiClient;
 pub use config::{
-    dataset_id_from_connector_metadata, RagflowConnectorConfig, RAGFLOW_BASE_URL_ENV,
-    RAGFLOW_CREDENTIAL_ENV, RAGFLOW_CREDENTIAL_FILE_ENV, RAGFLOW_DATASET_ID_ENV,
+    RagflowConnectorConfig, RAGFLOW_BASE_URL_ENV, RAGFLOW_CREDENTIAL_ENV,
+    RAGFLOW_CREDENTIAL_FILE_ENV, RAGFLOW_DATASET_ID_ENV,
 };
 
 pub const RAGFLOW_VENDOR_ID: &str = "ragflow";
@@ -34,7 +31,6 @@ pub const RAGFLOW_AGENT_PROVIDER_ID: &str = "provider.knowledge.external.ragflow
 pub struct RagflowKnowledgeEngine {
     config: Option<RagflowConnectorConfig>,
     client: Option<RagflowApiClient>,
-    source_store: Option<Arc<dyn KnowledgeSourceStore>>,
 }
 
 impl RagflowKnowledgeEngine {
@@ -43,28 +39,14 @@ impl RagflowKnowledgeEngine {
         let client = config
             .as_ref()
             .map(|value| RagflowApiClient::new(value.clone()));
-        Self {
-            config,
-            client,
-            source_store: None,
-        }
+        Self { config, client }
     }
 
-    pub fn from_runtime(source_store: Arc<dyn KnowledgeSourceStore>) -> Self {
-        let mut engine = Self::from_env();
-        engine.source_store = Some(source_store);
-        engine
-    }
-
-    pub fn with_config(
-        config: RagflowConnectorConfig,
-        source_store: Option<Arc<dyn KnowledgeSourceStore>>,
-    ) -> Self {
+    pub fn with_config(config: RagflowConnectorConfig) -> Self {
         let client = RagflowApiClient::new(config.clone());
         Self {
             config: Some(config),
             client: Some(client),
-            source_store,
         }
     }
 
@@ -72,7 +54,6 @@ impl RagflowKnowledgeEngine {
         Self {
             config: None,
             client: None,
-            source_store: None,
         }
     }
 
@@ -91,36 +72,19 @@ impl RagflowKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "RAGFlow adapter requires {RAGFLOW_BASE_URL_ENV} and {RAGFLOW_CREDENTIAL_ENV}; optional default dataset via {RAGFLOW_DATASET_ID_ENV} or kb_source connector metadata datasetId"
+            "RAGFlow adapter requires {RAGFLOW_BASE_URL_ENV} and {RAGFLOW_CREDENTIAL_ENV}; an active Provider binding supplies the dataset id"
         )
     }
 
-    async fn resolve_dataset_id_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<String, KnowledgeEngineError> {
-        let Some(source_store) = self.source_store.as_deref() else {
-            return self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_dataset_id.clone())
-                .ok_or_else(|| {
-                    KnowledgeEngineError::Validation(format!(
-                        "RAGFlow search requires {RAGFLOW_DATASET_ID_ENV} or kb_source connector metadata datasetId for space_id={space_id}"
-                    ))
-                });
-        };
-
-        resolve_connector_dataset_id_for_space(
-            source_store,
-            space_id,
-            RAGFLOW_IMPLEMENTATION_ID,
-            self.config
-                .as_ref()
-                .and_then(|config| config.default_dataset_id.clone()),
-            RAGFLOW_DATASET_ID_ENV,
-        )
-        .await
+    fn required_dataset_id(&self, space_id: u64) -> Result<String, KnowledgeEngineError> {
+        self.config
+            .as_ref()
+            .and_then(|config| config.default_dataset_id.clone())
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(format!(
+                    "RAGFlow execution requires an active Provider binding with a remote resource id for space_id={space_id}"
+                ))
+            })
     }
 }
 
@@ -144,7 +108,7 @@ impl KnowledgeEngine for RagflowKnowledgeEngine {
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
         config.default_dataset_id = Some(binding.remote_resource_id.clone());
-        Ok(Arc::new(Self::with_config(config, None)))
+        Ok(Arc::new(Self::with_config(config)))
     }
 
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {
@@ -167,7 +131,7 @@ impl KnowledgeEngine for RagflowKnowledgeEngine {
                     implementation_id: RAGFLOW_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
                     detail: Some(format!(
-                        "RAGFlow connector health requires {RAGFLOW_DATASET_ID_ENV} or per-space kb_source connector metadata datasetId"
+                        "RAGFlow connector health requires an active Provider binding with a remote resource id"
                     )),
                 });
             }
@@ -197,7 +161,7 @@ impl KnowledgeEngine for RagflowKnowledgeEngine {
             ));
         };
 
-        let dataset_id = self.resolve_dataset_id_for_space(request.space_id).await?;
+        let dataset_id = self.required_dataset_id(request.space_id)?;
         client
             .retrieve(request.space_id, &dataset_id, &request.query, request.top_k)
             .await
@@ -221,7 +185,7 @@ impl KnowledgeEngine for RagflowKnowledgeEngine {
                 )
             })?;
 
-        let dataset_id = self.resolve_dataset_id_for_space(request.space_id).await?;
+        let dataset_id = self.required_dataset_id(request.space_id)?;
         client
             .read_chunk(&dataset_id, &document_id, &chunk_id)
             .await

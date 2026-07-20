@@ -7,11 +7,8 @@ mod client;
 mod config;
 
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
-    resolve_connector_dataset_id_for_space, KnowledgeEngine,
-};
+use sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_engine::ExternalKnowledgeEngine;
-use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore;
 use sdkwork_knowledgebase_contract::knowledge_engine::{
     descriptor_for_external, descriptor_for_external_search_read, parse_compound_document_ref,
     KnowledgeEngineDescriptor, KnowledgeEngineDocument, KnowledgeEngineDocumentList,
@@ -23,8 +20,8 @@ use std::sync::Arc;
 
 pub use client::{chunk_id_from_content, FlowiseApiClient};
 pub use config::{
-    store_id_from_connector_metadata, FlowiseConnectorConfig, FLOWISE_BASE_URL_ENV,
-    FLOWISE_CREDENTIAL_ENV, FLOWISE_CREDENTIAL_FILE_ENV, FLOWISE_STORE_ID_ENV,
+    FlowiseConnectorConfig, FLOWISE_BASE_URL_ENV, FLOWISE_CREDENTIAL_ENV,
+    FLOWISE_CREDENTIAL_FILE_ENV, FLOWISE_STORE_ID_ENV,
 };
 
 pub const FLOWISE_VENDOR_ID: &str = "flowise";
@@ -34,7 +31,6 @@ pub const FLOWISE_AGENT_PROVIDER_ID: &str = "provider.knowledge.external.flowise
 pub struct FlowiseKnowledgeEngine {
     config: Option<FlowiseConnectorConfig>,
     client: Option<FlowiseApiClient>,
-    source_store: Option<Arc<dyn KnowledgeSourceStore>>,
 }
 
 impl FlowiseKnowledgeEngine {
@@ -43,28 +39,14 @@ impl FlowiseKnowledgeEngine {
         let client = config
             .as_ref()
             .map(|value| FlowiseApiClient::new(value.clone()));
-        Self {
-            config,
-            client,
-            source_store: None,
-        }
+        Self { config, client }
     }
 
-    pub fn from_runtime(source_store: Arc<dyn KnowledgeSourceStore>) -> Self {
-        let mut engine = Self::from_env();
-        engine.source_store = Some(source_store);
-        engine
-    }
-
-    pub fn with_config(
-        config: FlowiseConnectorConfig,
-        source_store: Option<Arc<dyn KnowledgeSourceStore>>,
-    ) -> Self {
+    pub fn with_config(config: FlowiseConnectorConfig) -> Self {
         let client = FlowiseApiClient::new(config.clone());
         Self {
             config: Some(config),
             client: Some(client),
-            source_store,
         }
     }
 
@@ -72,7 +54,6 @@ impl FlowiseKnowledgeEngine {
         Self {
             config: None,
             client: None,
-            source_store: None,
         }
     }
 
@@ -91,36 +72,19 @@ impl FlowiseKnowledgeEngine {
 
     fn unconfigured_message(&self) -> String {
         format!(
-            "Flowise adapter requires {FLOWISE_BASE_URL_ENV} and {FLOWISE_CREDENTIAL_ENV}; optional default document store via {FLOWISE_STORE_ID_ENV} or kb_source connector metadata datasetId"
+            "Flowise adapter requires {FLOWISE_BASE_URL_ENV} and {FLOWISE_CREDENTIAL_ENV}; an active Provider binding supplies the document store id"
         )
     }
 
-    async fn resolve_store_id_for_space(
-        &self,
-        space_id: u64,
-    ) -> Result<String, KnowledgeEngineError> {
-        let Some(source_store) = self.source_store.as_deref() else {
-            return self
-                .config
-                .as_ref()
-                .and_then(|config| config.default_store_id.clone())
-                .ok_or_else(|| {
-                    KnowledgeEngineError::Validation(format!(
-                        "Flowise search requires {FLOWISE_STORE_ID_ENV} or kb_source connector metadata datasetId for space_id={space_id}"
-                    ))
-                });
-        };
-
-        resolve_connector_dataset_id_for_space(
-            source_store,
-            space_id,
-            FLOWISE_IMPLEMENTATION_ID,
-            self.config
-                .as_ref()
-                .and_then(|config| config.default_store_id.clone()),
-            FLOWISE_STORE_ID_ENV,
-        )
-        .await
+    fn required_store_id(&self, space_id: u64) -> Result<String, KnowledgeEngineError> {
+        self.config
+            .as_ref()
+            .and_then(|config| config.default_store_id.clone())
+            .ok_or_else(|| {
+                KnowledgeEngineError::Validation(format!(
+                    "Flowise execution requires an active Provider binding with a remote resource id for space_id={space_id}"
+                ))
+            })
     }
 }
 
@@ -144,7 +108,7 @@ impl KnowledgeEngine for FlowiseKnowledgeEngine {
             .clone()
             .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
         config.default_store_id = Some(binding.remote_resource_id.clone());
-        Ok(Arc::new(Self::with_config(config, None)))
+        Ok(Arc::new(Self::with_config(config)))
     }
 
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {
@@ -167,7 +131,7 @@ impl KnowledgeEngine for FlowiseKnowledgeEngine {
                     implementation_id: FLOWISE_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
                     detail: Some(format!(
-                        "Flowise connector health requires {FLOWISE_STORE_ID_ENV} or per-space kb_source connector metadata datasetId"
+                        "Flowise connector health requires an active Provider binding with a remote resource id"
                     )),
                 });
             }
@@ -197,7 +161,7 @@ impl KnowledgeEngine for FlowiseKnowledgeEngine {
             ));
         };
 
-        let store_id = self.resolve_store_id_for_space(request.space_id).await?;
+        let store_id = self.required_store_id(request.space_id)?;
         client
             .query_vector_store(request.space_id, &store_id, &request.query, request.top_k)
             .await
@@ -221,7 +185,7 @@ impl KnowledgeEngine for FlowiseKnowledgeEngine {
                 )
             })?;
 
-        let store_id = self.resolve_store_id_for_space(request.space_id).await?;
+        let store_id = self.required_store_id(request.space_id)?;
         client
             .read_chunk(request.space_id, &store_id, &document_hint, &chunk_id)
             .await
