@@ -158,6 +158,12 @@ for (const entry of catalog.vendors ?? []) {
       path.join(root, adapterCrate, "src/lib.rs"),
       "utf8",
     );
+    assert(
+      adapterSource.includes("fn bind_provider")
+        && (vendor.vendorId === "onyx"
+          || adapterSource.includes("binding.remote_resource_id")),
+      `${vendorManifestRel}: adapter must instantiate a binding-scoped remote resource`,
+    );
     const adapterTestsDir = path.join(root, adapterCrate, "tests");
     let adapterTestSource = "";
     try {

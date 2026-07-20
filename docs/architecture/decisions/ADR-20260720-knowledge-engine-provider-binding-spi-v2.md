@@ -113,8 +113,9 @@ never access persistence or credentials outside approved ports.
 
 - A database migration, authored OpenAPI changes, regenerated SDKs, backend management UI, worker
   operations, and provider certification harness are required.
-- Existing `kb_source.provider` inference remains only during a bounded expand-contract backfill;
-  ambiguity fails and requires administrator resolution. No oldest/first-provider fallback exists.
+- Existing source rows are never converted into Provider authority. Prelaunch external spaces with
+  no active binding fail closed and require an administrator to create and test an explicit
+  binding; no oldest/first-provider fallback, compatibility resolver, or dual-read path exists.
 - Provider-specific capabilities remain honest, at the cost of some UI commands being unavailable.
 - The shared runtime adds dependencies and state, but centralizes reliability and telemetry policy.
 - Security/privacy review must approve the credential reference owner, egress/data-scope policy,
@@ -144,7 +145,7 @@ The approved scope, compatibility decision, rollback, and verification commands 
   `reqwest::Client::new()`, no raw secret exposure, and generated SDK consumer boundaries.
 - Unit/contract tests cover every capability and error category; integration tests cover binding
   scope, lifecycle, concurrency, audit, retries, circuit breaking, and response bounds.
-- SQLite and PostgreSQL tests cover indexes, optimistic concurrency, tenant/RLS isolation, backfill,
+- SQLite and PostgreSQL tests cover indexes, optimistic concurrency, tenant/RLS isolation,
   cutover, and rollback.
 - Live certification covers every production-tier provider and supported upstream version.
 - Release gates require quality/load/outage/migration/rollback evidence and human architecture,
@@ -164,5 +165,5 @@ Review evidence: application owner explicitly accepted `ADR-20260720` on 2026-07
 
 ## Supersedes / Superseded By
 
-- Supersedes source-order provider inference after the approved migration window.
+- Supersedes source-order Provider inference immediately in the approved prelaunch cutover.
 - Superseded by: none.

@@ -90,7 +90,7 @@ where
                 binding.implementation_id
             )));
         }
-        Ok(engine)
+        engine.bind_provider(&binding)
     }
 }
 

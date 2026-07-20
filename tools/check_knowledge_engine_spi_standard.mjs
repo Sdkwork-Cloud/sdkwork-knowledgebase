@@ -24,6 +24,7 @@ const requiredPaths = [
   "crates/sdkwork-knowledgebase-contract/src/provider_binding.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_engine.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_provider_binding_store.rs",
+  "crates/sdkwork-intelligence-knowledgebase-service/src/provider_binding.rs",
   "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/provider_binding_store.rs",
   "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/tests/provider_binding_store.rs",
   "database/migrations/sqlite/202607200001_knowledge_engine_provider_binding.up.sql",
@@ -99,6 +100,11 @@ assert(
 assert(
   runtimeSource.includes("load_runtime_external_adapter_engines"),
   "KnowledgebaseRuntime must wire approved external adapter crates",
+);
+assert(
+  !runtimeSource.includes("load_runtime_external_adapter_engines(\n                    source_store")
+    && !runtimeSource.includes("load_runtime_external_adapter_engines(source_store"),
+  "runtime adapter registration must not receive a source store for Provider selection",
 );
 assert(
   (await readFile(
@@ -235,6 +241,10 @@ const portsSource = await readFile(
 assert(
   portsSource.includes("trait KnowledgeEngineSpaceRegistry"),
   "knowledge engine ports must declare KnowledgeEngineSpaceRegistry",
+);
+assert(
+  portsSource.includes("fn bind_provider"),
+  "KnowledgeEngine SPI v2 must bind external implementations to persisted Provider bindings",
 );
 
 assert(

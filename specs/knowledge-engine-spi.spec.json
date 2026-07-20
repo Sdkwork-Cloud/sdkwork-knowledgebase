@@ -18,7 +18,7 @@
     "docs/architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md",
     "docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md"
   ],
-  "purpose": "Product-level Service Provider Interface (SPI) for switchable knowledge engines: native OKF bundle, native RAG, and third-party knowledge backends.",
+  "purpose": "Provider Binding SPI v2 for switchable knowledge engines: native OKF bundle, native RAG, and explicitly bound third-party knowledge backends.",
   "layering": {
     "api": {
       "role": "Stable HTTP contract (OpenAPI authority). Consumers use generated SDKs only.",
@@ -105,8 +105,9 @@
     "fields": {
       "spaceKnowledgeMode": "kb_space.knowledge_mode",
       "spaceOkfInitialized": "kb_space.okf_bundle_initialized",
-      "sourceProvider": "kb_source.provider",
-      "sourceType": "kb_source.source_type",
+      "activeProviderBinding": "kb_provider_binding.lifecycle_state = active",
+      "providerImplementation": "kb_provider_binding.implementation_id",
+      "providerRemoteResource": "kb_provider_binding.remote_resource_type + kb_provider_binding.remote_resource_id",
       "agentProfileMode": "kb_agent_profile.knowledge_mode",
       "agentBindingSpace": "kb_agent_knowledge_binding.space_id"
     },
@@ -114,6 +115,7 @@
       "explicit request mode (agent chat / retrieval preview)",
       "agent profile knowledge_mode",
       "space knowledge_mode",
+      "active tenant/organization/space Provider binding when knowledge_mode is external",
       "default okf_bundle for new OKF-initialized spaces"
     ]
   },
@@ -122,6 +124,7 @@
     "module": "knowledge_engine",
     "requiredMethods": [
       "descriptor",
+      "bind_provider",
       "health",
       "search",
       "read_document",
@@ -182,7 +185,7 @@
     "catalogManifest": "external/knowledge-engines/catalog.manifest.json",
     "upstreamSubmoduleRoot": "external/knowledge-engines/upstream",
     "sourceTypes": ["connector", "api"],
-    "configStorage": "kb_source.provider + encrypted connector config (future kb_source_connector_config)",
+    "configStorage": "kb_provider_binding + write-only kb_provider_credential_reference; kb_source remains content association metadata only",
     "adapterCratePattern": "crates/sdkwork-knowledgebase-engine-{vendorId}",
     "integrationTiers": ["catalog", "stub", "adapter", "production"],
     "sdkRule": "Consume vendor SDK or composed facade; raw HTTP only inside adapter integration tests"

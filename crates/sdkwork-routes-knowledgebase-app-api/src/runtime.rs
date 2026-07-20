@@ -420,9 +420,7 @@ impl KnowledgebaseRuntime {
             rag_embedding_store: Some(embedding_store.clone()),
             rag_embedder,
             external_engines:
-                crate::knowledge_engine_adapters::load_runtime_external_adapter_engines(
-                    source_store.clone(),
-                ),
+                crate::knowledge_engine_adapters::load_runtime_external_adapter_engines(),
         }));
 
         let audit_event_store = Arc::new(

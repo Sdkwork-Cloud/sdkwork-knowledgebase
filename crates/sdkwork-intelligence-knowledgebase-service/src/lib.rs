@@ -22,6 +22,7 @@ pub mod mirror;
 pub mod okf;
 pub mod outbox;
 pub mod ports;
+pub mod provider_binding;
 pub mod public_web_search;
 pub mod rag;
 pub mod retrieval;

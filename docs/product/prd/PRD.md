@@ -3,7 +3,7 @@
 Status: active
 Owner: SDKWork maintainers
 Application: sdkwork-knowledgebase
-Updated: 2026-07-14
+Updated: 2026-07-20
 Specs: REQUIREMENTS_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -55,6 +55,9 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - Provider-backed media tasks: ClawRouter SDK image generation and speech-to-text; requests fail closed when provider configuration is absent
 - Drive-backed static site publishing: enabled only when an HTTPS public object gateway is configured; unsupported third-party hosting is not reported as successful
 - Backend API: sources, OKF compile/candidates, indexes, retrieval profiles/traces
+- Backend Provider management: explicit tenant/organization/space bindings, capability-aware
+  testing and activation, write-only credential references, disable/switch/migrate/rollback, and
+  sanitized health. External spaces fail closed without one active tested binding.
 - Open API: retrieval, context packs, ingest, document/browser read
 - Worker: outbox dispatch, ingestion maintenance
 - PC client: editor, search, settings, offline/network awareness
@@ -74,9 +77,12 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 3. **Admin configures ingest** - backend operator with `knowledge.admin` -> create source -> worker completes job -> retrieval returns new chunks
 4. **Integrator retrieves via Open API** - API key with org context -> retrieval -> context pack for downstream agent
 5. **Operator deploys tenant** - K8s manifests + env (tenant, org, secrets, outbox webhook) -> `/readyz` green -> smoke test
+6. **Admin activates an external Provider** - create a write-only credential reference -> create a
+   draft binding for one remote resource -> test capabilities -> activate with optimistic version
+   fencing -> observe health and quality -> retain the predecessor for rollback
 
-6. **Author manages OKF source files** - open OKF space file list -> view original files from `sources/raw` through `view=files` -> upload or create root folder using `data.parentId` -> inspect generated OKF concepts only through `view=okf_bundle`
-7. **Group member opens managed knowledge** - the current IM Owner initializes the group action or
+7. **Author manages OKF source files** - open OKF space file list -> view original files from `sources/raw` through `view=files` -> upload or create root folder using `data.parentId` -> inspect generated OKF concepts only through `view=okf_bundle`
+8. **Group member opens managed knowledge** - the current IM Owner initializes the group action or
    retries failed provisioning -> exactly one managed space is provisioned -> after activation,
    joined non-Guest Owner, Admin, and Member roles open only that fixed workspace through a one-time
    ticket -> Guest, left, removed, and non-member actors are denied -> removal, role reduction, or

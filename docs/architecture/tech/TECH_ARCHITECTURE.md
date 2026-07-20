@@ -2,7 +2,7 @@
 
 Status: active  
 Owner: SDKWork maintainers  
-Updated: 2026-07-14<br>
+Updated: 2026-07-20<br>
 Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -48,6 +48,11 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 - **Client pagination**: PC Cloud Drive browse/import uses generated Knowledgebase SDK and Drive SDK cursor page methods; interactive my-drive, starred, recent, and shared tabs load one page at a time and never prefetch multi-page aggregates
 - **Client composition**: native authority per `APP_COMPOSITION_SPEC.md` — root `pnpm-workspace.yaml`, pc-core `sdkDependencies`, and capability packages import SDK types only via `sdkwork-knowledgebase-pc-core/sdk`
 - **Observability**: Prometheus `/metrics` (in-cluster only), structured audit logs, optional OTLP
+- **External knowledge Providers**: `kb_provider_binding` is the sole tenant/organization/space
+  selection authority. `sdkwork-knowledgebase-provider-runtime` owns outbound target policy,
+  deadlines, bounded retries, `Retry-After`, circuit breaking, bulkheads, response limits, trace
+  propagation, redaction, and bounded-cardinality Provider metrics. Source rows never select a
+  Provider.
 
 ## 3. System Boundaries
 
@@ -60,6 +65,9 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 - Media tasks consume the generated `clawrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
 - Static site deployment writes a bounded, escaped HTML artifact to Drive and returns a public URL only when `SDKWORK_KNOWLEDGEBASE_SITE_PUBLIC_BASE_URL` names the HTTPS object gateway that serves the same artifact namespace.
 - Backend administrative list handlers use cursor page contracts and push ordering, filtering, and limits into database queries; full-list downloads are not a production path.
+- Provider credentials are persisted only as write-only secret references. Binding lifecycle and
+  Provider-to-Provider migration checkpoints are tenant/organization scoped, version-fenced, RLS
+  protected, and retain predecessors for rollback.
 - PC client: `apps/sdkwork-knowledgebase-pc/`
 
 ## 4. Security Model

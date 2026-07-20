@@ -59,7 +59,7 @@ fn host_mounts_iam_app_api_routes() -> bool {
         .unwrap_or(false)
 }
 
-pub async fn assemble_api_router(
+pub async fn assemble_business_routes(
     runtime: Arc<KnowledgebaseRuntime>,
 ) -> ApiAssembly {
     ensure_iam_session_resolution_database_ready().await;
@@ -92,7 +92,7 @@ pub async fn assemble_api_router(
     runtime: Arc<KnowledgebaseRuntime>,
 ) -> ApiAssembly {
     let readiness = runtime.readiness_check_adapter();
-    let business = assemble_api_router(runtime).await;
+    let business = assemble_business_routes(runtime).await;
     let router = assemble_multi_surface_router(
         [business.router],
         health::knowledgebase_service_router_config(Some(readiness)),

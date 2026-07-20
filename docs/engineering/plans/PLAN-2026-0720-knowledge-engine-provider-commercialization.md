@@ -38,18 +38,20 @@ decision and `MIG-2026-0720`.
 
 ## Phase 2: Shared Runtime Foundations
 
-- [ ] Introduce the stable provider error model with safe detail and retry metadata.
-- [ ] Implement shared HTTP client policy, deadlines, cancellation, retries, `Retry-After`, circuit
+- [x] Introduce the stable provider error model with safe detail and retry metadata.
+- [x] Implement shared HTTP client policy, deadlines, cancellation, retries, `Retry-After`, circuit
   breaker, bulkhead, body limit, trace propagation, metrics, and redaction.
-- [ ] Convert all ten executable adapters; fail static checks on bare HTTP clients.
-- [ ] Add deterministic wire/error/resilience tests and concurrency tests.
+- [x] Convert all ten executable adapters; fail static checks on bare HTTP clients.
+- [x] Add deterministic wire/error/resilience tests and concurrency tests.
 
 Exit condition: all adapters use the shared runtime and pass fault-injection tests with no secret or
 unbounded body exposure.
 
 ## Phase 3: Explicit Binding And Management Plane
 
-- [ ] Add approved binding/credential-reference/migration persistence and RLS/index contracts.
+- [x] Add approved binding/credential-reference/migration persistence and RLS/index contracts.
+- [x] Make the active tenant/organization/space binding the sole external resolution authority and
+  instantiate adapters with the binding-owned remote resource.
 - [ ] Add execution context and capability/lifecycle SPI v2 ports.
 - [ ] Implement backend list/retrieve/create/update/test/activate/disable/sync/migrate operations
   through authored OpenAPI and regenerated composed SDKs.
@@ -61,11 +63,13 @@ concurrency, and lifecycle recovery tests pass.
 
 ## Phase 4: Migration And Rollback
 
-- [ ] Backfill unambiguous bindings; produce an actionable ambiguity report.
-- [ ] Run audit-only dual resolution and compare outcomes.
+- [x] Apply the approved prelaunch direct cutover with no source resolver, dual read, dual write,
+  compatibility alias, or feature flag.
+- [ ] Produce a bounded prelaunch data report for external spaces that have no active binding;
+  require explicit administrator creation rather than synthesizing bindings from source order.
 - [ ] Pilot explicit binding by tenant, validate retrieval quality and SLOs.
 - [ ] Prove atomic cutover, retained predecessor, observation window, and rollback.
-- [ ] Remove inference only after the approved compatibility window and evidence.
+- [x] Remove source-based Provider selection in the same binding cutover.
 
 Exit condition: release-environment PostgreSQL migration, cutover, outage, rollback, reconciliation,
 and backup/restore evidence is attached.

@@ -131,6 +131,23 @@ impl KnowledgeEngine for ChromaKnowledgeEngine {
         self.descriptor_value()
     }
 
+    fn bind_provider(
+        &self,
+        binding: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineProviderBinding,
+    ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
+        if binding.implementation_id != CHROMA_IMPLEMENTATION_ID {
+            return Err(KnowledgeEngineError::Validation(
+                "Chroma cannot bind a different Provider implementation".to_string(),
+            ));
+        }
+        let mut config = self
+            .config
+            .clone()
+            .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
+        config.default_collection_id = Some(binding.remote_resource_id.clone());
+        Ok(Arc::new(Self::with_config(config, None)))
+    }
+
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {
         let Some(client) = self.client.as_ref() else {
             return Ok(KnowledgeEngineHealth {

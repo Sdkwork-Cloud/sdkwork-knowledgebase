@@ -15,6 +15,7 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineHealth, KnowledgeEngineHealthStatus, KnowledgeEngineListRequest,
     KnowledgeEngineReadRequest, KnowledgeEngineSearchRequest, KnowledgeEngineSearchResult,
 };
+use std::sync::Arc;
 
 pub use client::{decode_url_document_id, encode_url_document_id, OnyxApiClient};
 pub use config::{
@@ -76,6 +77,22 @@ impl OnyxKnowledgeEngine {
 impl KnowledgeEngine for OnyxKnowledgeEngine {
     fn descriptor(&self) -> KnowledgeEngineDescriptor {
         self.descriptor_value()
+    }
+
+    fn bind_provider(
+        &self,
+        binding: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineProviderBinding,
+    ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
+        if binding.implementation_id != ONYX_IMPLEMENTATION_ID {
+            return Err(KnowledgeEngineError::Validation(
+                "Onyx cannot bind a different Provider implementation".to_string(),
+            ));
+        }
+        let config = self
+            .config
+            .clone()
+            .ok_or_else(|| KnowledgeEngineError::Unsupported(self.unconfigured_message()))?;
+        Ok(Arc::new(Self::with_config(config)))
     }
 
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError> {

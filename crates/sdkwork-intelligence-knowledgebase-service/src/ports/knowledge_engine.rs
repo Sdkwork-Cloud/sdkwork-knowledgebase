@@ -23,6 +23,15 @@ use std::sync::Arc;
 pub trait KnowledgeEngine: Send + Sync {
     fn descriptor(&self) -> KnowledgeEngineDescriptor;
 
+    fn bind_provider(
+        &self,
+        _binding: &sdkwork_knowledgebase_contract::provider_binding::KnowledgeEngineProviderBinding,
+    ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
+        Err(KnowledgeEngineError::Unsupported(
+            "knowledge engine does not support external Provider binding".to_string(),
+        ))
+    }
+
     async fn health(&self) -> Result<KnowledgeEngineHealth, KnowledgeEngineError>;
 
     async fn search(

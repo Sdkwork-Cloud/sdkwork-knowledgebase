@@ -43,12 +43,14 @@ release. Generated SDK output changes only through authored OpenAPI and the stan
 1. Introduce the shared Provider Runtime and migrate all adapters off direct HTTP construction.
 2. Add provider binding, credential reference, migration operation, audit, indexes, and PostgreSQL
    RLS through canonical database authority and materialization.
-3. Backfill only spaces with exactly one executable external Provider. Reject ambiguous data with a
-   bounded report; never choose the oldest or first source.
+3. Do not synthesize bindings from source rows. Report every external space without an active
+   binding as bounded, actionable prelaunch data work; an administrator must create, test, and
+   activate the binding explicitly.
 4. Add SDKWork v3 backend management operations, regenerate composed SDKs, and migrate the PC
    management surface.
-5. Switch all resolution to active binding and remove source-based engine selection in the same
-   change. `kb_source.provider` remains source association metadata only.
+5. Resolve external mode only through the tenant/organization/space active binding. Source-based
+   engine selection is removed in the same change; `kb_source.provider` remains non-authoritative
+   source association metadata only.
 6. Run SQLite/PostgreSQL isolation, migration, API/SDK, provider certification, quality, load,
    outage, cutover, and rollback gates before release.
 
@@ -84,4 +86,3 @@ pnpm verify
 Release completion additionally requires release-environment PostgreSQL, real Provider versions,
 load, outage, backup/restore, cutover, rollback, security/privacy, licensing, SBOM, provenance, and
 immutable artifact evidence.
-
