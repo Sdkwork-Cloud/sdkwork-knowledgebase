@@ -80,6 +80,12 @@
                       "publicExports":  [
                                             "."
                                         ],
+                      "providedPorts":  [
+                                            {
+                                                "name":  "providerBindingReadinessStoreSqlx",
+                                                "export":  "SqlxKnowledgeEngineProviderBindingReadinessStore"
+                                            }
+                                        ],
                       "runtimeEntrypoints":  [
 
                                              ],

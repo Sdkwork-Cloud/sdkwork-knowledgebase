@@ -105,6 +105,7 @@
       "sdkwork-knowledgebase-backend-api",
       "sdkwork-knowledgebase-open-api",
       "sdkwork-knowledgebase-worker",
+      "sdkwork-knowledgebase-provider-binding-prelaunch-report",
       "crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs",
       "crates/sdkwork-routes-knowledgebase-backend-api/src/routes.rs",
       "crates/sdkwork-routes-knowledgebase-open-api/src/routes.rs"

@@ -66,6 +66,7 @@
     ],
     "runtimeEntrypoints": [
       "sdkwork-knowledgebase-worker",
+      "sdkwork-knowledgebase-provider-binding-prelaunch-report",
       "run_maintenance_tick",
       "run_polling_loop",
       "health::worker_health_router"
@@ -74,6 +75,10 @@
       {
         "name": "knowledgebaseMaintenanceWorker",
         "export": "."
+      },
+      {
+        "name": "providerBindingPrelaunchReadinessReport",
+        "export": "sdkwork-knowledgebase-provider-binding-prelaunch-report"
       }
     ],
     "requiredPorts": [
@@ -81,6 +86,11 @@
         "name": "knowledgebaseRuntime",
         "export": "run_maintenance_tick",
         "target": "sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime"
+      },
+      {
+        "name": "providerBindingReadinessStore",
+        "export": "sdkwork-knowledgebase-provider-binding-prelaunch-report",
+        "target": "sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_readiness_store::KnowledgeEngineProviderBindingReadinessStore"
       }
     ],
     "routeManifest": null,

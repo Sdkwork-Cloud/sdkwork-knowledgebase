@@ -26,6 +26,7 @@ SDKWork Knowledgebase maintainers.
 | Provider commercialization requirement | [product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md](product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md) |
 | Provider SPI v2 decision | [architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md](architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md) |
 | Provider commercial readiness review | [engineering/reviews/REVIEW-2026-0720-knowledge-engine-provider-commercial-readiness.md](engineering/reviews/REVIEW-2026-0720-knowledge-engine-provider-commercial-readiness.md) |
+| Provider Binding readiness runbook | [runbooks/RUNBOOK-provider-binding-readiness.md](runbooks/RUNBOOK-provider-binding-readiness.md) |
 | Tenant isolation | [runbooks/tenant-isolation.md](runbooks/tenant-isolation.md) |
 | Audit retention | [runbooks/audit-retention.md](runbooks/audit-retention.md) |
 | Phase 2 RLS ADR | [architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md](architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md) |

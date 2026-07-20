@@ -92,6 +92,11 @@ certification, supported ingest/sync, upstream-version compatibility, licensing 
   admin-core and the composed backend SDK. Actions are version-fenced and lifecycle/capability-aware;
   locator inputs are write-only; all lists are cursor-paged; permission/loading/empty/safe-error/
   success component states and the production build pass.
+- The prelaunch Binding readiness report is implemented as a read-only service port, SQLx read
+  model, and dedicated Worker command. It lists only active external spaces missing an active
+  Binding, applies tenant and organization predicates in SQL, uses bounded opaque keyset pages,
+  reports non-active Binding counts, and contains no source, credential, or remote-resource data.
+  SQLite behavior tests pass; the optional PostgreSQL dialect probe performs no writes.
 
 ## Open Findings
 
@@ -118,6 +123,9 @@ certification, supported ingest/sync, upstream-version compatibility, licensing 
   cutover/rollback test; backend OpenAPI route tests; TypeScript/Rust generator zero-drift and
   language builds; response-envelope, pagination, SDK ownership and consumer-import gates; Provider
   Certification v2 unit, schema, fingerprint, catalog, and complete adapter-crate execution gates.
+- Provider Binding readiness evidence: SQLx SQLite scope/filter/lifecycle/keyset tests, Worker
+  command argument bounds, optional read-only PostgreSQL dialect execution, and the operator
+  procedure in `docs/runbooks/RUNBOOK-provider-binding-readiness.md`.
 
 ## Commercial Blockers And Required Review
 

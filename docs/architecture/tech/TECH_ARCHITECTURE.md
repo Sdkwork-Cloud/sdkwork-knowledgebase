@@ -97,6 +97,11 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
   The dedicated PC backend-admin Provider package exposes credential-reference, Binding, and
   migration workflows through admin-core and the composed backend SDK with cursor pagination,
   optimistic versions, capability/lifecycle guards, write-only locator inputs, and sanitized states.
+  A separate one-shot Worker operations entrypoint produces the prelaunch active-external-space
+  readiness report through a service read-model port and SQLx adapter. It requires explicit tenant
+  and organization scope, uses opaque keyset pagination at the store, and cannot read sources,
+  credentials, or remote Provider resource identifiers. It is informational only and cannot create
+  or infer Bindings.
   Current `liveCertifiedCount` is zero. Production secret-manager/KMS injection, authenticated
   operator UI acceptance, release PostgreSQL evidence, and live certification remain prelaunch gates.
 - Provider health probes native infrastructure without credentials and probes external Providers

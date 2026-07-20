@@ -94,8 +94,13 @@ concurrency, and lifecycle recovery tests pass.
 
 - [x] Apply the approved prelaunch direct cutover with no source resolver, dual read, dual write,
   compatibility alias, or feature flag.
-- [ ] Produce a bounded prelaunch data report for external spaces that have no active binding;
-  require explicit administrator creation rather than synthesizing bindings from source order.
+- [x] Produce a bounded prelaunch data report for active external spaces that have no active
+  Binding. The read-only SQLx read model applies tenant/organization predicates and opaque keyset
+  pagination in SQL, excludes spaces with an active Binding, retains spaces with only non-active
+  Bindings, never reads source order, and exposes no credential or remote-resource identifiers.
+  The dedicated Worker report command is documented in
+  `docs/runbooks/RUNBOOK-provider-binding-readiness.md`; administrators must still create, test,
+  and activate every Binding explicitly.
 - [ ] Pilot explicit binding by tenant, validate retrieval quality and SLOs.
 - [x] Prove atomic cutover, retained predecessor, observation-window claim deferral, stale-worker
   fencing, and rollback on SQLite. Release PostgreSQL and live-provider proof remains an exit gate.

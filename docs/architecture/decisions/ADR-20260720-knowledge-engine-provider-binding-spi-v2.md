@@ -199,9 +199,11 @@ context, or startup credential availability.
 Strategy: prelaunch `no-compatibility-approved` direct cleanup with forward-safe database rollback.
 
 1. Add binding and migration storage through the canonical database lifecycle.
-2. Produce a bounded report of prelaunch external spaces without an active binding. Never infer or
-   synthesize a binding from source rows; an administrator explicitly creates, tests, and activates
-   every required binding.
+2. Produce a bounded report of prelaunch external spaces without an active Binding. This is now
+   implemented as a tenant/organization-scoped SQL keyset read model plus a read-only Worker
+   command. Its opaque cursor is bound to the requested scope, the result is secret-free, and the
+   query never reads source rows. It never infers or synthesizes a Binding; an administrator
+   explicitly creates, tests, and activates every required Binding.
 3. Cut resolution directly to the active binding and remove source-order inference in the same
    prelaunch change. No deprecated resolver, feature flag, or dual-write path remains.
 4. Provider-to-provider migration still uses prepare, validate, atomic cutover, observation, and
@@ -218,6 +220,9 @@ The approved scope, compatibility decision, rollback, and verification commands 
   scope, lifecycle, concurrency, audit, retries, circuit breaking, and response bounds.
 - SQLite and PostgreSQL tests cover indexes, optimistic concurrency, tenant/RLS isolation,
   cutover, and rollback.
+- Provider Binding readiness tests cover bounded SQL pagination, active/external filtering,
+  tenant/organization isolation, non-active Binding reporting, opaque scope-bound cursors, and the
+  prohibition on source-order inference. The optional PostgreSQL probe is strictly read-only.
 - Live certification covers every production-tier provider and supported upstream version.
 - Release gates require quality/load/outage/migration/rollback evidence and human architecture,
   security/privacy, data, SDK, and release review.

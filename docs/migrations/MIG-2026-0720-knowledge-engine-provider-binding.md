@@ -45,7 +45,8 @@ release. Generated SDK output changes only through authored OpenAPI and the stan
    RLS through canonical database authority and materialization.
 3. Do not synthesize bindings from source rows. Report every external space without an active
    binding as bounded, actionable prelaunch data work; an administrator must create, test, and
-   activate the binding explicitly.
+   activate the binding explicitly. The implemented readiness command and paging procedure are
+   documented in `docs/runbooks/RUNBOOK-provider-binding-readiness.md`.
 4. Add SDKWork v3 backend management operations, regenerate composed SDKs, and migrate the PC
    management surface.
 5. Resolve external mode only through the tenant/organization/space active binding. Source-based
@@ -78,6 +79,8 @@ Rollback is supported before release and during every later Provider-to-Provider
 cargo test -p sdkwork-knowledgebase-provider-runtime
 cargo test -p sdkwork-intelligence-knowledgebase-service knowledge_engine
 cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx provider_binding
+cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx --test provider_binding_readiness_store
+cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx --test provider_binding_readiness_postgres_optional
 cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx --test provider_migration_store
 cargo test -p sdkwork-knowledgebase-worker
 cargo test -p sdkwork-routes-knowledgebase-app-api --test hosted_runtime_routes hosted_provider_migration_is_scoped_recoverable_and_reversible -- --exact
