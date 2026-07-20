@@ -1,7 +1,5 @@
 //! Chroma connector configuration from runtime environment.
 
-pub use sdkwork_knowledgebase_contract::source::dataset_id_from_connector_metadata_json as collection_id_from_connector_metadata;
-
 pub const CHROMA_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_CHROMA_BASE_URL";
 pub const CHROMA_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_CHROMA_CREDENTIAL";
 pub const CHROMA_CREDENTIAL_FILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_CHROMA_CREDENTIAL_FILE";

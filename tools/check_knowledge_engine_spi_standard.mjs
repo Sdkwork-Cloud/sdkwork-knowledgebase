@@ -197,17 +197,6 @@ assert(
   "runtime must wire Haystack adapter crate alongside other external adapters",
 );
 
-assert(
-  (await readFile(
-    path.join(
-      root,
-      "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/external_connector.rs",
-    ),
-    "utf8",
-  )).includes("resolve_connector_workspace_slug_for_space"),
-  "external adapter connector resolution must support workspace slug metadata",
-);
-
 const hostedBackendSource = await readFile(
   path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/hosted_backend.rs"),
   "utf8",
@@ -280,17 +269,6 @@ assert(
   "catalog loader must skip adapter-tier vendors (runtime adapter crates own registration)",
 );
 
-assert(
-  (await readFile(
-    path.join(
-      root,
-      "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/external_connector.rs",
-    ),
-    "utf8",
-  )).includes("resolve_connector_dataset_id_for_space"),
-  "external adapter connector resolution must be shared in service layer",
-);
-
 for (const traitName of ["OkfBundleEngine", "RagKnowledgeEngine", "ExternalKnowledgeEngine"]) {
   assert(
     portsSource.includes(`trait ${traitName}`),
@@ -303,8 +281,9 @@ const sourceContractSource = await readFile(
   "utf8",
 );
 assert(
-  sourceContractSource.includes("workspace_slug_from_connector_metadata_json"),
-  "KnowledgeSource contract must expose workspace slug connector metadata parsing",
+  !sourceContractSource.includes("dataset_id_from_connector_metadata_json")
+    && !sourceContractSource.includes("workspace_slug_from_connector_metadata_json"),
+  "KnowledgeSource contract must not expose source metadata as Provider configuration authority",
 );
 
 assert(

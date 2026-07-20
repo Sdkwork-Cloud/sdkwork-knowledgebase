@@ -13,7 +13,7 @@ fn source_contract_serializes_source_type_and_drive_projection_as_camel_case() {
         provider: Some("app-api".to_string()),
         drive_bucket: None,
         drive_prefix: Some("inbox/api/1".to_string()),
-        connector_metadata_json: Some(r#"{"datasetId":"ds-contract"}"#.to_string()),
+        connector_metadata_json: Some(r#"{"origin":"external_import"}"#.to_string()),
     };
 
     let json = serde_json::to_value(source).unwrap();
@@ -24,7 +24,7 @@ fn source_contract_serializes_source_type_and_drive_projection_as_camel_case() {
     assert_eq!(json["drivePrefix"], "inbox/api/1");
     assert_eq!(
         json["connectorMetadataJson"],
-        r#"{"datasetId":"ds-contract"}"#
+        r#"{"origin":"external_import"}"#
     );
 }
 

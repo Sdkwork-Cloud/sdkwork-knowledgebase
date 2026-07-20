@@ -1,7 +1,5 @@
 //! AnythingLLM connector configuration from runtime environment.
 
-pub use sdkwork_knowledgebase_contract::source::workspace_slug_from_connector_metadata_json as workspace_slug_from_connector_metadata;
-
 pub const ANYTHINGLLM_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_BASE_URL";
 pub const ANYTHINGLLM_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_ANYTHINGLLM_CREDENTIAL";
 pub const ANYTHINGLLM_CREDENTIAL_FILE_ENV: &str =

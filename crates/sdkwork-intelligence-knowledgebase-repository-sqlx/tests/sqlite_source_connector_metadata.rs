@@ -19,14 +19,14 @@ async fn sqlite_source_store_persists_connector_metadata_json() {
             provider: Some("dify".to_string()),
             drive_bucket: None,
             drive_prefix: None,
-            connector_metadata_json: Some(r#"{"datasetId":"ds-space-42"}"#.to_string()),
+            connector_metadata_json: Some(r#"{"origin":"external_import"}"#.to_string()),
         })
         .await
         .expect("create source");
 
     assert_eq!(
         created.connector_metadata_json.as_deref(),
-        Some(r#"{"datasetId":"ds-space-42"}"#)
+        Some(r#"{"origin":"external_import"}"#)
     );
 
     let listed = store
@@ -36,7 +36,7 @@ async fn sqlite_source_store_persists_connector_metadata_json() {
     assert_eq!(listed.len(), 1);
     assert_eq!(
         listed[0].connector_metadata_json.as_deref(),
-        Some(r#"{"datasetId":"ds-space-42"}"#)
+        Some(r#"{"origin":"external_import"}"#)
     );
 }
 

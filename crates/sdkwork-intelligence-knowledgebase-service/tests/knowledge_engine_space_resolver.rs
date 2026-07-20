@@ -693,23 +693,17 @@ fn unsupported_provider_store() -> KnowledgeEngineProviderBindingStoreError {
 }
 
 fn configured_dify_engine() -> DifyKnowledgeEngine {
-    DifyKnowledgeEngine::with_config(
-        DifyConnectorConfig {
-            base_url: "http://127.0.0.1:1/v1".to_string(),
-            api_key: "test-only".to_string(),
-            default_dataset_id: None,
-        },
-        None,
-    )
+    DifyKnowledgeEngine::with_config(DifyConnectorConfig {
+        base_url: "http://127.0.0.1:1/v1".to_string(),
+        api_key: "test-only".to_string(),
+        default_dataset_id: None,
+    })
 }
 
 fn configured_ragflow_engine() -> RagflowKnowledgeEngine {
-    RagflowKnowledgeEngine::with_config(
-        RagflowConnectorConfig {
-            base_url: "http://127.0.0.1:1/api/v1".to_string(),
-            api_key: "test-only".to_string(),
-            default_dataset_id: None,
-        },
-        None,
-    )
+    RagflowKnowledgeEngine::with_config(RagflowConnectorConfig {
+        base_url: "http://127.0.0.1:1/api/v1".to_string(),
+        api_key: "test-only".to_string(),
+        default_dataset_id: None,
+    })
 }

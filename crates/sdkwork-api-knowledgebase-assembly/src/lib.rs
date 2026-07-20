@@ -5,6 +5,10 @@ mod bootstrap;
 mod generated;
 
 pub use bootstrap::{assemble_api_router, ApiAssembly};
+pub use sdkwork_routes_knowledgebase_app_api::{
+    bootstrap::{resolve_database_url, validate_process_config},
+    KnowledgebaseRuntime,
+};
 
 pub fn assembly_route_count() -> usize {
     generated::ROUTE_CRATE_COUNT

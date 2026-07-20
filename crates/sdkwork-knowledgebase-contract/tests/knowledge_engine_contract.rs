@@ -1,6 +1,6 @@
 use sdkwork_knowledgebase_contract::knowledge_engine::{
-    descriptor_for_external_search_read, descriptor_for_mode, implementation_id_from_provider,
-    KnowledgeEngineCapability, KnowledgeEngineId,
+    descriptor_for_external_search_read, descriptor_for_mode, KnowledgeEngineCapability,
+    KnowledgeEngineId,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 
@@ -52,22 +52,6 @@ fn external_search_read_descriptor_publishes_only_proven_capabilities() {
 }
 
 #[test]
-fn implementation_id_from_provider_accepts_catalog_forms() {
-    assert_eq!(
-        implementation_id_from_provider("dify").as_deref(),
-        Some("engine.knowledge.external.dify")
-    );
-    assert_eq!(
-        implementation_id_from_provider("engine.knowledge.external.dify").as_deref(),
-        Some("engine.knowledge.external.dify")
-    );
-    assert_eq!(
-        implementation_id_from_provider("provider.knowledge.external.dify").as_deref(),
-        Some("engine.knowledge.external.dify")
-    );
-}
-
-#[test]
 fn external_engine_id_follows_vendor_pattern() {
     assert_eq!(
         KnowledgeEngineId::external("notion").0,
@@ -76,36 +60,6 @@ fn external_engine_id_follows_vendor_pattern() {
     assert_eq!(
         KnowledgeEngineId::external_agent_provider("dify"),
         "provider.knowledge.external.dify"
-    );
-}
-
-#[test]
-fn connector_metadata_json_parses_dataset_id() {
-    use sdkwork_knowledgebase_contract::source::dataset_id_from_connector_metadata_json;
-
-    assert_eq!(
-        dataset_id_from_connector_metadata_json(Some(r#"{"datasetId":"ds-42"}"#)),
-        Some("ds-42".to_string())
-    );
-    assert_eq!(
-        dataset_id_from_connector_metadata_json(Some(r#"{"dataset_id":"ds-snake"}"#)),
-        Some("ds-snake".to_string())
-    );
-    assert_eq!(dataset_id_from_connector_metadata_json(None), None);
-    assert_eq!(dataset_id_from_connector_metadata_json(Some("")), None);
-}
-
-#[test]
-fn connector_metadata_json_parses_workspace_slug() {
-    use sdkwork_knowledgebase_contract::source::workspace_slug_from_connector_metadata_json;
-
-    assert_eq!(
-        workspace_slug_from_connector_metadata_json(Some(r#"{"workspaceSlug":"my-workspace"}"#)),
-        Some("my-workspace".to_string())
-    );
-    assert_eq!(
-        workspace_slug_from_connector_metadata_json(Some(r#"{"workspace_slug":"snake-ws"}"#)),
-        Some("snake-ws".to_string())
     );
 }
 

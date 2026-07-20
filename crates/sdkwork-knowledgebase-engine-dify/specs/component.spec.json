@@ -78,11 +78,6 @@
         "name": "knowledgeEngineSpi",
         "export": ".",
         "target": "sdkwork_intelligence_knowledgebase_service::knowledge_engine::KnowledgeEngine"
-      },
-      {
-        "name": "knowledgeSourceStore",
-        "export": ".",
-        "target": "sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::KnowledgeSourceStore"
       }
     ],
     "routeManifest": null,

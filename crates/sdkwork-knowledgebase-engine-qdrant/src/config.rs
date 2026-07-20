@@ -1,7 +1,5 @@
 //! Qdrant connector configuration from runtime environment.
 
-pub use sdkwork_knowledgebase_contract::source::dataset_id_from_connector_metadata_json as collection_name_from_connector_metadata;
-
 pub const QDRANT_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_QDRANT_BASE_URL";
 pub const QDRANT_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_QDRANT_CREDENTIAL";
 pub const QDRANT_CREDENTIAL_FILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_QDRANT_CREDENTIAL_FILE";

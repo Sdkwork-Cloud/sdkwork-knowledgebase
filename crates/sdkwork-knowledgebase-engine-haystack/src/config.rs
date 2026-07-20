@@ -1,10 +1,5 @@
 //! Haystack connector configuration from runtime environment.
 
-pub use sdkwork_knowledgebase_contract::source::{
-    dataset_id_from_connector_metadata_json as pipeline_name_from_connector_metadata,
-    workspace_slug_from_connector_metadata_json as workspace_name_from_connector_metadata,
-};
-
 pub const HAYSTACK_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_HAYSTACK_BASE_URL";
 pub const HAYSTACK_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_HAYSTACK_CREDENTIAL";
 pub const HAYSTACK_CREDENTIAL_FILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_HAYSTACK_CREDENTIAL_FILE";

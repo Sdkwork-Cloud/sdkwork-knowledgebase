@@ -5,8 +5,7 @@ use sdkwork_knowledgebase_contract::knowledge_engine::{
     KnowledgeEngineHealthStatus, KnowledgeEngineId,
 };
 use sdkwork_knowledgebase_engine_dify::{
-    dataset_id_from_connector_metadata, DifyKnowledgeEngine, DIFY_AGENT_PROVIDER_ID,
-    DIFY_IMPLEMENTATION_ID,
+    DifyKnowledgeEngine, DIFY_AGENT_PROVIDER_ID, DIFY_IMPLEMENTATION_ID,
 };
 
 #[tokio::test]
@@ -28,17 +27,4 @@ async fn dify_adapter_engine_registers_catalog_ids_when_unconfigured() {
         KnowledgeEngineId::external("dify").0
     );
     assert_eq!(connector.status, KnowledgeEngineHealthStatus::Degraded);
-}
-
-#[test]
-fn dify_connector_metadata_parses_dataset_id() {
-    assert_eq!(
-        dataset_id_from_connector_metadata(Some(r#"{"datasetId":"ds-123"}"#)),
-        Some("ds-123".to_string())
-    );
-    assert_eq!(
-        dataset_id_from_connector_metadata(Some(r#"{"dataset_id":"ds-456"}"#)),
-        Some("ds-456".to_string())
-    );
-    assert_eq!(dataset_id_from_connector_metadata(None), None);
 }

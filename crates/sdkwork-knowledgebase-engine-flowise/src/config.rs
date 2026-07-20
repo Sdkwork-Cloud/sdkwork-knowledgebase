@@ -1,7 +1,5 @@
 //! Flowise connector configuration from runtime environment.
 
-pub use sdkwork_knowledgebase_contract::source::dataset_id_from_connector_metadata_json as store_id_from_connector_metadata;
-
 pub const FLOWISE_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_FLOWISE_BASE_URL";
 pub const FLOWISE_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_FLOWISE_CREDENTIAL";
 pub const FLOWISE_CREDENTIAL_FILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_FLOWISE_CREDENTIAL_FILE";

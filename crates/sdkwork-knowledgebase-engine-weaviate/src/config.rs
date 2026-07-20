@@ -1,7 +1,5 @@
 //! Weaviate connector configuration from runtime environment.
 
-pub use sdkwork_knowledgebase_contract::source::dataset_id_from_connector_metadata_json as class_name_from_connector_metadata;
-
 pub const WEAVIATE_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_WEAVIATE_BASE_URL";
 pub const WEAVIATE_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_WEAVIATE_CREDENTIAL";
 pub const WEAVIATE_CREDENTIAL_FILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_WEAVIATE_CREDENTIAL_FILE";

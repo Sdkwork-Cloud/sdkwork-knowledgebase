@@ -1,7 +1,5 @@
 //! Dify connector configuration from runtime environment.
 
-pub use sdkwork_knowledgebase_contract::source::dataset_id_from_connector_metadata_json as dataset_id_from_connector_metadata;
-
 pub const DIFY_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL";
 pub const DIFY_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL";
 pub const DIFY_CREDENTIAL_FILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL_FILE";

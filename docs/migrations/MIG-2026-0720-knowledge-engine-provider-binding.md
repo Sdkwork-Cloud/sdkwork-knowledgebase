@@ -50,7 +50,8 @@ release. Generated SDK output changes only through authored OpenAPI and the stan
    management surface.
 5. Resolve external mode only through the tenant/organization/space active binding. Source-based
    engine selection is removed in the same change; `kb_source.provider` remains non-authoritative
-   source association metadata only.
+   source association metadata only. Adapter code cannot read `KnowledgeSourceStore` or parse
+   `connector_metadata_json` into Provider remote-resource configuration.
 6. Run SQLite/PostgreSQL isolation, migration, API/SDK, provider certification, quality, load,
    outage, cutover, and rollback gates before release.
 

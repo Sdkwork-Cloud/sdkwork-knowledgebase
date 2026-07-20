@@ -259,35 +259,6 @@ pub fn descriptor_for_mode(mode: KnowledgeAgentKnowledgeMode) -> KnowledgeEngine
     }
 }
 
-/// Maps `kb_source.provider` or catalog ids to a registered engine implementation id.
-pub fn implementation_id_from_provider(provider: &str) -> Option<String> {
-    let trimmed = provider.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    if trimmed.starts_with("engine.knowledge.") {
-        return Some(trimmed.to_string());
-    }
-    if let Some(vendor) = trimmed.strip_prefix("provider.knowledge.external.") {
-        return Some(KnowledgeEngineId::external(vendor).0);
-    }
-    if vendor_id_pattern_matches(trimmed) {
-        return Some(KnowledgeEngineId::external(trimmed).0);
-    }
-    None
-}
-
-fn vendor_id_pattern_matches(value: &str) -> bool {
-    let mut chars = value.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    if !first.is_ascii_lowercase() && !first.is_ascii_digit() {
-        return false;
-    }
-    chars.all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-' || ch == '_')
-}
-
 pub fn descriptor_for_external(vendor_id: &str, display_name: &str) -> KnowledgeEngineDescriptor {
     descriptor_for_external_with_capabilities(vendor_id, display_name, Vec::new())
 }

@@ -8,6 +8,8 @@ pub struct CreateKnowledgeSourceRequest {
     pub provider: Option<String>,
     pub drive_bucket: Option<String>,
     pub drive_prefix: Option<String>,
+    /// Non-authoritative content-association metadata. Provider selection, credentials, and
+    /// remote resources are owned exclusively by the active Provider binding.
     pub connector_metadata_json: Option<String>,
 }
 
@@ -26,6 +28,8 @@ pub struct KnowledgeSource {
     pub provider: Option<String>,
     pub drive_bucket: Option<String>,
     pub drive_prefix: Option<String>,
+    /// Non-authoritative content-association metadata. Provider selection, credentials, and
+    /// remote resources are owned exclusively by the active Provider binding.
     pub connector_metadata_json: Option<String>,
 }
 
@@ -51,35 +55,4 @@ impl KnowledgeSourceType {
             Self::Api => "api",
         }
     }
-}
-
-/// Per-space connector metadata for external knowledge engine adapters (`kb_source.connector_metadata_json`).
-#[derive(Debug, Deserialize)]
-pub struct ExternalConnectorMetadata {
-    #[serde(rename = "datasetId", alias = "dataset_id")]
-    pub dataset_id: Option<String>,
-    #[serde(rename = "workspaceSlug", alias = "workspace_slug")]
-    pub workspace_slug: Option<String>,
-}
-
-/// Resolves a dataset/knowledge-base id from connector metadata JSON when present.
-pub fn dataset_id_from_connector_metadata_json(metadata_json: Option<&str>) -> Option<String> {
-    connector_metadata_json(metadata_json)
-        .and_then(|metadata| metadata.dataset_id)
-        .filter(|value| !value.is_empty())
-}
-
-/// Resolves an AnythingLLM workspace slug from connector metadata JSON when present.
-pub fn workspace_slug_from_connector_metadata_json(metadata_json: Option<&str>) -> Option<String> {
-    connector_metadata_json(metadata_json)
-        .and_then(|metadata| metadata.workspace_slug)
-        .filter(|value| !value.is_empty())
-}
-
-fn connector_metadata_json(metadata_json: Option<&str>) -> Option<ExternalConnectorMetadata> {
-    let raw = metadata_json?.trim();
-    if raw.is_empty() {
-        return None;
-    }
-    serde_json::from_str::<ExternalConnectorMetadata>(raw).ok()
 }

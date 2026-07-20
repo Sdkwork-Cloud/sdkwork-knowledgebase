@@ -1,7 +1,6 @@
 //! Native and external knowledge engine implementations for the product SPI.
 
 mod external_catalog;
-mod external_connector;
 mod kernel_bridge;
 mod okf_native;
 mod okf_search;
@@ -15,9 +14,6 @@ pub use kernel_bridge::{
 pub use space_resolver::KnowledgeEngineSpaceResolver;
 
 pub use external_catalog::{load_external_engines_from_catalog, CatalogExternalKnowledgeEngine};
-pub use external_connector::{
-    resolve_connector_dataset_id_for_space, resolve_connector_workspace_slug_for_space,
-};
 pub use okf_native::{OkfNativeKnowledgeEngine, OkfNativeKnowledgeEngineDeps};
 pub use okf_search::{normalize_query, rank_okf_concept, rank_okf_concepts};
 pub use rag_native::{RagIndexRebuildDeps, RagNativeKnowledgeEngine};

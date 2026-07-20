@@ -9,12 +9,12 @@ MIGRATION_SPEC.md, SECURITY_SPEC.md, PRIVACY_SPEC.md, OBSERVABILITY_SPEC.md, TES
 
 ## Context
 
-The current SPI gives every implementation the same five methods while real integrations have
-different semantics. Knowledge platforms can retrieve and read remote documents; vector stores can
-retrieve points or objects but do not necessarily enumerate business documents; frameworks may be
-catalog references only. Provider selection is inferred from connector sources and the registry
-erases external lifecycle extensions. Requests do not carry the authenticated actor, data scope,
-deadline, or credential reference required for a tenant-safe commercial boundary.
+Before this decision, the SPI gave every implementation the same five methods while real
+integrations had different semantics. Knowledge platforms can retrieve and read remote documents;
+vector stores can retrieve points or objects but do not necessarily enumerate business documents;
+frameworks may be catalog references only. Provider selection was inferred from connector sources,
+the registry erased external lifecycle extensions, and requests did not carry the authenticated
+actor, data scope, deadline, or credential reference required for a tenant-safe commercial boundary.
 
 Catalog/capability truth, native-mode precedence, ambiguous external selection, external health,
 and duplicate registration are already corrected under REQ-2026-0720. The data, public API,
@@ -129,8 +129,9 @@ never access persistence or credentials outside approved ports.
 Strategy: prelaunch `no-compatibility-approved` direct cleanup with forward-safe database rollback.
 
 1. Add binding and migration storage through the canonical database lifecycle.
-2. Backfill local/prelaunch data only when a space has exactly one executable provider; ambiguous
-   data fails validation and must be corrected before startup or migration completion.
+2. Produce a bounded report of prelaunch external spaces without an active binding. Never infer or
+   synthesize a binding from source rows; an administrator explicitly creates, tests, and activates
+   every required binding.
 3. Cut resolution directly to the active binding and remove source-order inference in the same
    prelaunch change. No deprecated resolver, feature flag, or dual-write path remains.
 4. Provider-to-provider migration still uses prepare, validate, atomic cutover, observation, and

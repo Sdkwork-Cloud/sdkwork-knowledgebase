@@ -52,7 +52,10 @@ unbounded body exposure.
 - [x] Add approved binding/credential-reference/migration persistence and RLS/index contracts.
 - [x] Make the active tenant/organization/space binding the sole external resolution authority and
   instantiate adapters with the binding-owned remote resource.
-- [ ] Add execution context and capability/lifecycle SPI v2 ports.
+- [x] Define execution-context, capability, lifecycle, binding, and Provider failure contracts; use
+  the context for management authorization and scope checks.
+- [ ] Propagate the immutable execution context through every search/read Provider call and require
+  tenant/space/binding/data-scope/deadline validation before credential resolution or HTTP.
 - [ ] Implement backend list/retrieve/create/update/test/activate/disable/sync/migrate operations
   through authored OpenAPI and regenerated composed SDKs.
 - [ ] Add worker ownership, idempotency, leases, checkpoints, optimistic concurrency, and audit.
@@ -70,6 +73,9 @@ concurrency, and lifecycle recovery tests pass.
 - [ ] Pilot explicit binding by tenant, validate retrieval quality and SLOs.
 - [ ] Prove atomic cutover, retained predecessor, observation window, and rollback.
 - [x] Remove source-based Provider selection in the same binding cutover.
+- [x] Remove `KnowledgeSourceStore`, source metadata parsers, and legacy runtime constructors from
+  every external adapter; prove Binding-owned remote-resource traffic and enforce the boundary in
+  SPI/catalog static checks.
 
 Exit condition: release-environment PostgreSQL migration, cutover, outage, rollback, reconciliation,
 and backup/restore evidence is attached.

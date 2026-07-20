@@ -158,6 +158,18 @@ for (const entry of catalog.vendors ?? []) {
       path.join(root, adapterCrate, "src/lib.rs"),
       "utf8",
     );
+    const forbiddenProviderAuthorityPatterns = [
+      ["KnowledgeSourceStore", "source-store Provider authority"],
+      ["from_runtime", "legacy runtime constructor"],
+      ["resolve_connector_", "source-metadata Provider resolution"],
+      ["connector_metadata", "connector metadata Provider configuration"],
+    ];
+    for (const [pattern, label] of forbiddenProviderAuthorityPatterns) {
+      assert(
+        !adapterSource.includes(pattern),
+        `${vendorManifestRel}: adapter must not use ${label}; active Provider bindings own remote resources`,
+      );
+    }
     assert(
       adapterSource.includes("fn bind_provider")
         && (vendor.vendorId === "onyx"

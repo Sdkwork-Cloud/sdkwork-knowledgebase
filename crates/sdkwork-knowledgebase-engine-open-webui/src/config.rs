@@ -1,7 +1,5 @@
 //! Open WebUI connector configuration from runtime environment.
 
-pub use sdkwork_knowledgebase_contract::source::dataset_id_from_connector_metadata_json as knowledge_id_from_connector_metadata;
-
 pub const OPEN_WEBUI_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_BASE_URL";
 pub const OPEN_WEBUI_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_CREDENTIAL";
 pub const OPEN_WEBUI_CREDENTIAL_FILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_OPEN_WEBUI_CREDENTIAL_FILE";

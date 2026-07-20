@@ -1,7 +1,5 @@
 //! RAGFlow connector configuration from runtime environment.
 
-pub use sdkwork_knowledgebase_contract::source::dataset_id_from_connector_metadata_json as dataset_id_from_connector_metadata;
-
 pub const RAGFLOW_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_RAGFLOW_BASE_URL";
 pub const RAGFLOW_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_RAGFLOW_CREDENTIAL";
 pub const RAGFLOW_CREDENTIAL_FILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_RAGFLOW_CREDENTIAL_FILE";
