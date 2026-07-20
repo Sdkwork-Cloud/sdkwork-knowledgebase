@@ -44,9 +44,7 @@ impl KnowledgeEngineProviderBindingReadinessStore
             return Err(invalid_request("tenant_id must be greater than zero"));
         }
 
-        let page_size = request
-            .page_size
-            .unwrap_or(DEFAULT_LIST_PAGE_SIZE as u32);
+        let page_size = request.page_size.unwrap_or(DEFAULT_LIST_PAGE_SIZE as u32);
         if page_size == 0 || page_size > MAX_LIST_PAGE_SIZE as u32 {
             return Err(invalid_request(format!(
                 "page_size must be between 1 and {MAX_LIST_PAGE_SIZE}"
@@ -117,8 +115,10 @@ impl KnowledgeEngineProviderBindingReadinessStore
 
 fn readiness_gap_from_row(
     row: &sqlx::any::AnyRow,
-) -> Result<KnowledgeEngineProviderBindingReadinessGap, KnowledgeEngineProviderBindingReadinessStoreError>
-{
+) -> Result<
+    KnowledgeEngineProviderBindingReadinessGap,
+    KnowledgeEngineProviderBindingReadinessStoreError,
+> {
     let space_id = row
         .try_get::<i64, _>("id")
         .map_err(|_| KnowledgeEngineProviderBindingReadinessStoreError::QueryFailed)?;
@@ -133,10 +133,7 @@ fn readiness_gap_from_row(
         space_name: row
             .try_get("name")
             .map_err(|_| KnowledgeEngineProviderBindingReadinessStoreError::QueryFailed)?,
-        non_active_binding_count: from_i64(
-            "non_active_binding_count",
-            non_active_binding_count,
-        )?,
+        non_active_binding_count: from_i64("non_active_binding_count", non_active_binding_count)?,
     })
 }
 
@@ -163,7 +160,8 @@ fn decode_cursor(
         return Err(invalid_request("cursor exceeds the maximum length"));
     }
     let bytes = base64url_decode(cursor).ok_or_else(|| invalid_request("cursor is malformed"))?;
-    let payload = std::str::from_utf8(&bytes).map_err(|_| invalid_request("cursor is malformed"))?;
+    let payload =
+        std::str::from_utf8(&bytes).map_err(|_| invalid_request("cursor is malformed"))?;
     let mut parts = payload.split(':');
     let kind = parts.next();
     let version = parts.next();
@@ -188,7 +186,8 @@ fn to_i64(
     field: &str,
     value: u64,
 ) -> Result<i64, KnowledgeEngineProviderBindingReadinessStoreError> {
-    i64::try_from(value).map_err(|_| invalid_request(format!("{field} exceeds the signed 64-bit range")))
+    i64::try_from(value)
+        .map_err(|_| invalid_request(format!("{field} exceeds the signed 64-bit range")))
 }
 
 fn from_i64(

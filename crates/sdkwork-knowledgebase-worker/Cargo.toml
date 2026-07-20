@@ -12,15 +12,22 @@ path = "src/lib.rs"
 name = "sdkwork-knowledgebase-worker"
 path = "src/bin/worker_main.rs"
 
+[[bin]]
+name = "sdkwork-knowledgebase-provider-binding-prelaunch-report"
+path = "src/bin/provider_binding_prelaunch_report.rs"
+
 [dependencies]
 axum.workspace = true
 sdkwork-intelligence-knowledgebase-service = { workspace = true }
+sdkwork-intelligence-knowledgebase-repository-sqlx.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 sdkwork-api-knowledgebase-standalone-gateway.workspace = true
 sdkwork-knowledgebase-observability = { workspace = true, features = ["otel"] }
 sdkwork-routes-knowledgebase-app-api.workspace = true
 sdkwork-web-bootstrap.workspace = true
 serde_json.workspace = true
+serde.workspace = true
+sdkwork-utils-rust.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "time"] }
 tracing = "0.1"
 thiserror.workspace = true

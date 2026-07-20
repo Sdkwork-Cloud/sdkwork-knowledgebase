@@ -400,7 +400,9 @@ pub enum ProviderMigrationServiceError {
 impl ProviderMigrationServiceError {
     fn should_fail_operation(&self) -> bool {
         match self {
-            Self::InvalidRequest(_) | Self::InvalidLifecycle(_) | Self::InvalidCheckpoint(_) => true,
+            Self::InvalidRequest(_) | Self::InvalidLifecycle(_) | Self::InvalidCheckpoint(_) => {
+                true
+            }
             Self::MigrationStore(
                 KnowledgeEngineProviderMigrationStoreError::InvalidRequest(_)
                 | KnowledgeEngineProviderMigrationStoreError::NotFound(_)
@@ -437,9 +439,7 @@ impl ProviderMigrationServiceError {
             Self::MigrationStore(_)
             | Self::BindingStore(_)
             | Self::Internal(_)
-            | Self::Audit(_) => {
-                KnowledgeEngineProviderErrorCategory::Internal
-            }
+            | Self::Audit(_) => KnowledgeEngineProviderErrorCategory::Internal,
         }
     }
 }
