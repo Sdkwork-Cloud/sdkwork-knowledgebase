@@ -2,7 +2,7 @@
 //! Multi-surface merges mount shared infrastructure routes once at the assembly layer.
 
 use axum::Router;
-use sdkwork_iam_gateway_assembly::assemble_api_router as assemble_iam_application_business_router;
+use sdkwork_api_iam_assembly::assemble_api_router as assemble_iam_application_business_router;
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 use sdkwork_routes_knowledgebase_backend_api::health;
 use sdkwork_utils_rust::is_blank;
@@ -64,7 +64,7 @@ pub async fn assemble_business_routes(
 ) -> ApiAssembly {
     ensure_iam_session_resolution_database_ready().await;
 
-    // Embed IAM app-api business routes through sdkwork-iam-gateway-assembly so
+    // Embed IAM app-api business routes through sdkwork-api-iam-assembly so
     // `/app/v3/api/auth|oauth/*` resolve locally without coupling to IAM route crates.
     // Unified-process hosts such as sdkwork-im-standalone-gateway mount IAM once at
     // the platform assembly layer and must set `SDKWORK_IAM_APP_API_HOST_MOUNTED=true`.

@@ -2583,14 +2583,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-api-iam-assembly"
+version = "0.1.0"
+dependencies = [
+ "axum 0.8.9",
+ "sdkwork-iam-database-host",
+ "sdkwork-iam-web-adapter",
+ "sdkwork-routes-iam-app-api",
+ "sdkwork-routes-iam-backend-api",
+ "sdkwork-routes-iam-open-api",
+ "sdkwork-web-bootstrap",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "sdkwork-api-knowledgebase-assembly"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
+ "sdkwork-api-iam-assembly",
+ "sdkwork-database-config",
+ "sdkwork-iam-database-host",
  "sdkwork-routes-knowledgebase-app-api",
  "sdkwork-routes-knowledgebase-backend-api",
  "sdkwork-routes-knowledgebase-open-api",
+ "sdkwork-utils-rust",
+ "sdkwork-web-bootstrap",
  "tokio",
+]
+
+[[package]]
+name = "sdkwork-api-knowledgebase-standalone-gateway"
+version = "0.1.0"
+dependencies = [
+ "axum 0.8.9",
+ "hyper",
+ "hyper-util",
+ "sdkwork-api-knowledgebase-assembly",
+ "sdkwork-knowledgebase-agent-provider",
+ "sdkwork-knowledgebase-im-rpc-adapter",
+ "sdkwork-knowledgebase-observability",
+ "sdkwork-rpc-core",
+ "sdkwork-utils-rust",
+ "thiserror 1.0.69",
+ "tokio",
+ "tower 0.5.3",
+ "tracing",
 ]
 
 [[package]]
@@ -2894,22 +2934,6 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
-]
-
-[[package]]
-name = "sdkwork-iam-gateway-assembly"
-version = "0.1.0"
-dependencies = [
- "axum 0.8.9",
- "sdkwork-iam-database-host",
- "sdkwork-iam-web-adapter",
- "sdkwork-routes-iam-app-api",
- "sdkwork-routes-iam-backend-api",
- "sdkwork-routes-iam-open-api",
- "sdkwork-web-bootstrap",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -3307,22 +3331,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdkwork-knowledgebase-gateway-assembly"
-version = "0.1.0"
-dependencies = [
- "axum 0.8.9",
- "sdkwork-database-config",
- "sdkwork-iam-database-host",
- "sdkwork-iam-gateway-assembly",
- "sdkwork-routes-knowledgebase-app-api",
- "sdkwork-routes-knowledgebase-backend-api",
- "sdkwork-routes-knowledgebase-open-api",
- "sdkwork-utils-rust",
- "sdkwork-web-bootstrap",
- "tokio",
-]
-
-[[package]]
 name = "sdkwork-knowledgebase-im-rpc-adapter"
 version = "0.1.0"
 dependencies = [
@@ -3402,25 +3410,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdkwork-knowledgebase-standalone-gateway"
-version = "0.1.0"
-dependencies = [
- "axum 0.8.9",
- "hyper",
- "hyper-util",
- "sdkwork-knowledgebase-agent-provider",
- "sdkwork-knowledgebase-gateway-assembly",
- "sdkwork-knowledgebase-im-rpc-adapter",
- "sdkwork-knowledgebase-observability",
- "sdkwork-rpc-core",
- "sdkwork-utils-rust",
- "thiserror 1.0.69",
- "tokio",
- "tower 0.5.3",
- "tracing",
-]
-
-[[package]]
 name = "sdkwork-knowledgebase-test-support"
 version = "0.1.0"
 dependencies = [
@@ -3437,10 +3426,10 @@ name = "sdkwork-knowledgebase-worker"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
+ "sdkwork-api-knowledgebase-standalone-gateway",
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
  "sdkwork-knowledgebase-observability",
- "sdkwork-knowledgebase-standalone-gateway",
  "sdkwork-routes-knowledgebase-app-api",
  "sdkwork-routes-knowledgebase-backend-api",
  "sdkwork-web-bootstrap",

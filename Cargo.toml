@@ -45,7 +45,7 @@ license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
 sdkwork_iam_database_host = { path = "../sdkwork-iam/crates/sdkwork-iam-database-host", package = "sdkwork-iam-database-host" }
-sdkwork_iam_gateway_assembly = { path = "../sdkwork-iam/crates/sdkwork-iam-gateway-assembly", package = "sdkwork-iam-gateway-assembly" }
+sdkwork_api_iam_assembly = { path = "../sdkwork-iam/crates/sdkwork-api-iam-assembly", package = "sdkwork-api-iam-assembly" }
 sdkwork-web-store-sqlx = { path = "../sdkwork-web-framework/crates/sdkwork-web-store-sqlx" }
 sdkwork-web-bootstrap = { path = "../sdkwork-web-framework/crates/sdkwork-web-bootstrap" }
 sdkwork-web-store-redis = { path = "../sdkwork-web-framework/crates/sdkwork-web-store-redis" }

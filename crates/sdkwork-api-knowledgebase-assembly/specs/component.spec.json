@@ -38,14 +38,14 @@
         "surface": "app-api",
         "runtimeMode": "embedded",
         "sameOriginAllowed": true,
-        "embeddedExecutableExport": "sdkwork_iam_gateway_assembly::assemble_api_router",
-        "cargoDependency": "sdkwork_iam_gateway_assembly"
+        "embeddedExecutableExport": "sdkwork_api_iam_assembly::assemble_api_router",
+        "cargoDependency": "sdkwork_api_iam_assembly"
       }
     ],
     "layerRole": "runtime-composition"
   },
   "integration": {
-    "dependencyPolicy": "Standalone assembly embeds IAM app-api business routes through sdkwork-iam-gateway-assembly; consumers must not depend on sdkwork-routes-iam-app-api directly.",
+    "dependencyPolicy": "Standalone assembly embeds IAM app-api business routes through sdkwork-api-iam-assembly; consumers must not depend on sdkwork-routes-iam-app-api directly.",
     "sdkPolicy": "Assembly output is materialized by gateway scripts and must not bypass dependency assembly exports."
   },
   "verification": {
