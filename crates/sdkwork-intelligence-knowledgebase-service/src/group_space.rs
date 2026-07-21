@@ -16,6 +16,7 @@ use crate::{
         knowledge_space_store::{KnowledgeSpaceStore, KnowledgeSpaceStoreError},
     },
     space::{KnowledgeSpaceService, KnowledgeSpaceServiceError},
+    wiki_initialization::KnowledgeWikiInitializationService,
 };
 use sdkwork_knowledgebase_contract::{
     group_space::{
@@ -44,6 +45,8 @@ pub struct KnowledgeGroupKnowledgeSpaceService<'a> {
         &'a dyn crate::ports::knowledge_drive_space::KnowledgeDriveSpaceProvisioner,
     access_control: &'a dyn KnowledgeAccessControl,
     operator_id: String,
+    publication_actor_id: Option<u64>,
+    wiki_initializer: Option<&'a KnowledgeWikiInitializationService<'a>>,
 }
 
 impl<'a> KnowledgeGroupKnowledgeSpaceService<'a> {
@@ -54,6 +57,7 @@ impl<'a> KnowledgeGroupKnowledgeSpaceService<'a> {
         drive_space_provisioner: &'a dyn crate::ports::knowledge_drive_space::KnowledgeDriveSpaceProvisioner,
         access_control: &'a dyn KnowledgeAccessControl,
         operator_id: impl Into<String>,
+        publication_actor_id: Option<u64>,
     ) -> Self {
         Self {
             binding_store,
@@ -62,7 +66,17 @@ impl<'a> KnowledgeGroupKnowledgeSpaceService<'a> {
             drive_space_provisioner,
             access_control,
             operator_id: operator_id.into().trim().to_string(),
+            publication_actor_id,
+            wiki_initializer: None,
         }
+    }
+
+    pub fn with_wiki_initializer(
+        mut self,
+        wiki_initializer: &'a KnowledgeWikiInitializationService<'a>,
+    ) -> Self {
+        self.wiki_initializer = Some(wiki_initializer);
+        self
     }
 
     pub async fn ensure(
@@ -624,10 +638,24 @@ impl<'a> KnowledgeGroupKnowledgeSpaceService<'a> {
     }
 
     fn space_service(&self, scope: GroupKnowledgeSpaceScope) -> KnowledgeSpaceService<'_> {
-        KnowledgeSpaceService::new(self.space_store, self.okf_bundle_initializer)
+        let service = KnowledgeSpaceService::new(self.space_store, self.okf_bundle_initializer)
             .with_drive_context(scope.tenant_id.to_string(), self.operator_id.clone())
             .with_drive_space_provisioner(self.drive_space_provisioner)
-            .with_access_control(self.access_control)
+            .with_access_control(self.access_control);
+        let service = match self.publication_actor_id {
+            Some(actor_id) => service.with_wiki_context(
+                crate::ports::knowledge_wiki_persistence::WikiPersistenceScope {
+                    tenant_id: scope.tenant_id,
+                    organization_id: scope.organization_id,
+                },
+                actor_id,
+            ),
+            None => service,
+        };
+        match self.wiki_initializer {
+            Some(initializer) => service.with_wiki_initializer(initializer),
+            None => service,
+        }
     }
 
     async fn project_acl_delta(

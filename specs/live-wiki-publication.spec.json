@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "sdkwork.knowledgebase.live-wiki-publication.spec",
-  "status": "proposed",
+  "status": "accepted",
   "owner": "SDKWork Knowledgebase maintainers",
   "authority": {
     "requirement": "docs/product/requirements/REQ-2026-0721-live-wiki-cloud-publication.md",
@@ -158,7 +158,8 @@
     "indexStates": ["NOT_REQUIRED", "PENDING", "INDEXING", "READY", "ERROR"],
     "publicEligibility": {
       "publicationStatus": "ACTIVE",
-      "sourceState": "READY",
+      "publicSnapshotRule": "The pinned publicDriveVersionUuid was READY when published and remains independently eligible; a newer current Drive version may be DISCOVERED, PROCESSING or ERROR while KEEP_LAST_PUBLIC_UNTIL_READY continues serving the pinned public snapshot.",
+      "currentSourceStateRule": "Current source_state is a processing-state signal and is not by itself a public lookup predicate. Security revocation states and commands atomically clear public eligibility instead of relying on source_state filtering.",
       "publicationState": "PUBLISHED",
       "visibility": ["PUBLIC", "UNLISTED"],
       "requiredChecks": ["source root ancestry", "scan", "MIME", "route", "render", "link and asset policy"]
@@ -396,7 +397,7 @@
     ]
   },
   "governance": {
-    "implementationClaimGate": "status remains proposed and no realtime/publication capability may be claimed until the readiness review P0 findings have executable evidence",
+    "implementationClaimGate": "implementation is approved, but no realtime/publication capability may be claimed until the readiness review P0 findings have executable evidence",
     "supersedesUponApproval": [
       "docs/architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md"
     ],
@@ -411,6 +412,7 @@
       "Deploy and Web Server cross-repository provider contract",
       "freshness SLO and production cache behavior"
     ],
-    "implementationAllowedBeforeApproval": false
+    "approvalEvidence": "Product owner approved automatic best-solution implementation and confirmed the application is prelaunch in the active 2026-07-21 implementation task.",
+    "implementationAllowed": true
   }
 }

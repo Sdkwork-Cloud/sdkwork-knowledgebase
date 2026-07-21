@@ -75,6 +75,13 @@ async fn creating_space_binds_dedicated_drive_knowledge_space_before_okf_initial
     let drive_spaces = RecordingDriveSpaceProvisioner::new("drv-kb-001");
     let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
         .with_drive_context("tenant-9001", "user-123")
+        .with_wiki_context(
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::WikiPersistenceScope {
+                tenant_id: 9001,
+                organization_id: 0,
+            },
+            123,
+        )
         .with_drive_space_provisioner(&drive_spaces);
 
     let created = service
@@ -154,6 +161,13 @@ async fn drive_space_provisioning_failure_does_not_leave_half_initialized_space(
     let drive_spaces = FailingDriveSpaceProvisioner;
     let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
         .with_drive_context("tenant-9001", "user-123")
+        .with_wiki_context(
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::WikiPersistenceScope {
+                tenant_id: 9001,
+                organization_id: 0,
+            },
+            123,
+        )
         .with_drive_space_provisioner(&drive_spaces);
 
     let error = service
@@ -185,6 +199,13 @@ async fn okf_bundle_initialization_failure_releases_created_drive_space_and_loca
     let drive_spaces = RecordingDriveSpaceProvisioner::new("drv-kb-001");
     let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
         .with_drive_context("tenant-9001", "user-123")
+        .with_wiki_context(
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::WikiPersistenceScope {
+                tenant_id: 9001,
+                organization_id: 0,
+            },
+            123,
+        )
         .with_drive_space_provisioner(&drive_spaces);
 
     let error = service
@@ -223,6 +244,13 @@ async fn creating_bound_space_initializes_browser_visible_okf_drive_nodes() {
     let drive_spaces = RecordingDriveSpaceProvisioner::new("drv-kb-001");
     let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
         .with_drive_context("tenant-9001", "user-123")
+        .with_wiki_context(
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::WikiPersistenceScope {
+                tenant_id: 9001,
+                organization_id: 0,
+            },
+            123,
+        )
         .with_drive_space_provisioner(&drive_spaces);
 
     service
@@ -270,6 +298,13 @@ async fn creating_external_space_ensures_drive_permission_anchor_without_okf_bun
     let drive_spaces = RecordingDriveSpaceProvisioner::new("drv-kb-001");
     let service = KnowledgeSpaceService::new(&store, &okf_bundle_initializer)
         .with_drive_context("tenant-9001", "user-123")
+        .with_wiki_context(
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::WikiPersistenceScope {
+                tenant_id: 9001,
+                organization_id: 0,
+            },
+            123,
+        )
         .with_drive_space_provisioner(&drive_spaces);
 
     let created = service
@@ -402,14 +437,14 @@ impl KnowledgeSpaceStore for MemorySpaceStore {
     async fn mark_drive_space_bound(
         &self,
         space_id: u64,
-        drive_space_id: String,
+        record: sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::BindKnowledgeDriveSpaceRecord,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         let mut spaces = self.spaces.lock().unwrap();
         let space = spaces
             .iter_mut()
             .find(|space| space.id == space_id)
             .ok_or_else(|| KnowledgeSpaceStoreError::Internal("missing space".to_string()))?;
-        space.drive_space_id = Some(drive_space_id);
+        space.drive_space_id = Some(record.drive_space_id);
         Ok(space.clone())
     }
 

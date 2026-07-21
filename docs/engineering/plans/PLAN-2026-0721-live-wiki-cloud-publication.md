@@ -1,8 +1,8 @@
 # PLAN-2026-0721 Live Wiki Cloud Publication
 
-Status: ready for approval
+Status: in progress
 Requirement: REQ-2026-0721
-Decision: ADR-20260721-live-mounted-wiki-publication (proposed)
+Decision: ADR-20260721-live-mounted-wiki-publication (accepted)
 Machine contract: `specs/live-wiki-publication.spec.json`
 Owner: SDKWork Knowledgebase maintainers
 Updated: 2026-07-21

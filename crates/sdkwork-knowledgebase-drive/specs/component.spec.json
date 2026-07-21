@@ -53,19 +53,45 @@
     "contracts":  {
                       "layerRole":  "backend-provider",
                       "publicExports":  [
-                                            "."
+                                            ".",
+                                            "KnowledgebaseDriveInternalSdkAdapter",
+                                            "KnowledgebaseDriveRootScopeAdapter"
                                         ],
                       "runtimeEntrypoints":  [
 
                                              ],
+                      "providedPorts":  [
+                                            {
+                                                "name":  "knowledgeWikiDriveSource",
+                                                "export":  "KnowledgebaseDriveInternalSdkAdapter"
+                                            },
+                                            {
+                                                "name":  "knowledgeWikiDriveScopeEmbedded",
+                                                "export":  "KnowledgebaseDriveRootScopeAdapter"
+                                            }
+                                        ],
+                      "requiredPorts":  [
+                                            {
+                                                "name":  "driveInternalSdk",
+                                                "export":  ".",
+                                                "target":  "sdkwork_drive_internal_sdk_generated_rust::SdkworkCustomClient"
+                                            }
+                                        ],
                       "routeManifest":  null,
                       "sdkClients":  [
-
+                                         "SdkworkCustomClient"
                                      ],
                       "sdkDependencies":  [
                                               {
                                                   "workspace":  "sdkwork-drive-storage-contract",
                                                   "role":  "drive-storage-contract",
+                                                  "required":  true
+                                              },
+                                              {
+                                                  "workspace":  "sdkwork-drive-internal-sdk",
+                                                  "role":  "drive-root-scoped-resource-provider",
+                                                  "surface":  "internal-api",
+                                                  "credentialMode":  "internal-service",
                                                   "required":  true
                                               }
                                           ],
@@ -73,18 +99,25 @@
 
                                                ],
                       "dependencyApiSurfaces":  [
-
+                                                    {
+                                                        "sdkFamily":  "sdkwork-drive-internal-sdk",
+                                                        "apiSurface":  "internal-api",
+                                                        "runtimeMode":  "external-service",
+                                                        "sameOriginAllowed":  false,
+                                                        "requiredBaseUrlKey":  "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_BASE_URL"
+                                                    }
                                                 ],
                       "events":  [
 
                                  ],
                       "configKeys":  [
-
+                                         "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_BASE_URL"
                                      ]
                   },
     "verification":  {
                          "commands":  [
-                                          "cargo test"
+                                          "cargo test -p sdkwork-knowledgebase-drive",
+                                          "node ../sdkwork-specs/tools/check-component-port-bindings.mjs --root ."
                                       ]
                      }
 }

@@ -207,6 +207,36 @@
       "lifecycle_status": "active"
     },
     {
+      "table_name": "kb_site_publication",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_source_file_projection",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_source_file_rendition",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_drive_source_checkpoint",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_drive_event_inbox",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
       "table_name": "kb_provider_credential_reference",
       "owner": "knowledgebase-platform",
       "compliance_level": "L2",

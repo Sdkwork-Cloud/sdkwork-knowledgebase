@@ -386,6 +386,45 @@ async fn storage_adapter_treats_blank_provider_version_as_versionless() {
 }
 
 #[tokio::test]
+async fn storage_adapter_accepts_new_source_version_for_existing_logical_path() {
+    let store = Arc::new(VersionlessDriveObjectStore::default());
+    let adapter =
+        KnowledgebaseDriveStorageAdapter::new(store, "provider-kb", "kb-bucket", "tenant");
+
+    let first = adapter
+        .put_object(
+            PutKnowledgeObjectRequest::text(
+                "sources/raw/guides/install.md",
+                "raw_source",
+                "# Install v1",
+                None,
+            )
+            .with_space_uuid("space"),
+        )
+        .await
+        .unwrap();
+    let second = adapter
+        .put_object(
+            PutKnowledgeObjectRequest::text(
+                "sources/raw/guides/install.md",
+                "raw_source",
+                "# Install v2",
+                None,
+            )
+            .with_space_uuid("space"),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(first.logical_path, second.logical_path);
+    assert_ne!(first.version_id, second.version_id);
+    assert_eq!(
+        adapter.get_object_text(&second).await.unwrap(),
+        "# Install v2"
+    );
+}
+
+#[tokio::test]
 async fn adapter_rejects_unsafe_managed_logical_paths_before_drive_write() {
     let store = Arc::new(FakeDriveObjectStore::default());
     let adapter =

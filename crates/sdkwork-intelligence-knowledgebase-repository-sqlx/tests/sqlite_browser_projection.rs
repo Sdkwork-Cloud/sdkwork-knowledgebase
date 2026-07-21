@@ -39,7 +39,13 @@ async fn sqlite_space_store_persists_drive_space_binding() {
     assert_eq!(space.drive_space_id, None);
 
     let bound = store
-        .mark_drive_space_bound(space.id, "drv-kb-001".to_string())
+        .mark_drive_space_bound(
+            space.id,
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::BindKnowledgeDriveSpaceRecord {
+                drive_space_id: "drv-kb-001".to_string(),
+                actor_id: 101,
+            },
+        )
         .await
         .unwrap();
     assert_eq!(bound.drive_space_id.as_deref(), Some("drv-kb-001"));
@@ -53,6 +59,22 @@ async fn sqlite_space_store_persists_drive_space_binding() {
         row.get::<Option<String>, _>("drive_space_id").as_deref(),
         Some("drv-kb-001")
     );
+    let publication = sqlx::query(
+        "SELECT drive_space_uuid, wiki_status, title, created_by FROM kb_site_publication WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = 1",
+    )
+    .bind(9001_i64)
+    .bind(7001_i64)
+    .bind(space.id as i64)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        publication.get::<String, _>("drive_space_uuid"),
+        "drv-kb-001"
+    );
+    assert_eq!(publication.get::<String, _>("wiki_status"), "DRAFT");
+    assert_eq!(publication.get::<String, _>("title"), "Research Space");
+    assert_eq!(publication.get::<i64, _>("created_by"), 101);
 }
 
 #[tokio::test]
@@ -71,10 +93,23 @@ async fn sqlite_space_store_deleted_space_releases_active_drive_space_binding() 
         .await
         .unwrap();
     store
-        .mark_drive_space_bound(first.id, "drv-kb-001".to_string())
+        .mark_drive_space_bound(
+            first.id,
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::BindKnowledgeDriveSpaceRecord {
+                drive_space_id: "drv-kb-001".to_string(),
+                actor_id: 101,
+            },
+        )
         .await
         .unwrap();
     store.mark_space_deleted(first.id).await.unwrap();
+    let archived_publication: (String, i64) =
+        sqlx::query_as("SELECT wiki_status, status FROM kb_site_publication WHERE space_id = $1")
+            .bind(first.id as i64)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(archived_publication, ("ARCHIVED".to_string(), 0));
 
     let second = store
         .create_space(sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::CreateKnowledgeSpaceRecord {
@@ -86,7 +121,13 @@ async fn sqlite_space_store_deleted_space_releases_active_drive_space_binding() 
         .await
         .unwrap();
     let rebound = store
-        .mark_drive_space_bound(second.id, "drv-kb-001".to_string())
+        .mark_drive_space_bound(
+            second.id,
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::BindKnowledgeDriveSpaceRecord {
+                drive_space_id: "drv-kb-001".to_string(),
+                actor_id: 101,
+            },
+        )
         .await
         .unwrap();
 

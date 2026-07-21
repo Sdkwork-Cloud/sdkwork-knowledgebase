@@ -101,6 +101,12 @@ pub const SQLITE_INGESTION_JOB_LEASE_MIGRATION: &str =
 pub const POSTGRES_INGESTION_JOB_LEASE_MIGRATION: &str =
     include_str!("../migrations/postgres/V202607160002__ingestion_job_lease.sql");
 
+pub const SQLITE_LIVE_WIKI_PUBLICATION_MIGRATION: &str =
+    include_str!("../../../database/migrations/sqlite/202607210001_live_wiki_publication.up.sql");
+
+pub const POSTGRES_LIVE_WIKI_PUBLICATION_MIGRATION: &str =
+    include_str!("../../../database/migrations/postgres/202607210001_live_wiki_publication.up.sql");
+
 pub const SQLITE_MIGRATIONS: &[&str] = &[
     SQLITE_CORE_MIGRATION,
     SQLITE_CONTEXT_BINDING_MIGRATION,
@@ -119,6 +125,7 @@ pub const SQLITE_MIGRATIONS: &[&str] = &[
     SQLITE_GROUP_ARCHIVE_SAGA_MIGRATION,
     SQLITE_GROUP_ARCHIVE_SAGA_SCOPE_TRIGGERS_MIGRATION,
     SQLITE_INGESTION_JOB_LEASE_MIGRATION,
+    SQLITE_LIVE_WIKI_PUBLICATION_MIGRATION,
 ];
 
 pub const POSTGRES_MIGRATIONS: &[&str] = &[
@@ -139,6 +146,7 @@ pub const POSTGRES_MIGRATIONS: &[&str] = &[
     POSTGRES_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
     POSTGRES_GROUP_ARCHIVE_SAGA_MIGRATION,
     POSTGRES_INGESTION_JOB_LEASE_MIGRATION,
+    POSTGRES_LIVE_WIKI_PUBLICATION_MIGRATION,
 ];
 
 // Legacy migration SQL retained for contract tests only. Runtime PostgreSQL bootstrap uses

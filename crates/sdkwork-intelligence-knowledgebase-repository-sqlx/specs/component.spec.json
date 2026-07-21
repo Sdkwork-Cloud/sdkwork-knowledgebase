@@ -79,12 +79,37 @@
                       "layerRole":  "backend-repository",
                       "publicExports":  [
                                             ".",
-                                            "SqlxKnowledgeEngineProviderBindingReadinessStore"
+                                            "SqlxKnowledgeEngineProviderBindingReadinessStore",
+                                            "SqlxWikiPersistenceStore"
                                         ],
                       "providedPorts":  [
                                             {
                                                 "name":  "providerBindingReadinessStoreSqlx",
                                                 "export":  "SqlxKnowledgeEngineProviderBindingReadinessStore"
+                                            },
+                                            {
+                                                "name":  "wikiPublicationStoreSqlx",
+                                                "export":  "SqlxWikiPersistenceStore"
+                                            },
+                                            {
+                                                "name":  "wikiSourceProjectionStoreSqlx",
+                                                "export":  "SqlxWikiPersistenceStore"
+                                            },
+                                            {
+                                                "name":  "wikiRenditionStoreSqlx",
+                                                "export":  "SqlxWikiPersistenceStore"
+                                            },
+                                            {
+                                                "name":  "wikiDriveCheckpointStoreSqlx",
+                                                "export":  "SqlxWikiPersistenceStore"
+                                            },
+                                            {
+                                                "name":  "wikiDriveEventInboxStoreSqlx",
+                                                "export":  "SqlxWikiPersistenceStore"
+                                            },
+                                            {
+                                                "name":  "wikiPublicationBackfillStoreSqlx",
+                                                "export":  "SqlxWikiPersistenceStore"
                                             }
                                         ],
                       "runtimeEntrypoints":  [

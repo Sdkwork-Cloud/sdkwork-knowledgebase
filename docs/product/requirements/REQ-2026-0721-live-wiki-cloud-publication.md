@@ -4,7 +4,7 @@
 id: REQ-2026-0721
 title: Publish a live sources/raw Wiki with per-file state through the shared cloud site platform
 owner: SDKWork Knowledgebase maintainers
-status: ready
+status: in-progress
 source: product
 problem: The release-builder site model conflicts with WYSIWYG Markdown publication, duplicates artifacts, and does not make the source tree the live public authority.
 goals:

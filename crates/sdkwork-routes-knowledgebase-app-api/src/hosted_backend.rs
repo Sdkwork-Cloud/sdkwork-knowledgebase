@@ -1524,9 +1524,7 @@ fn map_provider_migration_error(
             KnowledgeEngineProviderBindingStoreError::Internal(_),
         )
         | ProviderMigrationServiceError::Internal(_)
-        | ProviderMigrationServiceError::Audit(_) => {
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR
-        }
+        | ProviderMigrationServiceError::Audit(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
     };
     BackendApiError::new(status, "provider_migration_failed", error.to_string())
 }

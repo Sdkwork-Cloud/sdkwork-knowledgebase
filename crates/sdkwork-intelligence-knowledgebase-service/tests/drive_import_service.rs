@@ -29,7 +29,6 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_s
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
 };
-use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
 use sdkwork_knowledgebase_contract::document::{
     KnowledgeDocument, KnowledgeDocumentState, KnowledgeDocumentVersion,
     KnowledgeDocumentVersionState, KnowledgeDocumentVisibility,
@@ -38,6 +37,7 @@ use sdkwork_knowledgebase_contract::ingest::{
     IngestionJob, IngestionJobState, KnowledgeDriveImportRequest,
 };
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
+use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -342,11 +342,9 @@ async fn drive_import_rejects_provider_id_mismatch_before_import_writes() {
         .await
         .unwrap_err();
 
-    assert!(
-        error
-            .to_string()
-            .contains("drive_storage_provider_id does not match")
-    );
+    assert!(error
+        .to_string()
+        .contains("drive_storage_provider_id does not match"));
     assert_eq!(
         drive.heads(),
         vec![(

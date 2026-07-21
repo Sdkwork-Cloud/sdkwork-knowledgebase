@@ -11,7 +11,7 @@ use sdkwork_drive_storage_local::LocalDriveObjectStore;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     connect_knowledgebase_and_install_schema, is_postgres_database_url, knowledgebase_health_check,
     SqliteGroupKnowledgeSpaceBindingStore, SqliteKnowledgeOkfBundleFileStore,
-    SqliteKnowledgeSpaceStore,
+    SqliteKnowledgeSpaceStore, SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_rpc::GroupKnowledgeSpaceLifecycleRuntime;
 use sdkwork_intelligence_knowledgebase_service::{
@@ -31,6 +31,7 @@ use sdkwork_knowledgebase_contract::group_space::{
 use sdkwork_knowledgebase_drive::{
     connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
     KnowledgebaseDriveSpaceProvisionerAdapter, KnowledgebaseDriveStorageAdapter,
+    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveRootScopeAdapter,
     KnowledgebaseDriveWorkspaceAdapter, KnowledgebaseKnowledgeAccessControlAdapter,
 };
 use thiserror::Error;
@@ -47,6 +48,7 @@ pub struct KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
     database_engine: DatabaseEngine,
     object_store: Arc<LocalDriveObjectStore>,
     operator_id: String,
+    system_actor_id: u64,
 }
 
 impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
@@ -54,6 +56,7 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
         database_url: &str,
         drive_storage_root: PathBuf,
         operator_id: String,
+        system_actor_id: u64,
     ) -> Result<Self, KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError> {
         verify_drive_storage_root(&drive_storage_root)?;
         let pool = connect_knowledgebase_and_install_schema(database_url)
@@ -85,6 +88,7 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
             },
             object_store: Arc::new(LocalDriveObjectStore::new(drive_storage_root)),
             operator_id,
+            system_actor_id,
         })
     }
 
@@ -119,6 +123,10 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
                 )
                 .with_database_engine(self.database_engine),
             ),
+            wiki_store: Arc::new(
+                SqlxWikiPersistenceStore::new(self.pool.clone())
+                    .with_database_engine(self.database_engine),
+            ),
             bundle_file_store: Arc::new(
                 SqliteKnowledgeOkfBundleFileStore::new(self.pool.clone(), scope.tenant_id)
                     .with_database_engine(self.database_engine),
@@ -135,6 +143,15 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
             drive_workspace: Arc::new(KnowledgebaseDriveWorkspaceAdapter::new(
                 self.drive_pool.clone(),
                 tenant_id,
+                self.operator_id.clone(),
+            )),
+            drive_tree: Arc::new(KnowledgebaseDriveNodeTreeAdapter::new(
+                self.drive_pool.clone(),
+                scope.tenant_id.to_string(),
+            )),
+            wiki_drive_scope: Arc::new(KnowledgebaseDriveRootScopeAdapter::new(
+                self.drive_pool.clone(),
+                scope.tenant_id.to_string(),
                 self.operator_id.clone(),
             )),
             access_control: Arc::new(KnowledgebaseKnowledgeAccessControlAdapter::new(
@@ -154,6 +171,14 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
         let initializer = OkfBundleInitializerService::new(dependencies.drive_storage.as_ref())
             .with_registry(&registry)
             .with_drive_workspace(dependencies.drive_workspace.as_ref());
+        let wiki_initializer =
+            sdkwork_intelligence_knowledgebase_service::wiki_initialization::KnowledgeWikiInitializationService::new(
+                dependencies.wiki_store.as_ref(),
+                dependencies.wiki_store.as_ref(),
+                dependencies.drive_workspace.as_ref(),
+                dependencies.drive_tree.as_ref(),
+                dependencies.wiki_drive_scope.as_ref(),
+            );
         let service = KnowledgeGroupKnowledgeSpaceService::new(
             dependencies.binding_store.as_ref(),
             dependencies.space_store.as_ref(),
@@ -161,7 +186,9 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
             dependencies.drive_space_provisioner.as_ref(),
             dependencies.access_control.as_ref(),
             self.operator_id.clone(),
-        );
+            Some(self.system_actor_id),
+        )
+        .with_wiki_initializer(&wiki_initializer);
         service
             .ensure_from_im(scope, service_actor_id, request)
             .await
@@ -185,6 +212,7 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
             dependencies.drive_space_provisioner.as_ref(),
             dependencies.access_control.as_ref(),
             self.operator_id.clone(),
+            Some(self.system_actor_id),
         );
         service
             .synchronize_members_from_im(scope, service_actor_id, request)
@@ -210,6 +238,7 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
             dependencies.drive_space_provisioner.as_ref(),
             dependencies.access_control.as_ref(),
             self.operator_id.clone(),
+            Some(self.system_actor_id),
         );
         service
             .archive_from_im(scope, service_actor_id, archived_by, request)
@@ -252,10 +281,13 @@ impl GroupKnowledgeSpaceLifecycleRuntime for KnowledgebaseGroupKnowledgeSpaceLif
 struct GroupKnowledgeSpaceLifecycleDependencies {
     binding_store: Arc<SqliteGroupKnowledgeSpaceBindingStore>,
     space_store: Arc<SqliteKnowledgeSpaceStore>,
+    wiki_store: Arc<SqlxWikiPersistenceStore>,
     bundle_file_store: Arc<SqliteKnowledgeOkfBundleFileStore>,
     drive_storage: Arc<KnowledgebaseDriveStorageAdapter>,
     drive_space_provisioner: Arc<KnowledgebaseDriveSpaceProvisionerAdapter>,
     drive_workspace: Arc<KnowledgebaseDriveWorkspaceAdapter>,
+    drive_tree: Arc<KnowledgebaseDriveNodeTreeAdapter>,
+    wiki_drive_scope: Arc<KnowledgebaseDriveRootScopeAdapter>,
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
 }
 

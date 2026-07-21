@@ -101,7 +101,6 @@ async fn configured_sdk_media_providers_return_real_results() {
         payload(&transcription.1)["item"]["text"],
         "Verified provider transcription"
     );
-
 }
 
 async fn create_space(app: &axum::Router) -> u64 {

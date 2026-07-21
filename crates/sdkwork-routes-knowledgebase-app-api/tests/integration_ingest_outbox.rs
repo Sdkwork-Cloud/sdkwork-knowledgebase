@@ -61,6 +61,7 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
         10,
         10,
         10,
+        None,
     )
     .await
     .expect("maintenance tick");

@@ -1,6 +1,8 @@
 use sdkwork_api_knowledgebase_standalone_gateway::init_tracing;
-use sdkwork_knowledgebase_contract::parse_canonical_positive_signed_i64;
-use sdkwork_knowledgebase_worker::{health, run_polling_loop};
+use sdkwork_knowledgebase_contract::{
+    parse_canonical_nonnegative_signed_i64, parse_canonical_positive_signed_i64,
+};
+use sdkwork_knowledgebase_worker::{health, run_polling_loop, WikiBackfillMaintenanceConfig};
 use sdkwork_routes_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 
 #[tokio::main]
@@ -48,6 +50,7 @@ async fn main() {
             .and_then(|value| value.parse::<u32>().ok())
             .filter(|value| (1..=200).contains(value))
             .unwrap_or(25);
+    let wiki_backfill = resolve_wiki_backfill_config(tenant_id);
     let health_addr = std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_HEALTH_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:18085".to_string());
 
@@ -70,6 +73,7 @@ async fn main() {
         provider_migration_lease_seconds,
         worker_id = %worker_id,
         group_archive_limit,
+        wiki_backfill_enabled = wiki_backfill.is_some(),
         %health_addr,
         "starting knowledgebase worker loop"
     );
@@ -90,6 +94,7 @@ async fn main() {
         ingestion_job_limit,
         provider_migration_limit,
         group_archive_limit,
+        wiki_backfill,
     )
     .await;
 }
@@ -118,6 +123,42 @@ fn required_worker_tenant_id() -> u64 {
         .expect("SDKWORK_KNOWLEDGEBASE_TENANT_ID must be a canonical positive signed BIGINT")
 }
 
+fn resolve_wiki_backfill_config(tenant_id: u64) -> Option<WikiBackfillMaintenanceConfig> {
+    let organization_id =
+        std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ORGANIZATION_ID").ok();
+    let actor_id = std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ACTOR_ID").ok();
+    match (organization_id, actor_id) {
+        (None, None) => None,
+        (Some(organization_id), Some(actor_id)) => {
+            let organization_id = parse_canonical_nonnegative_signed_i64(&organization_id)
+                .expect("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ORGANIZATION_ID must be a canonical nonnegative signed BIGINT");
+            let actor_id = parse_canonical_positive_signed_i64(&actor_id)
+                .expect("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ACTOR_ID must be a canonical positive signed BIGINT");
+            let page_size = match std::env::var(
+                "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_BATCH_SIZE",
+            ) {
+                Ok(value) => value
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|value| (1..=200).contains(value))
+                    .expect(
+                        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_BATCH_SIZE must be between 1 and 200",
+                    ),
+                Err(_) => 25,
+            };
+            Some(WikiBackfillMaintenanceConfig {
+                tenant_id,
+                organization_id,
+                actor_id,
+                page_size,
+            })
+        }
+        _ => panic!(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ORGANIZATION_ID and SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ACTOR_ID must be configured together"
+        ),
+    }
+}
+
 fn database_engine_label(database_url: &str) -> &'static str {
     let normalized = database_url.trim().to_ascii_lowercase();
     if normalized.starts_with("postgres://") || normalized.starts_with("postgresql://") {
@@ -131,7 +172,10 @@ fn database_engine_label(database_url: &str) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{database_engine_label, required_worker_tenant_id, resolve_worker_id};
+    use super::{
+        database_engine_label, required_worker_tenant_id, resolve_wiki_backfill_config,
+        resolve_worker_id,
+    };
 
     #[test]
     fn worker_tenant_id_requires_a_canonical_positive_signed_bigint() {
@@ -164,5 +208,27 @@ mod tests {
         std::env::set_var("SDKWORK_KNOWLEDGEBASE_WORKER_ID", "pod-uid-123");
         assert_eq!(resolve_worker_id(), "pod-uid-123");
         std::env::remove_var("SDKWORK_KNOWLEDGEBASE_WORKER_ID");
+    }
+
+    #[test]
+    fn wiki_backfill_requires_paired_explicit_scope_and_actor() {
+        std::env::remove_var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ORGANIZATION_ID");
+        std::env::remove_var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ACTOR_ID");
+        assert_eq!(resolve_wiki_backfill_config(7), None);
+
+        std::env::set_var(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ORGANIZATION_ID",
+            "0",
+        );
+        assert!(std::panic::catch_unwind(|| resolve_wiki_backfill_config(7)).is_err());
+        std::env::set_var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ACTOR_ID", "42");
+        let config = resolve_wiki_backfill_config(7).expect("Wiki backfill config");
+        assert_eq!(config.tenant_id, 7);
+        assert_eq!(config.organization_id, 0);
+        assert_eq!(config.actor_id, 42);
+        assert_eq!(config.page_size, 25);
+
+        std::env::remove_var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ORGANIZATION_ID");
+        std::env::remove_var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ACTOR_ID");
     }
 }

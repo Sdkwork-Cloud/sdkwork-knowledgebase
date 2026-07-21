@@ -67,6 +67,7 @@
     "runtimeEntrypoints": [
       "sdkwork-knowledgebase-worker",
       "sdkwork-knowledgebase-provider-binding-prelaunch-report",
+      "sdkwork-knowledgebase-wiki-backfill",
       "run_maintenance_tick",
       "run_polling_loop",
       "health::worker_health_router"
@@ -95,9 +96,13 @@
     "configKeys": [
       "SDKWORK_KNOWLEDGEBASE_DATABASE_URL",
       "SDKWORK_KNOWLEDGEBASE_TENANT_ID",
+      "SDKWORK_KNOWLEDGEBASE_DATABASE_URL",
       "SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID",
       "SDKWORK_KNOWLEDGEBASE_WORKER_PROVIDER_MIGRATION_BATCH_SIZE",
-      "SDKWORK_KNOWLEDGEBASE_WORKER_PROVIDER_MIGRATION_LEASE_SECONDS"
+      "SDKWORK_KNOWLEDGEBASE_WORKER_PROVIDER_MIGRATION_LEASE_SECONDS",
+      "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ORGANIZATION_ID",
+      "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ACTOR_ID",
+      "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_BATCH_SIZE"
     ]
   },
   "verification": {

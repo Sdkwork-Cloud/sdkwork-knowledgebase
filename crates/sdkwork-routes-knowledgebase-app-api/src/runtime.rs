@@ -18,6 +18,7 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
     SqliteMarkdownIndexMetadataStore, SqliteOkfConceptRevisionMetadataStore,
     SqlxKnowledgeEngineProviderBindingStore, SqlxKnowledgeEngineProviderMigrationStore,
+    SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
     agent::KnowledgeAgentService,
@@ -54,9 +55,9 @@ use sdkwork_knowledgebase_contract::rag::{
 };
 use sdkwork_knowledgebase_drive::{
     connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
-    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
-    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
-    KnowledgebaseKnowledgeAccessControlAdapter,
+    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveRootScopeAdapter,
+    KnowledgebaseDriveSpaceProvisionerAdapter, KnowledgebaseDriveStorageAdapter,
+    KnowledgebaseDriveWorkspaceAdapter, KnowledgebaseKnowledgeAccessControlAdapter,
 };
 use sdkwork_knowledgebase_provider_secret_adapter::{
     KnowledgebaseProviderCredentialEnvironment, KnowledgebaseProviderCredentialResolver,
@@ -121,6 +122,7 @@ pub struct KnowledgebaseRuntime {
     embedding_store: Arc<SqliteKnowledgeEmbeddingStore>,
     agent_store: Arc<SqliteKnowledgeAgentProfileStore>,
     space_store: Arc<SqliteKnowledgeSpaceStore>,
+    wiki_store: Arc<SqlxWikiPersistenceStore>,
     okf_bundle_file_store: Arc<SqliteKnowledgeOkfBundleFileStore>,
     okf_concept_store: Arc<SqliteKnowledgeOkfConceptStore>,
     okf_concept_link_store: Arc<SqliteKnowledgeOkfConceptLinkStore>,
@@ -147,6 +149,7 @@ pub struct KnowledgebaseRuntime {
     drive_space_provisioner: Arc<KnowledgebaseDriveSpaceProvisionerAdapter>,
     drive_tree: Arc<KnowledgebaseDriveNodeTreeAdapter>,
     drive_workspace: Arc<KnowledgebaseDriveWorkspaceAdapter>,
+    wiki_drive_scope: Arc<KnowledgebaseDriveRootScopeAdapter>,
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
     knowledge_engines: Arc<DefaultKnowledgeEngineRegistry>,
     commerce_store: Arc<SqliteCommerceStore>,
@@ -386,6 +389,11 @@ impl KnowledgebaseRuntime {
             tenant_id_str.clone(),
             operator_id.clone(),
         ));
+        let wiki_drive_scope = Arc::new(KnowledgebaseDriveRootScopeAdapter::new(
+            drive_pool.clone(),
+            tenant_id_str.clone(),
+            operator_id.clone(),
+        ));
         let access_control = Arc::new(KnowledgebaseKnowledgeAccessControlAdapter::new(
             drive_pool.clone(),
         ));
@@ -429,6 +437,9 @@ impl KnowledgebaseRuntime {
         let space_store = Arc::new(
             SqliteKnowledgeSpaceStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
+        );
+        let wiki_store = Arc::new(
+            SqlxWikiPersistenceStore::new(pool.clone()).with_database_engine(database_engine),
         );
         let provider_binding_store = Arc::new(
             SqlxKnowledgeEngineProviderBindingStore::new(pool.clone())
@@ -556,6 +567,7 @@ impl KnowledgebaseRuntime {
             )
             .with_database_engine(database_engine)),
             space_store,
+            wiki_store,
             okf_bundle_file_store,
             okf_concept_store,
             okf_concept_link_store,
@@ -629,6 +641,7 @@ impl KnowledgebaseRuntime {
             drive_space_provisioner,
             drive_tree,
             drive_workspace,
+            wiki_drive_scope,
             access_control,
             knowledge_engines,
             commerce_store: Arc::new(
@@ -1196,6 +1209,14 @@ impl KnowledgebaseRuntime {
         &self.drive_workspace
     }
 
+    pub(crate) fn wiki_store(&self) -> &SqlxWikiPersistenceStore {
+        &self.wiki_store
+    }
+
+    pub(crate) fn wiki_drive_scope(&self) -> &KnowledgebaseDriveRootScopeAdapter {
+        &self.wiki_drive_scope
+    }
+
     pub(crate) fn access_control(&self) -> &KnowledgebaseKnowledgeAccessControlAdapter {
         &self.access_control
     }
@@ -1261,6 +1282,31 @@ impl KnowledgebaseRuntime {
             .requeue_failed_events(limit, max_retry_count)
             .await
             .unwrap_or(0)
+    }
+
+    pub async fn run_wiki_publication_backfill_page(
+        &self,
+        request: sdkwork_intelligence_knowledgebase_service::wiki_backfill::RunWikiPublicationBackfillRequest,
+    ) -> Result<
+        sdkwork_intelligence_knowledgebase_service::wiki_backfill::WikiPublicationBackfillPageResult,
+        String,
+    >{
+        use sdkwork_intelligence_knowledgebase_service::{
+            wiki_backfill::KnowledgeWikiBackfillService,
+            wiki_initialization::KnowledgeWikiInitializationService,
+        };
+
+        let initializer = KnowledgeWikiInitializationService::new(
+            self.wiki_store(),
+            self.wiki_store(),
+            self.drive_workspace(),
+            self.drive_tree(),
+            self.wiki_drive_scope(),
+        );
+        KnowledgeWikiBackfillService::new(self.wiki_store(), self.wiki_store(), &initializer)
+            .run_page(request)
+            .await
+            .map_err(|error| error.to_string())
     }
 
     pub async fn read_document_content_markdown(
@@ -1398,6 +1444,7 @@ impl KnowledgebaseRuntime {
             self.drive_space_provisioner(),
             self.access_control(),
             self.operator_id.clone(),
+            None,
         );
         let mut processed = 0usize;
         for command in commands {

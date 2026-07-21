@@ -5,8 +5,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_bundle_file
     KnowledgeOkfBundleFileStoreError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::{
-    CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
-    UpdateKnowledgeSpaceRecord,
+    BindKnowledgeDriveSpaceRecord, CreateKnowledgeSpaceRecord, KnowledgeSpaceStore,
+    KnowledgeSpaceStoreError, UpdateKnowledgeSpaceRecord,
 };
 use sdkwork_knowledgebase_contract::okf_bundle_file::{KnowledgeOkfBundleFile, OkfBundleFileKind};
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
@@ -290,7 +290,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             .bind(bool_code(record.okf_bundle_initialized))
             .bind(space_knowledge_mode_code(record.knowledge_mode))
             .bind(now.clone())
-            .bind(now)
+            .bind(&now)
             .bind(INITIAL_VERSION)
             .fetch_one(&self.pool)
             .await
@@ -348,13 +348,22 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
     async fn mark_drive_space_bound(
         &self,
         space_id: u64,
-        drive_space_id: String,
+        record: BindKnowledgeDriveSpaceRecord,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         let tenant_id = space_to_i64("tenant_id", self.tenant_id)?;
         let organization_id = space_to_i64("organization_id", self.organization_id)?;
         let space_id_i64 = space_to_i64("space_id", space_id)?;
-        let drive_space_id = require_safe_drive_id(drive_space_id, "drive_space_id")?;
+        let drive_space_id = require_safe_drive_id(record.drive_space_id, "drive_space_id")?;
+        if record.actor_id == 0 {
+            return Err(KnowledgeSpaceStoreError::Internal(
+                "Wiki publication actor_id must be greater than zero".to_string(),
+            ));
+        }
+        let actor_id = space_to_i64("actor_id", record.actor_id)?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
+        let publication_id = next_i64_id(&self.id_generator).map_err(space_id_error)?;
+        let publication_uuid = Uuid::new_v4().to_string();
+        let mut transaction = self.pool.begin().await.map_err(space_sqlx_error)?;
 
         let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
         let query = format!(
@@ -363,22 +372,71 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             SET drive_space_id = $1, updated_at = {updated_at_expr}, version = version + 1
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5
               AND status IN ($6, $7)
+              AND (drive_space_id IS NULL OR drive_space_id = $1)
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         );
         let row = sqlx::query(&query)
-            .bind(drive_space_id)
-            .bind(now)
+            .bind(&drive_space_id)
+            .bind(&now)
             .bind(tenant_id)
             .bind(organization_id)
             .bind(space_id_i64)
             .bind(ACTIVE_STATUS)
             .bind(PROVISIONING_STATUS)
-            .fetch_one(&self.pool)
+            .fetch_one(&mut *transaction)
             .await
             .map_err(|error| space_fetch_error(space_id, error))?;
+        let space = space_from_row(&row)?;
 
-        space_from_row(&row)
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$9");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$9");
+        let publication_query = format!(
+            r#"
+            INSERT INTO kb_site_publication (
+                id, uuid, tenant_id, organization_id, space_id, drive_space_uuid,
+                title, created_by, updated_by, created_at, updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $8, {created_at_expr}, {updated_at_expr}
+            )
+            ON CONFLICT (tenant_id, space_id) DO NOTHING
+            "#,
+        );
+        sqlx::query(&publication_query)
+            .bind(publication_id)
+            .bind(publication_uuid)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(space_id_i64)
+            .bind(&drive_space_id)
+            .bind(&space.name)
+            .bind(actor_id)
+            .bind(&now)
+            .execute(&mut *transaction)
+            .await
+            .map_err(space_sqlx_error)?;
+
+        let existing_drive_space: String = sqlx::query_scalar(
+            r#"
+            SELECT drive_space_uuid
+            FROM kb_site_publication
+            WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = 1
+            "#,
+        )
+        .bind(tenant_id)
+        .bind(organization_id)
+        .bind(space_id_i64)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(space_sqlx_error)?;
+        if existing_drive_space != drive_space_id {
+            return Err(KnowledgeSpaceStoreError::Conflict(format!(
+                "knowledge space {space_id} already owns a Wiki publication for another Drive Space"
+            )));
+        }
+
+        transaction.commit().await.map_err(space_sqlx_error)?;
+        Ok(space)
     }
 
     async fn mark_okf_bundle_initialized(
@@ -577,6 +635,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         let space_id_i64 = space_to_i64("space_id", space_id)?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeSpaceStoreError::Internal)?;
 
+        let mut transaction = self.pool.begin().await.map_err(space_sqlx_error)?;
         let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
         let query = format!(
             r#"
@@ -588,15 +647,35 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
         );
         sqlx::query(&query)
             .bind(space_status_code(KnowledgeSpaceStatus::Deleted))
-            .bind(now)
+            .bind(&now)
             .bind(tenant_id)
             .bind(organization_id)
             .bind(space_id_i64)
             .bind(ACTIVE_STATUS)
             .bind(PROVISIONING_STATUS)
-            .execute(&self.pool)
+            .execute(&mut *transaction)
             .await
             .map_err(space_sqlx_error)?;
+
+        let publication_updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$4");
+        let publication_query = format!(
+            r#"
+            UPDATE kb_site_publication
+            SET wiki_status = 'ARCHIVED', status = 0, updated_at = {publication_updated_at_expr},
+                version = version + 1
+            WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = 1
+            "#,
+        );
+        sqlx::query(&publication_query)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(space_id_i64)
+            .bind(&now)
+            .execute(&mut *transaction)
+            .await
+            .map_err(space_sqlx_error)?;
+
+        transaction.commit().await.map_err(space_sqlx_error)?;
 
         Ok(())
     }

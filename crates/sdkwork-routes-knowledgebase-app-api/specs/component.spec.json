@@ -93,6 +93,7 @@
                       "runtimeEntrypoints":  [
                                                  "KnowledgebaseRuntime",
                                                  "KnowledgebaseRuntime::connect_with_provider_credential_resolver",
+                                                 "KnowledgebaseRuntime::run_wiki_publication_backfill_page",
                                                  "app_route_manifest",
                                                  "build_full_app_router",
                                                  "build_backend_router",

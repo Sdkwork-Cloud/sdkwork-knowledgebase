@@ -831,7 +831,7 @@ impl KnowledgeSpaceStore for UnsupportedSpaceStore {
     async fn mark_drive_space_bound(
         &self,
         _space_id: u64,
-        _drive_space_id: String,
+        _record: crate::ports::knowledge_space_store::BindKnowledgeDriveSpaceRecord,
     ) -> Result<
         sdkwork_knowledgebase_contract::space::KnowledgeSpace,
         crate::ports::knowledge_space_store::KnowledgeSpaceStoreError,

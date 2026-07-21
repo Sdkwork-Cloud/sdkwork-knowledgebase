@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "crates/sdkwork-api-knowledgebase-assembly",
-    "crates/sdkwork-api-knowledgebase-assembly",
     "crates/sdkwork-knowledgebase-database-host",
     "crates/sdkwork-knowledgebase-contract",
     "crates/sdkwork-knowledgebase-agent-provider",
@@ -125,6 +124,7 @@ sdkwork-knowledgebase-engine-haystack = { path = "crates/sdkwork-knowledgebase-e
 sdkwork-drive-workspace-service = { path = "../sdkwork-drive/crates/sdkwork-drive-workspace-service" }
 sdkwork-drive-uploader-service = { path = "../sdkwork-drive/crates/sdkwork-drive-uploader-service" }
 sdkwork-drive-config = { path = "../sdkwork-drive/crates/sdkwork-drive-config" }
+sdkwork-drive-internal-sdk-generated-rust = { path = "../sdkwork-drive/sdks/sdkwork-drive-internal-sdk/sdkwork-drive-internal-sdk-rust/generated/server-openapi" }
 sdkwork-memory-spi = { path = "../sdkwork-memory/crates/sdkwork-memory-spi" }
 sdkwork-id-core = { path = "../sdkwork-id/packages/sdkwork-id-core" }
 sdkwork-utils-rust = { path = "../sdkwork-utils/packages/sdkwork-utils-rust" }

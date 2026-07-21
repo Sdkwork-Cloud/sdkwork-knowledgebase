@@ -7,7 +7,7 @@ use sdkwork_intelligence_knowledgebase_service::imports::{
     KnowledgeDriveImportService, ResolvedKnowledgeDriveImportRequest,
 };
 use sdkwork_intelligence_knowledgebase_service::ingest::{
-    KnowledgeApiMarkdownIndexService, ingest_success_outbox_record, split_markdown_chunks,
+    ingest_success_outbox_record, split_markdown_chunks, KnowledgeApiMarkdownIndexService,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_store::{
     CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
@@ -530,12 +530,10 @@ async fn sqlite_expired_ingestion_lease_is_reclaimed_and_stale_worker_is_fenced(
         .await
         .unwrap();
     assert!(renewed_until >= first.lease_expires_at);
-    assert!(
-        store
-            .renew_ingestion_job_lease(job.id, "not-the-current-token", Duration::minutes(5))
-            .await
-            .is_err()
-    );
+    assert!(store
+        .renew_ingestion_job_lease(job.id, "not-the-current-token", Duration::minutes(5))
+        .await
+        .is_err());
     sqlx::query(
         "UPDATE kb_ingestion_job SET lease_expires_at = '2026-01-01T00:00:00Z' WHERE id = $1",
     )
@@ -557,12 +555,10 @@ async fn sqlite_expired_ingestion_lease_is_reclaimed_and_stale_worker_is_fenced(
 
     assert_ne!(first.claim_token, second.claim_token);
     assert_eq!(second.attempt_count, 2);
-    assert!(
-        store
-            .fail_claimed_ingestion_job(job.id, &first.claim_token, "stale failure".to_string())
-            .await
-            .is_err()
-    );
+    assert!(store
+        .fail_claimed_ingestion_job(job.id, &first.claim_token, "stale failure".to_string())
+        .await
+        .is_err());
     let failed = store
         .fail_claimed_ingestion_job(job.id, &second.claim_token, "current failure".to_string())
         .await
@@ -620,12 +616,10 @@ async fn sqlite_inflight_count_recovers_stale_queued_and_running_upload_sessions
     for job_id in [stale_queued.id, stale_running.id] {
         let recovered = store.get_job(job_id).await.unwrap();
         assert_eq!(recovered.state, IngestionJobState::Failed);
-        assert!(
-            recovered
-                .error_message
-                .as_deref()
-                .is_some_and(|detail| detail.contains("expired"))
-        );
+        assert!(recovered
+            .error_message
+            .as_deref()
+            .is_some_and(|detail| detail.contains("expired")));
     }
     assert_eq!(
         store.get_job(fresh_upload.id).await.unwrap().state,
@@ -979,11 +973,9 @@ async fn sqlite_document_store_rejects_source_only_identity_without_source_id() 
         .await
         .unwrap_err();
 
-    assert!(
-        error
-            .to_string()
-            .contains("source_only document identity requires source_id")
-    );
+    assert!(error
+        .to_string()
+        .contains("source_only document identity requires source_id"));
 
     let document_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_document")
         .fetch_one(&pool)

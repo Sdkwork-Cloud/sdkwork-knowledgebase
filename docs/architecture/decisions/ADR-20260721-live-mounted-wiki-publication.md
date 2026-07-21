@@ -1,6 +1,6 @@
 # ADR-20260721 Live Mounted Wiki Publication
 
-Status: proposed
+Status: accepted
 Requirement: REQ-2026-0721
 Owner: SDKWork Knowledgebase maintainers
 Date: 2026-07-21

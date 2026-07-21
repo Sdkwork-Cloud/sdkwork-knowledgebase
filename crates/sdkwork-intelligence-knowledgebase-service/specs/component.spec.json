@@ -75,7 +75,17 @@
                       "publicExports":  [
                                             ".",
                                             "ports::knowledge_provider_binding_readiness_store::KnowledgeEngineProviderBindingReadinessStore",
-                                            "ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredentialResolver"
+                                            "ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredentialResolver",
+                                            "ports::knowledge_wiki_drive_source::KnowledgeWikiDriveScope",
+                                            "ports::knowledge_wiki_drive_source::KnowledgeWikiDriveSource",
+                                            "ports::knowledge_wiki_persistence::WikiPublicationStore",
+                                            "ports::knowledge_wiki_persistence::WikiSourceProjectionStore",
+                                            "ports::knowledge_wiki_persistence::WikiRenditionStore",
+                                            "ports::knowledge_wiki_persistence::WikiDriveCheckpointStore",
+                                            "ports::knowledge_wiki_persistence::WikiDriveEventInboxStore",
+                                            "ports::knowledge_wiki_persistence::WikiPublicationBackfillStore",
+                                            "wiki_initialization::KnowledgeWikiInitializationService",
+                                            "wiki_backfill::KnowledgeWikiBackfillService"
                                         ],
                       "providedPorts":  [
                                             {
@@ -85,6 +95,42 @@
                                             {
                                                 "name":  "knowledgeEngineProviderCredentialResolver",
                                                 "export":  "ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredentialResolver"
+                                            },
+                                            {
+                                                "name":  "wikiPublicationStore",
+                                                "export":  "ports::knowledge_wiki_persistence::WikiPublicationStore"
+                                            },
+                                            {
+                                                "name":  "wikiSourceProjectionStore",
+                                                "export":  "ports::knowledge_wiki_persistence::WikiSourceProjectionStore"
+                                            },
+                                            {
+                                                "name":  "wikiRenditionStore",
+                                                "export":  "ports::knowledge_wiki_persistence::WikiRenditionStore"
+                                            },
+                                            {
+                                                "name":  "wikiDriveCheckpointStore",
+                                                "export":  "ports::knowledge_wiki_persistence::WikiDriveCheckpointStore"
+                                            },
+                                            {
+                                                "name":  "wikiDriveEventInboxStore",
+                                                "export":  "ports::knowledge_wiki_persistence::WikiDriveEventInboxStore"
+                                            },
+                                            {
+                                                "name":  "wikiPublicationBackfillStore",
+                                                "export":  "ports::knowledge_wiki_persistence::WikiPublicationBackfillStore"
+                                            }
+                                        ],
+                      "requiredPorts":  [
+                                            {
+                                                "name":  "knowledgeWikiDriveScope",
+                                                "export":  "ports::knowledge_wiki_drive_source::KnowledgeWikiDriveScope",
+                                                "target":  "sdkwork_knowledgebase_drive::KnowledgebaseDriveRootScopeAdapter"
+                                            },
+                                            {
+                                                "name":  "knowledgeWikiDriveSource",
+                                                "export":  "ports::knowledge_wiki_drive_source::KnowledgeWikiDriveSource",
+                                                "target":  "sdkwork_knowledgebase_drive::KnowledgebaseDriveInternalSdkAdapter"
                                             }
                                         ],
                       "runtimeEntrypoints":  [

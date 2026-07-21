@@ -7,6 +7,7 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
     SQLITE_GROUP_KNOWLEDGE_SPACE_MIGRATION, SQLITE_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
     SQLITE_OUTBOX_MIGRATION,
 };
+use sqlx::Row;
 use std::collections::BTreeSet;
 
 const APP_ROOT_POSTGRES_BASELINE: &str =
@@ -23,6 +24,19 @@ const APP_ROOT_POSTGRES_TENANT_SCOPE_MIGRATION: &str = include_str!(
 const APP_ROOT_SQLITE_TENANT_SCOPE_MIGRATION: &str = include_str!(
     "../../../database/migrations/sqlite/202607160001_group_knowledgebase_tenant_scope.up.sql"
 );
+const APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION: &str =
+    include_str!("../../../database/migrations/postgres/202607210001_live_wiki_publication.up.sql");
+const APP_ROOT_SQLITE_LIVE_WIKI_MIGRATION: &str =
+    include_str!("../../../database/migrations/sqlite/202607210001_live_wiki_publication.up.sql");
+const APP_ROOT_POSTGRES_LIVE_WIKI_ROLLBACK: &str = include_str!(
+    "../../../database/migrations/postgres/202607210001_live_wiki_publication.down.sql"
+);
+const APP_ROOT_SQLITE_LIVE_WIKI_ROLLBACK: &str =
+    include_str!("../../../database/migrations/sqlite/202607210001_live_wiki_publication.down.sql");
+const APP_ROOT_DATABASE_MANIFEST: &str = include_str!("../../../database/database.manifest.json");
+const APP_ROOT_DATABASE_SCHEMA: &str = include_str!("../../../database/contract/schema.yaml");
+const APP_ROOT_DATABASE_TABLE_REGISTRY: &str =
+    include_str!("../../../database/contract/table-registry.json");
 const AGENT_PROFILE_STORE_SOURCE: &str = include_str!("../src/agent_profile_store.rs");
 const AUDIT_EVENT_STORE_SOURCE: &str = include_str!("../src/audit_event_store.rs");
 const DRIVE_OBJECT_REF_STORE_SOURCE: &str = include_str!("../src/drive_object_ref_store.rs");
@@ -47,6 +61,11 @@ const SQLITE_OKF_CONCEPT_TRANSACTION_SOURCE: &str =
     include_str!("../src/sqlite_okf_concept_transaction.rs");
 const SQLITE_OUTBOX_STORE_SOURCE: &str = include_str!("../src/sqlite_outbox_store.rs");
 const SQLITE_SPACE_STORES_SOURCE: &str = include_str!("../src/sqlite_space_stores.rs");
+const WIKI_CHECKPOINT_STORE_SOURCE: &str = include_str!("../src/wiki_persistence/checkpoint.rs");
+const WIKI_INBOX_STORE_SOURCE: &str = include_str!("../src/wiki_persistence/inbox.rs");
+const WIKI_PROJECTION_STORE_SOURCE: &str = include_str!("../src/wiki_persistence/projection.rs");
+const WIKI_PUBLICATION_STORE_SOURCE: &str = include_str!("../src/wiki_persistence/publication.rs");
+const WIKI_RENDITION_STORE_SOURCE: &str = include_str!("../src/wiki_persistence/rendition.rs");
 
 const REQUIRED_CORE_TABLES: [&str; 22] = [
     "kb_space",
@@ -123,6 +142,45 @@ const REQUIRED_CORE_INDEXES: [&str; 49] = [
     "uk_kb_okf_schema_profile_uuid",
     "uk_kb_okf_log_entry_uuid",
     "uk_kb_local_mirror_package_uuid",
+];
+
+const LIVE_WIKI_TABLES: [&str; 5] = [
+    "kb_site_publication",
+    "kb_source_file_projection",
+    "kb_source_file_rendition",
+    "kb_drive_source_checkpoint",
+    "kb_drive_event_inbox",
+];
+
+const LIVE_WIKI_INDEXES: [&str; 28] = [
+    "uk_kb_site_publication_uuid",
+    "uk_kb_site_publication_scope_id",
+    "uk_kb_site_publication_space",
+    "uk_kb_site_publication_drive_space",
+    "idx_kb_site_publication_state",
+    "uk_kb_source_projection_uuid",
+    "uk_kb_source_projection_scope_id",
+    "uk_kb_source_projection_node",
+    "uk_kb_source_projection_path",
+    "uk_kb_source_projection_public_route",
+    "idx_kb_source_projection_state",
+    "idx_kb_source_projection_claimable",
+    "idx_kb_source_projection_scheduled",
+    "idx_kb_source_projection_public_lookup",
+    "uk_kb_source_rendition_uuid",
+    "uk_kb_source_rendition_identity",
+    "idx_kb_source_rendition_claimable",
+    "idx_kb_source_rendition_source_version",
+    "uk_kb_drive_checkpoint_uuid",
+    "uk_kb_drive_checkpoint_scope_id",
+    "uk_kb_drive_checkpoint_publication",
+    "uk_kb_drive_checkpoint_source_scope",
+    "idx_kb_drive_checkpoint_reconcile",
+    "uk_kb_drive_inbox_uuid",
+    "uk_kb_drive_inbox_event",
+    "uk_kb_drive_inbox_sequence",
+    "idx_kb_drive_inbox_apply",
+    "idx_kb_drive_inbox_retry",
 ];
 
 #[test]
@@ -591,6 +649,20 @@ fn runtime_sql_value_bindings_are_generated_by_database_dialect() {
         ),
         ("sqlite_outbox_store.rs", SQLITE_OUTBOX_STORE_SOURCE),
         ("sqlite_space_stores.rs", SQLITE_SPACE_STORES_SOURCE),
+        (
+            "wiki_persistence/checkpoint.rs",
+            WIKI_CHECKPOINT_STORE_SOURCE,
+        ),
+        ("wiki_persistence/inbox.rs", WIKI_INBOX_STORE_SOURCE),
+        (
+            "wiki_persistence/projection.rs",
+            WIKI_PROJECTION_STORE_SOURCE,
+        ),
+        (
+            "wiki_persistence/publication.rs",
+            WIKI_PUBLICATION_STORE_SOURCE,
+        ),
+        ("wiki_persistence/rendition.rs", WIKI_RENDITION_STORE_SOURCE),
     ] {
         assert!(
             !source.contains("AS TIMESTAMP)"),
@@ -622,6 +694,11 @@ fn runtime_sql_value_bindings_are_generated_by_database_dialect() {
             SQLITE_OKF_CONCEPT_TRANSACTION_SOURCE,
             SQLITE_OUTBOX_STORE_SOURCE,
             SQLITE_SPACE_STORES_SOURCE,
+            WIKI_CHECKPOINT_STORE_SOURCE,
+            WIKI_INBOX_STORE_SOURCE,
+            WIKI_PROJECTION_STORE_SOURCE,
+            WIKI_PUBLICATION_STORE_SOURCE,
+            WIKI_RENDITION_STORE_SOURCE,
         ]
         .iter()
         .any(|source| source.contains("sql_timestamp_expr")),
@@ -749,8 +826,9 @@ fn app_root_database_baselines_are_engine_specific_single_snapshots() {
     assert!(APP_ROOT_SQLITE_BASELINE.contains("expires_at INTEGER"));
     assert!(APP_ROOT_SQLITE_BASELINE.contains("idx_web_audit_expires"));
     for obsolete_table in ["kb_site", "kb_site_release", "kb_site_host_binding"] {
-        assert!(!APP_ROOT_POSTGRES_BASELINE.contains(obsolete_table));
-        assert!(!APP_ROOT_SQLITE_BASELINE.contains(obsolete_table));
+        let table_declaration = format!("CREATE TABLE IF NOT EXISTS {obsolete_table} (");
+        assert!(!APP_ROOT_POSTGRES_BASELINE.contains(&table_declaration));
+        assert!(!APP_ROOT_SQLITE_BASELINE.contains(&table_declaration));
     }
 
     for forbidden in [
@@ -964,14 +1042,197 @@ fn runtime_group_space_expand_migrations_precede_dependent_scope_corrections() {
         }
     }
 
-    assert!(
-        APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION
-            .contains("ALTER TABLE %I ENABLE ROW LEVEL SECURITY")
-    );
+    assert!(APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION
+        .contains("ALTER TABLE %I ENABLE ROW LEVEL SECURITY"));
     assert!(
         APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION.contains("ALTER TABLE %I FORCE ROW LEVEL SECURITY")
     );
     assert!(APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION.contains("CREATE POLICY tenant_isolation"));
+}
+
+#[test]
+fn live_wiki_migrations_and_greenfield_baselines_define_the_same_objects() {
+    for (engine, baseline, migration) in [
+        (
+            "postgres",
+            live_wiki_baseline_section(APP_ROOT_POSTGRES_BASELINE),
+            APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION,
+        ),
+        (
+            "sqlite",
+            live_wiki_baseline_section(APP_ROOT_SQLITE_BASELINE),
+            APP_ROOT_SQLITE_LIVE_WIKI_MIGRATION,
+        ),
+    ] {
+        let baseline_tables = defined_database_objects(baseline, "CREATE TABLE IF NOT EXISTS ");
+        let migration_tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
+        assert_eq!(baseline_tables, migration_tables, "{engine} table drift");
+
+        let baseline_indexes = defined_indexes(baseline);
+        let migration_indexes = defined_indexes(migration);
+        assert_eq!(baseline_indexes, migration_indexes, "{engine} index drift");
+
+        for table in LIVE_WIKI_TABLES {
+            assert!(
+                baseline_tables.contains(table),
+                "{engine} live Wiki schema is missing {table}"
+            );
+        }
+        for index in LIVE_WIKI_INDEXES {
+            assert!(
+                baseline_indexes.contains(index),
+                "{engine} live Wiki schema is missing {index}"
+            );
+        }
+    }
+}
+
+#[test]
+fn live_wiki_postgres_tables_are_forced_behind_tenant_rls() {
+    for table in LIVE_WIKI_TABLES {
+        let table_literal = format!("'{table}'");
+        assert!(
+            APP_ROOT_POSTGRES_BASELINE.contains(&table_literal),
+            "postgres baseline RLS inventory is missing {table}"
+        );
+        assert!(
+            APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION.contains(&table_literal),
+            "postgres migration RLS inventory is missing {table}"
+        );
+    }
+
+    for source in [
+        APP_ROOT_POSTGRES_BASELINE,
+        APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION,
+    ] {
+        assert!(source.contains("ENABLE ROW LEVEL SECURITY"));
+        assert!(source.contains("FORCE ROW LEVEL SECURITY"));
+        assert!(source.contains("CREATE POLICY tenant_isolation"));
+        assert!(source.contains("app.current_tenant_id"));
+    }
+}
+
+#[test]
+fn live_wiki_persistence_keeps_release_and_storage_locator_state_out_of_knowledgebase() {
+    for (engine, source) in [
+        ("postgres", APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION),
+        ("sqlite", APP_ROOT_SQLITE_LIVE_WIKI_MIGRATION),
+    ] {
+        let lowercase = source.to_ascii_lowercase();
+        for forbidden in [
+            "kb_site_release",
+            "kb_site_revision",
+            "kb_deployment",
+            "object_key",
+            "signed_url",
+            "presigned_url",
+            "storage_bucket",
+        ] {
+            assert!(
+                !lowercase.contains(forbidden),
+                "{engine} live Wiki schema must not own {forbidden}"
+            );
+        }
+        assert!(source.contains("rendition_key_sha256"));
+        assert!(source.contains("drive_version_uuid"));
+        assert!(source.contains("source_sequence_no"));
+        assert!(source.contains("publication_state <> 'PUBLISHED'\n        OR (visibility"));
+        assert!(!source.contains("source_state = 'READY' AND visibility"));
+    }
+}
+
+#[test]
+fn live_wiki_migrations_are_paired_and_registered_at_contract_version_1_1_0() {
+    for migration in [
+        APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION,
+        APP_ROOT_SQLITE_LIVE_WIKI_MIGRATION,
+        APP_ROOT_POSTGRES_LIVE_WIKI_ROLLBACK,
+        APP_ROOT_SQLITE_LIVE_WIKI_ROLLBACK,
+    ] {
+        assert!(migration.contains("contract_version: 1.1.0"));
+    }
+    for rollback in [
+        APP_ROOT_POSTGRES_LIVE_WIKI_ROLLBACK,
+        APP_ROOT_SQLITE_LIVE_WIKI_ROLLBACK,
+    ] {
+        for table in LIVE_WIKI_TABLES {
+            assert!(
+                rollback.contains(&format!("DROP TABLE IF EXISTS {table}")),
+                "rollback is missing {table}"
+            );
+        }
+    }
+
+    assert!(APP_ROOT_DATABASE_MANIFEST.contains("\"contractVersion\": \"1.1.0\""));
+    assert!(APP_ROOT_DATABASE_SCHEMA.contains("contract_version: 1.1.0"));
+    for table in LIVE_WIKI_TABLES {
+        assert!(
+            APP_ROOT_DATABASE_SCHEMA.contains(&format!("name: {table}")),
+            "schema contract is missing {table}"
+        );
+        assert!(
+            APP_ROOT_DATABASE_TABLE_REGISTRY.contains(&format!("\"table_name\": \"{table}\"")),
+            "table registry is missing {table}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn live_wiki_sqlite_greenfield_baseline_bootstraps_with_foreign_keys_and_indexes() {
+    let pool =
+        sdkwork_intelligence_knowledgebase_repository_sqlx::connect_sqlite_pool("sqlite::memory:")
+            .await
+            .expect("connect empty SQLite database");
+    sqlx::query("PRAGMA foreign_keys = ON")
+        .execute(&pool)
+        .await
+        .expect("enable SQLite foreign keys");
+    sqlx::raw_sql(APP_ROOT_SQLITE_BASELINE)
+        .execute(&pool)
+        .await
+        .expect("apply application-root SQLite baseline");
+
+    let foreign_key_violations = sqlx::query("PRAGMA foreign_key_check")
+        .fetch_all(&pool)
+        .await
+        .expect("check SQLite foreign keys");
+    assert!(
+        foreign_key_violations.is_empty(),
+        "greenfield baseline contains foreign key violations"
+    );
+
+    for object_name in LIVE_WIKI_TABLES.into_iter().chain(LIVE_WIKI_INDEXES) {
+        let row = sqlx::query("SELECT COUNT(*) AS object_count FROM sqlite_master WHERE name = $1")
+            .bind(object_name)
+            .fetch_one(&pool)
+            .await
+            .expect("query SQLite schema object");
+        let object_count: i64 = row
+            .try_get("object_count")
+            .expect("decode schema object count");
+        assert_eq!(object_count, 1, "SQLite baseline is missing {object_name}");
+    }
+}
+
+fn live_wiki_baseline_section(source: &'static str) -> &'static str {
+    let start = source
+        .find("-- Canonical live Wiki publication authority (ADR-20260721).")
+        .expect("baseline must contain the live Wiki section");
+    let end = source[start..]
+        .find("-- Provider Binding SPI v2 authority (ADR-20260720).")
+        .map(|offset| start + offset)
+        .expect("baseline must end the live Wiki section before provider bindings");
+    &source[start..end]
+}
+
+fn defined_indexes(source: &'static str) -> BTreeSet<&'static str> {
+    defined_database_objects(source, "CREATE INDEX IF NOT EXISTS ")
+        .into_iter()
+        .chain(defined_database_objects(
+            source,
+            "CREATE UNIQUE INDEX IF NOT EXISTS ",
+        ))
+        .collect()
 }
 
 fn defined_database_objects(migration: &'static str, prefix: &str) -> BTreeSet<&'static str> {

@@ -1,10 +1,10 @@
 # REVIEW-20260721 Live Wiki Deployment Integration Readiness
 
-Status: blocked-design-only
+Status: implementation-in-progress-publication-blocked
 Owner: SDKWork Knowledgebase maintainers
 Date: 2026-07-21
 Requirement: REQ-2026-0721
-Decision: ADR-20260721-live-mounted-wiki-publication (proposed)
+Decision: ADR-20260721-live-mounted-wiki-publication (accepted)
 Machine contract: `specs/live-wiki-publication.spec.json`
 Specs: REQUIREMENTS_SPEC.md, ARCHITECTURE_DECISION_SPEC.md, API_SPEC.md, SDK_SPEC.md,
 EVENT_SPEC.md, DATABASE_SPEC.md, DEPLOYMENT_SPEC.md, RELEASE_SPEC.md, SECURITY_SPEC.md,
@@ -29,9 +29,9 @@ Drive sources/raw commit
 
 ## 2. Verdict
 
-The target architecture is coherent, but the current repositories do not provide an integrated or
-realtime Wiki publication capability. The existing system must not be described as live, publicly
-deployable, production-ready, or commercially ready.
+The target architecture is accepted and implementation is in progress, but the current repositories
+do not yet provide an integrated or realtime Wiki publication capability. The existing system must
+not be described as live, publicly deployable, production-ready, or commercially ready.
 
 What exists today is limited to Drive-backed `sources/raw` browsing/upload foundations,
 Knowledgebase ingestion and a generic outbox, release-oriented Deploy APIs, duplicated Web Server
@@ -42,7 +42,7 @@ content events, descriptor runtime, and public WIKI handler remain design-only.
 
 | Surface | Current evidence | Result |
 | --- | --- | --- |
-| Contract status | `specs/README.md` states the Live Wiki contract is proposed and is not implementation authority before approval | design only |
+| Contract status | `specs/live-wiki-publication.spec.json` and the governing ADR are accepted for implementation; capability claims remain gated by this review | implementation authorized, publication blocked |
 | Application release | `sdkwork.app.config.json` is prelaunch-gated with missing release and production evidence | blocked |
 | Wiki API | Knowledgebase app/open/backend OpenAPI has no WikiPublication, Wiki Site Resource, provider validate/open, or Wiki event operations | absent |
 | Wiki schema | Knowledgebase baseline and schema contract have no canonical WikiPublication/source-publication projection tables | absent |
@@ -193,7 +193,7 @@ provider-wide eligibility or policy transitions.
 
 Until every P0 finding is closed with executable evidence:
 
-- the Live Wiki contract remains `proposed`;
+- the accepted Live Wiki contract remains implementation-only and publication-gated;
 - no repository may claim that Wiki public deployment is implemented;
 - no repository may claim upload/update-to-public realtime behavior;
 - no commercial or production launch may rely on the target architecture;

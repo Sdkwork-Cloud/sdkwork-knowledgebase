@@ -1,5 +1,6 @@
 use crate::okf::DRIVE_WORKSPACE_INIT_DRIVE_SPACE_REQUIRED;
 use crate::okf::{OkfBundleInitializerService, OkfBundleInitializerServiceError};
+use crate::ports::knowledge_wiki_persistence::WikiPersistenceScope;
 use crate::ports::{
     knowledge_access_control::{
         KnowledgeAccessControl, KnowledgeAccessControlError, KnowledgeAccessRole,
@@ -10,9 +11,12 @@ use crate::ports::{
         KnowledgeDriveSpaceProvisioner, KnowledgeDriveSpaceProvisionerError,
     },
     knowledge_space_store::{
-        CreateKnowledgeSpaceRecord, KnowledgeSpaceStore, KnowledgeSpaceStoreError,
-        UpdateKnowledgeSpaceRecord,
+        BindKnowledgeDriveSpaceRecord, CreateKnowledgeSpaceRecord, KnowledgeSpaceStore,
+        KnowledgeSpaceStoreError, UpdateKnowledgeSpaceRecord,
     },
+};
+use crate::wiki_initialization::{
+    InitializeKnowledgeWikiRequest, KnowledgeWikiInitializationService,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
 use sdkwork_knowledgebase_contract::space::{
@@ -43,6 +47,8 @@ pub struct KnowledgeSpaceService<'a> {
     drive_space_provisioner: Option<&'a dyn KnowledgeDriveSpaceProvisioner>,
     access_control: Option<&'a dyn KnowledgeAccessControl>,
     drive_context: Option<KnowledgeSpaceDriveContext>,
+    wiki_context: Option<KnowledgeWikiContext>,
+    wiki_initializer: Option<&'a KnowledgeWikiInitializationService<'a>>,
 }
 
 impl<'a> KnowledgeSpaceService<'a> {
@@ -56,6 +62,8 @@ impl<'a> KnowledgeSpaceService<'a> {
             drive_space_provisioner: None,
             access_control: None,
             drive_context: None,
+            wiki_context: None,
+            wiki_initializer: None,
         }
     }
 
@@ -81,6 +89,19 @@ impl<'a> KnowledgeSpaceService<'a> {
 
     pub fn with_access_control(mut self, access_control: &'a dyn KnowledgeAccessControl) -> Self {
         self.access_control = Some(access_control);
+        self
+    }
+
+    pub fn with_wiki_context(mut self, scope: WikiPersistenceScope, actor_id: u64) -> Self {
+        self.wiki_context = Some(KnowledgeWikiContext { scope, actor_id });
+        self
+    }
+
+    pub fn with_wiki_initializer(
+        mut self,
+        wiki_initializer: &'a KnowledgeWikiInitializationService<'a>,
+    ) -> Self {
+        self.wiki_initializer = Some(wiki_initializer);
         self
     }
 
@@ -498,6 +519,7 @@ impl<'a> KnowledgeSpaceService<'a> {
                         .to_string(),
                 )
             })?;
+            let wiki_context = self.require_wiki_context()?;
             if space.drive_space_id.is_none() {
                 let (drive_owner_subject_type, drive_owner_subject_id) =
                     knowledge_drive_space_owner(&space.uuid);
@@ -522,7 +544,13 @@ impl<'a> KnowledgeSpaceService<'a> {
 
                 space = match self
                     .store
-                    .mark_drive_space_bound(space.id, binding.drive_space_id)
+                    .mark_drive_space_bound(
+                        space.id,
+                        BindKnowledgeDriveSpaceRecord {
+                            drive_space_id: binding.drive_space_id,
+                            actor_id: wiki_context.actor_id,
+                        },
+                    )
                     .await
                     .map_err(KnowledgeSpaceServiceError::Store)
                 {
@@ -589,7 +617,35 @@ impl<'a> KnowledgeSpaceService<'a> {
             return Err(self.cleanup_created_space(space.id, error).await);
         }
 
+        self.try_initialize_wiki(&space).await;
+
         Ok(space)
+    }
+
+    async fn try_initialize_wiki(&self, space: &KnowledgeSpace) {
+        let (Some(initializer), Some(context), Some(drive_space_uuid)) = (
+            self.wiki_initializer,
+            self.wiki_context.as_ref(),
+            space.drive_space_id.as_ref(),
+        ) else {
+            return;
+        };
+        if let Err(error) = initializer
+            .initialize(InitializeKnowledgeWikiRequest {
+                scope: context.scope,
+                space_id: space.id,
+                knowledgebase_uuid: space.uuid.clone(),
+                drive_space_uuid: drive_space_uuid.clone(),
+                actor_id: context.actor_id,
+            })
+            .await
+        {
+            tracing::warn!(
+                knowledge_space_id = space.id,
+                error = %error,
+                "Wiki publication initialization remains pending for bounded compensation"
+            );
+        }
     }
 
     async fn grant_created_space_owner_access(
@@ -686,6 +742,21 @@ impl<'a> KnowledgeSpaceService<'a> {
         Ok(context)
     }
 
+    fn require_wiki_context(&self) -> Result<&KnowledgeWikiContext, KnowledgeSpaceServiceError> {
+        let context = self.wiki_context.as_ref().ok_or_else(|| {
+            KnowledgeSpaceServiceError::InvalidRequest(
+                "Wiki tenant, organization, and numeric actor context are required when Drive Space provisioning is enabled"
+                    .to_string(),
+            )
+        })?;
+        if context.scope.tenant_id == 0 || context.actor_id == 0 {
+            return Err(KnowledgeSpaceServiceError::InvalidRequest(
+                "Wiki tenant_id and actor_id must be greater than zero".to_string(),
+            ));
+        }
+        Ok(context)
+    }
+
     fn require_access_control(
         &self,
     ) -> Result<&dyn KnowledgeAccessControl, KnowledgeSpaceServiceError> {
@@ -701,6 +772,12 @@ impl<'a> KnowledgeSpaceService<'a> {
 pub struct KnowledgeSpaceDriveContext {
     pub tenant_id: String,
     pub operator_id: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KnowledgeWikiContext {
+    pub scope: WikiPersistenceScope,
+    pub actor_id: u64,
 }
 
 #[derive(Debug, Error)]

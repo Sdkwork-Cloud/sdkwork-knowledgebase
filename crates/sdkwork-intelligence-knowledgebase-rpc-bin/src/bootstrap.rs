@@ -29,6 +29,7 @@ pub async fn run_group_knowledge_space_lifecycle_rpc_from_env(
         config.database_url.as_str(),
         config.drive_storage_root.clone(),
         config.operator_id.clone(),
+        config.system_actor_id,
     )
     .await?;
     runtime.readiness_check().await?;

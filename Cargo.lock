@@ -2821,6 +2821,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-drive-internal-sdk-generated-rust"
+version = "0.1.0"
+dependencies = [
+ "http",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "sdkwork-drive-observability"
 version = "0.1.0"
 dependencies = [
@@ -3195,16 +3206,19 @@ dependencies = [
  "sdkwork-database-config",
  "sdkwork-database-sqlx",
  "sdkwork-drive-config",
+ "sdkwork-drive-internal-sdk-generated-rust",
  "sdkwork-drive-storage-contract",
  "sdkwork-drive-uploader-service",
  "sdkwork-drive-workspace-service",
  "sdkwork-intelligence-knowledgebase-object-key-service",
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-utils-rust",
+ "serde_json",
  "sqlx",
  "time",
  "tokio",
  "uuid",
+ "wiremock",
 ]
 
 [[package]]

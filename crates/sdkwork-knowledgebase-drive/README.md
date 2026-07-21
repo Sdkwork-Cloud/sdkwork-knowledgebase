@@ -13,7 +13,8 @@ This README is the SDKWork module entrypoint for `sdkwork-knowledgebase-drive`. 
 
 ## Required SDK Surface
 
-- None declared in `specs/component.spec.json`.
+- Generated Rust `sdkwork-drive-internal-sdk` for root-scoped metadata and bounded immutable bytes.
+- The adapter receives an already constructed `SdkworkCustomClient`; runtime bootstrap owns Base URL and service credential configuration.
 
 ## Configuration
 
@@ -33,7 +34,8 @@ Extension points are limited to public exports, runtime entrypoints, SDK clients
 
 ## Verification
 
-- `cargo test`
+- `cargo test -p sdkwork-knowledgebase-drive`
+- `node ../sdkwork-specs/tools/check-component-port-bindings.mjs --root .`
 
 ## Owner And Status
 

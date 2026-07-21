@@ -30,3 +30,5 @@ pub mod service;
 pub mod space;
 pub mod tenant_quota;
 pub mod wechat;
+pub mod wiki_backfill;
+pub mod wiki_initialization;

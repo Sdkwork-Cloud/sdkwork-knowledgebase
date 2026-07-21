@@ -1,6 +1,6 @@
 # Live Wiki Resource Provider Architecture
 
-Status: proposed
+Status: accepted
 Owner: SDKWork Knowledgebase maintainers
 Updated: 2026-07-21
 Requirement: REQ-2026-0721
@@ -336,9 +336,12 @@ returns private source bytes unless a separately authorized API requests them.
 
 ### 6.2 Asset Representation
 
-Asset open verifies the asset projection is READY/PUBLISHED/PUBLIC-or-UNLISTED and matches the
-requested public version. It delegates the pinned Drive version stream. MIME/disposition candidates
-are safe metadata; Web Server applies final delivery policy. Private assets referenced by public
+Asset publication requires the candidate source version to be READY. Asset open then verifies the
+projection is PUBLISHED/PUBLIC-or-UNLISTED, the requested version equals the independently pinned
+`public_drive_version_uuid`, and that snapshot remains security eligible; it does not require a
+newer current source version to remain READY under `KEEP_LAST_PUBLIC_UNTIL_READY`. It delegates the
+pinned Drive version stream. MIME/disposition candidates are safe metadata; Web Server applies
+final delivery policy. Private, quarantined, deleted, or unpublished assets referenced by public
 pages remain not found and appear in author problems.
 
 ### 6.3 Navigation And Search

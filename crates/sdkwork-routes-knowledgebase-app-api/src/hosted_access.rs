@@ -71,16 +71,17 @@ pub(crate) fn ensure_runtime_organization(
 }
 
 pub(crate) fn require_actor_id(context: &KnowledgeAppRequestContext) -> ApiResult<String> {
-    context
-        .actor_id
-        .map(|value| value.to_string())
-        .ok_or_else(|| {
-            ApiError::new(
-                StatusCode::UNAUTHORIZED,
-                "missing_actor_id",
-                "authenticated actor_id is required for this operation",
-            )
-        })
+    require_numeric_actor_id(context).map(|value| value.to_string())
+}
+
+fn require_numeric_actor_id(context: &KnowledgeAppRequestContext) -> ApiResult<u64> {
+    context.actor_id.filter(|value| *value != 0).ok_or_else(|| {
+        ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "missing_actor_id",
+            "authenticated actor_id is required for this operation",
+        )
+    })
 }
 
 /// Determines group ownership before generic space services can consult Drive ACLs. A binding in
@@ -302,14 +303,31 @@ pub(crate) async fn create_space_with_context(
     request: sdkwork_knowledgebase_contract::CreateKnowledgeSpaceRequest,
 ) -> ApiResult<KnowledgeSpace> {
     ensure_runtime_tenant(runtime, context)?;
+    let actor_id = require_numeric_actor_id(context)?;
     let file_registry = OkfBundleFileRegistryService::new(runtime.okf_bundle_file_store());
     let okf_initializer = OkfBundleInitializerService::new(runtime.drive_storage())
         .with_registry(&file_registry)
         .with_drive_workspace(runtime.drive_workspace());
+    let wiki_initializer =
+        sdkwork_intelligence_knowledgebase_service::wiki_initialization::KnowledgeWikiInitializationService::new(
+            runtime.wiki_store(),
+            runtime.wiki_store(),
+            runtime.drive_workspace(),
+            runtime.drive_tree(),
+            runtime.wiki_drive_scope(),
+        );
     KnowledgeSpaceService::new(runtime.space_store(), &okf_initializer)
         .with_drive_context(runtime.tenant_id_str(), runtime.operator_id())
         .with_drive_space_provisioner(runtime.drive_space_provisioner())
         .with_access_control(runtime.access_control())
+        .with_wiki_context(
+            sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::WikiPersistenceScope {
+                tenant_id: context.tenant_id,
+                organization_id: context.organization_id.unwrap_or(0),
+            },
+            actor_id,
+        )
+        .with_wiki_initializer(&wiki_initializer)
         .create_space(request)
         .await
         .map_err(ApiError::from)

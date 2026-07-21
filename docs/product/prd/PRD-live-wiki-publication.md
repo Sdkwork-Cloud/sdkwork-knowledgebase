@@ -1,6 +1,6 @@
 # SDKWork Knowledgebase Live Wiki Publication PRD
 
-Status: draft
+Status: approved for implementation
 Owner: SDKWork Knowledgebase maintainers
 Application: sdkwork-knowledgebase
 Updated: 2026-07-21
@@ -116,10 +116,15 @@ Each file has independent dimensions:
 | `indexState` | `NOT_REQUIRED`, `PENDING`, `INDEXING`, `READY`, `ERROR` |
 | `fileKind` | `PAGE`, `DOCUMENT`, `PRESENTATION`, `SPREADSHEET`, `CODE`, `MEDIA`, `ASSET`, `ARCHIVE` |
 
-A page is anonymously resolvable only when source is READY, publication is PUBLISHED, visibility is
-PUBLIC or UNLISTED, the publication is ACTIVE, and all security/policy checks pass. UNLISTED is not
-shown in navigation/sitemap/search but remains accessible by URL; it is not an authorization
-boundary. PRIVATE is never anonymously resolvable.
+A page can switch to a new anonymous representation only after that exact Drive version reaches
+READY and passes every publication gate. Runtime resolution uses the pinned
+`publicDriveVersionUuid`: publication must be PUBLISHED, visibility PUBLIC or UNLISTED, the
+WikiPublication ACTIVE, and the pinned snapshot still security/policy eligible. Under
+`KEEP_LAST_PUBLIC_UNTIL_READY`, a newer current source may be DISCOVERED, PROCESSING, or ERROR
+without removing the prior pinned public snapshot. UNLISTED is not shown in
+navigation/sitemap/search but remains accessible by URL; it is not an authorization boundary.
+PRIVATE is never anonymously resolvable, and quarantine/delete/private/unpublish revokes the
+pinned snapshot atomically.
 
 Assets use the same source/publication/visibility checks. A public page cannot make a private asset
 public by reference.

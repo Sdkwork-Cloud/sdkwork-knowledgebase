@@ -632,10 +632,10 @@ impl KnowledgeSpaceStore for MemorySpaceStore {
     async fn mark_drive_space_bound(
         &self,
         _space_id: u64,
-        drive_space_id: String,
+        record: sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::BindKnowledgeDriveSpaceRecord,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         let mut space = self.space.lock().unwrap();
-        space.drive_space_id = Some(drive_space_id);
+        space.drive_space_id = Some(record.drive_space_id);
         Ok(space.clone())
     }
 

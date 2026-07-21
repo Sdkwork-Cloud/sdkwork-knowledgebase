@@ -260,30 +260,7 @@ impl KnowledgeDriveStorage for KnowledgebaseDriveStorageAdapter {
         &self,
         request: PutKnowledgeObjectRequest,
     ) -> Result<KnowledgeObjectRef, KnowledgeStorageError> {
-        let safe_logical_path = safe_logical_path(&request.logical_path)?;
-        if safe_logical_path.starts_with("sources/raw/") {
-            let exists = self
-                .head_object(
-                    HeadKnowledgeObjectRequest::managed_artifact(
-                        safe_logical_path.clone(),
-                        request.object_role.clone(),
-                    )
-                    .with_space_uuid(request.space_uuid.clone().ok_or_else(
-                        || {
-                            KnowledgeStorageError::InvalidRequest(
-                                "space_uuid is required for knowledge object storage".to_string(),
-                            )
-                        },
-                    )?),
-                )
-                .await
-                .is_ok();
-            if exists {
-                return Err(KnowledgeStorageError::InvalidRequest(
-                    "sources/raw objects are immutable once written".to_string(),
-                ));
-            }
-        }
+        safe_logical_path(&request.logical_path)?;
         let locator = self.locator_for(&request.logical_path, request.space_uuid.as_deref())?;
         let size_bytes = request.body.len() as u64;
         let computed_checksum_sha256_hex = sha256_hash(&request.body);

@@ -313,7 +313,7 @@ impl KnowledgeSpaceStore for MockSpaceStore {
     async fn mark_drive_space_bound(
         &self,
         _space_id: u64,
-        _drive_space_id: String,
+        _record: sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::BindKnowledgeDriveSpaceRecord,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError> {
         Err(KnowledgeSpaceStoreError::Internal(
             "unsupported in test fake".to_string(),

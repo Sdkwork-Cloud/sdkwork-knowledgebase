@@ -16,6 +16,10 @@ path = "src/bin/worker_main.rs"
 name = "sdkwork-knowledgebase-provider-binding-prelaunch-report"
 path = "src/bin/provider_binding_prelaunch_report.rs"
 
+[[bin]]
+name = "sdkwork-knowledgebase-wiki-backfill"
+path = "src/bin/wiki_backfill.rs"
+
 [dependencies]
 axum.workspace = true
 sdkwork-intelligence-knowledgebase-service = { workspace = true }

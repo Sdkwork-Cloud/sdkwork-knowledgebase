@@ -26,6 +26,7 @@ const RPC_IM_CALLER_CONTEXT_SIGNING_KEY_FILE_ENV: &str =
 const DATABASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DATABASE_URL";
 const DRIVE_STORAGE_ROOT_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT";
 const OPERATOR_ID_ENV: &str = "SDKWORK_KNOWLEDGEBASE_OPERATOR_ID";
+const ACTOR_ID_ENV: &str = "SDKWORK_KNOWLEDGEBASE_ACTOR_ID";
 
 const IM_SERVICE_ID: &str = "sdkwork-im";
 const KNOWLEDGEBASE_SERVICE_ID: &str = "sdkwork-knowledgebase";
@@ -43,6 +44,7 @@ pub struct GroupKnowledgeSpaceLifecycleRpcHostConfig {
     pub database_url: String,
     pub drive_storage_root: PathBuf,
     pub operator_id: String,
+    pub system_actor_id: u64,
     caller_context_signing_key: RpcCallerContextSigningKey,
     spiffe_trust_domain: String,
 }
@@ -79,6 +81,12 @@ impl GroupKnowledgeSpaceLifecycleRpcHostConfig {
                 },
             );
         }
+        let system_actor_id = sdkwork_knowledgebase_contract::parse_canonical_positive_signed_i64(
+            &required_env(ACTOR_ID_ENV)?,
+        )
+        .map_err(|_| GroupKnowledgeSpaceLifecycleRpcHostConfigError::InvalidValue {
+            key: ACTOR_ID_ENV,
+        })?;
         let spiffe_trust_domain = required_env(RPC_SPIFFE_TRUST_DOMAIN_ENV)?;
         let caller_context_signing_key = RpcCallerContextSigningKey::from_base64url(
             read_secret_env_or_file(
@@ -95,6 +103,7 @@ impl GroupKnowledgeSpaceLifecycleRpcHostConfig {
             database_url,
             drive_storage_root,
             operator_id,
+            system_actor_id,
             caller_context_signing_key,
             spiffe_trust_domain,
         };

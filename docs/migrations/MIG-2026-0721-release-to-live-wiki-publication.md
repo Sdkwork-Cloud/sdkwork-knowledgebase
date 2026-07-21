@@ -1,6 +1,6 @@
 # MIG-2026-0721 Release To Live Wiki Publication
 
-Status: proposed
+Status: approved for implementation
 Requirement: REQ-2026-0721
 Decision: ADR-20260721-live-mounted-wiki-publication
 Owner: SDKWork Knowledgebase maintainers
@@ -23,8 +23,9 @@ Preserve the clean removal of the unlaunched immutable `kb_site` / `kb_site_rele
 schema approval. Site/domain/TLS/runtime configuration authority belongs to `sdkwork-deployments`;
 Knowledgebase retains Wiki state, rendering, navigation, search, and public page/asset eligibility.
 
-This plan governs prelaunch realignment. It does not authorize a database migration, delete user
-changes, or declare the new implementation complete.
+This plan governs the approved prelaunch realignment. It authorizes additive implementation work
+under the stated review and verification gates; it does not authorize deleting user changes or
+declaring incomplete capability production-ready.
 
 ## 2. Superseded Surfaces
 
@@ -59,9 +60,9 @@ flag, compatibility view, fallback repository, or old-to-new runtime adapter.
 
 ## 4. Data Policy
 
-The application is prelaunch and Phase 0 proceeded on the assumption that no customer or production
-publication data existed in the removed tables. A human reviewer must confirm that assumption before
-merge. If it is false, stop this migration: do not restore compatibility code or infer a mapping.
+The product owner confirmed the application is prelaunch, so no customer or production publication
+data exists in the removed tables. If contrary evidence is discovered, stop this migration: do not
+restore compatibility code or infer a mapping.
 Create a separately reviewed data-recovery/migration record from retained backup evidence.
 
 - Every eligible `kb_space` receives exactly one canonical DRAFT/PRIVATE WikiPublication from the

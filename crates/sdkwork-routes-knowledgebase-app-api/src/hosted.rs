@@ -1265,7 +1265,9 @@ fn map_document_version_error(
 async fn resolve_drive_import_request(
     drive_tree: &dyn KnowledgeDriveNodeTree,
     request: KnowledgeDriveImportRequest,
-) -> ApiResult<sdkwork_intelligence_knowledgebase_service::imports::ResolvedKnowledgeDriveImportRequest> {
+) -> ApiResult<
+    sdkwork_intelligence_knowledgebase_service::imports::ResolvedKnowledgeDriveImportRequest,
+> {
     let drive_node_id = request.drive_node_id.trim().to_string();
     if drive_node_id.is_empty() {
         return Err(ApiError::invalid_request(
@@ -1301,12 +1303,14 @@ async fn resolve_drive_import_request(
         )
     })?;
 
-    Ok(sdkwork_intelligence_knowledgebase_service::imports::ResolvedKnowledgeDriveImportRequest {
-        request,
-        drive_storage_provider_id: locator.storage_provider_id,
-        drive_bucket: locator.bucket,
-        drive_object_key: locator.object_key,
-    })
+    Ok(
+        sdkwork_intelligence_knowledgebase_service::imports::ResolvedKnowledgeDriveImportRequest {
+            request,
+            drive_storage_provider_id: locator.storage_provider_id,
+            drive_bucket: locator.bucket,
+            drive_object_key: locator.object_key,
+        },
+    )
 }
 
 pub(crate) fn map_okf_concept_store_error(

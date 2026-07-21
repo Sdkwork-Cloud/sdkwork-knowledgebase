@@ -10,7 +10,7 @@
     "sqlite"
   ],
   "defaultEngine": "postgres",
-  "contractVersion": "1.0.0",
+  "contractVersion": "1.1.0",
   "baselineStrategy": "baseline-plus-migrations",
   "modules": [],
   "lifecycle": {

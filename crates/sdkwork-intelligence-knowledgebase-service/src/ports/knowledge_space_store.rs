@@ -36,7 +36,7 @@ pub trait KnowledgeSpaceStore: Send + Sync {
     async fn mark_drive_space_bound(
         &self,
         space_id: u64,
-        drive_space_id: String,
+        record: BindKnowledgeDriveSpaceRecord,
     ) -> Result<KnowledgeSpace, KnowledgeSpaceStoreError>;
 
     async fn mark_okf_bundle_initialized(
@@ -100,6 +100,12 @@ pub struct CreateKnowledgeSpaceRecord {
 pub struct UpdateKnowledgeSpaceRecord {
     pub name: Option<String>,
     pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BindKnowledgeDriveSpaceRecord {
+    pub drive_space_id: String,
+    pub actor_id: u64,
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
