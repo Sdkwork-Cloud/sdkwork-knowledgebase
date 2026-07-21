@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { CreateKbModal } from './CreateKbModal';
 import { PublishModal } from './PublishModal';
-import { DeployWebsiteModal } from './DeployWebsiteModal';
 import { KnowledgeBaseSettingsModal } from './KnowledgeBaseSettingsModal';
 import { KnowledgeBaseMarketModal } from './KnowledgeBaseMarketModal';
 import { CloudDriveModal } from './CloudDriveModal';
@@ -29,11 +28,6 @@ export interface KnowledgeBaseAppModalsProps {
   setIsPublishModalOpen: (open: boolean) => void;
   publishDocsContext: DocumentMeta[];
   setPublishDocsContext: Dispatch<SetStateAction<DocumentMeta[]>>;
-  isDeployModalOpen: boolean;
-  setIsDeployModalOpen: (open: boolean) => void;
-  deployActiveKb: KnowledgeBase | null;
-  setDeployActiveKb: (kb: KnowledgeBase | null) => void;
-  onSaveKbDeploySettings: (updates: Partial<KnowledgeBase>) => Promise<void>;
   settingsKb: KnowledgeBase | null;
   setSettingsKb: (kb: KnowledgeBase | null) => void;
   activeKb: KnowledgeBase | null;
@@ -72,11 +66,6 @@ export function KnowledgeBaseAppModals(props: KnowledgeBaseAppModalsProps) {
     setIsPublishModalOpen,
     publishDocsContext,
     setPublishDocsContext,
-    isDeployModalOpen,
-    setIsDeployModalOpen,
-    deployActiveKb,
-    setDeployActiveKb,
-    onSaveKbDeploySettings,
     settingsKb,
     setSettingsKb,
     activeKb,
@@ -124,18 +113,6 @@ export function KnowledgeBaseAppModals(props: KnowledgeBaseAppModalsProps) {
             setIsPublishModalOpen(false);
             navigate('/wechat-publish', { state: { documents: publishDocsContext } });
           }}
-        />
-      )}
-
-      {isDeployModalOpen && (
-        <DeployWebsiteModal
-          isOpen={isDeployModalOpen}
-          activeKb={deployActiveKb}
-          onClose={() => {
-            setIsDeployModalOpen(false);
-            setDeployActiveKb(null);
-          }}
-          onSave={onSaveKbDeploySettings}
         />
       )}
 

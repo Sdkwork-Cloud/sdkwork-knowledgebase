@@ -9,11 +9,6 @@ export interface RegisteredKnowledgebaseSpace {
   kbType: KnowledgebaseSpaceKbType;
   icon?: string;
   avatar?: string;
-  isDeployed?: boolean;
-  deployedUrl?: string;
-  customDomain?: string;
-  siteName?: string;
-  siteLogo?: string;
   createdAt: string;
 }
 
@@ -109,11 +104,6 @@ export function updateRegisteredSpace(
       | 'kbType'
       | 'icon'
       | 'avatar'
-      | 'isDeployed'
-      | 'deployedUrl'
-      | 'customDomain'
-      | 'siteName'
-      | 'siteLogo'
     >
   >,
 ): RegisteredKnowledgebaseSpace[] {

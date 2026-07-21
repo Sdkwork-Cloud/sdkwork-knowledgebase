@@ -15,6 +15,7 @@ use sdkwork_knowledgebase_contract::okf::{
 use sdkwork_knowledgebase_observability::record_okf_bundle_imported;
 use sdkwork_utils_rust::is_blank;
 use serde::Deserialize;
+use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 const MAX_OKF_IMPORT_FILES: usize = 512;
@@ -70,6 +71,7 @@ impl<'a> OkfBundleImporterService<'a> {
         let mut skipped_files = Vec::new();
         let mut conformance_errors = Vec::new();
         let mut publish_requests = Vec::new();
+        let mut canonical_sources = BTreeMap::<String, String>::new();
 
         for file in request.files {
             match classify_bundle_file(file, request.space_id, &request.actor) {
@@ -77,8 +79,20 @@ impl<'a> OkfBundleImporterService<'a> {
                 BundleFileClassification::ConformanceViolation(message) => {
                     conformance_errors.push(message)
                 }
-                BundleFileClassification::Ready(publish_request) => {
-                    publish_requests.push(*publish_request)
+                BundleFileClassification::Ready {
+                    source_path,
+                    publish_request,
+                } => {
+                    if let Some(existing_path) = canonical_sources
+                        .insert(publish_request.concept_id.clone(), source_path.clone())
+                    {
+                        conformance_errors.push(format!(
+                            "canonical concept id collision for {} between {} and {}",
+                            publish_request.concept_id, existing_path, source_path
+                        ));
+                    } else {
+                        publish_requests.push(*publish_request)
+                    }
                 }
             }
         }
@@ -237,7 +251,10 @@ async fn publish_or_stage_concept(
 enum BundleFileClassification {
     Skipped(String),
     ConformanceViolation(String),
-    Ready(Box<PublishKnowledgeOkfConceptRequest>),
+    Ready {
+        source_path: String,
+        publish_request: Box<PublishKnowledgeOkfConceptRequest>,
+    },
 }
 
 fn classify_bundle_file(
@@ -287,13 +304,16 @@ fn classify_bundle_file(
         .clone()
         .filter(|value| !is_blank(Some(value.as_str())))
         .unwrap_or_else(|| title_from_concept_id(&concept_id));
-    BundleFileClassification::Ready(Box::new(publish_request_from_document(
-        space_id,
-        concept_id,
-        title,
-        document,
-        actor.to_string(),
-    )))
+    BundleFileClassification::Ready {
+        source_path: bundle_relative_path,
+        publish_request: Box::new(publish_request_from_document(
+            space_id,
+            concept_id,
+            title,
+            document,
+            actor.to_string(),
+        )),
+    }
 }
 
 fn is_reserved_bundle_file(bundle_relative_path: &str) -> bool {
@@ -330,6 +350,7 @@ fn publish_request_from_document(
         actor,
         resource: document.resource,
         timestamp: document.timestamp,
+        frontmatter_extensions: document.extensions,
     }
 }
 
@@ -362,13 +383,32 @@ struct ImportManifest {
     files: Vec<String>,
 }
 
-pub fn drive_import_root(space_id: u64, import_id: Option<&str>) -> String {
+pub fn drive_import_root(
+    space_id: u64,
+    import_id: Option<&str>,
+) -> Result<String, OkfBundleImporterError> {
     let import_key = import_id
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
+        .map(validate_import_id)
+        .transpose()?
         .unwrap_or_else(|| space_id.to_string());
-    format!("inbox/drive-imports/{import_key}")
+    Ok(format!("inbox/drive-imports/{import_key}"))
+}
+
+fn validate_import_id(import_id: &str) -> Result<String, OkfBundleImporterError> {
+    if import_id.len() > 128
+        || import_id == "."
+        || import_id == ".."
+        || !import_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
+    {
+        return Err(OkfBundleImporterError::InvalidRequest(
+            "import_id must be a single 1-128 character [A-Za-z0-9._-] path segment".to_string(),
+        ));
+    }
+    Ok(import_id.to_string())
 }
 
 pub async fn load_import_bundle_from_drive(
@@ -377,7 +417,7 @@ pub async fn load_import_bundle_from_drive(
     import_id: Option<&str>,
     drive_space_id: Option<&str>,
 ) -> Result<Vec<ImportOkfBundleFile>, OkfBundleImporterError> {
-    let import_root = drive_import_root(space_id, import_id);
+    let import_root = drive_import_root(space_id, import_id)?;
     let (manifest_path, manifest_files) =
         read_import_manifest_files(drive, &import_root, drive_space_id).await?;
     if manifest_files.len() > MAX_OKF_IMPORT_FILES {
@@ -563,64 +603,53 @@ async fn read_import_manifest_files(
 
 fn parse_bundle_manifest_files(body: &str) -> Result<Vec<String>, String> {
     if let Ok(manifest) = serde_json::from_str::<ImportManifest>(body) {
-        return Ok(normalize_manifest_file_paths(manifest.files));
+        return normalize_manifest_file_paths(manifest.files);
     }
 
     parse_yaml_manifest_files(body)
 }
 
 fn parse_yaml_manifest_files(body: &str) -> Result<Vec<String>, String> {
-    let mut in_files_section = false;
-    let mut files = Vec::new();
-
-    for line in body.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-        if trimmed == "files:" {
-            in_files_section = true;
-            continue;
-        }
-        if !in_files_section {
-            continue;
-        }
-        if !trimmed.starts_with('-') {
-            if trimmed.ends_with(':') {
-                break;
-            }
-            continue;
-        }
-        let value = trimmed.trim_start_matches('-').trim();
-        if value.is_empty() {
-            continue;
-        }
-        files.push(unquote_manifest_path(value));
-    }
-
-    if files.is_empty() {
+    let manifest = serde_yaml::from_str::<ImportManifest>(body)
+        .map_err(|error| format!("invalid yaml manifest: {error}"))?;
+    if manifest.files.is_empty() {
         return Err("yaml manifest is missing a files list".to_string());
     }
-    Ok(normalize_manifest_file_paths(files))
+    normalize_manifest_file_paths(manifest.files)
 }
 
-fn normalize_manifest_file_paths(paths: Vec<String>) -> Vec<String> {
-    paths
-        .into_iter()
-        .map(|path| path.trim().replace('\\', "/"))
-        .filter(|path| !path.is_empty())
-        .collect()
-}
-
-fn unquote_manifest_path(value: &str) -> String {
-    let trimmed = value.trim();
-    if (trimmed.starts_with('"') && trimmed.ends_with('"'))
-        || (trimmed.starts_with('\'') && trimmed.ends_with('\''))
-    {
-        trimmed[1..trimmed.len() - 1].to_string()
-    } else {
-        trimmed.to_string()
+fn normalize_manifest_file_paths(paths: Vec<String>) -> Result<Vec<String>, String> {
+    let mut normalized_paths = Vec::with_capacity(paths.len());
+    let mut seen = BTreeSet::new();
+    for path in paths {
+        let normalized = validate_manifest_relative_path(&path)?;
+        if !seen.insert(normalized.clone()) {
+            return Err(format!("duplicate manifest file path: {normalized}"));
+        }
+        normalized_paths.push(normalized);
     }
+    Ok(normalized_paths)
+}
+
+fn validate_manifest_relative_path(path: &str) -> Result<String, String> {
+    let normalized = path.trim().replace('\\', "/");
+    if normalized.is_empty() || normalized.len() > 1024 {
+        return Err("manifest file paths must be between 1 and 1024 characters".to_string());
+    }
+    if normalized.starts_with('/') || normalized.ends_with('/') {
+        return Err(format!("manifest file path must be relative: {normalized}"));
+    }
+    for segment in normalized.split('/') {
+        if segment.is_empty()
+            || segment == "."
+            || segment == ".."
+            || segment.len() > 255
+            || segment.chars().any(char::is_control)
+        {
+            return Err(format!("unsafe manifest file path: {normalized}"));
+        }
+    }
+    Ok(normalized)
 }
 
 const STAGED_IMPORT_OBJECT_ROLE: &str = "output_export";
@@ -634,7 +663,7 @@ pub async fn stage_export_bundle_for_drive_import(
 ) -> Result<String, OkfBundleImporterError> {
     let (manifest_path, manifest_files) =
         read_export_manifest_files(drive, export_root, drive_space_id).await?;
-    let import_root = drive_import_root(space_id, Some(import_id));
+    let import_root = drive_import_root(space_id, Some(import_id))?;
     for bundle_relative_path in manifest_files {
         let normalized = bundle_relative_path.trim().replace('\\', "/");
         if normalized.is_empty() {
@@ -742,11 +771,23 @@ mod tests {
     #[test]
     fn drive_import_root_uses_import_id_when_present() {
         assert_eq!(
-            drive_import_root(42, Some("batch-001")),
+            drive_import_root(42, Some("batch-001")).unwrap(),
             "inbox/drive-imports/batch-001"
         );
-        assert_eq!(drive_import_root(42, None), "inbox/drive-imports/42");
-        assert_eq!(drive_import_root(42, Some("  ")), "inbox/drive-imports/42");
+        assert_eq!(
+            drive_import_root(42, None).unwrap(),
+            "inbox/drive-imports/42"
+        );
+        assert_eq!(
+            drive_import_root(42, Some("  ")).unwrap(),
+            "inbox/drive-imports/42"
+        );
+    }
+
+    #[test]
+    fn drive_import_root_rejects_path_traversal() {
+        assert!(drive_import_root(42, Some("../outside")).is_err());
+        assert!(drive_import_root(42, Some("..\\outside")).is_err());
     }
 
     #[test]
@@ -769,6 +810,15 @@ files:
         let json = r#"{"files":["entities/a.md"]}"#;
         let files = parse_bundle_manifest_files(json).expect("json manifest");
         assert_eq!(files, vec!["entities/a.md".to_string()]);
+    }
+
+    #[test]
+    fn manifest_rejects_traversal_and_duplicate_paths() {
+        assert!(parse_bundle_manifest_files(r#"{"files":["../okf/secret.md"]}"#).is_err());
+        assert!(
+            parse_bundle_manifest_files(r#"{"files":["tables/users.md","tables\\users.md"]}"#)
+                .is_err()
+        );
     }
 
     #[test]

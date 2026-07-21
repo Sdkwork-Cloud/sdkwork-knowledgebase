@@ -10,6 +10,8 @@ Specs: REQUIREMENTS_SPEC.md, DOCUMENTATION_SPEC.md
 
 - [PRD-mvp-launch.md](PRD-mvp-launch.md) - MVP launch scope and acceptance criteria
 - [PRD-phase2-commercial-saas.md](PRD-phase2-commercial-saas.md) - Phase 2 multi-tenant commercial SaaS criteria
+- [PRD-live-wiki-publication.md](PRD-live-wiki-publication.md) - proposed live `sources/raw` Wiki,
+  per-file state, reader/author/admin experience, Deploy integration, quotas, and launch gates.
 
 ## 1. Background And Problem
 
@@ -19,7 +21,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 | Persona | Need |
 |---------|------|
-| Knowledge author | Create/edit documents, import from Drive/Git, publish to WeChat or public sites |
+| Knowledge author | Create/edit documents, import from Drive/Git, publish to WeChat or a governed live Wiki |
 | Team member | Search, read, collaborate within granted spaces |
 | Tenant admin | Manage spaces, members, ingestion sources, OKF profiles |
 | Platform operator | Operate backend-api, worker, observability, and per-tenant deployments |
@@ -51,9 +53,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 **In scope**
 
-- App API: spaces, documents, browser, ingest, retrieval, agent chat, WeChat, market, site deploy
+- App API: spaces, documents, browser, ingest, retrieval, agent chat, WeChat, market, and Wiki publication management
 - Provider-backed media tasks: ClawRouter SDK image generation and speech-to-text; requests fail closed when provider configuration is absent
-- Drive-backed static site publishing: enabled only when an HTTPS public object gateway is configured; unsupported third-party hosting is not reported as successful
 - Backend API: sources, OKF compile/candidates, indexes, retrieval profiles/traces
 - Backend Provider management: explicit tenant/organization/space bindings, capability-aware
   testing and activation, write-only credential references, disable/switch/migrate/rollback, and
@@ -63,10 +64,14 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - PC client: editor, search, settings, offline/network awareness
 - OKF original file list: knowledgebase file lists call `spaces.browser.list?view=files`; for OKF spaces this displays original source files under `sources/raw` only and must not expose `okf/`, `output/`, `.sdkwork/`, or Drive root system folders.
 - OKF browser view separation: OKF concept and bundle tooling uses `view=okf_bundle`; generated output tooling uses `view=outputs`. Root uploads and root folder creation use response `data.parentId` as the Drive parent folder id, never Drive root or a hard-coded `sources/raw` path.
-- Knowledgebase website publication: authors publish a deterministic snapshot of `published` OKF
-  concepts and explicitly public Drive assets as an immutable multi-page release. Standalone sites
-  use `/wiki/{knowledgebaseId}/`; cloud sites use `<knowledgebaseId>.kb.sdkwork.com`, a verified
-  custom prefix, or an externally verified domain. Release activation and rollback are atomic.
+- Knowledgebase Wiki publication: every Knowledgebase is Wiki-capable through exactly one canonical
+  DRAFT/PRIVATE WikiPublication; no special Knowledgebase type or conversion is required. An
+  explicitly active Wiki projects governed multi-format sources
+  and static assets from the fixed Drive `sources/raw` root, maintains processing, publication,
+  visibility, index, route, and public-version state per file, and resolves eligible representations
+  live through the shared Deploy/Web Server site platform. Upload completion never grants anonymous
+  access, and ordinary provider lifecycle changes create no SiteRelease, Deploy Release, Deployment,
+  or SiteRevision.
 
 **Out of scope (MVP)**
 
@@ -91,9 +96,11 @@ Teams need a knowledge platform that combines structured documentation, retrieva
    joined non-Guest Owner, Admin, and Member roles open only that fixed workspace through a one-time
    ticket -> Guest, left, removed, and non-member actors are denied -> removal, role reduction, or
    dissolution updates access and archive state without deleting documents by default
-9. **Author publishes a knowledge website** - upload files and editor media through Drive -> review
-   published OKF concepts -> create an immutable release -> atomically activate it -> open the LAN
-   `/wiki/{knowledgebaseId}/` URL or verified cloud host -> roll back to a prior ready release.
+9. **Author publishes a live Wiki** - upload governed pages, documents, media, and assets through
+   Drive into `sources/raw` -> inspect processing/publication/visibility/index/route state -> use
+   private preview -> explicitly publish, schedule, or use an Owner-approved auto-public policy after
+   checks -> open the Deploy-bound Wiki URL -> unpublish or restore a prior Drive/Knowledgebase
+   version without a content deployment.
 
 ## 6. Success Metrics
 
@@ -105,13 +112,16 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 | Critical security alignment tests | Pass in CI |
 | PC shell smoke (login + load) | Pass in CI Playwright |
 | Document save success when online | > 99% |
+| Eligible Wiki public-version commit to Web visibility | p95 <= 5s, p99 <= 30s; >= 99% within objective |
+| Draft/private/quarantined/deleted/cross-tenant public disclosure | 0 |
+| Canonical WikiPublication cardinality | exactly 1 per Knowledgebase; no duplicate on retry/backfill |
 
 ## 7. Phases
 
 | Phase | Focus | Exit criteria |
 |-------|-------|---------------|
 | **1.0 (current)** | Production launch (single-tenant-per-process) | Postgres prod path, runbooks, PRD acceptance, E2E on real API |
-| **2.0** | Commercial SaaS | Shared multi-tenant, billing, quotas, GDPR workflows |
+| **2.0** | Commercial SaaS and Live Wiki | Shared multi-tenant, billing, quotas, GDPR workflows, and approved live Wiki publication |
 | **3.0** | Industry parity | Real-time collab, analytics, mobile |
 
 ## 8. Linked Requirements
@@ -122,9 +132,10 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - `docs/architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md`
 - `docs/product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md`
 - `docs/architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md`
-- `docs/product/requirements/REQ-2026-0721-knowledgebase-site-publication.md`
-- `docs/architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md`
+- `docs/product/requirements/REQ-2026-0721-live-wiki-cloud-publication.md`
+- `docs/architecture/decisions/ADR-20260721-live-mounted-wiki-publication.md`
 - `specs/okf-knowledge-bundle.spec.json` - OKF bundle layers, browser views, and raw source file list contract
+- `specs/live-wiki-publication.spec.json` - proposed Wiki eligibility, state, provider, routing, and freshness contract
 - `../sdkwork-specs/SECURITY_SPEC.md`, `IAM_SPEC.md`, `APP_SDK_INTEGRATION_SPEC.md`
 - `deployments/README.md` - tenant isolation and observability
 
@@ -132,4 +143,4 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 - **Multi-tenant data model:** Postgres RLS - decided in [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../../architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md); migration shipped for Phase 2.1
 - **Billing owner:** SDKWork platform vs standalone Stripe - open; decide before Phase 2 commercial launch
-- **Minimum enterprise audit retention period:** documented in [audit-retention.md](../runbooks/audit-retention.md); automated purge/export jobs remain Phase 2.4
+- **Minimum enterprise audit retention period:** documented in [audit-retention.md](../../runbooks/audit-retention.md); automated purge/export jobs remain Phase 2.4

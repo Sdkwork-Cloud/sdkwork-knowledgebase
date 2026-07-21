@@ -16,9 +16,7 @@ use sdkwork_knowledgebase_contract::media_task::{
 use sdkwork_utils_rust::{is_blank, SdkWorkPageData};
 
 use crate::{
-    hosted_access::{
-        ensure_runtime_tenant, require_actor_id, require_space_access_with_role,
-    },
+    hosted_access::{ensure_runtime_tenant, require_actor_id, require_space_access_with_role},
     runtime::KnowledgebaseRuntime,
     ApiError, ApiResult, KnowledgeAppRequestContext, KnowledgeCommerceAppService,
 };

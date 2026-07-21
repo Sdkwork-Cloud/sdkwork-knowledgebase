@@ -16,6 +16,7 @@
     "index": "index.md",
     "log": "log.md",
     "agentInstructions": "schema/AGENTS.md",
+    "agentInstructionsConceptType": "Agent Instructions",
     "profile": "schema/okf_profile.yaml"
   },
   "layers": {

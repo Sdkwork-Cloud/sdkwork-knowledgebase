@@ -14,7 +14,6 @@ interface KnowledgeBaseListProps {
   activeKb: KnowledgeBase | null;
   onSelectKb: (kb: KnowledgeBase) => void;
   onCreateKbSelect: (type: 'team' | 'personal' | 'public') => void;
-  onDeployKb: (kb: KnowledgeBase) => void;
   onOpenSettings: (kb: KnowledgeBase) => void;
   onOpenMarket: () => void;
   onImportGit: (kb: KnowledgeBase) => void;
@@ -26,7 +25,7 @@ interface KnowledgeBaseListProps {
   onMouseDownDrag?: () => void;
 }
 
-export function KnowledgeBaseList({ kbs, loadingKbs, activeKb, onSelectKb, onCreateKbSelect, onDeployKb, onOpenSettings, onOpenMarket, onImportGit, onSyncGit, onImportCloudDrive, onUpdateKbs, width = 240, isDragging, onMouseDownDrag }: KnowledgeBaseListProps) {
+export function KnowledgeBaseList({ kbs, loadingKbs, activeKb, onSelectKb, onCreateKbSelect, onOpenSettings, onOpenMarket, onImportGit, onSyncGit, onImportCloudDrive, onUpdateKbs, width = 240, isDragging, onMouseDownDrag }: KnowledgeBaseListProps) {
   const { t } = useTranslation(['kb', 'common']);
   const [renameItem, setRenameItem] = useState<KnowledgeBase | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
@@ -115,7 +114,6 @@ export function KnowledgeBaseList({ kbs, loadingKbs, activeKb, onSelectKb, onCre
                         onSelectKb={onSelectKb}
                         onRename={setRenameItem}
                         onDelete={handleDeleteKb}
-                        onDeploy={onDeployKb}
                         onOpenSettings={onOpenSettings}
                         onImportGit={onImportGit}
                         onSyncGit={onSyncGit}
@@ -176,7 +174,6 @@ export function KnowledgeBaseList({ kbs, loadingKbs, activeKb, onSelectKb, onCre
                       onSelectKb={onSelectKb}
                       onRename={setRenameItem}
                       onDelete={handleDeleteKb}
-                      onDeploy={onDeployKb}
                       onOpenSettings={onOpenSettings}
                       onImportGit={onImportGit}
                       onSyncGit={onSyncGit}
@@ -236,7 +233,6 @@ export function KnowledgeBaseList({ kbs, loadingKbs, activeKb, onSelectKb, onCre
                       onSelectKb={onSelectKb}
                       onRename={setRenameItem}
                       onDelete={handleDeleteKb}
-                      onDeploy={onDeployKb}
                       onOpenSettings={onOpenSettings}
                       onImportGit={onImportGit}
                       onSyncGit={onSyncGit}
@@ -296,7 +292,6 @@ export function KnowledgeBaseList({ kbs, loadingKbs, activeKb, onSelectKb, onCre
                       onSelectKb={onSelectKb}
                       onRename={setRenameItem}
                       onDelete={handleDeleteKb}
-                      onDeploy={onDeployKb}
                       onOpenSettings={onOpenSettings}
                       onImportGit={onImportGit}
                       onSyncGit={onSyncGit}

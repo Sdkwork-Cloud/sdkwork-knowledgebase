@@ -114,7 +114,6 @@ pub async fn assemble_business_routes(runtime: Arc<KnowledgebaseRuntime>) -> Api
         router = router.merge(iam_router);
     }
     let router = router
-        .merge(runtime.build_public_site_router())
         .merge(runtime.build_full_app_router_with_web_framework().await)
         .merge(
             runtime

@@ -1095,6 +1095,7 @@ impl KnowledgeOkfAppService for HostedOkfService {
                 actor,
                 resource: None,
                 timestamp: None,
+                frontmatter_extensions: Default::default(),
             })
             .await
             .map_err(ApiError::from)?;

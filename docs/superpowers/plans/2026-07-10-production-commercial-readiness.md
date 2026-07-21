@@ -42,17 +42,15 @@
 - [ ] Select the registered production Rig implementation and provider configuration, or return a typed unavailable error when provider configuration is absent.
 - [ ] Remove URL-guess transcription and stock-image fallbacks.
 
-### Task 3: Make Site Deployment Truthful
+### Task 3: Retired Prelaunch Publication Path
 
-**Files:**
-- Modify: `crates/sdkwork-intelligence-knowledgebase-service/src/commerce/site_deployment.rs`
-- Modify: `crates/sdkwork-intelligence-knowledgebase-service/src/ports/commerce_store.rs`
-- Modify: app API contract/OpenAPI source only if operation semantics change
-- Test: service and route integration tests
+Status: superseded and completed by the Live Wiki clean baseline.
 
-- [ ] Add a failing test that a preview object cannot be reported as a public deployment.
-- [ ] Return a typed preview result or a durable async operation; never synthesize a public URL without publisher evidence.
-- [ ] Align HTTP status and SDKWork command/async response shape, then regenerate SDKs from authority if required.
+The unreleased Knowledgebase-owned publication implementation, legacy public-site configuration,
+permissions, API/SDK surface, and UI were removed rather than repaired. Do not restore the deleted
+commerce publication path. New public Wiki work follows
+`docs/product/requirements/REQ-2026-0721-live-wiki-cloud-publication.md` and the shared
+Deploy/Web Server descriptor/provider architecture.
 
 ### Task 4: Close Upload And Ingest Lifecycle Leaks
 

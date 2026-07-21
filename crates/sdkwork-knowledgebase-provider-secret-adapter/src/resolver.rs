@@ -1,11 +1,9 @@
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
-use sdkwork_agent_kernel::{
-    SecretAccessPurpose, SecretAccessRequest, SecretError, SecretProvider,
-};
+use sdkwork_agent_kernel::{SecretAccessPurpose, SecretAccessRequest, SecretError, SecretProvider};
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_store::ResolvedKnowledgeEngineProviderCredential;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_credential_resolver::{
     KnowledgeEngineProviderCredential, KnowledgeEngineProviderCredentialAccessContext,
@@ -13,6 +11,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_creden
 };
 use sdkwork_utils_rust::is_blank;
 use tokio::io::AsyncReadExt;
+use tokio::sync::Semaphore;
+use zeroize::Zeroizing;
 
 use crate::config::{
     KnowledgebaseProviderCredentialResolverConfig,
@@ -22,10 +22,14 @@ use crate::config::{
 
 const MANAGED_SECRET_LOCATOR_PREFIX: &str = "secret://knowledgebase/provider/";
 const MANAGED_SECRET_REQUESTER: &str = "sdkwork-knowledgebase-provider-binding";
+const EXTERNAL_IMPLEMENTATION_PREFIX: &str = "engine.knowledge.external.";
 
 enum ResolverSource {
     Local,
-    Managed(Arc<dyn SecretProvider>),
+    Managed {
+        provider: Arc<dyn SecretProvider>,
+        concurrency: Arc<Semaphore>,
+    },
 }
 
 pub struct KnowledgebaseProviderCredentialResolver {
@@ -41,11 +45,19 @@ impl std::fmt::Debug for KnowledgebaseProviderCredentialResolver {
             .field("local_secret_root", &self.config.local_secret_root)
             .field("max_credential_bytes", &self.config.max_credential_bytes)
             .field(
+                "max_managed_resolution_duration",
+                &self.config.max_managed_resolution_duration,
+            )
+            .field(
                 "source",
                 &match self.source {
                     ResolverSource::Local => "local",
-                    ResolverSource::Managed(_) => "managed",
+                    ResolverSource::Managed { .. } => "managed",
                 },
+            )
+            .field(
+                "max_managed_concurrency",
+                &self.config.max_managed_concurrency,
             )
             .finish()
     }
@@ -76,8 +88,11 @@ impl KnowledgebaseProviderCredentialResolver {
             );
         }
         Ok(Self {
+            source: ResolverSource::Managed {
+                provider,
+                concurrency: Arc::new(Semaphore::new(config.max_managed_concurrency)),
+            },
             config,
-            source: ResolverSource::Managed(provider),
         })
     }
 
@@ -110,10 +125,12 @@ impl KnowledgebaseProviderCredentialResolver {
 
     fn validate_local_locator(
         &self,
+        implementation_id: &str,
         locator: &str,
     ) -> Result<LocalCredentialLocator, KnowledgeEngineProviderCredentialError> {
+        let provider_code = provider_code(implementation_id)?;
         if let Some(variable) = locator.strip_prefix("env://") {
-            validate_environment_variable(variable)?;
+            validate_environment_variable(provider_code, variable)?;
             return Ok(LocalCredentialLocator::Environment(variable.to_string()));
         }
         if locator.starts_with("file://") {
@@ -123,8 +140,12 @@ impl KnowledgebaseProviderCredentialResolver {
                 .as_ref()
                 .ok_or(KnowledgeEngineProviderCredentialError::InvalidReference)?;
             let path = parse_file_locator(locator)?;
-            validate_lexical_containment(root, &path)?;
-            return Ok(LocalCredentialLocator::File(path));
+            let approved_root = root.join(provider_code);
+            validate_lexical_containment(&approved_root, &path)?;
+            return Ok(LocalCredentialLocator::File {
+                approved_root,
+                path,
+            });
         }
         Err(KnowledgeEngineProviderCredentialError::InvalidReference)
     }
@@ -139,13 +160,11 @@ impl KnowledgebaseProviderCredentialResolver {
                     .map_err(|_| KnowledgeEngineProviderCredentialError::Unavailable)?;
                 credential_from_bounded_string(value, self.config.max_credential_bytes)
             }
-            LocalCredentialLocator::File(path) => {
-                let root = self
-                    .config
-                    .local_secret_root
-                    .as_ref()
-                    .ok_or(KnowledgeEngineProviderCredentialError::InvalidReference)?;
-                resolve_bounded_file(root, &path, self.config.max_credential_bytes).await
+            LocalCredentialLocator::File {
+                approved_root,
+                path,
+            } => {
+                resolve_bounded_file(&approved_root, &path, self.config.max_credential_bytes).await
             }
         }
     }
@@ -153,14 +172,28 @@ impl KnowledgebaseProviderCredentialResolver {
     async fn resolve_managed(
         &self,
         provider: Arc<dyn SecretProvider>,
+        concurrency: Arc<Semaphore>,
         context: &KnowledgeEngineProviderCredentialAccessContext,
         secret_id: String,
     ) -> Result<KnowledgeEngineProviderCredential, KnowledgeEngineProviderCredentialError> {
         let request = managed_access_request(context, secret_id);
-        let remaining = remaining_deadline(context.deadline_unix_ms)?;
+        let resolution_started = Instant::now();
+        let resolution_bound = remaining_deadline(context.deadline_unix_ms)?
+            .min(self.config.max_managed_resolution_duration);
+        let permit = tokio::time::timeout(resolution_bound, concurrency.acquire_owned())
+            .await
+            .map_err(|_| KnowledgeEngineProviderCredentialError::Unavailable)?
+            .map_err(|_| KnowledgeEngineProviderCredentialError::Internal)?;
+        let remaining = resolution_bound.saturating_sub(resolution_started.elapsed());
+        if remaining.is_zero() {
+            return Err(KnowledgeEngineProviderCredentialError::Unavailable);
+        }
         let result = tokio::time::timeout(
             remaining,
-            tokio::task::spawn_blocking(move || provider.access_secret(request)),
+            tokio::task::spawn_blocking(move || {
+                let _permit = permit;
+                provider.access_secret(request)
+            }),
         )
         .await
         .map_err(|_| KnowledgeEngineProviderCredentialError::Unavailable)?
@@ -206,11 +239,16 @@ impl KnowledgebaseProviderCredentialResolver {
 impl KnowledgeEngineProviderCredentialResolver for KnowledgebaseProviderCredentialResolver {
     fn validate_reference_locator(
         &self,
+        implementation_id: &str,
         reference_locator: &str,
     ) -> Result<(), KnowledgeEngineProviderCredentialError> {
         match &self.source {
-            ResolverSource::Local => self.validate_local_locator(reference_locator).map(|_| ()),
-            ResolverSource::Managed(_) => validate_managed_secret_locator(reference_locator).map(|_| ()),
+            ResolverSource::Local => self
+                .validate_local_locator(implementation_id, reference_locator)
+                .map(|_| ()),
+            ResolverSource::Managed { .. } => {
+                validate_managed_secret_locator(implementation_id, reference_locator).map(|_| ())
+            }
         }
     }
 
@@ -219,36 +257,70 @@ impl KnowledgeEngineProviderCredentialResolver for KnowledgebaseProviderCredenti
         context: &KnowledgeEngineProviderCredentialAccessContext,
         reference: &ResolvedKnowledgeEngineProviderCredential,
     ) -> Result<KnowledgeEngineProviderCredential, KnowledgeEngineProviderCredentialError> {
-        self.validate_access_context(context, reference)?;
+        if let Err(error) = self.validate_access_context(context, reference) {
+            self.record_resolution(context, resolution_outcome(&Err(error.clone())));
+            return Err(error);
+        }
         let result = match &self.source {
             ResolverSource::Local => {
-                let locator = self.validate_local_locator(&reference.reference_locator)?;
-                self.resolve_local(locator).await
+                match self.validate_local_locator(
+                    &context.implementation_id,
+                    &reference.reference_locator,
+                ) {
+                    Ok(locator) => self.resolve_local(locator).await,
+                    Err(error) => Err(error),
+                }
             }
-            ResolverSource::Managed(provider) => {
-                let secret_id = validate_managed_secret_locator(&reference.reference_locator)?;
-                self.resolve_managed(provider.clone(), context, secret_id).await
+            ResolverSource::Managed {
+                provider,
+                concurrency,
+            } => {
+                match validate_managed_secret_locator(
+                    &context.implementation_id,
+                    &reference.reference_locator,
+                ) {
+                    Ok(secret_id) => {
+                        self.resolve_managed(
+                            provider.clone(),
+                            concurrency.clone(),
+                            context,
+                            secret_id,
+                        )
+                        .await
+                    }
+                    Err(error) => Err(error),
+                }
             }
         };
-        self.record_resolution(context, if result.is_ok() { "granted" } else { "denied" });
+        self.record_resolution(context, resolution_outcome(&result));
         result
     }
 }
 
 enum LocalCredentialLocator {
     Environment(String),
-    File(PathBuf),
+    File {
+        approved_root: PathBuf,
+        path: PathBuf,
+    },
 }
 
 fn validate_environment_variable(
+    provider_code: &str,
     variable: &str,
 ) -> Result<(), KnowledgeEngineProviderCredentialError> {
-    if !variable.starts_with(KNOWLEDGEBASE_PROVIDER_SECRET_ENV_PREFIX)
-        || variable.len() <= KNOWLEDGEBASE_PROVIDER_SECRET_ENV_PREFIX.len()
-        || variable.len() > 128
+    let provider_prefix = format!(
+        "{KNOWLEDGEBASE_PROVIDER_SECRET_ENV_PREFIX}{}_",
+        provider_code.replace('-', "_").to_ascii_uppercase()
+    );
+    let suffix = variable.strip_prefix(&provider_prefix);
+    if variable.len() > 128
         || !variable
             .bytes()
             .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'_')
+        || suffix.is_none_or(|suffix| {
+            suffix.is_empty() || !suffix.bytes().any(|byte| byte.is_ascii_alphanumeric())
+        })
     {
         return Err(KnowledgeEngineProviderCredentialError::InvalidReference);
     }
@@ -279,9 +351,10 @@ fn validate_lexical_containment(
     if !root.is_absolute() || !path.is_absolute() {
         return Err(KnowledgeEngineProviderCredentialError::InvalidReference);
     }
-    if path.components().any(|component| {
-        matches!(component, Component::ParentDir | Component::CurDir)
-    }) || !path.starts_with(root)
+    if path
+        .components()
+        .any(|component| matches!(component, Component::ParentDir | Component::CurDir))
+        || !path.starts_with(root)
     {
         return Err(KnowledgeEngineProviderCredentialError::AccessDenied);
     }
@@ -317,7 +390,7 @@ async fn resolve_bounded_file(
         return Err(KnowledgeEngineProviderCredentialError::ResponseTooLarge);
     }
 
-    let mut bytes = Vec::with_capacity(max_bytes.min(metadata.len() as usize));
+    let mut bytes = Zeroizing::new(Vec::with_capacity(max_bytes.min(metadata.len() as usize)));
     file.take(max_bytes as u64 + 1)
         .read_to_end(&mut bytes)
         .await
@@ -325,14 +398,17 @@ async fn resolve_bounded_file(
     if bytes.len() > max_bytes {
         return Err(KnowledgeEngineProviderCredentialError::ResponseTooLarge);
     }
-    let value = String::from_utf8(bytes)
-        .map_err(|_| KnowledgeEngineProviderCredentialError::InvalidReference)?;
+    let value = std::str::from_utf8(&bytes)
+        .map_err(|_| KnowledgeEngineProviderCredentialError::InvalidReference)?
+        .to_string();
     credential_from_bounded_string(value, max_bytes)
 }
 
 fn validate_managed_secret_locator(
+    implementation_id: &str,
     locator: &str,
 ) -> Result<String, KnowledgeEngineProviderCredentialError> {
+    let expected_provider_code = provider_code(implementation_id)?;
     let path = locator
         .strip_prefix(MANAGED_SECRET_LOCATOR_PREFIX)
         .ok_or(KnowledgeEngineProviderCredentialError::InvalidReference)?;
@@ -345,16 +421,33 @@ fn validate_managed_secret_locator(
                 || segment == "."
                 || segment == ".."
                 || !segment.bytes().all(|byte| {
-                    byte.is_ascii_alphanumeric()
-                        || byte == b'-'
-                        || byte == b'_'
-                        || byte == b'.'
+                    byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_' || byte == b'.'
                 })
         })
     {
         return Err(KnowledgeEngineProviderCredentialError::InvalidReference);
     }
+    if path.split('/').next() != Some(expected_provider_code) {
+        return Err(KnowledgeEngineProviderCredentialError::AccessDenied);
+    }
     Ok(format!("knowledgebase/provider/{path}"))
+}
+
+fn provider_code(implementation_id: &str) -> Result<&str, KnowledgeEngineProviderCredentialError> {
+    let code = implementation_id
+        .strip_prefix(EXTERNAL_IMPLEMENTATION_PREFIX)
+        .ok_or(KnowledgeEngineProviderCredentialError::InvalidReference)?;
+    if code.is_empty()
+        || code.len() > 64
+        || code.starts_with('-')
+        || code.ends_with('-')
+        || !code
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+    {
+        return Err(KnowledgeEngineProviderCredentialError::InvalidReference);
+    }
+    Ok(code)
 }
 
 fn managed_access_request(
@@ -402,6 +495,7 @@ fn credential_from_bounded_string(
     value: String,
     max_bytes: usize,
 ) -> Result<KnowledgeEngineProviderCredential, KnowledgeEngineProviderCredentialError> {
+    let value = Zeroizing::new(value);
     if value.len() > max_bytes {
         return Err(KnowledgeEngineProviderCredentialError::ResponseTooLarge);
     }
@@ -418,5 +512,18 @@ fn map_secret_error(error: SecretError) -> KnowledgeEngineProviderCredentialErro
         | SecretError::DecryptionFailed(_)
         | SecretError::InvalidRequest(_)
         | SecretError::StorageError(_) => KnowledgeEngineProviderCredentialError::Internal,
+    }
+}
+
+fn resolution_outcome(
+    result: &Result<KnowledgeEngineProviderCredential, KnowledgeEngineProviderCredentialError>,
+) -> &'static str {
+    match result {
+        Ok(_) => "granted",
+        Err(KnowledgeEngineProviderCredentialError::InvalidReference) => "invalid_reference",
+        Err(KnowledgeEngineProviderCredentialError::AccessDenied) => "access_denied",
+        Err(KnowledgeEngineProviderCredentialError::Unavailable) => "unavailable",
+        Err(KnowledgeEngineProviderCredentialError::ResponseTooLarge) => "response_too_large",
+        Err(KnowledgeEngineProviderCredentialError::Internal) => "internal",
     }
 }

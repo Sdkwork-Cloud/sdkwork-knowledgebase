@@ -73,15 +73,6 @@ const PERMISSION_BY_OPERATION = {
   'market.listings.list': 'knowledge.market.read',
   'market.subscriptions.create': 'knowledge.market.write',
   'market.subscriptions.delete': 'knowledge.market.write',
-  'sites.retrieve': 'knowledge.sites.read',
-  'sites.update': 'knowledge.sites.write',
-  'siteReleases.create': 'knowledge.sites.publish',
-  'siteReleases.list': 'knowledge.sites.read',
-  'siteReleases.retrieve': 'knowledge.sites.read',
-  'siteReleases.rollback': 'knowledge.sites.publish',
-  'siteHostBindings.create': 'knowledge.sites.hosts.write',
-  'siteHostBindings.list': 'knowledge.sites.read',
-  'siteHostBindings.delete': 'knowledge.sites.hosts.write',
   'mediaTasks.create': 'knowledge.media.write',
 };
 

@@ -383,6 +383,7 @@ impl KnowledgeBackendApi for HostedBackendApi {
         candidate_id: u64,
         request: OkfCandidateReviewRequest,
     ) -> BackendApiResult<OkfCandidateResult> {
+        let reviewer_id = self.runtime.operator_id().parse::<u64>().ok();
         self.runtime
             .okf_concept_store()
             .update_concept_publish_state(candidate_id, OkfConceptPublishState::Rejected)
@@ -393,7 +394,7 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .update_candidate_state_by_concept_row_id(
                 candidate_id,
                 OkfConceptPublishState::Rejected,
-                request.reviewer_id,
+                reviewer_id,
                 request.note,
             )
             .await

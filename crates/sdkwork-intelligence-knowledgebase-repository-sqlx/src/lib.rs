@@ -32,7 +32,6 @@ mod sqlite_okf_concept_revision_metadata_store;
 mod sqlite_okf_concept_transaction;
 mod sqlite_outbox_store;
 mod sqlite_space_stores;
-mod site_store;
 
 pub mod pgvector_layered_retrieval;
 mod postgres_pgvector_retrieval;
@@ -90,4 +89,3 @@ pub use sqlite_outbox_store::SqliteKnowledgeOutboxStore;
 pub use sqlite_space_stores::{
     SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeSpaceStore, TenantKnowledgebaseSummary,
 };
-pub use site_store::SqlxKnowledgeSiteStore;

@@ -24,7 +24,6 @@ pub mod problem;
 pub mod provider_binding;
 pub mod rag;
 mod serde_int64;
-pub mod site;
 pub mod source;
 pub mod space;
 pub mod space_member;
@@ -58,7 +57,6 @@ pub use serde_int64::{
     parse_canonical_nonnegative_signed_i64, parse_canonical_positive_signed_i64,
     parse_canonical_u64, CanonicalIntegerError, MAX_SIGNED_I64_AS_U64,
 };
-pub use site::*;
 pub use source::*;
 pub use space::*;
 pub use space_member::*;

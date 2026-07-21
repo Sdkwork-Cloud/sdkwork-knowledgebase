@@ -449,6 +449,42 @@ async function assertRequiredOkfModules() {
   }
 }
 
+async function assertAgentInstructionsConformance() {
+  const contract = JSON.parse(
+    await readFile(path.join(root, "specs/okf-knowledge-bundle.spec.json"), "utf8"),
+  );
+  const conceptType = contract.standardFiles?.agentInstructionsConceptType;
+  if (conceptType !== "Agent Instructions") {
+    violations.push("OKF agent instructions must declare their concept type");
+  }
+  const renderer = await readFile(
+    path.join(
+      root,
+      "crates/sdkwork-intelligence-knowledgebase-service/src/okf/schema_renderer.rs",
+    ),
+    "utf8",
+  );
+  if (!renderer.includes('r#"---') || !renderer.includes("type: Agent Instructions")) {
+    violations.push("schema/AGENTS.md renderer must emit conformant OKF frontmatter");
+  }
+}
+
+async function assertBackendReviewerIdentity() {
+  const backend = await readFile(
+    path.join(
+      root,
+      "crates/sdkwork-routes-knowledgebase-app-api/src/hosted_backend.rs",
+    ),
+    "utf8",
+  );
+  if (!backend.includes("let reviewer_id = self.runtime.operator_id().parse::<u64>().ok();")) {
+    violations.push("OKF candidate reviewer identity must come from authenticated runtime context");
+  }
+  if (backend.includes("request.reviewer_id,")) {
+    violations.push("OKF candidate reviewer identity must not trust the request body");
+  }
+}
+
 async function assertRequiredOkfStorageSymbols() {
   const files = [
     path.join(
@@ -553,6 +589,8 @@ async function assertRequiredOkfMigrations() {
 
 const violations = [];
 await assertRequiredOkfModules();
+await assertAgentInstructionsConformance();
+await assertBackendReviewerIdentity();
 await assertRequiredOkfStorageSymbols();
 await assertRequiredObjectKeyAlignment();
 await assertRequiredOkfMigrations();

@@ -105,15 +105,6 @@ tables:
   - name: kb_market_subscription
     lifecycle_status: active
     owner: knowledgebase-platform
-  - name: kb_site
-    lifecycle_status: active
-    owner: knowledgebase-platform
-  - name: kb_site_release
-    lifecycle_status: active
-    owner: knowledgebase-platform
-  - name: kb_site_host_binding
-    lifecycle_status: active
-    owner: knowledgebase-platform
   - name: kb_audit_event
     lifecycle_status: active
     owner: knowledgebase-platform

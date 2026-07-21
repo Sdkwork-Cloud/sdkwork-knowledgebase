@@ -671,7 +671,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
             SELECT event_type, CAST(event_time AS TEXT) AS event_time, title, CAST(metadata AS TEXT) AS metadata
             FROM kb_okf_log_entry
             WHERE tenant_id = $1 AND space_id = $2 AND status = $3
-            ORDER BY sequence_no ASC
+            ORDER BY sequence_no DESC
             LIMIT $4
             "#,
         )

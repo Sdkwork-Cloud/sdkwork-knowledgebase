@@ -43,15 +43,6 @@ fn contract_context_binding_operations_are_declared() {
         "contextBindings.retrieve",
         "contextBindings.update",
         "contextBindings.delete",
-        "sites.retrieve",
-        "sites.update",
-        "siteReleases.create",
-        "siteReleases.list",
-        "siteReleases.retrieve",
-        "siteReleases.rollback",
-        "siteHostBindings.create",
-        "siteHostBindings.list",
-        "siteHostBindings.delete",
     ] {
         assert!(
             spec["paths"].as_object().unwrap().values().any(|methods| {

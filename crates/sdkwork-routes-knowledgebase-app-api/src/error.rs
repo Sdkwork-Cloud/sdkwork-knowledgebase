@@ -772,11 +772,27 @@ impl From<
             }
             KnowledgeEngineProviderBindingServiceError::Credential(credential_error) => {
                 match credential_error {
-                    KnowledgeEngineProviderCredentialError::InvalidReference(detail) => {
-                        Self::invalid_request("invalid_provider_credential_reference", detail)
+                    KnowledgeEngineProviderCredentialError::InvalidReference => {
+                        Self::invalid_request(
+                            "invalid_provider_credential_reference",
+                            "Provider credential reference is invalid",
+                        )
                     }
-                    KnowledgeEngineProviderCredentialError::Unavailable(detail) => {
-                        Self::service_unavailable("provider_credential_unavailable", detail)
+                    KnowledgeEngineProviderCredentialError::AccessDenied => Self::forbidden(
+                        "provider_credential_access_denied",
+                        "Provider credential access is denied",
+                    ),
+                    KnowledgeEngineProviderCredentialError::Unavailable => {
+                        Self::service_unavailable(
+                            "provider_credential_unavailable",
+                            "Provider credential is unavailable",
+                        )
+                    }
+                    KnowledgeEngineProviderCredentialError::ResponseTooLarge => {
+                        Self::service_unavailable(
+                            "provider_credential_too_large",
+                            "Provider credential exceeds the permitted size",
+                        )
                     }
                     KnowledgeEngineProviderCredentialError::Internal => {
                         Self::internal(

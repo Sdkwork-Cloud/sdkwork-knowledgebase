@@ -132,48 +132,6 @@ async fn integration_market_subscription_round_trip() {
 }
 
 #[tokio::test]
-async fn integration_site_upsert_creates_the_site_resource() {
-    let runtime = test_runtime().await;
-    let space_id = create_space(&runtime, "Knowledge Site Space").await;
-    let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
-
-    let site_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(Method::PUT)
-                .uri(paths::SPACE_SITE.replace("{space_id}", &space_id.to_string()))
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    json!({
-                        "spaceId": space_id,
-                        "title": "Knowledge Site",
-                        "visibility": "public",
-                        "homepageConceptId": null,
-                        "themeId": "default",
-                        "publishMode": "manual",
-                        "expectedVersion": null
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        site_response.status(),
-        StatusCode::OK,
-        "site upsert failed: {}",
-        response_body_string(site_response).await
-    );
-    let body = response_body_json(site_response).await;
-    assert_eq!(body["spaceId"].as_str(), Some(space_id.to_string().as_str()));
-    assert_eq!(body["title"], "Knowledge Site");
-    assert_eq!(body["visibility"], "public");
-    assert_eq!(body["publishMode"], "manual");
-}
-
-#[tokio::test]
 async fn integration_image_generation_fails_closed_without_a_media_provider() {
     let runtime = test_runtime().await;
     let space_id = create_space(&runtime, "Media Task Space").await;

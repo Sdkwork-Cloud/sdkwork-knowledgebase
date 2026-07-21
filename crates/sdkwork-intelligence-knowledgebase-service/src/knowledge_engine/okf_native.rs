@@ -211,10 +211,11 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
         _context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineSearchRequest,
     ) -> Result<KnowledgeEngineSearchResult, KnowledgeEngineError> {
-        let pages = self
-            .deps
-            .concepts
-            .list_concept_summaries(request.space_id, None)
+        let pages =
+            crate::ports::knowledge_okf_concept_store::list_all_published_concept_summaries(
+                self.deps.concepts.as_ref(),
+                request.space_id,
+            )
             .await
             .map_err(map_okf_store_error)?;
 
@@ -324,10 +325,11 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
         _context: &KnowledgeEngineExecutionContext,
         request: KnowledgeEngineReadRequest,
     ) -> Result<KnowledgeEngineDocument, KnowledgeEngineError> {
-        let pages = self
-            .deps
-            .concepts
-            .list_concept_summaries(request.space_id, None)
+        let pages =
+            crate::ports::knowledge_okf_concept_store::list_all_published_concept_summaries(
+                self.deps.concepts.as_ref(),
+                request.space_id,
+            )
             .await
             .map_err(map_okf_store_error)?;
 
@@ -391,11 +393,12 @@ impl OkfBundleEngine for OkfNativeKnowledgeEngine {
         &self,
         space_id: u64,
     ) -> Result<Vec<OkfConceptSummary>, KnowledgeEngineError> {
-        self.deps
-            .concepts
-            .list_concept_summaries(space_id, None)
-            .await
-            .map_err(map_okf_store_error)
+        crate::ports::knowledge_okf_concept_store::list_all_published_concept_summaries(
+            self.deps.concepts.as_ref(),
+            space_id,
+        )
+        .await
+        .map_err(map_okf_store_error)
     }
 
     async fn upsert_concept(

@@ -24,7 +24,6 @@ import { KnowledgeFileList } from './KnowledgeFileList';
 import { EditorPanel } from './EditorPanel';
 import { CreateKbModal } from './CreateKbModal';
 import { PublishModal } from './PublishModal';
-import { DeployWebsiteModal } from './DeployWebsiteModal';
 import { KnowledgeBaseSettingsModal } from './KnowledgeBaseSettingsModal';
 import { KnowledgeBaseMarketModal } from './KnowledgeBaseMarketModal';
 import { CloudDriveModal } from './CloudDriveModal';
@@ -123,10 +122,8 @@ export function KnowledgeBaseApp({
   
   const [isCreateKbModalOpen, setIsCreateKbModalOpen] = useState<boolean>(false);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState<boolean>(false);
-  const [isDeployModalOpen, setIsDeployModalOpen] = useState<boolean>(false);
   const [isMarketOpen, setIsMarketOpen] = useState<boolean>(false);
   const [settingsKb, setSettingsKb] = useState<KnowledgeBase | null>(null);
-  const [deployActiveKb, setDeployActiveKb] = useState<KnowledgeBase | null>(null);
   const [publishDocsContext, setPublishDocsContext] = useState<DocumentMeta[]>([]);
   const [newKbTitle, setNewKbTitle] = useState('');
   const [newKbType, setNewKbType] = useState<'team' | 'personal' | 'public'>('personal');
@@ -481,21 +478,6 @@ export function KnowledgeBaseApp({
     }
   };
 
-  const handleSaveKbDeploySettings = async (updates: Partial<KnowledgeBase>) => {
-    if (!deployActiveKb) return;
-    try {
-      const updated = await DocumentService.updateKnowledgeBase(deployActiveKb.id, updates);
-      setDeployActiveKb(updated);
-      const data = await DocumentService.getKnowledgeBases();
-      setKbs(data);
-      if (activeKb && activeKb.id === deployActiveKb.id) {
-        setActiveKb(prev => prev ? { ...prev, ...updates } : null);
-      }
-    } catch (e) {
-      toastKnowledgebaseError(e, t);
-    }
-  };
-
   const handleMenuCreate = async (actionType: string, parentId?: string, payload?: any) => {
     let titleStr = t('newDoc');
     let docType = 'richtext';
@@ -635,10 +617,6 @@ export function KnowledgeBaseApp({
           width={kbsWidth} isDragging={isDraggingKbs} onMouseDownDrag={() => setIsDraggingKbs(true)}
           onSelectKb={handleSelectKb} 
           onCreateKbSelect={(type) => { setNewKbType(type); setIsCreateKbModalOpen(true); }} 
-          onDeployKb={(kb) => {
-            setDeployActiveKb(kb);
-            setIsDeployModalOpen(true);
-          }}
           onOpenSettings={(kb) => {
             DocumentService.hydrateKnowledgeBase(kb)
               .then((hydrated) => setSettingsKb(hydrated))
@@ -809,18 +787,6 @@ export function KnowledgeBaseApp({
             setIsPublishModalOpen(false);
             navigate('/wechat-publish', { state: { documents: publishDocsContext } });
           }}
-        />
-      )}
-
-      {!isEphemeralFixedWorkspace && isDeployModalOpen && (
-        <DeployWebsiteModal 
-          isOpen={isDeployModalOpen}
-          activeKb={deployActiveKb}
-          onClose={() => {
-            setIsDeployModalOpen(false);
-            setDeployActiveKb(null);
-          }}
-          onSave={handleSaveKbDeploySettings}
         />
       )}
 

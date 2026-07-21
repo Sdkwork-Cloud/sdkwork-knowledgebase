@@ -1,9 +1,9 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
 use thiserror::Error;
 
-pub const KNOWLEDGEBASE_PROVIDER_SECRET_ENV_PREFIX: &str =
-    "SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_";
+pub const KNOWLEDGEBASE_PROVIDER_SECRET_ENV_PREFIX: &str = "SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KnowledgebaseProviderCredentialEnvironment {
@@ -14,15 +14,15 @@ pub enum KnowledgebaseProviderCredentialEnvironment {
 }
 
 impl KnowledgebaseProviderCredentialEnvironment {
-    pub fn parse(value: &str) -> Result<Self, KnowledgebaseProviderCredentialResolverConfigurationError> {
+    pub fn parse(
+        value: &str,
+    ) -> Result<Self, KnowledgebaseProviderCredentialResolverConfigurationError> {
         match value.trim().to_ascii_lowercase().as_str() {
             "development" => Ok(Self::Development),
             "test" => Ok(Self::Test),
             "staging" => Ok(Self::Staging),
             "production" => Ok(Self::Production),
-            _ => Err(
-                KnowledgebaseProviderCredentialResolverConfigurationError::InvalidEnvironment,
-            ),
+            _ => Err(KnowledgebaseProviderCredentialResolverConfigurationError::InvalidEnvironment),
         }
     }
 
@@ -46,13 +46,19 @@ impl KnowledgebaseProviderCredentialEnvironment {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KnowledgebaseProviderCredentialResolverConfig {
-    pub environment: KnowledgebaseProviderCredentialEnvironment,
-    pub local_secret_root: Option<PathBuf>,
-    pub max_credential_bytes: usize,
+    pub(crate) environment: KnowledgebaseProviderCredentialEnvironment,
+    pub(crate) local_secret_root: Option<PathBuf>,
+    pub(crate) max_credential_bytes: usize,
+    pub(crate) max_managed_resolution_duration: Duration,
+    pub(crate) max_managed_concurrency: usize,
 }
 
 impl KnowledgebaseProviderCredentialResolverConfig {
     pub const DEFAULT_MAX_CREDENTIAL_BYTES: usize = 64 * 1024;
+    pub const DEFAULT_MAX_MANAGED_RESOLUTION_DURATION: Duration = Duration::from_secs(5);
+    pub const MAX_MANAGED_RESOLUTION_DURATION: Duration = Duration::from_secs(30);
+    pub const DEFAULT_MAX_MANAGED_CONCURRENCY: usize = 32;
+    pub const MAX_MANAGED_CONCURRENCY: usize = 256;
 
     pub fn local(
         environment: KnowledgebaseProviderCredentialEnvironment,
@@ -75,6 +81,8 @@ impl KnowledgebaseProviderCredentialResolverConfig {
             environment,
             local_secret_root,
             max_credential_bytes: Self::DEFAULT_MAX_CREDENTIAL_BYTES,
+            max_managed_resolution_duration: Self::DEFAULT_MAX_MANAGED_RESOLUTION_DURATION,
+            max_managed_concurrency: Self::DEFAULT_MAX_MANAGED_CONCURRENCY,
         })
     }
 
@@ -90,6 +98,8 @@ impl KnowledgebaseProviderCredentialResolverConfig {
             environment,
             local_secret_root: None,
             max_credential_bytes: Self::DEFAULT_MAX_CREDENTIAL_BYTES,
+            max_managed_resolution_duration: Self::DEFAULT_MAX_MANAGED_RESOLUTION_DURATION,
+            max_managed_concurrency: Self::DEFAULT_MAX_MANAGED_CONCURRENCY,
         })
     }
 
@@ -103,6 +113,32 @@ impl KnowledgebaseProviderCredentialResolverConfig {
             );
         }
         self.max_credential_bytes = max_credential_bytes;
+        Ok(self)
+    }
+
+    pub fn with_max_managed_resolution_duration(
+        mut self,
+        duration: Duration,
+    ) -> Result<Self, KnowledgebaseProviderCredentialResolverConfigurationError> {
+        if duration.is_zero() || duration > Self::MAX_MANAGED_RESOLUTION_DURATION {
+            return Err(
+                KnowledgebaseProviderCredentialResolverConfigurationError::InvalidManagedResolutionTimeout,
+            );
+        }
+        self.max_managed_resolution_duration = duration;
+        Ok(self)
+    }
+
+    pub fn with_max_managed_concurrency(
+        mut self,
+        max_managed_concurrency: usize,
+    ) -> Result<Self, KnowledgebaseProviderCredentialResolverConfigurationError> {
+        if max_managed_concurrency == 0 || max_managed_concurrency > Self::MAX_MANAGED_CONCURRENCY {
+            return Err(
+                KnowledgebaseProviderCredentialResolverConfigurationError::InvalidManagedConcurrency,
+            );
+        }
+        self.max_managed_concurrency = max_managed_concurrency;
         Ok(self)
     }
 }
@@ -119,4 +155,8 @@ pub enum KnowledgebaseProviderCredentialResolverConfigurationError {
     SecretRootMustBeAbsolute,
     #[error("Knowledgebase Provider credential size limit is invalid")]
     InvalidCredentialSizeLimit,
+    #[error("Knowledgebase Provider managed credential resolution timeout is invalid")]
+    InvalidManagedResolutionTimeout,
+    #[error("Knowledgebase Provider managed credential concurrency limit is invalid")]
+    InvalidManagedConcurrency,
 }

@@ -74,12 +74,17 @@
                       "layerRole":  "backend-service",
                       "publicExports":  [
                                             ".",
-                                            "ports::knowledge_provider_binding_readiness_store::KnowledgeEngineProviderBindingReadinessStore"
+                                            "ports::knowledge_provider_binding_readiness_store::KnowledgeEngineProviderBindingReadinessStore",
+                                            "ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredentialResolver"
                                         ],
                       "providedPorts":  [
                                             {
                                                 "name":  "providerBindingReadinessStore",
                                                 "export":  "ports::knowledge_provider_binding_readiness_store::KnowledgeEngineProviderBindingReadinessStore"
+                                            },
+                                            {
+                                                "name":  "knowledgeEngineProviderCredentialResolver",
+                                                "export":  "ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredentialResolver"
                                             }
                                         ],
                       "runtimeEntrypoints":  [

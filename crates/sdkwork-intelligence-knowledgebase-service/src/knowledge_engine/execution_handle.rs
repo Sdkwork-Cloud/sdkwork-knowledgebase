@@ -101,7 +101,7 @@ impl KnowledgeEngineExecutionHandle {
             KnowledgeEngineProviderOperation::Search,
         )?;
         let engine = self
-            .engine_for_operation(KnowledgeEngineProviderOperation::Search)
+            .engine_for_operation(&context, KnowledgeEngineProviderOperation::Search)
             .await?;
         engine.search(&context, request).await
     }
@@ -118,7 +118,7 @@ impl KnowledgeEngineExecutionHandle {
             KnowledgeEngineProviderOperation::Read,
         )?;
         let engine = self
-            .engine_for_operation(KnowledgeEngineProviderOperation::Read)
+            .engine_for_operation(&context, KnowledgeEngineProviderOperation::Read)
             .await?;
         engine.read_document(&context, request).await
     }
@@ -135,13 +135,14 @@ impl KnowledgeEngineExecutionHandle {
             KnowledgeEngineProviderOperation::List,
         )?;
         let engine = self
-            .engine_for_operation(KnowledgeEngineProviderOperation::List)
+            .engine_for_operation(&context, KnowledgeEngineProviderOperation::List)
             .await?;
         engine.list_documents(&context, request).await
     }
 
     async fn engine_for_operation(
         &self,
+        context: &KnowledgeEngineExecutionContext,
         operation: KnowledgeEngineProviderOperation,
     ) -> Result<Arc<dyn KnowledgeEngine>, KnowledgeEngineError> {
         let Some(binding) = self.binding.as_ref() else {
@@ -185,10 +186,7 @@ impl KnowledgeEngineExecutionHandle {
                     resolver
                         .resolve(
                             &KnowledgeEngineProviderCredentialAccessContext::for_binding(
-                                context,
-                                binding,
-                                &reference,
-                                operation,
+                                context, binding, &reference, operation,
                             ),
                             &reference,
                         )

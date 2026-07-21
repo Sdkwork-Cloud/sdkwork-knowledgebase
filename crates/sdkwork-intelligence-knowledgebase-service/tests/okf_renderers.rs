@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex};
 fn agents_md_names_okf_layers_and_drive_storage() {
     let content = render_agents_md("Research Space");
 
+    assert!(content.starts_with("---\ntype: Agent Instructions\n"));
     assert!(content.contains("raw sources"));
     assert!(content.contains("okf/index.md"));
     assert!(content.contains("schema"));

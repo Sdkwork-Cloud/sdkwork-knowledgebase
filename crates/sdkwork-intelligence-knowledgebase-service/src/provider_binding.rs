@@ -73,7 +73,7 @@ where
         validate_management_context(context, None)?;
         self.require_executable_external_implementation(&request.implementation_id)?;
         self.credential_resolver
-            .validate_reference_locator(&request.reference_locator)?;
+            .validate_reference_locator(&request.implementation_id, &request.reference_locator)?;
         self.store
             .create_credential_reference(provider_scope(context), &context.actor_id, request)
             .await
@@ -141,8 +141,10 @@ where
             .get_credential_reference(provider_scope(context), credential_reference_id)
             .await?;
         self.require_executable_external_implementation(&credential.implementation_id)?;
-        self.credential_resolver
-            .validate_reference_locator(&request.reference_locator)?;
+        self.credential_resolver.validate_reference_locator(
+            &credential.implementation_id,
+            &request.reference_locator,
+        )?;
         self.store
             .rotate_credential_reference(
                 provider_scope(context),
@@ -409,10 +411,7 @@ where
         self.credential_resolver
             .resolve(
                 &KnowledgeEngineProviderCredentialAccessContext::for_binding(
-                    context,
-                    binding,
-                    &reference,
-                    operation,
+                    context, binding, &reference, operation,
                 ),
                 &reference,
             )

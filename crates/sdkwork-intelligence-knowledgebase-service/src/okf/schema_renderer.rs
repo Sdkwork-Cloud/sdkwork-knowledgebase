@@ -1,6 +1,12 @@
 pub fn render_agents_md(space_name: &str) -> String {
     format!(
-        r#"# AGENTS.md
+        r#"---
+type: Agent Instructions
+title: SDKWork OKF Bundle Agent Instructions
+description: Operational guidance for agents maintaining this OKF bundle.
+---
+
+# AGENTS.md
 
 You are maintaining the SDKWork OKF Knowledge Bundle for `{space_name}`.
 

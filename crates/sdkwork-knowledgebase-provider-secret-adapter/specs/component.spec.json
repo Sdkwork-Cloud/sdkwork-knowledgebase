@@ -28,7 +28,12 @@
   ],
   "contracts": {
     "layerRole": "backend-provider",
-    "publicExports": ["."],
+    "publicExports": [
+      ".",
+      "KnowledgebaseProviderCredentialResolver",
+      "KnowledgebaseProviderCredentialResolverConfig",
+      "KnowledgebaseProviderCredentialEnvironment"
+    ],
     "providedPorts": [
       {
         "name": "knowledgeEngineProviderCredentialResolver",
@@ -37,9 +42,9 @@
     ],
     "requiredPorts": [
       {
-        "name": "managedSecretProvider",
-        "export": "sdkwork_agent_kernel::SecretProvider",
-        "optional": true
+        "name": "knowledgeEngineProviderCredentialResolver",
+        "export": ".",
+        "target": "sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredentialResolver"
       }
     ],
     "runtimeEntrypoints": [
@@ -52,6 +57,12 @@
     "dependencyApiExports": [],
     "dependencyApiSurfaces": [],
     "events": ["knowledge.provider_credential.access"],
+    "managedSecretPolicy": {
+      "maxCredentialBytes": 65536,
+      "maxResolutionMilliseconds": 5000,
+      "defaultMaxConcurrency": 32,
+      "timeoutPermitRelease": "backend-return"
+    },
     "configKeys": [
       "SDKWORK_KNOWLEDGEBASE_ENVIRONMENT",
       "SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRETS_DIR"
@@ -59,7 +70,8 @@
   },
   "verification": {
     "commands": [
-      "cargo test -p sdkwork-knowledgebase-provider-secret-adapter"
+      "cargo test -p sdkwork-knowledgebase-provider-secret-adapter",
+      "cargo clippy -p sdkwork-knowledgebase-provider-secret-adapter --all-targets -- -D warnings"
     ]
   }
 }

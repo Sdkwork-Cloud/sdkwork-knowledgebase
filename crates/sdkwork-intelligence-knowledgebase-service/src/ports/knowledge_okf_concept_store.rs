@@ -5,6 +5,48 @@ use sdkwork_knowledgebase_contract::okf::{
 };
 use thiserror::Error;
 
+const OKF_INTERNAL_SCAN_PAGE_SIZE: u32 = 200;
+const MAX_OKF_INTERNAL_SCAN_ROWS: usize = 50_000;
+
+pub async fn list_all_published_concept_summaries(
+    store: &dyn KnowledgeOkfConceptStore,
+    space_id: u64,
+) -> Result<Vec<OkfConceptSummary>, KnowledgeOkfConceptStoreError> {
+    let mut items = Vec::new();
+    let mut cursor = None;
+    let max_pages = MAX_OKF_INTERNAL_SCAN_ROWS / OKF_INTERNAL_SCAN_PAGE_SIZE as usize;
+
+    for _ in 0..=max_pages {
+        let (mut page, next_cursor, has_more) = store
+            .list_concept_summaries_page(space_id, cursor.clone(), OKF_INTERNAL_SCAN_PAGE_SIZE)
+            .await?;
+        if items.len().saturating_add(page.len()) > MAX_OKF_INTERNAL_SCAN_ROWS {
+            return Err(KnowledgeOkfConceptStoreError::Internal(format!(
+                "okf internal scan exceeds {MAX_OKF_INTERNAL_SCAN_ROWS} concepts for space {space_id}"
+            )));
+        }
+        items.append(&mut page);
+        if !has_more {
+            return Ok(items);
+        }
+        let next_cursor = next_cursor.ok_or_else(|| {
+            KnowledgeOkfConceptStoreError::Internal(
+                "okf concept page reports has_more without next_cursor".to_string(),
+            )
+        })?;
+        if cursor.as_deref() == Some(next_cursor.as_str()) {
+            return Err(KnowledgeOkfConceptStoreError::Internal(
+                "okf concept cursor did not advance".to_string(),
+            ));
+        }
+        cursor = Some(next_cursor);
+    }
+
+    Err(KnowledgeOkfConceptStoreError::Internal(format!(
+        "okf internal scan exceeded the maximum page count for space {space_id}"
+    )))
+}
+
 #[async_trait]
 pub trait KnowledgeOkfConceptStore: Send + Sync {
     async fn upsert_concept(

@@ -93,9 +93,8 @@ PERFORMANCE_SPEC.md, TEST_SPEC.md, RELEASE_SPEC.md
 
 - Decision: `ADR-20260720-knowledge-engine-provider-binding-spi-v2`
 - Plan: `PLAN-2026-0720-knowledge-engine-provider-commercialization`
-- Review: `REVIEW-2026-0720-knowledge-engine-provider-commercial-readiness`
+- Review: `REVIEW-20260720-knowledge-engine-provider-commercial-readiness`
 - Current automated gates: catalog checker, SPI checker, Rust provider contract tests, route health
   tests, API/envelope/pagination validators, and repository verification.
 - Commercial exit additionally requires human architecture/security/data review and real-provider,
   PostgreSQL, load, outage, migration, rollback, licensing, and release evidence.
-

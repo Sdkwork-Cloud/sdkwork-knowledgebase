@@ -1,14 +1,14 @@
 //! Tenant business quota enforcement at the app-api boundary.
 
 use sdkwork_intelligence_knowledgebase_service::tenant_quota::{
-    TenantQuotaExceeded, TenantQuotaKind, build_quota_status, ensure_document_capacity,
+    build_quota_status, ensure_document_capacity, TenantQuotaExceeded, TenantQuotaKind,
 };
 use sdkwork_knowledgebase_contract::KnowledgeTenantQuotaStatus;
 use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
 use sdkwork_routes_knowledgebase_backend_api::knowledgebase_rate_limit_store;
 use std::time::Duration;
 
-use crate::{ApiError, ApiResult, runtime::KnowledgebaseRuntime};
+use crate::{runtime::KnowledgebaseRuntime, ApiError, ApiResult};
 
 pub(crate) fn map_tenant_quota_error(error: TenantQuotaExceeded) -> ApiError {
     let detail = match error.kind {

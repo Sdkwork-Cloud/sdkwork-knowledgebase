@@ -1,5 +1,7 @@
 # Technical Architecture Directory
 
+Proposed Live Wiki provider architecture: [TECH-live-wiki-resource-provider.md](TECH-live-wiki-resource-provider.md).
+
 This directory owns the technical architecture Canon for the repository.
 
 ## Fixed Entry

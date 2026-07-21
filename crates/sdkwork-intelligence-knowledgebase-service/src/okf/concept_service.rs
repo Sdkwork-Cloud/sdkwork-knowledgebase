@@ -236,6 +236,7 @@ impl<'a> OkfConceptService<'a> {
             actor: request.actor,
             resource: document.resource,
             timestamp: document.timestamp,
+            frontmatter_extensions: document.extensions,
         };
 
         let staged = self
@@ -452,6 +453,7 @@ impl<'a> OkfConceptService<'a> {
             resource: request.resource.clone(),
             tags: request.tags.clone(),
             timestamp: request.timestamp.clone().or_else(|| now_rfc3339().ok()),
+            extensions: request.frontmatter_extensions.clone(),
             body: request.markdown.clone(),
         };
         validate_concept_document(&concept_document, &concept_id)
@@ -625,9 +627,11 @@ impl<'a> OkfConceptService<'a> {
         space_id: u64,
         drive_space_id: Option<&str>,
     ) -> Result<(), OkfConceptServiceError> {
-        let summaries = self
-            .concept_store
-            .list_concept_summaries(space_id, None)
+        let summaries =
+            crate::ports::knowledge_okf_concept_store::list_all_published_concept_summaries(
+                self.concept_store,
+                space_id,
+            )
             .await?;
         let logs = self.concept_store.list_log_entries(space_id).await?;
         let dynamic = standard_bundle_refresh::persist_dynamic_standard_bundle_files(
@@ -691,9 +695,11 @@ impl<'a> OkfConceptService<'a> {
         let Some(link_store) = self.link_store else {
             return Ok(());
         };
-        let known = self
-            .concept_store
-            .list_concept_summaries(space_id, None)
+        let known =
+            crate::ports::knowledge_okf_concept_store::list_all_published_concept_summaries(
+                self.concept_store,
+                space_id,
+            )
             .await?
             .into_iter()
             .map(|summary| summary.concept_id)

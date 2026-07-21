@@ -11,8 +11,10 @@ type HttpRequestOptions = RequestOptions & {
 };
 
 export class HttpClient extends BaseHttpClient {
+  private static readonly API_KEY_HEADER: string = 'Access-Token';
   private static readonly ACCESS_TOKEN_HEADER: string = 'Access-Token';
-  private static readonly SDKWORK_V3_UNWRAP = true;
+  private static readonly API_KEY_USE_BEARER = false;
+  private static readonly SDKWORK_V3_UNWRAP = false;
 
   constructor(config: SdkworkAppConfig) {
     super(config as any);
@@ -201,9 +203,36 @@ export class HttpClient extends BaseHttpClient {
     }
     params.append(key, String(value));
   }
+
+  setApiKey(apiKey: string): void {
+    const authConfig = this.getInternalAuthConfig();
+    const headers = this.getInternalHeaders();
+    authConfig.apiKey = apiKey;
+    authConfig.tokenManager?.clearTokens?.();
+
+    if (HttpClient.API_KEY_HEADER === 'Authorization' && HttpClient.API_KEY_USE_BEARER) {
+      authConfig.authMode = 'apikey';
+      return;
+    }
+
+    authConfig.authMode = 'dual-token';
+    headers[HttpClient.API_KEY_HEADER] = HttpClient.API_KEY_USE_BEARER
+      ? `Bearer ${apiKey}`
+      : apiKey;
+
+    if (HttpClient.API_KEY_HEADER.toLowerCase() !== 'authorization') {
+      delete headers['Authorization'];
+    }
+  }
+
   setAuthToken(token: string): void {
+    const headers = this.getInternalHeaders();
+    if (HttpClient.API_KEY_HEADER.toLowerCase() !== 'authorization') {
+      delete headers[HttpClient.API_KEY_HEADER];
+    }
     super.setAuthToken(token);
   }
+
   setAccessToken(token: string): void {
     const headers = this.getInternalHeaders();
     headers[HttpClient.ACCESS_TOKEN_HEADER] = token;

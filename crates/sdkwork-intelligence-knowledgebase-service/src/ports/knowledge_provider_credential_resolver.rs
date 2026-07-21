@@ -85,6 +85,7 @@ impl KnowledgeEngineProviderCredentialAccessContext {
 pub trait KnowledgeEngineProviderCredentialResolver: Send + Sync {
     fn validate_reference_locator(
         &self,
+        implementation_id: &str,
         reference_locator: &str,
     ) -> Result<(), KnowledgeEngineProviderCredentialError>;
 

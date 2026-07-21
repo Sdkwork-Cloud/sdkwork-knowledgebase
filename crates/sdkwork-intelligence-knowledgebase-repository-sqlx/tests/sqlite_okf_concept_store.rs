@@ -8,9 +8,9 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_object_re
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_store::UpsertKnowledgeOkfCandidateRecord;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::{
-    AppendKnowledgeOkfLogEntryRecord, CreateKnowledgeOkfConceptRevisionRecord,
-    KnowledgeOkfConceptStore, MarkKnowledgeOkfConceptCurrentRevisionRecord,
-    UpsertKnowledgeOkfConceptRecord,
+    list_all_published_concept_summaries, AppendKnowledgeOkfLogEntryRecord,
+    CreateKnowledgeOkfConceptRevisionRecord, KnowledgeOkfConceptStore,
+    MarkKnowledgeOkfConceptCurrentRevisionRecord, UpsertKnowledgeOkfConceptRecord,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::okf_concept_revision_metadata_store::{
     OkfConceptRevisionMetadataStore, StageOkfConceptRevisionMetadataRecord,
@@ -182,6 +182,54 @@ async fn sqlite_okf_concept_store_pages_205_published_concepts_by_concept_id() {
         .map(|item| item.concept_id)
         .collect::<Vec<_>>();
     assert_eq!(actual_ids, expected_ids);
+
+    let all_items = list_all_published_concept_summaries(&concepts, 7)
+        .await
+        .expect("bounded internal concept scan");
+    assert_eq!(all_items.len(), 205);
+    assert_eq!(
+        all_items
+            .into_iter()
+            .map(|item| item.concept_id)
+            .collect::<Vec<_>>(),
+        expected_ids
+    );
+}
+
+#[tokio::test]
+async fn sqlite_okf_log_projection_keeps_the_latest_200_entries() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    insert_space(&pool, 9001, 7).await;
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9001);
+
+    for index in 0..205 {
+        concepts
+            .append_log_entry(AppendKnowledgeOkfLogEntryRecord {
+                space_id: 7,
+                event_type: OkfLogEventType::Publish.as_str().to_string(),
+                event_time: "2026-07-21T12:00:00Z".to_string(),
+                title: format!("event-{index:03}"),
+                actor: "system".to_string(),
+                affected_concepts: vec![],
+                audit_event_id: None,
+                warnings: vec![],
+                privacy_level: "internal".to_string(),
+            })
+            .await
+            .unwrap();
+    }
+
+    let logs = concepts.list_log_entries(7).await.unwrap();
+    assert_eq!(logs.len(), 200);
+    assert_eq!(
+        logs.first().map(|entry| entry.title.as_str()),
+        Some("event-204")
+    );
+    assert_eq!(
+        logs.last().map(|entry| entry.title.as_str()),
+        Some("event-005")
+    );
 }
 
 #[tokio::test]

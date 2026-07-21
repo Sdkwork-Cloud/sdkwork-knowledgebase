@@ -223,11 +223,6 @@ function buildKnowledgeBase(
     icon: space.icon ?? '📘',
     type: space.kbType,
     avatar: space.avatar,
-    isDeployed: space.isDeployed,
-    deployedUrl: space.deployedUrl,
-    customDomain: space.customDomain,
-    siteName: space.siteName,
-    siteLogo: space.siteLogo,
   };
 }
 
@@ -398,21 +393,6 @@ export async function updateKnowledgeBase(
   if (updates.avatar !== undefined) {
     registryPatch.avatar = updates.avatar;
   }
-  if (updates.isDeployed !== undefined) {
-    registryPatch.isDeployed = updates.isDeployed;
-  }
-  if (updates.deployedUrl !== undefined) {
-    registryPatch.deployedUrl = updates.deployedUrl;
-  }
-  if (updates.customDomain !== undefined) {
-    registryPatch.customDomain = updates.customDomain;
-  }
-  if (updates.siteName !== undefined) {
-    registryPatch.siteName = updates.siteName;
-  }
-  if (updates.siteLogo !== undefined) {
-    registryPatch.siteLogo = updates.siteLogo;
-  }
   if (Object.keys(registryPatch).length > 0) {
     updateRegisteredSpace(tenantId, spaceId, registryPatch);
   }
@@ -427,11 +407,6 @@ export async function updateKnowledgeBase(
     icon: registry?.icon ?? '📘',
     type: registry?.kbType ?? 'personal',
     avatar: registry?.avatar,
-    isDeployed: registry?.isDeployed,
-    deployedUrl: registry?.deployedUrl,
-    customDomain: registry?.customDomain,
-    siteName: registry?.siteName,
-    siteLogo: registry?.siteLogo,
     ...modelSettings,
     ...permissionSettings,
   };

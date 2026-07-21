@@ -127,18 +127,34 @@ never access persistence or credentials outside approved ports.
 
 ## Implementation Status
 
-As of 2026-07-20, the application resolves each space to a
+As of 2026-07-21, the application resolves each space to a
 `KnowledgeEngineExecutionHandle`. Search, read, and list validate immutable request-derived tenant,
 organization, actor, permission, data scope, space, binding, trace, and deadline before engine
 execution. The handle injects the persisted active Binding, resolves its current write-only
 credential reference only after authorization, and passes a one-time
 `KnowledgeEngineProviderCredential` to `bind_provider`. The secret type is non-serializable,
-redacts `Debug`, and zeroizes its owned value on drop. The default resolver accepts validated
-`env://UPPERCASE_VARIABLE` and bounded regular `file://` references and rejects unknown schemes
-without echoing locators. Credential-reference create and rotate commands validate locator syntax
-before persistence without loading the secret. There is no secret cache, so every authorized
-operation observes the current reference and cannot serve a stale cached credential after rotation
-or revocation.
+redacts `Debug`, and zeroizes its owned value on drop. Resolution now receives a typed immutable
+access context containing tenant, organization, space, Binding, credential-reference id/version,
+implementation, actor, operation, trace, and deadline. The dedicated
+`sdkwork-knowledgebase-provider-secret-adapter` owns secret access outside the route crate.
+Development and test accept only
+`env://SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_<PROVIDER_CODE>_*` or regular
+`file://` values whose canonical real path remains under
+`SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRETS_DIR/<provider-code>/`; unrelated process variables,
+cross-Provider references, traversal, and symlink escape fail closed. Staging and production accept only
+`secret://knowledgebase/provider/...` through an injected
+`sdkwork_agent_kernel::SecretProvider`. Default production construction fails before database
+startup when no approved resolver is injected. Managed results require a non-empty Provider audit
+record, are capped at 64 KiB, and use one five-second-or-shorter request budget across bounded
+bulkhead admission and backend execution. Managed resolution defaults to 32 concurrent calls; a
+timed-out synchronous backend call retains its permit until it actually returns, preventing
+unbounded background task growth. File buffers and intermediate plaintext are zeroized on success
+and error paths. Resolution emits sanitized structured access telemetry with fixed outcomes and
+without locator,
+secret id, or secret value. Credential-reference create and rotate commands validate the active
+environment policy before persistence without loading the secret. There is no secret cache, so
+every authorized operation observes the current reference and cannot serve a stale cached
+credential after rotation or revocation.
 
 All ten executable adapters revalidate request tenant/space through
 `ProviderExecutionContext::from_knowledge_engine_request` before Provider Runtime HTTP and obtain
@@ -187,8 +203,9 @@ Provider has live evidence attached, so `liveCertifiedCount` remains zero.
 
 The backend management UI is now implemented as a dedicated PC internal-admin Provider package with
 composed backend SDK services, cursor pagination, capability/lifecycle guards, write-only locator
-forms, permission boundaries, and sanitized states. This is not production completion. Production
-secret-manager/KMS resolver and credential procedures, authenticated operator browser acceptance,
+forms, permission boundaries, and sanitized states. This is not production completion. A concrete
+production secret-manager/KMS backend with bounded TLS transport, durable audit retention,
+rotation/revocation procedures and drill evidence, authenticated operator browser acceptance,
 release PostgreSQL evidence, live Provider
 certification, load/SLO evidence, supply-chain evidence, and rollout/rollback proof remain open
 gates. Hosted Provider tests create explicit `draft -> testing -> active` Bindings; no production

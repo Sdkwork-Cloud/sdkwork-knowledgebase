@@ -53,12 +53,4 @@ pub const WECHAT_ARTICLES_PREVIEW: &str = "/app/v3/api/knowledge/wechat/articles
 pub const MARKET_LISTINGS: &str = "/app/v3/api/knowledge/market/listings";
 pub const MARKET_SUBSCRIPTIONS: &str = "/app/v3/api/knowledge/market/subscriptions";
 pub const MARKET_SUBSCRIPTION: &str = "/app/v3/api/knowledge/market/subscriptions/{listing_id}";
-pub const SPACE_SITE: &str = "/app/v3/api/knowledge/spaces/{space_id}/site";
-pub const SITE_RELEASES: &str = "/app/v3/api/knowledge/sites/{site_id}/releases";
-pub const SITE_RELEASE: &str = "/app/v3/api/knowledge/site_releases/{release_id}";
-pub const SITE_RELEASE_ROLLBACKS: &str = "/app/v3/api/knowledge/sites/{site_id}/rollbacks";
-pub const SITE_HOST_BINDINGS: &str =
-    "/app/v3/api/knowledge/sites/{site_id}/host_bindings";
-pub const SITE_HOST_BINDING: &str =
-    "/app/v3/api/knowledge/sites/{site_id}/host_bindings/{binding_id}";
 pub const MEDIA_TASKS: &str = "/app/v3/api/knowledge/media_tasks";

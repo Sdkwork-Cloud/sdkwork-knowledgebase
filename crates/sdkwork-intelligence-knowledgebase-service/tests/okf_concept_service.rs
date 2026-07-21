@@ -83,6 +83,7 @@ async fn okf_concept_service_publishes_concept_and_rebuilds_standard_files() {
                 actor: "system".to_string(),
                 resource: None,
                 timestamp: None,
+                frontmatter_extensions: Default::default(),
             },
             Some("drv-kb-001"),
         )
@@ -108,9 +109,16 @@ async fn okf_concept_service_publishes_concept_and_rebuilds_standard_files() {
 
     let published_body = drive.body_at("okf/entities/entity-name.md").unwrap();
     assert!(published_body.starts_with("---\n"));
-    assert!(published_body.contains("type: Entity"));
-    assert!(published_body.contains("title: \"Entity Name\""));
-    assert!(published_body.contains("description: \"Entity summary.\""));
+    let published_document =
+        sdkwork_intelligence_knowledgebase_service::okf::parse_okf_markdown(&published_body)
+            .unwrap()
+            .unwrap();
+    assert_eq!(published_document.concept_type, "Entity");
+    assert_eq!(published_document.title.as_deref(), Some("Entity Name"));
+    assert_eq!(
+        published_document.description.as_deref(),
+        Some("Entity summary.")
+    );
     assert!(published_body.contains("# Entity Name\n\nA durable synthesis."));
     assert!(object_refs
         .ref_by_path("okf/entities/entity-name.md")
@@ -184,6 +192,76 @@ async fn bundle_import_fails_fast_on_conformance_errors_without_persisting_valid
     assert_eq!(concepts.concept_count(), 0);
     assert_eq!(concepts.revision_count(), 0);
     assert_eq!(candidates.count(), 0);
+}
+
+#[tokio::test]
+async fn bundle_import_rejects_canonical_collisions_and_preserves_extensions() {
+    let drive = MemoryDrive::default();
+    let object_refs = MemoryObjectRefStore::default();
+    let concepts = MemoryOkfConceptStore::default();
+    let revision_metadata = MemoryOkfConceptRevisionMetadataStore {
+        object_refs: &object_refs,
+        concepts: &concepts,
+        candidates: None,
+    };
+    let importer = OkfBundleImporterService::new(OkfConceptService::new(
+        &drive,
+        &revision_metadata,
+        &concepts,
+    ));
+
+    let collision = importer
+        .import_bundle(
+            ImportOkfBundleRequest {
+                space_id: 7,
+                actor: "tester".to_string(),
+                publish: true,
+                files: vec![
+                    ImportOkfBundleFile {
+                        bundle_relative_path: "Tables/Users.md".to_string(),
+                        markdown: "---\ntype: Entity\n---\nUppercase path\n".to_string(),
+                    },
+                    ImportOkfBundleFile {
+                        bundle_relative_path: "tables/users.md".to_string(),
+                        markdown: "---\ntype: Entity\n---\nLowercase path\n".to_string(),
+                    },
+                ],
+            },
+            None,
+        )
+        .await
+        .unwrap_err();
+    assert!(collision
+        .to_string()
+        .contains("canonical concept id collision"));
+    assert_eq!(concepts.concept_count(), 0);
+    assert_eq!(drive.object_count(), 0);
+
+    importer
+        .import_bundle(
+            ImportOkfBundleRequest {
+                space_id: 7,
+                actor: "tester".to_string(),
+                publish: true,
+                files: vec![ImportOkfBundleFile {
+                    bundle_relative_path: "entities/customer.md".to_string(),
+                    markdown: "---\ntype: Entity\nowner:\n  team: platform\nconfidence: 0.95\n---\nCustomer body\n"
+                        .to_string(),
+                }],
+            },
+            None,
+        )
+        .await
+        .expect("extension-preserving import");
+
+    let stored = drive
+        .body_at("okf/entities/customer.md")
+        .expect("published concept markdown");
+    let parsed = sdkwork_intelligence_knowledgebase_service::okf::parse_okf_markdown(&stored)
+        .unwrap()
+        .unwrap();
+    assert_eq!(parsed.extensions["confidence"], serde_json::json!(0.95));
+    assert_eq!(parsed.extensions["owner"]["team"], "platform");
 }
 
 #[tokio::test]
@@ -435,6 +513,7 @@ async fn export_bundle_round_trips_through_drive_import_inbox() {
                 actor: "author".to_string(),
                 resource: None,
                 timestamp: None,
+                frontmatter_extensions: Default::default(),
             },
             Some("drv-kb-001"),
         )
@@ -607,6 +686,7 @@ async fn okf_concept_service_requires_drive_space_when_workspace_enabled() {
                 actor: "system".to_string(),
                 resource: None,
                 timestamp: None,
+                frontmatter_extensions: Default::default(),
             },
             None,
         )

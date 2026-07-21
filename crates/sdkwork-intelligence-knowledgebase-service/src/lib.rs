@@ -27,7 +27,6 @@ pub mod public_web_search;
 pub mod rag;
 pub mod retrieval;
 pub mod service;
-pub mod site;
 pub mod space;
 pub mod tenant_quota;
 pub mod wechat;

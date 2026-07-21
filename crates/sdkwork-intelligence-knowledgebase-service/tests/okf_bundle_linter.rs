@@ -40,6 +40,7 @@ async fn bundle_linter_reports_broken_links_and_orphans() {
         resource: None,
         tags: vec![],
         timestamp: None,
+        extensions: Default::default(),
         body: "See [missing](entities/missing.md).".to_string(),
     });
     drive.put("okf/entities/a.md", &markdown).await;
@@ -82,6 +83,7 @@ async fn bundle_linter_reports_broken_links_and_orphans() {
                 resource: None,
                 tags: vec![],
                 timestamp: None,
+                extensions: Default::default(),
                 body: "Standalone.".to_string(),
             }),
         )

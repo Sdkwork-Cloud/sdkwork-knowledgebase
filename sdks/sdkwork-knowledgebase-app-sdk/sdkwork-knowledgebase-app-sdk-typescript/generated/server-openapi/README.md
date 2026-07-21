@@ -1,49 +1,65 @@
 # sdkwork-knowledgebase-app-sdk
 
-Generated SDKWork v3 dual-token transport SDK.
+Professional TypeScript SDK for SDKWork API.
 
 ## Installation
 
 ```bash
-npm install @sdkwork/knowledgebase-app-sdk
+npm install sdkwork-knowledgebase-app-sdk-generated-typescript
 # or
-yarn add @sdkwork/knowledgebase-app-sdk
+yarn add sdkwork-knowledgebase-app-sdk-generated-typescript
 # or
-pnpm add @sdkwork/knowledgebase-app-sdk
+pnpm add sdkwork-knowledgebase-app-sdk-generated-typescript
 ```
 
 ## Quick Start
 
 ```typescript
-import { SdkworkKnowledgebaseAppClient } from '@sdkwork/knowledgebase-app-sdk';
+import { SdkworkAppClient } from 'sdkwork-knowledgebase-app-sdk-generated-typescript';
 
-const client = new SdkworkKnowledgebaseAppClient({
+const client = new SdkworkAppClient({
   baseUrl: '/app/v3/api',
   timeout: 30000,
 });
 
-// Authentication
-client.setAuthToken('your-auth-token');
-client.setAccessToken('your-access-token');
+// Mode A: API Key (recommended for server-to-server calls)
+client.setApiKey('your-api-key');
 
 // Use the SDK
-const result = await client.knowledge.okf.bundle.index.list();
+const result = await client.knowledge.okfBundleIndexList();
 ```
 
-## Authentication
+## Authentication Modes (Mutually Exclusive)
 
-```text
-Authorization: Bearer <authToken>
-Access-Token: <accessToken>
+Choose exactly one mode for the same client instance.
+
+### Mode A: API Key
+
+```typescript
+const client = new SdkworkAppClient({ baseUrl: '/app/v3/api' });
+client.setApiKey('your-api-key');
+// Sends: Access-Token: <apiKey>
 ```
 
+### Mode B: Dual Token
+
+```typescript
+const client = new SdkworkAppClient({ baseUrl: '/app/v3/api' });
+client.setAuthToken('your-auth-token');
+client.setAccessToken('your-access-token');
+// Sends:
+// Authorization: Bearer <authToken>
+// Access-Token: <accessToken>
+```
+
+> Do not call `setApiKey(...)` together with `setAuthToken(...)` + `setAccessToken(...)` on the same client.
 
 ## Configuration (Non-Auth)
 
 ```typescript
-import { SdkworkKnowledgebaseAppClient } from '@sdkwork/knowledgebase-app-sdk';
+import { SdkworkAppClient } from 'sdkwork-knowledgebase-app-sdk-generated-typescript';
 
-const client = new SdkworkKnowledgebaseAppClient({
+const client = new SdkworkAppClient({
   baseUrl: '/app/v3/api',
   timeout: 30000, // Request timeout in ms
   headers: {      // Custom headers
@@ -62,16 +78,16 @@ const client = new SdkworkKnowledgebaseAppClient({
 
 ```typescript
 // Retrieve the OKF bundle index
-const result = await client.knowledge.okf.bundle.index.list();
+const result = await client.knowledge.okfBundleIndexList();
 ```
 
 ## Error Handling
 
 ```typescript
-import { SdkworkKnowledgebaseAppClient, NetworkError, TimeoutError, AuthenticationError } from '@sdkwork/knowledgebase-app-sdk';
+import { SdkworkAppClient, NetworkError, TimeoutError, AuthenticationError } from 'sdkwork-knowledgebase-app-sdk-generated-typescript';
 
 try {
-  const result = await client.knowledge.okf.bundle.index.list();
+  const result = await client.knowledge.okfBundleIndexList();
 } catch (error) {
   if (error instanceof AuthenticationError) {
     console.error('Authentication failed:', error.message);
@@ -108,7 +124,7 @@ This SDK includes cross-platform publish scripts in `bin/`:
 .\bin\publish.ps1 --action publish --channel test --dry-run
 ```
 
-> Configure npm registry credentials before release publish.
+> Set `NPM_TOKEN` (and optional `NPM_REGISTRY_URL`) before release publish.
 
 ## License
 

@@ -217,11 +217,54 @@
   "credentialBoundary": {
     "referenceAuthority": "kb_provider_credential_reference referenced by kb_provider_binding.credential_reference_id",
     "resolverPort": "KnowledgeEngineProviderCredentialResolver",
+    "resolverComponent": "crates/sdkwork-knowledgebase-provider-secret-adapter",
     "resolvedSecretType": "KnowledgeEngineProviderCredential",
-    "supportedRuntimeSchemes": [
-      "env://UPPERCASE_VARIABLE",
-      "file://absolute-regular-file"
+    "accessContextType": "KnowledgeEngineProviderCredentialAccessContext",
+    "accessContextFields": [
+      "tenant_id",
+      "organization_id",
+      "space_id",
+      "binding_id",
+      "credential_reference_id",
+      "credential_reference_version",
+      "implementation_id",
+      "actor_id",
+      "operation",
+      "trace_id",
+      "deadline_unix_ms"
     ],
+    "supportedRuntimeSchemes": [
+      {
+        "scheme": "env://SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_<PROVIDER_CODE>_*",
+        "environments": ["development", "test"],
+        "constraint": "The exact uppercase variable must use the Knowledgebase Provider secret namespace and normalized implementation code. Unrelated process and cross-Provider environment variables are rejected."
+      },
+      {
+        "scheme": "file://",
+        "environments": ["development", "test"],
+        "constraint": "The absolute regular file must resolve under SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRETS_DIR/<provider-code>/ after canonical real-path evaluation; traversal, cross-Provider selection, and symlink escape are rejected."
+      },
+      {
+        "scheme": "secret://knowledgebase/provider/...",
+        "environments": ["staging", "production"],
+        "constraint": "Resolution requires an injected sdkwork_agent_kernel::SecretProvider. Default production-like runtime construction fails closed without an approved resolver."
+      }
+    ],
+    "maxCredentialBytes": 65536,
+    "maxManagedResolutionMilliseconds": 5000,
+    "defaultMaxManagedConcurrency": 32,
+    "managedTimeoutSemantics": "The five-second or request-deadline bound is one total budget across bulkhead admission and SecretProvider execution.",
+    "managedBlockingCallPolicy": "A timed-out synchronous SecretProvider call retains its owned bulkhead permit until the backend returns, preventing unbounded background task growth; production backends must still enforce their own connect and request timeouts.",
+    "managedProviderPort": "sdkwork_agent_kernel::SecretProvider",
+    "telemetryOutcomes": [
+      "granted",
+      "invalid_reference",
+      "access_denied",
+      "unavailable",
+      "response_too_large",
+      "internal"
+    ],
+    "managedProviderStatus": "Injection, context propagation, bounded results, sanitized failures, and no-cache rotation semantics are implemented. A concrete production Vault/KMS backend, transport timeout/TLS proof, audit retention, and rotation/revocation drill evidence remain release gates.",
     "requiredCredentialProviders": [
       "dify",
       "ragflow",
@@ -242,14 +285,22 @@
       "redacted Debug",
       "non-serializable secret value",
       "zeroize on Drop",
-      "sanitized typed failures"
+      "zeroize intermediate plaintext on success and error paths",
+      "sanitized typed failures",
+      "managed Secret Provider audit record required",
+      "sanitized structured access telemetry without locator, secret id, or secret value"
     ],
     "forbidden": [
       "startup credential reads in adapter config",
       "credential file environment aliases",
+      "unrelated process environment variable lookup",
+      "credential locator for another Provider implementation",
+      "file resolution outside the approved canonical secret root",
+      "env:// or file:// in staging or production",
       "credential lookup before authenticated scope validation",
       "plaintext credential persistence",
       "secret or locator logging",
+      "unbounded managed SecretProvider concurrency",
       "unknown reference scheme fallback"
     ]
   },

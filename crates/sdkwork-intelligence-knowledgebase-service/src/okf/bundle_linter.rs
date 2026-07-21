@@ -52,9 +52,11 @@ impl<'a> OkfBundleLinterService<'a> {
         space_id: u64,
         drive_space_id: Option<&str>,
     ) -> Result<OkfBundleLintReport, OkfBundleLinterError> {
-        let concepts = self
-            .concept_store
-            .list_concept_summaries(space_id, None)
+        let concepts =
+            crate::ports::knowledge_okf_concept_store::list_all_published_concept_summaries(
+                self.concept_store,
+                space_id,
+            )
             .await?;
         let known = concepts
             .iter()

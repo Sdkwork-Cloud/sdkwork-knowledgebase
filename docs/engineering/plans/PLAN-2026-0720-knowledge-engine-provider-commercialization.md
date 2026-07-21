@@ -65,8 +65,17 @@ unbounded body exposure.
   actor and trace, and adapter clients cannot fabricate business execution contexts.
 - [x] Resolve write-only credential references only after execution-handle authorization. All ten
   adapters consume one-time redacted/zeroized secrets through `bind_provider`; startup config never
-  reads credentials; env/file locators fail closed; no secret cache exists; aggregate health is
-  Binding-aware; authorization-order and zero-secret regression tests are executable.
+  reads credentials. A typed tenant/organization/space/Binding/credential-version/actor/operation/
+  trace/deadline context reaches the resolver. Development/test environment variables are
+  Knowledgebase- and implementation-namespaced; files are confined to a canonical per-Provider root
+  with cross-Provider and symlink escape rejection;
+  staging/production local sources fail closed; managed results require an audit record identifier,
+  are 64 KiB bounded, and share one five-second-or-shorter request budget across a 32-call default
+  concurrency bulkhead and backend execution. Timed-out synchronous calls retain their permit until
+  backend return, preventing unbounded background work; file buffers and intermediate plaintext are
+  zeroized on all exits, and telemetry uses fixed safe outcomes. No secret cache exists; aggregate
+  health is Binding-aware; authorization-order,
+  isolation, sanitization, rotation, revocation and zero-secret regression tests are executable.
 - [x] Implement credential-reference create/list/retrieve/rotate/revoke management operations with
   pre-persistence locator validation, optimistic versions, resource/version-fenced mutation audit,
   secret-safe read models, and immediate fail-closed revocation. Audit persistence accepts only
@@ -75,7 +84,10 @@ unbounded body exposure.
   cache is introduced; the current no-cache policy takes effect on every operation.
 - [x] Implement space-scoped Binding list/retrieve/create/update/test/activate/disable operations
   through authored OpenAPI and regenerated TypeScript/Rust backend SDKs.
-- [ ] Inject a production secret-manager/KMS resolver and complete credential operator runbooks.
+- [ ] Integrate an approved production secret-manager/KMS backend through the implemented resolver
+  injection boundary; prove TLS and request/connect timeouts, durable audit retention, least-
+  privilege policy, availability, rotation/revocation drills, and complete credential operator
+  runbooks. Generic injection and local contract tests do not close this gate.
 - [x] Implement Provider migrate control-plane operations through the recoverable migration worker
   and generated TypeScript/Rust backend SDKs. Provider sync remains capability-gated on each
   adapter and is not represented as a fake migration data-copy operation.
@@ -163,16 +175,25 @@ documentation claiming more than the evidence proves.
   `node tools/check_external_knowledge_engine_catalog.mjs`: passed; the latter validates 12 catalog
   vendors and all executable adapter credential boundaries.
 - SDKWork response envelope, pagination, SDK ownership/consumer imports, application layering, Rust
-  composition, component port, and identity naming checks: passed. Root `pnpm check` is green and
-  API/route-manifest materialization is idempotent.
+  composition, component port, documentation, diff hygiene, and identity naming checks: passed.
+  Root `pnpm check` currently stops in API materialization because concurrent site-publication route
+  changes have not regenerated
+  `sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json`. The
+  Provider SPI check passes independently; this task does not run the mutating materializer for an
+  unaccepted public API change.
 - `check-api-operation-patterns.mjs` remains red because
   `POST /backend/v3/api/knowledge/okf/index/rebuild` is still exposed as `create` with `201` instead
   of the standard `rebuild` command with `200` or async `202`; public naming review is required
   before changing the authored route, OpenAPI, and generated SDK surface.
-- `pnpm test` reaches the topology suite but remains red because
-  `deployments/docker/Dockerfile.api` still builds the retired standalone-gateway crate/binary name;
-  changing production deployment config requires human review. Frontend, security, observability,
-  launch-runbook, E2E guard, database-contract, and SDK-ownership suites pass independently.
+- Locked route test-target compilation reaches all Provider/service/repository/route dependencies,
+  then stops because concurrent site-publication changes removed `paths::SPACE_SITE` while
+  `tests/integration_commerce_routes.rs` still references it. The security suite passes `28/29` and
+  is separately red because the same concurrent work removed `hosted_upload.rs` while its
+  upload-session ACL assertion remains. These public API/security test conflicts are not guessed,
+  bypassed, or deleted under ADR-20260720.
+- The source-config validator remains red because `etc/README.md` and the deployment profile index
+  are absent, retired `configs/` remains an authority, and concrete environment URLs remain in the
+  app manifest. Production configuration migration requires human review.
 - Live browser/open/backend API smoke tests were skipped because no release-environment URLs and
   credentials were configured. Evidence scope remains implementation/contract only and does not
   satisfy live Provider certification, production PostgreSQL, migration/rollback, load/SLO,
@@ -184,10 +205,15 @@ documentation claiming more than the evidence proves.
   seven space-scoped Binding, and four space-scoped migration operations. Every operation uses dual-token
   `WebRequestContext`, `knowledge.platform.manage`, standard SDKWork v3 envelopes, numeric
   `ProblemDetail` errors, mutation audit, and cursor pagination where applicable.
-- Credential create/rotate validates `env://UPPERCASE_VARIABLE` or syntactically valid `file://`
-  locators before persistence without loading a secret. Read/list responses have no locator or
-  fingerprint field. Rotation and revocation are version-fenced; revoked references cannot be
-  resolved or rotated.
+- Credential create/rotate applies the runtime environment policy before persistence without
+  loading a secret. Development/test accepts only
+  `env://SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_<PROVIDER_CODE>_*` or a syntactically valid
+  `file://` path under the configured per-Provider root; resolution repeats canonical containment
+  and rejects cross-Provider selection or symlink escape.
+  Staging/production accepts only `secret://knowledgebase/provider/...` through an injected managed
+  provider and the default constructor fails closed without one. Read/list responses have no
+  locator or fingerprint field. Rotation and revocation are version-fenced; the no-cache resolver
+  observes the current version on every authorized operation.
 - `cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx --test provider_binding_store`
   passes `3/3`, covering tenant/organization isolation, store-level pagination, stale versions,
   rotation, revocation, and fail-closed resolution.
@@ -280,11 +306,14 @@ documentation claiming more than the evidence proves.
 - The Provider Binding readiness Worker binary passes locked Cargo check. All ten executable
   Provider crates pass all-target Clippy with warnings denied; the remaining five static-message
   `format!` calls were removed without lint suppressions.
-- Root `pnpm check`, component-port binding, pagination, and diff hygiene pass. Root `pnpm test`
-  remains blocked outside the Provider boundary by the retired gateway name in the production
-  Dockerfile. A concurrent, not-yet-accepted site-publication change also removed the upload-session
-  implementation while a security test still asserts it; neither production deployment governance
-  nor that public API decision is changed under this ADR.
+- Provider SPI, all ten re-fingerprinted contract certifications, component-port binding,
+  application layering, Rust backend composition, pagination, locked Rust checks, strict Clippy and
+  diff hygiene pass. Root `pnpm check` is red on concurrent live-wiki terminology; root `pnpm test`
+  passes topology and frontend before stopping on stale Drive import contract test fields. A
+  concurrent, not-yet-accepted site-publication change also removed the upload-session
+  implementation while a security test still asserts it. Source configuration requires a reviewed
+  `configs/`/manifest-to-`etc/` migration. None of those production configuration or public API
+  decisions is changed under this ADR.
 
 ## 2026-07-20 Provider Management UI Evidence
 

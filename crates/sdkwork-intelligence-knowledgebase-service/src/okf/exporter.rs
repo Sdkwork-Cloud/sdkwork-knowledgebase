@@ -64,9 +64,11 @@ impl<'a> OkfBundleExporterService<'a> {
         let export_root = format!("output/exports/{export_type}/{}", request.space_id);
         let paths = OkfBundlePaths::default();
         let mut exported_files = Vec::new();
-        let concepts = self
-            .concept_store
-            .list_concept_summaries(request.space_id, None)
+        let concepts =
+            crate::ports::knowledge_okf_concept_store::list_all_published_concept_summaries(
+                self.concept_store,
+                request.space_id,
+            )
             .await?;
 
         exported_files.push(
@@ -122,7 +124,9 @@ impl<'a> OkfBundleExporterService<'a> {
         for concept in concepts {
             let content =
                 read_managed_markdown(self.drive, &concept.logical_path, drive_space_id).await?;
-            let export_path = format!("{export_root}/{}", concept.bundle_relative_path);
+            let bundle_relative_path =
+                validate_export_relative_path(&concept.bundle_relative_path)?;
+            let export_path = format!("{export_root}/{bundle_relative_path}");
             let body = strip_sdkwork_frontmatter(&content);
             self.drive
                 .put_object(
@@ -143,9 +147,13 @@ impl<'a> OkfBundleExporterService<'a> {
                 let Some(logical_path) = object_ref.logical_path.as_deref() else {
                     continue;
                 };
-                let raw_relative_path = logical_path
-                    .strip_prefix("sources/raw/")
-                    .unwrap_or(logical_path);
+                let raw_relative_path =
+                    logical_path.strip_prefix("sources/raw/").ok_or_else(|| {
+                        OkfBundleExporterError::InvalidRequest(format!(
+                            "source object path must be rooted under sources/raw: {logical_path}"
+                        ))
+                    })?;
+                let raw_relative_path = validate_export_relative_path(raw_relative_path)?;
                 let body =
                     read_managed_object_bytes(self.drive, logical_path, drive_space_id).await?;
                 let export_path = format!("{export_root}/raw/{raw_relative_path}");
@@ -221,7 +229,11 @@ standardFiles:
 {file_lines}"#,
         file_lines = files
             .iter()
-            .map(|path| format!("  - \"{path}\""))
+            .map(|path| {
+                let quoted = serde_json::to_string(path)
+                    .unwrap_or_else(|_| "\"invalid-export-path\"".to_string());
+                format!("  - {quoted}")
+            })
             .collect::<Vec<_>>()
             .join("\n")
     )
@@ -236,6 +248,32 @@ fn bundle_relative_path_from_export(export_root: &str, export_path: &str) -> Str
         .unwrap_or(normalized_path.as_str())
         .trim_start_matches('/')
         .to_string()
+}
+
+fn validate_export_relative_path(path: &str) -> Result<String, OkfBundleExporterError> {
+    let normalized = path.trim().replace('\\', "/");
+    if normalized.is_empty()
+        || normalized.len() > 1024
+        || normalized.starts_with('/')
+        || normalized.ends_with('/')
+    {
+        return Err(OkfBundleExporterError::InvalidRequest(format!(
+            "invalid export-relative path: {normalized}"
+        )));
+    }
+    for segment in normalized.split('/') {
+        if segment.is_empty()
+            || segment == "."
+            || segment == ".."
+            || segment.len() > 255
+            || segment.chars().any(char::is_control)
+        {
+            return Err(OkfBundleExporterError::InvalidRequest(format!(
+                "unsafe export-relative path: {normalized}"
+            )));
+        }
+    }
+    Ok(normalized)
 }
 
 async fn export_standard_file(
@@ -315,5 +353,11 @@ mod tests {
             ),
             "tables/users.md"
         );
+    }
+
+    #[test]
+    fn export_relative_paths_reject_traversal() {
+        assert!(validate_export_relative_path("../governance/secret.md").is_err());
+        assert!(validate_export_relative_path("tables/users.md").is_ok());
     }
 }

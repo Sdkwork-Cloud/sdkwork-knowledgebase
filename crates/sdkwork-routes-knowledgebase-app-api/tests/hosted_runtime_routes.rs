@@ -155,7 +155,10 @@ async fn hosted_backend_provider_management_is_scoped_versioned_and_secret_safe(
     clear_external_adapter_env();
     let _dify_base_url =
         TempEnvVar::set("SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL", "http://127.0.0.1:9");
-    let _managed_credential = TempEnvVar::set("SDKWORK_DIFY_MANAGED_KEY", "managed-test-secret");
+    let _managed_credential = TempEnvVar::set(
+        "SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_DIFY_MANAGED_KEY",
+        "managed-test-secret",
+    );
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let backend = dev_auth::with_dev_backend_auth(runtime.build_backend_router(), 1, Some(99));
@@ -202,7 +205,7 @@ async fn hosted_backend_provider_management_is_scoped_versioned_and_secret_safe(
                 .uri("/backend/v3/api/knowledge/provider_credential_references")
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"implementationId":"engine.knowledge.external.dify","displayName":"Dify managed credential","referenceLocator":"env://SDKWORK_DIFY_MANAGED_KEY"}"#,
+                    r#"{"implementationId":"engine.knowledge.external.dify","displayName":"Dify managed credential","referenceLocator":"env://SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_DIFY_MANAGED_KEY"}"#,
                 ))
                 .unwrap(),
         )
@@ -224,7 +227,7 @@ async fn hosted_backend_provider_management_is_scoped_versioned_and_secret_safe(
     assert!(credential.get("referenceLocator").is_none());
     assert!(!credential_raw
         .to_string()
-        .contains("SDKWORK_DIFY_MANAGED_KEY"));
+        .contains("SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_DIFY_MANAGED_KEY"));
 
     let credential_list_response = backend
         .clone()
@@ -362,7 +365,7 @@ async fn hosted_backend_provider_management_is_scoped_versioned_and_secret_safe(
                 ))
                 .header("content-type", "application/json")
                 .body(Body::from(
-                    r#"{"referenceLocator":"env://SDKWORK_DIFY_ROTATED_MANAGED_KEY","expectedVersion":"0"}"#,
+                    r#"{"referenceLocator":"env://SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_DIFY_ROTATED_MANAGED_KEY","expectedVersion":"0"}"#,
                 ))
                 .unwrap(),
         )

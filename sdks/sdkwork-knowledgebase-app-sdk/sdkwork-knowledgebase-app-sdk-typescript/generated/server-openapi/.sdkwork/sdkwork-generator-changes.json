@@ -7,14 +7,15 @@
     "language": "typescript",
     "sdkType": "app",
     "protocol": "http",
-    "packageName": "@sdkwork/knowledgebase-app-sdk"
+    "packageName": null
   },
-  "changeFingerprint": "9c7bcb969b39078008971b27de15e8feb72c2a434aff0170c9bd9fad220effa2",
+  "changeFingerprint": "3cdff547202e0586fcd7c24b740db736cca186aba17861a23175a886fa324a51",
   "changes": {
     "createdGeneratedFiles": [],
     "updatedGeneratedFiles": [
-      "src/types/knowledge-drive-import-request.ts",
-      "src/types/knowledge-drive-object-ref.ts"
+      "package.json",
+      "README.md",
+      "sdkwork-sdk.json"
     ],
     "unchangedGeneratedFiles": [
       "bin/publish-core.mjs",
@@ -24,9 +25,6 @@
       "bin/sdk-gen.sh",
       "CHANGELOG.md",
       "LICENSE",
-      "package.json",
-      "README.md",
-      "sdkwork-sdk.json",
       "src/api/base.ts",
       "src/api/index.ts",
       "src/api/knowledge.ts",
@@ -51,7 +49,6 @@
       "src/types/context-packs-create-response201.ts",
       "src/types/create-knowledge-document-request.ts",
       "src/types/create-knowledge-document-version-request.ts",
-      "src/types/create-knowledge-site-host-binding-request.ts",
       "src/types/create-knowledge-source-request.ts",
       "src/types/create-knowledge-space-context-binding-request.ts",
       "src/types/create-knowledge-space-request.ts",
@@ -104,7 +101,9 @@
       "src/types/knowledge-document-version.ts",
       "src/types/knowledge-document-visibility.ts",
       "src/types/knowledge-document.ts",
+      "src/types/knowledge-drive-import-request.ts",
       "src/types/knowledge-drive-import-result.ts",
+      "src/types/knowledge-drive-object-ref.ts",
       "src/types/knowledge-filter.ts",
       "src/types/knowledge-git-import-request.ts",
       "src/types/knowledge-git-import-result.ts",
@@ -135,16 +134,6 @@
       "src/types/knowledge-retrieval-result.ts",
       "src/types/knowledge-retrieval-trace-list.ts",
       "src/types/knowledge-retrieval-trace.ts",
-      "src/types/knowledge-site-host-binding-state.ts",
-      "src/types/knowledge-site-host-binding-type.ts",
-      "src/types/knowledge-site-host-binding.ts",
-      "src/types/knowledge-site-publication-result.ts",
-      "src/types/knowledge-site-publish-mode.ts",
-      "src/types/knowledge-site-release-state.ts",
-      "src/types/knowledge-site-release.ts",
-      "src/types/knowledge-site-state.ts",
-      "src/types/knowledge-site-visibility.ts",
-      "src/types/knowledge-site.ts",
       "src/types/knowledge-source-list.ts",
       "src/types/knowledge-source-type.ts",
       "src/types/knowledge-source.ts",
@@ -212,10 +201,8 @@
       "src/types/page-info.ts",
       "src/types/problem-detail.ts",
       "src/types/problem-details.ts",
-      "src/types/publish-knowledge-site-release-request.ts",
       "src/types/retrievals-create-response201.ts",
       "src/types/retrievals-retrieve-response.ts",
-      "src/types/rollback-knowledge-site-release-request.ts",
       "src/types/sdk-work-api-response.ts",
       "src/types/sdk-work-command-data.ts",
       "src/types/sdk-work-command-response.ts",
@@ -224,14 +211,6 @@
       "src/types/sdk-work-platform-error-code.ts",
       "src/types/sdk-work-resource-data.ts",
       "src/types/sdk-work-resource-response.ts",
-      "src/types/site-host-bindings-create-response201.ts",
-      "src/types/site-host-bindings-list-response.ts",
-      "src/types/site-releases-create-response201.ts",
-      "src/types/site-releases-list-response.ts",
-      "src/types/site-releases-retrieve-response.ts",
-      "src/types/site-releases-rollback-response.ts",
-      "src/types/sites-retrieve-response.ts",
-      "src/types/sites-update-response.ts",
       "src/types/spaces-browser-list-response.ts",
       "src/types/spaces-context-bindings-list-response.ts",
       "src/types/spaces-context-bindings-response.ts",
@@ -242,7 +221,6 @@
       "src/types/spaces-update-response.ts",
       "src/types/update-knowledge-space-context-binding-request.ts",
       "src/types/update-knowledge-space-request.ts",
-      "src/types/upsert-knowledge-site-request.ts",
       "src/types/wechat-applets-list-response.ts",
       "src/types/wechat-applets-update-response.ts",
       "src/types/wechat-articles-preview-response.ts",
@@ -263,30 +241,37 @@
   "impact": {
     "schemaVersion": 1,
     "areas": [
-      "models"
+      "build-metadata",
+      "documentation"
     ],
     "details": [
       {
-        "area": "models",
+        "area": "build-metadata",
         "paths": [
-          "src/types/knowledge-drive-import-request.ts",
-          "src/types/knowledge-drive-object-ref.ts"
+          "package.json",
+          "sdkwork-sdk.json"
+        ]
+      },
+      {
+        "area": "documentation",
+        "paths": [
+          "README.md"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: models. Verification is required."
+    "summary": "Detected impact areas: build-metadata, documentation. Verification is required."
   },
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: models. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: build-metadata, documentation. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: build-metadata, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -304,7 +289,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: build-metadata, documentation.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [

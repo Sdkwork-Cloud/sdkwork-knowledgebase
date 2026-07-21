@@ -9,7 +9,6 @@ import * as KnowledgebaseDocumentApiBridge from './knowledgebaseDocumentApiBridg
 import * as KnowledgeGitImportService from './knowledgeGitImportService';
 import * as KnowledgeGitSyncService from './knowledgeGitSyncService';
 import * as KnowledgeMarketService from './knowledgeMarketService';
-import * as KnowledgeSitePublicationService from './knowledgeSitePublicationService';
 import * as KnowledgeFileUploadService from './knowledgeFileUploadService';
 import { importWebLinkToKnowledgeBase } from './knowledgeWebLinkImportService';
 import {
@@ -59,11 +58,6 @@ export interface KnowledgeBase {
   icon?: string;
   avatar?: string;
   type?: 'team' | 'personal' | 'public';
-  isDeployed?: boolean;
-  deployedUrl?: string;
-  customDomain?: string;
-  siteLogo?: string;
-  siteName?: string;
   provider?: string;
   modelName?: string;
   temperature?: number;
@@ -268,25 +262,6 @@ export class DocumentService {
         options.onProgress,
       );
       return { accepted: result.accepted, hash: result.hash };
-    });
-  }
-
-  static async publishWebsite(
-    targetId: string,
-    options?: {
-      siteName?: string;
-      customHost?: string;
-    },
-  ): Promise<{ accepted: true; url: string }> {
-    return withKnowledgebaseApi(async () => {
-      const result = await KnowledgeSitePublicationService.publishKnowledgeSite(
-        targetId,
-        {
-          siteName: options?.siteName,
-          customHost: options?.customHost,
-        },
-      );
-      return { accepted: true, url: result.url };
     });
   }
 

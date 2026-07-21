@@ -33,8 +33,6 @@ pub mod knowledge_provider_migration_store;
 pub mod knowledge_retrieval_backend;
 pub mod knowledge_retrieval_trace_store;
 pub mod knowledge_source_store;
-pub mod knowledge_site_store;
-pub mod knowledge_site_artifact_store;
 pub mod knowledge_space_store;
 pub mod markdown_index_metadata_store;
 pub mod okf_concept_revision_metadata_store;

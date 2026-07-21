@@ -984,6 +984,7 @@ struct StaticCredentialResolver {
 impl KnowledgeEngineProviderCredentialResolver for StaticCredentialResolver {
     fn validate_reference_locator(
         &self,
+        _implementation_id: &str,
         _reference_locator: &str,
     ) -> Result<(), KnowledgeEngineProviderCredentialError> {
         Ok(())

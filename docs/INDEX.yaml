@@ -8,13 +8,18 @@ canon:
   backendDesign: docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md
   openApiDesign: docs/architecture/tech/TECH-2026-06-12-knowledgebase-open-api-design.md
   okfDesign: docs/architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md
+  liveWikiPrd: docs/product/prd/PRD-live-wiki-publication.md
+  liveWikiArchitecture: docs/architecture/tech/TECH-live-wiki-resource-provider.md
   agentRagDesign: docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md
   groupKnowledgebaseRequirement: docs/product/requirements/REQ-2026-0713-group-knowledgebase.md
   groupKnowledgebaseDecision: docs/architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md
   providerCommercializationRequirement: docs/product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md
   providerSpiDecision: docs/architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md
-  sitePublicationRequirement: docs/product/requirements/REQ-2026-0721-knowledgebase-site-publication.md
-  sitePublicationDecision: docs/architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md
+  providerCredentialRunbook: docs/runbooks/RUNBOOK-provider-credential-resolution.md
+  sitePublicationRequirement: docs/product/requirements/REQ-2026-0721-live-wiki-cloud-publication.md
+  sitePublicationDecision: docs/architecture/decisions/ADR-20260721-live-mounted-wiki-publication.md
+  liveWikiImplementationPlan: docs/engineering/plans/PLAN-2026-0721-live-wiki-cloud-publication.md
+  liveWikiReadinessReview: docs/engineering/reviews/REVIEW-20260721-live-wiki-deployment-integration-readiness.md
 entries:
   - id: prd
     path: docs/product/prd/PRD.md
@@ -30,6 +35,12 @@ entries:
     kind: architecture
   - id: okf-design
     path: docs/architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md
+    kind: architecture
+  - id: live-wiki-prd
+    path: docs/product/prd/PRD-live-wiki-publication.md
+    kind: product
+  - id: live-wiki-architecture
+    path: docs/architecture/tech/TECH-live-wiki-resource-provider.md
     kind: architecture
   - id: agent-rag-design
     path: docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md
@@ -52,27 +63,42 @@ entries:
   - id: ADR-20260720
     path: docs/architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md
     kind: architecture-decision
+  - id: RUNBOOK-provider-credential-resolution
+    path: docs/runbooks/RUNBOOK-provider-credential-resolution.md
+    kind: runbook
   - id: PLAN-2026-0720
     path: docs/engineering/plans/PLAN-2026-0720-knowledge-engine-provider-commercialization.md
     kind: implementation-plan
-  - id: REVIEW-2026-0720
-    path: docs/engineering/reviews/REVIEW-2026-0720-knowledge-engine-provider-commercial-readiness.md
+  - id: REVIEW-20260720
+    path: docs/engineering/reviews/REVIEW-20260720-knowledge-engine-provider-commercial-readiness.md
     kind: engineering-review
   - id: MIG-2026-0720
     path: docs/migrations/MIG-2026-0720-knowledge-engine-provider-binding.md
     kind: migration
-  - id: REQ-2026-0721
-    path: docs/product/requirements/REQ-2026-0721-knowledgebase-site-publication.md
-    kind: requirement
   - id: ADR-20260721
     path: docs/architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md
     kind: architecture-decision
-  - id: PLAN-2026-0721
-    path: docs/engineering/plans/PLAN-2026-0721-knowledgebase-site-publication.md
+    status: superseded
+  - id: REQ-2026-0721
+    path: docs/product/requirements/REQ-2026-0721-live-wiki-cloud-publication.md
+    kind: requirement
+    status: ready
+  - id: ADR-20260721-live-mounted-wiki-publication
+    path: docs/architecture/decisions/ADR-20260721-live-mounted-wiki-publication.md
+    kind: architecture-decision
+    status: proposed
+  - id: PLAN-2026-0721-live-wiki
+    path: docs/engineering/plans/PLAN-2026-0721-live-wiki-cloud-publication.md
     kind: implementation-plan
+    status: ready-for-approval
   - id: MIG-2026-0721
-    path: docs/migrations/MIG-2026-0721-knowledgebase-site-publication.md
+    path: docs/migrations/MIG-2026-0721-release-to-live-wiki-publication.md
     kind: migration
+    status: proposed
+  - id: REVIEW-20260721-live-wiki-deployment-integration
+    path: docs/engineering/reviews/REVIEW-20260721-live-wiki-deployment-integration-readiness.md
+    kind: engineering-review
+    status: blocked-design-only
 domains:
   - id: product
     path: docs/product

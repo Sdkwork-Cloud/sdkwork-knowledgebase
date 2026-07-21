@@ -3450,6 +3450,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdkwork-knowledgebase-provider-secret-adapter"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "sdkwork-agent-kernel",
+ "sdkwork-intelligence-knowledgebase-service",
+ "sdkwork-knowledgebase-contract",
+ "sdkwork-utils-rust",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "url",
+ "zeroize",
+]
+
+[[package]]
 name = "sdkwork-knowledgebase-rpc-sdk-rust"
 version = "0.1.0"
 dependencies = [
@@ -3600,6 +3616,7 @@ dependencies = [
  "sdkwork-knowledgebase-engine-ragflow",
  "sdkwork-knowledgebase-engine-weaviate",
  "sdkwork-knowledgebase-observability",
+ "sdkwork-knowledgebase-provider-secret-adapter",
  "sdkwork-knowledgebase-test-support",
  "sdkwork-knowledgebase-worker",
  "sdkwork-routes-knowledgebase-backend-api",
@@ -3815,6 +3832,7 @@ name = "sdkwork-web-store-redis"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "getrandom 0.2.17",
  "redis",
  "sdkwork-web-core",
  "serde",

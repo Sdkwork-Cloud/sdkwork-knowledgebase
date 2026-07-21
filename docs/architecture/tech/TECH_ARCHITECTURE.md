@@ -2,7 +2,7 @@
 
 Status: active  
 Owner: SDKWork maintainers  
-Updated: 2026-07-20<br>
+Updated: 2026-07-21<br>
 Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -13,6 +13,7 @@ Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 - [TECH-2026-06-11-sdkwork-structure-standardization-implementation.md](TECH-2026-06-11-sdkwork-structure-standardization-implementation.md)
 - [TECH-2026-06-19-okf-knowledge-bundle-design.md](TECH-2026-06-19-okf-knowledge-bundle-design.md)
 - [TECH-okf-knowledge-bundle.md](TECH-okf-knowledge-bundle.md)
+- [TECH-live-wiki-resource-provider.md](TECH-live-wiki-resource-provider.md) (proposed; human review required)
 - [TECH-2026-06-01-knowledgebase-backend-design.md](TECH-2026-06-01-knowledgebase-backend-design.md)
 - [TECH-2026-06-01-knowledgebase-backend-phase1-implementation.md](TECH-2026-06-01-knowledgebase-backend-phase1-implementation.md)
 - [TECH-2026-06-09-knowledgebase-agent-rag-design.md](TECH-2026-06-09-knowledgebase-agent-rag-design.md)
@@ -69,23 +70,36 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 - Ingestion workers atomically claim Drive jobs with owner/token leases, renew leases during processing, reclaim expired work after crashes, and fence stale workers from success or failure commits. Chunk replacement, job completion, and outbox append remain one database transaction.
 - Production Snowflake generators obtain fenced node IDs from `sdkwork_node_registry`. Lease loss disables ID generation and fails runtime readiness; Kubernetes supplies only the pod UID identity, never a hashed node ID.
 - Media tasks consume the generated `clawrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
-- Site publication builds an immutable, sanitized multi-page release from `published` OKF concepts
-  and explicitly public Drive assets. Server artifacts are written through
-  `sdkwork-drive-uploader-service`; Knowledgebase stores stable Drive URI/space/node references,
-  never object keys. A site transaction atomically activates or rolls back `currentReleaseId`.
-  Standalone delivery uses `/wiki/{knowledgebaseId}/`; cloud host/domain/TLS lifecycle is delegated
-  through the generated `sdkwork-web-server` SDK. See
-  [ADR-20260721-drive-backed-knowledgebase-site-publication.md](../decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md).
+- Wiki publication projects Drive nodes under the fixed `sources/raw` root into per-file source,
+  publication, visibility, route, render, and index state. Eligible Markdown pages and static assets
+  resolve live through the typed Knowledgebase Wiki provider; ordinary content changes do not build
+  `kb_site_release`. Deploy owns Site/domain/Variant/TLS/runtime configuration and Web Server owns
+  public HTTP/TLS/cache execution. See
+  [ADR-20260721-live-mounted-wiki-publication.md](../decisions/ADR-20260721-live-mounted-wiki-publication.md)
+  and [TECH-live-wiki-resource-provider.md](TECH-live-wiki-resource-provider.md).
 - Backend administrative list handlers use cursor page contracts and push ordering, filtering, and limits into database queries; full-list downloads are not a production path.
 - The persistence contract stores only write-only Provider credential references, never plaintext
   credentials. Binding lifecycle and Provider-to-Provider migration checkpoints are
   tenant/organization scoped, version-fenced, RLS protected, and retain predecessors for rollback.
   After execution-handle authorization, runtime resolution loads the current Binding reference
   through an injected port and passes a one-time redacted/zeroized credential to the adapter.
-  Adapter startup config never reads secrets. The default resolver supports validated `env://` and
-  bounded regular `file://` locators and fails closed for unknown schemes. Management writes
-  validate locator syntax before persistence without loading secret material. No secret cache
-  exists, so rotation/revocation cannot leave stale process-local credentials. The backend
+  Adapter startup config and route crates never read secrets. The dedicated Provider secret adapter
+  requires a tenant/organization/space/Binding/actor/operation/trace/deadline access context.
+  Development and test allow only namespaced
+  `env://SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_<PROVIDER_CODE>_*` values and bounded regular
+  `file://` values whose canonical path remains under
+  `SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRETS_DIR/<provider-code>/`. Cross-Provider credential locators
+  fail closed. Staging and production
+  allow only `secret://knowledgebase/provider/...` through an injected Kernel `SecretProvider`;
+  default production construction fails closed when no approved resolver is provided. Resolution
+  requires a managed audit record identifier, caps values at 64 KiB, and applies one five-second-or-
+  shorter request budget across admission and backend execution. A 32-call default bulkhead retains
+  permits for timed-out synchronous calls until the backend returns, so stuck backends cannot create
+  unbounded blocking work; file buffers and intermediate plaintext are zeroized on every exit path.
+  Telemetry emits no locator, secret id, or value and uses fixed outcome categories. Management
+  writes validate the active environment policy before persistence
+  without loading secret material. No secret cache exists, so rotation/revocation cannot leave
+  stale process-local credentials. The backend
   management authority and generated SDKs provide credential-reference create/list/retrieve/rotate/
   revoke, space-scoped Binding create/list/retrieve/update/test/activate/disable, and migration
   create/list/retrieve/rollback with optimistic versions and resource-aware mutation audit. The
@@ -108,8 +122,10 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
   and organization scope, uses opaque keyset pagination at the store, and cannot read sources,
   credentials, or remote Provider resource identifiers. It is informational only and cannot create
   or infer Bindings.
-  Current `liveCertifiedCount` is zero. Production secret-manager/KMS injection, authenticated
-  operator UI acceptance, release PostgreSQL evidence, and live certification remain prelaunch gates.
+  Current `liveCertifiedCount` is zero. A concrete production secret-manager/KMS backend with
+  bounded TLS transport, durable audit retention and rotation/revocation drill evidence,
+  authenticated operator UI acceptance, release PostgreSQL evidence, and live certification remain
+  prelaunch gates.
 - Provider health probes native infrastructure without credentials and probes external Providers
   only through active Bindings using the authenticated backend Operator and trace. External probes
   stream paginated Bindings with a fixed concurrency bound of eight and the request deadline. The

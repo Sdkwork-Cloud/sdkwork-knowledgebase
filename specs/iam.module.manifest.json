@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "kind": "sdkwork.iam.module",
   "moduleId": "knowledge",
-  "catalogVersion": "1.0.0",
+  "catalogVersion": "2.0.0",
   "domain": "knowledge",
   "owner": "sdkwork-knowledgebase",
   "displayName": "Knowledgebase Module",
@@ -192,24 +192,6 @@
         "code": "knowledge.market.write",
         "name": "Manage knowledge market listings",
         "resource": "knowledge.market",
-        "action": "write",
-        "status": "active",
-        "since": "1.0.0",
-        "replacementCode": null
-      },
-      {
-        "code": "knowledge.deployments.read",
-        "name": "Read knowledge site deployments",
-        "resource": "knowledge.deployments",
-        "action": "read",
-        "status": "active",
-        "since": "1.0.0",
-        "replacementCode": null
-      },
-      {
-        "code": "knowledge.deployments.write",
-        "name": "Manage knowledge site deployments",
-        "resource": "knowledge.deployments",
         "action": "write",
         "status": "active",
         "since": "1.0.0",

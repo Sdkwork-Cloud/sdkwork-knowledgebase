@@ -287,9 +287,10 @@ pub(crate) async fn rebuild_okf_index_document(
         .await
         .map_err(|error| ApiError::internal("okf_index_rebuild_failed", error.to_string()))?;
 
-    let concepts = runtime
-        .okf_concept_store()
-        .list_concept_summaries(space_id, None)
+    let concepts = sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::list_all_published_concept_summaries(
+        runtime.okf_concept_store(),
+        space_id,
+    )
         .await
         .map_err(map_okf_concept_store)?;
     let space = runtime.get_space_for_authorized_operation(space_id).await?;
@@ -303,9 +304,10 @@ pub(crate) async fn persist_okf_profile(
     space_id: u64,
 ) -> Result<sdkwork_knowledgebase_contract::KnowledgeOkfBundleFile, ApiError> {
     let space = runtime.get_space_for_authorized_operation(space_id).await?;
-    let concepts = runtime
-        .okf_concept_store()
-        .list_concept_summaries(space_id, None)
+    let concepts = sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_concept_store::list_all_published_concept_summaries(
+        runtime.okf_concept_store(),
+        space_id,
+    )
         .await
         .map_err(map_okf_concept_store)?;
     let logs = runtime

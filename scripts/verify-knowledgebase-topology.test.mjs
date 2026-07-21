@@ -132,6 +132,11 @@ test('declares SDKWork v5 deployment topology spec and profile env files for sdk
     if (profileId.startsWith('standalone.')) {
       const values = parseEnvValues(profileEnv);
       assert.equal(
+        values.SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND,
+        '0.0.0.0:18081',
+        `${profilePath} must expose standalone Wiki delivery on the LAN bind`,
+      );
+      assert.equal(
         values.SDKWORK_KNOWLEDGEBASE_APPLICATION_BACKEND_HTTP_URL,
         values.SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL,
         `${profilePath} backend SDK URL must use the standalone public ingress`,

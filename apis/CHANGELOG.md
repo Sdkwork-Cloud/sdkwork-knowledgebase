@@ -100,10 +100,6 @@ Clients creating root folders or uploading root files use response `data.parentI
 - `POST /app/v3/api/knowledge/market/subscriptions` — `market.subscriptions.create`
 - `DELETE /app/v3/api/knowledge/market/subscriptions/{listingId}` — `market.subscriptions.delete`
 
-**Site Deployment**
-- `POST /app/v3/api/knowledge/site_deployments` — `siteDeployments.create`
-- `GET /app/v3/api/knowledge/site_deployments/{deploymentId}/preview` — `siteDeployments.preview.list`
-
 **Media Tasks**
 - `POST /app/v3/api/knowledge/media_tasks` — `mediaTasks.create`
 

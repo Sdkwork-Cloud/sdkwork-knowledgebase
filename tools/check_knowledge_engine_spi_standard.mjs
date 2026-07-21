@@ -30,6 +30,19 @@ const providerAdapterCrates = [
   "weaviate",
   "haystack",
 ];
+const credentialAccessContextFields = [
+  "tenant_id",
+  "organization_id",
+  "space_id",
+  "binding_id",
+  "credential_reference_id",
+  "credential_reference_version",
+  "implementation_id",
+  "actor_id",
+  "operation",
+  "trace_id",
+  "deadline_unix_ms",
+];
 
 const requiredPaths = [
   "specs/knowledge-engine-spi.spec.json",
@@ -47,7 +60,10 @@ const requiredPaths = [
   "database/migrations/postgres/202607200001_knowledge_engine_provider_binding.up.sql",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/mod.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/execution_handle.rs",
-  "crates/sdkwork-routes-knowledgebase-app-api/src/provider_credential_resolver.rs",
+  "crates/sdkwork-knowledgebase-provider-secret-adapter/src/lib.rs",
+  "crates/sdkwork-knowledgebase-provider-secret-adapter/src/config.rs",
+  "crates/sdkwork-knowledgebase-provider-secret-adapter/src/resolver.rs",
+  "crates/sdkwork-knowledgebase-provider-secret-adapter/tests/provider_secret_adapter.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/okf_native.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/external_catalog.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/rag_native.rs",
@@ -269,7 +285,21 @@ const bindingStorePortSource = await readFile(
 const runtimeCredentialResolverSource = await readFile(
   path.join(
     root,
-    "crates/sdkwork-routes-knowledgebase-app-api/src/provider_credential_resolver.rs",
+    "crates/sdkwork-knowledgebase-provider-secret-adapter/src/resolver.rs",
+  ),
+  "utf8",
+);
+const runtimeCredentialResolverConfigSource = await readFile(
+  path.join(
+    root,
+    "crates/sdkwork-knowledgebase-provider-secret-adapter/src/config.rs",
+  ),
+  "utf8",
+);
+const runtimeCredentialResolverTestSource = await readFile(
+  path.join(
+    root,
+    "crates/sdkwork-knowledgebase-provider-secret-adapter/tests/provider_secret_adapter.rs",
   ),
   "utf8",
 );
@@ -304,12 +334,57 @@ assert(
   "resolved Provider credential references must redact their write-only locator",
 );
 assert(
-  runtimeCredentialResolverSource.includes('strip_prefix("env://")')
+  credentialPortSource.includes("pub struct KnowledgeEngineProviderCredentialAccessContext")
+    && credentialPortSource.includes("pub tenant_id: u64")
+    && credentialPortSource.includes("pub organization_id: u64")
+    && credentialPortSource.includes("pub space_id: u64")
+    && credentialPortSource.includes("pub binding_id: u64")
+    && credentialPortSource.includes("pub credential_reference_id: u64")
+    && credentialPortSource.includes("pub credential_reference_version: u64")
+    && credentialPortSource.includes("pub implementation_id: String")
+    && credentialPortSource.includes("pub actor_id: String")
+    && credentialPortSource.includes("pub operation: KnowledgeEngineProviderOperation")
+    && credentialPortSource.includes("pub trace_id: String")
+    && credentialPortSource.includes("pub deadline_unix_ms: u64")
+    && /fn validate_reference_locator\(\s*&self,\s*implementation_id: &str,\s*reference_locator: &str,/s.test(credentialPortSource)
+    && /async fn resolve\(\s*&self,\s*context: &KnowledgeEngineProviderCredentialAccessContext,/s.test(credentialPortSource),
+  "credential resolver port must require the complete immutable binding access context",
+);
+assert(
+  runtimeCredentialResolverConfigSource.includes("SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_")
+    && runtimeCredentialResolverSource.includes('strip_prefix("env://")')
     && runtimeCredentialResolverSource.includes('starts_with("file://")')
-    && runtimeCredentialResolverSource.includes("MAX_PROVIDER_CREDENTIAL_BYTES")
+    && runtimeCredentialResolverSource.includes("secret://knowledgebase/provider/")
+    && runtimeCredentialResolverSource.includes("tokio::fs::canonicalize")
+    && runtimeCredentialResolverSource.includes("canonical_path.starts_with(&canonical_root)")
     && runtimeCredentialResolverSource.includes("metadata.is_file()")
-    && runtimeCredentialResolverSource.includes("unsupported Provider credential reference scheme"),
-  "runtime credential resolver must support bounded env/file references and fail closed on unknown schemes",
+    && runtimeCredentialResolverSource.includes("SecretProvider")
+    && runtimeCredentialResolverSource.includes("spawn_blocking")
+    && runtimeCredentialResolverSource.includes("Semaphore")
+    && runtimeCredentialResolverSource.includes("concurrency.acquire_owned()")
+    && runtimeCredentialResolverSource.includes("let _permit = permit")
+    && runtimeCredentialResolverSource.includes("max_managed_resolution_duration")
+    && runtimeCredentialResolverSource.includes("Zeroizing::new(value)")
+    && runtimeCredentialResolverSource.includes("Zeroizing::new(Vec::with_capacity")
+    && runtimeCredentialResolverSource.includes("credential_from_bounded_string")
+    && runtimeCredentialResolverSource.includes("audit_record_id")
+    && runtimeCredentialResolverSource.includes("provider_code(implementation_id)")
+    && runtimeCredentialResolverSource.includes('security_event = "knowledge.provider_credential.access"'),
+  "credential adapter must enforce namespaced local sources, canonical file containment, managed Secret Provider access, bounded results, audit evidence and sanitized telemetry",
+);
+assert(
+  runtimeCredentialResolverTestSource.includes("local_environment_resolution_is_namespaced")
+    && runtimeCredentialResolverTestSource.includes("credential_sources_are_bound_to_the_reference_implementation")
+    && runtimeCredentialResolverTestSource.includes("local_file_resolution_rejects_symlink_escape")
+    && runtimeCredentialResolverTestSource.includes("local_file_resolution_rejects_empty_non_utf8_and_oversized_values")
+    && runtimeCredentialResolverTestSource.includes("staging_and_production_require_managed_sources")
+    && runtimeCredentialResolverTestSource.includes("managed_concurrency_limit_is_bounded")
+    && runtimeCredentialResolverTestSource.includes("managed_provider_errors_are_sanitized")
+    && runtimeCredentialResolverTestSource.includes("managed_provider_result_size_is_bounded")
+    && runtimeCredentialResolverTestSource.includes("managed_provider_access_wait_is_independently_bounded")
+    && runtimeCredentialResolverTestSource.includes("timed_out_managed_calls_keep_the_bulkhead_permit_until_the_provider_returns")
+    && runtimeCredentialResolverTestSource.includes("managed_provider_rotation_and_revocation_take_effect_without_cache"),
+  "credential adapter must keep executable negative security, size, sanitization and no-cache rotation tests",
 );
 assert(
   providerBindingServiceSource.includes("probe_active_bindings_health")
@@ -329,10 +404,42 @@ assert(
 );
 assert(
   spec.credentialBoundary?.resolverPort === "KnowledgeEngineProviderCredentialResolver"
+    && spec.credentialBoundary?.resolverComponent === "crates/sdkwork-knowledgebase-provider-secret-adapter"
     && spec.credentialBoundary?.resolvedSecretType === "KnowledgeEngineProviderCredential"
+    && spec.credentialBoundary?.accessContextType === "KnowledgeEngineProviderCredentialAccessContext"
+    && JSON.stringify(spec.credentialBoundary?.accessContextFields) === JSON.stringify(credentialAccessContextFields)
+    && spec.credentialBoundary?.maxCredentialBytes === 65536
+    && spec.credentialBoundary?.maxManagedResolutionMilliseconds === 5000
+    && spec.credentialBoundary?.defaultMaxManagedConcurrency === 32
+    && JSON.stringify(spec.credentialBoundary?.telemetryOutcomes) === JSON.stringify([
+      "granted",
+      "invalid_reference",
+      "access_denied",
+      "unavailable",
+      "response_too_large",
+      "internal",
+    ])
+    && spec.credentialBoundary?.managedProviderPort === "sdkwork_agent_kernel::SecretProvider"
+    && spec.credentialBoundary?.supportedRuntimeSchemes?.some(
+      (entry) => entry.scheme === "env://SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRET_<PROVIDER_CODE>_*"
+        && JSON.stringify(entry.environments) === JSON.stringify(["development", "test"]),
+    )
+    && spec.credentialBoundary?.supportedRuntimeSchemes?.some(
+      (entry) => entry.scheme === "file://"
+        && JSON.stringify(entry.environments) === JSON.stringify(["development", "test"]),
+    )
+    && spec.credentialBoundary?.supportedRuntimeSchemes?.some(
+      (entry) => entry.scheme === "secret://knowledgebase/provider/..."
+        && JSON.stringify(entry.environments) === JSON.stringify(["staging", "production"]),
+    )
     && spec.credentialBoundary?.cachePolicy?.startsWith("No secret cache")
     && spec.credentialBoundary?.forbidden?.includes("startup credential reads in adapter config")
     && spec.credentialBoundary?.forbidden?.includes("credential file environment aliases")
+    && spec.credentialBoundary?.forbidden?.includes("unrelated process environment variable lookup")
+    && spec.credentialBoundary?.forbidden?.includes("credential locator for another Provider implementation")
+    && spec.credentialBoundary?.forbidden?.includes("file resolution outside the approved canonical secret root")
+    && spec.credentialBoundary?.forbidden?.includes("env:// or file:// in staging or production")
+    && spec.credentialBoundary?.forbidden?.includes("unbounded managed SecretProvider concurrency")
     && spec.credentialBoundary?.forbidden?.includes("credential lookup before authenticated scope validation"),
   "machine SPI spec must declare the accepted binding-scoped credential boundary and its forbidden legacy paths",
 );
@@ -488,20 +595,22 @@ assert(
   operationMethodBody.indexOf("capability_snapshot.contains") >= 0
     && operationMethodBody.indexOf(".resolve_credential_reference(")
       > operationMethodBody.indexOf("capability_snapshot.contains")
-    && operationMethodBody.indexOf(".resolve(&reference)")
+    && operationMethodBody.indexOf("KnowledgeEngineProviderCredentialAccessContext::for_binding")
       > operationMethodBody.indexOf(".resolve_credential_reference(")
     && operationMethodBody.indexOf(".bind_provider(binding, credential)")
-      > operationMethodBody.indexOf(".resolve(&reference)"),
-  "execution handle must check the tested capability, resolve the credential reference and secret, then bind the Provider",
+      > operationMethodBody.indexOf("KnowledgeEngineProviderCredentialAccessContext::for_binding"),
+  "execution handle must check the tested capability, resolve the credential reference, construct binding access context, resolve the secret, then bind the Provider",
 );
 assert(
   !spaceResolverSource.includes("bind_provider("),
   "space resolution must return an unbound handle and must not resolve Provider credentials before operation authorization",
 );
 assert(
-  runtimeSource.includes("RuntimeKnowledgeEngineProviderCredentialResolver")
+  runtimeSource.includes("KnowledgebaseProviderCredentialResolver")
+    && runtimeSource.includes("connect_with_provider_credential_resolver")
+    && runtimeSource.includes("staging and production require an injected managed Knowledgebase Provider credential resolver")
     && runtimeSource.includes("credential_resolver"),
-  "KnowledgebaseRuntime must inject the Provider credential resolver into execution handles",
+  "KnowledgebaseRuntime must inject the Provider credential resolver and fail closed on unmanaged production defaults",
 );
 
 for (const adapterCrate of providerAdapterCrates) {

@@ -20,15 +20,21 @@ SDKWork Knowledgebase maintainers.
 | OKF bundle operator summary | [architecture/tech/TECH-okf-knowledge-bundle.md](architecture/tech/TECH-okf-knowledge-bundle.md) |
 | Open API design | [architecture/tech/TECH-2026-06-12-knowledgebase-open-api-design.md](architecture/tech/TECH-2026-06-12-knowledgebase-open-api-design.md) |
 | OKF knowledge bundle | [architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md](architecture/tech/TECH-2026-06-19-okf-knowledge-bundle-design.md) |
+| Live Wiki publication PRD | [product/prd/PRD-live-wiki-publication.md](product/prd/PRD-live-wiki-publication.md) |
+| Live Wiki provider architecture | [architecture/tech/TECH-live-wiki-resource-provider.md](architecture/tech/TECH-live-wiki-resource-provider.md) |
 | Agent RAG design | [architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md](architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md) |
 | Managed group knowledgebase requirement | [product/requirements/REQ-2026-0713-group-knowledgebase.md](product/requirements/REQ-2026-0713-group-knowledgebase.md) |
 | Managed group knowledgebase decision | [architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md](architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md) |
 | Provider commercialization requirement | [product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md](product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md) |
 | Provider SPI v2 decision | [architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md](architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md) |
-| Knowledgebase site publication requirement | [product/requirements/REQ-2026-0721-knowledgebase-site-publication.md](product/requirements/REQ-2026-0721-knowledgebase-site-publication.md) |
-| Drive-backed site publication decision | [architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md](architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md) |
-| Provider commercial readiness review | [engineering/reviews/REVIEW-2026-0720-knowledge-engine-provider-commercial-readiness.md](engineering/reviews/REVIEW-2026-0720-knowledge-engine-provider-commercial-readiness.md) |
+| Live Wiki publication requirement | [product/requirements/REQ-2026-0721-live-wiki-cloud-publication.md](product/requirements/REQ-2026-0721-live-wiki-cloud-publication.md) |
+| Live mounted Wiki decision | [architecture/decisions/ADR-20260721-live-mounted-wiki-publication.md](architecture/decisions/ADR-20260721-live-mounted-wiki-publication.md) |
+| Live Wiki implementation plan | [engineering/plans/PLAN-2026-0721-live-wiki-cloud-publication.md](engineering/plans/PLAN-2026-0721-live-wiki-cloud-publication.md) |
+| Release-to-live migration | [migrations/MIG-2026-0721-release-to-live-wiki-publication.md](migrations/MIG-2026-0721-release-to-live-wiki-publication.md) |
+| Live Wiki deployment integration readiness review | [engineering/reviews/REVIEW-20260721-live-wiki-deployment-integration-readiness.md](engineering/reviews/REVIEW-20260721-live-wiki-deployment-integration-readiness.md) |
+| Provider commercial readiness review | [engineering/reviews/REVIEW-20260720-knowledge-engine-provider-commercial-readiness.md](engineering/reviews/REVIEW-20260720-knowledge-engine-provider-commercial-readiness.md) |
 | Provider Binding readiness runbook | [runbooks/RUNBOOK-provider-binding-readiness.md](runbooks/RUNBOOK-provider-binding-readiness.md) |
+| Provider credential resolution runbook | [runbooks/RUNBOOK-provider-credential-resolution.md](runbooks/RUNBOOK-provider-credential-resolution.md) |
 | Tenant isolation | [runbooks/tenant-isolation.md](runbooks/tenant-isolation.md) |
 | Audit retention | [runbooks/audit-retention.md](runbooks/audit-retention.md) |
 | Phase 2 RLS ADR | [architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md](architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md) |

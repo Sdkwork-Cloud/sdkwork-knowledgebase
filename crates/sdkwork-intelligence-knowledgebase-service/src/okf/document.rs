@@ -2,6 +2,7 @@
 
 use sdkwork_utils_rust::is_blank;
 use serde::Deserialize;
+use std::collections::BTreeMap;
 use thiserror::Error;
 
 pub const OKF_VERSION: &str = "0.1";
@@ -15,6 +16,7 @@ pub struct OkfConceptDocument {
     pub resource: Option<String>,
     pub tags: Vec<String>,
     pub timestamp: Option<String>,
+    pub extensions: BTreeMap<String, serde_json::Value>,
     pub body: String,
 }
 
@@ -69,6 +71,7 @@ pub fn parse_okf_markdown(content: &str) -> Result<Option<OkfConceptDocument>, O
         resource: fields.resource,
         tags: parse_yaml_tags(fields.tags.as_ref()),
         timestamp: fields.timestamp,
+        extensions: fields.extensions,
         body,
     }))
 }
@@ -83,6 +86,8 @@ struct OkfFrontmatterFields {
     resource: Option<String>,
     tags: Option<serde_yaml::Value>,
     timestamp: Option<String>,
+    #[serde(flatten)]
+    extensions: BTreeMap<String, serde_json::Value>,
 }
 
 fn parse_frontmatter_yaml(input: &str) -> Result<OkfFrontmatterFields, OkfDocumentError> {
@@ -120,42 +125,47 @@ fn parse_yaml_tags(value: Option<&serde_yaml::Value>) -> Vec<String> {
 }
 
 pub fn render_okf_concept_markdown(document: &OkfConceptDocument) -> String {
-    let mut frontmatter = String::from("---\n");
-    frontmatter.push_str(&format!("type: {}\n", yaml_scalar(&document.concept_type)));
+    let mut fields = BTreeMap::<String, serde_json::Value>::new();
+    for (key, value) in &document.extensions {
+        if !is_standard_frontmatter_key(key) {
+            fields.insert(key.clone(), value.clone());
+        }
+    }
+    fields.insert("type".to_string(), document.concept_type.clone().into());
     if let Some(title) = &document.title {
-        frontmatter.push_str(&format!("title: {}\n", yaml_scalar(title)));
+        fields.insert("title".to_string(), title.clone().into());
     }
     if let Some(description) = &document.description {
-        frontmatter.push_str(&format!("description: {}\n", yaml_scalar(description)));
+        fields.insert("description".to_string(), description.clone().into());
     }
     if let Some(resource) = &document.resource {
-        frontmatter.push_str(&format!("resource: {}\n", yaml_scalar(resource)));
+        fields.insert("resource".to_string(), resource.clone().into());
     }
     if !document.tags.is_empty() {
-        frontmatter.push_str("tags: [");
-        frontmatter.push_str(
-            &document
-                .tags
-                .iter()
-                .map(|tag| yaml_scalar(tag))
-                .collect::<Vec<_>>()
-                .join(", "),
+        fields.insert(
+            "tags".to_string(),
+            serde_json::Value::Array(document.tags.iter().cloned().map(Into::into).collect()),
         );
-        frontmatter.push_str("]\n");
     }
     if let Some(timestamp) = &document.timestamp {
-        frontmatter.push_str(&format!("timestamp: {}\n", yaml_scalar(timestamp)));
+        fields.insert("timestamp".to_string(), timestamp.clone().into());
     }
-    frontmatter.push_str("---\n");
+    let yaml = serde_yaml::to_string(&fields)
+        .expect("serializing an in-memory OKF frontmatter mapping must succeed");
+    let frontmatter = format!("---\n{}---\n", yaml.trim_start_matches("---\n"));
     let body = document.body.trim_end();
     if body.is_empty() {
-        frontmatter.push('\n');
-        frontmatter
-    } else if body.ends_with('\n') {
-        format!("{frontmatter}{body}")
+        format!("{frontmatter}\n")
     } else {
         format!("{frontmatter}{body}\n")
     }
+}
+
+fn is_standard_frontmatter_key(key: &str) -> bool {
+    matches!(
+        key,
+        "type" | "title" | "description" | "resource" | "tags" | "timestamp" | "okf_version"
+    )
 }
 
 pub fn render_root_index_frontmatter() -> &'static str {
@@ -269,17 +279,6 @@ fn markdown_links(body: &str) -> Vec<(String, String)> {
     links
 }
 
-fn yaml_scalar(value: &str) -> String {
-    if value
-        .chars()
-        .any(|ch| ch.is_whitespace() || ch == ':' || ch == '#' || ch == '"' || ch == '\'')
-    {
-        format!("\"{}\"", value.replace('"', "\\\""))
-    } else {
-        value.to_string()
-    }
-}
-
 pub fn strip_sdkwork_frontmatter(markdown: &str) -> String {
     let lines: Vec<&str> = markdown.split('\n').collect();
     if lines.first().map(|line| line.trim()) != Some("---") {
@@ -289,22 +288,25 @@ pub fn strip_sdkwork_frontmatter(markdown: &str) -> String {
         return markdown.to_string();
     };
     let end_index = closing_index + 1;
-    let mut frontmatter_lines = vec!["---"];
-    for line in &lines[1..end_index] {
-        let trimmed = line.trim();
-        if trimmed.starts_with("sdkwork:") || trimmed.starts_with("sdkwork.") {
-            continue;
-        }
-        frontmatter_lines.push(line);
-    }
-    frontmatter_lines.push("---");
+    let frontmatter = lines[1..end_index].join("\n");
+    let Ok(mut fields) = serde_yaml::from_str::<serde_yaml::Mapping>(&frontmatter) else {
+        return markdown.to_string();
+    };
+    fields.retain(|key, _| {
+        key.as_str()
+            .is_none_or(|key| key != SDKWORK_FRONTMATTER_KEY && !key.starts_with("sdkwork."))
+    });
+    let Ok(frontmatter) = serde_yaml::to_string(&fields) else {
+        return markdown.to_string();
+    };
     let body = lines[(end_index + 1)..].join("\n");
+    let rendered_frontmatter = format!("---\n{}---", frontmatter.trim_start_matches("---\n"));
     if body.is_empty() {
-        format!("{}\n", frontmatter_lines.join("\n"))
+        format!("{rendered_frontmatter}\n")
     } else if body.ends_with('\n') {
-        format!("{}\n{body}", frontmatter_lines.join("\n"))
+        format!("{rendered_frontmatter}\n{body}")
     } else {
-        format!("{}\n{body}\n", frontmatter_lines.join("\n"))
+        format!("{rendered_frontmatter}\n{body}\n")
     }
 }
 
@@ -384,8 +386,45 @@ sdkwork:
 "#;
         let stripped = strip_sdkwork_frontmatter(markdown);
         assert!(!stripped.contains("sdkwork:"));
+        assert!(!stripped.contains("revisionId:"));
         assert!(stripped.contains("type: Entity"));
         assert!(stripped.contains("# Body"));
+    }
+
+    #[test]
+    fn parse_and_render_preserves_unknown_frontmatter_extensions() {
+        let markdown = r#"---
+type: Entity
+owner:
+  team: platform
+confidence: 0.95
+---
+# Body
+"#;
+        let parsed = parse_okf_markdown(markdown).unwrap().unwrap();
+        assert_eq!(parsed.extensions["confidence"], serde_json::json!(0.95));
+        let rendered = render_okf_concept_markdown(&parsed);
+        let reparsed = parse_okf_markdown(&rendered).unwrap().unwrap();
+        assert_eq!(reparsed.extensions, parsed.extensions);
+    }
+
+    #[test]
+    fn render_uses_yaml_safe_scalars() {
+        let document = OkfConceptDocument {
+            concept_type: "Path\\Type".to_string(),
+            title: Some("quoted: # value".to_string()),
+            description: None,
+            resource: None,
+            tags: vec!["line\\next".to_string()],
+            timestamp: None,
+            extensions: Default::default(),
+            body: "Body".to_string(),
+        };
+        let rendered = render_okf_concept_markdown(&document);
+        let reparsed = parse_okf_markdown(&rendered).unwrap().unwrap();
+        assert_eq!(reparsed.concept_type, document.concept_type);
+        assert_eq!(reparsed.title, document.title);
+        assert_eq!(reparsed.tags, document.tags);
     }
 
     #[test]

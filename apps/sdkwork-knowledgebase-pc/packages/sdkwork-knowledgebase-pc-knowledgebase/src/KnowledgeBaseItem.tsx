@@ -13,7 +13,6 @@ export interface KnowledgeBaseItemProps extends ReactKeyedComponentProps {
   onSelectKb: (kb: KnowledgeBase) => void;
   onRename: (kb: KnowledgeBase) => void;
   onDelete: (kb: KnowledgeBase) => void;
-  onDeploy: (kb: KnowledgeBase) => void;
   onOpenSettings: (kb: KnowledgeBase) => void;
   onImportGit: (kb: KnowledgeBase) => void;
   onSyncGit: (kb: KnowledgeBase) => void;
@@ -27,7 +26,6 @@ export function KnowledgeBaseItem({
   onSelectKb,
   onRename,
   onDelete,
-  onDeploy,
   onOpenSettings,
   onImportGit,
   onSyncGit,
@@ -102,7 +100,6 @@ export function KnowledgeBaseItem({
         <DropdownMenuContent align="end" side="bottom" className="w-40">
           <KbDropdownItems 
             onRename={(e) => { e.stopPropagation(); onRename(kb); }}
-            onDeploy={(e) => { e.stopPropagation(); onDeploy(kb); }}
             onDelete={(e) => { e.stopPropagation(); onDelete(kb); }}
             onOpenSettings={(e) => { e.stopPropagation(); onOpenSettings(kb); }}
             onImportGit={(e) => { e.stopPropagation(); onImportGit(kb); }}
@@ -116,7 +113,6 @@ export function KnowledgeBaseItem({
       <ContextMenuContent className="w-40 z-[200]">
         <KbContextItems 
           onRename={(e) => { e.stopPropagation(); onRename(kb); }}
-          onDeploy={(e) => { e.stopPropagation(); onDeploy(kb); }}
           onDelete={(e) => { e.stopPropagation(); onDelete(kb); }}
           onOpenSettings={(e) => { e.stopPropagation(); onOpenSettings(kb); }}
           onImportGit={(e) => { e.stopPropagation(); onImportGit(kb); }}

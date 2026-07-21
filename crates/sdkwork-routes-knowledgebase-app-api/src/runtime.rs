@@ -17,7 +17,6 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeOkfConceptLinkStore, SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
     SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
     SqliteMarkdownIndexMetadataStore, SqliteOkfConceptRevisionMetadataStore,
-    SqlxKnowledgeSiteStore,
     SqlxKnowledgeEngineProviderBindingStore, SqlxKnowledgeEngineProviderMigrationStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
@@ -56,9 +55,12 @@ use sdkwork_knowledgebase_contract::rag::{
 use sdkwork_knowledgebase_drive::{
     connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
     KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
-    KnowledgebaseDriveSiteArtifactStore, KnowledgebaseDriveStorageAdapter,
-    KnowledgebaseDriveWorkspaceAdapter,
+    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
     KnowledgebaseKnowledgeAccessControlAdapter,
+};
+use sdkwork_knowledgebase_provider_secret_adapter::{
+    KnowledgebaseProviderCredentialEnvironment, KnowledgebaseProviderCredentialResolver,
+    KnowledgebaseProviderCredentialResolverConfig,
 };
 use sdkwork_utils_rust::is_blank;
 use sdkwork_web_bootstrap::{ReadinessCheck as FrameworkReadinessCheck, ReadinessFuture};
@@ -92,7 +94,6 @@ use crate::{
     hosted_context_binding::HostedContextBindingService,
     hosted_group_launch::HostedGroupLaunchService,
     hosted_open::HostedOpenApi,
-    hosted_site::HostedSiteService,
     hosted_wechat::HostedWechatService,
     ApiError, ApiResult, KnowledgeAgentAppService, KnowledgeAppRequestContext,
     KnowledgeRetrievalAppService,
@@ -101,6 +102,7 @@ use crate::{
 const DEFAULT_DRIVE_PROVIDER_ID: &str = "sdkwork-knowledgebase-local";
 const DEFAULT_DRIVE_BUCKET: &str = "knowledgebase";
 const KNOWLEDGEBASE_ID_SERVICE_NAME: &str = "sdkwork-knowledgebase";
+const PROVIDER_SECRETS_DIR_ENV: &str = "SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRETS_DIR";
 
 static RUNTIME_NODE_LEASE: OnceCell<Option<NodeLease>> = OnceCell::const_new();
 
@@ -148,8 +150,6 @@ pub struct KnowledgebaseRuntime {
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
     knowledge_engines: Arc<DefaultKnowledgeEngineRegistry>,
     commerce_store: Arc<SqliteCommerceStore>,
-    site_store: Arc<SqlxKnowledgeSiteStore>,
-    site_artifact_store: Arc<KnowledgebaseDriveSiteArtifactStore<LocalDriveObjectStore>>,
     snowflake_node_lease: Option<NodeLease>,
 }
 
@@ -231,6 +231,62 @@ fn configuration_error(message: impl Into<String>) -> sqlx::Error {
     sqlx::Error::Configuration(message.into().into())
 }
 
+fn default_provider_credential_resolver(
+) -> Result<Arc<dyn KnowledgeEngineProviderCredentialResolver>, sqlx::Error> {
+    let environment = match sdkwork_knowledgebase_observability::knowledgebase_environment() {
+        Some(value) => KnowledgebaseProviderCredentialEnvironment::parse(&value)
+            .map_err(|error| configuration_error(error.to_string()))?,
+        None if cfg!(debug_assertions) => KnowledgebaseProviderCredentialEnvironment::Development,
+        None => {
+            return Err(configuration_error(
+                "SDKWORK_KNOWLEDGEBASE_ENVIRONMENT is required for Provider credential policy",
+            ));
+        }
+    };
+    let local_secret_root = std::env::var(PROVIDER_SECRETS_DIR_ENV)
+        .ok()
+        .map(|value| PathBuf::from(value.trim()))
+        .filter(|path| !path.as_os_str().is_empty());
+    local_provider_credential_resolver(environment, local_secret_root)
+}
+
+fn local_provider_credential_resolver(
+    environment: KnowledgebaseProviderCredentialEnvironment,
+    local_secret_root: Option<PathBuf>,
+) -> Result<Arc<dyn KnowledgeEngineProviderCredentialResolver>, sqlx::Error> {
+    if environment.requires_managed_source() {
+        return Err(configuration_error(
+            "staging and production require an injected managed Knowledgebase Provider credential resolver",
+        ));
+    }
+    let config =
+        KnowledgebaseProviderCredentialResolverConfig::local(environment, local_secret_root)
+            .map_err(|error| configuration_error(error.to_string()))?;
+    let resolver = KnowledgebaseProviderCredentialResolver::local(config)
+        .map_err(|error| configuration_error(error.to_string()))?;
+    Ok(Arc::new(resolver))
+}
+
+#[cfg(test)]
+mod provider_credential_resolver_tests {
+    use super::*;
+
+    #[test]
+    fn production_default_requires_injected_managed_resolver() {
+        let error = match local_provider_credential_resolver(
+            KnowledgebaseProviderCredentialEnvironment::Production,
+            None,
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("production default must fail closed"),
+        };
+
+        assert!(error
+            .to_string()
+            .contains("require an injected managed Knowledgebase Provider credential resolver"));
+    }
+}
+
 impl FrameworkReadinessCheck for KnowledgebaseRuntimeReadinessCheck {
     fn check(&self) -> ReadinessFuture<'_> {
         let runtime = self.runtime.clone();
@@ -251,6 +307,20 @@ impl FrameworkReadinessCheck for KnowledgebaseRuntimeReadinessCheck {
 
 impl KnowledgebaseRuntime {
     pub async fn connect(database_url: &str, tenant_id: u64) -> Result<Self, sqlx::Error> {
+        let provider_credential_resolver = default_provider_credential_resolver()?;
+        Self::connect_with_provider_credential_resolver(
+            database_url,
+            tenant_id,
+            provider_credential_resolver,
+        )
+        .await
+    }
+
+    pub async fn connect_with_provider_credential_resolver(
+        database_url: &str,
+        tenant_id: u64,
+        provider_credential_resolver: Arc<dyn KnowledgeEngineProviderCredentialResolver>,
+    ) -> Result<Self, sqlx::Error> {
         let pool = connect_knowledgebase_and_install_schema(database_url).await?;
         let snowflake_node_lease = initialize_runtime_id_generator(database_url).await?;
         let drive_pool = connect_knowledgebase_drive_pool(database_url).await?;
@@ -276,6 +346,7 @@ impl KnowledgebaseRuntime {
             pg_pool,
             database_engine,
             snowflake_node_lease,
+            provider_credential_resolver,
         ))
     }
 
@@ -291,15 +362,12 @@ impl KnowledgebaseRuntime {
         pg_pool: Option<sqlx::PgPool>,
         database_engine: sdkwork_database_config::DatabaseEngine,
         snowflake_node_lease: Option<NodeLease>,
+        provider_credential_resolver: Arc<dyn KnowledgeEngineProviderCredentialResolver>,
     ) -> Self {
         let tenant_id_str = tenant_id.to_string();
         let quota_limits =
             sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits::from_env();
         let object_store = Arc::new(LocalDriveObjectStore::new(drive_storage_root));
-        let site_artifact_store = Arc::new(KnowledgebaseDriveSiteArtifactStore::new(
-            drive_pool.clone(),
-            object_store.clone(),
-        ));
         let drive_storage = Arc::new(KnowledgebaseDriveStorageAdapter::new(
             object_store,
             DEFAULT_DRIVE_PROVIDER_ID,
@@ -369,9 +437,6 @@ impl KnowledgebaseRuntime {
         let provider_migration_store = Arc::new(
             SqlxKnowledgeEngineProviderMigrationStore::new(pool.clone())
                 .with_database_engine(database_engine),
-        );
-        let provider_credential_resolver = Arc::new(
-            crate::provider_credential_resolver::RuntimeKnowledgeEngineProviderCredentialResolver,
         );
         let okf_bundle_file_store = Arc::new(
             SqliteKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id)
@@ -569,11 +634,6 @@ impl KnowledgebaseRuntime {
             commerce_store: Arc::new(
                 SqliteCommerceStore::new(pool.clone()).with_database_engine(database_engine),
             ),
-            site_store: Arc::new(
-                SqlxKnowledgeSiteStore::new(pool.clone(), tenant_id, organization_id)
-                    .with_database_engine(database_engine),
-            ),
-            site_artifact_store,
             snowflake_node_lease,
         }
     }
@@ -618,16 +678,6 @@ impl KnowledgebaseRuntime {
 
     pub(crate) fn commerce_store(&self) -> &SqliteCommerceStore {
         &self.commerce_store
-    }
-
-    pub(crate) fn site_store(&self) -> &SqlxKnowledgeSiteStore {
-        &self.site_store
-    }
-
-    pub(crate) fn site_artifact_store(
-        &self,
-    ) -> &KnowledgebaseDriveSiteArtifactStore<LocalDriveObjectStore> {
-        &self.site_artifact_store
     }
 
     pub(crate) fn retrieval_service(&self) -> KnowledgeRetrievalService<'_> {
@@ -685,16 +735,11 @@ impl KnowledgebaseRuntime {
                 Arc::new(HostedRetrievalService::new(self.clone())),
                 Arc::new(HostedAgentService::new(self.clone())),
                 Arc::new(HostedContextBindingService::new(self.clone())),
-                Arc::new(HostedSiteService::new(self.clone())),
                 Arc::new(HostedWechatService::new(self.clone())),
                 Arc::new(HostedCommerceService::new(self.clone())),
             )),
             Some(self.readiness_check_adapter()),
         )
-    }
-
-    pub fn build_public_site_router(&self) -> axum::Router {
-        crate::public_site::build_public_site_router(self.clone())
     }
 
     pub async fn build_full_app_router_with_web_framework(&self) -> axum::Router {

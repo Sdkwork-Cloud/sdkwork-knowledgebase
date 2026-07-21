@@ -4,6 +4,13 @@
 
 ### Added
 
+- Added `sdkwork-knowledgebase-provider-secret-adapter` and a typed Provider credential access
+  context. Development/test sources are restricted to the Knowledgebase and implementation
+  environment namespace or canonical files under a per-Provider root; staging/production use managed `secret://`
+  references only. Executable tests cover unrelated and cross-Provider locator rejection, root and
+  symlink escape, production fail-closed policy, complete context propagation, bounded results,
+  one total time budget, a concurrency bulkhead that contains timed-out blocking calls, intermediate
+  plaintext cleanup, sanitized errors, and immediate rotation/revocation without a cache.
 - Added versioned Provider load/SLO and outage-recovery evidence schemas, templates, and a shared
   operational evidence policy. Live certification now recomputes results from digest-bound raw
   request samples and outage timelines and rejects policy weakening, unsafe fields, oversized or
@@ -18,6 +25,10 @@
 
 ### Changed
 
+- Removed raw Provider credential parsing from the app route crate. `KnowledgebaseRuntime` now
+  injects the resolver, exposes an explicit managed-resolver construction path, and rejects default
+  staging/production construction when no approved managed resolver is supplied. A concrete
+  production Vault/KMS backend and live operational drills remain release gates.
 - Reduced the readiness report to stable space identifiers and non-active Binding counts; space
   names, source metadata, remote-resource identifiers, and credential material are excluded.
 - Replaced the Provider migration cutover store's positional parameter list with a typed command

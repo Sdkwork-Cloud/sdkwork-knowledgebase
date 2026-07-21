@@ -14,6 +14,8 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util", "rt-multi-thread", "time"] }
 tracing = "0.1"
 url = "2"
+zeroize.workspace = true
 
 [dev-dependencies]
+sdkwork-knowledgebase-contract.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

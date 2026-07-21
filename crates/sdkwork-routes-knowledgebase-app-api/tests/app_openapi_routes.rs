@@ -333,21 +333,6 @@ fn app_openapi_commerce_git_and_media_operations_use_envelopes() {
             "/app/v3/api/knowledge/market/subscriptions/{listingId}",
         ),
         (
-            "sites.update",
-            "put",
-            "/app/v3/api/knowledge/spaces/{spaceId}/site",
-        ),
-        (
-            "siteReleases.create",
-            "post",
-            "/app/v3/api/knowledge/sites/{siteId}/releases",
-        ),
-        (
-            "siteHostBindings.create",
-            "post",
-            "/app/v3/api/knowledge/sites/{siteId}/host_bindings",
-        ),
-        (
             "mediaTasks.create",
             "post",
             "/app/v3/api/knowledge/media_tasks",
@@ -373,13 +358,6 @@ fn app_openapi_commerce_git_and_media_operations_use_envelopes() {
         "KnowledgeMarketCatalogItem",
         "KnowledgeMarketSubscriptionRequest",
         "KnowledgeMarketSubscriptionResult",
-        "UpsertKnowledgeSiteRequest",
-        "KnowledgeSite",
-        "PublishKnowledgeSiteReleaseRequest",
-        "KnowledgeSitePublicationResult",
-        "KnowledgeSiteRelease",
-        "CreateKnowledgeSiteHostBindingRequest",
-        "KnowledgeSiteHostBinding",
         "KnowledgeMediaTaskRequest",
         "KnowledgeMediaTaskResult",
     ] {
@@ -407,17 +385,6 @@ fn app_openapi_commerce_git_and_media_operations_use_envelopes() {
             "command result schema {schema_name} must expose accepted"
         );
     }
-
-    let release_id_schema =
-        &spec["components"]["schemas"]["KnowledgeSiteRelease"]["properties"]["id"];
-    assert_eq!(
-        release_id_schema["type"], "string",
-        "site release id must use int64-string wire type"
-    );
-    assert_eq!(
-        release_id_schema["x-sdkwork-int64-string"], true,
-        "site release id must declare SDKWork int64-string metadata"
-    );
 }
 
 #[test]

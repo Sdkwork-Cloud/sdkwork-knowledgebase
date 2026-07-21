@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Send, CheckCircle2, Check, AlertCircle } from 'lucide-react';
+import { X, Send, Check, AlertCircle } from 'lucide-react';
 import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
-import { DocumentMeta, DocumentService } from './services/document';
+import { DocumentMeta } from './services/document';
 export interface PublishModalProps {
   documents: DocumentMeta[];
   onClose: () => void;
@@ -24,44 +24,16 @@ const PUBLISH_PLATFORMS = [
 
 export function PublishModal({ documents, onClose, onWechatFlow }: PublishModalProps) {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('wechat');
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [publishStatus, setPublishStatus] = useState<Record<string, 'pending' | 'success' | 'error'>>({});
+  const isPublishing = false;
   const apiMode = isKnowledgebaseApiAvailable();
 
   const togglePlatform = (id: string) => {
     setSelectedPlatform(id);
   };
 
-  const handlePublish = async () => {
-    if (!selectedPlatform) return;
-    
+  const handlePublish = () => {
     if (selectedPlatform === 'wechat') {
       onWechatFlow?.();
-      return;
-    }
-
-    setIsPublishing(true);
-    setPublishStatus({ [selectedPlatform]: 'pending' });
-
-    try {
-      const res = await DocumentService.publishWebsite(
-        documents[0]?.kbId || documents[0]?.id || '',
-      );
-      if (!res.accepted) {
-        setPublishStatus({ [selectedPlatform]: 'error' });
-        setIsPublishing(false);
-        return;
-      }
-      setPublishStatus({ [selectedPlatform]: 'success' });
-      
-      setTimeout(() => {
-        setIsPublishing(false);
-        onClose();
-      }, 1500);
-    } catch(err) {
-      console.error(err);
-      setPublishStatus({ [selectedPlatform]: 'error' });
-      setIsPublishing(false);
     }
   };
 
@@ -109,8 +81,6 @@ export function PublishModal({ documents, onClose, onWechatFlow }: PublishModalP
             <div className="flex-1 overflow-y-auto p-5 grid grid-cols-2 gap-4 auto-rows-max">
               {PUBLISH_PLATFORMS.map(platform => {
                 const isSelected = selectedPlatform === platform.id;
-                const status = publishStatus[platform.id];
-                
                 return (
                   <div 
                     key={platform.id}
@@ -142,11 +112,7 @@ export function PublishModal({ documents, onClose, onWechatFlow }: PublishModalP
                       </div>
                     </div>
                     <div className="ml-3 flex-shrink-0">
-                      {status === 'success' ? (
-                        <div className="w-5 h-5 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center border border-emerald-200 shadow-sm"><CheckCircle2 size={12} strokeWidth={3} /></div>
-                      ) : status === 'pending' ? (
-                        <div className="w-5 h-5 border-2 border-[var(--color-kb-accent)] border-t-transparent rounded-full animate-spin shadow-sm" />
-                      ) : isSelected && !platform.disabled ? (
+                      {isSelected && !platform.disabled ? (
                         <div className="w-5 h-5 bg-[var(--color-kb-accent)] text-white rounded-full flex items-center justify-center shadow-sm"><Check size={12} strokeWidth={3} /></div>
                       ) : (
                         <div className={`w-5 h-5 border-2 border-[var(--color-kb-panel-border)] rounded-full bg-[var(--color-kb-editor)] shadow-sm ${platform.disabled ? 'opacity-50' : ''}`} />

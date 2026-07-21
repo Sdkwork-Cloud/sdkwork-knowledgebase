@@ -92,6 +92,7 @@
                                         ],
                       "runtimeEntrypoints":  [
                                                  "KnowledgebaseRuntime",
+                                                 "KnowledgebaseRuntime::connect_with_provider_credential_resolver",
                                                  "app_route_manifest",
                                                  "build_full_app_router",
                                                  "build_backend_router",
@@ -101,6 +102,13 @@
                                                  "sdkwork-knowledgebase-backend-api",
                                                  "sdkwork-knowledgebase-open-api"
                                              ],
+                      "requiredPorts":  [
+                                            {
+                                                "name":  "knowledgeEngineProviderCredentialResolver",
+                                                "export":  ".",
+                                                "target":  "sdkwork_knowledgebase_provider_secret_adapter::KnowledgebaseProviderCredentialResolver"
+                                            }
+                                        ],
                       "routeManifest":  "sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json",
                       "authMode":  "dual-token",
                       "sdkClients":  [
@@ -110,7 +118,8 @@
 
                                  ],
                       "configKeys":  [
-
+                                         "SDKWORK_KNOWLEDGEBASE_ENVIRONMENT",
+                                         "SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRETS_DIR"
                                      ],
                       "sdkDependencies":  [
 

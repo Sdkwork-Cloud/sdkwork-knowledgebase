@@ -1,0 +1,416 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.knowledgebase.live-wiki-publication.spec",
+  "status": "proposed",
+  "owner": "SDKWork Knowledgebase maintainers",
+  "authority": {
+    "requirement": "docs/product/requirements/REQ-2026-0721-live-wiki-cloud-publication.md",
+    "product": "docs/product/prd/PRD-live-wiki-publication.md",
+    "decision": "docs/architecture/decisions/ADR-20260721-live-mounted-wiki-publication.md",
+    "architecture": "docs/architecture/tech/TECH-live-wiki-resource-provider.md",
+    "migration": "docs/migrations/MIG-2026-0721-release-to-live-wiki-publication.md",
+    "readinessReview": "docs/engineering/reviews/REVIEW-20260721-live-wiki-deployment-integration-readiness.md",
+    "okfBundleContract": "specs/okf-knowledge-bundle.spec.json",
+    "crossRepositoryContracts": {
+      "deployControlPlane": "../sdkwork-deployments/docs/architecture/tech/TECH-cloud-site-publishing-control-plane.md",
+      "deployDecision": "../sdkwork-deployments/docs/architecture/decisions/ADR-20260721-unified-cloud-site-publishing-control-plane.md",
+      "webServerDataPlane": "../sdkwork-web-server/docs/architecture/tech/TECH-cloud-site-delivery-data-plane.md",
+      "webServerDecision": "../sdkwork-web-server/docs/architecture/decisions/ADR-20260721-compiled-website-runtime-descriptor.md"
+    },
+    "canonicalSpecs": [
+      "../sdkwork-specs/API_SPEC.md",
+      "../sdkwork-specs/DRIVE_SPEC.md",
+      "../sdkwork-specs/EVENT_SPEC.md",
+      "../sdkwork-specs/SECURITY_SPEC.md",
+      "../sdkwork-specs/PRIVACY_SPEC.md",
+      "../sdkwork-specs/PERFORMANCE_SPEC.md",
+      "../sdkwork-specs/DEPLOYMENT_SPEC.md",
+      "../sdkwork-specs/RELEASE_SPEC.md",
+      "../sdkwork-specs/TEST_SPEC.md"
+    ]
+  },
+  "model": {
+    "pattern": "live_mounted_headless_wiki",
+    "sourceAuthority": "sdkwork-drive",
+    "semanticAuthority": "sdkwork-knowledgebase",
+    "siteControlPlaneAuthority": "sdkwork-deploy",
+    "deliveryAuthority": "sdkwork-web-server",
+    "runtimeDescriptor": "sdkwork.website-runtime.v1",
+    "runtimeHandler": "WIKI",
+    "knowledgebaseCapability": "every Knowledgebase is Wiki-capable without a special Knowledgebase type or conversion",
+    "publicationCardinality": "exactly one canonical WikiPublication per tenant and Knowledgebase Space",
+    "initialPublicationState": "DRAFT with REVIEW_REQUIRED mode and PRIVATE default visibility",
+    "providerReuse": "one canonical WikiPublication may be referenced by multiple authorized Deploy Site Resources, Sites, Variants and Mounts",
+    "ordinaryContentChangesCreateSiteRelease": false,
+    "ordinaryContentChangesCreateDeployRevision": false,
+    "siteRevisionRule": "Only Deploy-owned Site, Resource, Variant, Mount, Binding, delivery, security or observability configuration changes compile a new SiteRevision. Wiki content, visibility, publication mode, theme, renderer, navigation and search-generation changes remain provider lifecycle state and advance provider events or generations instead."
+  },
+  "source": {
+    "driveSpaceType": "knowledge_base",
+    "fixedRoot": "sources/raw",
+    "eligibleKinds": ["PAGE", "DOCUMENT", "PRESENTATION", "SPREADSHEET", "CODE", "MEDIA", "ASSET", "ARCHIVE"],
+    "excludedRoots": ["okf", "output", ".sdkwork", ".sdkwork/governance"],
+    "directAnonymousDirectoryServing": false,
+    "stableIdentity": ["driveUri", "driveSpaceUuid", "driveNodeUuid", "driveVersionUuid", "contentSha256"],
+    "forbiddenIdentity": ["bucket", "objectKey", "providerEndpoint", "presignedUrl"],
+    "mutationModel": {
+      "logicalFileIdentity": "driveNodeUuid remains stable across ordinary content updates, rename and same-root move",
+      "contentUpdate": "editing or replacing a logical file commits a new immutable driveVersionUuid and atomically advances the node current version",
+      "physicalImmutability": "a committed Drive version, checksum and backing blob are immutable",
+      "renameOrMove": "the stable node receives a new normalized source path observation and route reconciliation invalidates old and new routes",
+      "deleteOrRestore": "delete and restore are version-fenced lifecycle transitions on the stable node",
+      "forbidden": "rejecting a new version merely because the logical sources/raw path already exists"
+    }
+  },
+  "upload": {
+    "client": "@sdkwork/drive-app-sdk client.uploader.*",
+    "server": "sdkwork-drive-uploader-service",
+    "folderRelativePathsPreserved": true,
+    "resumable": true,
+    "authorFeedback": ["byte progress", "Drive completion", "projection state", "scan state", "render state", "index state"],
+    "completionRule": "Drive completion creates or updates an authenticated source projection; it never grants anonymous visibility."
+  },
+  "formatSupport": {
+    "classificationAuthority": "normalized extension, detected MIME, signature sniffing and scan result must agree before a processor is selected",
+    "capabilityTiers": {
+      "native_page": {
+        "extensions": ["md", "markdown", "mdx", "txt", "rst", "adoc"],
+        "behavior": "parse with a versioned bounded text processor and render as a sanitized Wiki page",
+        "publicSourceBytes": false
+      },
+      "safe_html_page": {
+        "extensions": ["html", "htm"],
+        "behavior": "parse into a DOM, remove active content, rewrite eligible local links and assets, sanitize to the approved HTML profile and render on the Wiki origin",
+        "execution": "none"
+      },
+      "document_page": {
+        "extensions": ["pdf", "doc", "docx", "odt", "rtf", "epub"],
+        "behavior": "provide a bounded document viewer, extracted text and thumbnails; office formats use an isolated converter to create approved PDF or page-image renditions",
+        "downloadOriginal": true
+      },
+      "presentation_page": {
+        "extensions": ["ppt", "pptx", "odp", "key"],
+        "behavior": "use an isolated converter to produce slide images or PDF, extract slide text and notes, and expose slide-aware navigation",
+        "downloadOriginal": true
+      },
+      "spreadsheet_page": {
+        "extensions": ["xls", "xlsx", "ods", "csv", "tsv"],
+        "behavior": "show a bounded read-only sheet/table preview, expose sheet navigation and index bounded cell text; formulas are never executed by the Wiki runtime",
+        "downloadOriginal": true
+      },
+      "source_code_page": {
+        "extensions": ["js", "mjs", "cjs", "ts", "tsx", "jsx", "css", "scss", "less", "json", "jsonc", "yaml", "yml", "xml", "toml", "ini", "sql", "sh", "ps1", "py", "rs", "java", "go", "dart", "kt", "swift", "c", "h", "cpp", "hpp"],
+        "behavior": "render escaped syntax-highlighted source with line anchors, copy and download controls, and bounded text indexing",
+        "execution": "none"
+      },
+      "media_page": {
+        "extensions": ["png", "jpg", "jpeg", "webp", "gif", "avif", "mp3", "wav", "ogg", "m4a", "mp4", "webm", "mov"],
+        "behavior": "use an approved image, audio or video viewer with metadata, poster or thumbnail renditions and range delivery when supported"
+      },
+      "archive_download": {
+        "extensions": ["zip", "tar", "gz", "tgz", "7z", "rar"],
+        "behavior": "scan and expose a bounded safe manifest when supported; never execute or render archive members implicitly; original download requires attachment disposition"
+      },
+      "unsupported_binary": {
+        "extensions": ["exe", "dll", "so", "dylib", "apk", "ipa", "dmg", "msi", "bin"],
+        "behavior": "never render or execute; quarantine or offer an explicitly approved attachment-only workflow"
+      }
+    },
+    "mdxRule": "MDX is treated as Markdown text with JSX disabled unless a separately governed trusted component profile is approved.",
+    "javascriptRule": "Uploaded JavaScript is supported as source content and download material, but never executes on the standard Wiki origin.",
+    "activeSiteRule": "Executable JavaScript, active HTML, service workers, WebAssembly and arbitrary CSS require a separate isolated-origin trusted-active-site profile with signed packages, supply-chain evidence and explicit security approval.",
+    "mismatchRule": "extension, declared MIME and detected signature mismatch blocks public readiness and creates a bounded author problem.",
+    "metadataPrecedence": ["explicit Knowledgebase projection override", "validated native front matter", "sanitized embedded document metadata", "normalized file name fallback"],
+    "securityMetadataRule": "publication state, visibility, permissions, scan state and execution policy are never elevated by source-embedded metadata."
+  },
+  "publication": {
+    "aggregate": "WikiPublication",
+    "databaseTable": "kb_site_publication",
+    "provisioning": "idempotently create with every new Knowledgebase and bounded-backfill existing eligible Knowledgebases before feature activation",
+    "publicationType": "wiki",
+    "eligibleStatus": "ACTIVE",
+    "states": ["DRAFT", "VALIDATING", "READY", "ACTIVE", "DEGRADED", "PAUSED", "ARCHIVED", "FAILED"],
+    "modes": ["REVIEW_REQUIRED", "AUTO_PUBLIC_AFTER_CHECKS"],
+    "updatePolicies": ["KEEP_LAST_PUBLIC_UNTIL_READY", "UNPUBLISH_DURING_PROCESSING"],
+    "defaultMode": "REVIEW_REQUIRED",
+    "defaultVisibility": "PRIVATE",
+    "recommendedVisibilityModel": "author_immediate_public_gated",
+    "authorWorkspaceRule": "Drive completion makes the source row immediately visible to authorized authors; processing progress and private preview update without a public publication command.",
+    "publicWikiRule": "The standard default requires an explicit version-fenced publish command after all gates pass. Upload completion and preview readiness never publish by themselves.",
+    "autoPublicRule": "AUTO_PUBLIC_AFTER_CHECKS is an owner-approved opt-in policy scoped to a site or explicit import rule; it runs the same gates and publish command with an attributed system actor.",
+    "scheduledRule": "SCHEDULED content is revalidated at execution time and publishes only the pinned ready source version.",
+    "bulkRule": "Bulk upload remains private; authorized users may review the ready subset and issue one bounded bulk publish command with per-item outcomes."
+  },
+  "publicationWorkflows": {
+    "firstUploadReviewRequired": ["uploading", "uploaded_author_visible", "processing", "private_preview_ready", "awaiting_publish", "published_public"],
+    "firstUploadAutoPublic": ["uploading", "uploaded_author_visible", "processing", "all_gates_ready", "system_publish_command", "published_public"],
+    "publishedFileReviewRequiredUpdate": ["old_public_version_served", "new_version_processing", "new_private_preview_ready", "awaiting_republish", "explicit_republish", "atomic_public_version_switch"],
+    "publishedFileAutoUpdate": ["old_public_version_served", "new_version_processing", "all_gates_ready", "system_publish_command", "atomic_public_version_switch"],
+    "securityRevocation": ["private_or_quarantine_or_delete_or_unpublish", "immediate_public_ineligibility", "cache_invalidation"],
+    "uiStates": ["UPLOADING", "UPLOADED", "PROCESSING", "PREVIEW_READY", "AWAITING_PUBLISH", "PUBLISHED", "UPDATE_AWAITING_PUBLISH", "SCHEDULED", "ERROR", "QUARANTINED"]
+  },
+  "sourceProjection": {
+    "databaseTable": "kb_source_file_projection",
+    "identity": ["tenantId", "sitePublicationId", "driveNodeUuid", "driveVersionUuid"],
+    "sourceStates": ["DISCOVERED", "QUEUED", "PROCESSING", "READY", "ERROR", "QUARANTINED", "DELETED"],
+    "publicationStates": ["DRAFT", "IN_REVIEW", "SCHEDULED", "PUBLISHED", "UNPUBLISHED", "ARCHIVED"],
+    "visibilityStates": ["PRIVATE", "UNLISTED", "PUBLIC"],
+    "indexStates": ["NOT_REQUIRED", "PENDING", "INDEXING", "READY", "ERROR"],
+    "publicEligibility": {
+      "publicationStatus": "ACTIVE",
+      "sourceState": "READY",
+      "publicationState": "PUBLISHED",
+      "visibility": ["PUBLIC", "UNLISTED"],
+      "requiredChecks": ["source root ancestry", "scan", "MIME", "route", "render", "link and asset policy"]
+    },
+    "unlistedRule": "Resolvable by canonical URL but excluded from navigation, sitemap and search.",
+    "privateRule": "Never anonymously resolvable."
+  },
+  "renditions": {
+    "databaseTable": "kb_source_file_rendition",
+    "authority": "derived and rebuildable presentation state; never the source-content authority",
+    "identity": ["tenantId", "sourceFileProjectionId", "driveVersionUuid", "processorId", "processorVersion", "renditionKind", "contentSha256"],
+    "kinds": ["SANITIZED_HTML", "PDF", "PAGE_IMAGE", "THUMBNAIL", "POSTER", "PLAIN_TEXT", "SLIDE_TEXT", "SHEET_PREVIEW", "ARCHIVE_MANIFEST", "MEDIA_METADATA"],
+    "states": ["PENDING", "PROCESSING", "READY", "ERROR", "QUARANTINED", "EXPIRED"],
+    "storage": "Drive-backed generated artifact written through sdkwork-drive-uploader-service or an approved server-side facade",
+    "cacheKey": ["driveVersionUuid", "contentSha256", "processorId", "processorVersion", "policyVersion", "locale"],
+    "reuse": "content-addressed renditions may be reused only within authorized tenant and policy scope",
+    "cleanup": "superseded renditions follow bounded retention and Drive-owned cleanup; current eligible source versions remain protected",
+    "forbidden": ["process-local durable rendition files", "object keys in Knowledgebase tables", "rendition treated as a SiteRelease", "converter output trusted without scan and checksum validation"]
+  },
+  "processorRegistry": {
+    "selection": "detected format plus configured policy resolves exactly one processor profile",
+    "processorContract": ["processorId", "version", "supported MIME and extensions", "input and output bounds", "sandbox profile", "network policy", "timeout", "rendition kinds", "text extraction capability"],
+    "execution": "document and presentation conversion runs in an isolated worker or approved converter service with no ambient credentials, no private-network access, read-only input and bounded temporary storage",
+    "failure": "processor crash, timeout, malformed output, decompression bomb, macro or active-content detection fails closed and preserves the last verified public version only when policy allows",
+    "upgrade": "processor-version changes enqueue bounded reprocessing and support canary, compatibility evidence and rollback"
+  },
+  "projectionPipeline": {
+    "delivery": "at-least-once",
+    "transactionalOutbox": true,
+    "requiredDriveInputEvents": [
+      "drive.node.version.committed.v1",
+      "drive.node.path.changed.v1",
+      "drive.node.eligibility.changed.v1",
+      "drive.node.deleted.v1"
+    ],
+    "driveEventAuthority": "a Drive-owned AsyncAPI contract under sdkwork-drive/apis/events must exist before implementation readiness",
+    "consumerIdempotencyKey": "eventId + driveNodeUuid + driveVersionUuid",
+    "ordering": "newer Drive version and explicit publication version fence older work",
+    "checkpointScope": "tenantId + driveSpaceUuid + sourcesRawBindingUuid",
+    "steps": [
+      "validate event, tenant, Drive binding and sources/raw ancestry",
+      "upsert source projection by stable Drive identity",
+      "read bounded metadata and bytes through a typed Drive port",
+      "apply scan, size and MIME policy",
+      "classify format from extension, MIME, signature and scan state",
+      "parse native pages or select an approved isolated processor",
+      "generate and verify required renditions and extracted text",
+      "derive canonical route, locale, headings, links, assets, document outline and navigation metadata",
+      "validate renderer, converter and sanitizer output",
+      "commit projection and public-version state with an outbox event",
+      "update the visibility-filtered search index"
+    ],
+    "retry": "bounded exponential retry with jitter, dead letter and operator replay",
+    "reconciliation": "checkpointed bounded Drive scan repairs event gaps without losing explicit publication decisions"
+  },
+  "routing": {
+    "entrypoint": "standalone and cloud requests both enter sdkwork-web-server through an active sdkwork.website-runtime.v1 descriptor; Knowledgebase exposes no anonymous fixed public route",
+    "baseUrl": "an active Binding selects a Variant whose longest-prefix WIKI Mount references a valid KNOWLEDGEBASE_WIKI Site Resource",
+    "selectionOrder": ["exact or approved wildcard Binding", "longest Binding path prefix", "deterministic Variant", "longest WIKI Mount prefix", "provider-relative Wiki route"],
+    "standaloneComposition": "Web Server may inject the typed Knowledgebase provider in-process but preserves the same descriptor, routing, authorization, error and cache contracts",
+    "mountTranslation": "Deploy ROOT or ALIAS translation produces a normalized provider-relative Wiki route that cannot ascend above the publication root.",
+    "homepage": "sources/raw/index.md unless an explicit eligible homepage is configured",
+    "pageMapping": "remove one processor-declared page extension and use a canonical trailing slash",
+    "documentExample": "sources/raw/manual.pdf maps to /manual/ for the Wiki wrapper; original bytes are available only through a policy-checked pinned-version download representation",
+    "directoryIndex": "index.md maps to its directory route",
+    "routeCollision": "different source files that normalize to the same canonical route block public readiness until an explicit route override resolves the conflict",
+    "normalization": ["case and canonical collision detection", "dot-segment rejection", "encoded traversal rejection", "backslash rejection", "reserved-root rejection"],
+    "redirects": "reviewed move and rename redirects only; no cycles, chains beyond policy, or open redirects"
+  },
+  "provider": {
+    "providerType": "KNOWLEDGEBASE_WIKI",
+    "transport": "sdkwork-knowledgebase-internal-sdk in split topology or the equivalent typed Rust service port in standalone topology",
+    "apiAuthority": "sdkwork-knowledgebase-internal-api",
+    "sdkFamily": "sdkwork-knowledgebase-internal-sdk",
+    "requiredOperations": ["validate resource", "resolve route metadata", "open pinned representation stream", "list navigation", "search public index", "read generation checkpoint"],
+    "forbiddenTransport": ["raw HTTP", "manual auth headers", "database reads from Deploy or Web Server", "public anonymous Knowledgebase router"],
+    "connectionCardinality": "many Deploy Site Resources may reference one providerResourceUuid; Knowledgebase stores no singular Site, Mount, domain or certificate authority",
+    "descriptorReference": {
+      "resourceUuid": "Deploy-owned deploy_site_resource UUID used by routing, cache and observations",
+      "providerResourceUuid": "Knowledgebase WikiPublication UUID used by the provider as aggregate identity",
+      "providerSpaceUuid": "stable Drive knowledge_base Space UUID",
+      "providerRootNodeUuid": "last validated sources/raw root UUID; diagnostic and confinement evidence, not provider identity",
+      "requiredProviderContractVersion": "major/minor compatibility fence",
+      "capabilities": "bounded non-secret Wiki capability snapshot"
+    },
+    "forbiddenDescriptorFields": ["token", "SDK base URL", "provider endpoint", "bucket", "object key", "presigned URL", "database connection", "Drive credential"],
+    "operations": {
+      "validateResource": "validateWikiResource(providerResourceUuid, runtimeContext)",
+      "resolveWikiRoute": "resolveWikiRoute(providerResourceUuid, normalizedRoute, locale, conditions, runtimeContext)",
+      "openContent": "openWikiAsset or openWikiRendition for an exact pinned public representation",
+      "searchWiki": "searchWiki(providerResourceUuid, query, cursor, pageSize, locale, runtimeContext)",
+      "subscribeResourceEvents": "subscribeWikiResourceEvents(providerResourceUuid, checkpoint, runtimeContext)",
+      "wikiExtensions": ["getWikiNavigation", "open pinned original download when policy permits"]
+    },
+    "runtimeContext": ["authenticated service identity", "tenant and resource scope", "providerResourceUuid", "site purpose", "trace", "deadline"],
+    "errorClasses": ["NOT_FOUND_OR_NOT_PUBLIC", "NOT_MODIFIED", "INVALID_PATH", "REVOKED_RESOURCE", "RATE_LIMITED", "TRANSIENT_UNAVAILABLE", "CONTRACT_MISMATCH"],
+    "publicRequestTenantInput": false,
+    "existenceDisclosure": false,
+    "sourceMarkdownReturnedPublicly": false
+  },
+  "platformAlignment": {
+    "deployOwns": ["Site", "Site Resource", "Variant", "Variant rule", "Mount", "Binding", "Domain", "TLS policy", "WebsiteRuntimeDescriptor", "SiteRevision", "rollout", "delivery analytics"],
+    "knowledgebaseOwns": ["WikiPublication", "source projection", "publication and visibility decisions", "route and redirect semantics", "render and rendition policy", "navigation", "search", "SEO", "provider eligibility", "page public version", "provider generation", "navigation generation", "search generation"],
+    "webServerOwns": ["descriptor validation and atomic activation", "host, Binding, Variant and Mount routing", "WIKI adapter", "HTTP and TLS", "conditional and range delivery", "bounded caches", "provider event consumption", "streaming", "runtime observations"],
+    "configurationRevisionTriggers": ["Deploy Site or Resource composition", "Variant or rule", "Mount", "Binding or Domain", "delivery policy", "security policy", "descriptor limits or observability policy"],
+    "providerLifecycleOnly": ["upload", "processing", "publish", "republish", "unpublish", "visibility", "route content mapping", "theme or renderer version", "navigation generation", "search generation", "quarantine or delete"],
+    "deploymentRule": "Provider lifecycle changes never create Deploy Release, Deployment or SiteRevision; they advance the narrowest applicable public version or generation and emit idempotent provider events.",
+    "tlsRule": "TLS snapshots advance independently from WebsiteRuntimeDescriptor and Wiki content versions."
+  },
+  "rendering": {
+    "profile": "versioned multi-format renderer registry with CommonMark-compatible, safe HTML, document, presentation, spreadsheet, source-code and media profiles",
+    "cacheKey": ["source public version", "renderer policy version", "theme version", "locale"],
+    "sanitization": ["raw HTML", "inline event handlers", "javascript URL", "data URL execution", "active SVG", "iframe and embed", "service worker", "WebAssembly"],
+    "externalFetch": "disabled or delegated to an approved SSRF-safe capability",
+    "limits": ["input bytes", "output bytes", "page or slide count", "sheet and cell count", "archive expansion ratio", "node depth", "code size", "table size", "diagram complexity", "link count", "image count", "render or conversion time"]
+  },
+  "assets": {
+    "source": "an eligible ASSET projection under sources/raw",
+    "publicRule": "A public page reference never upgrades a private or unready asset.",
+    "openRule": "resolve the pinned verified Drive version through a typed Drive stream port",
+    "activeContentDefault": "blocked",
+    "requiredChecks": ["READY", "PUBLISHED", "PUBLIC or UNLISTED", "allowed MIME", "bounded size", "checksum", "scan state"],
+    "delivery": ["safe MIME", "Content-Disposition policy", "range support when approved", "ETag", "nosniff", "CSP"]
+  },
+  "searchAndNavigation": {
+    "navigationModes": ["DIRECTORY", "FRONT_MATTER", "CURATED"],
+    "searchSource": "only current eligible public versions and their verified bounded text renditions",
+    "formatExtraction": ["Markdown and text body", "sanitized HTML text", "PDF page text", "presentation slide text and notes", "document text", "spreadsheet sheet names and bounded cell text", "source code text", "media metadata and approved transcript"],
+    "searchPagination": "store or index cursor pagination",
+    "forbidden": ["client slicing of a full result set", "private or unlisted search leakage", "RAG index as public publication authority"],
+    "rebuildable": true
+  },
+  "generations": {
+    "driveSourceCheckpoint": "durable ordered consumer checkpoint for the bound sources/raw Drive change stream; never part of a public cache key",
+    "providerGeneration": "monotonic WikiPublication-wide fencing value changed only by provider eligibility, fixed-root binding, renderer/theme policy or provider-wide route-policy transitions",
+    "pagePublicVersion": "monotonic per-route public representation version changed by publish, republish, move, unpublish, delete, quarantine or visibility revocation",
+    "navigationGeneration": "monotonic navigation snapshot version",
+    "searchGeneration": "monotonic public search index snapshot version",
+    "privateProcessingRule": "upload progress, private preview, parse retries and private index work do not advance providerGeneration or a page public version",
+    "ordinaryPageUpdateRule": "an ordinary page-body update advances only its pagePublicVersion plus affected navigation or search generations; it does not flush every route",
+    "revocationRule": "revocation commits the new pagePublicVersion and revocation event in one transaction before stale delivery can continue"
+  },
+  "freshness": {
+    "eligibleCommitToPublicP95Millis": 5000,
+    "eligibleCommitToPublicP99Millis": 30000,
+    "nativeAutoPublishDriveCommitToPublicP95Millis": 15000,
+    "nativeAutoPublishDriveCommitToPublicP99Millis": 60000,
+    "nativeAutoPublishApplicability": "supported native page or preverified asset within the approved small-file class while Drive, scan, processor, event and Web Server dependencies are healthy",
+    "authorProjectionDriveCommitP95Millis": 5000,
+    "priorityRevocationCommitToNotPublicP95Millis": 5000,
+    "realTimeDefinition": "event-driven bounded eventual visibility without polling-only publication, Deploy Release, Deployment or SiteRevision",
+    "successTargetPercent": 99,
+    "measurementStart": "the committed explicit, automatic, or scheduled publish transition that changes the eligible public version; never raw upload completion or private preview readiness",
+    "mechanism": "versioned projection events plus Web Server cache invalidation or revalidation",
+    "readThrough": "event uncertainty or gap forces provider validation against the current public version",
+    "revocationPriority": ["PRIVATE", "QUARANTINED", "DELETED", "UNPUBLISHED", "PAUSED"],
+    "staleRule": "last verified public version is allowed only by KEEP_LAST_PUBLIC_UNTIL_READY and never for a security or revocation transition"
+  },
+  "formatFreshness": {
+    "nativeAndPreverifiedAsset": "uses the base p95 and p99 freshness objective",
+    "conversionRequired": "asynchronous job with progress; target is declared per processor profile and file-size class",
+    "largeOrComplexFile": "no synchronous freshness claim; current verified public version follows update policy until conversion completes",
+    "revocation": "privacy, quarantine, delete and unpublish are not delayed by conversion backlog"
+  },
+  "cache": {
+    "correctnessAuthority": "Knowledgebase provider",
+    "keyDimensions": ["siteRevisionPolicyGeneration", "tenantScopeHash", "bindingUuid", "variantUuid", "mountUuid", "resourceUuid", "providerGeneration", "normalized provider route", "pagePublicVersion", "renderer policy version", "theme version", "locale", "representation encoding"],
+    "validators": ["ETag", "Last-Modified when reliable"],
+    "eventRule": "events reduce freshness latency but do not replace read-through authorization and version validation",
+    "failureRule": "uncertain generation revalidates; private, delete, quarantine and unpublish cannot serve stale",
+    "staleIsolationRule": "A last-known-good descriptor or representation may be served only within its exact tenant, Site, Binding, Variant, Mount, resource, provider generation and public-version scope."
+  },
+  "events": {
+    "inputOwners": ["Drive node and version lifecycle", "Knowledgebase publication commands"],
+    "requiredAsyncApiAuthority": "apis/events/live-wiki-publication.asyncapi.yaml",
+    "emits": [
+      "knowledgebase.wiki.provider.changed.v1",
+      "knowledgebase.wiki.route.changed.v1",
+      "knowledgebase.wiki.route.revoked.v1",
+      "knowledgebase.wiki.navigation.changed.v1",
+      "knowledgebase.wiki.search.changed.v1"
+    ],
+    "envelope": "EVENT_SPEC.md standard envelope",
+    "payloadRule": "event id/type/version/source/time/tenant plus providerResourceUuid, providerGeneration, affected normalized routes, old and new pagePublicVersion where applicable, operation, reason code and provider checkpoint only; no bodies, raw source paths, object keys or signed URLs",
+    "transactionRule": "public state/version/generation and the corresponding outbox row commit atomically",
+    "hotPathRule": "Knowledgebase emits provider events directly to Web Server consumers; Deploy is not in the ordinary content update hot path",
+    "consumerRule": "idempotent with explicit retry, dead letter, replay and ordering fences",
+    "moveRule": "A route move invalidates both old and new normalized routes.",
+    "gapRule": "Sequence gap, incompatible event version, checkpoint loss or excessive lag marks the Web Server provider generation uncertain, disables freshness-only cache trust, reconciles through provider metadata, then resumes from a durable checkpoint.",
+    "correctnessRule": "Events improve freshness; provider read-through validation remains the correctness backstop."
+  },
+  "securityAndPrivacy": {
+    "managementAuth": "verified SDKWork application context and permissioned optimistic commands",
+    "providerAuth": "authenticated service identity with tenant and publication scope",
+    "publicErrors": "indistinguishable not found for nonexistent, private, wrong-tenant, paused and unready resources",
+    "excludedPublicData": ["okf", "output", ".sdkwork", "drafts", "review comments", "author identity by default", "private search documents", "storage topology", "presigned URLs"],
+    "retention": "Drive source versions, projections, indexes, caches, events and publication decisions participate in export, deletion, residency, legal hold and takedown policy",
+    "metricsRule": "no raw path, title, query, host, content or tenant-specific unbounded label"
+  },
+  "failureAndRecovery": {
+    "duplicateOrOldEvent": "idempotent no-op under version fencing",
+    "eventGap": "bounded checkpoint reconciliation",
+    "parseRenderOrConversionFailure": "mark the new source or rendition version ERROR and apply the configured last-public policy",
+    "quarantineOrRevocation": "immediate public ineligibility and cache invalidation",
+    "searchFailure": "page delivery follows the declared search-readiness policy and reports degraded state",
+    "providerOrDriveFailure": "bounded timeout and circuit; only a previously verified representation allowed by policy may be served",
+    "rebuild": "recreate projections and indexes from Drive while reattaching retained publication decisions by stable node identity"
+  },
+  "verification": {
+    "required": [
+      "Drive-only resumable bulk upload and stable identity",
+      "per-file state transition permissions and optimistic concurrency",
+      "source root confinement and reserved root rejection",
+      "route, redirect, link and asset canonicalization",
+      "format classifier MIME, signature and extension agreement",
+      "Markdown, safe HTML, PDF, Office, presentation, spreadsheet, code, media and archive processor contracts",
+      "converter sandbox, timeout, malformed output, macro, decompression bomb, active-content and SSRF policy",
+      "rendition identity, Drive storage, reuse, cleanup and rebuild",
+      "public page, document viewer, slide viewer, sheet preview, code view, navigation, search, asset and SEO behavior",
+      "private, unlisted, quarantine, delete and cross-tenant non-disclosure",
+      "event duplicate, ordering, gap, replay and reconciliation",
+      "logical source update creates a new immutable Drive version instead of rejecting an existing sources/raw path",
+      "Drive input and Knowledgebase output AsyncAPI compatibility",
+      "provider-wide generation and per-route public-version isolation",
+      "read-through cache freshness and priority revocation",
+      "p95 and p99 freshness load evidence",
+      "dual-engine database, RLS and migration",
+      "standalone and cloud provider parity",
+      "Deploy descriptor identity and provider reference compatibility",
+      "Web Server unified provider port and error compatibility",
+      "complete cross-tenant cache key and event-generation compatibility",
+      "no SiteRelease, Deploy Release, Deployment or SiteRevision for ordinary provider lifecycle changes",
+      "backup, restore and rebuild",
+      "generated SDK and user/admin UI boundaries"
+    ]
+  },
+  "governance": {
+    "implementationClaimGate": "status remains proposed and no realtime/publication capability may be claimed until the readiness review P0 findings have executable evidence",
+    "supersedesUponApproval": [
+      "docs/architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md"
+    ],
+    "implementationPlan": "docs/engineering/plans/PLAN-2026-0721-live-wiki-cloud-publication.md",
+    "humanReviewRequired": [
+      "approval of the live-mounted model and supersession of the release model",
+      "database schema and migration",
+      "public resource and event naming",
+      "security, privacy, active asset and stale representation policy",
+      "processor registry, supported format matrix and conversion SLOs",
+      "trusted-active-site isolated origin and supply-chain policy before any uploaded code execution",
+      "Deploy and Web Server cross-repository provider contract",
+      "freshness SLO and production cache behavior"
+    ],
+    "implementationAllowedBeforeApproval": false
+  }
+}

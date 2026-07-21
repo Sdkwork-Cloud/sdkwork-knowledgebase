@@ -4,9 +4,8 @@ use sdkwork_knowledgebase_contract::{
         CreateKnowledgeSpaceContextBindingRequest, KnowledgeSpaceContextBinding,
         UpdateKnowledgeSpaceContextBindingRequest,
     },
-    CreateKnowledgeDocumentRequest,
-    CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceRequest,
-    CreateKnowledgeSiteHostBindingRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
+    CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
+    CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile,
     KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeContextPack,
@@ -17,7 +16,6 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult,
     KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile,
     KnowledgeOkfConceptRevision, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
-    KnowledgeSite, KnowledgeSiteHostBinding, KnowledgeSitePublicationResult, KnowledgeSiteRelease,
     KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType,
     KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
     KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList,
@@ -26,8 +24,7 @@ use sdkwork_knowledgebase_contract::{
     ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
     OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest, OkfContextPackRequest,
     OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun,
-    OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PublishKnowledgeSiteReleaseRequest,
-    RollbackKnowledgeSiteReleaseRequest, UpdateKnowledgeSpaceRequest, UpsertKnowledgeSiteRequest,
+    OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, UpdateKnowledgeSpaceRequest,
 };
 use sdkwork_utils_rust::SdkWorkPageData;
 use std::sync::Arc;
@@ -37,7 +34,7 @@ use crate::{
     KnowledgeBrowserApi, KnowledgeCommerceAppService, KnowledgeContextBindingAppService,
     KnowledgeDocumentAppService, KnowledgeDriveImportAppService, KnowledgeGitImportAppService,
     KnowledgeIngestAppService, KnowledgeOkfAppService, KnowledgeRetrievalAppService,
-    KnowledgeSiteAppService, KnowledgeSpaceAppService, KnowledgeWechatAppService,
+    KnowledgeSpaceAppService, KnowledgeWechatAppService,
 };
 
 pub struct BrowserOnlyAppApi {
@@ -366,7 +363,6 @@ pub struct FullAppApi {
     retrieval: Arc<dyn KnowledgeRetrievalAppService>,
     agent: Arc<dyn KnowledgeAgentAppService>,
     context_binding: Arc<dyn KnowledgeContextBindingAppService>,
-    site: Arc<dyn KnowledgeSiteAppService>,
     wechat: Arc<dyn KnowledgeWechatAppService>,
     commerce: Arc<dyn KnowledgeCommerceAppService>,
 }
@@ -385,7 +381,6 @@ impl FullAppApi {
         retrieval: Arc<dyn KnowledgeRetrievalAppService>,
         agent: Arc<dyn KnowledgeAgentAppService>,
         context_binding: Arc<dyn KnowledgeContextBindingAppService>,
-        site: Arc<dyn KnowledgeSiteAppService>,
         wechat: Arc<dyn KnowledgeWechatAppService>,
         commerce: Arc<dyn KnowledgeCommerceAppService>,
     ) -> Self {
@@ -401,7 +396,6 @@ impl FullAppApi {
             retrieval,
             agent,
             context_binding,
-            site,
             wechat,
             commerce,
         }
@@ -931,105 +925,6 @@ impl KnowledgeAppApi for FullAppApi {
     ) -> ApiResult<()> {
         self.context_binding
             .delete_context_binding(context, binding_id)
-            .await
-    }
-
-    async fn retrieve_site(
-        &self,
-        context: KnowledgeAppRequestContext,
-        space_id: u64,
-    ) -> ApiResult<KnowledgeSite> {
-        self.site.retrieve_site(context, space_id).await
-    }
-
-    async fn upsert_site(
-        &self,
-        context: KnowledgeAppRequestContext,
-        space_id: u64,
-        request: UpsertKnowledgeSiteRequest,
-    ) -> ApiResult<KnowledgeSite> {
-        self.site.upsert_site(context, space_id, request).await
-    }
-
-    async fn publish_site_release(
-        &self,
-        context: KnowledgeAppRequestContext,
-        site_id: u64,
-        request: PublishKnowledgeSiteReleaseRequest,
-    ) -> ApiResult<KnowledgeSitePublicationResult> {
-        self.site
-            .publish_site_release(context, site_id, request)
-            .await
-    }
-
-    async fn list_site_releases(
-        &self,
-        context: KnowledgeAppRequestContext,
-        site_id: u64,
-        cursor: Option<String>,
-        page_size: Option<u32>,
-    ) -> ApiResult<SdkWorkPageData<KnowledgeSiteRelease>> {
-        self.site
-            .list_site_releases(context, site_id, cursor, page_size)
-            .await
-    }
-
-    async fn retrieve_site_release(
-        &self,
-        context: KnowledgeAppRequestContext,
-        release_id: u64,
-    ) -> ApiResult<KnowledgeSiteRelease> {
-        self.site.retrieve_site_release(context, release_id).await
-    }
-
-    async fn rollback_site_release(
-        &self,
-        context: KnowledgeAppRequestContext,
-        site_id: u64,
-        request: RollbackKnowledgeSiteReleaseRequest,
-    ) -> ApiResult<KnowledgeSite> {
-        self.site
-            .rollback_site_release(context, site_id, request)
-            .await
-    }
-
-    async fn list_site_host_bindings(
-        &self,
-        context: KnowledgeAppRequestContext,
-        site_id: u64,
-        cursor: Option<String>,
-        page_size: Option<u32>,
-    ) -> ApiResult<SdkWorkPageData<KnowledgeSiteHostBinding>> {
-        self.site
-            .list_site_host_bindings(context, site_id, cursor, page_size)
-            .await
-    }
-
-    async fn create_site_host_binding(
-        &self,
-        context: KnowledgeAppRequestContext,
-        site_id: u64,
-        request: CreateKnowledgeSiteHostBindingRequest,
-    ) -> ApiResult<KnowledgeSiteHostBinding> {
-        self.site
-            .create_site_host_binding(context, site_id, request)
-            .await
-    }
-
-    async fn delete_site_host_binding(
-        &self,
-        context: KnowledgeAppRequestContext,
-        site_id: u64,
-        binding_id: u64,
-        expected_site_version: u64,
-    ) -> ApiResult<()> {
-        self.site
-            .delete_site_host_binding(
-                context,
-                site_id,
-                binding_id,
-                expected_site_version,
-            )
             .await
     }
 
