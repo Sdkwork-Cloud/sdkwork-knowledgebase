@@ -74,7 +74,7 @@
         "failureRate": { "type": "number", "minimum": 0, "maximum": 1 },
         "p95LatencyMs": { "type": "number", "minimum": 0 },
         "emptyQueryPassRate": { "type": "number", "minimum": 0, "maximum": 1 },
-        "scoredQueryCount": { "type": "integer", "minimum": 50 }
+        "scoredQueryCount": { "type": "integer", "minimum": 50, "maximum": 5000 }
       }
     }
   },

@@ -28,6 +28,16 @@ pub struct AdvanceClaimedKnowledgeEngineProviderMigration {
     pub error_category: Option<KnowledgeEngineProviderErrorCategory>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CutoverClaimedKnowledgeEngineProviderMigration {
+    pub operation_id: u64,
+    pub claim_token: String,
+    pub expected_version: u64,
+    pub actor_id: String,
+    pub observation_until: String,
+    pub checkpoint: Value,
+}
+
 #[async_trait]
 pub trait KnowledgeEngineProviderMigrationStore: Send + Sync {
     async fn create_operation(
@@ -83,12 +93,7 @@ pub trait KnowledgeEngineProviderMigrationStore: Send + Sync {
     async fn cutover_claimed(
         &self,
         scope: KnowledgeEngineProviderScope,
-        operation_id: u64,
-        claim_token: &str,
-        expected_version: u64,
-        actor_id: &str,
-        observation_until: &str,
-        checkpoint: Value,
+        command: CutoverClaimedKnowledgeEngineProviderMigration,
     ) -> Result<KnowledgeEngineProviderMigrationOperation, KnowledgeEngineProviderMigrationStoreError>;
 
     async fn rollback_claimed(

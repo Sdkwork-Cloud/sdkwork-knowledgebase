@@ -3,7 +3,7 @@
 Status: open  
 Requirement: REQ-2026-0720  
 Owner: SDKWork Knowledgebase maintainers  
-Reviewed: 2026-07-20  
+Reviewed: 2026-07-21
 Scope: catalog, SPI, runtime resolution, health, adapters, security, resilience, observability,
 quality, management, migration, certification, and release evidence
 
@@ -68,9 +68,10 @@ certification, supported ingest/sync, upstream-version compatibility, licensing 
 - A deterministic offline evaluator now defines Recall@K, MRR, nDCG@K, citation correctness,
   failure-rate, P95 latency, and empty-query gates; reviewed production datasets/results remain open.
 - The production evaluation evidence contract rejects sample fixtures and requires at least 50
-  scored questions, three rejection cases, two reviewers, exact one-to-one Provider runs, pinned
-  versions/commits, release provenance, current evidence, and digest-bound dataset/results/report
-  artifacts. It recomputes metrics before acceptance; no real production dataset is attached yet.
+  and at most 5,000 scored questions, 3-500 rejection cases, two reviewers, exact one-to-one
+  Provider runs, pinned versions/commits, release provenance, current non-future evidence, and
+  digest-bound dataset/results/report artifacts no larger than 32 MiB. It recomputes metrics before
+  acceptance; no real production dataset is attached yet.
 - Active tenant/organization/space Binding is the sole external selection authority; source-order
   inference and adapter startup credential selection are absent.
 - SPI execution handles authorize tenant, organization, actor, permission/data scope, space,
@@ -88,6 +89,12 @@ certification, supported ingest/sync, upstream-version compatibility, licensing 
   commit, release workflow, reviewer, expiry, approved licensing/security reviews, and six existing
   SHA-256-bound release artifacts are required. The repository currently reports
   `liveCertifiedCount = 0`; the draft template cannot pass the gate.
+- Load/SLO and outage-recovery evidence now have versioned schemas and a shared operational policy.
+  The live gate reads digest-bound raw request samples and scenario timelines, rejects unknown or
+  secret-bearing fields, escaped artifact paths, oversized artifacts/sample sets, future or
+  mismatched evidence dates, and policy weakening. It recomputes aggregate/per-operation
+  performance, detection, and recovery results. Test fixtures prove both passing and rejection
+  behavior, but do not count as real release-environment evidence.
 - A dedicated `pc-admin-provider` UI implements credential, Binding, and migration workflows through
   admin-core and the composed backend SDK. Actions are version-fenced and lifecycle/capability-aware;
   locator inputs are write-only; all lists are cursor-paged; permission/loading/empty/safe-error/
@@ -106,7 +113,7 @@ certification, supported ingest/sync, upstream-version compatibility, licensing 
 | P1 | Production secret resolver is env/file only | production credential custody is incomplete | approved secret-manager/KMS resolver and rotation drill |
 | P1 | Release PostgreSQL and migration evidence missing | SQLite cannot prove production locking/RLS behavior | PostgreSQL concurrency, RLS, cutover, rollback, backup/restore evidence |
 | P1 | Release Provider UI acceptance not executed | local IAM database drift prevents an authenticated browser session | repair/review IAM PostgreSQL drift, then run accessibility and operator E2E acceptance |
-| P1 | Load/outage/SLO evidence missing | commercial capacity and recovery are unproven | versioned load, fault injection, dashboards and alert proof |
+| P1 | Real release load/outage/SLO evidence missing | commercial capacity and recovery are unproven despite the implemented evidence contract | execute version-pinned load and fault-injection runs, then attach raw samples, dashboards, alerts, and reviewed evidence |
 | P1 | Supply-chain/release evidence missing | artifacts cannot be commercially published | SBOM, provenance, signature, vulnerability and immutable RC gates |
 | P2 | Production-domain evaluation datasets pending | offline sample thresholds are not business acceptance | reviewed golden datasets and per-provider results |
 | P2 | Licensing/residency/retention reviews pending | Provider use may violate commercial/data obligations | signed legal, privacy and data-processing matrix |
@@ -126,6 +133,19 @@ certification, supported ingest/sync, upstream-version compatibility, licensing 
 - Provider Binding readiness evidence: SQLx SQLite scope/filter/lifecycle/keyset tests, Worker
   command argument bounds, optional read-only PostgreSQL dialect execution, and the operator
   procedure in `docs/runbooks/RUNBOOK-provider-binding-readiness.md`.
+- Provider operational-evidence tests: eight passing certification tests cover valid recomputation,
+  threshold/isolation failures, all required outage scenarios, fail-open/no-alert/no-trace/retry-
+  storm/secret-leak rejection, and template rejection. No live operational artifact is checked in.
+- Shared certification-artifact tests and quality evidence tests prove bounded files/query sets,
+  non-future evidence, deterministic recomputation, and fail-closed path/digest handling. The
+  Provider certification suite passes `8/8`; the SPI/evaluation suite passes `9/9`.
+- The locked Provider Binding readiness Worker check and strict all-target Clippy for all ten
+  executable Provider crates pass. Root `pnpm check`, component-port binding, pagination, and diff
+  hygiene pass.
+- Repository-wide `pnpm test` is not green: production topology still references the retired
+  standalone gateway name, and concurrent site-publication work removed the upload-session service
+  before its security assertion was reconciled. Those deployment/public-API changes require their
+  own review and are not authorized by ADR-20260720.
 
 ## Commercial Blockers And Required Review
 

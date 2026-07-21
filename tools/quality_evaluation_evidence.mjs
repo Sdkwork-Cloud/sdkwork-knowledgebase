@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -7,6 +6,11 @@ import {
   validateRetrievalDataset,
   validateRetrievalResults,
 } from "./evaluate_knowledge_engine_retrieval.mjs";
+import {
+  isCertificationArtifactReference,
+  normalizeCertificationArtifactReference,
+  readBoundedCertificationArtifact,
+} from "./provider_certification_artifact.mjs";
 
 export const QUALITY_EVIDENCE_SCHEMA_PATH =
   "docs/releases/provider-certification/quality-evaluation-evidence.schema.json";
@@ -70,11 +74,19 @@ function collectForbiddenKeys(value, location, violations) {
   }
 }
 
-async function loadVerifiedArtifact(record, refField, digestField, workspaceRoot, location, violations) {
-  const reference = typeof record?.[refField] === "string" ? record[refField].replaceAll("\\", "/") : "";
+async function loadVerifiedArtifact(
+  record,
+  refField,
+  digestField,
+  productionPolicy,
+  workspaceRoot,
+  location,
+  violations,
+) {
+  const reference = normalizeCertificationArtifactReference(record?.[refField]);
   addViolation(
     violations,
-    reference.startsWith("docs/releases/provider-certification/artifacts/") && !reference.includes(".."),
+    isCertificationArtifactReference(reference),
     `${location}.${refField} must reference a certification artifact`,
   );
   addViolation(
@@ -82,14 +94,17 @@ async function loadVerifiedArtifact(record, refField, digestField, workspaceRoot
     sha256Pattern.test(record?.[digestField] ?? ""),
     `${location}.${digestField} must be a SHA-256 digest`,
   );
-  if (!reference.startsWith("docs/releases/provider-certification/artifacts/") || reference.includes("..")) return undefined;
+  if (!isCertificationArtifactReference(reference)) return undefined;
   try {
-    const bytes = await readFile(path.join(workspaceRoot, reference));
-    const digest = createHash("sha256").update(bytes).digest("hex");
+    const { bytes, digest } = await readBoundedCertificationArtifact(
+      reference,
+      workspaceRoot,
+      productionPolicy.maxArtifactBytes,
+    );
     addViolation(violations, record[digestField] === digest, `${location}.${digestField} does not match ${reference}`);
     return bytes;
-  } catch {
-    violations.push(`${location}.${refField} is missing: ${reference}`);
+  } catch (error) {
+    violations.push(`${location}.${refField} is missing or invalid: ${reference}: ${error.message}`);
     return undefined;
   }
 }
@@ -126,6 +141,12 @@ export async function validateQualityEvidenceSchema(spec, workspaceRoot) {
       schema?.properties?.metrics?.properties?.scoredQueryCount?.minimum
         === spec?.productionPolicy?.minimumScoredQueries,
       "quality evidence schema minimum query count must match the evaluation policy",
+    );
+    addViolation(
+      violations,
+      schema?.properties?.metrics?.properties?.scoredQueryCount?.maximum
+        === spec?.productionPolicy?.maximumScoredQueries,
+      "quality evidence schema maximum query count must match the evaluation policy",
     );
   } catch {
     violations.push(`quality evidence schema is missing or invalid: ${QUALITY_EVIDENCE_SCHEMA_PATH}`);
@@ -201,10 +222,11 @@ export async function validateProductionQualityEvidenceRecord(
     violations,
     Number.isFinite(verifiedTime)
       && Number.isFinite(expiryTime)
+      && verifiedTime <= Date.now()
       && expiryTime > verifiedTime
       && expiryTime <= verifiedTime + productionPolicy.maximumEvidenceAgeDays * 86_400_000
       && Date.now() <= expiryTime + 86_399_999,
-    `${location}.expiresAt must be current and within the quality evidence policy`,
+    `${location}.verifiedAt/expiresAt must be current, non-future, and within the quality evidence policy`,
   );
 
   const [datasetBytes, resultsBytes, reportBytes] = await Promise.all(
@@ -212,6 +234,7 @@ export async function validateProductionQualityEvidenceRecord(
       record,
       refField,
       digestField,
+      productionPolicy,
       workspaceRoot,
       location,
       violations,
@@ -277,6 +300,27 @@ export async function validateKnowledgeEngineEvaluationWorkspace(workspaceRoot) 
       Number.isInteger(spec?.productionPolicy?.minimumReviewers)
         && spec.productionPolicy.minimumReviewers >= 2,
       "production evaluation requires at least two reviewers",
+    );
+    addViolation(
+      violations,
+      Number.isInteger(spec?.productionPolicy?.maximumScoredQueries)
+        && spec.productionPolicy.maximumScoredQueries >= spec.productionPolicy.minimumScoredQueries
+        && spec.productionPolicy.maximumScoredQueries <= 5000,
+      "production evaluation scored query count must be bounded at 5000",
+    );
+    addViolation(
+      violations,
+      Number.isInteger(spec?.productionPolicy?.maximumRejectionQueries)
+        && spec.productionPolicy.maximumRejectionQueries >= spec.productionPolicy.minimumRejectionQueries
+        && spec.productionPolicy.maximumRejectionQueries <= 500,
+      "production evaluation rejection query count must be bounded at 500",
+    );
+    addViolation(
+      violations,
+      Number.isSafeInteger(spec?.productionPolicy?.maxArtifactBytes)
+        && spec.productionPolicy.maxArtifactBytes > 0
+        && spec.productionPolicy.maxArtifactBytes <= 33_554_432,
+      "production evaluation artifacts must be bounded at 32 MiB",
     );
     addViolation(
       violations,

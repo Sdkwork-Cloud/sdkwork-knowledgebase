@@ -16,6 +16,9 @@
     "liveCertification": "required for production tier",
     "liveEvidenceMaxAgeDays": 90,
     "liveEvidenceSchema": "docs/releases/provider-certification/live-certification-evidence.schema.json",
+    "operationalEvidenceSpec": "specs/knowledge-engine-operational-evidence.spec.json",
+    "loadSloEvidenceSchema": "docs/releases/provider-certification/load-slo-evidence.schema.json",
+    "outageRecoveryEvidenceSchema": "docs/releases/provider-certification/outage-recovery-evidence.schema.json",
     "liveEvidenceRecordFields": [
       "providerId",
       "upstreamVersion",

@@ -919,6 +919,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "getopts"
+version = "0.2.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfe4fbac503b8d1f88e6676011885f34b7174f46e59956bba534ba83abded4df"
+dependencies = [
+ "unicode-width",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2109,9 +2118,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e9f068eba8e7071c5f9511831b44f32c740d5adf574e990f946ddb53db2f314e"
 dependencies = [
  "bitflags",
+ "getopts",
  "memchr",
+ "pulldown-cmark-escape",
  "unicase",
 ]
+
+[[package]]
+name = "pulldown-cmark-escape"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "007d8adb5ddab6f8e3f491ac63566a7d5002cc7ed73901f72057943fa71ae1ae"
 
 [[package]]
 name = "pulldown-cmark-to-cmark"
@@ -2124,9 +2141,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.37.5"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "331e97a1af0bf59823e6eadffe373d7b27f485be8748f71471c662c1f269b7fb"
+checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
 dependencies = [
  "memchr",
 ]
@@ -2777,7 +2794,6 @@ dependencies = [
 name = "sdkwork-drive-config"
 version = "0.1.0"
 dependencies = [
- "sdkwork-database-config",
  "serde",
  "toml",
 ]
@@ -2801,6 +2817,7 @@ dependencies = [
  "sdkwork-database-lifecycle",
  "sdkwork-database-spi",
  "sdkwork-database-sqlx",
+ "sdkwork-drive-config",
 ]
 
 [[package]]
@@ -2846,6 +2863,13 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "sdkwork-drive-uploader-service"
+version = "0.1.0"
+dependencies = [
+ "sdkwork-drive-workspace-service",
 ]
 
 [[package]]
@@ -3087,6 +3111,7 @@ dependencies = [
  "clawrouter-open-sdk",
  "futures",
  "hmac",
+ "pulldown-cmark",
  "reqwest",
  "sdkwork-agent-kernel",
  "sdkwork-agent-plugin-core",
@@ -3171,11 +3196,13 @@ dependencies = [
  "sdkwork-database-sqlx",
  "sdkwork-drive-config",
  "sdkwork-drive-storage-contract",
+ "sdkwork-drive-uploader-service",
  "sdkwork-drive-workspace-service",
  "sdkwork-intelligence-knowledgebase-object-key-service",
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-utils-rust",
  "sqlx",
+ "time",
  "tokio",
  "uuid",
 ]
@@ -4869,6 +4896,12 @@ name = "unicode-properties"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7df058c713841ad818f1dc5d3fd88063241cc61f49f5fbea4b951e8cf5a8d71d"
+
+[[package]]
+name = "unicode-width"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "unicode-xid"

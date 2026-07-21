@@ -45,7 +45,6 @@ export function PublishModal({ documents, onClose, onWechatFlow }: PublishModalP
 
     try {
       const res = await DocumentService.publishWebsite(
-        selectedPlatform,
         documents[0]?.kbId || documents[0]?.id || '',
       );
       if (!res.accepted) {

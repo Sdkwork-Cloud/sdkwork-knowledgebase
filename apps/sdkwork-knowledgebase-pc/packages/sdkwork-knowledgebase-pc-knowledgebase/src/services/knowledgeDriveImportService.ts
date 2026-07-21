@@ -242,16 +242,17 @@ async function importDriveFile(
   if (isBlank(driveNodeId)) {
     throwKnowledgebaseError(KnowledgebaseErrorCodes.DRIVE_NODE_ID_MISSING);
   }
+  const driveSpaceId = item.driveSpaceId?.trim();
+  if (!driveSpaceId) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.DRIVE_SPACE_MISSING);
+  }
 
   const result = await client.knowledge.driveImports.create({
     spaceId: numericSpaceId,
     title: item.name,
     idempotencyKey: buildIdempotencyKey(numericSpaceId, item),
-    driveSpaceId: item.driveSpaceId ?? null,
+    driveSpaceId,
     driveNodeId,
-    driveStorageProviderId: '',
-    driveBucket: '',
-    driveObjectKey: '',
     language: null,
   });
 

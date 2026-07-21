@@ -9,11 +9,12 @@
     "protocol": "http",
     "packageName": "@sdkwork/knowledgebase-app-sdk"
   },
-  "changeFingerprint": "e05fa1f4610b405e7605465a3440dc2b2863d4c83b97d6096d3cec49977f8769",
+  "changeFingerprint": "9c7bcb969b39078008971b27de15e8feb72c2a434aff0170c9bd9fad220effa2",
   "changes": {
     "createdGeneratedFiles": [],
     "updatedGeneratedFiles": [
-      "src/api/knowledge.ts"
+      "src/types/knowledge-drive-import-request.ts",
+      "src/types/knowledge-drive-object-ref.ts"
     ],
     "unchangedGeneratedFiles": [
       "bin/publish-core.mjs",
@@ -28,6 +29,7 @@
       "sdkwork-sdk.json",
       "src/api/base.ts",
       "src/api/index.ts",
+      "src/api/knowledge.ts",
       "src/api/paths.ts",
       "src/auth/index.ts",
       "src/http/client.ts",
@@ -43,17 +45,16 @@
       "src/types/agent-profiles-retrieve-response.ts",
       "src/types/agent-profiles-update-response.ts",
       "src/types/common.ts",
-      "src/types/complete-knowledge-upload-session-request.ts",
       "src/types/consume-group-knowledgebase-launch-ticket-request.ts",
       "src/types/context-bindings-retrieve-response.ts",
       "src/types/context-bindings-update-response.ts",
       "src/types/context-packs-create-response201.ts",
       "src/types/create-knowledge-document-request.ts",
       "src/types/create-knowledge-document-version-request.ts",
+      "src/types/create-knowledge-site-host-binding-request.ts",
       "src/types/create-knowledge-source-request.ts",
       "src/types/create-knowledge-space-context-binding-request.ts",
       "src/types/create-knowledge-space-request.ts",
-      "src/types/create-knowledge-upload-session-request.ts",
       "src/types/documents-content-list-response.ts",
       "src/types/documents-create-response201.ts",
       "src/types/documents-list-response.ts",
@@ -103,9 +104,7 @@
       "src/types/knowledge-document-version.ts",
       "src/types/knowledge-document-visibility.ts",
       "src/types/knowledge-document.ts",
-      "src/types/knowledge-drive-import-request.ts",
       "src/types/knowledge-drive-import-result.ts",
-      "src/types/knowledge-drive-object-ref.ts",
       "src/types/knowledge-filter.ts",
       "src/types/knowledge-git-import-request.ts",
       "src/types/knowledge-git-import-result.ts",
@@ -136,9 +135,16 @@
       "src/types/knowledge-retrieval-result.ts",
       "src/types/knowledge-retrieval-trace-list.ts",
       "src/types/knowledge-retrieval-trace.ts",
-      "src/types/knowledge-site-deployment-preview.ts",
-      "src/types/knowledge-site-deployment-request.ts",
-      "src/types/knowledge-site-deployment-result.ts",
+      "src/types/knowledge-site-host-binding-state.ts",
+      "src/types/knowledge-site-host-binding-type.ts",
+      "src/types/knowledge-site-host-binding.ts",
+      "src/types/knowledge-site-publication-result.ts",
+      "src/types/knowledge-site-publish-mode.ts",
+      "src/types/knowledge-site-release-state.ts",
+      "src/types/knowledge-site-release.ts",
+      "src/types/knowledge-site-state.ts",
+      "src/types/knowledge-site-visibility.ts",
+      "src/types/knowledge-site.ts",
       "src/types/knowledge-source-list.ts",
       "src/types/knowledge-source-type.ts",
       "src/types/knowledge-source.ts",
@@ -150,8 +156,6 @@
       "src/types/knowledge-space-member.ts",
       "src/types/knowledge-space-status.ts",
       "src/types/knowledge-space.ts",
-      "src/types/knowledge-upload-session-status.ts",
-      "src/types/knowledge-upload-session.ts",
       "src/types/knowledge-wechat-applet-list.ts",
       "src/types/knowledge-wechat-applet.ts",
       "src/types/knowledge-wechat-article.ts",
@@ -208,8 +212,10 @@
       "src/types/page-info.ts",
       "src/types/problem-detail.ts",
       "src/types/problem-details.ts",
+      "src/types/publish-knowledge-site-release-request.ts",
       "src/types/retrievals-create-response201.ts",
       "src/types/retrievals-retrieve-response.ts",
+      "src/types/rollback-knowledge-site-release-request.ts",
       "src/types/sdk-work-api-response.ts",
       "src/types/sdk-work-command-data.ts",
       "src/types/sdk-work-command-response.ts",
@@ -218,8 +224,14 @@
       "src/types/sdk-work-platform-error-code.ts",
       "src/types/sdk-work-resource-data.ts",
       "src/types/sdk-work-resource-response.ts",
-      "src/types/site-deployments-create-response201.ts",
-      "src/types/site-deployments-preview-list-response.ts",
+      "src/types/site-host-bindings-create-response201.ts",
+      "src/types/site-host-bindings-list-response.ts",
+      "src/types/site-releases-create-response201.ts",
+      "src/types/site-releases-list-response.ts",
+      "src/types/site-releases-retrieve-response.ts",
+      "src/types/site-releases-rollback-response.ts",
+      "src/types/sites-retrieve-response.ts",
+      "src/types/sites-update-response.ts",
       "src/types/spaces-browser-list-response.ts",
       "src/types/spaces-context-bindings-list-response.ts",
       "src/types/spaces-context-bindings-response.ts",
@@ -230,8 +242,7 @@
       "src/types/spaces-update-response.ts",
       "src/types/update-knowledge-space-context-binding-request.ts",
       "src/types/update-knowledge-space-request.ts",
-      "src/types/upload-sessions-complete-response.ts",
-      "src/types/upload-sessions-create-response201.ts",
+      "src/types/upsert-knowledge-site-request.ts",
       "src/types/wechat-applets-list-response.ts",
       "src/types/wechat-applets-update-response.ts",
       "src/types/wechat-articles-preview-response.ts",
@@ -252,29 +263,30 @@
   "impact": {
     "schemaVersion": 1,
     "areas": [
-      "api-surface"
+      "models"
     ],
     "details": [
       {
-        "area": "api-surface",
+        "area": "models",
         "paths": [
-          "src/api/knowledge.ts"
+          "src/types/knowledge-drive-import-request.ts",
+          "src/types/knowledge-drive-object-ref.ts"
         ]
       }
     ],
     "requiresVerification": true,
-    "summary": "Detected impact areas: api-surface. Verification is required."
+    "summary": "Detected impact areas: models. Verification is required."
   },
   "verificationPlan": {
     "shouldRun": true,
     "runPhase": "now",
-    "summary": "Detected impact areas: api-surface. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "summary": "Detected impact areas: models. Verification is required. Run the required verification commands now against the generated SDK output.",
     "steps": [
       {
         "id": "check",
         "title": "Unified package check",
         "required": true,
-        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface.",
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [
@@ -292,7 +304,7 @@
         "id": "build",
         "title": "Unified package build",
         "required": true,
-        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface.",
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
         "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-app-sdk\\sdkwork-knowledgebase-app-sdk-typescript\\generated\\server-openapi",
         "command": "node",
         "args": [

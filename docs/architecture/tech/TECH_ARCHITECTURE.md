@@ -69,7 +69,13 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 - Ingestion workers atomically claim Drive jobs with owner/token leases, renew leases during processing, reclaim expired work after crashes, and fence stale workers from success or failure commits. Chunk replacement, job completion, and outbox append remain one database transaction.
 - Production Snowflake generators obtain fenced node IDs from `sdkwork_node_registry`. Lease loss disables ID generation and fails runtime readiness; Kubernetes supplies only the pod UID identity, never a hashed node ID.
 - Media tasks consume the generated `clawrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
-- Static site deployment writes a bounded, escaped HTML artifact to Drive and returns a public URL only when `SDKWORK_KNOWLEDGEBASE_SITE_PUBLIC_BASE_URL` names the HTTPS object gateway that serves the same artifact namespace.
+- Site publication builds an immutable, sanitized multi-page release from `published` OKF concepts
+  and explicitly public Drive assets. Server artifacts are written through
+  `sdkwork-drive-uploader-service`; Knowledgebase stores stable Drive URI/space/node references,
+  never object keys. A site transaction atomically activates or rolls back `currentReleaseId`.
+  Standalone delivery uses `/wiki/{knowledgebaseId}/`; cloud host/domain/TLS lifecycle is delegated
+  through the generated `sdkwork-web-server` SDK. See
+  [ADR-20260721-drive-backed-knowledgebase-site-publication.md](../decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md).
 - Backend administrative list handlers use cursor page contracts and push ordering, filtering, and limits into database queries; full-list downloads are not a production path.
 - The persistence contract stores only write-only Provider credential references, never plaintext
   credentials. Binding lifecycle and Provider-to-Provider migration checkpoints are

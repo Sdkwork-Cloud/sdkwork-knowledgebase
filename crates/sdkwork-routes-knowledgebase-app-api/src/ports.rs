@@ -5,10 +5,6 @@ use sdkwork_knowledgebase_contract::{
         KnowledgeSpaceContextBinding, UpdateKnowledgeSpaceContextBindingRequest,
     },
     group_space::{ConsumeGroupKnowledgebaseLaunchTicketRequest, GroupKnowledgebaseLaunchTarget},
-    upload::{
-        CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest,
-        KnowledgeUploadSession,
-    },
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
@@ -21,7 +17,9 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult,
     KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile,
     KnowledgeOkfConceptRevision, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
-    KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
+    CreateKnowledgeSiteHostBindingRequest, KnowledgeSite, KnowledgeSiteHostBinding,
+    KnowledgeSitePublicationResult, KnowledgeSiteRelease, PublishKnowledgeSiteReleaseRequest,
+    RollbackKnowledgeSiteReleaseRequest, UpsertKnowledgeSiteRequest,
     KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType,
     KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
     KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList,
@@ -196,18 +194,6 @@ pub trait KnowledgeCommerceAppService: Send + Sync + 'static {
         context: KnowledgeAppRequestContext,
         listing_id: u64,
     ) -> ApiResult<KnowledgeMarketSubscriptionResult>;
-
-    async fn create_site_deployment(
-        &self,
-        context: KnowledgeAppRequestContext,
-        request: KnowledgeSiteDeploymentRequest,
-    ) -> ApiResult<KnowledgeSiteDeploymentResult>;
-
-    async fn retrieve_site_deployment_preview(
-        &self,
-        context: KnowledgeAppRequestContext,
-        deployment_id: u64,
-    ) -> ApiResult<KnowledgeSiteDeploymentPreview>;
 
     async fn create_media_task(
         &self,
@@ -417,19 +403,70 @@ pub trait KnowledgeRetrievalAppService: Send + Sync + 'static {
 }
 
 #[async_trait]
-pub trait KnowledgeUploadSessionAppService: Send + Sync + 'static {
-    async fn create_upload_session(
+pub trait KnowledgeSiteAppService: Send + Sync + 'static {
+    async fn retrieve_site(
         &self,
         context: KnowledgeAppRequestContext,
-        request: CreateKnowledgeUploadSessionRequest,
-    ) -> ApiResult<KnowledgeUploadSession>;
+        space_id: u64,
+    ) -> ApiResult<KnowledgeSite>;
 
-    async fn complete_upload_session(
+    async fn upsert_site(
         &self,
         context: KnowledgeAppRequestContext,
-        session_id: u64,
-        request: CompleteKnowledgeUploadSessionRequest,
-    ) -> ApiResult<IngestionJob>;
+        space_id: u64,
+        request: UpsertKnowledgeSiteRequest,
+    ) -> ApiResult<KnowledgeSite>;
+
+    async fn publish_site_release(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        request: PublishKnowledgeSiteReleaseRequest,
+    ) -> ApiResult<KnowledgeSitePublicationResult>;
+
+    async fn list_site_releases(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSiteRelease>>;
+
+    async fn retrieve_site_release(
+        &self,
+        context: KnowledgeAppRequestContext,
+        release_id: u64,
+    ) -> ApiResult<KnowledgeSiteRelease>;
+
+    async fn rollback_site_release(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        request: RollbackKnowledgeSiteReleaseRequest,
+    ) -> ApiResult<KnowledgeSite>;
+
+    async fn list_site_host_bindings(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSiteHostBinding>>;
+
+    async fn create_site_host_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        request: CreateKnowledgeSiteHostBindingRequest,
+    ) -> ApiResult<KnowledgeSiteHostBinding>;
+
+    async fn delete_site_host_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        binding_id: u64,
+        expected_site_version: u64,
+    ) -> ApiResult<()>;
 }
 
 #[async_trait]
@@ -1031,21 +1068,86 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         Err(ApiError::unsupported_operation("contextBindings.delete"))
     }
 
-    async fn create_upload_session(
+    async fn retrieve_site(
         &self,
         _context: KnowledgeAppRequestContext,
-        _request: CreateKnowledgeUploadSessionRequest,
-    ) -> ApiResult<KnowledgeUploadSession> {
-        Err(ApiError::unsupported_operation("uploadSessions.create"))
+        _space_id: u64,
+    ) -> ApiResult<KnowledgeSite> {
+        Err(ApiError::unsupported_operation("sites.retrieve"))
     }
 
-    async fn complete_upload_session(
+    async fn upsert_site(
         &self,
         _context: KnowledgeAppRequestContext,
-        _session_id: u64,
-        _request: CompleteKnowledgeUploadSessionRequest,
-    ) -> ApiResult<IngestionJob> {
-        Err(ApiError::unsupported_operation("uploadSessions.complete"))
+        _space_id: u64,
+        _request: UpsertKnowledgeSiteRequest,
+    ) -> ApiResult<KnowledgeSite> {
+        Err(ApiError::unsupported_operation("sites.update"))
+    }
+
+    async fn publish_site_release(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _site_id: u64,
+        _request: PublishKnowledgeSiteReleaseRequest,
+    ) -> ApiResult<KnowledgeSitePublicationResult> {
+        Err(ApiError::unsupported_operation("siteReleases.create"))
+    }
+
+    async fn list_site_releases(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _site_id: u64,
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSiteRelease>> {
+        Err(ApiError::unsupported_operation("siteReleases.list"))
+    }
+
+    async fn retrieve_site_release(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _release_id: u64,
+    ) -> ApiResult<KnowledgeSiteRelease> {
+        Err(ApiError::unsupported_operation("siteReleases.retrieve"))
+    }
+
+    async fn rollback_site_release(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _site_id: u64,
+        _request: RollbackKnowledgeSiteReleaseRequest,
+    ) -> ApiResult<KnowledgeSite> {
+        Err(ApiError::unsupported_operation("siteReleases.rollback"))
+    }
+
+    async fn list_site_host_bindings(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _site_id: u64,
+        _cursor: Option<String>,
+        _page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSiteHostBinding>> {
+        Err(ApiError::unsupported_operation("siteHostBindings.list"))
+    }
+
+    async fn create_site_host_binding(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _site_id: u64,
+        _request: CreateKnowledgeSiteHostBindingRequest,
+    ) -> ApiResult<KnowledgeSiteHostBinding> {
+        Err(ApiError::unsupported_operation("siteHostBindings.create"))
+    }
+
+    async fn delete_site_host_binding(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _site_id: u64,
+        _binding_id: u64,
+        _expected_site_version: u64,
+    ) -> ApiResult<()> {
+        Err(ApiError::unsupported_operation("siteHostBindings.delete"))
     }
 
     async fn list_wechat_official_accounts(
@@ -1134,24 +1236,6 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
     ) -> ApiResult<KnowledgeMarketSubscriptionResult> {
         Err(ApiError::unsupported_operation(
             "market.subscriptions.delete",
-        ))
-    }
-
-    async fn create_site_deployment(
-        &self,
-        _context: KnowledgeAppRequestContext,
-        _request: KnowledgeSiteDeploymentRequest,
-    ) -> ApiResult<KnowledgeSiteDeploymentResult> {
-        Err(ApiError::unsupported_operation("siteDeployments.create"))
-    }
-
-    async fn retrieve_site_deployment_preview(
-        &self,
-        _context: KnowledgeAppRequestContext,
-        _deployment_id: u64,
-    ) -> ApiResult<KnowledgeSiteDeploymentPreview> {
-        Err(ApiError::unsupported_operation(
-            "siteDeployments.preview.list",
         ))
     }
 

@@ -118,6 +118,14 @@ export function validateRetrievalDataset(dataset, productionPolicy = undefined) 
       rejectionQueryCount >= productionPolicy.minimumRejectionQueries,
       `production-domain dataset requires at least ${productionPolicy.minimumRejectionQueries} rejection queries`,
     );
+    requireCondition(
+      scoredQueryCount <= productionPolicy.maximumScoredQueries,
+      `production-domain dataset allows at most ${productionPolicy.maximumScoredQueries} scored queries`,
+    );
+    requireCondition(
+      rejectionQueryCount <= productionPolicy.maximumRejectionQueries,
+      `production-domain dataset allows at most ${productionPolicy.maximumRejectionQueries} rejection queries`,
+    );
     for (const key of [
       "minRecallAtK",
       "minMrr",

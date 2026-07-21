@@ -23,6 +23,7 @@ import { toast } from './components/ui/toast-manager';
 import { isKnowledgebaseApiAvailable, KnowledgebaseErrorCodes, shouldUseKnowledgebaseDemoFallback, throwKnowledgebaseError } from 'sdkwork-knowledgebase-pc-core';
 import { createTiptapExportContentProvider } from './components/DocumentExport';
 import { sanitizeEditorHtml } from '@sdkwork/sdkwork-knowledgebase-pc-commons/htmlSanitizer';
+import { resolveDriveNodeDownloadUrl } from './services/knowledgeDriveMediaService';
 import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
 import {
   isKnowledgebaseWorkspaceAiEnabled,
@@ -49,6 +50,42 @@ export interface TiptapEditorProps extends ReactKeyedComponentProps {
   parentFolderId?: string | null;
   workspaceMode?: KnowledgebaseWorkspaceMode;
 }
+
+interface EditorMediaRef {
+  src: string;
+  driveUri?: string;
+  driveSpaceId?: string;
+  driveNodeId?: string;
+}
+
+const DriveBackedImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      driveSpaceId: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-drive-space-id'),
+        renderHTML: attributes => attributes.driveSpaceId
+          ? { 'data-drive-space-id': attributes.driveSpaceId }
+          : {},
+      },
+      driveNodeId: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-drive-node-id'),
+        renderHTML: attributes => attributes.driveNodeId
+          ? { 'data-drive-node-id': attributes.driveNodeId }
+          : {},
+      },
+      driveUri: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-drive-uri'),
+        renderHTML: attributes => attributes.driveUri
+          ? { 'data-drive-uri': attributes.driveUri }
+          : {},
+      },
+    };
+  },
+});
 
 const StyleGlobalExtension = Extension.create({
   name: 'styleGlobal',
@@ -108,7 +145,7 @@ export function TiptapEditor({
   const uploadEditorMedia = async (
     file: File,
     mediaType: 'image' | 'audio' | 'video',
-  ): Promise<string | null> => {
+  ): Promise<EditorMediaRef | null> => {
     if (isKnowledgebaseApiAvailable()) {
       if (!kbId) {
         try {
@@ -125,11 +162,16 @@ export function TiptapEditor({
           parentFolderId ?? undefined,
           mediaType,
         );
-        const url = uploaded[0]?.url;
-        if (!url) {
+        const media = uploaded[0];
+        if (!media?.driveUri || !media.driveSpaceId || !media.driveNodeId) {
           throwKnowledgebaseError(KnowledgebaseErrorCodes.MEDIA_URL_UNRESOLVED);
         }
-        return url;
+        return {
+          src: media.driveUri,
+          driveUri: media.driveUri,
+          driveSpaceId: media.driveSpaceId,
+          driveNodeId: media.driveNodeId,
+        };
       } catch (error) {
         toastKnowledgebaseError(error, tErrors);
         return null;
@@ -145,10 +187,10 @@ export function TiptapEditor({
       return null;
     }
 
-    return URL.createObjectURL(file);
+    return { src: URL.createObjectURL(file) };
   };
 
-  const uploadImage = async (file: File): Promise<string | null> =>
+  const uploadImage = async (file: File): Promise<EditorMediaRef | null> =>
     uploadEditorMedia(file, 'image');
 
   const insertEditorMedia = async (
@@ -156,13 +198,13 @@ export function TiptapEditor({
     mediaType: 'audio' | 'video',
     curEditor: any,
   ) => {
-    const url = await uploadEditorMedia(file, mediaType);
-    if (!url) {
+    const media = await uploadEditorMedia(file, mediaType);
+    if (!media) {
       return;
     }
     curEditor?.commands.insertContent({
       type: mediaType,
-      attrs: { src: url, controls: true },
+      attrs: { ...media, controls: true },
     });
   };
 
@@ -171,9 +213,9 @@ export function TiptapEditor({
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (file.type.startsWith('image/')) {
-        const url = await uploadImage(file);
-        if (url) {
-          curEditor.chain().focus().setImage({ src: url }).run();
+        const media = await uploadImage(file);
+        if (media) {
+          curEditor.chain().focus().setImage(media).run();
         }
       }
     }
@@ -188,7 +230,7 @@ export function TiptapEditor({
     Placeholder.configure({
       placeholder: t('placeholderText', { defaultValue: '请输入正文或开始创作...' })
     }),
-    Image.configure({
+    DriveBackedImage.configure({
        HTMLAttributes: {
          class: 'rounded-lg max-w-full my-4 border border-[var(--color-kb-panel-border)] shadow-sm'
        }
@@ -239,6 +281,38 @@ export function TiptapEditor({
   });
 
   editorRef.current = editor;
+
+  useEffect(() => {
+    if (!editor) {
+      return undefined;
+    }
+    let disposed = false;
+    const resolveMedia = async () => {
+      const elements = editor.view.dom.querySelectorAll<HTMLElement>('[data-drive-node-id]');
+      await Promise.all(Array.from(elements).map(async (element) => {
+        const nodeId = element.dataset.driveNodeId?.trim();
+        if (!nodeId || element.dataset.driveResolvedNodeId === nodeId) {
+          return;
+        }
+        try {
+          const url = await resolveDriveNodeDownloadUrl(nodeId);
+          if (!disposed && url) {
+            element.setAttribute('src', url);
+            element.dataset.driveResolvedNodeId = nodeId;
+          }
+        } catch {
+          // Stable Drive identity remains saved even when transient delivery is unavailable.
+        }
+      }));
+    };
+    const handleUpdate = () => { void resolveMedia(); };
+    editor.on('update', handleUpdate);
+    void resolveMedia();
+    return () => {
+      disposed = true;
+      editor.off('update', handleUpdate);
+    };
+  }, [editor]);
 
   useEffect(() => {
     if (editor && onEditorReady) {

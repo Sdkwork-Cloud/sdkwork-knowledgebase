@@ -3,7 +3,7 @@
 Status: active
 Owner: SDKWork maintainers
 Application: sdkwork-knowledgebase
-Updated: 2026-07-20
+Updated: 2026-07-21
 Specs: REQUIREMENTS_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -63,6 +63,10 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - PC client: editor, search, settings, offline/network awareness
 - OKF original file list: knowledgebase file lists call `spaces.browser.list?view=files`; for OKF spaces this displays original source files under `sources/raw` only and must not expose `okf/`, `output/`, `.sdkwork/`, or Drive root system folders.
 - OKF browser view separation: OKF concept and bundle tooling uses `view=okf_bundle`; generated output tooling uses `view=outputs`. Root uploads and root folder creation use response `data.parentId` as the Drive parent folder id, never Drive root or a hard-coded `sources/raw` path.
+- Knowledgebase website publication: authors publish a deterministic snapshot of `published` OKF
+  concepts and explicitly public Drive assets as an immutable multi-page release. Standalone sites
+  use `/wiki/{knowledgebaseId}/`; cloud sites use `<knowledgebaseId>.kb.sdkwork.com`, a verified
+  custom prefix, or an externally verified domain. Release activation and rollback are atomic.
 
 **Out of scope (MVP)**
 
@@ -87,6 +91,9 @@ Teams need a knowledge platform that combines structured documentation, retrieva
    joined non-Guest Owner, Admin, and Member roles open only that fixed workspace through a one-time
    ticket -> Guest, left, removed, and non-member actors are denied -> removal, role reduction, or
    dissolution updates access and archive state without deleting documents by default
+9. **Author publishes a knowledge website** - upload files and editor media through Drive -> review
+   published OKF concepts -> create an immutable release -> atomically activate it -> open the LAN
+   `/wiki/{knowledgebaseId}/` URL or verified cloud host -> roll back to a prior ready release.
 
 ## 6. Success Metrics
 
@@ -115,6 +122,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - `docs/architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md`
 - `docs/product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md`
 - `docs/architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md`
+- `docs/product/requirements/REQ-2026-0721-knowledgebase-site-publication.md`
+- `docs/architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md`
 - `specs/okf-knowledge-bundle.spec.json` - OKF bundle layers, browser views, and raw source file list contract
 - `../sdkwork-specs/SECURITY_SPEC.md`, `IAM_SPEC.md`, `APP_SDK_INTEGRATION_SPEC.md`
 - `deployments/README.md` - tenant isolation and observability

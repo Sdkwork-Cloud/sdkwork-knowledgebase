@@ -1,4 +1,8 @@
 use async_trait::async_trait;
+use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineProviderOperation;
+use sdkwork_knowledgebase_contract::provider_binding::{
+    KnowledgeEngineExecutionContext, KnowledgeEngineProviderBinding,
+};
 use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 use zeroize::{Zeroize, Zeroizing};
@@ -13,9 +17,7 @@ impl KnowledgeEngineProviderCredential {
     pub fn new(value: impl Into<String>) -> Result<Self, KnowledgeEngineProviderCredentialError> {
         let value = value.into();
         if is_blank(Some(value.as_str())) {
-            return Err(KnowledgeEngineProviderCredentialError::Unavailable(
-                "Provider credential is empty".to_string(),
-            ));
+            return Err(KnowledgeEngineProviderCredentialError::Unavailable);
         }
         Ok(Self { value })
     }
@@ -41,6 +43,44 @@ impl Drop for KnowledgeEngineProviderCredential {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnowledgeEngineProviderCredentialAccessContext {
+    pub tenant_id: u64,
+    pub organization_id: u64,
+    pub space_id: u64,
+    pub binding_id: u64,
+    pub credential_reference_id: u64,
+    pub credential_reference_version: u64,
+    pub implementation_id: String,
+    pub actor_id: String,
+    pub operation: KnowledgeEngineProviderOperation,
+    pub trace_id: String,
+    pub deadline_unix_ms: u64,
+}
+
+impl KnowledgeEngineProviderCredentialAccessContext {
+    pub fn for_binding(
+        execution_context: &KnowledgeEngineExecutionContext,
+        binding: &KnowledgeEngineProviderBinding,
+        reference: &ResolvedKnowledgeEngineProviderCredential,
+        operation: KnowledgeEngineProviderOperation,
+    ) -> Self {
+        Self {
+            tenant_id: execution_context.tenant_id,
+            organization_id: execution_context.organization_id,
+            space_id: binding.space_id,
+            binding_id: binding.id,
+            credential_reference_id: reference.credential_reference_id,
+            credential_reference_version: reference.version,
+            implementation_id: binding.implementation_id.clone(),
+            actor_id: execution_context.actor_id.clone(),
+            operation,
+            trace_id: execution_context.trace_id.clone(),
+            deadline_unix_ms: execution_context.deadline_unix_ms,
+        }
+    }
+}
+
 #[async_trait]
 pub trait KnowledgeEngineProviderCredentialResolver: Send + Sync {
     fn validate_reference_locator(
@@ -50,16 +90,21 @@ pub trait KnowledgeEngineProviderCredentialResolver: Send + Sync {
 
     async fn resolve(
         &self,
+        context: &KnowledgeEngineProviderCredentialAccessContext,
         reference: &ResolvedKnowledgeEngineProviderCredential,
     ) -> Result<KnowledgeEngineProviderCredential, KnowledgeEngineProviderCredentialError>;
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum KnowledgeEngineProviderCredentialError {
-    #[error("Provider credential reference is invalid: {0}")]
-    InvalidReference(String),
-    #[error("Provider credential is unavailable: {0}")]
-    Unavailable(String),
+    #[error("Provider credential reference is invalid")]
+    InvalidReference,
+    #[error("Provider credential access is denied")]
+    AccessDenied,
+    #[error("Provider credential is unavailable")]
+    Unavailable,
+    #[error("Provider credential exceeds the permitted size")]
+    ResponseTooLarge,
     #[error("Provider credential resolution failed")]
     Internal,
 }
@@ -87,7 +132,7 @@ mod tests {
 
         assert!(matches!(
             error,
-            KnowledgeEngineProviderCredentialError::Unavailable(_)
+            KnowledgeEngineProviderCredentialError::Unavailable
         ));
     }
 }

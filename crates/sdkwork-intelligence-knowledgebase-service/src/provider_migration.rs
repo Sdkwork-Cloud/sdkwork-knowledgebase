@@ -19,7 +19,8 @@ use crate::ports::knowledge_provider_binding_store::{
 };
 use crate::ports::knowledge_provider_migration_store::{
     AdvanceClaimedKnowledgeEngineProviderMigration, ClaimedKnowledgeEngineProviderMigration,
-    KnowledgeEngineProviderMigrationStore, KnowledgeEngineProviderMigrationStoreError,
+    CutoverClaimedKnowledgeEngineProviderMigration, KnowledgeEngineProviderMigrationStore,
+    KnowledgeEngineProviderMigrationStoreError,
 };
 
 const MAX_BATCH_SIZE: u32 = 200;
@@ -163,7 +164,7 @@ where
                     .await?;
                 let checkpoint = checkpoint_with_stage(&claimed.checkpoint, "dryRunValidatedAt")?;
                 self.advance(
-                    &claimed,
+                    claimed,
                     KnowledgeEngineProviderMigrationState::Preparing,
                     checkpoint,
                     None,
@@ -177,7 +178,7 @@ where
                     checkpoint_with_stage(&claimed.checkpoint, "targetPreparedAt")?;
                 checkpoint["preparationMode"] = json!("pre_provisioned_target");
                 self.advance(
-                    &claimed,
+                    claimed,
                     KnowledgeEngineProviderMigrationState::Validating,
                     checkpoint,
                     None,
@@ -189,7 +190,7 @@ where
                     .await?;
                 let checkpoint = checkpoint_with_stage(&claimed.checkpoint, "validatedAt")?;
                 self.advance(
-                    &claimed,
+                    claimed,
                     KnowledgeEngineProviderMigrationState::Cutover,
                     checkpoint,
                     None,
@@ -214,12 +215,14 @@ where
                 self.migration_store
                     .cutover_claimed(
                         self.scope,
-                        operation.id,
-                        &claimed.claim_token,
-                        operation.version,
-                        worker_id,
-                        &observation_until,
-                        claimed.checkpoint.clone(),
+                        CutoverClaimedKnowledgeEngineProviderMigration {
+                            operation_id: operation.id,
+                            claim_token: claimed.claim_token.clone(),
+                            expected_version: operation.version,
+                            actor_id: worker_id.to_string(),
+                            observation_until,
+                            checkpoint: claimed.checkpoint.clone(),
+                        },
                     )
                     .await
             }
@@ -228,7 +231,7 @@ where
                 let checkpoint =
                     checkpoint_with_stage(&claimed.checkpoint, "observationCompletedAt")?;
                 self.advance(
-                    &claimed,
+                    claimed,
                     KnowledgeEngineProviderMigrationState::Completed,
                     checkpoint,
                     operation.observation_until.clone(),

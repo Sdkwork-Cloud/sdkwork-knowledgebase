@@ -6,7 +6,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::{
     knowledge_provider_binding_store::KnowledgeEngineProviderScope,
     knowledge_provider_migration_store::{
         AdvanceClaimedKnowledgeEngineProviderMigration, ClaimedKnowledgeEngineProviderMigration,
-        KnowledgeEngineProviderMigrationStore, KnowledgeEngineProviderMigrationStoreError,
+        CutoverClaimedKnowledgeEngineProviderMigration, KnowledgeEngineProviderMigrationStore,
+        KnowledgeEngineProviderMigrationStoreError,
     },
 };
 use sdkwork_knowledgebase_contract::{
@@ -435,20 +436,23 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
     async fn cutover_claimed(
         &self,
         scope: KnowledgeEngineProviderScope,
-        operation_id: u64,
-        claim_token: &str,
-        expected_version: u64,
-        actor_id: &str,
-        observation_until: &str,
-        mut checkpoint: Value,
+        command: CutoverClaimedKnowledgeEngineProviderMigration,
     ) -> Result<KnowledgeEngineProviderMigrationOperation, KnowledgeEngineProviderMigrationStoreError>
     {
+        let CutoverClaimedKnowledgeEngineProviderMigration {
+            operation_id,
+            claim_token,
+            expected_version,
+            actor_id,
+            observation_until,
+            mut checkpoint,
+        } = command;
         let mut tx = self.pool.begin().await.map_err(sql_error)?;
         let operation = claimed_operation(
             &mut tx,
             scope,
             operation_id,
-            claim_token,
+            &claim_token,
             expected_version,
             KnowledgeEngineProviderMigrationState::Cutover,
             self.dialect,
@@ -459,11 +463,13 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
         switch_bindings(
             &mut tx,
             scope,
-            &operation,
-            actor_id,
-            source_version,
-            target_version,
-            false,
+            BindingSwitch {
+                operation: &operation,
+                actor: &actor_id,
+                source_version,
+                target_version,
+                rollback: false,
+            },
             self.dialect,
         )
         .await?;
@@ -472,15 +478,17 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
         update_claimed_operation(
             &mut tx,
             scope,
-            operation_id,
-            claim_token,
-            expected_version,
-            KnowledgeEngineProviderMigrationState::Cutover,
-            KnowledgeEngineProviderMigrationState::Observing,
-            &checkpoint,
-            Some(observation_until),
-            true,
-            false,
+            ClaimedOperationUpdate {
+                id: operation_id,
+                token: &claim_token,
+                version: expected_version,
+                from: KnowledgeEngineProviderMigrationState::Cutover,
+                to: KnowledgeEngineProviderMigrationState::Observing,
+                checkpoint: &checkpoint,
+                observation_until: Some(&observation_until),
+                set_cutover: true,
+                set_completed: false,
+            },
             self.dialect,
         )
         .await?;
@@ -514,11 +522,13 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
             switch_bindings(
                 &mut tx,
                 scope,
-                &operation,
-                actor_id,
-                checkpoint_u64(&checkpoint, "sourcePostCutoverVersion")?,
-                checkpoint_u64(&checkpoint, "targetPostCutoverVersion")?,
-                true,
+                BindingSwitch {
+                    operation: &operation,
+                    actor: actor_id,
+                    source_version: checkpoint_u64(&checkpoint, "sourcePostCutoverVersion")?,
+                    target_version: checkpoint_u64(&checkpoint, "targetPostCutoverVersion")?,
+                    rollback: true,
+                },
                 self.dialect,
             )
             .await?;
@@ -526,15 +536,17 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
         update_claimed_operation(
             &mut tx,
             scope,
-            operation_id,
-            claim_token,
-            expected_version,
-            KnowledgeEngineProviderMigrationState::RollingBack,
-            KnowledgeEngineProviderMigrationState::RolledBack,
-            &checkpoint,
-            operation.observation_until.as_deref(),
-            false,
-            true,
+            ClaimedOperationUpdate {
+                id: operation_id,
+                token: claim_token,
+                version: expected_version,
+                from: KnowledgeEngineProviderMigrationState::RollingBack,
+                to: KnowledgeEngineProviderMigrationState::RolledBack,
+                checkpoint: &checkpoint,
+                observation_until: operation.observation_until.as_deref(),
+                set_cutover: false,
+                set_completed: true,
+            },
             self.dialect,
         )
         .await?;
@@ -639,16 +651,27 @@ async fn claimed_operation(
         .ok_or(KnowledgeEngineProviderMigrationStoreError::ClaimLost(id))
 }
 
-async fn switch_bindings(
-    tx: &mut Transaction<'_, Any>,
-    scope: KnowledgeEngineProviderScope,
-    operation: &KnowledgeEngineProviderMigrationOperation,
-    actor: &str,
+struct BindingSwitch<'a> {
+    operation: &'a KnowledgeEngineProviderMigrationOperation,
+    actor: &'a str,
     source_version: u64,
     target_version: u64,
     rollback: bool,
+}
+
+async fn switch_bindings(
+    tx: &mut Transaction<'_, Any>,
+    scope: KnowledgeEngineProviderScope,
+    command: BindingSwitch<'_>,
     dialect: SqlTimestampDialect,
 ) -> Result<(), KnowledgeEngineProviderMigrationStoreError> {
+    let BindingSwitch {
+        operation,
+        actor,
+        source_version,
+        target_version,
+        rollback,
+    } = command;
     let now = now()?;
     let updated = dialect.sql_timestamp_expr("$8");
     let (
@@ -698,21 +721,35 @@ async fn switch_bindings(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn update_claimed_operation(
-    tx: &mut Transaction<'_, Any>,
-    scope: KnowledgeEngineProviderScope,
+struct ClaimedOperationUpdate<'a> {
     id: u64,
-    token: &str,
+    token: &'a str,
     version: u64,
     from: KnowledgeEngineProviderMigrationState,
     to: KnowledgeEngineProviderMigrationState,
-    checkpoint: &Value,
-    observation_until: Option<&str>,
+    checkpoint: &'a Value,
+    observation_until: Option<&'a str>,
     set_cutover: bool,
     set_completed: bool,
+}
+
+async fn update_claimed_operation(
+    tx: &mut Transaction<'_, Any>,
+    scope: KnowledgeEngineProviderScope,
+    update: ClaimedOperationUpdate<'_>,
     dialect: SqlTimestampDialect,
 ) -> Result<(), KnowledgeEngineProviderMigrationStoreError> {
+    let ClaimedOperationUpdate {
+        id,
+        token,
+        version,
+        from,
+        to,
+        checkpoint,
+        observation_until,
+        set_cutover,
+        set_completed,
+    } = update;
     let now = now()?;
     let checkpoint_expr = dialect.sql_json_expr("$8");
     let cutover_expr = dialect.sql_timestamp_expr("$9");

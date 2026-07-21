@@ -34,7 +34,6 @@ BEGIN
             'kb_okf_candidate',
             'kb_market_listing',
             'kb_market_subscription',
-            'kb_site_deployment',
             'kb_audit_event'
         ])
     LOOP

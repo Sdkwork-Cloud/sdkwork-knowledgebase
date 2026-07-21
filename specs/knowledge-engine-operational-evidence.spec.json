@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.knowledge-engine-operational-evidence-policy",
+  "policyVersion": "1.0.0",
+  "maxEvidenceAgeDays": 90,
+  "maxArtifactBytes": 33554432,
+  "loadSlo": {
+    "minimumDurationSeconds": 1800,
+    "minimumTotalRequests": 10000,
+    "maximumRawSamples": 100000,
+    "minimumRequestsPerOperation": 100,
+    "minimumConcurrency": 8,
+    "requiredOperations": [
+      "search",
+      "read_document",
+      "health"
+    ],
+    "maximumFailureRate": 0.01,
+    "minimumAvailability": 0.995,
+    "maximumP95LatencyMs": 2000,
+    "maximumP99LatencyMs": 5000,
+    "minimumTenantCount": 2,
+    "maximumCrossTenantViolations": 0
+  },
+  "outageRecovery": {
+    "requiredScenarios": [
+      "timeout",
+      "rate_limit",
+      "upstream_5xx",
+      "authentication",
+      "malformed_response",
+      "bulkhead_saturation"
+    ],
+    "maximumDetectionSeconds": 60,
+    "maximumRecoverySeconds": 300,
+    "maximumSecretLeakCount": 0,
+    "maximumCrossTenantViolations": 0,
+    "requireFailClosed": true,
+    "requireAlert": true,
+    "requireTraceCorrelation": true,
+    "allowRetryStorm": false
+  }
+}

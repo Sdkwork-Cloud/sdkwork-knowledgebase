@@ -11,7 +11,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_bindin
 use sdkwork_knowledgebase_contract::{
     parse_canonical_nonnegative_signed_i64, parse_canonical_positive_signed_i64,
 };
-use sdkwork_utils_rust::{DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE};
+use sdkwork_utils_rust::{is_blank, DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE};
 use serde::Serialize;
 use thiserror::Error;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -138,7 +138,7 @@ impl ReportArguments {
                     let value = arguments
                         .next()
                         .ok_or(ReportCommandError::MissingArgumentValue("--cursor"))?;
-                    if value.trim().is_empty() {
+                    if is_blank(Some(value.as_str())) {
                         return Err(ReportCommandError::InvalidCursor);
                     }
                     cursor = Some(value);

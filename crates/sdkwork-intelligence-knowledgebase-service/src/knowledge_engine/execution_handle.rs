@@ -20,7 +20,8 @@ use crate::ports::knowledge_provider_binding_store::{
     KnowledgeEngineProviderScope,
 };
 use crate::ports::knowledge_provider_credential_resolver::{
-    KnowledgeEngineProviderCredentialError, KnowledgeEngineProviderCredentialResolver,
+    KnowledgeEngineProviderCredentialAccessContext, KnowledgeEngineProviderCredentialError,
+    KnowledgeEngineProviderCredentialResolver,
 };
 
 #[derive(Clone)]
@@ -182,7 +183,15 @@ impl KnowledgeEngineExecutionHandle {
                 })?;
                 Some(
                     resolver
-                        .resolve(&reference)
+                        .resolve(
+                            &KnowledgeEngineProviderCredentialAccessContext::for_binding(
+                                context,
+                                binding,
+                                &reference,
+                                operation,
+                            ),
+                            &reference,
+                        )
                         .await
                         .map_err(|error| map_credential_error(binding, operation, error))?,
                 )
@@ -347,11 +356,19 @@ fn map_credential_error(
     error: KnowledgeEngineProviderCredentialError,
 ) -> KnowledgeEngineError {
     let (category, message) = match error {
-        KnowledgeEngineProviderCredentialError::InvalidReference(_) => (
+        KnowledgeEngineProviderCredentialError::InvalidReference => (
             KnowledgeEngineProviderErrorCategory::Validation,
             "Provider credential reference is invalid",
         ),
-        KnowledgeEngineProviderCredentialError::Unavailable(_)
+        KnowledgeEngineProviderCredentialError::AccessDenied => (
+            KnowledgeEngineProviderErrorCategory::PermissionDenied,
+            "Provider credential access is denied",
+        ),
+        KnowledgeEngineProviderCredentialError::ResponseTooLarge => (
+            KnowledgeEngineProviderErrorCategory::ResponseTooLarge,
+            "Provider credential exceeds the permitted size",
+        ),
+        KnowledgeEngineProviderCredentialError::Unavailable
         | KnowledgeEngineProviderCredentialError::Internal => (
             KnowledgeEngineProviderErrorCategory::Authentication,
             "Provider credential is unavailable",

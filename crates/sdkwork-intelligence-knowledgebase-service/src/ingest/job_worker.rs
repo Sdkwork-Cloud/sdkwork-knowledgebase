@@ -73,7 +73,7 @@ impl<'a> KnowledgeIngestionJobWorkerService<'a> {
                 continue;
             }
 
-            let import = match self.resolve_drive_import(&job).await {
+            let import = match self.resolve_drive_import(job).await {
                 Ok(Some(import)) => import,
                 Ok(None) => {
                     self.fail_claimed_job(

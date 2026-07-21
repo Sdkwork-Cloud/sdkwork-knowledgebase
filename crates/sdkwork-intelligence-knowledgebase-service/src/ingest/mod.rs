@@ -5,7 +5,6 @@ mod markdown_index;
 mod payload_limits;
 mod post_ingest_embed;
 mod service;
-mod upload_session;
 mod web_link_fetch;
 
 pub use api_markdown_ingest_pipeline::{
@@ -32,5 +31,4 @@ pub use service::{
     KnowledgeApiPayloadIngestServiceError, KnowledgeIngestionService,
     KnowledgeIngestionServiceError,
 };
-pub use upload_session::{KnowledgeUploadSessionService, KnowledgeUploadSessionServiceError};
 pub use web_link_fetch::{fetch_web_link_markdown, validate_public_http_url, WebLinkFetchError};

@@ -326,16 +326,6 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         operation_id: "contextBindings.delete",
     },
     RouteManifestEntry {
-        method: "POST",
-        path: "/app/v3/api/knowledge/upload_sessions",
-        operation_id: "uploadSessions.create",
-    },
-    RouteManifestEntry {
-        method: "POST",
-        path: "/app/v3/api/knowledge/upload_sessions/{sessionId}/complete",
-        operation_id: "uploadSessions.complete",
-    },
-    RouteManifestEntry {
         method: "GET",
         path: "/app/v3/api/knowledge/market/listings",
         operation_id: "market.listings.list",
@@ -351,14 +341,49 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         operation_id: "market.subscriptions.delete",
     },
     RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/site",
+        operation_id: "sites.retrieve",
+    },
+    RouteManifestEntry {
+        method: "PUT",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/site",
+        operation_id: "sites.update",
+    },
+    RouteManifestEntry {
         method: "POST",
-        path: "/app/v3/api/knowledge/site_deployments",
-        operation_id: "siteDeployments.create",
+        path: "/app/v3/api/knowledge/sites/{siteId}/releases",
+        operation_id: "siteReleases.create",
     },
     RouteManifestEntry {
         method: "GET",
-        path: "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
-        operation_id: "siteDeployments.preview.list",
+        path: "/app/v3/api/knowledge/sites/{siteId}/releases",
+        operation_id: "siteReleases.list",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/site_releases/{releaseId}",
+        operation_id: "siteReleases.retrieve",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/sites/{siteId}/rollbacks",
+        operation_id: "siteReleases.rollback",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/sites/{siteId}/host_bindings",
+        operation_id: "siteHostBindings.create",
+    },
+    RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/sites/{siteId}/host_bindings",
+        operation_id: "siteHostBindings.list",
+    },
+    RouteManifestEntry {
+        method: "DELETE",
+        path: "/app/v3/api/knowledge/sites/{siteId}/host_bindings/{bindingId}",
+        operation_id: "siteHostBindings.delete",
     },
     RouteManifestEntry {
         method: "POST",

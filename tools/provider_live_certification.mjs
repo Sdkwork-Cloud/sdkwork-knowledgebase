@@ -1,8 +1,18 @@
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { validateProductionQualityEvidenceRecord } from "./quality_evaluation_evidence.mjs";
+import {
+  isCertificationArtifactReference,
+  normalizeCertificationArtifactReference,
+  readBoundedCertificationArtifact,
+} from "./provider_certification_artifact.mjs";
+import {
+  loadOperationalEvidencePolicy,
+  validateLoadSloEvidenceRecord,
+  validateOperationalEvidenceSchemas,
+  validateOutageRecoveryEvidenceRecord,
+} from "./provider_operational_evidence.mjs";
 
 export const LIVE_EVIDENCE_SCHEMA_PATH =
   "docs/releases/provider-certification/live-certification-evidence.schema.json";
@@ -66,15 +76,22 @@ function collectForbiddenKeys(value, location, violations) {
 }
 
 function normalizeRepositoryPath(value) {
-  return typeof value === "string" ? value.replaceAll("\\", "/") : "";
+  return normalizeCertificationArtifactReference(value);
 }
 
-async function verifyArtifact(record, refField, digestField, workspaceRoot, location, violations) {
+async function verifyArtifact(
+  record,
+  refField,
+  digestField,
+  maxArtifactBytes,
+  workspaceRoot,
+  location,
+  violations,
+) {
   const reference = normalizeRepositoryPath(record[refField]);
   addViolation(
     violations,
-    reference.startsWith("docs/releases/provider-certification/artifacts/")
-      && !reference.includes(".."),
+    isCertificationArtifactReference(reference),
     `${location}.${refField} must reference a certification artifact`,
   );
   addViolation(
@@ -82,19 +99,22 @@ async function verifyArtifact(record, refField, digestField, workspaceRoot, loca
     sha256Pattern.test(record[digestField] ?? ""),
     `${location}.${digestField} must be a SHA-256 digest`,
   );
-  if (!reference.startsWith("docs/releases/provider-certification/artifacts/") || reference.includes("..")) {
+  if (!isCertificationArtifactReference(reference)) {
     return;
   }
   try {
-    const bytes = await readFile(path.join(workspaceRoot, reference));
-    const digest = createHash("sha256").update(bytes).digest("hex");
+    const { digest } = await readBoundedCertificationArtifact(
+      reference,
+      workspaceRoot,
+      maxArtifactBytes,
+    );
     addViolation(
       violations,
       record[digestField] === digest,
       `${location}.${digestField} does not match ${reference}`,
     );
-  } catch {
-    violations.push(`${location}.${refField} is missing: ${reference}`);
+  } catch (error) {
+    violations.push(`${location}.${refField} is missing or invalid: ${reference}: ${error.message}`);
   }
 }
 
@@ -133,6 +153,7 @@ export async function validateLiveEvidenceSchema(policy, workspaceRoot) {
   } catch {
     violations.push(`live evidence schema is missing or invalid: ${LIVE_EVIDENCE_SCHEMA_PATH}`);
   }
+  violations.push(...await validateOperationalEvidenceSchemas(policy, workspaceRoot));
   return violations;
 }
 
@@ -201,26 +222,34 @@ export async function validateLiveCertificationEvidenceRecord(
     violations,
     Number.isFinite(verifiedTime)
       && Number.isFinite(expiryTime)
+      && verifiedTime <= Date.now()
       && expiryTime > verifiedTime
       && expiryTime <= maximumExpiry
       && Date.now() <= expiryTime + 86_399_999,
-    `${location}.expiresAt must be current and within the policy evidence age`,
+    `${location}.verifiedAt/expiresAt must be current, non-future, and within the policy evidence age`,
   );
 
+  const operationalPolicy = await loadOperationalEvidencePolicy(policy, workspaceRoot, violations);
   await Promise.all(
     LIVE_ARTIFACT_PAIRS.map(([refField, digestField]) => verifyArtifact(
       record,
       refField,
       digestField,
+      operationalPolicy.maxArtifactBytes,
       workspaceRoot,
       location,
       violations,
     )),
   );
   const qualityReference = normalizeRepositoryPath(record?.qualityEvaluationRef);
-  if (qualityReference.startsWith("docs/releases/provider-certification/artifacts/") && !qualityReference.includes("..")) {
+  if (isCertificationArtifactReference(qualityReference)) {
     try {
-      const qualityRecord = JSON.parse(await readFile(path.join(workspaceRoot, qualityReference), "utf8"));
+      const { bytes } = await readBoundedCertificationArtifact(
+        qualityReference,
+        workspaceRoot,
+        operationalPolicy.maxArtifactBytes,
+      );
+      const qualityRecord = JSON.parse(bytes.toString("utf8"));
       const evaluationSpec = JSON.parse(await readFile(
         path.join(workspaceRoot, "specs/knowledge-engine-evaluation.spec.json"),
         "utf8",
@@ -238,6 +267,37 @@ export async function validateLiveCertificationEvidenceRecord(
       ));
     } catch (error) {
       violations.push(`${location}.qualityEvaluationRef is not valid quality evidence: ${error.message}`);
+    }
+  }
+  for (const [referenceField, validator, evidenceLocation] of [
+    ["loadSloRef", validateLoadSloEvidenceRecord, "loadSlo"],
+    ["outageRecoveryRef", validateOutageRecoveryEvidenceRecord, "outageRecovery"],
+  ]) {
+    const reference = normalizeRepositoryPath(record?.[referenceField]);
+    if (!isCertificationArtifactReference(reference)) {
+      continue;
+    }
+    try {
+      const { bytes } = await readBoundedCertificationArtifact(
+        reference,
+        workspaceRoot,
+        operationalPolicy.maxArtifactBytes,
+      );
+      const operationalRecord = JSON.parse(bytes.toString("utf8"));
+      violations.push(...await validator(
+        operationalRecord,
+        {
+          providerId,
+          upstreamVersion,
+          adapterCommit: record.adapterCommit,
+          verifiedAt: record.verifiedAt,
+        },
+        operationalPolicy,
+        workspaceRoot,
+        `${location}.${evidenceLocation}`,
+      ));
+    } catch (error) {
+      violations.push(`${location}.${referenceField} is not valid operational evidence: ${error.message}`);
     }
   }
   return violations;

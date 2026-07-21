@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "aae74774e0f7198c8f22f7a03ead86e62944d2c7aa0c12ccad4cbd4b18509f51"
+      "sha256": "4181c2b45ee4a847cdcd57d21f3287a4db77407b2e3b0923e61e8a558577f424"
     },
     {
       "path": "src/api/paths.ts",
@@ -123,10 +123,6 @@
       "sha256": "d2506be8c4bdbe8e7059393467e6e71d75ef1d8c018dbf997bb0ab2a77b6c7b6"
     },
     {
-      "path": "src/types/complete-knowledge-upload-session-request.ts",
-      "sha256": "75a1ba54c8912b10fa1b56214377fb41ead92d9cc0fbd55e5e0907e1f1ffcc40"
-    },
-    {
       "path": "src/types/consume-group-knowledgebase-launch-ticket-request.ts",
       "sha256": "43324169f44bb3ae7f33fe24211e6661e13480e923d6faf2a2d1f994b3324fac"
     },
@@ -151,6 +147,10 @@
       "sha256": "23a44c2b0400f1b72e8bf343892bfd52f4ee90e8703f6e489b980faf89f730f9"
     },
     {
+      "path": "src/types/create-knowledge-site-host-binding-request.ts",
+      "sha256": "387e85f7fc02694baa8dc460aa24419bae60afa7904d9f6e11a2712ae50c0fce"
+    },
+    {
       "path": "src/types/create-knowledge-source-request.ts",
       "sha256": "1222917f9ac15b3ce19eaad14fa784996144f074d246a4771c851321b644b052"
     },
@@ -161,10 +161,6 @@
     {
       "path": "src/types/create-knowledge-space-request.ts",
       "sha256": "f64e14a6d84f34b2ce58cd88cb8cafddd87b57b4e7f43cf88d10b34edf5a5c2b"
-    },
-    {
-      "path": "src/types/create-knowledge-upload-session-request.ts",
-      "sha256": "78b3214b9d74c1588fc2640de94bb39e1542a8cb5c8aca7484cc07a444d85c0d"
     },
     {
       "path": "src/types/documents-content-list-response.ts",
@@ -228,7 +224,7 @@
     },
     {
       "path": "src/types/index.ts",
-      "sha256": "567e4981d396758e054d2ec85745bf6a0faa2cd8eb6b4abf8e163ad9e1bace6f"
+      "sha256": "34c55ed8172fa604eda5f50c559743bd022320f7e8ffa57d29ff054cfce5133c"
     },
     {
       "path": "src/types/ingestion-job-state.ts",
@@ -364,7 +360,7 @@
     },
     {
       "path": "src/types/knowledge-drive-import-request.ts",
-      "sha256": "9f4e57d24731f6b5351b39cb556ae70cee0a719bef9546a34a346d833205891e"
+      "sha256": "6722532fed10ea234d751cf1449f1bb9eb55ea2eb81659f0da6d962bed324aed"
     },
     {
       "path": "src/types/knowledge-drive-import-result.ts",
@@ -372,7 +368,7 @@
     },
     {
       "path": "src/types/knowledge-drive-object-ref.ts",
-      "sha256": "c645a02b9744909346269430e9660b57731e4145d65a39369b3a300688d0fffd"
+      "sha256": "35c606e9dbc35fe49c0712f60fd30b957b319e9fe3fdaf9673dab62d9a39dd39"
     },
     {
       "path": "src/types/knowledge-filter.ts",
@@ -495,16 +491,44 @@
       "sha256": "56cd366ec7c15688fbb4fc20a4e526ce018c761428fa30190af469a8b303c4f5"
     },
     {
-      "path": "src/types/knowledge-site-deployment-preview.ts",
-      "sha256": "cbc07a2b2cf4b2247ad2511cb44c1927f9599f2f615367d53dcd679a29912477"
+      "path": "src/types/knowledge-site-host-binding-state.ts",
+      "sha256": "83e3a81e25bcf79c4e966f4b20aa3dfb3e2b39c4bb9a39560a65d70fe21cd9f0"
     },
     {
-      "path": "src/types/knowledge-site-deployment-request.ts",
-      "sha256": "a72017aa181c7c1e49f9465fae3a1ae75e1e8d2cac649b086f4c5f625e805703"
+      "path": "src/types/knowledge-site-host-binding-type.ts",
+      "sha256": "aa14454bfd7ba7a33307e8a127d608bbd83aa92a44d052bc7277187b0cb9383d"
     },
     {
-      "path": "src/types/knowledge-site-deployment-result.ts",
-      "sha256": "1fe0ad929b4858ca6a74c1d264d22744fe8a527f0b889466bf15e488be881d7a"
+      "path": "src/types/knowledge-site-host-binding.ts",
+      "sha256": "1ce43a2785ad4f4f4c1b5527341b881a40fcada7f6a623f2a8963023107b902c"
+    },
+    {
+      "path": "src/types/knowledge-site-publication-result.ts",
+      "sha256": "0aa1856cafbc7245b53323b2459d0283aa78c803ad08850805ada34cc0a4d276"
+    },
+    {
+      "path": "src/types/knowledge-site-publish-mode.ts",
+      "sha256": "a60af3f58a41eed7c85686a694ecb3a894c8de1e186a824da831b5d393f0d1ad"
+    },
+    {
+      "path": "src/types/knowledge-site-release-state.ts",
+      "sha256": "f5c0d6c878e193c90bfcf93baf75388ec1d2fdf2f5cdc6f10303e3014488dbd0"
+    },
+    {
+      "path": "src/types/knowledge-site-release.ts",
+      "sha256": "9c363328a883dee0942f74032ac054a721f382b96e22cd13f9c72934f97bcef1"
+    },
+    {
+      "path": "src/types/knowledge-site-state.ts",
+      "sha256": "eed02726668ca594517fa924ed51d04a17142ec3bf423e415fc39e07a8256ade"
+    },
+    {
+      "path": "src/types/knowledge-site-visibility.ts",
+      "sha256": "06fa285cc93e962b8ef8d9ca071aeafdba276e50ee545b4cdec75eea3faaeac7"
+    },
+    {
+      "path": "src/types/knowledge-site.ts",
+      "sha256": "03bcb587be45da51e834ae49f8bc783ede6315e4cf4a8a2fc17a0dee37bf89fe"
     },
     {
       "path": "src/types/knowledge-source-list.ts",
@@ -549,14 +573,6 @@
     {
       "path": "src/types/knowledge-space.ts",
       "sha256": "88381ce6f83cc8d2cec4606297143f77c093b9272990f8bb95b62e7d5ccc5764"
-    },
-    {
-      "path": "src/types/knowledge-upload-session-status.ts",
-      "sha256": "a6b1a4346ca6e7af76febd0c70883b8f87a9a87b2f8ba979932f661b8c7ca144"
-    },
-    {
-      "path": "src/types/knowledge-upload-session.ts",
-      "sha256": "35e392255333458557e7a20c4cc2836bcaf0e5ba1b3330434c2fbcfb122851f6"
     },
     {
       "path": "src/types/knowledge-wechat-applet-list.ts",
@@ -783,12 +799,20 @@
       "sha256": "1b080835b11fe8a05291e841dd864a0eb901bc819255ea159b46afdd1cc76c42"
     },
     {
+      "path": "src/types/publish-knowledge-site-release-request.ts",
+      "sha256": "142060f3d15072c9485dfc2ef0c90fd4744f6b02e7051a776bf8ff1a144538cb"
+    },
+    {
       "path": "src/types/retrievals-create-response201.ts",
       "sha256": "aa5b1af73fbdf5538a198199f1eae0f8a6be828fc25f92f834187882a691bd20"
     },
     {
       "path": "src/types/retrievals-retrieve-response.ts",
       "sha256": "59dbb519d8122d3099710a238acf04d4c039e7044cd890e61fb61711d0d1aae2"
+    },
+    {
+      "path": "src/types/rollback-knowledge-site-release-request.ts",
+      "sha256": "4c9accae2f0b851ae2c91d7b5f5c6f1e5e83a6d685d9823db183cb61c98ab4b0"
     },
     {
       "path": "src/types/sdk-work-api-response.ts",
@@ -823,12 +847,36 @@
       "sha256": "89c05f5549bef773335245f56f61ca1a6959978726799391d584a6bd25d12fdc"
     },
     {
-      "path": "src/types/site-deployments-create-response201.ts",
-      "sha256": "f724b1fe11b313e53f2410b8a5bd2e9d970e7c5fced992dca9fcbbb7e7d960cf"
+      "path": "src/types/site-host-bindings-create-response201.ts",
+      "sha256": "f91cd727e9069727fd808e22a2a6c6bf2addf220036f9b5c7d2296539c3580d3"
     },
     {
-      "path": "src/types/site-deployments-preview-list-response.ts",
-      "sha256": "8a2741e31d1c98576e066117dcfa6d6f2cf04cc7c6f45ee3a7dc7b31931e5e6c"
+      "path": "src/types/site-host-bindings-list-response.ts",
+      "sha256": "2518ef179b5104a0bb5db9dff658d1965d531e55ccbbeb488ae6f60058eaa196"
+    },
+    {
+      "path": "src/types/site-releases-create-response201.ts",
+      "sha256": "f5f3ff69b25afe52c8ce345d5f0fb3d23e476c2d553b4743e91720c841cf0e80"
+    },
+    {
+      "path": "src/types/site-releases-list-response.ts",
+      "sha256": "537ff0a32e8a69b127d20ab52186b1c932d5d16172e6f298f4aa0e0699781a48"
+    },
+    {
+      "path": "src/types/site-releases-retrieve-response.ts",
+      "sha256": "b7a68d28bd483580b681d377980fe895b2aea52933fe5319726f75075136b064"
+    },
+    {
+      "path": "src/types/site-releases-rollback-response.ts",
+      "sha256": "cccac6655dd75682442024b02c6cf3069ddee86c40011d3de7490fb1ca086206"
+    },
+    {
+      "path": "src/types/sites-retrieve-response.ts",
+      "sha256": "c04870ddcea1fcf96a6dbf2b20c0d57352c0920ea1617a26a548ae908949f3d1"
+    },
+    {
+      "path": "src/types/sites-update-response.ts",
+      "sha256": "284b65f858b807c5f621327f0b2dc418e03bbe12168026446f933a93b31c726c"
     },
     {
       "path": "src/types/spaces-browser-list-response.ts",
@@ -871,12 +919,8 @@
       "sha256": "2784799ab6d0aa79bf98022c342b18af884219b0e5c3a232af5497c8c5721983"
     },
     {
-      "path": "src/types/upload-sessions-complete-response.ts",
-      "sha256": "751bf63f59a0145314542806665ace534aff9ada0fb989d41404ddd8e06b2a99"
-    },
-    {
-      "path": "src/types/upload-sessions-create-response201.ts",
-      "sha256": "37fc0e4a5b8165435c47d15280b5d6eb97f87477947abacaf26ea6cd0eed46b4"
+      "path": "src/types/upsert-knowledge-site-request.ts",
+      "sha256": "ad81decba4814b014042e8f8adfcf54223568f50afcc4de8848a997430a54ce2"
     },
     {
       "path": "src/types/wechat-applets-list-response.ts",

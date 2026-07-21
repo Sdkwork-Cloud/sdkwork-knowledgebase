@@ -9,19 +9,19 @@ use sdkwork_knowledgebase_contract::{
     context_binding::{
         CreateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceContextBindingRequest,
     },
-    upload::{CompleteKnowledgeUploadSessionRequest, CreateKnowledgeUploadSessionRequest},
     CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
     CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, KnowledgeAgentBindingRequest,
     KnowledgeAgentChatRequest, KnowledgeAgentProfileRequest, KnowledgeBrowserListData,
     KnowledgeBrowserView, KnowledgeContextPackRequest, KnowledgeDriveImportRequest,
     KnowledgeGitImportRequest, KnowledgeGitSyncRequest, KnowledgeIngestRequest,
-    KnowledgeMarketSubscriptionRequest, KnowledgeMediaTaskRequest, KnowledgeRetrievalRequest,
-    KnowledgeSiteDeploymentRequest, KnowledgeSpaceMemberSubjectType,
+    CreateKnowledgeSiteHostBindingRequest, KnowledgeMarketSubscriptionRequest,
+    KnowledgeMediaTaskRequest, KnowledgeRetrievalRequest, KnowledgeSpaceMemberSubjectType,
     KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest,
     KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
     ListKnowledgeBrowserRequest, ListOkfConceptsQuery, OkfBundleExportRequest,
     OkfBundleImportRequest, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest,
-    OkfQualityRunRequest, OkfQueryRequest, UpdateKnowledgeSpaceRequest,
+    OkfQualityRunRequest, OkfQueryRequest, PublishKnowledgeSiteReleaseRequest,
+    RollbackKnowledgeSiteReleaseRequest, UpdateKnowledgeSpaceRequest, UpsertKnowledgeSiteRequest,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -116,7 +116,7 @@ pub fn build_router_with_full_app_api(
     retrieval: Arc<dyn KnowledgeRetrievalAppService>,
     agent: Arc<dyn KnowledgeAgentAppService>,
     context_binding: Arc<dyn crate::KnowledgeContextBindingAppService>,
-    upload_session: Arc<dyn crate::KnowledgeUploadSessionAppService>,
+    site: Arc<dyn crate::KnowledgeSiteAppService>,
     wechat: Arc<dyn crate::KnowledgeWechatAppService>,
     commerce: Arc<dyn KnowledgeCommerceAppService>,
 ) -> Router {
@@ -132,7 +132,7 @@ pub fn build_router_with_full_app_api(
         retrieval,
         agent,
         context_binding,
-        upload_session,
+        site,
         wechat,
         commerce,
     )))
@@ -239,11 +239,6 @@ fn build_business_router(api: Arc<dyn KnowledgeAppApi>) -> Router {
                 .patch(update_context_binding)
                 .delete(delete_context_binding),
         )
-        .route(paths::UPLOAD_SESSIONS, post(create_upload_session))
-        .route(
-            paths::UPLOAD_SESSION_COMPLETE,
-            post(complete_upload_session),
-        )
         .route(
             paths::WECHAT_OFFICIAL_ACCOUNTS,
             get(list_wechat_official_accounts).put(replace_wechat_official_accounts),
@@ -273,11 +268,18 @@ fn build_business_router(api: Arc<dyn KnowledgeAppApi>) -> Router {
             paths::MARKET_SUBSCRIPTION,
             delete(delete_market_subscription),
         )
-        .route(paths::SITE_DEPLOYMENTS, post(create_site_deployment))
+        .route(paths::SPACE_SITE, get(retrieve_site).put(upsert_site))
         .route(
-            paths::SITE_DEPLOYMENT_PREVIEW,
-            get(retrieve_site_deployment_preview),
+            paths::SITE_RELEASES,
+            get(list_site_releases).post(publish_site_release),
         )
+        .route(paths::SITE_RELEASE, get(retrieve_site_release))
+        .route(paths::SITE_RELEASE_ROLLBACKS, post(rollback_site_release))
+        .route(
+            paths::SITE_HOST_BINDINGS,
+            get(list_site_host_bindings).post(create_site_host_binding),
+        )
+        .route(paths::SITE_HOST_BINDING, delete(delete_site_host_binding))
         .route(paths::MEDIA_TASKS, post(create_media_task))
         .with_state(AppState { api })
 }
@@ -314,6 +316,19 @@ struct ListMarketListingsQuery {
     cursor: Option<String>,
     #[serde(rename = "page_size")]
     page_size: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListSiteResourcesQuery {
+    cursor: Option<String>,
+    #[serde(rename = "page_size")]
+    page_size: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DeleteSiteHostBindingQuery {
+    expected_version: u64,
 }
 
 async fn create_space(
@@ -565,27 +580,126 @@ async fn delete_market_subscription(
     Ok(sdkwork_knowledgebase_observability::request_correlation::no_content_response())
 }
 
-async fn create_site_deployment(
+async fn retrieve_site(
     State(state): State<AppState>,
     context: RequiredAppContext,
-    Json(request): Json<KnowledgeSiteDeploymentRequest>,
+    Path(space_id): Path<u64>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
-    created_json(state.api.create_site_deployment(context, request).await)
+    ok_json(state.api.retrieve_site(context, space_id).await)
 }
 
-async fn retrieve_site_deployment_preview(
+async fn upsert_site(
     State(state): State<AppState>,
     context: RequiredAppContext,
-    Path(deployment_id): Path<u64>,
+    Path(space_id): Path<u64>,
+    Json(request): Json<UpsertKnowledgeSiteRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(state.api.upsert_site(context, space_id, request).await)
+}
+
+async fn publish_site_release(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path(site_id): Path<u64>,
+    Json(request): Json<PublishKnowledgeSiteReleaseRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    created_json(
+        state
+            .api
+            .publish_site_release(context, site_id, request)
+            .await,
+    )
+}
+
+async fn list_site_releases(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path(site_id): Path<u64>,
+    OriginalUri(uri): OriginalUri,
+    Query(query): Query<ListSiteResourcesQuery>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
+    ok_list_json(
+        state
+            .api
+            .list_site_releases(context, site_id, query.cursor, query.page_size)
+            .await,
+    )
+}
+
+async fn retrieve_site_release(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path(release_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(state.api.retrieve_site_release(context, release_id).await)
+}
+
+async fn rollback_site_release(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path(site_id): Path<u64>,
+    Json(request): Json<RollbackKnowledgeSiteReleaseRequest>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
     ok_json(
         state
             .api
-            .retrieve_site_deployment_preview(context, deployment_id)
+            .rollback_site_release(context, site_id, request)
             .await,
     )
+}
+
+async fn list_site_host_bindings(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path(site_id): Path<u64>,
+    OriginalUri(uri): OriginalUri,
+    Query(query): Query<ListSiteResourcesQuery>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    reject_forbidden_pagination_aliases(uri.query())?;
+    ok_list_json(
+        state
+            .api
+            .list_site_host_bindings(context, site_id, query.cursor, query.page_size)
+            .await,
+    )
+}
+
+async fn create_site_host_binding(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path(site_id): Path<u64>,
+    Json(request): Json<CreateKnowledgeSiteHostBindingRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    created_json(
+        state
+            .api
+            .create_site_host_binding(context, site_id, request)
+            .await,
+    )
+}
+
+async fn delete_site_host_binding(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path((site_id, binding_id)): Path<(u64, u64)>,
+    Query(query): Query<DeleteSiteHostBindingQuery>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    state
+        .api
+        .delete_site_host_binding(context, site_id, binding_id, query.expected_version)
+        .await
+        .map_err(ApiProblem::from)?;
+    Ok(sdkwork_knowledgebase_observability::request_correlation::no_content_response())
 }
 
 async fn create_media_task(
@@ -1224,30 +1338,6 @@ async fn delete_context_binding(
         .await
         .map_err(ApiProblem::from)?;
     Ok(sdkwork_knowledgebase_observability::request_correlation::no_content_response())
-}
-
-async fn create_upload_session(
-    State(state): State<AppState>,
-    context: RequiredAppContext,
-    Json(request): Json<CreateKnowledgeUploadSessionRequest>,
-) -> Result<Response, ApiProblem> {
-    let context = require_app_context(context)?;
-    created_json(state.api.create_upload_session(context, request).await)
-}
-
-async fn complete_upload_session(
-    State(state): State<AppState>,
-    context: RequiredAppContext,
-    Path(session_id): Path<u64>,
-    Json(request): Json<CompleteKnowledgeUploadSessionRequest>,
-) -> Result<Response, ApiProblem> {
-    let context = require_app_context(context)?;
-    ok_json(
-        state
-            .api
-            .complete_upload_session(context, session_id, request)
-            .await,
-    )
 }
 
 fn ok_list_json<T>(

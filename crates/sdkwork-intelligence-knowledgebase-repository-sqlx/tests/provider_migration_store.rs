@@ -11,7 +11,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::{
         RecordKnowledgeEngineProviderTestResult,
     },
     knowledge_provider_migration_store::{
-        AdvanceClaimedKnowledgeEngineProviderMigration, KnowledgeEngineProviderMigrationStore,
+        AdvanceClaimedKnowledgeEngineProviderMigration,
+        CutoverClaimedKnowledgeEngineProviderMigration, KnowledgeEngineProviderMigrationStore,
         KnowledgeEngineProviderMigrationStoreError,
     },
     knowledge_space_store::{CreateKnowledgeSpaceRecord, KnowledgeSpaceStore},
@@ -157,12 +158,14 @@ async fn provider_migration_is_idempotent_claimed_versioned_and_reversible() {
     let cutover = migration_store
         .cutover_claimed(
             scope,
-            operation.id,
-            &claimed.claim_token,
-            claimed.operation.version,
-            "tenant-admin",
-            &observation_until,
-            claimed.checkpoint,
+            CutoverClaimedKnowledgeEngineProviderMigration {
+                operation_id: operation.id,
+                claim_token: claimed.claim_token,
+                expected_version: claimed.operation.version,
+                actor_id: "tenant-admin".to_string(),
+                observation_until,
+                checkpoint: claimed.checkpoint,
+            },
         )
         .await
         .expect("atomic cutover");

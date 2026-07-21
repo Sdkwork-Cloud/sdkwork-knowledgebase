@@ -28,11 +28,8 @@ pub struct KnowledgeIngestRequest {
 pub struct KnowledgeDriveImportRequest {
     pub space_id: u64,
     pub title: String,
-    pub drive_space_id: Option<String>,
-    pub drive_node_id: Option<String>,
-    pub drive_storage_provider_id: String,
-    pub drive_bucket: String,
-    pub drive_object_key: String,
+    pub drive_space_id: String,
+    pub drive_node_id: String,
     pub idempotency_key: String,
     pub language: Option<String>,
 }

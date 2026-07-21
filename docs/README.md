@@ -25,6 +25,8 @@ SDKWork Knowledgebase maintainers.
 | Managed group knowledgebase decision | [architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md](architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md) |
 | Provider commercialization requirement | [product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md](product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md) |
 | Provider SPI v2 decision | [architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md](architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md) |
+| Knowledgebase site publication requirement | [product/requirements/REQ-2026-0721-knowledgebase-site-publication.md](product/requirements/REQ-2026-0721-knowledgebase-site-publication.md) |
+| Drive-backed site publication decision | [architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md](architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md) |
 | Provider commercial readiness review | [engineering/reviews/REVIEW-2026-0720-knowledge-engine-provider-commercial-readiness.md](engineering/reviews/REVIEW-2026-0720-knowledge-engine-provider-commercial-readiness.md) |
 | Provider Binding readiness runbook | [runbooks/RUNBOOK-provider-binding-readiness.md](runbooks/RUNBOOK-provider-binding-readiness.md) |
 | Tenant isolation | [runbooks/tenant-isolation.md](runbooks/tenant-isolation.md) |

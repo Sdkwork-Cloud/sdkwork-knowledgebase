@@ -1,8 +1,105 @@
 import { appApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { CompleteKnowledgeUploadSessionRequest, ConsumeGroupKnowledgebaseLaunchTicketRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, GroupKnowledgebaseLaunchTarget, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession, KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList, KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PageInfo, SdkWorkCommandData, UpdateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceRequest } from '../types';
+import type { ConsumeGroupKnowledgebaseLaunchTicketRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSiteHostBindingRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, GroupKnowledgebaseLaunchTarget, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSite, KnowledgeSiteHostBinding, KnowledgeSitePublicationResult, KnowledgeSiteRelease, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList, KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PageInfo, PublishKnowledgeSiteReleaseRequest, RollbackKnowledgeSiteReleaseRequest, SdkWorkCommandData, UpdateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceRequest, UpsertKnowledgeSiteRequest } from '../types';
 
+
+export interface KnowledgeSiteHostBindingsListParams {
+  cursor?: string;
+  pageSize?: number;
+}
+
+export interface KnowledgeSiteHostBindingsDeleteParams {
+  expectedVersion: string;
+}
+
+export class KnowledgeSiteHostBindingsApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** List knowledge site host bindings */
+  async list(siteId: string, params?: KnowledgeSiteHostBindingsListParams): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/sites/${serializePathParameter(siteId, { name: 'siteId', style: 'simple', explode: false })}/host_bindings`), query));
+  }
+
+/** Create a custom-prefix or external-domain host binding */
+  async create(siteId: string, body: CreateKnowledgeSiteHostBindingRequest): Promise<KnowledgeSiteHostBinding> {
+    return this.client.post<KnowledgeSiteHostBinding>(appApiPath(`/knowledge/sites/${serializePathParameter(siteId, { name: 'siteId', style: 'simple', explode: false })}/host_bindings`), body, undefined, undefined, 'application/json');
+  }
+
+/** Delete a non-system knowledge site host binding */
+  async delete(siteId: string, bindingId: string, params: KnowledgeSiteHostBindingsDeleteParams): Promise<void> {
+    const query = buildQueryString([
+      { name: 'expected_version', value: params.expectedVersion, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.delete<void>(appendQueryString(appApiPath(`/knowledge/sites/${serializePathParameter(siteId, { name: 'siteId', style: 'simple', explode: false })}/host_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), query));
+  }
+}
+
+export interface KnowledgeSiteReleasesListParams {
+  cursor?: string;
+  pageSize?: number;
+}
+
+export class KnowledgeSiteReleasesApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** List immutable knowledge site releases */
+  async list(siteId: string, params?: KnowledgeSiteReleasesListParams): Promise<Record<string, unknown>> {
+    const query = buildQueryString([
+      { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
+      { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
+    ]);
+    return this.client.get<Record<string, unknown>>(appendQueryString(appApiPath(`/knowledge/sites/${serializePathParameter(siteId, { name: 'siteId', style: 'simple', explode: false })}/releases`), query));
+  }
+
+/** Build and atomically publish a knowledge site release */
+  async create(siteId: string, body: PublishKnowledgeSiteReleaseRequest): Promise<KnowledgeSitePublicationResult> {
+    return this.client.post<KnowledgeSitePublicationResult>(appApiPath(`/knowledge/sites/${serializePathParameter(siteId, { name: 'siteId', style: 'simple', explode: false })}/releases`), body, undefined, undefined, 'application/json');
+  }
+
+/** Retrieve an immutable knowledge site release */
+  async retrieve(releaseId: string): Promise<KnowledgeSiteRelease> {
+    return this.client.get<KnowledgeSiteRelease>(appApiPath(`/knowledge/site_releases/${serializePathParameter(releaseId, { name: 'releaseId', style: 'simple', explode: false })}`));
+  }
+
+/** Atomically activate a prior ready knowledge site release */
+  async rollback(siteId: string, body: RollbackKnowledgeSiteReleaseRequest): Promise<KnowledgeSite> {
+    return this.client.post<KnowledgeSite>(appApiPath(`/knowledge/sites/${serializePathParameter(siteId, { name: 'siteId', style: 'simple', explode: false })}/rollbacks`), body, undefined, undefined, 'application/json');
+  }
+}
+
+export class KnowledgeSitesApi {
+  private client: HttpClient;
+
+  constructor(client: HttpClient) {
+    this.client = client;
+  }
+
+
+/** Retrieve a knowledge site by space */
+  async retrieve(spaceId: string): Promise<KnowledgeSite> {
+    return this.client.get<KnowledgeSite>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/site`));
+  }
+
+/** Create or update a knowledge site */
+  async update(spaceId: string, body: UpsertKnowledgeSiteRequest): Promise<KnowledgeSite> {
+    return this.client.put<KnowledgeSite>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/site`), body, undefined, undefined, 'application/json');
+  }
+}
 
 export class KnowledgeMediaTasksApi {
   private client: HttpClient;
@@ -15,36 +112,6 @@ export class KnowledgeMediaTasksApi {
 /** Create a knowledge media task (image generation or speech-to-text) */
   async create(body: KnowledgeMediaTaskRequest): Promise<KnowledgeMediaTaskResult> {
     return this.client.post<KnowledgeMediaTaskResult>(appApiPath(`/knowledge/media_tasks`), body, undefined, undefined, 'application/json');
-  }
-}
-
-export class KnowledgeSiteDeploymentsPreviewApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-
-/** Retrieve site deployment preview HTML */
-  async list(deploymentId: string): Promise<KnowledgeSiteDeploymentPreview> {
-    return this.client.get<KnowledgeSiteDeploymentPreview>(appApiPath(`/knowledge/site_deployments/${serializePathParameter(deploymentId, { name: 'deploymentId', style: 'simple', explode: false })}/preview`));
-  }
-}
-
-export class KnowledgeSiteDeploymentsApi {
-  private client: HttpClient;
-  public readonly preview: KnowledgeSiteDeploymentsPreviewApi;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-    this.preview = new KnowledgeSiteDeploymentsPreviewApi(client);
-  }
-
-
-/** Deploy a knowledge space as a static website */
-  async create(body: KnowledgeSiteDeploymentRequest): Promise<KnowledgeSiteDeploymentResult> {
-    return this.client.post<KnowledgeSiteDeploymentResult>(appApiPath(`/knowledge/site_deployments`), body, undefined, undefined, 'application/json');
   }
 }
 
@@ -203,25 +270,6 @@ export class KnowledgeWechatApi {
     this.articles = new KnowledgeWechatArticlesApi(client);
   }
 
-}
-
-export class KnowledgeUploadSessionsApi {
-  private client: HttpClient;
-
-  constructor(client: HttpClient) {
-    this.client = client;
-  }
-
-
-/** Create a drive-delegated knowledge upload session */
-  async create(body: CreateKnowledgeUploadSessionRequest): Promise<KnowledgeUploadSession> {
-    return this.client.post<KnowledgeUploadSession>(appApiPath(`/knowledge/upload_sessions`), body, undefined, undefined, 'application/json');
-  }
-
-/** Complete a knowledge upload session and start ingestion */
-  async complete(sessionId: string, body: CompleteKnowledgeUploadSessionRequest): Promise<IngestionJob> {
-    return this.client.post<IngestionJob>(appApiPath(`/knowledge/upload_sessions/${serializePathParameter(sessionId, { name: 'sessionId', style: 'simple', explode: false })}/complete`), body, undefined, undefined, 'application/json');
-  }
 }
 
 export class KnowledgeContextBindingsApi {
@@ -905,12 +953,13 @@ export class KnowledgeApi {
   public readonly contextPacks: KnowledgeContextPacksApi;
   public readonly agentProfiles: KnowledgeAgentProfilesApi;
   public readonly contextBindings: KnowledgeContextBindingsApi;
-  public readonly uploadSessions: KnowledgeUploadSessionsApi;
   public readonly wechat: KnowledgeWechatApi;
   public readonly gitSyncs: KnowledgeGitSyncsApi;
   public readonly market: KnowledgeMarketApi;
-  public readonly siteDeployments: KnowledgeSiteDeploymentsApi;
   public readonly mediaTasks: KnowledgeMediaTasksApi;
+  public readonly sites: KnowledgeSitesApi;
+  public readonly siteReleases: KnowledgeSiteReleasesApi;
+  public readonly siteHostBindings: KnowledgeSiteHostBindingsApi;
 
   constructor(client: HttpClient) {
     this.client = client;
@@ -925,12 +974,13 @@ export class KnowledgeApi {
     this.contextPacks = new KnowledgeContextPacksApi(client);
     this.agentProfiles = new KnowledgeAgentProfilesApi(client);
     this.contextBindings = new KnowledgeContextBindingsApi(client);
-    this.uploadSessions = new KnowledgeUploadSessionsApi(client);
     this.wechat = new KnowledgeWechatApi(client);
     this.gitSyncs = new KnowledgeGitSyncsApi(client);
     this.market = new KnowledgeMarketApi(client);
-    this.siteDeployments = new KnowledgeSiteDeploymentsApi(client);
     this.mediaTasks = new KnowledgeMediaTasksApi(client);
+    this.sites = new KnowledgeSitesApi(client);
+    this.siteReleases = new KnowledgeSiteReleasesApi(client);
+    this.siteHostBindings = new KnowledgeSiteHostBindingsApi(client);
   }
 
 }

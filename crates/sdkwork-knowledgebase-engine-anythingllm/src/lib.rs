@@ -141,9 +141,10 @@ impl KnowledgeEngine for AnythingLlmKnowledgeEngine {
                 return Ok(KnowledgeEngineHealth {
                     implementation_id: ANYTHINGLLM_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
-                    detail: Some(format!(
+                    detail: Some(
                         "AnythingLLM connector health requires an active Provider binding with a remote resource id"
-                    )),
+                            .to_string(),
+                    ),
                 });
             }
         };

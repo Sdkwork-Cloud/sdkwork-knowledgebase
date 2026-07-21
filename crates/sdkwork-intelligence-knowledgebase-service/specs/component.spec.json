@@ -73,7 +73,8 @@
     "contracts":  {
                       "layerRole":  "backend-service",
                       "publicExports":  [
-                                            "."
+                                            ".",
+                                            "ports::knowledge_provider_binding_readiness_store::KnowledgeEngineProviderBindingReadinessStore"
                                         ],
                       "providedPorts":  [
                                             {

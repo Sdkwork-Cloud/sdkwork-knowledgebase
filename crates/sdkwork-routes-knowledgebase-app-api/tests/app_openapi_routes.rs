@@ -88,18 +88,34 @@ fn app_openapi_exposes_drive_bound_contract_fields() {
     assert_schema_properties(
         &spec,
         "KnowledgeDriveImportRequest",
-        &["driveStorageProviderId"],
+        &[
+            "spaceId",
+            "title",
+            "driveSpaceId",
+            "driveNodeId",
+            "idempotencyKey",
+        ],
     );
     assert_schema_properties(
         &spec,
         "KnowledgeDriveObjectRef",
-        &[
-            "driveSpaceId",
-            "driveNodeId",
-            "driveStorageProviderId",
-            "logicalPath",
-        ],
+        &["driveSpaceId", "driveNodeId", "logicalPath"],
     );
+    for schema_name in ["KnowledgeDriveImportRequest", "KnowledgeDriveObjectRef"] {
+        let properties = spec["components"]["schemas"][schema_name]["properties"]
+            .as_object()
+            .expect("Drive schema properties");
+        for internal_locator in [
+            "driveStorageProviderId",
+            "driveStorageBucket",
+            "driveStorageObjectKey",
+        ] {
+            assert!(
+                !properties.contains_key(internal_locator),
+                "public Drive schema {schema_name} must not expose {internal_locator}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -317,14 +333,19 @@ fn app_openapi_commerce_git_and_media_operations_use_envelopes() {
             "/app/v3/api/knowledge/market/subscriptions/{listingId}",
         ),
         (
-            "siteDeployments.create",
-            "post",
-            "/app/v3/api/knowledge/site_deployments",
+            "sites.update",
+            "put",
+            "/app/v3/api/knowledge/spaces/{spaceId}/site",
         ),
         (
-            "siteDeployments.preview.list",
-            "get",
-            "/app/v3/api/knowledge/site_deployments/{deploymentId}/preview",
+            "siteReleases.create",
+            "post",
+            "/app/v3/api/knowledge/sites/{siteId}/releases",
+        ),
+        (
+            "siteHostBindings.create",
+            "post",
+            "/app/v3/api/knowledge/sites/{siteId}/host_bindings",
         ),
         (
             "mediaTasks.create",
@@ -352,9 +373,13 @@ fn app_openapi_commerce_git_and_media_operations_use_envelopes() {
         "KnowledgeMarketCatalogItem",
         "KnowledgeMarketSubscriptionRequest",
         "KnowledgeMarketSubscriptionResult",
-        "KnowledgeSiteDeploymentRequest",
-        "KnowledgeSiteDeploymentResult",
-        "KnowledgeSiteDeploymentPreview",
+        "UpsertKnowledgeSiteRequest",
+        "KnowledgeSite",
+        "PublishKnowledgeSiteReleaseRequest",
+        "KnowledgeSitePublicationResult",
+        "KnowledgeSiteRelease",
+        "CreateKnowledgeSiteHostBindingRequest",
+        "KnowledgeSiteHostBinding",
         "KnowledgeMediaTaskRequest",
         "KnowledgeMediaTaskResult",
     ] {
@@ -367,7 +392,6 @@ fn app_openapi_commerce_git_and_media_operations_use_envelopes() {
     for schema_name in [
         "KnowledgeGitSyncResult",
         "KnowledgeMarketSubscriptionResult",
-        "KnowledgeSiteDeploymentResult",
         "KnowledgeMediaTaskResult",
         "KnowledgeWechatOperationResult",
     ] {
@@ -384,15 +408,15 @@ fn app_openapi_commerce_git_and_media_operations_use_envelopes() {
         );
     }
 
-    let deployment_id_schema = &spec["components"]["schemas"]["KnowledgeSiteDeploymentResult"]
-        ["properties"]["deploymentId"];
+    let release_id_schema =
+        &spec["components"]["schemas"]["KnowledgeSiteRelease"]["properties"]["id"];
     assert_eq!(
-        deployment_id_schema["type"], "string",
-        "site deployment command result deploymentId must use int64-string wire type"
+        release_id_schema["type"], "string",
+        "site release id must use int64-string wire type"
     );
     assert_eq!(
-        deployment_id_schema["x-sdkwork-int64-string"], true,
-        "site deployment command result deploymentId must declare SDKWork int64-string metadata"
+        release_id_schema["x-sdkwork-int64-string"], true,
+        "site release id must declare SDKWork int64-string metadata"
     );
 }
 

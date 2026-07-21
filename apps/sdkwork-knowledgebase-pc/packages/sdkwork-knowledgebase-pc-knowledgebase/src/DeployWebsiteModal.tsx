@@ -13,7 +13,7 @@ import {
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 import { KnowledgeBase, DocumentService } from './services/document';
-import { isVerifiedSiteDeploymentUrl } from './services/knowledgeSiteDeploymentService';
+import { isVerifiedKnowledgeSiteUrl } from './services/knowledgeSitePublicationService';
 
 interface DeployWebsiteModalProps {
   isOpen: boolean;
@@ -44,7 +44,7 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
       setSiteName(activeKb.siteName || activeKb.title || '');
       setCustomDomain(activeKb.customDomain || '');
       setLogoBase64(activeKb.siteLogo || activeKb.avatar || '');
-      const verifiedUrl = isVerifiedSiteDeploymentUrl(activeKb.deployedUrl)
+      const verifiedUrl = isVerifiedKnowledgeSiteUrl(activeKb.deployedUrl)
         ? activeKb.deployedUrl
         : '';
       setIsDeployed(activeKb.isDeployed === true && Boolean(verifiedUrl));
@@ -55,7 +55,7 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
   if (!isOpen || !activeKb) return null;
 
   const handleCopy = () => {
-    if (!isVerifiedSiteDeploymentUrl(deployedSiteUrl)) {
+    if (!isVerifiedKnowledgeSiteUrl(deployedSiteUrl)) {
       return;
     }
     navigator.clipboard.writeText(deployedSiteUrl);
@@ -119,11 +119,9 @@ export function DeployWebsiteModal({ isOpen, activeKb, onClose, onSave }: Deploy
     setDeployStep('正在分析并序列化站点内容...');
     
     try {
-      const selectedPlatform = 'sdkwork-sites';
-      const res = await DocumentService.publishWebsite(selectedPlatform, activeKb.id, {
+      const res = await DocumentService.publishWebsite(activeKb.id, {
         siteName: siteName || activeKb.title,
-        customDomain: customDomain || undefined,
-        siteLogo: logoBase64 || undefined,
+        customHost: customDomain || undefined,
       });
 
       const newUrl = res.url;

@@ -1,15 +1,14 @@
 //! Tenant business quota enforcement at the app-api boundary.
 
 use sdkwork_intelligence_knowledgebase_service::tenant_quota::{
-    build_quota_status, ensure_document_capacity, ensure_storage_capacity, TenantQuotaExceeded,
-    TenantQuotaKind,
+    TenantQuotaExceeded, TenantQuotaKind, build_quota_status, ensure_document_capacity,
 };
 use sdkwork_knowledgebase_contract::KnowledgeTenantQuotaStatus;
 use sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits;
 use sdkwork_routes_knowledgebase_backend_api::knowledgebase_rate_limit_store;
 use std::time::Duration;
 
-use crate::{runtime::KnowledgebaseRuntime, ApiError, ApiResult};
+use crate::{ApiError, ApiResult, runtime::KnowledgebaseRuntime};
 
 pub(crate) fn map_tenant_quota_error(error: TenantQuotaExceeded) -> ApiError {
     let detail = match error.kind {
@@ -62,16 +61,6 @@ pub(crate) async fn load_tenant_quota_status(
         inflight,
         storage_bytes_used,
     ))
-}
-
-pub(crate) async fn ensure_tenant_can_add_storage(
-    runtime: &KnowledgebaseRuntime,
-    additional_bytes: u64,
-) -> ApiResult<()> {
-    let limits = KnowledgebaseTenantQuotaLimits::from_env();
-    let storage_bytes_used = load_storage_bytes_used(runtime).await?;
-    ensure_storage_capacity(storage_bytes_used, additional_bytes, &limits)
-        .map_err(map_tenant_quota_error)
 }
 
 pub(crate) async fn ensure_tenant_can_create_document(

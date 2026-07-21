@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.knowledge-engine-outage-recovery-evidence-template",
+  "status": "draft",
+  "providerId": "replace-provider-id",
+  "upstreamVersion": "replace-pinned-version",
+  "adapterCommit": "replace-full-git-commit",
+  "policyVersion": "1.0.0",
+  "verifiedAt": "YYYY-MM-DD",
+  "expiresAt": "YYYY-MM-DD",
+  "environment": "release",
+  "workflowRunRef": "https://replace-release-workflow-run",
+  "reviewedBy": "replace-reviewer-identity",
+  "dashboardRef": "https://replace-release-dashboard",
+  "runbookRef": "docs/runbooks/provider-outage.md",
+  "rawTimelineRef": "docs/releases/provider-certification/artifacts/replace-outage-timeline.json",
+  "rawTimelineSha256": "replace-sha256",
+  "scenarioMetrics": []
+}

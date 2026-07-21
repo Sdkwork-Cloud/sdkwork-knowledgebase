@@ -12,7 +12,6 @@ use sdkwork_intelligence_knowledgebase_service::{
     ingest::{
         ApiMarkdownIngestPipelineError, KnowledgeApiMarkdownIndexServiceError,
         KnowledgeApiPayloadIngestServiceError, KnowledgeIngestionServiceError,
-        KnowledgeUploadSessionServiceError,
     },
     okf::OkfConceptServiceError,
     ports::{
@@ -959,25 +958,6 @@ impl From<sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImp
                     format!("drive import payload exceeds maximum allowed size of {max_bytes} bytes"),
                 ),
             },
-        }
-    }
-}
-
-impl From<KnowledgeUploadSessionServiceError> for ApiError {
-    fn from(error: KnowledgeUploadSessionServiceError) -> Self {
-        match error {
-            KnowledgeUploadSessionServiceError::NotFound(session_id) => Self::not_found(
-                "upload_session_not_found",
-                format!("upload session was not found: {session_id}"),
-            ),
-            KnowledgeUploadSessionServiceError::InvalidRequest(detail) => {
-                Self::invalid_request("invalid_knowledge_upload_session_request", detail)
-            }
-            KnowledgeUploadSessionServiceError::Internal(detail) => {
-                Self::internal("knowledge_upload_session_failed", detail)
-            }
-            KnowledgeUploadSessionServiceError::Store(store_error) => store_error.into(),
-            KnowledgeUploadSessionServiceError::Storage(storage_error) => storage_error.into(),
         }
     }
 }

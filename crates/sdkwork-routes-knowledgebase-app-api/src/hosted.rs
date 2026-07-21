@@ -1263,34 +1263,22 @@ fn map_document_version_error(
 
 async fn resolve_drive_import_request(
     drive_tree: &dyn KnowledgeDriveNodeTree,
-    mut request: KnowledgeDriveImportRequest,
-) -> ApiResult<KnowledgeDriveImportRequest> {
-    let needs_locator = is_blank(Some(request.drive_object_key.as_str()))
-        || is_blank(Some(request.drive_bucket.as_str()))
-        || is_blank(Some(request.drive_storage_provider_id.as_str()));
-    if !needs_locator {
-        return Ok(request);
-    }
-
-    let Some(drive_node_id) = request
-        .drive_node_id
-        .as_ref()
-        .map(|value| value.trim())
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-    else {
+    request: KnowledgeDriveImportRequest,
+) -> ApiResult<sdkwork_intelligence_knowledgebase_service::imports::ResolvedKnowledgeDriveImportRequest> {
+    let drive_node_id = request.drive_node_id.trim().to_string();
+    if drive_node_id.is_empty() {
         return Err(ApiError::invalid_request(
             "invalid_drive_import_request",
-            "drive_storage_provider_id, drive_bucket, and drive_object_key are required when drive_node_id is absent".to_string(),
+            "drive_node_id is required".to_string(),
         ));
-    };
-    let drive_space_id = request.drive_space_id.clone().ok_or_else(|| {
-        ApiError::invalid_request(
+    }
+    let drive_space_id = request.drive_space_id.trim().to_string();
+    if drive_space_id.is_empty() {
+        return Err(ApiError::invalid_request(
             "invalid_drive_import_request",
-            "drive_space_id is required when resolving drive object locator from drive_node_id"
-                .to_string(),
-        )
-    })?;
+            "drive_space_id is required".to_string(),
+        ));
+    }
 
     let node = drive_tree
         .get_node(GetKnowledgeDriveNodeRequest {
@@ -1312,16 +1300,12 @@ async fn resolve_drive_import_request(
         )
     })?;
 
-    if is_blank(Some(request.drive_storage_provider_id.as_str())) {
-        request.drive_storage_provider_id = locator.storage_provider_id;
-    }
-    if is_blank(Some(request.drive_bucket.as_str())) {
-        request.drive_bucket = locator.bucket;
-    }
-    if is_blank(Some(request.drive_object_key.as_str())) {
-        request.drive_object_key = locator.object_key;
-    }
-    Ok(request)
+    Ok(sdkwork_intelligence_knowledgebase_service::imports::ResolvedKnowledgeDriveImportRequest {
+        request,
+        drive_storage_provider_id: locator.storage_provider_id,
+        drive_bucket: locator.bucket,
+        drive_object_key: locator.object_key,
+    })
 }
 
 pub(crate) fn map_okf_concept_store_error(

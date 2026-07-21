@@ -6,15 +6,19 @@ use sdkwork_knowledgebase_contract::browser::{
     KnowledgeBrowserListData, ListKnowledgeBrowserRequest,
 };
 use sdkwork_routes_knowledgebase_app_api::{
-    app_route_manifest, build_router_with_browser, manifest, pagination::browser_list_page_data,
-    wrap_router_with_web_framework, ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi,
+    ApiResult, KnowledgeAppRequestContext, KnowledgeBrowserApi, app_route_manifest,
+    build_router_with_browser, manifest, pagination::browser_list_page_data,
+    wrap_router_with_web_framework,
 };
 use sdkwork_web_core::RouteAuth;
 use sdkwork_web_core::{
     access_token_jwt, auth_token_jwt_with_permissions, encode_unsigned_test_jwt,
 };
 use std::sync::{Arc, Mutex};
+use tokio::sync::Mutex as AsyncMutex;
 use tower::util::ServiceExt;
+
+static ENV_LOCK: AsyncMutex<()> = AsyncMutex::const_new(());
 
 #[test]
 fn app_route_manifest_declares_dual_token_auth_for_all_operations() {
@@ -57,6 +61,7 @@ async fn app_router_web_framework_rejects_unauthenticated_requests() {
 
 #[tokio::test]
 async fn web_framework_accepts_dev_jwt_dual_tokens_before_handler() {
+    let _env_guard = ENV_LOCK.lock().await;
     std::env::set_var("SDKWORK_ENV", "dev");
     std::env::set_var("SDKWORK_IAM_ALLOW_DEV_AUTH_FALLBACK", "true");
     let service = RecordingBrowserApi::default();
@@ -97,6 +102,7 @@ async fn web_framework_accepts_dev_jwt_dual_tokens_before_handler() {
 
 #[tokio::test]
 async fn web_framework_prefers_auth_token_tenant_and_organization_context() {
+    let _env_guard = ENV_LOCK.lock().await;
     std::env::set_var("SDKWORK_ENV", "dev");
     std::env::set_var("SDKWORK_IAM_ALLOW_DEV_AUTH_FALLBACK", "true");
     let service = RecordingBrowserApi::default();
@@ -142,6 +148,7 @@ async fn web_framework_prefers_auth_token_tenant_and_organization_context() {
 
 #[tokio::test]
 async fn web_framework_allows_browser_origin_in_development() {
+    let _env_guard = ENV_LOCK.lock().await;
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
     let app = wrap_router_with_web_framework(
         IamWebRequestContextResolver::new(None),
@@ -167,6 +174,7 @@ async fn web_framework_allows_browser_origin_in_development() {
 
 #[tokio::test]
 async fn web_framework_allows_im_host_browser_origin_in_development() {
+    let _env_guard = ENV_LOCK.lock().await;
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
     let app = wrap_router_with_web_framework(
         IamWebRequestContextResolver::new(None),
@@ -192,6 +200,7 @@ async fn web_framework_allows_im_host_browser_origin_in_development() {
 
 #[tokio::test]
 async fn web_framework_rejects_unlisted_browser_origin_in_development() {
+    let _env_guard = ENV_LOCK.lock().await;
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
     let app = wrap_router_with_web_framework(
         IamWebRequestContextResolver::new(None),

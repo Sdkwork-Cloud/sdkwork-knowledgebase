@@ -3,9 +3,11 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeDocumentVersionStore, SqliteKnowledgeDriveObjectRefStore,
     SqliteKnowledgeSourceStore, SqliteMarkdownIndexMetadataStore,
 };
-use sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImportService;
+use sdkwork_intelligence_knowledgebase_service::imports::{
+    KnowledgeDriveImportService, ResolvedKnowledgeDriveImportRequest,
+};
 use sdkwork_intelligence_knowledgebase_service::ingest::{
-    ingest_success_outbox_record, split_markdown_chunks, KnowledgeApiMarkdownIndexService,
+    KnowledgeApiMarkdownIndexService, ingest_success_outbox_record, split_markdown_chunks,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_store::{
     CreateKnowledgeDocumentRecord, KnowledgeDocumentIdentityScope, KnowledgeDocumentStore,
@@ -35,6 +37,27 @@ use std::sync::Arc;
 use time::Duration;
 use tokio::sync::Barrier;
 
+fn resolved_drive_import_request(
+    title: &str,
+    drive_node_id: &str,
+    drive_object_key: &str,
+    idempotency_key: &str,
+) -> ResolvedKnowledgeDriveImportRequest {
+    ResolvedKnowledgeDriveImportRequest {
+        request: KnowledgeDriveImportRequest {
+            space_id: 7,
+            title: title.to_string(),
+            drive_space_id: "drv-kb-001".to_string(),
+            drive_node_id: drive_node_id.to_string(),
+            idempotency_key: idempotency_key.to_string(),
+            language: Some("en".to_string()),
+        },
+        drive_storage_provider_id: "provider-kb".to_string(),
+        drive_bucket: "knowledgebase-test".to_string(),
+        drive_object_key: drive_object_key.to_string(),
+    }
+}
+
 #[tokio::test]
 async fn sqlite_repositories_persist_drive_import_metadata_chain() {
     let pool = sqlite_pool().await;
@@ -54,17 +77,12 @@ async fn sqlite_repositories_persist_drive_import_metadata_chain() {
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let result = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quarterly Report".to_string(),
-            drive_space_id: None,
-            drive_node_id: None,
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-test".to_string(),
-            drive_object_key: "incoming/quarterly-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Quarterly Report",
+            "node-quarterly-report",
+            "incoming/quarterly-report.md",
+            "drive-quarterly-report",
+        ))
         .await
         .unwrap();
 
@@ -167,17 +185,12 @@ async fn sqlite_drive_import_quota_rolls_back_entire_metadata_chain() {
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let error = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quota Report".to_string(),
-            drive_space_id: None,
-            drive_node_id: None,
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-test".to_string(),
-            drive_object_key: "incoming/quota-report.md".to_string(),
-            idempotency_key: "drive-quota-report".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Quota Report",
+            "node-quota-report",
+            "incoming/quota-report.md",
+            "drive-quota-report",
+        ))
         .await
         .expect_err("drive import must exceed document quota");
     assert!(error.to_string().contains("quota exceeded"));
@@ -217,17 +230,12 @@ async fn sqlite_drive_import_replay_reuses_metadata_chain() {
     let metadata = SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id);
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
-    let request = KnowledgeDriveImportRequest {
-        space_id: 7,
-        title: "Quarterly Report".to_string(),
-        drive_space_id: None,
-        drive_node_id: None,
-        drive_storage_provider_id: "provider-kb".to_string(),
-        drive_bucket: "knowledgebase-test".to_string(),
-        drive_object_key: "incoming/quarterly-report.md".to_string(),
-        idempotency_key: "drive-quarterly-report".to_string(),
-        language: Some("en".to_string()),
-    };
+    let request = resolved_drive_import_request(
+        "Quarterly Report",
+        "node-quarterly-report",
+        "incoming/quarterly-report.md",
+        "drive-quarterly-report",
+    );
 
     let first = service.import_drive_object(request.clone()).await.unwrap();
     let replay = service.import_drive_object(request).await.unwrap();
@@ -293,32 +301,22 @@ async fn sqlite_drive_import_rejects_same_idempotency_key_for_different_drive_ob
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quarterly Report".to_string(),
-            drive_space_id: None,
-            drive_node_id: None,
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-test".to_string(),
-            drive_object_key: "incoming/quarterly-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Quarterly Report",
+            "node-quarterly-report",
+            "incoming/quarterly-report.md",
+            "drive-quarterly-report",
+        ))
         .await
         .unwrap();
 
     let error = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Other Report".to_string(),
-            drive_space_id: None,
-            drive_node_id: None,
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-test".to_string(),
-            drive_object_key: "incoming/other-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Other Report",
+            "node-other-report",
+            "incoming/other-report.md",
+            "drive-quarterly-report",
+        ))
         .await
         .unwrap_err();
 
@@ -371,17 +369,12 @@ async fn sqlite_drive_import_persists_drive_node_binding_for_browser_projection(
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let result = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quarterly Report".to_string(),
-            drive_space_id: Some("drv-kb-001".to_string()),
-            drive_node_id: Some("node-report".to_string()),
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-test".to_string(),
-            drive_object_key: "incoming/quarterly-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Quarterly Report",
+            "node-report",
+            "incoming/quarterly-report.md",
+            "drive-quarterly-report",
+        ))
         .await
         .unwrap();
 
@@ -429,96 +422,6 @@ async fn sqlite_drive_import_persists_drive_node_binding_for_browser_projection(
             .as_deref(),
         Some("node-report")
     );
-}
-
-#[tokio::test]
-async fn sqlite_drive_import_enriches_existing_metadata_with_late_drive_node_binding() {
-    let pool = sqlite_pool().await;
-    apply_sqlite_migration(&pool).await;
-    let tenant_id = 9001_u64;
-    let drive = FakeKnowledgeDriveStorage::default();
-    drive
-        .put_text(
-            "incoming/quarterly-report.md",
-            "original_document",
-            "# Report",
-        )
-        .await
-        .unwrap();
-
-    let metadata = SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id);
-    let service = KnowledgeDriveImportService::new(&drive, &metadata);
-
-    let first = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quarterly Report".to_string(),
-            drive_space_id: None,
-            drive_node_id: None,
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-test".to_string(),
-            drive_object_key: "incoming/quarterly-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report-unbound".to_string(),
-            language: Some("en".to_string()),
-        })
-        .await
-        .unwrap();
-    let enriched = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quarterly Report".to_string(),
-            drive_space_id: Some("drv-kb-001".to_string()),
-            drive_node_id: Some("node-report".to_string()),
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-test".to_string(),
-            drive_object_key: "incoming/quarterly-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report-bound".to_string(),
-            language: Some("en".to_string()),
-        })
-        .await
-        .unwrap();
-
-    assert_eq!(first.source.id, enriched.source.id);
-    assert_eq!(first.document.id, enriched.document.id);
-    assert_eq!(first.version.id, enriched.version.id);
-    assert_eq!(
-        first.original_object_ref.id,
-        enriched.original_object_ref.id
-    );
-    assert_eq!(
-        enriched.document.original_file_drive_node_id.as_deref(),
-        Some("node-report")
-    );
-    assert_eq!(
-        enriched.original_object_ref.drive_space_id.as_deref(),
-        Some("drv-kb-001")
-    );
-    assert_eq!(
-        enriched.original_object_ref.drive_node_id.as_deref(),
-        Some("node-report")
-    );
-
-    let source_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_source")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    let document_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_document")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    let version_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_document_version")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    let object_ref_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_drive_object_ref")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-
-    assert_eq!(source_count, 1);
-    assert_eq!(document_count, 1);
-    assert_eq!(version_count, 1);
-    assert_eq!(object_ref_count, 1);
 }
 
 #[tokio::test]
@@ -627,10 +530,12 @@ async fn sqlite_expired_ingestion_lease_is_reclaimed_and_stale_worker_is_fenced(
         .await
         .unwrap();
     assert!(renewed_until >= first.lease_expires_at);
-    assert!(store
-        .renew_ingestion_job_lease(job.id, "not-the-current-token", Duration::minutes(5))
-        .await
-        .is_err());
+    assert!(
+        store
+            .renew_ingestion_job_lease(job.id, "not-the-current-token", Duration::minutes(5))
+            .await
+            .is_err()
+    );
     sqlx::query(
         "UPDATE kb_ingestion_job SET lease_expires_at = '2026-01-01T00:00:00Z' WHERE id = $1",
     )
@@ -652,10 +557,12 @@ async fn sqlite_expired_ingestion_lease_is_reclaimed_and_stale_worker_is_fenced(
 
     assert_ne!(first.claim_token, second.claim_token);
     assert_eq!(second.attempt_count, 2);
-    assert!(store
-        .fail_claimed_ingestion_job(job.id, &first.claim_token, "stale failure".to_string())
-        .await
-        .is_err());
+    assert!(
+        store
+            .fail_claimed_ingestion_job(job.id, &first.claim_token, "stale failure".to_string())
+            .await
+            .is_err()
+    );
     let failed = store
         .fail_claimed_ingestion_job(job.id, &second.claim_token, "current failure".to_string())
         .await
@@ -713,10 +620,12 @@ async fn sqlite_inflight_count_recovers_stale_queued_and_running_upload_sessions
     for job_id in [stale_queued.id, stale_running.id] {
         let recovered = store.get_job(job_id).await.unwrap();
         assert_eq!(recovered.state, IngestionJobState::Failed);
-        assert!(recovered
-            .error_message
-            .as_deref()
-            .is_some_and(|detail| detail.contains("expired")));
+        assert!(
+            recovered
+                .error_message
+                .as_deref()
+                .is_some_and(|detail| detail.contains("expired"))
+        );
     }
     assert_eq!(
         store.get_job(fresh_upload.id).await.unwrap().state,
@@ -1070,9 +979,11 @@ async fn sqlite_document_store_rejects_source_only_identity_without_source_id() 
         .await
         .unwrap_err();
 
-    assert!(error
-        .to_string()
-        .contains("source_only document identity requires source_id"));
+    assert!(
+        error
+            .to_string()
+            .contains("source_only document identity requires source_id")
+    );
 
     let document_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_document")
         .fetch_one(&pool)

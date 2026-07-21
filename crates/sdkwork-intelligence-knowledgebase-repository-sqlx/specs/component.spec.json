@@ -78,7 +78,8 @@
     "contracts":  {
                       "layerRole":  "backend-repository",
                       "publicExports":  [
-                                            "."
+                                            ".",
+                                            "SqlxKnowledgeEngineProviderBindingReadinessStore"
                                         ],
                       "providedPorts":  [
                                             {

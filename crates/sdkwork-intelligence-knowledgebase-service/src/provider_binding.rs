@@ -27,7 +27,8 @@ use crate::ports::knowledge_provider_binding_store::{
     KnowledgeEngineProviderScope, RecordKnowledgeEngineProviderTestResult,
 };
 use crate::ports::knowledge_provider_credential_resolver::{
-    KnowledgeEngineProviderCredentialError, KnowledgeEngineProviderCredentialResolver,
+    KnowledgeEngineProviderCredentialAccessContext, KnowledgeEngineProviderCredentialError,
+    KnowledgeEngineProviderCredentialResolver,
 };
 
 pub const KNOWLEDGE_PLATFORM_MANAGE_PERMISSION: &str = "knowledge.platform.manage";
@@ -242,7 +243,13 @@ where
                 expected_version,
             )
             .await?;
-        let credential = self.resolve_binding_credential(context, &testing).await?;
+        let credential = self
+            .resolve_binding_credential(
+                context,
+                &testing,
+                sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineProviderOperation::Health,
+            )
+            .await?;
         let engine = self
             .registry
             .resolve_by_id(&testing.implementation_id)
@@ -352,7 +359,14 @@ where
         let Ok(engine) = self.registry.resolve_by_id(&binding.implementation_id) else {
             return false;
         };
-        let Ok(credential) = self.resolve_binding_credential(context, binding).await else {
+        let Ok(credential) = self
+            .resolve_binding_credential(
+                context,
+                binding,
+                sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineProviderOperation::Health,
+            )
+            .await
+        else {
             return false;
         };
         let Ok(engine) = engine.bind_provider(binding, credential) else {
@@ -374,6 +388,7 @@ where
         &self,
         context: &KnowledgeEngineExecutionContext,
         binding: &KnowledgeEngineProviderBinding,
+        operation: sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineProviderOperation,
     ) -> Result<
         Option<
             crate::ports::knowledge_provider_credential_resolver::KnowledgeEngineProviderCredential,
@@ -392,7 +407,15 @@ where
             )
             .await?;
         self.credential_resolver
-            .resolve(&reference)
+            .resolve(
+                &KnowledgeEngineProviderCredentialAccessContext::for_binding(
+                    context,
+                    binding,
+                    &reference,
+                    operation,
+                ),
+                &reference,
+            )
             .await
             .map(Some)
             .map_err(Into::into)

@@ -17,6 +17,7 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     SqliteKnowledgeOkfConceptLinkStore, SqliteKnowledgeOkfConceptStore, SqliteKnowledgeOutboxStore,
     SqliteKnowledgeRetrievalProfileStore, SqliteKnowledgeSourceStore, SqliteKnowledgeSpaceStore,
     SqliteMarkdownIndexMetadataStore, SqliteOkfConceptRevisionMetadataStore,
+    SqlxKnowledgeSiteStore,
     SqlxKnowledgeEngineProviderBindingStore, SqlxKnowledgeEngineProviderMigrationStore,
 };
 use sdkwork_intelligence_knowledgebase_service::{
@@ -55,7 +56,8 @@ use sdkwork_knowledgebase_contract::rag::{
 use sdkwork_knowledgebase_drive::{
     connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
     KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
-    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
+    KnowledgebaseDriveSiteArtifactStore, KnowledgebaseDriveStorageAdapter,
+    KnowledgebaseDriveWorkspaceAdapter,
     KnowledgebaseKnowledgeAccessControlAdapter,
 };
 use sdkwork_utils_rust::is_blank;
@@ -90,7 +92,7 @@ use crate::{
     hosted_context_binding::HostedContextBindingService,
     hosted_group_launch::HostedGroupLaunchService,
     hosted_open::HostedOpenApi,
-    hosted_upload::HostedUploadSessionService,
+    hosted_site::HostedSiteService,
     hosted_wechat::HostedWechatService,
     ApiError, ApiResult, KnowledgeAgentAppService, KnowledgeAppRequestContext,
     KnowledgeRetrievalAppService,
@@ -146,6 +148,8 @@ pub struct KnowledgebaseRuntime {
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
     knowledge_engines: Arc<DefaultKnowledgeEngineRegistry>,
     commerce_store: Arc<SqliteCommerceStore>,
+    site_store: Arc<SqlxKnowledgeSiteStore>,
+    site_artifact_store: Arc<KnowledgebaseDriveSiteArtifactStore<LocalDriveObjectStore>>,
     snowflake_node_lease: Option<NodeLease>,
 }
 
@@ -292,6 +296,10 @@ impl KnowledgebaseRuntime {
         let quota_limits =
             sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits::from_env();
         let object_store = Arc::new(LocalDriveObjectStore::new(drive_storage_root));
+        let site_artifact_store = Arc::new(KnowledgebaseDriveSiteArtifactStore::new(
+            drive_pool.clone(),
+            object_store.clone(),
+        ));
         let drive_storage = Arc::new(KnowledgebaseDriveStorageAdapter::new(
             object_store,
             DEFAULT_DRIVE_PROVIDER_ID,
@@ -561,6 +569,11 @@ impl KnowledgebaseRuntime {
             commerce_store: Arc::new(
                 SqliteCommerceStore::new(pool.clone()).with_database_engine(database_engine),
             ),
+            site_store: Arc::new(
+                SqlxKnowledgeSiteStore::new(pool.clone(), tenant_id, organization_id)
+                    .with_database_engine(database_engine),
+            ),
+            site_artifact_store,
             snowflake_node_lease,
         }
     }
@@ -605,6 +618,16 @@ impl KnowledgebaseRuntime {
 
     pub(crate) fn commerce_store(&self) -> &SqliteCommerceStore {
         &self.commerce_store
+    }
+
+    pub(crate) fn site_store(&self) -> &SqlxKnowledgeSiteStore {
+        &self.site_store
+    }
+
+    pub(crate) fn site_artifact_store(
+        &self,
+    ) -> &KnowledgebaseDriveSiteArtifactStore<LocalDriveObjectStore> {
+        &self.site_artifact_store
     }
 
     pub(crate) fn retrieval_service(&self) -> KnowledgeRetrievalService<'_> {
@@ -662,12 +685,16 @@ impl KnowledgebaseRuntime {
                 Arc::new(HostedRetrievalService::new(self.clone())),
                 Arc::new(HostedAgentService::new(self.clone())),
                 Arc::new(HostedContextBindingService::new(self.clone())),
-                Arc::new(HostedUploadSessionService::new(self.clone())),
+                Arc::new(HostedSiteService::new(self.clone())),
                 Arc::new(HostedWechatService::new(self.clone())),
                 Arc::new(HostedCommerceService::new(self.clone())),
             )),
             Some(self.readiness_check_adapter()),
         )
+    }
+
+    pub fn build_public_site_router(&self) -> axum::Router {
+        crate::public_site::build_public_site_router(self.clone())
     }
 
     pub async fn build_full_app_router_with_web_framework(&self) -> axum::Router {

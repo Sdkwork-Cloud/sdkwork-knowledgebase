@@ -3,7 +3,7 @@
   "kind": "sdkwork.component.spec",
   "component": {
     "name": "sdkwork-api-knowledgebase-assembly",
-    "displayName": "SDKWork Knowledgebase Gateway Assembly",
+    "displayName": "SDKWork Knowledgebase API Assembly",
     "version": "0.1.0",
     "type": "rust-api-assembly",
     "root": "sdkwork-knowledgebase/crates/sdkwork-api-knowledgebase-assembly",
@@ -21,14 +21,63 @@
       "assembly-manifest.json"
     ]
   },
+  "canonicalSpecs": [
+    {
+      "file": "API_ASSEMBLY_SPEC.md",
+      "path": "../../../sdkwork-specs/API_ASSEMBLY_SPEC.md",
+      "purpose": "Host-neutral application API assembly ownership, completeness, exports, and validation rules."
+    },
+    {
+      "file": "APPLICATION_GATEWAY_SPEC.md",
+      "path": "../../../sdkwork-specs/APPLICATION_GATEWAY_SPEC.md",
+      "purpose": "Canonical gateway host consumption boundary for this API assembly."
+    },
+    {
+      "file": "RUST_CODE_SPEC.md",
+      "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md",
+      "purpose": "Rust API assembly crate structure and dependency direction."
+    },
+    {
+      "file": "CODE_STYLE_SPEC.md",
+      "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md",
+      "purpose": "Authored source structure and generated source boundaries."
+    },
+    {
+      "file": "NAMING_SPEC.md",
+      "path": "../../../sdkwork-specs/NAMING_SPEC.md",
+      "purpose": "Canonical API assembly package and export naming."
+    },
+    {
+      "file": "WEB_FRAMEWORK_SPEC.md",
+      "path": "../../../sdkwork-specs/WEB_FRAMEWORK_SPEC.md",
+      "purpose": "Host-neutral Web Framework router composition."
+    },
+    {
+      "file": "WEB_BACKEND_SPEC.md",
+      "path": "../../../sdkwork-specs/WEB_BACKEND_SPEC.md",
+      "purpose": "Backend route, service, repository, and assembly boundaries."
+    },
+    {
+      "file": "APP_RUNTIME_TOPOLOGY_SPEC.md",
+      "path": "../../../sdkwork-specs/APP_RUNTIME_TOPOLOGY_SPEC.md",
+      "purpose": "Standalone and cloud host topology ownership."
+    },
+    {
+      "file": "TEST_SPEC.md",
+      "path": "../../../sdkwork-specs/TEST_SPEC.md",
+      "purpose": "API assembly verification requirements."
+    }
+  ],
   "contracts": {
     "publicExports": [
       "sdkwork_api_knowledgebase_assembly::assemble_api_router",
+      "sdkwork_api_knowledgebase_assembly::assemble_api_router_from_environment",
       "sdkwork_api_knowledgebase_assembly::ApiAssembly::from_environment",
       "sdkwork_api_knowledgebase_assembly::ApiAssembly"
     ],
     "runtimeEntrypoints": [
       "sdkwork_api_knowledgebase_assembly::assemble_api_router",
+      "sdkwork_api_knowledgebase_assembly::assemble_api_router_from_environment",
       "sdkwork_api_knowledgebase_assembly::ApiAssembly::from_environment"
     ],
     "dependencyApiSurfaces": [
@@ -46,8 +95,8 @@
     "layerRole": "runtime-composition"
   },
   "integration": {
-    "dependencyPolicy": "Standalone assembly embeds IAM app-api business routes through sdkwork-api-iam-assembly; consumers must not depend on sdkwork-routes-iam-app-api directly.",
-    "sdkPolicy": "Assembly output is materialized by gateway scripts and must not bypass dependency assembly exports."
+    "dependencyPolicy": "The host-neutral API assembly embeds IAM app-api business routes through sdkwork-api-iam-assembly when the consuming host has not already mounted IAM; consumers must not depend on sdkwork-routes-iam-app-api directly.",
+    "sdkPolicy": "Gateway hosts consume this assembly export and must not bypass dependency assembly boundaries."
   },
   "verification": {
     "commands": [

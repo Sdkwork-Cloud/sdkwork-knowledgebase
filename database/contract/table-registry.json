@@ -195,13 +195,31 @@
       "lifecycle_status": "active"
     },
     {
-      "table_name": "kb_site_deployment",
+      "table_name": "kb_site",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_site_release",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "kb_site_host_binding",
       "owner": "knowledgebase-platform",
       "compliance_level": "L2",
       "lifecycle_status": "active"
     },
     {
       "table_name": "kb_audit_event",
+      "owner": "knowledgebase-platform",
+      "compliance_level": "L2",
+      "lifecycle_status": "active"
+    },
+    {
+      "table_name": "web_audit_event",
       "owner": "knowledgebase-platform",
       "compliance_level": "L2",
       "lifecycle_status": "active"
@@ -220,12 +238,6 @@
     },
     {
       "table_name": "kb_provider_migration_operation",
-      "owner": "knowledgebase-platform",
-      "compliance_level": "L2",
-      "lifecycle_status": "active"
-    },
-    {
-      "table_name": "web_audit_event",
       "owner": "knowledgebase-platform",
       "compliance_level": "L2",
       "lifecycle_status": "active"

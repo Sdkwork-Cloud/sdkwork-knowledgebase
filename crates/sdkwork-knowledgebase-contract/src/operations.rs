@@ -66,8 +66,15 @@ pub const CONTEXT_BINDINGS_UPDATE: &str = "contextBindings.update";
 pub const CONTEXT_BINDINGS_DELETE: &str = "contextBindings.delete";
 pub const SPACES_CONTEXT_BINDINGS_LIST: &str = "spaces.contextBindings.list";
 pub const SPACES_CONTEXT_BINDINGS_CREATE: &str = "spaces.contextBindings.contextBindings";
-pub const UPLOAD_SESSIONS_CREATE: &str = "uploadSessions.create";
-pub const UPLOAD_SESSIONS_COMPLETE: &str = "uploadSessions.complete";
+pub const SITES_RETRIEVE: &str = "sites.retrieve";
+pub const SITES_UPDATE: &str = "sites.update";
+pub const SITE_RELEASES_CREATE: &str = "siteReleases.create";
+pub const SITE_RELEASES_LIST: &str = "siteReleases.list";
+pub const SITE_RELEASES_RETRIEVE: &str = "siteReleases.retrieve";
+pub const SITE_RELEASES_ROLLBACK: &str = "siteReleases.rollback";
+pub const SITE_HOST_BINDINGS_CREATE: &str = "siteHostBindings.create";
+pub const SITE_HOST_BINDINGS_LIST: &str = "siteHostBindings.list";
+pub const SITE_HOST_BINDINGS_DELETE: &str = "siteHostBindings.delete";
 pub const PROVIDER_HEALTH_RETRIEVE: &str = "providerHealth.list";
 
 pub const ALL_OPERATION_IDS: &[&str] = &[
@@ -138,7 +145,14 @@ pub const ALL_OPERATION_IDS: &[&str] = &[
     CONTEXT_BINDINGS_RETRIEVE,
     CONTEXT_BINDINGS_UPDATE,
     CONTEXT_BINDINGS_DELETE,
-    UPLOAD_SESSIONS_CREATE,
-    UPLOAD_SESSIONS_COMPLETE,
+    SITES_RETRIEVE,
+    SITES_UPDATE,
+    SITE_RELEASES_CREATE,
+    SITE_RELEASES_LIST,
+    SITE_RELEASES_RETRIEVE,
+    SITE_RELEASES_ROLLBACK,
+    SITE_HOST_BINDINGS_CREATE,
+    SITE_HOST_BINDINGS_LIST,
+    SITE_HOST_BINDINGS_DELETE,
     PROVIDER_HEALTH_RETRIEVE,
 ];

@@ -1,0 +1,19 @@
+[package]
+name = "sdkwork-knowledgebase-provider-secret-adapter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Tenant-context-aware secret adapter for SDKWork Knowledgebase Provider bindings"
+
+[dependencies]
+async-trait.workspace = true
+sdkwork-agent-kernel.workspace = true
+sdkwork-intelligence-knowledgebase-service.workspace = true
+sdkwork-utils-rust.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "rt-multi-thread", "time"] }
+tracing = "0.1"
+url = "2"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

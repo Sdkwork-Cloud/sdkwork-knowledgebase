@@ -8,7 +8,7 @@ import {
 
 import { subscribeMarketListing } from './knowledgeMarketService';
 import { runImageGenerationTask, runSpeechToTextTask } from './knowledgeMediaTaskService';
-import { publishKnowledgeSite } from './knowledgeSiteDeploymentService';
+import { publishKnowledgeSite } from './knowledgeSitePublicationService';
 import { WechatService } from './wechat';
 
 function configureFakeKnowledgeClient(knowledge: unknown): void {
@@ -39,39 +39,54 @@ describe('knowledge command result services', () => {
     await expect(subscribeMarketListing('42')).resolves.toBe(true);
   });
 
-  it('maps accepted site deployment results without reading legacy success flags', async () => {
+  it('publishes a version-fenced immutable site release', async () => {
     configureFakeKnowledgeClient({
-      siteDeployments: {
+      sites: {
+        retrieve: async () => ({
+          id: '7001', spaceId: '123', title: 'Docs', visibility: 'public',
+          themeId: 'default', publishMode: 'manual', version: '3',
+        }),
+        update: async () => ({
+          id: '7001', spaceId: '123', title: 'Docs', visibility: 'public',
+          themeId: 'default', publishMode: 'manual', version: '4',
+        }),
+      },
+      siteReleases: {
         create: async () => ({
-          accepted: true,
-          status: 'completed',
-          deploymentId: '9001',
-          url: 'https://kb.example.test/site',
+          site: { id: '7001' },
+          release: { id: '9001' },
+          publicUrl: 'https://123.kb.sdkwork.com/',
         }),
       },
     });
 
-    await expect(publishKnowledgeSite('123', 'vercel')).resolves.toEqual({
-      accepted: true,
-      status: 'completed',
-      deploymentId: '9001',
-      url: 'https://kb.example.test/site',
+    await expect(publishKnowledgeSite('123', { siteName: 'Docs' })).resolves.toEqual({
+      siteId: '7001',
+      releaseId: '9001',
+      url: 'https://123.kb.sdkwork.com/',
     });
   });
 
-  it('rejects accepted site deployment results without HTTPS publisher evidence', async () => {
+  it('rejects site publication results without a safe public URL', async () => {
     configureFakeKnowledgeClient({
-      siteDeployments: {
+      sites: {
+        retrieve: async () => ({
+          id: '7001', spaceId: '123', title: 'Docs', visibility: 'public',
+          themeId: 'default', publishMode: 'manual', version: '3',
+        }),
+        update: async () => ({
+          id: '7001', spaceId: '123', title: 'Docs', visibility: 'public',
+          themeId: 'default', publishMode: 'manual', version: '4',
+        }),
+      },
+      siteReleases: {
         create: async () => ({
-          accepted: true,
-          status: 'completed',
-          deploymentId: '9001',
-          url: '',
+          site: { id: '7001' }, release: { id: '9001' }, publicUrl: '',
         }),
       },
     });
 
-    await expect(publishKnowledgeSite('123', 'sdkwork-sites')).rejects.toMatchObject({
+    await expect(publishKnowledgeSite('123', { siteName: 'Docs' })).rejects.toMatchObject({
       code: KnowledgebaseErrorCodes.OPERATION_FAILED,
     });
   });

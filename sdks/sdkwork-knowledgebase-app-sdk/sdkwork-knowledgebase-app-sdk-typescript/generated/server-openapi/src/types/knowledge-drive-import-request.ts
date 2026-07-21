@@ -1,11 +1,8 @@
 export interface KnowledgeDriveImportRequest {
   spaceId: string;
   title: string;
-  driveBucket: string;
-  driveObjectKey: string;
+  driveSpaceId: string;
+  driveNodeId: string;
   idempotencyKey: string;
   language?: string | null;
-  driveSpaceId?: string | null;
-  driveNodeId?: string | null;
-  driveStorageProviderId: string;
 }

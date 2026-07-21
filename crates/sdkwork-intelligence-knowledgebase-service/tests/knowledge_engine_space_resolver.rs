@@ -26,8 +26,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_bindin
     ResolvedKnowledgeEngineProviderCredential,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_credential_resolver::{
-    KnowledgeEngineProviderCredential, KnowledgeEngineProviderCredentialError,
-    KnowledgeEngineProviderCredentialResolver,
+    KnowledgeEngineProviderCredential, KnowledgeEngineProviderCredentialAccessContext,
+    KnowledgeEngineProviderCredentialError, KnowledgeEngineProviderCredentialResolver,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_retrieval_backend::{
     KnowledgeChunkSearchHit, KnowledgeChunkSearchRequest, KnowledgeRetrievalBackend,
@@ -991,6 +991,7 @@ impl KnowledgeEngineProviderCredentialResolver for StaticCredentialResolver {
 
     async fn resolve(
         &self,
+        _context: &KnowledgeEngineProviderCredentialAccessContext,
         _reference: &ResolvedKnowledgeEngineProviderCredential,
     ) -> Result<KnowledgeEngineProviderCredential, KnowledgeEngineProviderCredentialError> {
         self.resolve_count.fetch_add(1, Ordering::SeqCst);

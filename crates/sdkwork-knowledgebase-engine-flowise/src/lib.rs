@@ -140,9 +140,10 @@ impl KnowledgeEngine for FlowiseKnowledgeEngine {
                 return Ok(KnowledgeEngineHealth {
                     implementation_id: FLOWISE_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
-                    detail: Some(format!(
+                    detail: Some(
                         "Flowise connector health requires an active Provider binding with a remote resource id"
-                    )),
+                            .to_string(),
+                    ),
                 });
             }
         };

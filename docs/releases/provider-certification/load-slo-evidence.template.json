@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.knowledge-engine-load-slo-evidence-template",
+  "status": "draft",
+  "providerId": "replace-provider-id",
+  "upstreamVersion": "replace-pinned-version",
+  "adapterCommit": "replace-full-git-commit",
+  "policyVersion": "1.0.0",
+  "verifiedAt": "YYYY-MM-DD",
+  "expiresAt": "YYYY-MM-DD",
+  "environment": "release",
+  "workflowRunRef": "https://replace-release-workflow-run",
+  "reviewedBy": "replace-reviewer-identity",
+  "dashboardRef": "https://replace-release-dashboard",
+  "alertEvaluationRef": "https://replace-alert-evaluation",
+  "rawResultsRef": "docs/releases/provider-certification/artifacts/replace-load-results.json",
+  "rawResultsSha256": "replace-sha256",
+  "aggregate": {
+    "durationSeconds": 0,
+    "totalRequests": 0,
+    "concurrency": 1,
+    "successCount": 0,
+    "failureCount": 0,
+    "availability": 0,
+    "failureRate": 1,
+    "p95LatencyMs": 0,
+    "p99LatencyMs": 0,
+    "throughputPerSecond": 0,
+    "tenantCount": 0,
+    "crossTenantViolationCount": 0
+  },
+  "operationMetrics": []
+}

@@ -10,8 +10,11 @@
   "productionPolicy": {
     "minimumScoredQueries": 50,
     "minimumRejectionQueries": 3,
+    "maximumScoredQueries": 5000,
+    "maximumRejectionQueries": 500,
     "minimumReviewers": 2,
     "maximumEvidenceAgeDays": 90,
+    "maxArtifactBytes": 33554432,
     "thresholdBounds": {
       "minRecallAtK": 0.75,
       "minMrr": 0.75,

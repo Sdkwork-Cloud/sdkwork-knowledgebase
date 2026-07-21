@@ -374,20 +374,6 @@ fn truncate_outbox_error(error_message: &str) -> String {
     truncate(error_message, MAX_OUTBOX_ERROR_LEN, Some(""))
 }
 
-#[cfg(test)]
-mod truncation_tests {
-    use super::truncate_outbox_error;
-
-    #[test]
-    fn truncates_unicode_error_without_splitting_utf8() {
-        let message = "上游错误".repeat(400);
-        let truncated = truncate_outbox_error(&message);
-
-        assert_eq!(truncated.chars().count(), 1024);
-        assert!(message.starts_with(&truncated));
-    }
-}
-
 fn to_i64(field: &str, value: u64) -> Result<i64, KnowledgeOutboxStoreError> {
     i64::try_from(value).map_err(|_| {
         KnowledgeOutboxStoreError::InvalidRequest(format!("{field} exceeds i64 range: {value}"))
@@ -406,4 +392,18 @@ fn id_error(error: crate::id::KnowledgeIdGeneratorError) -> KnowledgeOutboxStore
 
 fn sqlx_error(error: sqlx::Error) -> KnowledgeOutboxStoreError {
     KnowledgeOutboxStoreError::Internal(error.to_string())
+}
+
+#[cfg(test)]
+mod truncation_tests {
+    use super::truncate_outbox_error;
+
+    #[test]
+    fn truncates_unicode_error_without_splitting_utf8() {
+        let message = "上游错误".repeat(400);
+        let truncated = truncate_outbox_error(&message);
+
+        assert_eq!(truncated.chars().count(), 1024);
+        assert!(message.starts_with(&truncated));
+    }
 }

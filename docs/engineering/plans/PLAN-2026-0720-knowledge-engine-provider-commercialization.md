@@ -4,13 +4,13 @@ Status: active
 Requirement: REQ-2026-0720  
 Decision: ADR-20260720-knowledge-engine-provider-binding-spi-v2 (accepted)  
 Owner: SDKWork Knowledgebase maintainers  
-Updated: 2026-07-20
+Updated: 2026-07-21
 
 ## Execution Rules
 
 - Work in evidence loops: failing test/check, narrow implementation, narrow verification, broader
   gate, then rescan. A green mock test is not live provider certification.
-- `ADR-20260720` was accepted on 2026-07-20. Any implementation that changes its public naming,
+- `ADR-20260720` was accepted on 2026-07-21. Any implementation that changes its public naming,
   security model, credential ownership, migration direction, or release governance requires a new
   human-reviewed decision rather than a compatibility workaround.
 - Preserve prelaunch publication gates until all external evidence exists.
@@ -32,7 +32,7 @@ Exit evidence: catalog/SPI checkers; contract, resolver, registry, adapter, and 
 ## Phase 1: SPI v2 Review Gate
 
 - [x] Record requirement, global audit, ADR, implementation plan, migration/rollback outline.
-- [x] Human architecture/data/API/SDK/security/privacy review accepted the ADR on 2026-07-20.
+- [x] Human architecture/data/API/SDK/security/privacy review accepted the ADR on 2026-07-21.
 - [x] Create the dated `MIG-*` direct-cleanup record for the unreleased application.
 
 Exit condition: complete. Persistence and public API implementation may proceed under the accepted
@@ -122,11 +122,17 @@ and backup/restore evidence is attached.
   contract fixtures, duplicate/unknown runs, invalid schemas, negative latency, insufficient query
   and rejection coverage, fewer than two reviewers, mutable Provider versions/commits, stale
   evidence, missing or digest-mismatched dataset/results/report artifacts, and metrics that differ
-  from deterministic recomputation.
+  from deterministic recomputation. Scored/rejection queries and artifact bytes are bounded, all
+  referenced files resolve inside the certification artifact root, and future dates fail closed.
 - [x] Versioned Provider contract suite `1.0.0` for capability, authentication, error mapping,
   resilience, tenant/space isolation, and health. All ten executable adapters pass their complete
   owned crate suites; evidence sources are SHA-256 fingerprinted and commands execute without a
   shell. This is local contract certification only.
+- [x] Add versioned load/SLO and outage-recovery evidence contracts with bounded raw artifacts and
+  deterministic recomputation. The gate rejects unknown or secret-bearing fields, policy weakening,
+  insufficient multi-tenant/operation coverage, threshold violations, missing fail-closed/alert/
+  trace behavior, retry storms, secret leaks, cross-tenant violations, stale provenance, and digest
+  mismatches. Positive tests use temporary fixtures and are not production evidence.
 - [ ] Replace the contract sample with reviewed production-domain golden datasets and collect
   version-pinned results for every production-tier provider.
 - [ ] Live certification matrix for every production-tier provider/upstream version.
@@ -250,11 +256,35 @@ documentation claiming more than the evidence proves.
 - The checked-in template is deliberately `draft` with a template-only kind and pending approvals;
   a regression test proves it cannot be accepted as certified evidence. These controls prevent
   local mock results or placeholder documents from manufacturing production status.
+
+## 2026-07-21 Provider Evidence Hardening
+
 - The quality-evaluation evidence schema requires at least 50 scored production-domain queries,
-  three rejection cases, two distinct reviewers, a pinned upstream version and adapter commit, and
-  digest-bound dataset, raw results, and evaluation report files. The gate validates exact
+  at most 5,000 scored queries, between 3 and 500 rejection cases, two distinct reviewers, a pinned
+  upstream version and adapter commit, and digest-bound dataset, raw results, and evaluation report
+  files no larger than 32 MiB each. The gate validates exact
   one-to-one query runs and deterministically recomputes all metrics. Its positive test uses only an
   ephemeral test tree; no production golden dataset or passing Provider result is checked in.
+- The operational evidence policy requires at least 30 minutes, 10,000 requests, concurrency 8,
+  two tenants, at most 100,000 samples, and 32 MiB artifacts for search, document read, and health.
+  Artifact real paths must remain inside the evidence root and completion dates match `verifiedAt`.
+  It recomputes aggregate
+  and per-operation failure, availability, P95, and P99 values from the digest-bound raw result.
+  Outage evidence recomputes detection and recovery for timeout, rate-limit, upstream 5xx,
+  authentication, malformed-response, and bulkhead-saturation scenarios and requires fail-closed,
+  alert, trace, no-retry-storm, no-secret-leak, and tenant-isolation evidence. The eight Provider
+  certification tests pass; no real release-environment load or outage artifact is attached.
+- Quality, operational, and live release evidence now share one certification-artifact boundary
+  for repository-path normalization, real-path containment, regular-file checks, byte limits, and
+  SHA-256. Provider certification passes `8/8`; the SPI/evaluation suite passes `9/9`.
+- The Provider Binding readiness Worker binary passes locked Cargo check. All ten executable
+  Provider crates pass all-target Clippy with warnings denied; the remaining five static-message
+  `format!` calls were removed without lint suppressions.
+- Root `pnpm check`, component-port binding, pagination, and diff hygiene pass. Root `pnpm test`
+  remains blocked outside the Provider boundary by the retired gateway name in the production
+  Dockerfile. A concurrent, not-yet-accepted site-publication change also removed the upload-session
+  implementation while a security test still asserts it; neither production deployment governance
+  nor that public API decision is changed under this ADR.
 
 ## 2026-07-20 Provider Management UI Evidence
 

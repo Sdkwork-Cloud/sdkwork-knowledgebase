@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sdkwork:knowledgebase:provider-outage-recovery-evidence:v1",
+  "title": "SDKWork Knowledgebase Provider Outage Recovery Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "status",
+    "providerId",
+    "upstreamVersion",
+    "adapterCommit",
+    "policyVersion",
+    "verifiedAt",
+    "expiresAt",
+    "environment",
+    "workflowRunRef",
+    "reviewedBy",
+    "dashboardRef",
+    "runbookRef",
+    "rawTimelineRef",
+    "rawTimelineSha256",
+    "scenarioMetrics"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "sdkwork.knowledge-engine-outage-recovery-evidence" },
+    "status": { "const": "passed" },
+    "providerId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+    "upstreamVersion": { "type": "string", "minLength": 1, "not": { "pattern": "latest|[*xX]" } },
+    "adapterCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "policyVersion": { "const": "1.0.0" },
+    "verifiedAt": { "type": "string", "format": "date" },
+    "expiresAt": { "type": "string", "format": "date" },
+    "environment": { "const": "release" },
+    "workflowRunRef": { "type": "string", "pattern": "^https://" },
+    "reviewedBy": { "type": "string", "minLength": 1 },
+    "dashboardRef": { "type": "string", "pattern": "^https://" },
+    "runbookRef": { "const": "docs/runbooks/provider-outage.md" },
+    "rawTimelineRef": { "$ref": "#/$defs/artifactRef" },
+    "rawTimelineSha256": { "$ref": "#/$defs/sha256" },
+    "scenarioMetrics": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "$ref": "#/$defs/scenarioMetric" }
+    }
+  },
+  "$defs": {
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^docs/releases/provider-certification/artifacts/[^.][^\\r\\n]*$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "scenarioMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenarioId",
+        "category",
+        "detectionSeconds",
+        "recoverySeconds",
+        "failClosed",
+        "alertTriggered",
+        "traceCorrelationVerified",
+        "retryStormDetected",
+        "secretLeakCount",
+        "crossTenantViolationCount"
+      ],
+      "properties": {
+        "scenarioId": { "type": "string", "minLength": 1 },
+        "category": {
+          "enum": [
+            "timeout",
+            "rate_limit",
+            "upstream_5xx",
+            "authentication",
+            "malformed_response",
+            "bulkhead_saturation"
+          ]
+        },
+        "detectionSeconds": { "type": "number", "minimum": 0 },
+        "recoverySeconds": { "type": "number", "minimum": 0 },
+        "failClosed": { "type": "boolean" },
+        "alertTriggered": { "type": "boolean" },
+        "traceCorrelationVerified": { "type": "boolean" },
+        "retryStormDetected": { "type": "boolean" },
+        "secretLeakCount": { "type": "integer", "minimum": 0 },
+        "crossTenantViolationCount": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

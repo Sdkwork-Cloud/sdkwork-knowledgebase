@@ -3,14 +3,15 @@ import DOMPurify from 'dompurify';
 const EDITOR_ALLOWED_TAGS = [
   'p', 'br', 'strong', 'em', 's', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
   'blockquote', 'ul', 'ol', 'li', 'a', 'img', 'code', 'pre', 'span', 'div',
-  'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'sub', 'sup',
+  'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'sub', 'sup', 'audio', 'video',
 ];
 
 const EDITOR_ALLOWED_ATTR = [
   'href', 'target', 'rel', 'src', 'alt', 'title', 'class', 'style',
   'width', 'height', 'colspan', 'rowspan', 'data-type', 'data-id',
   'data-title', 'data-image-url', 'data-nickname', 'data-app-id',
-  'data-page-path', 'controls',
+  'data-page-path', 'data-drive-space-id', 'data-drive-node-id', 'data-drive-uri',
+  'controls', 'preload',
 ];
 
 const UNSAFE_STYLE_PATTERNS = [

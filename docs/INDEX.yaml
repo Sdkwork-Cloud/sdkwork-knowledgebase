@@ -13,6 +13,8 @@ canon:
   groupKnowledgebaseDecision: docs/architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md
   providerCommercializationRequirement: docs/product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md
   providerSpiDecision: docs/architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md
+  sitePublicationRequirement: docs/product/requirements/REQ-2026-0721-knowledgebase-site-publication.md
+  sitePublicationDecision: docs/architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md
 entries:
   - id: prd
     path: docs/product/prd/PRD.md
@@ -58,6 +60,18 @@ entries:
     kind: engineering-review
   - id: MIG-2026-0720
     path: docs/migrations/MIG-2026-0720-knowledge-engine-provider-binding.md
+    kind: migration
+  - id: REQ-2026-0721
+    path: docs/product/requirements/REQ-2026-0721-knowledgebase-site-publication.md
+    kind: requirement
+  - id: ADR-20260721
+    path: docs/architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md
+    kind: architecture-decision
+  - id: PLAN-2026-0721
+    path: docs/engineering/plans/PLAN-2026-0721-knowledgebase-site-publication.md
+    kind: implementation-plan
+  - id: MIG-2026-0721
+    path: docs/migrations/MIG-2026-0721-knowledgebase-site-publication.md
     kind: migration
 domains:
   - id: product

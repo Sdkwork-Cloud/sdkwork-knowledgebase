@@ -8,7 +8,7 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[tokio::test]
-async fn configured_sdk_media_and_drive_static_site_publishers_return_real_results() {
+async fn configured_sdk_media_providers_return_real_results() {
     let provider = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/v1/images/generations"))
@@ -36,11 +36,6 @@ async fn configured_sdk_media_and_drive_static_site_publishers_return_real_resul
         provider.uri(),
     );
     std::env::set_var("SDKWORK_CLAW_ROUTER_API_KEY", "integration-provider-key");
-    std::env::set_var(
-        "SDKWORK_KNOWLEDGEBASE_SITE_PUBLIC_BASE_URL",
-        "https://sites.example.test/objects/",
-    );
-
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let space_id = create_space(&app).await;
@@ -107,28 +102,6 @@ async fn configured_sdk_media_and_drive_static_site_publishers_return_real_resul
         "Verified provider transcription"
     );
 
-    let deployment = request_json(
-        &app,
-        Method::POST,
-        paths::SITE_DEPLOYMENTS,
-        json!({
-            "spaceId": space_id,
-            "platform": "static",
-            "siteName": "Commercial Knowledge"
-        }),
-    )
-    .await;
-    assert_eq!(
-        deployment.0,
-        StatusCode::CREATED,
-        "site deployment failed: {}",
-        deployment.1
-    );
-    let deployment_url = payload(&deployment.1)["item"]["url"]
-        .as_str()
-        .expect("deployment URL");
-    assert!(deployment_url.starts_with("https://sites.example.test/objects/site-deployments/"));
-    assert!(deployment_url.ends_with("commercial-knowledge-static.html"));
 }
 
 async fn create_space(app: &axum::Router) -> u64 {

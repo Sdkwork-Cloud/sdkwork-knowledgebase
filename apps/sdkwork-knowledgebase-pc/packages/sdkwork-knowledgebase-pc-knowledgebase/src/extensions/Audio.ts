@@ -12,6 +12,27 @@ export const Audio = Node.create({
       src: {
         default: null,
       },
+      driveSpaceId: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-drive-space-id'),
+        renderHTML: attributes => attributes.driveSpaceId
+          ? { 'data-drive-space-id': attributes.driveSpaceId }
+          : {},
+      },
+      driveNodeId: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-drive-node-id'),
+        renderHTML: attributes => attributes.driveNodeId
+          ? { 'data-drive-node-id': attributes.driveNodeId }
+          : {},
+      },
+      driveUri: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-drive-uri'),
+        renderHTML: attributes => attributes.driveUri
+          ? { 'data-drive-uri': attributes.driveUri }
+          : {},
+      },
       controls: {
         default: true,
       },

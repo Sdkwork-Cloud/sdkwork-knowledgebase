@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-provider-secret-adapter",
+    "displayName": "SDKWork Knowledgebase Provider Secret Adapter",
+    "version": "0.1.0",
+    "type": "rust-crate",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-knowledgebase-provider-secret-adapter",
+    "domain": "intelligence",
+    "capability": "knowledgebase-provider-secret",
+    "surface": "backend-provider",
+    "languages": ["rust"],
+    "generated": false,
+    "private": false,
+    "manifests": ["Cargo.toml"]
+  },
+  "canonicalSpecs": [
+    { "file": "COMPONENT_SPEC.md", "path": "../../../sdkwork-specs/COMPONENT_SPEC.md", "purpose": "Component contract." },
+    { "file": "MODULE_SPEC.md", "path": "../../../sdkwork-specs/MODULE_SPEC.md", "purpose": "Reusable module boundary." },
+    { "file": "CODE_STYLE_SPEC.md", "path": "../../../sdkwork-specs/CODE_STYLE_SPEC.md", "purpose": "Source structure." },
+    { "file": "NAMING_SPEC.md", "path": "../../../sdkwork-specs/NAMING_SPEC.md", "purpose": "Canonical naming." },
+    { "file": "RUST_CODE_SPEC.md", "path": "../../../sdkwork-specs/RUST_CODE_SPEC.md", "purpose": "Rust implementation." },
+    { "file": "SECURITY_SPEC.md", "path": "../../../sdkwork-specs/SECURITY_SPEC.md", "purpose": "Secret access, isolation, and redaction." },
+    { "file": "CONFIG_SPEC.md", "path": "../../../sdkwork-specs/CONFIG_SPEC.md", "purpose": "Typed local and managed source policy." },
+    { "file": "OBSERVABILITY_SPEC.md", "path": "../../../sdkwork-specs/OBSERVABILITY_SPEC.md", "purpose": "Sanitized access telemetry." },
+    { "file": "TEST_SPEC.md", "path": "../../../sdkwork-specs/TEST_SPEC.md", "purpose": "Negative security verification." }
+  ],
+  "contracts": {
+    "layerRole": "backend-provider",
+    "publicExports": ["."],
+    "providedPorts": [
+      {
+        "name": "knowledgeEngineProviderCredentialResolver",
+        "export": "KnowledgebaseProviderCredentialResolver"
+      }
+    ],
+    "requiredPorts": [
+      {
+        "name": "managedSecretProvider",
+        "export": "sdkwork_agent_kernel::SecretProvider",
+        "optional": true
+      }
+    ],
+    "runtimeEntrypoints": [
+      "KnowledgebaseProviderCredentialResolver::local",
+      "KnowledgebaseProviderCredentialResolver::managed"
+    ],
+    "routeManifest": null,
+    "sdkClients": [],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": [],
+    "events": ["knowledge.provider_credential.access"],
+    "configKeys": [
+      "SDKWORK_KNOWLEDGEBASE_ENVIRONMENT",
+      "SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRETS_DIR"
+    ]
+  },
+  "verification": {
+    "commands": [
+      "cargo test -p sdkwork-knowledgebase-provider-secret-adapter"
+    ]
+  }
+}

@@ -92,6 +92,16 @@ test("production datasets cannot weaken commercial thresholds", () => {
   );
 });
 
+test("production quality datasets and artifacts remain bounded", () => {
+  const { dataset, results } = productionFixture();
+  const boundedPolicy = structuredClone(evaluationSpec.productionPolicy);
+  boundedPolicy.maximumScoredQueries = 49;
+  assert.throws(
+    () => evaluateRetrieval(dataset, results, boundedPolicy),
+    /allows at most 49 scored queries/,
+  );
+});
+
 test("production quality evidence verifies artifacts and deterministic metrics", async (context) => {
   const temporaryRoot = await mkdtemp(path.join(tmpdir(), "sdkwork-quality-evidence-"));
   context.after(() => rm(temporaryRoot, { recursive: true, force: true }));
@@ -152,6 +162,28 @@ test("production quality evidence verifies artifacts and deterministic metrics",
     ),
     [],
   );
+
+  const byteBoundedPolicy = structuredClone(evaluationSpec.productionPolicy);
+  byteBoundedPolicy.maxArtifactBytes = 1;
+  const byteBoundedViolations = await validateProductionQualityEvidenceRecord(
+    record,
+    expected,
+    byteBoundedPolicy,
+    temporaryRoot,
+  );
+  assert.ok(byteBoundedViolations.some((violation) => violation.includes("1 byte limit")));
+
+  const futureRecord = {
+    ...record,
+    verifiedAt: isoDateFromNow(1),
+  };
+  const futureViolations = await validateProductionQualityEvidenceRecord(
+    futureRecord,
+    expected,
+    evaluationSpec.productionPolicy,
+    temporaryRoot,
+  );
+  assert.ok(futureViolations.some((violation) => violation.includes("non-future")));
 
   record.metrics.recallAtK = 0;
   const violations = await validateProductionQualityEvidenceRecord(

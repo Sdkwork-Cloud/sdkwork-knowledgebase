@@ -1,5 +1,5 @@
 import type { DriveUploaderProfile } from 'sdkwork-knowledgebase-pc-core';
-import { formatBytes, isBlank } from '@sdkwork/utils';
+import { formatBytes } from '@sdkwork/utils';
 import {
   getKnowledgebaseAppSdkClient,
   getKnowledgebaseTenantId,
@@ -8,7 +8,6 @@ import {
   parseKnowledgeSpaceId,
   readRegisteredSpaces,
   requireDriveApiClient,
-  requireKnowledgebaseAppSdkHttpClient,
   throwKnowledgebaseError,
 } from 'sdkwork-knowledgebase-pc-core';
 
@@ -16,9 +15,7 @@ import type { DocumentMeta } from './document';
 import { ensureDriveFolderPath } from './knowledgeDriveBrowserService';
 import { invalidateKnowledgeBrowserNodeCacheForKbIds } from './knowledgeBrowserListService';
 import { resolveKnowledgeBrowserParentDriveNodeId } from './knowledgeBrowserParentResolver';
-import { placeDocumentInParentFolder } from './knowledgebaseDocumentApiBridge';
 import { resolveDriveNodeDownloadUrl } from './knowledgeDriveMediaService';
-import { resolveIngestedDocument, waitForIngestJob } from './knowledgeIngestService';
 
 const MAX_TEXT_BYTES = 512 * 1024;
 const TEXT_EXTENSIONS = new Set([
@@ -142,6 +139,7 @@ function toDocumentMeta(
   title: string,
   type: DocumentMeta['type'],
   parentId?: string | null,
+  driveIdentity?: { driveSpaceId: string; driveNodeId: string },
 ): DocumentMeta {
   return {
     id: String(documentId),
@@ -152,6 +150,13 @@ function toDocumentMeta(
     updatedAt: new Date().toISOString(),
     author: 'Knowledgebase',
     size: formatBytes(file.size),
+    ...(driveIdentity
+      ? {
+          driveUri: `drive://spaces/${driveIdentity.driveSpaceId}/nodes/${driveIdentity.driveNodeId}`,
+          driveSpaceId: driveIdentity.driveSpaceId,
+          driveNodeId: driveIdentity.driveNodeId,
+        }
+      : {}),
   };
 }
 
@@ -164,54 +169,24 @@ async function ingestTextFile(
   parentId?: string | null,
   folderCache?: Map<string, string>,
 ): Promise<DocumentMeta> {
-  const client = getKnowledgebaseAppSdkClient();
-  const title = resolveUploadTitle(file);
-  const content = await file.text();
-  if (isBlank(content)) {
-    throwKnowledgebaseError(KnowledgebaseErrorCodes.FILE_EMPTY);
-  }
-
-  if (isKnowledgebaseDriveApiAvailable()) {
-    const driveSpaceId = await resolveDriveSpaceId(spaceId);
-    const resolvedParentId = await resolveUploadParentNodeId(
-      kbId,
-      driveSpaceId,
-      file,
-      parentId,
-      folderCache ?? new Map<string, string>(),
-    );
-    return uploadBinaryThroughDrive(
-      spaceId,
-      kbId,
-      file,
-      type,
-      index,
-      parentId,
-      folderCache,
-      resolvedParentId,
-    );
-  }
-
-  const job = await client.client.knowledge.ingests.create({
+  const driveSpaceId = await resolveDriveSpaceId(spaceId);
+  const resolvedParentId = await resolveUploadParentNodeId(
+    kbId,
+    driveSpaceId,
+    file,
+    parentId,
+    folderCache ?? new Map<string, string>(),
+  );
+  return uploadBinaryThroughDrive(
     spaceId,
-    title,
-    payloadMarkdown: content,
-    idempotencyKey: buildIdempotencyKey(spaceId, file, index),
-  });
-
-  const finalJob = job.state === 'succeeded' ? job : await waitForIngestJob(job.id);
-  if (finalJob.state !== 'succeeded') {
-    throwKnowledgebaseError(KnowledgebaseErrorCodes.INGEST_FAILED, {
-      cause: finalJob.errorMessage ?? undefined,
-    });
-  }
-
-  const document = await resolveIngestedDocument(spaceId, title);
-  const meta = toDocumentMeta(kbId, file, document.id, document.title, type, parentId);
-  if (parentId?.trim()) {
-    await placeDocumentInParentFolder(meta.id, kbId, parentId);
-  }
-  return meta;
+    kbId,
+    file,
+    type,
+    index,
+    parentId,
+    folderCache,
+    resolvedParentId,
+  );
 }
 
 function resolveRelativeFolderPath(file: File): string | undefined {
@@ -279,9 +254,6 @@ async function uploadBinaryThroughDrive(
     idempotencyKey: buildIdempotencyKey(spaceId, file, index),
     driveSpaceId,
     driveNodeId: uploadResult.uploadItem.nodeId,
-    driveStorageProviderId: '',
-    driveBucket: '',
-    driveObjectKey: '',
     language: null,
   });
 
@@ -292,6 +264,7 @@ async function uploadBinaryThroughDrive(
     importResult.document.title,
     type,
     parentId ?? null,
+    { driveSpaceId, driveNodeId: uploadResult.uploadItem.nodeId },
   );
 
   try {

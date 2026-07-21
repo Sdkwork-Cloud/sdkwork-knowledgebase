@@ -9,5 +9,6 @@ Retired layout: `docs/adr/` must not be used for new ADRs.
 - [ADR-20260624-phase2-postgres-rls-multi-tenant.md](ADR-20260624-phase2-postgres-rls-multi-tenant.md)
 - [ADR-20260713-group-knowledgebase-binding-and-launch.md](ADR-20260713-group-knowledgebase-binding-and-launch.md)
 - [ADR-20260720-knowledge-engine-provider-binding-spi-v2.md](ADR-20260720-knowledge-engine-provider-binding-spi-v2.md) (accepted)
+- [ADR-20260721-drive-backed-knowledgebase-site-publication.md](ADR-20260721-drive-backed-knowledgebase-site-publication.md) (accepted)
 
 See `ARCHITECTURE_DECISION_SPEC.md`.

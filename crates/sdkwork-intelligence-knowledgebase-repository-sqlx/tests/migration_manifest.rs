@@ -538,20 +538,38 @@ fn performance_index_migrations_target_outbox_event_table() {
 }
 
 #[test]
-fn market_site_migrations_define_commerce_tables() {
+fn market_migrations_define_market_tables() {
     use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
-        POSTGRES_MARKET_SITE_MIGRATION, SQLITE_MARKET_SITE_MIGRATION,
+        POSTGRES_MARKET_MIGRATION, SQLITE_MARKET_MIGRATION,
     };
 
-    for migration in [SQLITE_MARKET_SITE_MIGRATION, POSTGRES_MARKET_SITE_MIGRATION] {
+    for migration in [SQLITE_MARKET_MIGRATION, POSTGRES_MARKET_MIGRATION] {
         let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
-        for table in [
-            "kb_market_listing",
-            "kb_market_subscription",
-            "kb_site_deployment",
-        ] {
-            assert!(tables.contains(table), "missing commerce table: {table}");
+        for table in ["kb_market_listing", "kb_market_subscription"] {
+            assert!(tables.contains(table), "missing market table: {table}");
         }
+        assert!(!migration.contains("site_deployment"));
+    }
+}
+
+#[test]
+fn site_publication_migrations_define_current_site_resources() {
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::{
+        POSTGRES_SITE_PUBLICATION_MIGRATION, SQLITE_SITE_PUBLICATION_MIGRATION,
+    };
+
+    for migration in [
+        SQLITE_SITE_PUBLICATION_MIGRATION,
+        POSTGRES_SITE_PUBLICATION_MIGRATION,
+    ] {
+        let tables = defined_database_objects(migration, "CREATE TABLE IF NOT EXISTS ");
+        for table in ["kb_site", "kb_site_release", "kb_site_host_binding"] {
+            assert!(
+                tables.contains(table),
+                "missing site resource table: {table}"
+            );
+        }
+        assert!(!migration.contains("kb_site_deployment"));
     }
 }
 
@@ -734,7 +752,9 @@ fn app_root_database_baselines_are_engine_specific_single_snapshots() {
     for (needle, expected_count) in [
         ("CREATE TABLE IF NOT EXISTS kb_market_listing", 1),
         ("CREATE TABLE IF NOT EXISTS kb_market_subscription", 1),
-        ("CREATE TABLE IF NOT EXISTS kb_site_deployment", 1),
+        ("CREATE TABLE IF NOT EXISTS kb_site (", 1),
+        ("CREATE TABLE IF NOT EXISTS kb_site_release (", 1),
+        ("CREATE TABLE IF NOT EXISTS kb_site_host_binding (", 1),
         (
             "ALTER TABLE kb_outbox_event ADD COLUMN IF NOT EXISTS claimed_at",
             1,
@@ -752,6 +772,8 @@ fn app_root_database_baselines_are_engine_specific_single_snapshots() {
     assert!(APP_ROOT_POSTGRES_BASELINE.contains("idx_web_audit_expires"));
     assert!(APP_ROOT_SQLITE_BASELINE.contains("expires_at INTEGER"));
     assert!(APP_ROOT_SQLITE_BASELINE.contains("idx_web_audit_expires"));
+    assert!(!APP_ROOT_POSTGRES_BASELINE.contains("kb_site_deployment"));
+    assert!(!APP_ROOT_SQLITE_BASELINE.contains("kb_site_deployment"));
 
     for forbidden in [
         "ADD COLUMN IF NOT EXISTS",
@@ -964,8 +986,10 @@ fn runtime_group_space_expand_migrations_precede_dependent_scope_corrections() {
         }
     }
 
-    assert!(APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION
-        .contains("ALTER TABLE %I ENABLE ROW LEVEL SECURITY"));
+    assert!(
+        APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION
+            .contains("ALTER TABLE %I ENABLE ROW LEVEL SECURITY")
+    );
     assert!(
         APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION.contains("ALTER TABLE %I FORCE ROW LEVEL SECURITY")
     );

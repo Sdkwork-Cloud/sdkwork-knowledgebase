@@ -115,11 +115,6 @@ const appOperations = [
   noContent('delete', '/app/v3/api/knowledge/spaces/{spaceId}/members', {
     operationId: 'spaces.members.delete',
   }),
-  resource('post', '/app/v3/api/knowledge/upload_sessions/{sessionId}/complete', {
-    operationId: 'uploadSessions.complete',
-    status: '200',
-    itemRef: '#/components/schemas/IngestionJob',
-  }),
   resource('get', '/app/v3/api/knowledge/wechat/official_accounts', {
     operationId: 'wechat.officialAccounts.list',
     itemRef: '#/components/schemas/KnowledgeWechatOfficialAccountList',
@@ -161,14 +156,43 @@ const appOperations = [
   noContent('delete', '/app/v3/api/knowledge/market/subscriptions/{listingId}', {
     operationId: 'market.subscriptions.delete',
   }),
-  command('post', '/app/v3/api/knowledge/site_deployments', {
-    operationId: 'siteDeployments.create',
-    status: '201',
-    payloadRef: '#/components/schemas/KnowledgeSiteDeploymentResult',
+  resource('get', '/app/v3/api/knowledge/spaces/{spaceId}/site', {
+    operationId: 'sites.retrieve',
+    itemRef: '#/components/schemas/KnowledgeSite',
   }),
-  resource('get', '/app/v3/api/knowledge/site_deployments/{deploymentId}/preview', {
-    operationId: 'siteDeployments.preview.list',
-    itemRef: '#/components/schemas/KnowledgeSiteDeploymentPreview',
+  resource('put', '/app/v3/api/knowledge/spaces/{spaceId}/site', {
+    operationId: 'sites.update',
+    itemRef: '#/components/schemas/KnowledgeSite',
+  }),
+  command('post', '/app/v3/api/knowledge/sites/{siteId}/releases', {
+    operationId: 'siteReleases.create',
+    status: '201',
+    payloadRef: '#/components/schemas/KnowledgeSitePublicationResult',
+  }),
+  list('get', '/app/v3/api/knowledge/sites/{siteId}/releases', {
+    operationId: 'siteReleases.list',
+    itemRef: '#/components/schemas/KnowledgeSiteRelease',
+  }),
+  resource('get', '/app/v3/api/knowledge/site_releases/{releaseId}', {
+    operationId: 'siteReleases.retrieve',
+    itemRef: '#/components/schemas/KnowledgeSiteRelease',
+  }),
+  command('post', '/app/v3/api/knowledge/sites/{siteId}/rollbacks', {
+    operationId: 'siteReleases.rollback',
+    status: '200',
+    payloadRef: '#/components/schemas/KnowledgeSite',
+  }),
+  command('post', '/app/v3/api/knowledge/sites/{siteId}/host_bindings', {
+    operationId: 'siteHostBindings.create',
+    status: '201',
+    payloadRef: '#/components/schemas/KnowledgeSiteHostBinding',
+  }),
+  list('get', '/app/v3/api/knowledge/sites/{siteId}/host_bindings', {
+    operationId: 'siteHostBindings.list',
+    itemRef: '#/components/schemas/KnowledgeSiteHostBinding',
+  }),
+  noContent('delete', '/app/v3/api/knowledge/sites/{siteId}/host_bindings/{bindingId}', {
+    operationId: 'siteHostBindings.delete',
   }),
   command('post', '/app/v3/api/knowledge/media_tasks', {
     operationId: 'mediaTasks.create',
@@ -1063,15 +1087,6 @@ function alignCommandResultSchemas(spec) {
       },
     },
     KnowledgeMarketSubscriptionResult: commandResultSchema(),
-    KnowledgeSiteDeploymentResult: {
-      ...commandResultSchema(),
-      required: ['accepted', 'status', 'deploymentId', 'url'],
-      properties: {
-        ...commandResultProperties(),
-        deploymentId: int64StringSchema(),
-        url: { type: 'string', minLength: 1 },
-      },
-    },
     KnowledgeMediaTaskResult: {
       ...commandResultSchema(),
       required: ['accepted', 'status', 'suggestions', 'similars'],

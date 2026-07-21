@@ -60,7 +60,16 @@ index digest plus individual quality, contract, load/SLO, outage-recovery, licen
 security/privacy artifact digests. The current matrix contains ten local passes and zero live
 certifications.
 
+Load/SLO and outage-recovery summaries are not trusted as self-asserted release facts. The live
+gate validates their schemas, loads the SHA-256-bound raw request samples and scenario timelines,
+recomputes the metrics and recovery intervals, rejects policy weakening and secret-bearing fields,
+and binds the evidence to the Provider ID, upstream version, adapter commit, workflow, reviewer,
+dashboard, and runbook. Passing validator fixtures prove the gate, not a production Provider run.
+Quality and operational evidence share one bounded artifact reader, so symlink/path escape,
+oversized evidence, digest mismatch, and future-dated promotion attempts fail closed before parsing.
+
 Normative contracts:
 
 - `specs/external-knowledge-engine-catalog.spec.json`
 - `specs/knowledge-engine-spi.spec.json`
+- `specs/knowledge-engine-operational-evidence.spec.json`

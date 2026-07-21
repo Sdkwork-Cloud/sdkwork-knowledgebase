@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 async-trait.workspace = true
 sdkwork-drive-workspace-service.workspace = true
+sdkwork-drive-uploader-service.workspace = true
 sdkwork-drive-config.workspace = true
 sdkwork-drive-storage-contract.workspace = true
 sdkwork-database-config.workspace = true
@@ -15,6 +16,7 @@ sdkwork-intelligence-knowledgebase-service.workspace = true
 sdkwork-intelligence-knowledgebase-object-key-service.workspace = true
 sdkwork-utils-rust.workspace = true
 uuid.workspace = true
+time.workspace = true
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }
 
 [dev-dependencies]

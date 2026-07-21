@@ -4,9 +4,9 @@ use sdkwork_knowledgebase_contract::{
         CreateKnowledgeSpaceContextBindingRequest, KnowledgeSpaceContextBinding,
         UpdateKnowledgeSpaceContextBindingRequest,
     },
-    CompleteKnowledgeUploadSessionRequest, CreateKnowledgeDocumentRequest,
+    CreateKnowledgeDocumentRequest,
     CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceRequest,
-    CreateKnowledgeUploadSessionRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
+    CreateKnowledgeSiteHostBindingRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile,
     KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeContextPack,
@@ -17,8 +17,8 @@ use sdkwork_knowledgebase_contract::{
     KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult,
     KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile,
     KnowledgeOkfConceptRevision, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
-    KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
-    KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeUploadSession,
+    KnowledgeSite, KnowledgeSiteHostBinding, KnowledgeSitePublicationResult, KnowledgeSiteRelease,
+    KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType,
     KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
     KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList,
     KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
@@ -26,7 +26,8 @@ use sdkwork_knowledgebase_contract::{
     ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
     OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest, OkfContextPackRequest,
     OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun,
-    OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, UpdateKnowledgeSpaceRequest,
+    OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PublishKnowledgeSiteReleaseRequest,
+    RollbackKnowledgeSiteReleaseRequest, UpdateKnowledgeSpaceRequest, UpsertKnowledgeSiteRequest,
 };
 use sdkwork_utils_rust::SdkWorkPageData;
 use std::sync::Arc;
@@ -36,7 +37,7 @@ use crate::{
     KnowledgeBrowserApi, KnowledgeCommerceAppService, KnowledgeContextBindingAppService,
     KnowledgeDocumentAppService, KnowledgeDriveImportAppService, KnowledgeGitImportAppService,
     KnowledgeIngestAppService, KnowledgeOkfAppService, KnowledgeRetrievalAppService,
-    KnowledgeSpaceAppService, KnowledgeUploadSessionAppService, KnowledgeWechatAppService,
+    KnowledgeSiteAppService, KnowledgeSpaceAppService, KnowledgeWechatAppService,
 };
 
 pub struct BrowserOnlyAppApi {
@@ -365,7 +366,7 @@ pub struct FullAppApi {
     retrieval: Arc<dyn KnowledgeRetrievalAppService>,
     agent: Arc<dyn KnowledgeAgentAppService>,
     context_binding: Arc<dyn KnowledgeContextBindingAppService>,
-    upload_session: Arc<dyn KnowledgeUploadSessionAppService>,
+    site: Arc<dyn KnowledgeSiteAppService>,
     wechat: Arc<dyn KnowledgeWechatAppService>,
     commerce: Arc<dyn KnowledgeCommerceAppService>,
 }
@@ -384,7 +385,7 @@ impl FullAppApi {
         retrieval: Arc<dyn KnowledgeRetrievalAppService>,
         agent: Arc<dyn KnowledgeAgentAppService>,
         context_binding: Arc<dyn KnowledgeContextBindingAppService>,
-        upload_session: Arc<dyn KnowledgeUploadSessionAppService>,
+        site: Arc<dyn KnowledgeSiteAppService>,
         wechat: Arc<dyn KnowledgeWechatAppService>,
         commerce: Arc<dyn KnowledgeCommerceAppService>,
     ) -> Self {
@@ -400,7 +401,7 @@ impl FullAppApi {
             retrieval,
             agent,
             context_binding,
-            upload_session,
+            site,
             wechat,
             commerce,
         }
@@ -933,24 +934,102 @@ impl KnowledgeAppApi for FullAppApi {
             .await
     }
 
-    async fn create_upload_session(
+    async fn retrieve_site(
         &self,
         context: KnowledgeAppRequestContext,
-        request: CreateKnowledgeUploadSessionRequest,
-    ) -> ApiResult<KnowledgeUploadSession> {
-        self.upload_session
-            .create_upload_session(context, request)
+        space_id: u64,
+    ) -> ApiResult<KnowledgeSite> {
+        self.site.retrieve_site(context, space_id).await
+    }
+
+    async fn upsert_site(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: UpsertKnowledgeSiteRequest,
+    ) -> ApiResult<KnowledgeSite> {
+        self.site.upsert_site(context, space_id, request).await
+    }
+
+    async fn publish_site_release(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        request: PublishKnowledgeSiteReleaseRequest,
+    ) -> ApiResult<KnowledgeSitePublicationResult> {
+        self.site
+            .publish_site_release(context, site_id, request)
             .await
     }
 
-    async fn complete_upload_session(
+    async fn list_site_releases(
         &self,
         context: KnowledgeAppRequestContext,
-        session_id: u64,
-        request: CompleteKnowledgeUploadSessionRequest,
-    ) -> ApiResult<IngestionJob> {
-        self.upload_session
-            .complete_upload_session(context, session_id, request)
+        site_id: u64,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSiteRelease>> {
+        self.site
+            .list_site_releases(context, site_id, cursor, page_size)
+            .await
+    }
+
+    async fn retrieve_site_release(
+        &self,
+        context: KnowledgeAppRequestContext,
+        release_id: u64,
+    ) -> ApiResult<KnowledgeSiteRelease> {
+        self.site.retrieve_site_release(context, release_id).await
+    }
+
+    async fn rollback_site_release(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        request: RollbackKnowledgeSiteReleaseRequest,
+    ) -> ApiResult<KnowledgeSite> {
+        self.site
+            .rollback_site_release(context, site_id, request)
+            .await
+    }
+
+    async fn list_site_host_bindings(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        cursor: Option<String>,
+        page_size: Option<u32>,
+    ) -> ApiResult<SdkWorkPageData<KnowledgeSiteHostBinding>> {
+        self.site
+            .list_site_host_bindings(context, site_id, cursor, page_size)
+            .await
+    }
+
+    async fn create_site_host_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        request: CreateKnowledgeSiteHostBindingRequest,
+    ) -> ApiResult<KnowledgeSiteHostBinding> {
+        self.site
+            .create_site_host_binding(context, site_id, request)
+            .await
+    }
+
+    async fn delete_site_host_binding(
+        &self,
+        context: KnowledgeAppRequestContext,
+        site_id: u64,
+        binding_id: u64,
+        expected_site_version: u64,
+    ) -> ApiResult<()> {
+        self.site
+            .delete_site_host_binding(
+                context,
+                site_id,
+                binding_id,
+                expected_site_version,
+            )
             .await
     }
 
@@ -1040,24 +1119,6 @@ impl KnowledgeAppApi for FullAppApi {
     ) -> ApiResult<KnowledgeMarketSubscriptionResult> {
         self.commerce
             .delete_market_subscription(context, listing_id)
-            .await
-    }
-
-    async fn create_site_deployment(
-        &self,
-        context: KnowledgeAppRequestContext,
-        request: KnowledgeSiteDeploymentRequest,
-    ) -> ApiResult<KnowledgeSiteDeploymentResult> {
-        self.commerce.create_site_deployment(context, request).await
-    }
-
-    async fn retrieve_site_deployment_preview(
-        &self,
-        context: KnowledgeAppRequestContext,
-        deployment_id: u64,
-    ) -> ApiResult<KnowledgeSiteDeploymentPreview> {
-        self.commerce
-            .retrieve_site_deployment_preview(context, deployment_id)
             .await
     }
 

@@ -2,13 +2,8 @@ use async_trait::async_trait;
 use clawrouter_open_sdk::{
     OpenAiAudioTranscriptionRequest, OpenAiFileReferenceInput, OpenAiImageGenerationRequest,
 };
-use sdkwork_intelligence_knowledgebase_service::commerce::{
-    KnowledgeSiteDeploymentService, KnowledgeSiteDeploymentServiceError,
-};
 use sdkwork_intelligence_knowledgebase_service::ports::commerce_store::{
-    KnowledgeMarketStore, KnowledgeMarketStoreError, KnowledgeSiteDeploymentStore,
-    KnowledgeSiteDeploymentStoreError, KnowledgeSitePublisher, KnowledgeSitePublisherError,
-    PublishKnowledgeSiteRequest, PublishedKnowledgeSite,
+    KnowledgeMarketStore, KnowledgeMarketStoreError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_access_control::KnowledgeAccessRole;
 use sdkwork_knowledgebase_contract::market::{
@@ -18,16 +13,11 @@ use sdkwork_knowledgebase_contract::market::{
 use sdkwork_knowledgebase_contract::media_task::{
     KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeMediaTaskType,
 };
-use sdkwork_knowledgebase_contract::site_deployment::{
-    KnowledgeSiteDeploymentPreview, KnowledgeSiteDeploymentRequest, KnowledgeSiteDeploymentResult,
-};
 use sdkwork_utils_rust::{is_blank, SdkWorkPageData};
 
 use crate::{
-    hosted::RuntimeDocumentMarkdownReader,
     hosted_access::{
-        ensure_runtime_tenant, require_actor_id, require_space_access,
-        require_space_access_with_role,
+        ensure_runtime_tenant, require_actor_id, require_space_access_with_role,
     },
     runtime::KnowledgebaseRuntime,
     ApiError, ApiResult, KnowledgeAppRequestContext, KnowledgeCommerceAppService,
@@ -126,79 +116,6 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
             accepted: true,
             status: "completed".to_string(),
         })
-    }
-
-    async fn create_site_deployment(
-        &self,
-        context: KnowledgeAppRequestContext,
-        request: KnowledgeSiteDeploymentRequest,
-    ) -> ApiResult<KnowledgeSiteDeploymentResult> {
-        ensure_runtime_tenant(&self.runtime, &context)?;
-        let space = require_space_access_with_role(
-            &self.runtime,
-            &context,
-            request.space_id,
-            KnowledgeAccessRole::Writer,
-        )
-        .await?;
-        let markdown_reader = RuntimeDocumentMarkdownReader::new(self.runtime.clone());
-        let publisher = DriveStaticSitePublisher::from_env().map_err(|_| {
-            ApiError::new(
-                axum::http::StatusCode::SERVICE_UNAVAILABLE,
-                "site_deployment_publisher_unavailable",
-                "the static site publisher configuration is invalid",
-            )
-        })?;
-        let service = KnowledgeSiteDeploymentService::new(
-            self.runtime.document_store(),
-            &markdown_reader,
-            self.runtime.commerce_store(),
-            self.runtime.drive_storage(),
-            publisher
-                .as_ref()
-                .map(|publisher| publisher as &dyn KnowledgeSitePublisher),
-        );
-        service
-            .create_deployment(context.tenant_id, request, space.drive_space_id.as_deref())
-            .await
-            .map_err(map_site_deployment_error)
-    }
-
-    async fn retrieve_site_deployment_preview(
-        &self,
-        context: KnowledgeAppRequestContext,
-        deployment_id: u64,
-    ) -> ApiResult<KnowledgeSiteDeploymentPreview> {
-        ensure_runtime_tenant(&self.runtime, &context)?;
-        if deployment_id == 0 {
-            return Err(ApiError::invalid_request(
-                "invalid_site_deployment_request",
-                "deployment_id is required",
-            ));
-        }
-        let record = self
-            .runtime
-            .commerce_store()
-            .get_deployment(context.tenant_id, deployment_id)
-            .await
-            .map_err(map_site_deployment_store_error)?;
-        let space = require_space_access(&self.runtime, &context, record.space_id).await?;
-        let markdown_reader = RuntimeDocumentMarkdownReader::new(self.runtime.clone());
-        let service = KnowledgeSiteDeploymentService::new(
-            self.runtime.document_store(),
-            &markdown_reader,
-            self.runtime.commerce_store(),
-            self.runtime.drive_storage(),
-            None,
-        );
-        service
-            .retrieve_preview(
-                context.tenant_id,
-                deployment_id,
-                space.drive_space_id.as_deref(),
-            )
-            .await
-            .map_err(map_site_deployment_error)
     }
 
     async fn create_media_task(
@@ -305,79 +222,6 @@ impl KnowledgeCommerceAppService for HostedCommerceService {
                 })
             }
         }
-    }
-}
-
-struct DriveStaticSitePublisher {
-    public_base_url: url::Url,
-}
-
-impl DriveStaticSitePublisher {
-    fn from_env() -> Result<Option<Self>, String> {
-        let Some(value) = std::env::var("SDKWORK_KNOWLEDGEBASE_SITE_PUBLIC_BASE_URL")
-            .ok()
-            .filter(|value| !is_blank(Some(value.as_str())))
-        else {
-            return Ok(None);
-        };
-        let public_base_url = url::Url::parse(value.trim())
-            .map_err(|error| format!("invalid static site public base URL: {error}"))?;
-        if public_base_url.scheme() != "https"
-            || public_base_url.host_str().is_none()
-            || !public_base_url.username().is_empty()
-            || public_base_url.query().is_some()
-            || public_base_url.fragment().is_some()
-        {
-            return Err(
-                "static site public base URL must be absolute HTTPS without credentials, query, or fragment"
-                    .to_string(),
-            );
-        }
-        Ok(Some(Self { public_base_url }))
-    }
-}
-
-#[async_trait]
-impl KnowledgeSitePublisher for DriveStaticSitePublisher {
-    async fn publish_site(
-        &self,
-        request: PublishKnowledgeSiteRequest,
-    ) -> Result<PublishedKnowledgeSite, KnowledgeSitePublisherError> {
-        if let Some(custom_domain) = request
-            .custom_domain
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            if !self
-                .public_base_url
-                .host_str()
-                .is_some_and(|host| host.eq_ignore_ascii_case(custom_domain))
-            {
-                return Err(KnowledgeSitePublisherError::InvalidRequest(
-                    "custom_domain must match the configured static site public host".to_string(),
-                ));
-            }
-        }
-        let mut public_url = self.public_base_url.clone();
-        let mut segments = public_url.path_segments_mut().map_err(|_| {
-            KnowledgeSitePublisherError::InvalidRequest(
-                "static site public base URL cannot contain path segments".to_string(),
-            )
-        })?;
-        segments.pop_if_empty();
-        for segment in request.preview_object_key.split('/') {
-            if segment.is_empty() || segment == "." || segment == ".." {
-                return Err(KnowledgeSitePublisherError::InvalidRequest(
-                    "preview object key contains an invalid path segment".to_string(),
-                ));
-            }
-            segments.push(segment);
-        }
-        drop(segments);
-        Ok(PublishedKnowledgeSite {
-            public_url: public_url.to_string(),
-        })
     }
 }
 
@@ -520,61 +364,5 @@ fn map_market_error(error: KnowledgeMarketStoreError) -> ApiError {
         KnowledgeMarketStoreError::Internal(detail) => {
             ApiError::internal("market_store_failed", detail)
         }
-    }
-}
-
-fn map_site_deployment_store_error(error: KnowledgeSiteDeploymentStoreError) -> ApiError {
-    match error {
-        KnowledgeSiteDeploymentStoreError::InvalidRequest(detail) => {
-            ApiError::invalid_request("invalid_site_deployment_request", detail)
-        }
-        KnowledgeSiteDeploymentStoreError::NotFound => ApiError::new(
-            axum::http::StatusCode::NOT_FOUND,
-            "site_deployment_not_found",
-            "site deployment was not found",
-        ),
-        KnowledgeSiteDeploymentStoreError::Internal(detail) => {
-            ApiError::internal("site_deployment_store_failed", detail)
-        }
-    }
-}
-
-fn map_site_deployment_error(error: KnowledgeSiteDeploymentServiceError) -> ApiError {
-    match error {
-        KnowledgeSiteDeploymentServiceError::InvalidRequest(detail) => {
-            ApiError::invalid_request("invalid_site_deployment_request", detail)
-        }
-        KnowledgeSiteDeploymentServiceError::Store(
-            sdkwork_intelligence_knowledgebase_service::ports::commerce_store::KnowledgeSiteDeploymentStoreError::InvalidRequest(detail),
-        ) => ApiError::invalid_request("invalid_site_deployment_request", detail),
-        KnowledgeSiteDeploymentServiceError::Store(
-            sdkwork_intelligence_knowledgebase_service::ports::commerce_store::KnowledgeSiteDeploymentStoreError::NotFound,
-        ) => ApiError::new(
-            axum::http::StatusCode::NOT_FOUND,
-            "site_deployment_not_found",
-            "site deployment was not found",
-        ),
-        KnowledgeSiteDeploymentServiceError::Store(error) => {
-            ApiError::internal("site_deployment_store_failed", error.to_string())
-        }
-        KnowledgeSiteDeploymentServiceError::DocumentStore(error) => {
-            ApiError::internal("site_deployment_document_store_failed", error.to_string())
-        }
-        KnowledgeSiteDeploymentServiceError::DocumentContent(detail) => {
-            ApiError::invalid_request("invalid_site_deployment_request", detail)
-        }
-        KnowledgeSiteDeploymentServiceError::Storage(detail) => {
-            ApiError::internal("site_deployment_storage_failed", detail)
-        }
-        KnowledgeSiteDeploymentServiceError::PublisherUnavailable => ApiError::new(
-            axum::http::StatusCode::SERVICE_UNAVAILABLE,
-            "site_deployment_publisher_unavailable",
-            "no site publisher is configured for this deployment",
-        ),
-        KnowledgeSiteDeploymentServiceError::Publisher(error) => ApiError::new(
-            axum::http::StatusCode::BAD_GATEWAY,
-            "site_deployment_publisher_failed",
-            error.to_string(),
-        ),
     }
 }

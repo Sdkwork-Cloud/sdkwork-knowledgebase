@@ -61,9 +61,6 @@ async function importTransferredDriveNode(
     idempotencyKey: buildTransferIdempotencyKey(targetSpaceId, sourceId, driveNode.id, mode),
     driveSpaceId: driveNode.spaceId,
     driveNodeId: driveNode.id,
-    driveStorageProviderId: '',
-    driveBucket: '',
-    driveObjectKey: '',
     language: null,
   });
 

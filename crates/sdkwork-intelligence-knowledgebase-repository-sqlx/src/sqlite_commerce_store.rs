@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::commerce_store::{
-    map_catalog_item, CreateSiteDeploymentRecord, KnowledgeMarketStore, KnowledgeMarketStoreError,
-    KnowledgeSiteDeploymentStore, KnowledgeSiteDeploymentStoreError, SiteDeploymentRecord,
+    map_catalog_item, KnowledgeMarketStore, KnowledgeMarketStoreError,
 };
 use sdkwork_knowledgebase_contract::market::KnowledgeMarketCatalogItem;
 use sdkwork_utils_rust::is_blank;
@@ -351,91 +350,5 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
             .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
 
         Ok(())
-    }
-}
-
-#[async_trait]
-impl KnowledgeSiteDeploymentStore for SqliteCommerceStore {
-    async fn create_deployment(
-        &self,
-        record: CreateSiteDeploymentRecord,
-    ) -> Result<SiteDeploymentRecord, KnowledgeSiteDeploymentStoreError> {
-        let now = OffsetDateTime::now_utc()
-            .format(&Rfc3339)
-            .map_err(|error| KnowledgeSiteDeploymentStoreError::Internal(error.to_string()))?;
-        let id = next_i64_id(&self.id_generator)
-            .map_err(|error| KnowledgeSiteDeploymentStoreError::Internal(error.to_string()))?;
-
-        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$11");
-        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
-        let query = format!(
-            r#"
-            INSERT INTO kb_site_deployment (
-                id, tenant_id, space_id, platform, site_name, custom_domain,
-                site_logo_data_url, deployed_url, preview_object_key,
-                status, created_at, updated_at, version
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, {created_at_expr}, {updated_at_expr}, $13)
-            "#,
-        );
-        sqlx::query(&query)
-            .bind(id)
-            .bind(record.tenant_id as i64)
-            .bind(record.space_id as i64)
-            .bind(&record.platform)
-            .bind(&record.site_name)
-            .bind(&record.custom_domain)
-            .bind(&record.site_logo_data_url)
-            .bind(&record.deployed_url)
-            .bind(&record.preview_object_key)
-            .bind(ACTIVE_STATUS)
-            .bind(&now)
-            .bind(&now)
-            .bind(0_i64)
-            .execute(&self.pool)
-            .await
-            .map_err(|error| KnowledgeSiteDeploymentStoreError::Internal(error.to_string()))?;
-
-        Ok(SiteDeploymentRecord {
-            id: id as u64,
-            tenant_id: record.tenant_id,
-            space_id: record.space_id,
-            platform: record.platform,
-            site_name: record.site_name,
-            custom_domain: record.custom_domain,
-            deployed_url: record.deployed_url,
-            preview_object_key: record.preview_object_key,
-        })
-    }
-
-    async fn get_deployment(
-        &self,
-        tenant_id: u64,
-        deployment_id: u64,
-    ) -> Result<SiteDeploymentRecord, KnowledgeSiteDeploymentStoreError> {
-        let row = sqlx::query(
-            r#"
-            SELECT id, tenant_id, space_id, platform, site_name, custom_domain,
-                   deployed_url, preview_object_key
-            FROM kb_site_deployment
-            WHERE tenant_id = $1 AND id = $2 AND status = 1
-            "#,
-        )
-        .bind(tenant_id as i64)
-        .bind(deployment_id as i64)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|error| KnowledgeSiteDeploymentStoreError::Internal(error.to_string()))?
-        .ok_or(KnowledgeSiteDeploymentStoreError::NotFound)?;
-
-        Ok(SiteDeploymentRecord {
-            id: row.get::<i64, _>("id") as u64,
-            tenant_id: row.get::<i64, _>("tenant_id") as u64,
-            space_id: row.get::<i64, _>("space_id") as u64,
-            platform: row.get("platform"),
-            site_name: row.try_get("site_name").ok(),
-            custom_domain: row.try_get("custom_domain").ok(),
-            deployed_url: row.get("deployed_url"),
-            preview_object_key: row.get("preview_object_key"),
-        })
     }
 }

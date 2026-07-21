@@ -140,9 +140,10 @@ impl KnowledgeEngine for RagflowKnowledgeEngine {
                 return Ok(KnowledgeEngineHealth {
                     implementation_id: RAGFLOW_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
-                    detail: Some(format!(
+                    detail: Some(
                         "RAGFlow connector health requires an active Provider binding with a remote resource id"
-                    )),
+                            .to_string(),
+                    ),
                 });
             }
         };

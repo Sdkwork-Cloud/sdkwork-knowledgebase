@@ -61,11 +61,11 @@ pub const SQLITE_CHUNK_FTS_MIGRATION: &str =
 pub const SQLITE_PERFORMANCE_INDEXES_MIGRATION: &str =
     include_str!("../migrations/sqlite/V202606230001__knowledgebase_performance_indexes.sql");
 
-pub const SQLITE_MARKET_SITE_MIGRATION: &str =
-    include_str!("../migrations/sqlite/V202606240001__knowledge_market_and_site_deployment.sql");
+pub const SQLITE_MARKET_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202606240001__knowledge_market.sql");
 
-pub const POSTGRES_MARKET_SITE_MIGRATION: &str =
-    include_str!("../migrations/postgres/V202606240001__knowledge_market_and_site_deployment.sql");
+pub const POSTGRES_MARKET_MIGRATION: &str =
+    include_str!("../migrations/postgres/V202606240001__knowledge_market.sql");
 
 pub const SQLITE_AUDIT_EVENT_MIGRATION: &str =
     include_str!("../migrations/sqlite/V202606250001__knowledgebase_audit_event.sql");
@@ -101,6 +101,12 @@ pub const SQLITE_INGESTION_JOB_LEASE_MIGRATION: &str =
 pub const POSTGRES_INGESTION_JOB_LEASE_MIGRATION: &str =
     include_str!("../migrations/postgres/V202607160002__ingestion_job_lease.sql");
 
+pub const SQLITE_SITE_PUBLICATION_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202607210001__knowledgebase_site_publication.sql");
+
+pub const POSTGRES_SITE_PUBLICATION_MIGRATION: &str =
+    include_str!("../migrations/postgres/V202607210001__knowledgebase_site_publication.sql");
+
 pub const SQLITE_MIGRATIONS: &[&str] = &[
     SQLITE_CORE_MIGRATION,
     SQLITE_CONTEXT_BINDING_MIGRATION,
@@ -112,13 +118,14 @@ pub const SQLITE_MIGRATIONS: &[&str] = &[
     SQLITE_CHUNK_FTS_MIGRATION,
     SQLITE_OUTBOX_CLAIM_MIGRATION,
     SQLITE_PERFORMANCE_INDEXES_MIGRATION,
-    SQLITE_MARKET_SITE_MIGRATION,
+    SQLITE_MARKET_MIGRATION,
     SQLITE_AUDIT_EVENT_MIGRATION,
     SQLITE_GROUP_KNOWLEDGE_SPACE_MIGRATION,
     SQLITE_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
     SQLITE_GROUP_ARCHIVE_SAGA_MIGRATION,
     SQLITE_GROUP_ARCHIVE_SAGA_SCOPE_TRIGGERS_MIGRATION,
     SQLITE_INGESTION_JOB_LEASE_MIGRATION,
+    SQLITE_SITE_PUBLICATION_MIGRATION,
 ];
 
 pub const POSTGRES_MIGRATIONS: &[&str] = &[
@@ -133,12 +140,13 @@ pub const POSTGRES_MIGRATIONS: &[&str] = &[
     POSTGRES_CHUNK_FTS_MIGRATION,
     POSTGRES_OUTBOX_CLAIM_MIGRATION,
     POSTGRES_PERFORMANCE_INDEXES_MIGRATION,
-    POSTGRES_MARKET_SITE_MIGRATION,
+    POSTGRES_MARKET_MIGRATION,
     POSTGRES_AUDIT_EVENT_MIGRATION,
     POSTGRES_GROUP_KNOWLEDGE_SPACE_MIGRATION,
     POSTGRES_GROUP_MEMBERSHIP_PROJECTION_MIGRATION,
     POSTGRES_GROUP_ARCHIVE_SAGA_MIGRATION,
     POSTGRES_INGESTION_JOB_LEASE_MIGRATION,
+    POSTGRES_SITE_PUBLICATION_MIGRATION,
 ];
 
 // Legacy migration SQL retained for contract tests only. Runtime PostgreSQL bootstrap uses

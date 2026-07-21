@@ -42,6 +42,14 @@ pub struct KnowledgeDriveImportService<'a> {
     metadata: &'a dyn DriveImportMetadataStore,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedKnowledgeDriveImportRequest {
+    pub request: KnowledgeDriveImportRequest,
+    pub drive_storage_provider_id: String,
+    pub drive_bucket: String,
+    pub drive_object_key: String,
+}
+
 impl<'a> KnowledgeDriveImportService<'a> {
     pub fn new(
         drive: &'a dyn KnowledgeDriveStorage,
@@ -52,8 +60,9 @@ impl<'a> KnowledgeDriveImportService<'a> {
 
     pub async fn import_drive_object(
         &self,
-        request: KnowledgeDriveImportRequest,
+        resolved: ResolvedKnowledgeDriveImportRequest,
     ) -> Result<KnowledgeDriveImportResult, KnowledgeDriveImportServiceError> {
+        let request = resolved.request;
         if request.space_id == 0 {
             return Err(KnowledgeDriveImportServiceError::InvalidRequest(
                 "space_id is required".to_string(),
@@ -64,42 +73,37 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 "title is required".to_string(),
             ));
         }
-        if is_blank(Some(request.drive_bucket.as_str())) {
+        if is_blank(Some(resolved.drive_bucket.as_str())) {
             return Err(KnowledgeDriveImportServiceError::InvalidRequest(
                 "drive_bucket is required".to_string(),
             ));
         }
-        if is_blank(Some(request.drive_storage_provider_id.as_str())) {
+        if is_blank(Some(resolved.drive_storage_provider_id.as_str())) {
             return Err(KnowledgeDriveImportServiceError::InvalidRequest(
                 "drive_storage_provider_id is required".to_string(),
             ));
         }
-        if is_blank(Some(request.drive_object_key.as_str())) {
+        if is_blank(Some(resolved.drive_object_key.as_str())) {
             return Err(KnowledgeDriveImportServiceError::InvalidRequest(
                 "drive_object_key is required".to_string(),
             ));
         }
         let idempotency_key = normalize_idempotency_key(&request.idempotency_key)?;
-        let drive_space_id = normalize_optional_drive_id(request.drive_space_id, "drive_space_id")?;
-        let drive_node_id = normalize_optional_drive_id(request.drive_node_id, "drive_node_id")?;
+        let drive_space_id = normalize_required_drive_id(request.drive_space_id, "drive_space_id")?;
+        let drive_node_id = normalize_required_drive_id(request.drive_node_id, "drive_node_id")?;
         let drive_storage_provider_id = normalize_required_drive_id(
-            request.drive_storage_provider_id,
+            resolved.drive_storage_provider_id,
             "drive_storage_provider_id",
         )?;
-        if drive_node_id.is_some() && drive_space_id.is_none() {
-            return Err(KnowledgeDriveImportServiceError::InvalidRequest(
-                "drive_space_id is required when drive_node_id is provided".to_string(),
-            ));
-        }
 
         let fingerprint_input = DriveImportFingerprintInput {
             space_id: request.space_id,
             title: &request.title,
-            drive_space_id: drive_space_id.as_deref(),
-            drive_node_id: drive_node_id.as_deref(),
+            drive_space_id: Some(&drive_space_id),
+            drive_node_id: Some(&drive_node_id),
             drive_storage_provider_id: &drive_storage_provider_id,
-            drive_bucket: &request.drive_bucket,
-            drive_object_key: &request.drive_object_key,
+            drive_bucket: &resolved.drive_bucket,
+            drive_object_key: &resolved.drive_object_key,
             language: request.language.as_deref(),
         };
         let fingerprint = drive_import_idempotency_fingerprint_sha256_hex(&fingerprint_input);
@@ -116,8 +120,8 @@ impl<'a> KnowledgeDriveImportService<'a> {
             .drive
             .head_object(HeadKnowledgeObjectRequest::original_document(
                 drive_storage_provider_id.clone(),
-                request.drive_bucket.clone(),
-                request.drive_object_key.clone(),
+                resolved.drive_bucket.clone(),
+                resolved.drive_object_key.clone(),
             ))
             .await?;
         if original_object_ref.storage_provider_id != drive_storage_provider_id {
@@ -139,15 +143,15 @@ impl<'a> KnowledgeDriveImportService<'a> {
                 object_ref: managed_drive_object_ref_record(
                     request.space_id,
                     &original_object_ref,
-                    drive_space_id.as_deref(),
-                    drive_node_id.clone(),
+                    Some(&drive_space_id),
+                    Some(drive_node_id.clone()),
                 ),
                 source: CreateKnowledgeSourceRecord {
                     space_id: request.space_id,
                     source_type: KnowledgeSourceType::DriveObject,
                     provider: Some("sdkwork-drive".to_string()),
-                    drive_bucket: Some(request.drive_bucket),
-                    drive_prefix: Some(request.drive_object_key),
+                    drive_bucket: Some(resolved.drive_bucket),
+                    drive_prefix: Some(resolved.drive_object_key),
                     connector_metadata_json: None,
                 },
                 document: CreateKnowledgeDocumentRecord {
@@ -155,7 +159,7 @@ impl<'a> KnowledgeDriveImportService<'a> {
                     collection_id: 0,
                     source_id: None,
                     identity_scope: KnowledgeDocumentIdentityScope::SourceOnly,
-                    original_file_drive_node_id: drive_node_id,
+                    original_file_drive_node_id: Some(drive_node_id),
                     title: request.title,
                     mime_type: Some(original_object_ref.content_type.clone()),
                     language: request.language,

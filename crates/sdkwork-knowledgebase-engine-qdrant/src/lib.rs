@@ -135,9 +135,10 @@ impl KnowledgeEngine for QdrantKnowledgeEngine {
                 return Ok(KnowledgeEngineHealth {
                     implementation_id: QDRANT_IMPLEMENTATION_ID.to_string(),
                     status: KnowledgeEngineHealthStatus::Degraded,
-                    detail: Some(format!(
+                    detail: Some(
                         "Qdrant connector health requires an active Provider binding with a remote resource id"
-                    )),
+                            .to_string(),
+                    ),
                 });
             }
         };

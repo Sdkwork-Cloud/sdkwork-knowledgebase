@@ -19,8 +19,8 @@ mod hosted_commerce;
 mod hosted_context_binding;
 mod hosted_group_launch;
 mod hosted_open;
+mod hosted_site;
 mod hosted_support;
-mod hosted_upload;
 mod hosted_wechat;
 pub mod http_route_manifest;
 mod knowledge_engine_adapters;
@@ -29,6 +29,7 @@ pub mod pagination;
 pub mod paths;
 mod ports;
 mod provider_credential_resolver;
+mod public_site;
 mod routes;
 pub mod runtime;
 mod tenant_quota_enforcement;
@@ -41,7 +42,7 @@ pub use ports::{
     KnowledgeCommerceAppService, KnowledgeContextBindingAppService, KnowledgeDocumentAppService,
     KnowledgeDriveImportAppService, KnowledgeGitImportAppService, KnowledgeGroupLaunchAppService,
     KnowledgeIngestAppService, KnowledgeOkfAppService, KnowledgeRetrievalAppService,
-    KnowledgeSpaceAppService, KnowledgeUploadSessionAppService, KnowledgeWechatAppService,
+    KnowledgeSiteAppService, KnowledgeSpaceAppService, KnowledgeWechatAppService,
 };
 pub use routes::{
     build_router_with_agent_and_retrieval_services, build_router_with_agent_service,

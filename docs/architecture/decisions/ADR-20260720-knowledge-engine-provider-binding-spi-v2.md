@@ -19,7 +19,8 @@ actor, data scope, deadline, or credential reference required for a tenant-safe 
 Catalog/capability truth, native-mode precedence, ambiguous external selection, external health,
 and duplicate registration are already corrected under REQ-2026-0720. The data, public API,
 credential, component, and migration decisions in this record were accepted by the application
-owner on 2026-07-20 before their implementation began.
+owner on 2026-07-21. The implementation evidence recorded below predates the final repository
+acceptance and is governed by this accepted decision from that point forward.
 
 ## Decision
 
@@ -237,7 +238,7 @@ The approved scope, compatibility decision, rollback, and verification commands 
 - [x] Database migration/backfill/RLS/index and rollback plan accepted.
 - [x] Licensing, production-tier certification, and release governance accepted as mandatory gates.
 
-Review evidence: application owner explicitly accepted `ADR-20260720` on 2026-07-20.
+Review evidence: application owner explicitly accepted `ADR-20260720` on 2026-07-21.
 
 ## Supersedes / Superseded By
 

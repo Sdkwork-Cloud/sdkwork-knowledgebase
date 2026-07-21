@@ -132,24 +132,27 @@ async fn integration_market_subscription_round_trip() {
 }
 
 #[tokio::test]
-async fn integration_site_deployment_fails_closed_without_a_publisher() {
+async fn integration_site_upsert_creates_the_site_resource() {
     let runtime = test_runtime().await;
-    let space_id = create_space(&runtime, "Site Deployment Space").await;
+    let space_id = create_space(&runtime, "Knowledge Site Space").await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
 
-    let ingest_response = app
+    let site_response = app
         .clone()
         .oneshot(
             Request::builder()
-                .method(Method::POST)
-                .uri(paths::INGESTS)
+                .method(Method::PUT)
+                .uri(paths::SPACE_SITE.replace("{space_id}", &space_id.to_string()))
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({
                         "spaceId": space_id,
-                        "title": "deploy-page",
-                        "idempotencyKey": "integration-site-deploy-001",
-                        "payloadMarkdown": "# Deploy\n\nPublished body."
+                        "title": "Knowledge Site",
+                        "visibility": "public",
+                        "homepageConceptId": null,
+                        "themeId": "default",
+                        "publishMode": "manual",
+                        "expectedVersion": null
                     })
                     .to_string(),
                 ))
@@ -158,37 +161,16 @@ async fn integration_site_deployment_fails_closed_without_a_publisher() {
         .await
         .unwrap();
     assert_eq!(
-        ingest_response.status(),
-        StatusCode::CREATED,
-        "ingest failed: {}",
-        response_body_string(ingest_response).await
+        site_response.status(),
+        StatusCode::OK,
+        "site upsert failed: {}",
+        response_body_string(site_response).await
     );
-
-    let deploy_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(Method::POST)
-                .uri(paths::SITE_DEPLOYMENTS)
-                .header("content-type", "application/json")
-                .body(Body::from(
-                    json!({
-                        "spaceId": space_id,
-                        "platform": "vercel",
-                        "siteName": "Deploy Demo"
-                    })
-                    .to_string(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(deploy_response.status(), StatusCode::SERVICE_UNAVAILABLE);
-    let body = response_body_json(deploy_response).await;
-    assert_eq!(body["code"], 50301);
-    assert_eq!(body["status"], 503);
-    assert!(body.get("detail").is_none());
-    assert!(!body.to_string().contains("sites.sdkwork.com"));
+    let body = response_body_json(site_response).await;
+    assert_eq!(body["spaceId"].as_str(), Some(space_id.to_string().as_str()));
+    assert_eq!(body["title"], "Knowledge Site");
+    assert_eq!(body["visibility"], "public");
+    assert_eq!(body["publishMode"], "manual");
 }
 
 #[tokio::test]

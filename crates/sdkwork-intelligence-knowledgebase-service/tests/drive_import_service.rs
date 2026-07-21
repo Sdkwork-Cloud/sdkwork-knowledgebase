@@ -1,5 +1,7 @@
 use async_trait::async_trait;
-use sdkwork_intelligence_knowledgebase_service::imports::KnowledgeDriveImportService;
+use sdkwork_intelligence_knowledgebase_service::imports::{
+    KnowledgeDriveImportService, ResolvedKnowledgeDriveImportRequest,
+};
 use sdkwork_intelligence_knowledgebase_service::ports::drive_import_metadata_store::{
     DriveImportMetadataStore, DriveImportMetadataStoreError, PrepareDriveImportMetadataRecord,
     PreparedDriveImportMetadata,
@@ -27,6 +29,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_ingestion_job_s
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_source_store::{
     CreateKnowledgeSourceRecord, KnowledgeSourceStore, KnowledgeSourceStoreError,
 };
+use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
 use sdkwork_knowledgebase_contract::document::{
     KnowledgeDocument, KnowledgeDocumentState, KnowledgeDocumentVersion,
     KnowledgeDocumentVersionState, KnowledgeDocumentVisibility,
@@ -35,9 +38,29 @@ use sdkwork_knowledgebase_contract::ingest::{
     IngestionJob, IngestionJobState, KnowledgeDriveImportRequest,
 };
 use sdkwork_knowledgebase_contract::source::{KnowledgeSource, KnowledgeSourceType};
-use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+fn resolved_drive_import_request(
+    title: &str,
+    drive_node_id: &str,
+    drive_object_key: &str,
+    idempotency_key: &str,
+) -> ResolvedKnowledgeDriveImportRequest {
+    ResolvedKnowledgeDriveImportRequest {
+        request: KnowledgeDriveImportRequest {
+            space_id: 7,
+            title: title.to_string(),
+            drive_space_id: "drv-kb-001".to_string(),
+            drive_node_id: drive_node_id.to_string(),
+            idempotency_key: idempotency_key.to_string(),
+            language: Some("en".to_string()),
+        },
+        drive_storage_provider_id: "provider-kb".to_string(),
+        drive_bucket: "knowledgebase-source".to_string(),
+        drive_object_key: drive_object_key.to_string(),
+    }
+}
 
 #[tokio::test]
 async fn drive_import_heads_drive_object_then_creates_source_document_version_and_job() {
@@ -56,17 +79,12 @@ async fn drive_import_heads_drive_object_then_creates_source_document_version_an
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let result = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quarterly Report".to_string(),
-            drive_space_id: None,
-            drive_node_id: None,
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-source".to_string(),
-            drive_object_key: "incoming/quarterly-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Quarterly Report",
+            "node-quarterly-report",
+            "incoming/quarterly-report.md",
+            "drive-quarterly-report",
+        ))
         .await
         .unwrap();
 
@@ -89,7 +107,10 @@ async fn drive_import_heads_drive_object_then_creates_source_document_version_an
     assert_eq!(result.document.source_id, Some(result.source.id));
     assert_eq!(result.document.title, "Quarterly Report");
     assert_eq!(result.document.content_state, KnowledgeDocumentState::Ready);
-    assert_eq!(result.document.original_file_drive_node_id, None);
+    assert_eq!(
+        result.document.original_file_drive_node_id.as_deref(),
+        Some("node-quarterly-report")
+    );
     assert_eq!(result.version.version_no, 1);
     assert_eq!(result.document.current_version_id, Some(result.version.id));
     assert_eq!(result.original_object_ref.object_role, "original_document");
@@ -144,17 +165,12 @@ async fn drive_import_replay_reuses_metadata_for_same_idempotency_key() {
         MemoryDriveImportMetadataStore::new(&sources, &documents, &object_refs, &versions, &jobs);
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
-    let request = KnowledgeDriveImportRequest {
-        space_id: 7,
-        title: "Quarterly Report".to_string(),
-        drive_space_id: None,
-        drive_node_id: None,
-        drive_storage_provider_id: "provider-kb".to_string(),
-        drive_bucket: "knowledgebase-source".to_string(),
-        drive_object_key: "incoming/quarterly-report.md".to_string(),
-        idempotency_key: "drive-quarterly-report".to_string(),
-        language: Some("en".to_string()),
-    };
+    let request = resolved_drive_import_request(
+        "Quarterly Report",
+        "node-quarterly-report",
+        "incoming/quarterly-report.md",
+        "drive-quarterly-report",
+    );
 
     let first = service.import_drive_object(request.clone()).await.unwrap();
     let replay = service.import_drive_object(request).await.unwrap();
@@ -186,21 +202,14 @@ async fn drive_import_trims_idempotency_key_before_lookup() {
         MemoryDriveImportMetadataStore::new(&sources, &documents, &object_refs, &versions, &jobs);
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
-    let request = KnowledgeDriveImportRequest {
-        space_id: 7,
-        title: "Quarterly Report".to_string(),
-        drive_space_id: None,
-        drive_node_id: None,
-        drive_storage_provider_id: "provider-kb".to_string(),
-        drive_bucket: "knowledgebase-source".to_string(),
-        drive_object_key: "incoming/quarterly-report.md".to_string(),
-        idempotency_key: "drive-quarterly-report".to_string(),
-        language: Some("en".to_string()),
-    };
-    let replay_request = KnowledgeDriveImportRequest {
-        idempotency_key: " drive-quarterly-report ".to_string(),
-        ..request.clone()
-    };
+    let request = resolved_drive_import_request(
+        "Quarterly Report",
+        "node-quarterly-report",
+        "incoming/quarterly-report.md",
+        "drive-quarterly-report",
+    );
+    let mut replay_request = request.clone();
+    replay_request.request.idempotency_key = " drive-quarterly-report ".to_string();
 
     let first = service.import_drive_object(request).await.unwrap();
     let replay = service.import_drive_object(replay_request).await.unwrap();
@@ -236,32 +245,22 @@ async fn drive_import_rejects_same_idempotency_key_for_different_drive_object_be
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let first = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quarterly Report".to_string(),
-            drive_space_id: None,
-            drive_node_id: None,
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-source".to_string(),
-            drive_object_key: "incoming/quarterly-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Quarterly Report",
+            "node-quarterly-report",
+            "incoming/quarterly-report.md",
+            "drive-quarterly-report",
+        ))
         .await
         .unwrap();
 
     let error = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Other Report".to_string(),
-            drive_space_id: None,
-            drive_node_id: None,
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-source".to_string(),
-            drive_object_key: "incoming/other-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Other Report",
+            "node-other-report",
+            "incoming/other-report.md",
+            "drive-quarterly-report",
+        ))
         .await
         .unwrap_err();
 
@@ -298,17 +297,12 @@ async fn drive_import_rejects_unsafe_idempotency_key_before_side_effects() {
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let error = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quarterly Report".to_string(),
-            drive_space_id: None,
-            drive_node_id: None,
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-source".to_string(),
-            drive_object_key: "incoming/quarterly-report.md".to_string(),
-            idempotency_key: "../escape".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Quarterly Report",
+            "node-quarterly-report",
+            "incoming/quarterly-report.md",
+            "../escape",
+        ))
         .await
         .unwrap_err();
 
@@ -339,23 +333,20 @@ async fn drive_import_rejects_provider_id_mismatch_before_import_writes() {
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let error = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quarterly Report".to_string(),
-            drive_space_id: None,
-            drive_node_id: None,
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-source".to_string(),
-            drive_object_key: "incoming/quarterly-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Quarterly Report",
+            "node-quarterly-report",
+            "incoming/quarterly-report.md",
+            "drive-quarterly-report",
+        ))
         .await
         .unwrap_err();
 
-    assert!(error
-        .to_string()
-        .contains("drive_storage_provider_id does not match"));
+    assert!(
+        error
+            .to_string()
+            .contains("drive_storage_provider_id does not match")
+    );
     assert_eq!(
         drive.heads(),
         vec![(
@@ -387,17 +378,12 @@ async fn drive_import_preserves_drive_node_binding_for_browser_projection() {
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let result = service
-        .import_drive_object(KnowledgeDriveImportRequest {
-            space_id: 7,
-            title: "Quarterly Report".to_string(),
-            drive_space_id: Some("drv-kb-001".to_string()),
-            drive_node_id: Some("node-report".to_string()),
-            drive_storage_provider_id: "provider-kb".to_string(),
-            drive_bucket: "knowledgebase-source".to_string(),
-            drive_object_key: "incoming/quarterly-report.md".to_string(),
-            idempotency_key: "drive-quarterly-report".to_string(),
-            language: Some("en".to_string()),
-        })
+        .import_drive_object(resolved_drive_import_request(
+            "Quarterly Report",
+            "node-report",
+            "incoming/quarterly-report.md",
+            "drive-quarterly-report",
+        ))
         .await
         .unwrap();
 
