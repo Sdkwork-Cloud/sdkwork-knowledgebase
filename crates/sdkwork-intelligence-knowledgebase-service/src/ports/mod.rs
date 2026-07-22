@@ -36,5 +36,7 @@ pub mod knowledge_source_store;
 pub mod knowledge_space_store;
 pub mod knowledge_wiki_drive_source;
 pub mod knowledge_wiki_persistence;
+pub mod knowledge_wiki_public_provider;
+pub mod knowledge_wiki_publication_lifecycle;
 pub mod markdown_index_metadata_store;
 pub mod okf_concept_revision_metadata_store;

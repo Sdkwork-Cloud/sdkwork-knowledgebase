@@ -3,7 +3,6 @@
 use zeroize::Zeroizing;
 
 pub const ONYX_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_ONYX_BASE_URL";
-pub const ONYX_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_ONYX_CREDENTIAL";
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct OnyxConnectorConfig {

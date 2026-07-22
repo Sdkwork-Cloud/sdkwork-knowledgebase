@@ -41,6 +41,42 @@ const appOperations = [
     operationId: 'documents.content.list',
     itemRef: '#/components/schemas/KnowledgeDocumentContent',
   }),
+  resource('get', '/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication', {
+    operationId: 'wikiPublications.retrieve',
+    itemRef: '#/components/schemas/KnowledgeWikiPublication',
+  }),
+  resource('post', '/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/activate', {
+    operationId: 'wikiPublications.activate',
+    itemRef: '#/components/schemas/KnowledgeWikiPublication',
+  }),
+  resource('post', '/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/pause', {
+    operationId: 'wikiPublications.pause',
+    itemRef: '#/components/schemas/KnowledgeWikiPublication',
+  }),
+  resource(
+    'post',
+    '/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/publish',
+    {
+      operationId: 'wikiSourceFiles.publish',
+      itemRef: '#/components/schemas/KnowledgeWikiSourceFileCommandResult',
+    },
+  ),
+  resource(
+    'post',
+    '/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/unpublish',
+    {
+      operationId: 'wikiSourceFiles.unpublish',
+      itemRef: '#/components/schemas/KnowledgeWikiSourceFileCommandResult',
+    },
+  ),
+  resource(
+    'patch',
+    '/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/visibility',
+    {
+      operationId: 'wikiSourceFiles.visibility.update',
+      itemRef: '#/components/schemas/KnowledgeWikiSourceFileCommandResult',
+    },
+  ),
   resource('post', '/app/v3/api/knowledge/documents/{documentId}/versions', {
     operationId: 'documents.versions.versions',
     status: '200',
@@ -183,8 +219,8 @@ const backendOperations = [
     itemRef: '#/components/schemas/OkfConceptSummary',
   }),
   resource('post', '/backend/v3/api/knowledge/okf/index/rebuild', {
-    operationId: 'okf.bundle.index.create',
-    status: '201',
+    operationId: 'okf.bundle.index.rebuild',
+    status: '200',
     itemRef: '#/components/schemas/OkfIndexDocument',
   }),
   resource('get', '/backend/v3/api/knowledge/provider_health', {
@@ -373,6 +409,345 @@ function noContent(method, routePath, options) {
     operationId: options.operationId,
     status: '204',
     noContent: true,
+  };
+}
+
+function ensureWikiPublicationContracts(spec) {
+  const schemas = spec.components?.schemas;
+  if (!schemas || typeof schemas !== 'object') {
+    throw new Error('App OpenAPI components.schemas is required');
+  }
+
+  schemas.KnowledgeWikiPublicationStatus = stringEnum([
+    'draft',
+    'validating',
+    'ready',
+    'active',
+    'degraded',
+    'paused',
+    'archived',
+    'failed',
+  ]);
+  schemas.KnowledgeWikiPublicationMode = stringEnum([
+    'review_required',
+    'auto_public_after_checks',
+  ]);
+  schemas.KnowledgeWikiVisibility = stringEnum(['private', 'unlisted', 'public']);
+  schemas.KnowledgeWikiUpdatePolicy = stringEnum([
+    'keep_last_public_until_ready',
+    'unpublish_during_processing',
+  ]);
+  schemas.KnowledgeWikiSourceFileKind = stringEnum([
+    'page',
+    'document',
+    'presentation',
+    'spreadsheet',
+    'code',
+    'media',
+    'asset',
+    'archive',
+  ]);
+  schemas.KnowledgeWikiSourceState = stringEnum([
+    'discovered',
+    'queued',
+    'processing',
+    'ready',
+    'error',
+    'quarantined',
+    'deleted',
+  ]);
+  schemas.KnowledgeWikiPagePublicationState = stringEnum([
+    'draft',
+    'in_review',
+    'scheduled',
+    'published',
+    'unpublished',
+    'archived',
+  ]);
+  schemas.KnowledgeWikiIndexState = stringEnum([
+    'not_required',
+    'pending',
+    'indexing',
+    'ready',
+    'error',
+  ]);
+  schemas.KnowledgeWikiPublication = objectSchema(
+    [
+      'uuid',
+      'spaceId',
+      'driveSpaceUuid',
+      'sourceRootNodeUuid',
+      'status',
+      'title',
+      'homepageSourcePath',
+      'publicationMode',
+      'defaultVisibility',
+      'updatePolicy',
+      'providerGeneration',
+      'navigationGeneration',
+      'searchGeneration',
+      'lastProjectedDriveCheckpoint',
+      'version',
+    ],
+    {
+      uuid: boundedString(1, 64),
+      spaceId: int64StringSchema(),
+      driveSpaceUuid: boundedString(1, 64),
+      sourceRootNodeUuid: nullableSchema(boundedString(1, 64)),
+      status: { $ref: '#/components/schemas/KnowledgeWikiPublicationStatus' },
+      title: boundedString(1, 256),
+      homepageSourcePath: boundedString(1, 1024),
+      publicationMode: { $ref: '#/components/schemas/KnowledgeWikiPublicationMode' },
+      defaultVisibility: { $ref: '#/components/schemas/KnowledgeWikiVisibility' },
+      updatePolicy: { $ref: '#/components/schemas/KnowledgeWikiUpdatePolicy' },
+      providerGeneration: int64StringSchema(),
+      navigationGeneration: int64StringSchema(),
+      searchGeneration: int64StringSchema(),
+      lastProjectedDriveCheckpoint: int64StringSchema(),
+      version: int64StringSchema(),
+    },
+    'Canonical Wiki publication state for one Knowledgebase.',
+  );
+  schemas.KnowledgeWikiSourceFile = objectSchema(
+    [
+      'uuid',
+      'driveNodeUuid',
+      'driveVersionUuid',
+      'sourcePath',
+      'canonicalRoute',
+      'fileKind',
+      'mediaType',
+      'sizeBytes',
+      'contentSha256',
+      'sourceState',
+      'publicationState',
+      'visibility',
+      'indexState',
+      'publicDriveVersionUuid',
+      'pagePublicVersion',
+      'version',
+    ],
+    {
+      uuid: boundedString(1, 64),
+      driveNodeUuid: boundedString(1, 64),
+      driveVersionUuid: boundedString(1, 64),
+      sourcePath: boundedString(1, 2048),
+      canonicalRoute: nullableSchema(boundedString(1, 2048)),
+      fileKind: { $ref: '#/components/schemas/KnowledgeWikiSourceFileKind' },
+      mediaType: boundedString(1, 255),
+      sizeBytes: int64StringSchema(),
+      contentSha256: boundedString(1, 128),
+      sourceState: { $ref: '#/components/schemas/KnowledgeWikiSourceState' },
+      publicationState: { $ref: '#/components/schemas/KnowledgeWikiPagePublicationState' },
+      visibility: { $ref: '#/components/schemas/KnowledgeWikiVisibility' },
+      indexState: { $ref: '#/components/schemas/KnowledgeWikiIndexState' },
+      publicDriveVersionUuid: nullableSchema(boundedString(1, 64)),
+      pagePublicVersion: int64StringSchema(),
+      version: int64StringSchema(),
+    },
+    'Projected sources/raw file state and its pinned public version.',
+  );
+  schemas.KnowledgeWikiPublicationVersionCommandRequest = objectSchema(
+    ['expectedVersion'],
+    { expectedVersion: int64StringSchema() },
+    'Optimistic Wiki publication status command.',
+  );
+  schemas.PublishKnowledgeWikiSourceFileRequest = objectSchema(
+    ['visibility', 'expectedPublicationVersion', 'expectedPageVersion'],
+    {
+      visibility: stringEnum(['unlisted', 'public']),
+      expectedPublicationVersion: int64StringSchema(),
+      expectedPageVersion: int64StringSchema(),
+    },
+    'Publish the exact current Drive version as PUBLIC or UNLISTED.',
+  );
+  schemas.KnowledgeWikiSourceFileVersionCommandRequest = objectSchema(
+    ['expectedPublicationVersion', 'expectedPageVersion'],
+    {
+      expectedPublicationVersion: int64StringSchema(),
+      expectedPageVersion: int64StringSchema(),
+    },
+    'Optimistic Wiki source-file publication command.',
+  );
+  schemas.ChangeKnowledgeWikiSourceFileVisibilityRequest = objectSchema(
+    ['visibility', 'expectedPublicationVersion', 'expectedPageVersion'],
+    {
+      visibility: { $ref: '#/components/schemas/KnowledgeWikiVisibility' },
+      expectedPublicationVersion: int64StringSchema(),
+      expectedPageVersion: int64StringSchema(),
+    },
+    'Change a published Wiki source file visibility with version fencing.',
+  );
+  schemas.KnowledgeWikiSourceFileCommandResult = objectSchema(
+    ['publication', 'sourceFile'],
+    {
+      publication: { $ref: '#/components/schemas/KnowledgeWikiPublication' },
+      sourceFile: { $ref: '#/components/schemas/KnowledgeWikiSourceFile' },
+    },
+    'Updated publication and source-file state after a Wiki command.',
+  );
+
+  const spaceId = pathIdParameter('spaceId');
+  const sourceFileUuid = {
+    name: 'sourceFileUuid',
+    in: 'path',
+    required: true,
+    schema: boundedString(1, 64),
+  };
+  registerWikiOperation(spec, 'get', '/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication', {
+    operationId: 'wikiPublications.retrieve',
+    summary: 'Retrieve Wiki publication',
+    parameters: [spaceId],
+    permission: 'knowledge.spaces.read',
+    resource: 'wiki-publication',
+  });
+  registerWikiOperation(
+    spec,
+    'post',
+    '/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/activate',
+    {
+      operationId: 'wikiPublications.activate',
+      summary: 'Activate Wiki publication',
+      parameters: [spaceId],
+      requestSchema: '#/components/schemas/KnowledgeWikiPublicationVersionCommandRequest',
+      permission: 'knowledge.spaces.write',
+      resource: 'wiki-publication',
+      auditEvent: 'knowledge.wiki.publication.activated',
+    },
+  );
+  registerWikiOperation(
+    spec,
+    'post',
+    '/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/pause',
+    {
+      operationId: 'wikiPublications.pause',
+      summary: 'Pause Wiki publication',
+      parameters: [spaceId],
+      requestSchema: '#/components/schemas/KnowledgeWikiPublicationVersionCommandRequest',
+      permission: 'knowledge.spaces.write',
+      resource: 'wiki-publication',
+      auditEvent: 'knowledge.wiki.publication.paused',
+    },
+  );
+  registerWikiOperation(
+    spec,
+    'post',
+    '/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/publish',
+    {
+      operationId: 'wikiSourceFiles.publish',
+      summary: 'Publish Wiki source file',
+      parameters: [spaceId, sourceFileUuid],
+      requestSchema: '#/components/schemas/PublishKnowledgeWikiSourceFileRequest',
+      permission: 'knowledge.spaces.write',
+      resource: 'wiki-source-file',
+      auditEvent: 'knowledge.wiki.source_file.published',
+    },
+  );
+  registerWikiOperation(
+    spec,
+    'post',
+    '/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/unpublish',
+    {
+      operationId: 'wikiSourceFiles.unpublish',
+      summary: 'Unpublish Wiki source file',
+      parameters: [spaceId, sourceFileUuid],
+      requestSchema: '#/components/schemas/KnowledgeWikiSourceFileVersionCommandRequest',
+      permission: 'knowledge.spaces.write',
+      resource: 'wiki-source-file',
+      auditEvent: 'knowledge.wiki.source_file.unpublished',
+    },
+  );
+  registerWikiOperation(
+    spec,
+    'patch',
+    '/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/visibility',
+    {
+      operationId: 'wikiSourceFiles.visibility.update',
+      summary: 'Change Wiki source file visibility',
+      parameters: [spaceId, sourceFileUuid],
+      requestSchema: '#/components/schemas/ChangeKnowledgeWikiSourceFileVisibilityRequest',
+      permission: 'knowledge.spaces.write',
+      resource: 'wiki-source-file',
+      auditEvent: 'knowledge.wiki.source_file.visibility_changed',
+    },
+  );
+}
+
+function registerWikiOperation(spec, method, routePath, options) {
+  spec.paths ??= {};
+  spec.paths[routePath] ??= {};
+  removeNonCanonicalHttpOperations(spec.paths[routePath], method);
+  const template = spec.paths?.['/app/v3/api/knowledge/spaces/{spaceId}']?.get;
+  if (!template) {
+    throw new Error('Knowledge space retrieve operation is required as App API metadata template');
+  }
+  const responses = Object.fromEntries(
+    Object.entries(template.responses ?? {})
+      .filter(([status]) => !/^2[0-9][0-9]$/u.test(status))
+      .map(([status, response]) => [status, structuredClone(response)]),
+  );
+  spec.paths[routePath][method] = {
+    operationId: options.operationId,
+    tags: ['knowledge'],
+    summary: options.summary,
+    description: options.summary,
+    parameters: structuredClone(options.parameters),
+    ...(options.requestSchema
+      ? {
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': { schema: { $ref: options.requestSchema } },
+            },
+          },
+        }
+      : {}),
+    responses,
+    security: structuredClone(template.security),
+    'x-sdkwork-owner': 'sdkwork-knowledgebase',
+    'x-sdkwork-api-authority': 'sdkwork-knowledgebase-app-api',
+    'x-sdkwork-request-context': 'WebRequestContext',
+    'x-sdkwork-api-surface': 'app-api',
+    'x-sdkwork-source-route-crate': 'sdkwork-routes-knowledgebase-app-api',
+    'x-sdkwork-auth-mode': 'dual-token',
+    'x-sdkwork-domain': 'intelligence',
+    'x-sdkwork-resource': options.resource,
+    'x-sdkwork-permission': options.permission,
+    'x-sdkwork-tenant-scope': 'tenant',
+    'x-sdkwork-data-scope': 'organization',
+    ...(method !== 'get'
+      ? {
+          'x-sdkwork-rate-limit-tier': 'auth-critical',
+          'x-sdkwork-idempotent': true,
+          'x-sdkwork-audit-event': options.auditEvent,
+        }
+      : {}),
+  };
+}
+
+function removeNonCanonicalHttpOperations(pathItem, canonicalMethod) {
+  for (const method of ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace']) {
+    if (method !== canonicalMethod) {
+      delete pathItem[method];
+    }
+  }
+}
+
+function stringEnum(values) {
+  return { type: 'string', enum: values };
+}
+
+function boundedString(minLength, maxLength) {
+  return { type: 'string', minLength, maxLength };
+}
+
+function objectSchema(required, properties, description) {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    description,
+    required,
+    properties,
   };
 }
 
@@ -849,6 +1224,9 @@ function nullableSchema(schema) {
 
 async function alignFile(filePath, operationAlignments) {
   const spec = JSON.parse(await readFile(filePath, 'utf8'));
+  if (filePath === appOpenApiPath) {
+    ensureWikiPublicationContracts(spec);
+  }
   if (filePath === backendOpenApiPath) {
     ensureProviderManagementContracts(spec);
   }

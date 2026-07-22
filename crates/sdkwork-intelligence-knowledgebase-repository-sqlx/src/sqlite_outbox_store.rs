@@ -122,7 +122,8 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         let limit = i64::from(limit.clamp(1, 200));
         let rows = sqlx::query(
             r#"
-            SELECT id, aggregate_type, aggregate_id, event_type, CAST(payload AS TEXT) AS payload
+            SELECT id, uuid, aggregate_type, aggregate_id, event_type, retry_count,
+                   CAST(payload AS TEXT) AS payload
             FROM kb_outbox_event
             WHERE tenant_id = $1 AND status = $2
             ORDER BY created_at ASC, id ASC
@@ -139,10 +140,18 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         rows.into_iter()
             .map(|row| {
                 Ok(PendingOutboxEvent {
-                    id: row.try_get::<i64, _>("id").map_err(sqlx_error)? as u64,
+                    id: from_i64("id", row.try_get("id").map_err(sqlx_error)?)?,
+                    event_uuid: row.try_get("uuid").map_err(sqlx_error)?,
                     aggregate_type: row.try_get("aggregate_type").map_err(sqlx_error)?,
-                    aggregate_id: row.try_get::<i64, _>("aggregate_id").map_err(sqlx_error)? as u64,
+                    aggregate_id: from_i64(
+                        "aggregate_id",
+                        row.try_get("aggregate_id").map_err(sqlx_error)?,
+                    )?,
                     event_type: row.try_get("event_type").map_err(sqlx_error)?,
+                    retry_count: from_i64_u32(
+                        "retry_count",
+                        row.try_get("retry_count").map_err(sqlx_error)?,
+                    )?,
                     payload_json: row.try_get("payload").map_err(sqlx_error)?,
                 })
             })
@@ -175,7 +184,8 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                     LIMIT $5
                     FOR UPDATE SKIP LOCKED
                 )
-                RETURNING id, aggregate_type, aggregate_id, event_type, CAST(payload AS TEXT) AS payload
+                RETURNING id, uuid, aggregate_type, aggregate_id, event_type, retry_count,
+                          CAST(payload AS TEXT) AS payload
                 "#,
             );
             sqlx::query(&query)
@@ -199,7 +209,8 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                     ORDER BY created_at ASC, id ASC
                     LIMIT $5
                 )
-                RETURNING id, aggregate_type, aggregate_id, event_type, CAST(payload AS TEXT) AS payload
+                RETURNING id, uuid, aggregate_type, aggregate_id, event_type, retry_count,
+                          CAST(payload AS TEXT) AS payload
                 "#,
             );
             sqlx::query(&query)
@@ -216,10 +227,18 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         rows.into_iter()
             .map(|row| {
                 Ok(PendingOutboxEvent {
-                    id: row.try_get::<i64, _>("id").map_err(sqlx_error)? as u64,
+                    id: from_i64("id", row.try_get("id").map_err(sqlx_error)?)?,
+                    event_uuid: row.try_get("uuid").map_err(sqlx_error)?,
                     aggregate_type: row.try_get("aggregate_type").map_err(sqlx_error)?,
-                    aggregate_id: row.try_get::<i64, _>("aggregate_id").map_err(sqlx_error)? as u64,
+                    aggregate_id: from_i64(
+                        "aggregate_id",
+                        row.try_get("aggregate_id").map_err(sqlx_error)?,
+                    )?,
                     event_type: row.try_get("event_type").map_err(sqlx_error)?,
+                    retry_count: from_i64_u32(
+                        "retry_count",
+                        row.try_get("retry_count").map_err(sqlx_error)?,
+                    )?,
                     payload_json: row.try_get("payload").map_err(sqlx_error)?,
                 })
             })
@@ -377,6 +396,22 @@ fn truncate_outbox_error(error_message: &str) -> String {
 fn to_i64(field: &str, value: u64) -> Result<i64, KnowledgeOutboxStoreError> {
     i64::try_from(value).map_err(|_| {
         KnowledgeOutboxStoreError::InvalidRequest(format!("{field} exceeds i64 range: {value}"))
+    })
+}
+
+fn from_i64(field: &str, value: i64) -> Result<u64, KnowledgeOutboxStoreError> {
+    u64::try_from(value).map_err(|_| {
+        KnowledgeOutboxStoreError::Internal(format!(
+            "persisted {field} must be a non-negative integer"
+        ))
+    })
+}
+
+fn from_i64_u32(field: &str, value: i64) -> Result<u32, KnowledgeOutboxStoreError> {
+    u32::try_from(value).map_err(|_| {
+        KnowledgeOutboxStoreError::Internal(format!(
+            "persisted {field} must be a non-negative 32-bit integer"
+        ))
     })
 }
 

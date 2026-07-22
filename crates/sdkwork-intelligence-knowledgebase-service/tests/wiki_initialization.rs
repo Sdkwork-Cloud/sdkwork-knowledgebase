@@ -3,14 +3,6 @@ use std::{collections::HashMap, sync::Mutex};
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::{
     ports::{
-        knowledge_drive_node_tree::{
-            DriveNodeKind, GetKnowledgeDriveNodeRequest, KnowledgeDriveNodePage,
-            KnowledgeDriveNodeSummary, KnowledgeDriveNodeTree, KnowledgeDriveNodeTreeError,
-            ListKnowledgeDriveNodeChildrenRequest, ResolveKnowledgeDriveNodePathRequest,
-        },
-        knowledge_drive_workspace::{
-            EnsureKnowledgeDriveNodesRequest, KnowledgeDriveWorkspace, KnowledgeDriveWorkspaceError,
-        },
         knowledge_wiki_drive_source::{
             EnsureKnowledgebaseRawScopeRequest, KnowledgeWikiDriveScope,
             KnowledgeWikiDriveSourceError, KnowledgebaseRawScope,
@@ -21,10 +13,7 @@ use sdkwork_intelligence_knowledgebase_service::{
         KnowledgeWikiBackfillService, RunWikiPublicationBackfillRequest,
         WikiPublicationBackfillDisposition,
     },
-    wiki_initialization::{
-        InitializeKnowledgeWikiRequest, KnowledgeWikiInitializationService,
-        KNOWLEDGE_WIKI_SOURCE_ROOT_PATH,
-    },
+    wiki_initialization::{InitializeKnowledgeWikiRequest, KnowledgeWikiInitializationService},
 };
 
 const SCOPE: WikiPersistenceScope = WikiPersistenceScope {
@@ -35,16 +24,9 @@ const SCOPE: WikiPersistenceScope = WikiPersistenceScope {
 #[tokio::test]
 async fn initialization_ensures_canonical_raw_scope_and_checkpoint() {
     let persistence = MemoryWikiPersistence::with_publication(publication(501, "drive-501"));
-    let workspace = RecordingWorkspace::default();
-    let tree = FixedTree;
     let drive_scope = FixedDriveScope::default();
-    let initializer = KnowledgeWikiInitializationService::new(
-        &persistence,
-        &persistence,
-        &workspace,
-        &tree,
-        &drive_scope,
-    );
+    let initializer =
+        KnowledgeWikiInitializationService::new(&persistence, &persistence, &drive_scope);
 
     let result = initializer
         .initialize(InitializeKnowledgeWikiRequest {
@@ -57,16 +39,9 @@ async fn initialization_ensures_canonical_raw_scope_and_checkpoint() {
         .await
         .expect("initialize Wiki publication");
 
-    let ensured = workspace.ensured.lock().unwrap();
-    assert_eq!(ensured.len(), 1);
-    assert_eq!(ensured[0].nodes.len(), 2);
-    assert_eq!(
-        ensured[0].nodes[1].logical_path,
-        KNOWLEDGE_WIKI_SOURCE_ROOT_PATH
-    );
     assert_eq!(
         result.publication.source_root_node_uuid.as_deref(),
-        Some("raw-node")
+        Some("raw-node-drive-501")
     );
     assert_eq!(
         result.publication.source_scope_uuid.as_deref(),
@@ -78,18 +53,11 @@ async fn initialization_ensures_canonical_raw_scope_and_checkpoint() {
 #[tokio::test]
 async fn backfill_stops_before_advancing_past_a_failed_candidate() {
     let persistence = MemoryWikiPersistence::default();
-    let workspace = RecordingWorkspace::default();
-    let tree = FixedTree;
     let drive_scope = FixedDriveScope {
         fail_for_drive: Some("drive-502".to_string()),
     };
-    let initializer = KnowledgeWikiInitializationService::new(
-        &persistence,
-        &persistence,
-        &workspace,
-        &tree,
-        &drive_scope,
-    );
+    let initializer =
+        KnowledgeWikiInitializationService::new(&persistence, &persistence, &drive_scope);
     let candidates = FixedBackfillStore {
         candidates: vec![candidate(501), candidate(502), candidate(503)],
     };
@@ -123,16 +91,9 @@ async fn backfill_stops_before_advancing_past_a_failed_candidate() {
 #[tokio::test]
 async fn dry_run_reports_without_mutating_publication_or_drive() {
     let persistence = MemoryWikiPersistence::default();
-    let workspace = RecordingWorkspace::default();
-    let tree = FixedTree;
     let drive_scope = FixedDriveScope::default();
-    let initializer = KnowledgeWikiInitializationService::new(
-        &persistence,
-        &persistence,
-        &workspace,
-        &tree,
-        &drive_scope,
-    );
+    let initializer =
+        KnowledgeWikiInitializationService::new(&persistence, &persistence, &drive_scope);
     let candidates = FixedBackfillStore {
         candidates: vec![candidate(501), candidate(502)],
     };
@@ -156,7 +117,6 @@ async fn dry_run_reports_without_mutating_publication_or_drive() {
         .iter()
         .all(|outcome| outcome.disposition == WikiPublicationBackfillDisposition::Planned));
     assert_eq!(persistence.provision_count(), 0);
-    assert!(workspace.ensured.lock().unwrap().is_empty());
 }
 
 #[derive(Default)]
@@ -259,6 +219,25 @@ impl WikiDriveCheckpointStore for MemoryWikiPersistence {
         unimplemented!()
     }
 
+    async fn find_checkpoint_by_drive_scope(
+        &self,
+        _scope: WikiPersistenceScope,
+        _drive_space_uuid: &str,
+        _source_scope_uuid: &str,
+    ) -> Result<Option<WikiDriveCheckpoint>, WikiPersistenceError> {
+        Ok(None)
+    }
+
+    async fn list_checkpoints(
+        &self,
+        _request: ListWikiDriveCheckpointsRequest,
+    ) -> Result<WikiDriveCheckpointPage, WikiPersistenceError> {
+        Ok(WikiDriveCheckpointPage {
+            checkpoints: Vec::new(),
+            next_after_checkpoint_id: None,
+        })
+    }
+
     async fn claim_reconciliation(
         &self,
         _request: ClaimWikiReconciliationRequest,
@@ -282,59 +261,6 @@ impl WikiDriveCheckpointStore for MemoryWikiPersistence {
 }
 
 #[derive(Default)]
-struct RecordingWorkspace {
-    ensured: Mutex<Vec<EnsureKnowledgeDriveNodesRequest>>,
-}
-
-#[async_trait]
-impl KnowledgeDriveWorkspace for RecordingWorkspace {
-    async fn ensure_nodes(
-        &self,
-        request: EnsureKnowledgeDriveNodesRequest,
-    ) -> Result<(), KnowledgeDriveWorkspaceError> {
-        self.ensured.lock().unwrap().push(request);
-        Ok(())
-    }
-}
-
-struct FixedTree;
-
-#[async_trait]
-impl KnowledgeDriveNodeTree for FixedTree {
-    async fn resolve_path(
-        &self,
-        request: ResolveKnowledgeDriveNodePathRequest,
-    ) -> Result<Option<KnowledgeDriveNodeSummary>, KnowledgeDriveNodeTreeError> {
-        Ok(Some(KnowledgeDriveNodeSummary {
-            drive_node_id: "raw-node".to_string(),
-            parent_drive_node_id: Some("sources-node".to_string()),
-            kind: DriveNodeKind::Folder,
-            name: "raw".to_string(),
-            path: request.logical_path,
-            content_type: None,
-            size_bytes: None,
-            children_count: Some(0),
-            updated_at: "2026-07-21T00:00:00Z".to_string(),
-            object_locator: None,
-        }))
-    }
-
-    async fn get_node(
-        &self,
-        _request: GetKnowledgeDriveNodeRequest,
-    ) -> Result<Option<KnowledgeDriveNodeSummary>, KnowledgeDriveNodeTreeError> {
-        unimplemented!()
-    }
-
-    async fn list_children(
-        &self,
-        _request: ListKnowledgeDriveNodeChildrenRequest,
-    ) -> Result<KnowledgeDriveNodePage, KnowledgeDriveNodeTreeError> {
-        unimplemented!()
-    }
-}
-
-#[derive(Default)]
 struct FixedDriveScope {
     fail_for_drive: Option<String>,
 }
@@ -353,10 +279,10 @@ impl KnowledgeWikiDriveScope for FixedDriveScope {
             };
         Ok(KnowledgebaseRawScope {
             subscription_uuid: format!("scope-{}", request.drive_space_id),
-            drive_space_id: request.drive_space_id,
+            drive_space_id: request.drive_space_id.clone(),
             consumer_kind: "knowledgebase_raw".to_string(),
             knowledgebase_uuid,
-            raw_folder_node_id: request.raw_folder_node_id,
+            raw_folder_node_id: format!("raw-node-{}", request.drive_space_id),
             scope_status: "ACTIVE".to_string(),
             version: "0".to_string(),
             created_at: "2026-07-21T00:00:00Z".to_string(),

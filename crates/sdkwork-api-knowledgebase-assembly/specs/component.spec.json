@@ -72,12 +72,15 @@
     "publicExports": [
       "sdkwork_api_knowledgebase_assembly::assemble_api_router",
       "sdkwork_api_knowledgebase_assembly::assemble_api_router_from_environment",
+      "sdkwork_api_knowledgebase_assembly::assemble_business_routes",
+      "sdkwork_api_knowledgebase_assembly::assemble_business_routes_from_environment",
       "sdkwork_api_knowledgebase_assembly::ApiAssembly::from_environment",
       "sdkwork_api_knowledgebase_assembly::ApiAssembly"
     ],
     "runtimeEntrypoints": [
       "sdkwork_api_knowledgebase_assembly::assemble_api_router",
       "sdkwork_api_knowledgebase_assembly::assemble_api_router_from_environment",
+      "sdkwork_api_knowledgebase_assembly::assemble_business_routes_from_environment",
       "sdkwork_api_knowledgebase_assembly::ApiAssembly::from_environment"
     ],
     "dependencyApiSurfaces": [

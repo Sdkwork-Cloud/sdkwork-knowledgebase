@@ -1,18 +1,21 @@
 use async_trait::async_trait;
 use sdkwork_drive_workspace_service::{
     application::root_scope_subscription_service::{
-        DriveRootScopeSubscriptionService, GetRootScopeSubscriptionCommand,
-        RegisterKnowledgebaseRawScopeCommand,
+        DriveRootScopeSubscriptionService, EnsureKnowledgebaseRawScopeCommand,
+        GetRootScopeSubscriptionCommand, SqlDriveKnowledgebaseRawScopeService,
     },
     domain::root_scope_subscription::DriveRootScopeSubscription,
     infrastructure::sql::root_scope_subscription_store::SqlRootScopeSubscriptionStore,
     DriveServiceError,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_drive_source::{
-    EnsureKnowledgebaseRawScopeRequest, KnowledgeWikiDriveScope, KnowledgeWikiDriveSourceError,
-    KnowledgebaseRawScope,
+    EnsureKnowledgebaseRawScopeRequest, KnowledgeWikiDriveEventDeliveryMode,
+    KnowledgeWikiDriveScope, KnowledgeWikiDriveSourceError, KnowledgebaseRawScope,
+    KnowledgebaseRawScopeEventDelivery, RenewKnowledgebaseRawScopeEventDeliveryRequest,
 };
 use sqlx::AnyPool;
+
+use crate::embedded_knowledgebase_raw_channel_id;
 
 #[derive(Clone)]
 pub struct KnowledgebaseDriveRootScopeAdapter {
@@ -47,13 +50,11 @@ impl KnowledgeWikiDriveScope for KnowledgebaseDriveRootScopeAdapter {
         &self,
         request: EnsureKnowledgebaseRawScopeRequest,
     ) -> Result<KnowledgebaseRawScope, KnowledgeWikiDriveSourceError> {
-        let result = self
-            .service()
-            .register_knowledgebase_raw(RegisterKnowledgebaseRawScopeCommand {
+        let result = SqlDriveKnowledgebaseRawScopeService::new(self.pool.clone())
+            .ensure_knowledgebase_raw_scope(EnsureKnowledgebaseRawScopeCommand {
                 tenant_id: self.tenant_id.clone(),
                 space_id: request.drive_space_id,
                 knowledge_base_id: request.knowledgebase_uuid,
-                raw_folder_node_id: request.raw_folder_node_id,
                 operator_id: self.operator_id.clone(),
             })
             .await
@@ -74,6 +75,25 @@ impl KnowledgeWikiDriveScope for KnowledgebaseDriveRootScopeAdapter {
             .await
             .map_err(map_drive_error)?;
         map_subscription(subscription)
+    }
+
+    async fn renew_raw_scope_event_delivery(
+        &self,
+        request: RenewKnowledgebaseRawScopeEventDeliveryRequest,
+    ) -> Result<KnowledgebaseRawScopeEventDelivery, KnowledgeWikiDriveSourceError> {
+        let subscription_uuid = request.subscription_uuid.trim();
+        if subscription_uuid.is_empty() {
+            return Err(KnowledgeWikiDriveSourceError::InvalidRequest(
+                "subscription_uuid is required for embedded event delivery renewal".to_string(),
+            ));
+        }
+        let scope = self.retrieve_raw_scope(subscription_uuid).await?;
+        Ok(KnowledgebaseRawScopeEventDelivery {
+            subscription_uuid: scope.subscription_uuid,
+            channel_id: embedded_knowledgebase_raw_channel_id(subscription_uuid),
+            expiration_epoch_ms: None,
+            mode: KnowledgeWikiDriveEventDeliveryMode::EmbeddedTrustedRelay,
+        })
     }
 }
 

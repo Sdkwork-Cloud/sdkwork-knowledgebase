@@ -2,7 +2,10 @@ use sdkwork_api_knowledgebase_standalone_gateway::init_tracing;
 use sdkwork_knowledgebase_contract::{
     parse_canonical_nonnegative_signed_i64, parse_canonical_positive_signed_i64,
 };
-use sdkwork_knowledgebase_worker::{health, run_polling_loop, WikiBackfillMaintenanceConfig};
+use sdkwork_knowledgebase_worker::{
+    health, run_polling_loop, MaintenanceConfig, MaintenancePollingConfig,
+    WikiBackfillMaintenanceConfig, WikiDriveEventMaintenanceConfig,
+};
 use sdkwork_routes_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 
 #[tokio::main]
@@ -51,6 +54,7 @@ async fn main() {
             .filter(|value| (1..=200).contains(value))
             .unwrap_or(25);
     let wiki_backfill = resolve_wiki_backfill_config(tenant_id);
+    let wiki_drive_events = resolve_wiki_drive_event_config(tenant_id);
     let health_addr = std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_HEALTH_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:18085".to_string());
 
@@ -74,6 +78,7 @@ async fn main() {
         worker_id = %worker_id,
         group_archive_limit,
         wiki_backfill_enabled = wiki_backfill.is_some(),
+        wiki_drive_events_enabled = true,
         %health_addr,
         "starting knowledgebase worker loop"
     );
@@ -86,15 +91,22 @@ async fn main() {
 
     run_polling_loop(
         runtime,
-        worker_id,
-        time::Duration::seconds(ingestion_job_lease_seconds as i64),
-        std::time::Duration::from_secs(provider_migration_lease_seconds),
-        interval_ms,
-        outbox_limit,
-        ingestion_job_limit,
-        provider_migration_limit,
-        group_archive_limit,
-        wiki_backfill,
+        MaintenancePollingConfig {
+            interval_ms,
+            maintenance: MaintenanceConfig {
+                worker_id,
+                ingestion_job_lease: time::Duration::seconds(ingestion_job_lease_seconds as i64),
+                provider_migration_lease: std::time::Duration::from_secs(
+                    provider_migration_lease_seconds,
+                ),
+                outbox_limit,
+                ingestion_job_limit,
+                provider_migration_limit,
+                group_archive_limit,
+                wiki_backfill,
+                wiki_drive_events,
+            },
+        },
     )
     .await;
 }
@@ -159,6 +171,77 @@ fn resolve_wiki_backfill_config(tenant_id: u64) -> Option<WikiBackfillMaintenanc
     }
 }
 
+fn resolve_wiki_drive_event_config(tenant_id: u64) -> WikiDriveEventMaintenanceConfig {
+    let actor_id = std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID")
+        .ok()
+        .and_then(|value| parse_canonical_positive_signed_i64(&value).ok())
+        .unwrap_or_else(|| {
+            panic!(
+                "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID is required and must be a canonical positive signed BIGINT"
+            )
+        });
+    WikiDriveEventMaintenanceConfig {
+        tenant_id,
+        organization_id:
+            sdkwork_routes_knowledgebase_app_api::bootstrap::resolve_deployment_tenant_id(),
+        actor_id,
+        checkpoint_page_size: bounded_u32_env(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_CHECKPOINT_PAGE_SIZE",
+            50,
+            200,
+        ),
+        event_batch_size: bounded_u32_env(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_BATCH_SIZE",
+            25,
+            100,
+        ),
+        lease_seconds: bounded_u64_env(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_LEASE_SECONDS",
+            120,
+            3_600,
+        ),
+        retry_delay_seconds: bounded_u64_env(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_RETRY_DELAY_SECONDS",
+            30,
+            86_400,
+        ),
+        max_attempts: bounded_u32_env(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_MAX_ATTEMPTS",
+            20,
+            100,
+        ),
+        delivery_renewal_page_size: bounded_u32_env(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_DELIVERY_RENEWAL_PAGE_SIZE",
+            50,
+            200,
+        ),
+    }
+}
+
+fn bounded_u32_env(name: &str, default: u32, max: u32) -> u32 {
+    match std::env::var(name) {
+        Ok(value) => value
+            .parse::<u32>()
+            .ok()
+            .filter(|value| (1..=max).contains(value))
+            .unwrap_or_else(|| panic!("{name} must be between 1 and {max}")),
+        Err(std::env::VarError::NotPresent) => default,
+        Err(error) => panic!("{name} could not be read: {error}"),
+    }
+}
+
+fn bounded_u64_env(name: &str, default: u64, max: u64) -> u64 {
+    match std::env::var(name) {
+        Ok(value) => value
+            .parse::<u64>()
+            .ok()
+            .filter(|value| (1..=max).contains(value))
+            .unwrap_or_else(|| panic!("{name} must be between 1 and {max}")),
+        Err(std::env::VarError::NotPresent) => default,
+        Err(error) => panic!("{name} could not be read: {error}"),
+    }
+}
+
 fn database_engine_label(database_url: &str) -> &'static str {
     let normalized = database_url.trim().to_ascii_lowercase();
     if normalized.starts_with("postgres://") || normalized.starts_with("postgresql://") {
@@ -174,8 +257,20 @@ fn database_engine_label(database_url: &str) -> &'static str {
 mod tests {
     use super::{
         database_engine_label, required_worker_tenant_id, resolve_wiki_backfill_config,
-        resolve_worker_id,
+        resolve_wiki_drive_event_config, resolve_worker_id,
     };
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    const WIKI_EVENT_ENV_KEYS: [&str; 6] = [
+        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID",
+        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_CHECKPOINT_PAGE_SIZE",
+        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_BATCH_SIZE",
+        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_LEASE_SECONDS",
+        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_RETRY_DELAY_SECONDS",
+        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_MAX_ATTEMPTS",
+    ];
 
     #[test]
     fn worker_tenant_id_requires_a_canonical_positive_signed_bigint() {
@@ -230,5 +325,67 @@ mod tests {
 
         std::env::remove_var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ORGANIZATION_ID");
         std::env::remove_var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_BACKFILL_ACTOR_ID");
+    }
+
+    #[test]
+    fn wiki_drive_event_config_requires_an_explicit_actor_and_uses_bounded_defaults() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        clear_wiki_event_env();
+        std::env::set_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "42");
+        assert!(std::panic::catch_unwind(|| resolve_wiki_drive_event_config(7)).is_err());
+
+        std::env::set_var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID", "9001");
+        let config = resolve_wiki_drive_event_config(7);
+        assert_eq!(config.tenant_id, 7);
+        assert_eq!(config.organization_id, 42);
+        assert_eq!(config.actor_id, 9001);
+        assert_eq!(config.checkpoint_page_size, 50);
+        assert_eq!(config.event_batch_size, 25);
+        assert_eq!(config.lease_seconds, 120);
+        assert_eq!(config.retry_delay_seconds, 30);
+        assert_eq!(config.max_attempts, 20);
+
+        clear_wiki_event_env();
+        std::env::remove_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID");
+    }
+
+    #[test]
+    fn wiki_drive_event_config_rejects_explicit_invalid_bounds() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        clear_wiki_event_env();
+        std::env::set_var("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID", "9001");
+        for (name, value) in [
+            (
+                "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_CHECKPOINT_PAGE_SIZE",
+                "201",
+            ),
+            ("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_BATCH_SIZE", "0"),
+            (
+                "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_LEASE_SECONDS",
+                "invalid",
+            ),
+            (
+                "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_RETRY_DELAY_SECONDS",
+                "86401",
+            ),
+            (
+                "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_MAX_ATTEMPTS",
+                "101",
+            ),
+        ] {
+            std::env::set_var(name, value);
+            assert!(
+                std::panic::catch_unwind(|| resolve_wiki_drive_event_config(7)).is_err(),
+                "{name}={value} must be rejected"
+            );
+            std::env::remove_var(name);
+        }
+        clear_wiki_event_env();
+    }
+
+    fn clear_wiki_event_env() {
+        for name in WIKI_EVENT_ENV_KEYS {
+            std::env::remove_var(name);
+        }
     }
 }

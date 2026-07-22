@@ -180,7 +180,7 @@ describe('knowledgebase security standard alignment', () => {
 
   it('aligns production ingress hosts with cloud.production topology', () => {
     const ingress = readRepoFile('deployments/kubernetes/ingress.yaml');
-    const productionEnv = readRepoFile('configs/topology/cloud.production.env');
+    const productionEnv = readRepoFile('etc/topology/cloud.production.env');
     assert.match(ingress, /knowledgebase\.sdkwork\.com/);
     assert.match(ingress, /knowledgebase-admin\.sdkwork\.com/);
     assert.match(ingress, /knowledge\.sdkwork\.com/);
@@ -229,13 +229,28 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(hostedWechat, /ensure_runtime_tenant/);
   });
 
-  it('enforces upload session space ACL in hosted upload service', () => {
-    const hostedUpload = readRepoFile(
-      'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_upload.rs',
+  it('keeps upload session and presign lifecycle exclusively in Drive', () => {
+    const appApiLib = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-app-api/src/lib.rs',
     );
-    assert.match(hostedUpload, /require_space_access/);
-    assert.match(hostedUpload, /create_upload_session[\s\S]*context: KnowledgeAppRequestContext/u);
-    assert.match(hostedUpload, /complete_upload_session[\s\S]*require_space_access/u);
+    const routeManifest = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-app-api/src/http_route_manifest.rs',
+    );
+    const appOpenApi = JSON.parse(
+      readRepoFile(
+        'sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json',
+      ),
+    );
+
+    assert.doesNotMatch(appApiLib, /hosted_upload/u);
+    assert.doesNotMatch(routeManifest, /upload_sessions|uploadSessions|presign/u);
+    for (const apiPath of Object.keys(appOpenApi.paths ?? {})) {
+      assert.doesNotMatch(
+        apiPath,
+        /\/knowledge\/(?:upload(?:_sessions)?|presign)(?:\/|$)/u,
+        `Knowledgebase App API must consume Drive references instead of owning ${apiPath}`,
+      );
+    }
   });
 
   it('fail-closes space access when drive binding is missing', () => {

@@ -166,7 +166,7 @@ Tauri process, not an IM-owned iframe or Webview. See
 
 ## 5. Deployment Topology
 
-Production uses `cloud.production`; process decomposition remains an implementation detail inside that profile. Kubernetes runs one replicated `application.public-ingress` Deployment for all application HTTP route surfaces and one replicated worker Deployment. The platform cloud gateway preserves distinct app/backend/open authorities while routing them to the same bounded public-ingress Service. See `deployments/README.md` and `configs/topology/`.
+Production uses `cloud.production`; process decomposition remains an implementation detail inside that profile. Kubernetes runs one replicated `application.public-ingress` Deployment for all application HTTP route surfaces and one replicated worker Deployment. The platform cloud gateway preserves distinct app/backend/open authorities while routing them to the same bounded public-ingress Service. See `deployments/README.md` and `etc/topology/`.
 
 ## 6. Verification
 

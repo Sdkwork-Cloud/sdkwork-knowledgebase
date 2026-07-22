@@ -1,4 +1,4 @@
-# SDKWork Knowledgebase — deployment artifacts
+# SDKWork Knowledgebase Deployment Artifacts
 
 Production deployment descriptors for the `cloud.production` topology profile.
 
@@ -6,11 +6,11 @@ Production deployment descriptors for the `cloud.production` topology profile.
 
 | Path | Purpose |
 |------|---------|
-| `docker/Dockerfile.api` | Single application public-ingress image hosting app/backend/open route surfaces |
+| `docker/Dockerfile.api` | Single application public-ingress image hosting app/backend/open/internal route surfaces |
 | `docker/Dockerfile.worker` | Background worker (outbox + ingestion maintenance) |
 | `kubernetes/app-api-deployment.yaml` | App API Deployment + Service |
 | `kubernetes/worker-deployment.yaml` | Background worker Deployment |
-| `kubernetes/ingress.yaml` | NGINX Ingress for app/backend/open API paths |
+| `kubernetes/ingress.yaml` | NGINX Ingress for app/backend/open/internal API paths |
 | `kubernetes/hpa.yaml` | Resource-based HorizontalPodAutoscaler for API and worker Deployments; custom RPS/backlog metrics require deployed Prometheus Adapter rules |
 | `kubernetes/poddisruptionbudget.yaml` | PodDisruptionBudget for rolling update safety |
 | `kubernetes/networkpolicy.yaml` | Restrict ingress to NGINX and monitoring namespaces |
@@ -25,7 +25,12 @@ Production deployment descriptors for the `cloud.production` topology profile.
    docker build -f deployments/docker/Dockerfile.api -t registry.sdkwork.com/apps/sdkwork-knowledgebase/api:0.1.0 ..
    docker build -f deployments/docker/Dockerfile.worker -t registry.sdkwork.com/apps/sdkwork-knowledgebase/worker:0.1.0 ..
    ```
-2. Apply secrets and config from `configs/topology/cloud.production.env`.
+2. Apply secrets and config from `etc/topology/cloud.production.env`.
+   - `sdkwork-knowledgebase-drive-internal-api` must contain key `ingress-token`.
+   - `sdkwork-knowledgebase-drive-events` must contain key `current`; add key `previous`
+     only during a controlled signing-secret rotation overlap and set the previous-secret env key.
+   - Follow `runbooks/production-launch.md` for the required paged channel renewal, overlap window,
+     event smoke, rollback, and previous-key removal sequence.
 3. Apply manifests:
    ```bash
    kubectl apply -f deployments/kubernetes/
@@ -48,6 +53,11 @@ Production ID generation uses the shared `sdkwork_node_registry` database table.
 | `OTEL_SERVICE_NAME` | Overrides the default OpenTelemetry service name per process |
 
 HTTP APIs emit an `x-request-id` response header (or echo inbound `x-request-id`) for request correlation. Prometheus metrics are exposed at `GET /metrics` on API and worker health processes, including `knowledgebase_health_status` (updated by `/readyz`). **Do not expose `/metrics` on public ingress**; use in-cluster ServiceMonitor scraping only.
+
+The Drive event receiver is mounted only at
+`/internal/v3/api/knowledgebase/drive_events` on `application.public-ingress`. It requires both
+the ingress token and the signed Drive event headers. The callback is not routed through
+`platform.api-gateway`; no legacy or alternate callback path is supported.
 
 Structured audit events (for example `knowledge.document.visibility_changed`, `knowledge.space.member_granted`, `knowledge.space.member_revoked`, `okf.concept.published`) are written to structured logs with an `audit_event` field. Related Prometheus counters are exported at `GET /metrics` (`knowledge_audit_*`).
 

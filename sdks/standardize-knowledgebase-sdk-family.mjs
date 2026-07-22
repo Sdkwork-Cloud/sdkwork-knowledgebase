@@ -700,6 +700,29 @@ function sdkManifestFor(family, openapi, operationCount) {
 }
 
 function componentSpecFor(family) {
+  const sdkClients = languageEntriesFor(family).map(
+    (entry) => entry.consumerSurface.primaryClient,
+  );
+  const verificationCommands = [
+    "node sdks/standardize-knowledgebase-sdk-family.mjs --check",
+    "node sdks/test/verify-sdk-ownership-boundaries.test.mjs",
+    "powershell -ExecutionPolicy Bypass -File tools/verify_openapi_operation_ids.ps1",
+  ];
+
+  if (family.root === "sdkwork-knowledgebase-app-sdk") {
+    sdkClients.push(
+      "SdkworkKnowledgebaseAppClient.knowledge.wikiPublications",
+      "SdkworkKnowledgebaseAppClient.knowledge.wikiSourceFiles",
+    );
+    verificationCommands.splice(
+      1,
+      0,
+      "node tools/knowledgebase_sdk_generate.mjs --check --family sdkwork-knowledgebase-app-sdk",
+      "node sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/bin/publish-core.mjs --language typescript --project-dir sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi --action check",
+      "pnpm --dir sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript typecheck",
+    );
+  }
+
   return {
     schemaVersion: 1,
     kind: "sdkwork.component.spec",
@@ -746,7 +769,7 @@ function componentSpecFor(family) {
       publicExports: [],
       runtimeEntrypoints: ["sdk-manifest.json"],
       sdkDependencies: family.dependencies,
-      sdkClients: languageEntriesFor(family).map((entry) => entry.consumerSurface.primaryClient),
+      sdkClients,
       events: [],
       configKeys: ["sdk-manifest.json"],
     },
@@ -759,11 +782,7 @@ function componentSpecFor(family) {
       languagePolicy: `Generated languages (${languageEntriesFor(family).map((entry) => entry.language).join(", ")}) use the same owner-only OpenAPI input and sdkDependencies.`,
     },
     verification: {
-      commands: [
-        "node sdks/standardize-knowledgebase-sdk-family.mjs --check",
-        "node sdks/test/verify-sdk-ownership-boundaries.test.mjs",
-        "powershell -ExecutionPolicy Bypass -File tools/verify_openapi_operation_ids.ps1",
-      ],
+      commands: verificationCommands,
     },
     metadata: {
       managedBy: "sdks/standardize-knowledgebase-sdk-family.mjs",

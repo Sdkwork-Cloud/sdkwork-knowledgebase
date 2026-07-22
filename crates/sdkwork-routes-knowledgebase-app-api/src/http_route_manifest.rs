@@ -52,6 +52,47 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         "spaces.delete",
         "knowledge.spaces.write",
     ),
+    knowledge_route(
+        HttpMethod::Get,
+        "/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication",
+        "wikiPublications.retrieve",
+        "knowledge.spaces.read",
+    ),
+    knowledge_abuse_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/activate",
+        "wikiPublications.activate",
+        "knowledge.spaces.write",
+    )
+    .with_idempotent(true),
+    knowledge_abuse_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/pause",
+        "wikiPublications.pause",
+        "knowledge.spaces.write",
+    )
+    .with_idempotent(true),
+    knowledge_abuse_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/publish",
+        "wikiSourceFiles.publish",
+        "knowledge.spaces.write",
+    )
+    .with_idempotent(true),
+    knowledge_abuse_route(
+        HttpMethod::Post,
+        "/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/unpublish",
+        "wikiSourceFiles.unpublish",
+        "knowledge.spaces.write",
+    )
+    .with_idempotent(true),
+    knowledge_abuse_route(
+        HttpMethod::Patch,
+        "/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/visibility",
+        "wikiSourceFiles.visibility.update",
+        "knowledge.spaces.write",
+    )
+    .with_idempotent(true),
     knowledge_abuse_route(
         HttpMethod::Post,
         "/app/v3/api/knowledge/drive_imports",

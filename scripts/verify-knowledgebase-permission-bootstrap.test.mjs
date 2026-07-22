@@ -87,8 +87,8 @@ describe('knowledgebase permission bootstrap alignment', () => {
     const appConfig = readJson('sdkwork.app.config.json');
     const tenantId = appConfig.backend.tenantId;
     const developmentProfiles = [
-      'configs/topology/standalone.development.env',
-      'configs/topology/cloud.development.env',
+      'etc/topology/standalone.development.env',
+      'etc/topology/cloud.development.env',
     ];
 
     for (const profilePath of developmentProfiles) {

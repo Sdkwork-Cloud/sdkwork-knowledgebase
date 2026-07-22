@@ -9,10 +9,15 @@
     "protocol": "http",
     "packageName": "@sdkwork/knowledgebase-backend-sdk"
   },
-  "changeFingerprint": "9fc9d7490ab3379042beb39f029cfe59427ac644b4f2a4162b7ac285cc877a1b",
+  "changeFingerprint": "cdbb54b96c11d240194b1f72a82a17a24d0cf1f9cb02af8672410071705ac1be",
   "changes": {
-    "createdGeneratedFiles": [],
-    "updatedGeneratedFiles": [],
+    "createdGeneratedFiles": [
+      "src/types/okf-bundle-index-rebuild-response.ts"
+    ],
+    "updatedGeneratedFiles": [
+      "src/api/knowledge.ts",
+      "src/types/index.ts"
+    ],
     "unchangedGeneratedFiles": [
       "bin/publish-core.mjs",
       "bin/publish.ps1",
@@ -26,7 +31,6 @@
       "sdkwork-sdk.json",
       "src/api/base.ts",
       "src/api/index.ts",
-      "src/api/knowledge.ts",
       "src/api/paths.ts",
       "src/auth/index.ts",
       "src/http/client.ts",
@@ -47,7 +51,6 @@
       "src/types/create-knowledge-space-request.ts",
       "src/types/export-knowledge-audit-events-request.ts",
       "src/types/field-error.ts",
-      "src/types/index.ts",
       "src/types/indexes-create-response201.ts",
       "src/types/indexes-list-response.ts",
       "src/types/indexes-rebuild-response.ts",
@@ -126,7 +129,6 @@
       "src/types/okf-bundle-import-create-response201.ts",
       "src/types/okf-bundle-import-request.ts",
       "src/types/okf-bundle-import-result.ts",
-      "src/types/okf-bundle-index-create-response201.ts",
       "src/types/okf-bundle-index-rebuild-request.ts",
       "src/types/okf-candidate-result-list.ts",
       "src/types/okf-candidate-result.ts",
@@ -201,7 +203,9 @@
       "src/types/update-knowledge-engine-provider-binding-request.ts",
       "tsconfig.json"
     ],
-    "deletedGeneratedFiles": [],
+    "deletedGeneratedFiles": [
+      "src/types/okf-bundle-index-create-response201.ts"
+    ],
     "scaffoldedFiles": [],
     "preservedScaffoldFiles": [
       "custom/build-runtime.mjs",
@@ -211,26 +215,83 @@
   },
   "impact": {
     "schemaVersion": 1,
-    "areas": [],
-    "details": [],
-    "requiresVerification": false,
-    "summary": "No generated, scaffold, or backup changes detected. Verification can be skipped."
+    "areas": [
+      "api-surface",
+      "models"
+    ],
+    "details": [
+      {
+        "area": "api-surface",
+        "paths": [
+          "src/api/knowledge.ts"
+        ]
+      },
+      {
+        "area": "models",
+        "paths": [
+          "src/types/index.ts",
+          "src/types/okf-bundle-index-create-response201.ts",
+          "src/types/okf-bundle-index-rebuild-response.ts"
+        ]
+      }
+    ],
+    "requiresVerification": true,
+    "summary": "Detected impact areas: api-surface, models. Verification is required."
   },
   "verificationPlan": {
-    "shouldRun": false,
-    "runPhase": "skip",
-    "summary": "No generated, scaffold, or backup changes detected. Verification can be skipped.",
-    "steps": []
+    "shouldRun": true,
+    "runPhase": "now",
+    "summary": "Detected impact areas: api-surface, models. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "steps": [
+      {
+        "id": "check",
+        "title": "Unified package check",
+        "required": true,
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: api-surface, models.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "check"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action check"
+      },
+      {
+        "id": "build",
+        "title": "Unified package build",
+        "required": true,
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: api-surface, models.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-backend-sdk\\sdkwork-knowledgebase-backend-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "build"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action build"
+      }
+    ]
   },
   "executionDecision": {
     "schemaVersion": 1,
-    "riskLevel": "low",
-    "nextAction": "skip",
+    "riskLevel": "high",
+    "nextAction": "verify",
     "requiresManualReview": false,
     "applyRequiresExpectedFingerprint": false,
-    "summary": "No actionable changes were detected. No apply or verification step is required.",
+    "summary": "Changes have been applied. Run the required verification plan now.",
     "reasons": [
-      "no-actionable-changes"
+      "deleted-generated-files",
+      "manual-review-required",
+      "verification-required"
     ]
   },
   "preservedLegacyFiles": false

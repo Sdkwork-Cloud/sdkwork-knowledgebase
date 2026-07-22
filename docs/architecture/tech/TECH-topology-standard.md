@@ -49,9 +49,9 @@ Client env keys:
 - `VITE_SDKWORK_KNOWLEDGEBASE_PLATFORM_API_GATEWAY_HTTP_URL`: platform and IAM SDK surface.
 - `VITE_SDKWORK_APPBASE_APP_API_BASE_URL`: appbase IAM app API surface.
 
-Profile values live in `configs/topology/*.env` only. Do not hardcode ports in route crates or feature packages.
+Profile values live in `etc/topology/*.env` only. Do not hardcode ports in route crates or feature packages.
 
 Cloud gateway config bundles:
 
-- `configs/sdkwork-api-cloud-gateway.knowledgebase.development.toml`
-- `configs/sdkwork-api-cloud-gateway.knowledgebase.production.toml`
+- `etc/sdkwork-api-cloud-gateway.knowledgebase.development.toml`
+- `etc/sdkwork-api-cloud-gateway.knowledgebase.production.toml`

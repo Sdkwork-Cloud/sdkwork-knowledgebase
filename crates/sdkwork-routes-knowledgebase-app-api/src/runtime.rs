@@ -32,7 +32,8 @@ use sdkwork_intelligence_knowledgebase_service::{
     okf::{OkfBundleFileRegistryService, OkfBundleInitializerService},
     ports::{
         group_launch_ticket_consumer::GroupLaunchTicketConsumer,
-        knowledge_access_control::KnowledgeAccessRole, knowledge_chunk_store::KnowledgeChunkStore,
+        knowledge_access_control::KnowledgeAccessRole,
+        knowledge_chunk_store::KnowledgeChunkStore,
         knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStore,
         knowledge_drive_storage::KnowledgeDriveStorage,
         knowledge_group_space_binding_store::KnowledgeGroupSpaceBindingStore,
@@ -41,8 +42,10 @@ use sdkwork_intelligence_knowledgebase_service::{
         knowledge_provider_credential_resolver::KnowledgeEngineProviderCredentialResolver,
         knowledge_retrieval_trace_store::KnowledgeRetrievalTraceStore,
         knowledge_space_store::KnowledgeSpaceStore,
+        knowledge_wiki_drive_source::{KnowledgeWikiDriveScope, KnowledgeWikiDriveSource},
     },
     retrieval::{KnowledgeRetrievalService, KnowledgeRetrievalServiceError},
+    wiki_public_provider::KnowledgeWikiPublicProviderService,
 };
 use sdkwork_knowledgebase_contract::agent_chat::{
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
@@ -55,9 +58,11 @@ use sdkwork_knowledgebase_contract::rag::{
 };
 use sdkwork_knowledgebase_drive::{
     connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
-    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveRootScopeAdapter,
-    KnowledgebaseDriveSpaceProvisionerAdapter, KnowledgebaseDriveStorageAdapter,
-    KnowledgebaseDriveWorkspaceAdapter, KnowledgebaseKnowledgeAccessControlAdapter,
+    KnowledgebaseDriveEmbeddedEventRelay, KnowledgebaseDriveEmbeddedWikiSourceAdapter,
+    KnowledgebaseDriveEventDeliveryConfig, KnowledgebaseDriveInternalSdkAdapter,
+    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
+    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
+    KnowledgebaseKnowledgeAccessControlAdapter,
 };
 use sdkwork_knowledgebase_provider_secret_adapter::{
     KnowledgebaseProviderCredentialEnvironment, KnowledgebaseProviderCredentialResolver,
@@ -96,6 +101,7 @@ use crate::{
     hosted_group_launch::HostedGroupLaunchService,
     hosted_open::HostedOpenApi,
     hosted_wechat::HostedWechatService,
+    hosted_wiki::HostedWikiPublicationService,
     ApiError, ApiResult, KnowledgeAgentAppService, KnowledgeAppRequestContext,
     KnowledgeRetrievalAppService,
 };
@@ -104,6 +110,22 @@ const DEFAULT_DRIVE_PROVIDER_ID: &str = "sdkwork-knowledgebase-local";
 const DEFAULT_DRIVE_BUCKET: &str = "knowledgebase";
 const KNOWLEDGEBASE_ID_SERVICE_NAME: &str = "sdkwork-knowledgebase";
 const PROVIDER_SECRETS_DIR_ENV: &str = "SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRETS_DIR";
+const DEPLOYMENT_PROFILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE";
+const DRIVE_INTERNAL_API_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_BASE_URL";
+const DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV: &str =
+    "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE";
+const DRIVE_EVENT_CALLBACK_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_CALLBACK_URL";
+const DRIVE_EVENT_SIGNING_SECRET_FILE_ENV: &str =
+    "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_SIGNING_SECRET_FILE";
+const DRIVE_EVENT_PREVIOUS_SIGNING_SECRET_FILE_ENV: &str =
+    "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_PREVIOUS_SIGNING_SECRET_FILE";
+const DRIVE_EVENT_CHANNEL_TTL_SECONDS_ENV: &str =
+    "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_CHANNEL_TTL_SECONDS";
+const DRIVE_EVENT_CALLER_APP_ID_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_CALLER_APP_ID";
+const WIKI_PROVIDER_CALLER_APP_ID_ENV: &str = "SDKWORK_KNOWLEDGEBASE_WIKI_PROVIDER_CALLER_APP_ID";
+const MAX_INGRESS_TOKEN_FILE_BYTES: u64 = 16 * 1024;
+const MAX_WEBHOOK_SECRET_FILE_BYTES: u64 = 4 * 1024;
+const DEFAULT_DRIVE_EVENT_CHANNEL_TTL_SECONDS: u64 = 86_400;
 
 static RUNTIME_NODE_LEASE: OnceCell<Option<NodeLease>> = OnceCell::const_new();
 
@@ -149,7 +171,12 @@ pub struct KnowledgebaseRuntime {
     drive_space_provisioner: Arc<KnowledgebaseDriveSpaceProvisionerAdapter>,
     drive_tree: Arc<KnowledgebaseDriveNodeTreeAdapter>,
     drive_workspace: Arc<KnowledgebaseDriveWorkspaceAdapter>,
-    wiki_drive_scope: Arc<KnowledgebaseDriveRootScopeAdapter>,
+    wiki_drive_scope: Arc<dyn KnowledgeWikiDriveScope>,
+    wiki_drive_source: Arc<dyn KnowledgeWikiDriveSource>,
+    embedded_wiki_drive_event_relay: Option<Arc<KnowledgebaseDriveEmbeddedEventRelay>>,
+    wiki_webhook_signing_secrets: Arc<Vec<String>>,
+    wiki_event_caller_app_id: Arc<str>,
+    wiki_provider_caller_app_id: Arc<str>,
     access_control: Arc<KnowledgebaseKnowledgeAccessControlAdapter>,
     knowledge_engines: Arc<DefaultKnowledgeEngineRegistry>,
     commerce_store: Arc<SqliteCommerceStore>,
@@ -161,6 +188,36 @@ pub struct KnowledgebaseRuntime {
 #[derive(Clone)]
 pub struct KnowledgebaseRuntimeReadinessCheck {
     runtime: KnowledgebaseRuntime,
+}
+
+#[derive(Clone)]
+struct KnowledgebaseRuntimeWikiDriveEventReceiver {
+    runtime: KnowledgebaseRuntime,
+}
+
+#[async_trait]
+impl sdkwork_routes_knowledgebase_internal_api::KnowledgebaseDriveEventReceiver
+    for KnowledgebaseRuntimeWikiDriveEventReceiver
+{
+    async fn receive_drive_webhook(
+        &self,
+        request: sdkwork_intelligence_knowledgebase_service::wiki_event_consumer::ReceiveKnowledgeWikiDriveWebhookRequest,
+    ) -> Result<
+        sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::WikiDriveEventReceipt,
+        sdkwork_intelligence_knowledgebase_service::wiki_event_consumer::KnowledgeWikiDriveEventConsumerError,
+    >{
+        sdkwork_intelligence_knowledgebase_service::wiki_event_consumer::KnowledgeWikiDriveEventConsumerService::new(
+            self.runtime.wiki_store(),
+            self.runtime.wiki_store(),
+            self.runtime.wiki_store(),
+            self.runtime.wiki_drive_source(),
+        )
+        .with_webhook_signing_secrets(
+            self.runtime.wiki_webhook_signing_secrets.as_ref().clone(),
+        )
+        .receive_webhook(request)
+        .await
+    }
 }
 
 impl KnowledgebaseRuntimeReadinessCheck {
@@ -234,6 +291,306 @@ fn configuration_error(message: impl Into<String>) -> sqlx::Error {
     sqlx::Error::Configuration(message.into().into())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KnowledgebaseDeploymentProfile {
+    Standalone,
+    Cloud,
+}
+
+type KnowledgeWikiDrivePorts = (
+    Arc<dyn KnowledgeWikiDriveScope>,
+    Arc<dyn KnowledgeWikiDriveSource>,
+);
+
+impl KnowledgebaseDeploymentProfile {
+    fn resolve() -> Result<Self, sqlx::Error> {
+        match std::env::var(DEPLOYMENT_PROFILE_ENV) {
+            Ok(value) if value.trim().eq_ignore_ascii_case("standalone") => Ok(Self::Standalone),
+            Ok(value) if value.trim().eq_ignore_ascii_case("cloud") => Ok(Self::Cloud),
+            Ok(_) => Err(configuration_error(format!(
+                "{DEPLOYMENT_PROFILE_ENV} must be standalone or cloud"
+            ))),
+            Err(std::env::VarError::NotPresent)
+                if !sdkwork_knowledgebase_observability::is_production_like_environment() =>
+            {
+                Ok(Self::Standalone)
+            }
+            Err(std::env::VarError::NotPresent) => Err(configuration_error(format!(
+                "{DEPLOYMENT_PROFILE_ENV} is required in production-like environments"
+            ))),
+            Err(error) => Err(configuration_error(format!(
+                "{DEPLOYMENT_PROFILE_ENV} could not be read: {error}"
+            ))),
+        }
+    }
+}
+
+fn build_wiki_drive_ports(
+    drive_pool: AnyPool,
+    tenant_id: &str,
+    operator_id: &str,
+    deployment_profile: KnowledgebaseDeploymentProfile,
+    event_delivery: Option<KnowledgebaseDriveEventDeliveryConfig>,
+) -> Result<KnowledgeWikiDrivePorts, sqlx::Error> {
+    match deployment_profile {
+        KnowledgebaseDeploymentProfile::Standalone => {
+            let adapter = Arc::new(KnowledgebaseDriveEmbeddedWikiSourceAdapter::new(
+                drive_pool,
+                tenant_id,
+                operator_id,
+            ));
+            let scope: Arc<dyn KnowledgeWikiDriveScope> = adapter.clone();
+            let source: Arc<dyn KnowledgeWikiDriveSource> = adapter;
+            Ok((scope, source))
+        }
+        KnowledgebaseDeploymentProfile::Cloud => {
+            let base_url = required_drive_internal_api_base_url()?;
+            let ingress_token = read_drive_internal_api_ingress_token()?;
+            let adapter = Arc::new(
+                KnowledgebaseDriveInternalSdkAdapter::from_ingress_token(base_url, ingress_token)
+                    .and_then(|adapter| {
+                        adapter.with_event_delivery(event_delivery.ok_or_else(|| {
+                            sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_drive_source::KnowledgeWikiDriveSourceError::InvalidRequest(
+                                "Drive event delivery config is required for cloud deployment".to_string(),
+                            )
+                        })?)
+                    })
+                    .map_err(|error| configuration_error(error.to_string()))?,
+            );
+            let scope: Arc<dyn KnowledgeWikiDriveScope> = adapter.clone();
+            let source: Arc<dyn KnowledgeWikiDriveSource> = adapter;
+            Ok((scope, source))
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedWikiDriveEventConfig {
+    delivery: Option<KnowledgebaseDriveEventDeliveryConfig>,
+    signing_secrets: Vec<String>,
+    expected_caller_app_id: String,
+}
+
+fn resolve_wiki_drive_event_config(
+    deployment_profile: KnowledgebaseDeploymentProfile,
+) -> Result<ResolvedWikiDriveEventConfig, sqlx::Error> {
+    let current_secret = read_optional_bounded_secret_file(
+        DRIVE_EVENT_SIGNING_SECRET_FILE_ENV,
+        deployment_profile == KnowledgebaseDeploymentProfile::Cloud,
+    )?;
+    let previous_secret =
+        read_optional_bounded_secret_file(DRIVE_EVENT_PREVIOUS_SIGNING_SECRET_FILE_ENV, false)?;
+    if previous_secret.is_some() && current_secret.is_none() {
+        return Err(configuration_error(format!(
+            "{DRIVE_EVENT_PREVIOUS_SIGNING_SECRET_FILE_ENV} requires {DRIVE_EVENT_SIGNING_SECRET_FILE_ENV}"
+        )));
+    }
+    if current_secret.as_ref().is_some_and(|current| {
+        previous_secret
+            .as_ref()
+            .is_some_and(|previous| previous == current)
+    }) {
+        return Err(configuration_error(
+            "current and previous Drive event signing secrets must differ",
+        ));
+    }
+    let mut signing_secrets = Vec::new();
+    if let Some(current) = current_secret.clone() {
+        signing_secrets.push(current);
+    }
+    if let Some(previous) = previous_secret {
+        signing_secrets.push(previous);
+    }
+    let expected_caller_app_id =
+        resolve_internal_caller_app_id(DRIVE_EVENT_CALLER_APP_ID_ENV, "sdkwork-drive")?;
+    let delivery = match deployment_profile {
+        KnowledgebaseDeploymentProfile::Standalone => None,
+        KnowledgebaseDeploymentProfile::Cloud => {
+            let callback_url = std::env::var(DRIVE_EVENT_CALLBACK_URL_ENV).map_err(|_| {
+                configuration_error(format!(
+                    "{DRIVE_EVENT_CALLBACK_URL_ENV} is required for cloud deployment"
+                ))
+            })?;
+            let ttl = match std::env::var(DRIVE_EVENT_CHANNEL_TTL_SECONDS_ENV) {
+                Ok(value) => value.parse::<u64>().map_err(|_| {
+                    configuration_error(format!(
+                        "{DRIVE_EVENT_CHANNEL_TTL_SECONDS_ENV} must be an unsigned integer"
+                    ))
+                })?,
+                Err(std::env::VarError::NotPresent) => DEFAULT_DRIVE_EVENT_CHANNEL_TTL_SECONDS,
+                Err(error) => {
+                    return Err(configuration_error(format!(
+                        "{DRIVE_EVENT_CHANNEL_TTL_SECONDS_ENV} could not be read: {error}"
+                    )))
+                }
+            };
+            Some(KnowledgebaseDriveEventDeliveryConfig {
+                callback_url,
+                signing_master_secret: current_secret.expect("cloud signing secret is required"),
+                channel_ttl_seconds: ttl,
+            })
+        }
+    };
+    Ok(ResolvedWikiDriveEventConfig {
+        delivery,
+        signing_secrets,
+        expected_caller_app_id,
+    })
+}
+
+fn resolve_internal_caller_app_id(
+    environment_key: &str,
+    default_app_id: &str,
+) -> Result<String, sqlx::Error> {
+    let app_id = std::env::var(environment_key).unwrap_or_else(|_| default_app_id.to_string());
+    if app_id.is_empty()
+        || app_id.len() > 128
+        || !app_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+    {
+        return Err(configuration_error(format!("{environment_key} is invalid")));
+    }
+    Ok(app_id)
+}
+
+fn read_optional_bounded_secret_file(
+    environment_key: &str,
+    required: bool,
+) -> Result<Option<String>, sqlx::Error> {
+    let value = match std::env::var(environment_key) {
+        Ok(value) => value,
+        Err(std::env::VarError::NotPresent) if !required => return Ok(None),
+        Err(std::env::VarError::NotPresent) => {
+            return Err(configuration_error(format!(
+                "{environment_key} is required for cloud deployment"
+            )))
+        }
+        Err(error) => {
+            return Err(configuration_error(format!(
+                "{environment_key} could not be read: {error}"
+            )))
+        }
+    };
+    if value.trim().is_empty() {
+        return if required {
+            Err(configuration_error(format!(
+                "{environment_key} must not be blank"
+            )))
+        } else {
+            Ok(None)
+        };
+    }
+    let path = PathBuf::from(value.trim());
+    let metadata = std::fs::metadata(&path).map_err(|_| {
+        configuration_error(format!(
+            "{environment_key} must reference a readable secret file"
+        ))
+    })?;
+    if !metadata.is_file() || metadata.len() < 32 || metadata.len() > MAX_WEBHOOK_SECRET_FILE_BYTES
+    {
+        return Err(configuration_error(format!(
+            "{environment_key} must reference a bounded high-entropy secret file"
+        )));
+    }
+    let secret = std::fs::read_to_string(path).map_err(|_| {
+        configuration_error(format!(
+            "{environment_key} must reference a UTF-8 secret file"
+        ))
+    })?;
+    if secret.len() < 32
+        || secret.len() > 1_024
+        || !secret
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return Err(configuration_error(format!(
+            "{environment_key} contains an invalid secret"
+        )));
+    }
+    Ok(Some(secret))
+}
+
+fn required_drive_internal_api_base_url() -> Result<String, sqlx::Error> {
+    let value = std::env::var(DRIVE_INTERNAL_API_BASE_URL_ENV).map_err(|_| {
+        configuration_error(format!(
+            "{DRIVE_INTERNAL_API_BASE_URL_ENV} is required for cloud deployment"
+        ))
+    })?;
+    validate_drive_internal_api_base_url(
+        &value,
+        sdkwork_knowledgebase_observability::is_production_like_environment(),
+    )
+}
+
+fn validate_drive_internal_api_base_url(
+    value: &str,
+    production_like: bool,
+) -> Result<String, sqlx::Error> {
+    let value = value.trim();
+    let parsed = url::Url::parse(value).map_err(|_| {
+        configuration_error(format!(
+            "{DRIVE_INTERNAL_API_BASE_URL_ENV} must be an absolute HTTP(S) URL"
+        ))
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+        || parsed.path() != "/"
+    {
+        return Err(configuration_error(format!(
+            "{DRIVE_INTERNAL_API_BASE_URL_ENV} must be an absolute credential-free HTTP(S) URL"
+        )));
+    }
+    if production_like && parsed.scheme() != "https" {
+        return Err(configuration_error(format!(
+            "{DRIVE_INTERNAL_API_BASE_URL_ENV} must use HTTPS in production-like environments"
+        )));
+    }
+    Ok(value.trim_end_matches('/').to_string())
+}
+
+fn read_drive_internal_api_ingress_token() -> Result<String, sqlx::Error> {
+    let path = std::env::var(DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV).map_err(|_| {
+        configuration_error(format!(
+            "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} is required for cloud deployment"
+        ))
+    })?;
+    read_drive_internal_api_ingress_token_file(PathBuf::from(path.trim()))
+}
+
+fn read_drive_internal_api_ingress_token_file(path: PathBuf) -> Result<String, sqlx::Error> {
+    if path.as_os_str().is_empty() {
+        return Err(configuration_error(format!(
+            "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} must not be blank"
+        )));
+    }
+    let metadata = std::fs::metadata(&path).map_err(|_| {
+        configuration_error(format!(
+            "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} must reference a readable secret file"
+        ))
+    })?;
+    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > MAX_INGRESS_TOKEN_FILE_BYTES {
+        return Err(configuration_error(format!(
+            "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} must reference a non-empty bounded secret file"
+        )));
+    }
+    let token = std::fs::read_to_string(&path).map_err(|_| {
+        configuration_error(format!(
+            "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} must reference a UTF-8 secret file"
+        ))
+    })?;
+    if token.len() < 16 || token.len() > 4_096 || token.chars().any(char::is_whitespace) {
+        return Err(configuration_error(format!(
+            "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} contains an invalid ingress token"
+        )));
+    }
+    Ok(token.to_string())
+}
+
 fn default_provider_credential_resolver(
 ) -> Result<Arc<dyn KnowledgeEngineProviderCredentialResolver>, sqlx::Error> {
     let environment = match sdkwork_knowledgebase_observability::knowledgebase_environment() {
@@ -290,6 +647,71 @@ mod provider_credential_resolver_tests {
     }
 }
 
+#[cfg(test)]
+mod wiki_drive_runtime_config_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[test]
+    fn drive_internal_api_url_is_an_origin_and_requires_tls_in_production() {
+        assert_eq!(
+            validate_drive_internal_api_base_url("http://127.0.0.1:18080/", false).unwrap(),
+            "http://127.0.0.1:18080"
+        );
+        assert!(validate_drive_internal_api_base_url("http://drive.internal", true).is_err());
+        assert!(
+            validate_drive_internal_api_base_url("https://user:secret@drive.internal", true)
+                .is_err()
+        );
+        assert!(validate_drive_internal_api_base_url(
+            "https://drive.internal/internal/v3/api",
+            true
+        )
+        .is_err());
+        assert!(
+            validate_drive_internal_api_base_url("https://drive.internal?token=secret", true)
+                .is_err()
+        );
+        assert!(
+            validate_drive_internal_api_base_url("https://drive.internal#fragment", true).is_err()
+        );
+    }
+
+    #[test]
+    fn drive_internal_api_token_file_is_utf8_bounded_and_whitespace_free() {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "sdkwork-kb-drive-token-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let token_path = root.join("token");
+        std::fs::write(&token_path, "test-drive-internal-key").unwrap();
+        assert_eq!(
+            read_drive_internal_api_ingress_token_file(token_path.clone()).unwrap(),
+            "test-drive-internal-key"
+        );
+
+        for invalid in [
+            "",
+            "short",
+            "test-drive-internal-key\n",
+            "token with spaces",
+        ] {
+            std::fs::write(&token_path, invalid).unwrap();
+            assert!(read_drive_internal_api_ingress_token_file(token_path.clone()).is_err());
+        }
+        std::fs::write(
+            &token_path,
+            vec![b'x'; MAX_INGRESS_TOKEN_FILE_BYTES as usize + 1],
+        )
+        .unwrap();
+        assert!(read_drive_internal_api_ingress_token_file(token_path).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
 impl FrameworkReadinessCheck for KnowledgebaseRuntimeReadinessCheck {
     fn check(&self) -> ReadinessFuture<'_> {
         let runtime = self.runtime.clone();
@@ -338,7 +760,7 @@ impl KnowledgebaseRuntime {
         } else {
             sdkwork_database_config::DatabaseEngine::Sqlite
         };
-        Ok(Self::from_pools(
+        Self::from_pools(
             pool,
             drive_pool,
             tenant_id,
@@ -350,7 +772,7 @@ impl KnowledgebaseRuntime {
             database_engine,
             snowflake_node_lease,
             provider_credential_resolver,
-        ))
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -366,8 +788,12 @@ impl KnowledgebaseRuntime {
         database_engine: sdkwork_database_config::DatabaseEngine,
         snowflake_node_lease: Option<NodeLease>,
         provider_credential_resolver: Arc<dyn KnowledgeEngineProviderCredentialResolver>,
-    ) -> Self {
+    ) -> Result<Self, sqlx::Error> {
         let tenant_id_str = tenant_id.to_string();
+        let deployment_profile = KnowledgebaseDeploymentProfile::resolve()?;
+        let wiki_event_config = resolve_wiki_drive_event_config(deployment_profile)?;
+        let wiki_provider_caller_app_id =
+            resolve_internal_caller_app_id(WIKI_PROVIDER_CALLER_APP_ID_ENV, "sdkwork-web")?;
         let quota_limits =
             sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits::from_env();
         let object_store = Arc::new(LocalDriveObjectStore::new(drive_storage_root));
@@ -389,11 +815,13 @@ impl KnowledgebaseRuntime {
             tenant_id_str.clone(),
             operator_id.clone(),
         ));
-        let wiki_drive_scope = Arc::new(KnowledgebaseDriveRootScopeAdapter::new(
+        let (wiki_drive_scope, wiki_drive_source) = build_wiki_drive_ports(
             drive_pool.clone(),
-            tenant_id_str.clone(),
-            operator_id.clone(),
-        ));
+            &tenant_id_str,
+            &operator_id,
+            deployment_profile,
+            wiki_event_config.delivery.clone(),
+        )?;
         let access_control = Arc::new(KnowledgebaseKnowledgeAccessControlAdapter::new(
             drive_pool.clone(),
         ));
@@ -441,6 +869,15 @@ impl KnowledgebaseRuntime {
         let wiki_store = Arc::new(
             SqlxWikiPersistenceStore::new(pool.clone()).with_database_engine(database_engine),
         );
+        let embedded_wiki_drive_event_relay =
+            (deployment_profile == KnowledgebaseDeploymentProfile::Standalone).then(|| {
+                Arc::new(KnowledgebaseDriveEmbeddedEventRelay::new(
+                    wiki_store.clone(),
+                    wiki_store.clone(),
+                    wiki_store.clone(),
+                    wiki_drive_source.clone(),
+                ))
+            });
         let provider_binding_store = Arc::new(
             SqlxKnowledgeEngineProviderBindingStore::new(pool.clone())
                 .with_database_engine(database_engine),
@@ -551,7 +988,7 @@ impl KnowledgebaseRuntime {
             }
         });
 
-        Self {
+        Ok(Self {
             retrieval_store,
             retrieval_backend,
             retrieval_profile_store: Arc::new(SqliteKnowledgeRetrievalProfileStore::new(
@@ -642,13 +1079,18 @@ impl KnowledgebaseRuntime {
             drive_tree,
             drive_workspace,
             wiki_drive_scope,
+            wiki_drive_source,
+            embedded_wiki_drive_event_relay,
+            wiki_webhook_signing_secrets: Arc::new(wiki_event_config.signing_secrets),
+            wiki_event_caller_app_id: Arc::from(wiki_event_config.expected_caller_app_id),
+            wiki_provider_caller_app_id: Arc::from(wiki_provider_caller_app_id),
             access_control,
             knowledge_engines,
             commerce_store: Arc::new(
                 SqliteCommerceStore::new(pool.clone()).with_database_engine(database_engine),
             ),
             snowflake_node_lease,
-        }
+        })
     }
 
     pub fn pool(&self) -> &AnyPool {
@@ -738,6 +1180,7 @@ impl KnowledgebaseRuntime {
         build_router_with_shared_app_api_and_readiness(
             Arc::new(FullAppApi::new(
                 Arc::new(HostedSpaceService::new(self.clone())),
+                Arc::new(HostedWikiPublicationService::new(self.clone())),
                 Arc::new(HostedGroupLaunchService::new(self.clone())),
                 Arc::new(HostedDriveImportService::new(self.clone())),
                 Arc::new(HostedGitImportService::new(self.clone())),
@@ -797,6 +1240,21 @@ impl KnowledgebaseRuntime {
             sdkwork_routes_knowledgebase_open_api::build_business_router_with_shared_open_api(
                 Arc::new(HostedOpenApi::new(self.clone())),
             ),
+        )
+        .await
+    }
+
+    pub async fn build_internal_business_router_with_web_framework(&self) -> axum::Router {
+        sdkwork_routes_knowledgebase_internal_api::wrap_router_with_web_framework_from_env(
+            Arc::new(KnowledgebaseRuntimeWikiDriveEventReceiver {
+                runtime: self.clone(),
+            }),
+            Arc::new(KnowledgeWikiPublicProviderService::new(
+                self.wiki_store.clone(),
+                self.wiki_drive_source.clone(),
+            )),
+            self.wiki_event_caller_app_id.to_string(),
+            self.wiki_provider_caller_app_id.to_string(),
         )
         .await
     }
@@ -1213,8 +1671,12 @@ impl KnowledgebaseRuntime {
         &self.wiki_store
     }
 
-    pub(crate) fn wiki_drive_scope(&self) -> &KnowledgebaseDriveRootScopeAdapter {
-        &self.wiki_drive_scope
+    pub(crate) fn wiki_drive_scope(&self) -> &dyn KnowledgeWikiDriveScope {
+        self.wiki_drive_scope.as_ref()
+    }
+
+    pub(crate) fn wiki_drive_source(&self) -> &dyn KnowledgeWikiDriveSource {
+        self.wiki_drive_source.as_ref()
     }
 
     pub(crate) fn access_control(&self) -> &KnowledgebaseKnowledgeAccessControlAdapter {
@@ -1299,14 +1761,99 @@ impl KnowledgebaseRuntime {
         let initializer = KnowledgeWikiInitializationService::new(
             self.wiki_store(),
             self.wiki_store(),
-            self.drive_workspace(),
-            self.drive_tree(),
             self.wiki_drive_scope(),
         );
         KnowledgeWikiBackfillService::new(self.wiki_store(), self.wiki_store(), &initializer)
             .run_page(request)
             .await
             .map_err(|error| error.to_string())
+    }
+
+    pub async fn receive_trusted_wiki_drive_event(
+        &self,
+        request: sdkwork_intelligence_knowledgebase_service::wiki_event_consumer::ReceiveKnowledgeWikiDriveTrustedEventRequest,
+    ) -> Result<
+        sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::WikiDriveEventReceipt,
+        String,
+    >{
+        use sdkwork_intelligence_knowledgebase_service::wiki_event_consumer::KnowledgeWikiDriveEventConsumerService;
+
+        self.ensure_wiki_runtime_scope(request.scope)?;
+        KnowledgeWikiDriveEventConsumerService::new(
+            self.wiki_store(),
+            self.wiki_store(),
+            self.wiki_store(),
+            self.wiki_drive_source(),
+        )
+        .receive_trusted(request)
+        .await
+        .map_err(|error| error.to_string())
+    }
+
+    pub async fn relay_embedded_wiki_drive_outbox_events(
+        &self,
+    ) -> Result<
+        sdkwork_drive_workspace_service::infrastructure::outbox_dispatch::DomainOutboxDispatchResult,
+        String,
+    >{
+        let Some(relay) = self.embedded_wiki_drive_event_relay.as_deref() else {
+            return Ok(Default::default());
+        };
+        sdkwork_drive_workspace_service::infrastructure::outbox_dispatch::dispatch_pending_outbox_events_with_relay(
+            &self.drive_pool,
+            relay,
+        )
+        .await
+    }
+
+    pub async fn process_wiki_drive_event_checkpoint_page(
+        &self,
+        request: sdkwork_intelligence_knowledgebase_service::wiki_event_consumer::ProcessKnowledgeWikiDriveCheckpointPageRequest,
+    ) -> Result<
+        sdkwork_intelligence_knowledgebase_service::wiki_event_consumer::KnowledgeWikiDriveCheckpointPageResult,
+        String,
+    >{
+        use sdkwork_intelligence_knowledgebase_service::wiki_event_consumer::KnowledgeWikiDriveEventConsumerService;
+
+        self.ensure_wiki_runtime_scope(request.scope)?;
+        KnowledgeWikiDriveEventConsumerService::new(
+            self.wiki_store(),
+            self.wiki_store(),
+            self.wiki_store(),
+            self.wiki_drive_source(),
+        )
+        .process_checkpoint_page(request)
+        .await
+        .map_err(|error| error.to_string())
+    }
+
+    pub async fn renew_wiki_drive_event_delivery_page(
+        &self,
+        request: sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::RenewWikiDriveEventDeliveryPageRequest,
+    ) -> Result<
+        sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::WikiDriveEventDeliveryRenewalPageResult,
+        String,
+    >{
+        use sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::KnowledgeWikiDriveEventDeliveryRenewalService;
+
+        self.ensure_wiki_runtime_scope(request.scope)?;
+        KnowledgeWikiDriveEventDeliveryRenewalService::new(
+            self.wiki_store(),
+            self.wiki_drive_scope(),
+        )
+        .renew_page(request)
+        .await
+        .map_err(|error| error.to_string())
+    }
+
+    fn ensure_wiki_runtime_scope(
+        &self,
+        scope: sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::WikiPersistenceScope,
+    ) -> Result<(), String> {
+        if scope.tenant_id != self.tenant_id || scope.organization_id != self.organization_id {
+            return Err("Wiki event scope does not match the bound runtime tenant".to_string());
+        }
+        Ok(())
     }
 
     pub async fn read_document_content_markdown(

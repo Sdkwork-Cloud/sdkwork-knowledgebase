@@ -6,19 +6,20 @@ use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     connect_sqlite_pool, KnowledgeIdGenerator, KnowledgeIdGeneratorError, SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::{
-    AdvanceWikiReconciliationRequest, BindWikiSourceScopeRequest, ClaimWikiDriveEventsRequest,
-    ClaimWikiReconciliationRequest, ClaimWikiRenditionsRequest, ClaimWikiSourceProcessingRequest,
-    CompleteWikiDriveEventRequest, CompleteWikiReconciliationRequest, CompleteWikiRenditionRequest,
-    CompleteWikiSourceProcessingRequest, ListWikiPublicationBackfillCandidatesRequest,
-    ProvisionWikiDriveCheckpointRequest, ProvisionWikiPublicationRequest,
-    ReceiveWikiDriveEventRequest, RetryWikiDriveEventRequest, UpsertWikiRenditionRequest,
-    UpsertWikiSourceProjectionRequest, WikiDriveCheckpointStore, WikiDriveEventInboxStore,
-    WikiDriveEventProcessingState, WikiDriveEventReceiveDisposition, WikiDriveEventType,
-    WikiDriveStreamState, WikiIndexState, WikiPagePublicationState, WikiPersistenceError,
-    WikiPersistenceScope, WikiPublicationBackfillStore, WikiPublicationStatus,
-    WikiPublicationStore, WikiRenditionKind, WikiRenditionState, WikiRenditionStore,
-    WikiSourceFileKind, WikiSourceProjectionStore, WikiSourceProjectionUpsertDisposition,
-    WikiSourceState,
+    AdvanceWikiReconciliationRequest, ApplyWikiDriveEventRequest, BindWikiSourceScopeRequest,
+    ClaimWikiDriveEventsRequest, ClaimWikiReconciliationRequest, ClaimWikiRenditionsRequest,
+    ClaimWikiSourceProcessingRequest, CompleteWikiDriveEventRequest,
+    CompleteWikiReconciliationRequest, CompleteWikiRenditionRequest,
+    CompleteWikiSourceProcessingRequest, ListWikiDriveCheckpointsRequest,
+    ListWikiPublicationBackfillCandidatesRequest, ProvisionWikiDriveCheckpointRequest,
+    ProvisionWikiPublicationRequest, ReceiveWikiDriveEventRequest, RetryWikiDriveEventRequest,
+    UpsertWikiRenditionRequest, UpsertWikiSourceProjectionRequest, WikiDriveCheckpointStore,
+    WikiDriveEventInboxStore, WikiDriveEventProcessingState, WikiDriveEventReceiveDisposition,
+    WikiDriveEventType, WikiDriveProjectionMutation, WikiDriveSourceMetadata, WikiDriveStreamState,
+    WikiIndexState, WikiPagePublicationState, WikiPersistenceError, WikiPersistenceScope,
+    WikiPublicationBackfillStore, WikiPublicationStatus, WikiPublicationStore, WikiRenditionKind,
+    WikiRenditionState, WikiRenditionStore, WikiSourceFileKind, WikiSourceProjectionStore,
+    WikiSourceProjectionUpsertDisposition, WikiSourceState,
 };
 use sdkwork_utils_rust::sha256_hash;
 
@@ -171,6 +172,95 @@ async fn backfill_candidates_are_bounded_keyset_ordered_and_exclude_complete_pub
     assert!(second.candidates[0].source_scope_missing);
     assert!(second.candidates[0].checkpoint_missing);
     assert_eq!(second.next_after_space_id, None);
+}
+
+#[tokio::test]
+async fn checkpoint_listing_is_bounded_keyset_ordered_and_scope_isolated() {
+    let (pool, store) = test_store().await;
+    let mut expected = Vec::new();
+    for space_id in [501, 502, 503] {
+        expected.push(
+            provision_checkpoint_for_scope(
+                &pool,
+                &store,
+                SCOPE,
+                space_id,
+                &format!("drive-space-{space_id}"),
+            )
+            .await,
+        );
+    }
+    let other_scope = WikiPersistenceScope {
+        tenant_id: SCOPE.tenant_id,
+        organization_id: SCOPE.organization_id + 1,
+    };
+    let other_checkpoint =
+        provision_checkpoint_for_scope(&pool, &store, other_scope, 601, "drive-space-601").await;
+
+    let first = store
+        .list_checkpoints(ListWikiDriveCheckpointsRequest {
+            scope: SCOPE,
+            after_checkpoint_id: None,
+            limit: 2,
+        })
+        .await
+        .expect("list first checkpoint page");
+    assert_eq!(
+        first
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.id)
+            .collect::<Vec<_>>(),
+        vec![expected[0].id, expected[1].id]
+    );
+    assert_eq!(first.next_after_checkpoint_id, Some(expected[1].id));
+
+    let second = store
+        .list_checkpoints(ListWikiDriveCheckpointsRequest {
+            scope: SCOPE,
+            after_checkpoint_id: first.next_after_checkpoint_id,
+            limit: 2,
+        })
+        .await
+        .expect("list second checkpoint page");
+    assert_eq!(second.checkpoints.len(), 1);
+    assert_eq!(second.checkpoints[0].id, expected[2].id);
+    assert_eq!(second.next_after_checkpoint_id, None);
+
+    let exhausted = store
+        .list_checkpoints(ListWikiDriveCheckpointsRequest {
+            scope: SCOPE,
+            after_checkpoint_id: Some(expected[2].id),
+            limit: 2,
+        })
+        .await
+        .expect("list exhausted checkpoint page");
+    assert!(exhausted.checkpoints.is_empty());
+    assert_eq!(exhausted.next_after_checkpoint_id, None);
+
+    let isolated = store
+        .list_checkpoints(ListWikiDriveCheckpointsRequest {
+            scope: other_scope,
+            after_checkpoint_id: None,
+            limit: 2,
+        })
+        .await
+        .expect("list isolated checkpoint page");
+    assert_eq!(isolated.checkpoints.len(), 1);
+    assert_eq!(isolated.checkpoints[0].id, other_checkpoint.id);
+
+    for limit in [0, 201] {
+        assert!(matches!(
+            store
+                .list_checkpoints(ListWikiDriveCheckpointsRequest {
+                    scope: SCOPE,
+                    after_checkpoint_id: None,
+                    limit,
+                })
+                .await,
+            Err(WikiPersistenceError::InvalidRequest(_))
+        ));
+    }
 }
 
 #[tokio::test]
@@ -497,6 +587,211 @@ async fn drive_inbox_detects_gaps_deduplicates_and_advances_strictly_in_order() 
 }
 
 #[tokio::test]
+async fn drive_event_application_atomically_revokes_public_route_and_advances_checkpoint() {
+    let (pool, store) = test_store().await;
+    insert_space(&pool, SCOPE, 501, "drive-space-501").await;
+    let publication = provision_bound_publication(&store).await;
+    let checkpoint = store
+        .provision_checkpoint(checkpoint_request(publication.id))
+        .await
+        .expect("provision checkpoint");
+
+    store
+        .receive_event(drive_event(publication.id, checkpoint.id, 1, "event-1"))
+        .await
+        .expect("receive source event");
+    let first = store
+        .claim_events(claim_events_request(checkpoint.id))
+        .await
+        .expect("claim source event")
+        .pop()
+        .expect("source event");
+    let applied = store
+        .apply_event(ApplyWikiDriveEventRequest {
+            complete: CompleteWikiDriveEventRequest {
+                scope: SCOPE,
+                event_id: first.id,
+                lease_token: first.lease_token.expect("event lease"),
+                actor_id: 9001,
+            },
+            mutation: WikiDriveProjectionMutation::Upsert(WikiDriveSourceMetadata {
+                drive_version_uuid: "drive-version-1".to_string(),
+                source_path: "guide/getting-started.md".to_string(),
+                file_kind: WikiSourceFileKind::Page,
+                media_type: "text/markdown".to_string(),
+                size_bytes: 512,
+                content_sha256:
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        .to_string(),
+            }),
+        })
+        .await
+        .expect("apply source event");
+    let projection = applied.projection.expect("source projection");
+    assert!(applied.public_route_change.is_none());
+
+    sqlx::query(
+        r#"
+        UPDATE kb_source_file_projection
+        SET source_state = 'READY', canonical_route = '/guide/getting-started/',
+            publication_state = 'PUBLISHED', visibility = 'PUBLIC',
+            public_drive_version_uuid = drive_version_uuid, page_public_version = 1
+        WHERE id = $1
+        "#,
+    )
+    .bind(i64::try_from(projection.id).unwrap())
+    .execute(&pool)
+    .await
+    .expect("publish verified route");
+
+    store
+        .receive_event(drive_event(publication.id, checkpoint.id, 2, "event-2"))
+        .await
+        .expect("receive revocation event");
+    let second = store
+        .claim_events(claim_events_request(checkpoint.id))
+        .await
+        .expect("claim revocation event")
+        .pop()
+        .expect("revocation event");
+    let revoked = store
+        .apply_event(ApplyWikiDriveEventRequest {
+            complete: CompleteWikiDriveEventRequest {
+                scope: SCOPE,
+                event_id: second.id,
+                lease_token: second.lease_token.expect("event lease"),
+                actor_id: 9001,
+            },
+            mutation: WikiDriveProjectionMutation::Revoke {
+                source_state: WikiSourceState::Quarantined,
+                publication_state: WikiPagePublicationState::Unpublished,
+                reason_code: "drive_quarantined".to_string(),
+            },
+        })
+        .await
+        .expect("atomically revoke route");
+    let projection = revoked.projection.expect("revoked projection");
+    let public_change = revoked.public_route_change.expect("public revocation");
+    assert_eq!(projection.source_state, WikiSourceState::Quarantined);
+    assert_eq!(
+        projection.publication_state,
+        WikiPagePublicationState::Unpublished
+    );
+    assert_eq!(projection.public_drive_version_uuid, None);
+    assert_eq!(projection.page_public_version, 2);
+    assert_eq!(
+        public_change.route.as_deref(),
+        Some("/guide/getting-started/")
+    );
+
+    let checkpoint = store
+        .get_checkpoint(SCOPE, checkpoint.id)
+        .await
+        .expect("advanced checkpoint");
+    assert_eq!(checkpoint.last_sequence_no, 2);
+    let outbox: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT uuid, event_type, CAST(payload AS TEXT) FROM kb_outbox_event WHERE aggregate_id = $1 ORDER BY id ASC",
+    )
+    .bind(i64::try_from(publication.id).unwrap())
+    .fetch_all(&pool)
+    .await
+    .expect("transactional public revocation outbox");
+    assert_eq!(
+        outbox
+            .iter()
+            .map(|event| event.1.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "knowledgebase.wiki.route.revoked.v1",
+            "knowledgebase.wiki.navigation.changed.v1",
+            "knowledgebase.wiki.search.changed.v1",
+        ]
+    );
+    for (uuid, _, payload) in &outbox {
+        let payload: serde_json::Value =
+            serde_json::from_str(payload).expect("provider event JSON");
+        assert_eq!(payload["id"], uuid.as_str());
+        assert!(payload["sequenceNo"].as_str().is_some());
+        assert_eq!(payload["data"]["navigationGeneration"], "2");
+        assert_eq!(payload["data"]["searchGeneration"], "2");
+        assert_eq!(payload["data"]["pagePublicVersion"], "2");
+        assert_eq!(payload["data"]["previousPagePublicVersion"], "1");
+        assert!(payload.to_string().contains("drive_quarantined"));
+        assert!(!payload.to_string().contains("objectKey"));
+    }
+    let generations: (i64, i64) = sqlx::query_as(
+        "SELECT navigation_generation, search_generation FROM kb_site_publication WHERE id = $1",
+    )
+    .bind(i64::try_from(publication.id).unwrap())
+    .fetch_one(&pool)
+    .await
+    .expect("advanced public collection generations");
+    assert_eq!(generations, (2, 2));
+}
+
+#[tokio::test]
+async fn invalid_drive_projection_mutation_rolls_back_before_checkpoint_advance() {
+    let (pool, store) = test_store().await;
+    insert_space(&pool, SCOPE, 501, "drive-space-501").await;
+    let publication = provision_bound_publication(&store).await;
+    let checkpoint = store
+        .provision_checkpoint(checkpoint_request(publication.id))
+        .await
+        .expect("provision checkpoint");
+    store
+        .receive_event(drive_event(publication.id, checkpoint.id, 1, "event-1"))
+        .await
+        .expect("receive source event");
+    let event = store
+        .claim_events(claim_events_request(checkpoint.id))
+        .await
+        .expect("claim source event")
+        .pop()
+        .expect("source event");
+    let error = store
+        .apply_event(ApplyWikiDriveEventRequest {
+            complete: CompleteWikiDriveEventRequest {
+                scope: SCOPE,
+                event_id: event.id,
+                lease_token: event.lease_token.expect("event lease"),
+                actor_id: 9001,
+            },
+            mutation: WikiDriveProjectionMutation::Upsert(WikiDriveSourceMetadata {
+                drive_version_uuid: "drive-version-1".to_string(),
+                source_path: "../private.md".to_string(),
+                file_kind: WikiSourceFileKind::Page,
+                media_type: "text/markdown".to_string(),
+                size_bytes: 512,
+                content_sha256:
+                    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                        .to_string(),
+            }),
+        })
+        .await
+        .expect_err("invalid path must roll back the event transaction");
+    assert!(matches!(error, WikiPersistenceError::InvalidRequest(_)));
+    assert_eq!(
+        store
+            .get_checkpoint(SCOPE, checkpoint.id)
+            .await
+            .expect("checkpoint after rollback")
+            .last_sequence_no,
+        0
+    );
+    let projection_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM kb_source_file_projection")
+            .fetch_one(&pool)
+            .await
+            .expect("count projections");
+    let outbox_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM kb_outbox_event")
+        .fetch_one(&pool)
+        .await
+        .expect("count outbox");
+    assert_eq!(projection_count, 0);
+    assert_eq!(outbox_count, 0);
+}
+
+#[tokio::test]
 async fn dead_lettered_gap_can_be_reconciled_with_a_fenced_bounded_checkpoint() {
     let (pool, store) = test_store().await;
     insert_space(&pool, SCOPE, 501, "drive-space-501").await;
@@ -682,6 +977,50 @@ async fn provision_bound_publication(
         })
         .await
         .expect("bind source scope")
+}
+
+async fn provision_checkpoint_for_scope(
+    pool: &sqlx::AnyPool,
+    store: &SqlxWikiPersistenceStore,
+    scope: WikiPersistenceScope,
+    space_id: u64,
+    drive_space_uuid: &str,
+) -> sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::WikiDriveCheckpoint
+{
+    insert_space(pool, scope, space_id, drive_space_uuid).await;
+    let publication = store
+        .provision_publication(ProvisionWikiPublicationRequest {
+            scope,
+            space_id,
+            drive_space_uuid: drive_space_uuid.to_string(),
+            title: format!("Wiki {space_id}"),
+            actor_id: 9001,
+        })
+        .await
+        .expect("provision scoped publication")
+        .publication;
+    let source_scope_uuid = format!("raw-scope-{space_id}");
+    let publication = store
+        .bind_source_scope(BindWikiSourceScopeRequest {
+            scope,
+            site_publication_id: publication.id,
+            source_root_node_uuid: format!("raw-root-{space_id}"),
+            source_scope_uuid: source_scope_uuid.clone(),
+            expected_version: publication.version,
+            actor_id: 9001,
+        })
+        .await
+        .expect("bind scoped source root");
+    store
+        .provision_checkpoint(ProvisionWikiDriveCheckpointRequest {
+            scope,
+            site_publication_id: publication.id,
+            drive_space_uuid: drive_space_uuid.to_string(),
+            source_scope_uuid,
+            actor_id: 9001,
+        })
+        .await
+        .expect("provision scoped checkpoint")
 }
 
 fn checkpoint_request(site_publication_id: u64) -> ProvisionWikiDriveCheckpointRequest {

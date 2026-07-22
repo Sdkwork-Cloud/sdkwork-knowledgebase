@@ -15,7 +15,8 @@
     ],
     "generated": false,
     "manifests": [
-      "Cargo.toml"
+      "Cargo.toml",
+      "apis/async/knowledgebase/knowledgebase-wiki-events.asyncapi.json"
     ]
   },
   "canonicalSpecs": [
@@ -93,6 +94,11 @@
       "file": "DATABASE_SPEC.md",
       "path": "../sdkwork-specs/DATABASE_SPEC.md",
       "purpose": "Database contract, table naming, logical types, tenant isolation, indexes, schema evolution."
+    },
+    {
+      "file": "EVENT_SPEC.md",
+      "path": "../sdkwork-specs/EVENT_SPEC.md",
+      "purpose": "Versioned Wiki provider events, transactional outbox, replay, and consumer idempotency."
     }
   ],
   "contracts": {
@@ -103,16 +109,19 @@
     "runtimeEntrypoints": [
       "sdkwork-knowledgebase-app-api",
       "sdkwork-knowledgebase-backend-api",
+      "sdkwork-knowledgebase-internal-api",
       "sdkwork-knowledgebase-open-api",
       "sdkwork-knowledgebase-worker",
       "sdkwork-knowledgebase-provider-binding-prelaunch-report",
       "crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs",
       "crates/sdkwork-routes-knowledgebase-backend-api/src/routes.rs",
+      "crates/sdkwork-routes-knowledgebase-internal-api/src/routes.rs",
       "crates/sdkwork-routes-knowledgebase-open-api/src/routes.rs"
     ],
     "routeManifests": [
       "sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json",
       "sdks/_route-manifests/backend-api/sdkwork-routes-knowledgebase-backend-api.route-manifest.json",
+      "sdks/_route-manifests/internal-api/sdkwork-routes-knowledgebase-internal-api.route-manifest.json",
       "sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json"
     ],
     "routeManifest": "sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json",
@@ -126,6 +135,11 @@
         "family": "sdkwork-knowledgebase-backend-sdk",
         "client": "SdkworkKnowledgebaseBackendClient",
         "surface": "backend-api"
+      },
+      {
+        "family": "sdkwork-knowledgebase-internal-sdk",
+        "client": "SdkworkKnowledgebaseInternalClient",
+        "surface": "internal-api"
       },
       {
         "family": "sdkwork-knowledgebase-sdk",
@@ -182,10 +196,22 @@
     ],
     "dependencyApiExports": [],
     "dependencyApiSurfaces": [],
-    "events": [],
+    "events": [
+      "knowledgebase.wiki.provider.changed.v1",
+      "knowledgebase.wiki.route.changed.v1",
+      "knowledgebase.wiki.route.revoked.v1",
+      "knowledgebase.wiki.navigation.changed.v1",
+      "knowledgebase.wiki.search.changed.v1"
+    ],
     "configKeys": [
       "SDKWORK_KNOWLEDGEBASE_DATABASE_URL",
       "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_BASE_URL",
+      "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE",
+      "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_CALLBACK_URL",
+      "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_SIGNING_SECRET_FILE",
+      "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_PREVIOUS_SIGNING_SECRET_FILE",
+      "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_CHANNEL_TTL_SECONDS",
+      "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_CALLER_APP_ID",
       "SDKWORK_KNOWLEDGEBASE_TENANT_ID",
       "SDKWORK_KNOWLEDGEBASE_ACTOR_ID",
       "SDKWORK_KNOWLEDGEBASE_OPERATOR_ID",
@@ -204,7 +230,7 @@
       "SDKWORK_KNOWLEDGEBASE_APPLICATION_OPEN_HTTP_URL",
       "SDKWORK_KNOWLEDGEBASE_DEV_ALLOWED_ORIGINS",
       "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_URL",
-      "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_SECRET",
+      "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_SECRET_FILE",
       "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_TIMEOUT_SECS",
       "SDKWORK_KNOWLEDGEBASE_OUTBOX_MAX_RETRIES"
     ]

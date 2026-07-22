@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::{
-    ClaimWikiDriveEventsRequest, CompleteWikiDriveEventRequest, ReceiveWikiDriveEventRequest,
-    RetryWikiDriveEventRequest, WikiDriveEventInboxStore, WikiDriveEventProcessingState,
-    WikiDriveEventReceipt, WikiDriveEventReceiveDisposition, WikiDriveInboxEvent,
+    ApplyWikiDriveEventRequest, ClaimWikiDriveEventsRequest, CompleteWikiDriveEventRequest,
+    ReceiveWikiDriveEventRequest, RetryWikiDriveEventRequest, WikiDriveEventApplicationResult,
+    WikiDriveEventInboxStore, WikiDriveEventProcessingState, WikiDriveEventReceipt,
+    WikiDriveEventReceiveDisposition, WikiDriveInboxEvent, WikiDriveProjectionMutation,
     WikiPersistenceError, WikiPersistenceScope,
 };
 use sdkwork_utils_rust::{sha256_hash, uuid};
@@ -15,7 +16,7 @@ use super::{
     SqlxWikiPersistenceStore,
 };
 
-const INBOX_COLUMNS: &str = r#"
+pub(super) const INBOX_COLUMNS: &str = r#"
     id, uuid, tenant_id, organization_id, site_publication_id, checkpoint_id,
     source_event_id, event_type, sequence_no, drive_node_uuid, drive_version_uuid,
     payload_sha256, CAST(payload_json AS TEXT) AS payload_json, source_event_time,
@@ -296,6 +297,21 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
         &self,
         request: CompleteWikiDriveEventRequest,
     ) -> Result<WikiDriveInboxEvent, WikiPersistenceError> {
+        Ok(self
+            .apply_event(ApplyWikiDriveEventRequest {
+                complete: request,
+                mutation: WikiDriveProjectionMutation::None,
+            })
+            .await?
+            .event)
+    }
+
+    async fn apply_event(
+        &self,
+        request: ApplyWikiDriveEventRequest,
+    ) -> Result<WikiDriveEventApplicationResult, WikiPersistenceError> {
+        let mutation = request.mutation;
+        let request = request.complete;
         validate_scope(request.scope)?;
         let lease_token = require_text("lease_token", &request.lease_token, 128)?;
         let mut transaction = self.pool.begin().await.map_err(sql_error)?;
@@ -341,6 +357,16 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
         }
 
         let now = super::now()?;
+        let (projection, public_route_change) =
+            super::event_application::apply_projection_mutation(
+                self,
+                &mut transaction,
+                &event,
+                &mutation,
+                request.actor_id,
+                &now,
+            )
+            .await?;
         let timestamp = self.dialect.sql_timestamp_expr("$6");
         let event_update = format!(
             r#"
@@ -453,7 +479,11 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
         }
 
         transaction.commit().await.map_err(sql_error)?;
-        inbox_from_row(&applied_row)
+        Ok(WikiDriveEventApplicationResult {
+            event: inbox_from_row(&applied_row)?,
+            projection,
+            public_route_change,
+        })
     }
 
     async fn retry_event(
@@ -565,7 +595,7 @@ fn event_matches_replay(
         && event.source_event_time == request.source_event_time
 }
 
-fn inbox_from_row(row: &AnyRow) -> Result<WikiDriveInboxEvent, WikiPersistenceError> {
+pub(super) fn inbox_from_row(row: &AnyRow) -> Result<WikiDriveInboxEvent, WikiPersistenceError> {
     Ok(WikiDriveInboxEvent {
         id: from_i64("id", row.try_get("id").map_err(row_error)?)?,
         uuid: row.try_get("uuid").map_err(row_error)?,

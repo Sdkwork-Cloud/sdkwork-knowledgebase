@@ -9,17 +9,19 @@ use sdkwork_knowledgebase_contract::{
     context_binding::{
         CreateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceContextBindingRequest,
     },
-    CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
-    CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, KnowledgeAgentBindingRequest,
-    KnowledgeAgentChatRequest, KnowledgeAgentProfileRequest, KnowledgeBrowserListData,
-    KnowledgeBrowserView, KnowledgeContextPackRequest, KnowledgeDriveImportRequest,
-    KnowledgeGitImportRequest, KnowledgeGitSyncRequest, KnowledgeIngestRequest,
-    KnowledgeMarketSubscriptionRequest, KnowledgeMediaTaskRequest, KnowledgeRetrievalRequest,
-    KnowledgeSpaceMemberSubjectType, KnowledgeWechatArticlesPreviewRequest,
-    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatReplaceAppletsRequest,
-    KnowledgeWechatReplaceOfficialAccountsRequest, ListKnowledgeBrowserRequest,
-    ListOkfConceptsQuery, OkfBundleExportRequest, OkfBundleImportRequest, OkfConceptUpsertRequest,
-    OkfContextPackRequest, OkfFileAnswerRequest, OkfQualityRunRequest, OkfQueryRequest,
+    ChangeKnowledgeWikiSourceFileVisibilityRequest, CreateKnowledgeDocumentRequest,
+    CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceRequest,
+    GrantKnowledgeSpaceMemberRequest, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
+    KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeBrowserView,
+    KnowledgeContextPackRequest, KnowledgeDriveImportRequest, KnowledgeGitImportRequest,
+    KnowledgeGitSyncRequest, KnowledgeIngestRequest, KnowledgeMarketSubscriptionRequest,
+    KnowledgeMediaTaskRequest, KnowledgeRetrievalRequest, KnowledgeSpaceMemberSubjectType,
+    KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest,
+    KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
+    KnowledgeWikiPublicationVersionCommandRequest, KnowledgeWikiSourceFileVersionCommandRequest,
+    ListKnowledgeBrowserRequest, ListOkfConceptsQuery, OkfBundleExportRequest,
+    OkfBundleImportRequest, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest,
+    OkfQualityRunRequest, OkfQueryRequest, PublishKnowledgeWikiSourceFileRequest,
     UpdateKnowledgeSpaceRequest,
 };
 use serde::{Deserialize, Serialize};
@@ -35,6 +37,7 @@ use crate::{
     KnowledgeCommerceAppService, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
     KnowledgeGitImportAppService, KnowledgeGroupLaunchAppService, KnowledgeIngestAppService,
     KnowledgeOkfAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
+    KnowledgeWikiPublicationAppService,
 };
 use sdkwork_routes_knowledgebase_backend_api::KnowledgebaseReadinessCheck;
 
@@ -105,6 +108,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub fn build_router_with_full_app_api(
     space: Arc<dyn KnowledgeSpaceAppService>,
+    wiki: Arc<dyn KnowledgeWikiPublicationAppService>,
     group_launch: Arc<dyn KnowledgeGroupLaunchAppService>,
     drive_import: Arc<dyn KnowledgeDriveImportAppService>,
     git_import: Arc<dyn KnowledgeGitImportAppService>,
@@ -120,6 +124,7 @@ pub fn build_router_with_full_app_api(
 ) -> Router {
     build_router_with_shared_app_api(Arc::new(FullAppApi::new(
         space,
+        wiki,
         group_launch,
         drive_import,
         git_import,
@@ -158,6 +163,24 @@ fn build_business_router(api: Arc<dyn KnowledgeAppApi>) -> Router {
         .route(
             paths::SPACE,
             get(retrieve_space).patch(update_space).delete(delete_space),
+        )
+        .route(paths::WIKI_PUBLICATION, get(retrieve_wiki_publication))
+        .route(
+            paths::WIKI_PUBLICATION_ACTIVATE,
+            post(activate_wiki_publication),
+        )
+        .route(paths::WIKI_PUBLICATION_PAUSE, post(pause_wiki_publication))
+        .route(
+            paths::WIKI_SOURCE_FILE_PUBLISH,
+            post(publish_wiki_source_file),
+        )
+        .route(
+            paths::WIKI_SOURCE_FILE_UNPUBLISH,
+            post(unpublish_wiki_source_file),
+        )
+        .route(
+            paths::WIKI_SOURCE_FILE_VISIBILITY,
+            patch(change_wiki_source_file_visibility),
         )
         .route(paths::DRIVE_IMPORTS, post(create_drive_import))
         .route(paths::GIT_IMPORTS, post(create_git_import))
@@ -359,6 +382,90 @@ async fn delete_space(
         .await
         .map_err(ApiProblem::from)?;
     Ok(sdkwork_knowledgebase_observability::request_correlation::no_content_response())
+}
+
+async fn retrieve_wiki_publication(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path(space_id): Path<u64>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(state.api.retrieve_wiki_publication(context, space_id).await)
+}
+
+async fn activate_wiki_publication(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path(space_id): Path<u64>,
+    Json(request): Json<KnowledgeWikiPublicationVersionCommandRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .activate_wiki_publication(context, space_id, request)
+            .await,
+    )
+}
+
+async fn pause_wiki_publication(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path(space_id): Path<u64>,
+    Json(request): Json<KnowledgeWikiPublicationVersionCommandRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .pause_wiki_publication(context, space_id, request)
+            .await,
+    )
+}
+
+async fn publish_wiki_source_file(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path((space_id, source_file_uuid)): Path<(u64, String)>,
+    Json(request): Json<PublishKnowledgeWikiSourceFileRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .publish_wiki_source_file(context, space_id, source_file_uuid, request)
+            .await,
+    )
+}
+
+async fn unpublish_wiki_source_file(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path((space_id, source_file_uuid)): Path<(u64, String)>,
+    Json(request): Json<KnowledgeWikiSourceFileVersionCommandRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .unpublish_wiki_source_file(context, space_id, source_file_uuid, request)
+            .await,
+    )
+}
+
+async fn change_wiki_source_file_visibility(
+    State(state): State<AppState>,
+    context: RequiredAppContext,
+    Path((space_id, source_file_uuid)): Path<(u64, String)>,
+    Json(request): Json<ChangeKnowledgeWikiSourceFileVisibilityRequest>,
+) -> Result<Response, ApiProblem> {
+    let context = require_app_context(context)?;
+    ok_json(
+        state
+            .api
+            .change_wiki_source_file_visibility(context, space_id, source_file_uuid, request)
+            .await,
+    )
 }
 
 #[derive(Debug, Deserialize)]

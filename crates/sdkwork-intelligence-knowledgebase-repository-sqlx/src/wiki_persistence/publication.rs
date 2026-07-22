@@ -11,7 +11,7 @@ use super::{
     validate_scope, SqlxWikiPersistenceStore,
 };
 
-const PUBLICATION_COLUMNS: &str = r#"
+pub(super) const PUBLICATION_COLUMNS: &str = r#"
     id, uuid, tenant_id, organization_id, space_id, drive_space_uuid,
     source_root_node_uuid, source_scope_uuid, wiki_status, title,
     homepage_source_path, publication_mode, default_visibility, update_policy,

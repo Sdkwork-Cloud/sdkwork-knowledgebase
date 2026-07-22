@@ -5,27 +5,30 @@ use sdkwork_knowledgebase_contract::{
         KnowledgeSpaceContextBinding, UpdateKnowledgeSpaceContextBindingRequest,
     },
     group_space::{ConsumeGroupKnowledgebaseLaunchTicketRequest, GroupKnowledgebaseLaunchTarget},
-    CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest,
-    CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, IngestionJob,
-    KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
-    KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile,
-    KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeContextPack,
-    KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent,
-    KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult,
-    KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest,
-    KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem,
-    KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult,
-    KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile,
-    KnowledgeOkfConceptRevision, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
-    KnowledgeSpace, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType,
-    KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest,
-    KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList,
-    KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
+    ChangeKnowledgeWikiSourceFileVisibilityRequest, CreateKnowledgeDocumentRequest,
+    CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceRequest,
+    GrantKnowledgeSpaceMemberRequest, IngestionJob, KnowledgeAgentBinding,
+    KnowledgeAgentBindingList, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest,
+    KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest,
+    KnowledgeBrowserListData, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument,
+    KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDriveImportRequest,
+    KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult,
+    KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest,
+    KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest,
+    KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult,
+    KnowledgeOkfBundleFile, KnowledgeOkfConceptRevision, KnowledgeRetrievalRequest,
+    KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeSpaceMember,
+    KnowledgeSpaceMemberSubjectType, KnowledgeWechatAppletList,
+    KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest,
+    KnowledgeWechatFanTagList, KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult,
     KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
+    KnowledgeWikiPublication, KnowledgeWikiPublicationVersionCommandRequest,
+    KnowledgeWikiSourceFileCommandResult, KnowledgeWikiSourceFileVersionCommandRequest,
     ListKnowledgeBrowserRequest, OkfBundleExportRequest, OkfBundleImportRequest,
     OkfBundleImportResult, OkfConceptSummary, OkfConceptUpsertRequest, OkfContextPackRequest,
     OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun,
-    OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, UpdateKnowledgeSpaceRequest,
+    OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PublishKnowledgeWikiSourceFileRequest,
+    UpdateKnowledgeSpaceRequest,
 };
 use sdkwork_utils_rust::SdkWorkPageData;
 
@@ -91,6 +94,53 @@ pub trait KnowledgeSpaceAppService: Send + Sync + 'static {
         subject_type: KnowledgeSpaceMemberSubjectType,
         subject_id: String,
     ) -> ApiResult<()>;
+}
+
+#[async_trait]
+pub trait KnowledgeWikiPublicationAppService: Send + Sync + 'static {
+    async fn retrieve_wiki_publication(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<KnowledgeWikiPublication>;
+
+    async fn activate_wiki_publication(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: KnowledgeWikiPublicationVersionCommandRequest,
+    ) -> ApiResult<KnowledgeWikiPublication>;
+
+    async fn pause_wiki_publication(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: KnowledgeWikiPublicationVersionCommandRequest,
+    ) -> ApiResult<KnowledgeWikiPublication>;
+
+    async fn publish_wiki_source_file(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        source_file_uuid: String,
+        request: PublishKnowledgeWikiSourceFileRequest,
+    ) -> ApiResult<KnowledgeWikiSourceFileCommandResult>;
+
+    async fn unpublish_wiki_source_file(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        source_file_uuid: String,
+        request: KnowledgeWikiSourceFileVersionCommandRequest,
+    ) -> ApiResult<KnowledgeWikiSourceFileCommandResult>;
+
+    async fn change_wiki_source_file_visibility(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        source_file_uuid: String,
+        request: ChangeKnowledgeWikiSourceFileVisibilityRequest,
+    ) -> ApiResult<KnowledgeWikiSourceFileCommandResult>;
 }
 
 /// User-facing ticket-consumption surface. Trusted IM provisioning and membership synchronization
@@ -540,6 +590,64 @@ pub trait KnowledgeAppApi: Send + Sync + 'static {
         _space_id: u64,
     ) -> ApiResult<()> {
         Err(ApiError::unsupported_operation("spaces.delete"))
+    }
+
+    async fn retrieve_wiki_publication(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+    ) -> ApiResult<KnowledgeWikiPublication> {
+        Err(ApiError::unsupported_operation("wikiPublications.retrieve"))
+    }
+
+    async fn activate_wiki_publication(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+        _request: KnowledgeWikiPublicationVersionCommandRequest,
+    ) -> ApiResult<KnowledgeWikiPublication> {
+        Err(ApiError::unsupported_operation("wikiPublications.activate"))
+    }
+
+    async fn pause_wiki_publication(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+        _request: KnowledgeWikiPublicationVersionCommandRequest,
+    ) -> ApiResult<KnowledgeWikiPublication> {
+        Err(ApiError::unsupported_operation("wikiPublications.pause"))
+    }
+
+    async fn publish_wiki_source_file(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+        _source_file_uuid: String,
+        _request: PublishKnowledgeWikiSourceFileRequest,
+    ) -> ApiResult<KnowledgeWikiSourceFileCommandResult> {
+        Err(ApiError::unsupported_operation("wikiSourceFiles.publish"))
+    }
+
+    async fn unpublish_wiki_source_file(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+        _source_file_uuid: String,
+        _request: KnowledgeWikiSourceFileVersionCommandRequest,
+    ) -> ApiResult<KnowledgeWikiSourceFileCommandResult> {
+        Err(ApiError::unsupported_operation("wikiSourceFiles.unpublish"))
+    }
+
+    async fn change_wiki_source_file_visibility(
+        &self,
+        _context: KnowledgeAppRequestContext,
+        _space_id: u64,
+        _source_file_uuid: String,
+        _request: ChangeKnowledgeWikiSourceFileVisibilityRequest,
+    ) -> ApiResult<KnowledgeWikiSourceFileCommandResult> {
+        Err(ApiError::unsupported_operation(
+            "wikiSourceFiles.visibility.update",
+        ))
     }
 
     async fn list_space_members(

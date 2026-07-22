@@ -334,7 +334,7 @@
   },
   "events": {
     "inputOwners": ["Drive node and version lifecycle", "Knowledgebase publication commands"],
-    "requiredAsyncApiAuthority": "apis/events/live-wiki-publication.asyncapi.yaml",
+    "requiredAsyncApiAuthority": "apis/async/knowledgebase/knowledgebase-wiki-events.asyncapi.json",
     "emits": [
       "knowledgebase.wiki.provider.changed.v1",
       "knowledgebase.wiki.route.changed.v1",

@@ -21,6 +21,7 @@ mod hosted_group_launch;
 mod hosted_open;
 mod hosted_support;
 mod hosted_wechat;
+mod hosted_wiki;
 pub mod http_route_manifest;
 mod knowledge_engine_adapters;
 pub mod manifest;
@@ -39,7 +40,7 @@ pub use ports::{
     KnowledgeCommerceAppService, KnowledgeContextBindingAppService, KnowledgeDocumentAppService,
     KnowledgeDriveImportAppService, KnowledgeGitImportAppService, KnowledgeGroupLaunchAppService,
     KnowledgeIngestAppService, KnowledgeOkfAppService, KnowledgeRetrievalAppService,
-    KnowledgeSpaceAppService, KnowledgeWechatAppService,
+    KnowledgeSpaceAppService, KnowledgeWechatAppService, KnowledgeWikiPublicationAppService,
 };
 pub use routes::{
     build_router_with_agent_and_retrieval_services, build_router_with_agent_service,

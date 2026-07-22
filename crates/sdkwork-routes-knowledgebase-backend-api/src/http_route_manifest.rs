@@ -69,7 +69,7 @@ const HTTP_ROUTES: &[HttpRoute] = &[
         HttpMethod::Post,
         "/backend/v3/api/knowledge/okf/index/rebuild",
         "knowledge",
-        "okf.bundle.index.create",
+        "okf.bundle.index.rebuild",
     ),
     HttpRoute::dual_token(
         HttpMethod::Post,

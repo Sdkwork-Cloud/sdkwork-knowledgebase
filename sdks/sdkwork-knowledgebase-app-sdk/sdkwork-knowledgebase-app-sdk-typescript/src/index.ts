@@ -1,6 +1,6 @@
 import {
   createClient as createGeneratedKnowledgebaseAppClient,
-  SdkworkAppClient as SdkworkKnowledgebaseAppClient,
+  SdkworkKnowledgebaseAppClient,
 } from '../generated/server-openapi/src/index';
 import type { SdkworkAppConfig } from '../generated/server-openapi/src/types/common';
 

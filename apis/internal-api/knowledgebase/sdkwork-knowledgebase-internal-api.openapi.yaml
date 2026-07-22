@@ -1,0 +1,745 @@
+openapi: 3.1.2
+info:
+  title: SDKWork Knowledgebase Internal API
+  version: 0.2.0
+  description: Application-ingress API for signed Drive event delivery and authenticated public Wiki provider access.
+servers:
+  - url: "{applicationPublicIngressOrigin}"
+    description: Knowledgebase application public ingress.
+    variables:
+      applicationPublicIngressOrigin:
+        default: http://127.0.0.1:18081
+tags:
+  - name: knowledgebaseInternalWiki
+    description: Trusted Drive event ingress and non-disclosing Wiki provider operations.
+paths:
+  /internal/v3/api/knowledgebase/drive_events:
+    post:
+      tags:
+        - knowledgebaseInternalWiki
+      summary: Receive a signed Drive event for a Wiki source scope
+      description: Requires application-ingress authentication and an HMAC-SHA256 signature over the timestamp and exact request body bytes. Exact event replays are idempotent.
+      operationId: driveEvents.receive
+      x-sdkwork-owner: sdkwork-knowledgebase
+      x-sdkwork-api-authority: sdkwork-knowledgebase-internal-api
+      x-sdkwork-source-route-crate: sdkwork-routes-knowledgebase-internal-api
+      x-sdkwork-api-surface: internal-api
+      x-sdkwork-auth-mode: ingress-token
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-tenant-scope: signed-event
+      x-sdkwork-rate-limit-tier: internal
+      x-sdkwork-idempotent: true
+      security:
+        - ApiKey: []
+      parameters:
+        - $ref: "#/components/parameters/EventId"
+        - $ref: "#/components/parameters/EventTimestamp"
+        - $ref: "#/components/parameters/EventSignature"
+        - $ref: "#/components/parameters/EventRetryCount"
+        - $ref: "#/components/parameters/DriveChannelId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriveCloudEvent"
+      responses:
+        "200":
+          description: Event accepted, deferred for a sequence gap, ignored as stale, or deduplicated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriveEventReceiptResponse"
+        default:
+          $ref: "#/components/responses/Problem"
+  /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}:
+    get:
+      tags:
+        - knowledgebaseInternalWiki
+      summary: Retrieve an active public Wiki publication
+      description: Returns provider metadata only when the authenticated tenant and organization own an ACTIVE Wiki publication. Missing, private, paused, degraded, archived, and wrong-scope publications are non-disclosing.
+      operationId: wikiPublications.retrieve
+      x-sdkwork-owner: sdkwork-knowledgebase
+      x-sdkwork-api-authority: sdkwork-knowledgebase-internal-api
+      x-sdkwork-source-route-crate: sdkwork-routes-knowledgebase-internal-api
+      x-sdkwork-api-surface: internal-api
+      x-sdkwork-auth-mode: ingress-token
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-tenant-scope: current
+      x-sdkwork-rate-limit-tier: internal
+      security:
+        - ApiKey: []
+      parameters:
+        - $ref: "#/components/parameters/PublicationUuid"
+      responses:
+        "200":
+          description: Active Wiki publication metadata and generation checkpoints.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WikiPublicationResponse"
+        default:
+          $ref: "#/components/responses/Problem"
+  /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/routes/resolve:
+    post:
+      tags:
+        - knowledgebaseInternalWiki
+      summary: Resolve one normalized public Wiki route
+      description: Resolves an exact current public route or one reviewed previous-route redirect without disclosing private or unavailable projections.
+      operationId: wikiPublications.routes.resolve
+      x-sdkwork-owner: sdkwork-knowledgebase
+      x-sdkwork-api-authority: sdkwork-knowledgebase-internal-api
+      x-sdkwork-source-route-crate: sdkwork-routes-knowledgebase-internal-api
+      x-sdkwork-api-surface: internal-api
+      x-sdkwork-auth-mode: ingress-token
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-tenant-scope: current
+      x-sdkwork-rate-limit-tier: internal
+      security:
+        - ApiKey: []
+      parameters:
+        - $ref: "#/components/parameters/PublicationUuid"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveWikiRouteRequest"
+      responses:
+        "200":
+          description: Exact public page metadata and content handle, or a reviewed redirect.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WikiRouteResolutionResponse"
+        default:
+          $ref: "#/components/responses/Problem"
+  /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/contents/{contentHandle}:
+    get:
+      tags:
+        - knowledgebaseInternalWiki
+      summary: Retrieve one bounded pinned public Wiki representation
+      description: Revalidates ACTIVE publication state, public eligibility, the exact page public version, and the pinned Drive version before returning at most 16 MiB. Range streaming is not part of this operation.
+      operationId: wikiPublications.contents.retrieve
+      x-sdkwork-owner: sdkwork-knowledgebase
+      x-sdkwork-api-authority: sdkwork-knowledgebase-internal-api
+      x-sdkwork-source-route-crate: sdkwork-routes-knowledgebase-internal-api
+      x-sdkwork-api-surface: internal-api
+      x-sdkwork-auth-mode: ingress-token
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-tenant-scope: current
+      x-sdkwork-rate-limit-tier: internal
+      security:
+        - ApiKey: []
+      parameters:
+        - $ref: "#/components/parameters/PublicationUuid"
+        - $ref: "#/components/parameters/ContentHandle"
+      responses:
+        "200":
+          description: Complete immutable pinned content within the bounded-reader limit.
+          headers:
+            ETag:
+              schema:
+                type: string
+            Content-Length:
+              schema:
+                type: string
+                pattern: "^[0-9]+$"
+            X-Content-Type-Options:
+              schema:
+                type: string
+                const: nosniff
+            X-SDKWork-Wiki-Page-Public-Version:
+              schema:
+                $ref: "#/components/schemas/PositiveInt64String"
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Problem"
+  /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/navigation:
+    get:
+      tags:
+        - knowledgebaseInternalWiki
+      summary: List public Wiki navigation pages
+      description: P0 cursor list ordered by canonical route. Only READY, PUBLISHED, PUBLIC, non-hidden projections are returned; the SQL store fetches at most page_size plus one row.
+      operationId: wikiPublications.navigation.list
+      x-sdkwork-owner: sdkwork-knowledgebase
+      x-sdkwork-api-authority: sdkwork-knowledgebase-internal-api
+      x-sdkwork-source-route-crate: sdkwork-routes-knowledgebase-internal-api
+      x-sdkwork-api-surface: internal-api
+      x-sdkwork-auth-mode: ingress-token
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-tenant-scope: current
+      x-sdkwork-rate-limit-tier: internal
+      security:
+        - ApiKey: []
+      parameters:
+        - $ref: "#/components/parameters/PublicationUuid"
+        - $ref: "#/components/parameters/Locale"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Bounded public navigation page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WikiPageListResponse"
+        default:
+          $ref: "#/components/responses/Problem"
+  /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/pages/search:
+    get:
+      tags:
+        - knowledgebaseInternalWiki
+      summary: Search public Wiki page metadata
+      description: P0 cursor search over the current public projection title, canonical route, and source path. Only READY, PUBLISHED, PUBLIC projections with READY index state are eligible. Full-text rendition search remains a separate provider capability.
+      operationId: wikiPublications.pages.search
+      x-sdkwork-owner: sdkwork-knowledgebase
+      x-sdkwork-api-authority: sdkwork-knowledgebase-internal-api
+      x-sdkwork-source-route-crate: sdkwork-routes-knowledgebase-internal-api
+      x-sdkwork-api-surface: internal-api
+      x-sdkwork-auth-mode: ingress-token
+      x-sdkwork-request-context: WebRequestContext
+      x-sdkwork-tenant-scope: current
+      x-sdkwork-rate-limit-tier: internal
+      security:
+        - ApiKey: []
+      parameters:
+        - $ref: "#/components/parameters/PublicationUuid"
+        - $ref: "#/components/parameters/SearchQuery"
+        - $ref: "#/components/parameters/Locale"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Bounded public Wiki metadata search page.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WikiPageListResponse"
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  securitySchemes:
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Application ingress token. Bearer and X-SDKWork-Access-Token aliases are accepted by the runtime.
+  parameters:
+    PublicationUuid:
+      name: publicationUuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ContentHandle:
+      name: contentHandle
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 4096
+        pattern: "^[A-Za-z0-9_-]+$"
+    Locale:
+      name: locale
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 35
+        pattern: "^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$"
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor returned by data.pageInfo.nextCursor.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 4096
+        pattern: "^[A-Za-z0-9_-]+$"
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+        default: 20
+    SearchQuery:
+      name: q
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 256
+    EventId:
+      name: x-sdkwork-event-id
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    EventTimestamp:
+      name: x-sdkwork-event-timestamp
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: "^[1-9][0-9]*$"
+    EventSignature:
+      name: x-sdkwork-event-signature
+      in: header
+      required: true
+      schema:
+        type: string
+        format: password
+        minLength: 67
+        maxLength: 67
+        pattern: "^v1=[0-9a-f]{64}$"
+    EventRetryCount:
+      name: x-sdkwork-event-retry-count
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: "^(0|[1-9][0-9]{0,2})$"
+    DriveChannelId:
+      name: x-sdkwork-drive-channel-id
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: "^kbraw:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    IdempotencyKey:
+      name: x-sdkwork-idempotency-key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 256
+        pattern: "^[^\\s]+$"
+  responses:
+    Problem:
+      description: RFC 9457 problem response.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+  schemas:
+    ResolveWikiRouteRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - route
+      properties:
+        route:
+          type: string
+          minLength: 1
+          maxLength: 2048
+          pattern: "^/[^?#%\\\\]*$"
+        locale:
+          type: string
+          minLength: 1
+          maxLength: 35
+          pattern: "^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$"
+    WikiFileKind:
+      type: string
+      enum:
+        - PAGE
+        - DOCUMENT
+        - PRESENTATION
+        - SPREADSHEET
+        - CODE
+        - MEDIA
+        - ASSET
+        - ARCHIVE
+    WikiPublication:
+      type: object
+      additionalProperties: false
+      required:
+        - publicationUuid
+        - title
+        - homepageSourcePath
+        - defaultLocale
+        - supportedLocales
+        - navigationMode
+        - themeKey
+        - themeVersion
+        - rendererPolicyVersion
+        - searchEnabled
+        - robotsPolicy
+        - sitemapEnabled
+        - providerGeneration
+        - navigationGeneration
+        - searchGeneration
+      properties:
+        publicationUuid:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 2048
+        homepageSourcePath:
+          type: string
+          maxLength: 1024
+        defaultLocale:
+          type: string
+          maxLength: 35
+        supportedLocales:
+          type: array
+          minItems: 1
+          maxItems: 64
+          items:
+            type: string
+            maxLength: 35
+        navigationMode:
+          type: string
+          enum:
+            - DIRECTORY
+            - FRONT_MATTER
+            - CURATED
+        themeKey:
+          type: string
+          maxLength: 128
+        themeVersion:
+          type: string
+          maxLength: 64
+        rendererPolicyVersion:
+          type: string
+          maxLength: 64
+        searchEnabled:
+          type: boolean
+        robotsPolicy:
+          type: string
+          enum:
+            - INDEX_FOLLOW
+            - NOINDEX_NOFOLLOW
+        sitemapEnabled:
+          type: boolean
+        providerGeneration:
+          $ref: "#/components/schemas/PositiveInt64String"
+        navigationGeneration:
+          $ref: "#/components/schemas/PositiveInt64String"
+        searchGeneration:
+          $ref: "#/components/schemas/PositiveInt64String"
+    WikiPage:
+      type: object
+      additionalProperties: false
+      required:
+        - projectionUuid
+        - canonicalRoute
+        - fileKind
+        - mediaType
+        - sizeBytes
+        - contentSha256
+        - pagePublicVersion
+        - publicUpdatedAt
+      properties:
+        projectionUuid:
+          type: string
+          format: uuid
+        canonicalRoute:
+          type: string
+          maxLength: 2048
+        fileKind:
+          $ref: "#/components/schemas/WikiFileKind"
+        mediaType:
+          type: string
+          maxLength: 255
+        sizeBytes:
+          $ref: "#/components/schemas/NonNegativeInt64String"
+        contentSha256:
+          type: string
+          pattern: "^sha256:[0-9a-f]{64}$"
+        title:
+          type: string
+          maxLength: 512
+        description:
+          type: string
+          maxLength: 2048
+        locale:
+          type: string
+          maxLength: 35
+        navOrder:
+          type: integer
+          format: int32
+        pagePublicVersion:
+          $ref: "#/components/schemas/PositiveInt64String"
+        publicUpdatedAt:
+          type: string
+          format: date-time
+    WikiRouteResolution:
+      type: object
+      additionalProperties: false
+      required:
+        - disposition
+      properties:
+        disposition:
+          type: string
+          enum:
+            - PAGE
+            - REDIRECT
+        page:
+          $ref: "#/components/schemas/WikiPage"
+        contentHandle:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        requestedRoute:
+          type: string
+          maxLength: 2048
+        canonicalRoute:
+          type: string
+          maxLength: 2048
+        status:
+          type: integer
+          enum:
+            - 301
+            - 302
+            - 307
+            - 308
+        pagePublicVersion:
+          $ref: "#/components/schemas/PositiveInt64String"
+    PageInfo:
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - pageSize
+        - hasMore
+      properties:
+        mode:
+          type: string
+          const: cursor
+        pageSize:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 200
+        nextCursor:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        hasMore:
+          type: boolean
+    DriveCloudEvent:
+      type: object
+      additionalProperties: true
+      required:
+        - specversion
+        - id
+        - source
+        - type
+        - time
+        - tenantId
+        - sequenceNo
+        - data
+      properties:
+        specversion:
+          type: string
+          const: "1.0"
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        source:
+          type: string
+          const: sdkwork.drive
+        type:
+          type: string
+          enum:
+            - drive.node.version.committed.v1
+            - drive.node.path.changed.v1
+            - drive.node.eligibility.changed.v1
+            - drive.node.deleted.v1
+        time:
+          type: string
+          format: date-time
+        tenantId:
+          $ref: "#/components/schemas/PositiveInt64String"
+        organizationId:
+          $ref: "#/components/schemas/NonNegativeInt64String"
+        subject:
+          type: string
+        actorId:
+          $ref: "#/components/schemas/PositiveInt64String"
+        sequenceNo:
+          $ref: "#/components/schemas/PositiveInt64String"
+        data:
+          type: object
+          additionalProperties: true
+    PositiveInt64String:
+      type: string
+      format: int64
+      pattern: "^[1-9][0-9]*$"
+      x-sdkwork-int64-string: true
+    NonNegativeInt64String:
+      type: string
+      format: int64
+      pattern: "^(0|[1-9][0-9]*)$"
+      x-sdkwork-int64-string: true
+    DriveEventReceiveDisposition:
+      type: string
+      enum:
+        - READY
+        - DEFERRED_GAP
+        - DUPLICATE
+        - IGNORED_STALE
+    DriveEventReceipt:
+      type: object
+      additionalProperties: false
+      required:
+        - eventId
+        - checkpointId
+        - sequenceNo
+        - disposition
+      properties:
+        eventId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        checkpointId:
+          $ref: "#/components/schemas/PositiveInt64String"
+        sequenceNo:
+          $ref: "#/components/schemas/PositiveInt64String"
+        disposition:
+          $ref: "#/components/schemas/DriveEventReceiveDisposition"
+    DriveEventReceiptResourceData:
+      type: object
+      additionalProperties: false
+      required:
+        - item
+      properties:
+        item:
+          $ref: "#/components/schemas/DriveEventReceipt"
+    WikiPublicationResourceData:
+      type: object
+      additionalProperties: false
+      required:
+        - item
+      properties:
+        item:
+          $ref: "#/components/schemas/WikiPublication"
+    WikiRouteResolutionResourceData:
+      type: object
+      additionalProperties: false
+      required:
+        - item
+      properties:
+        item:
+          $ref: "#/components/schemas/WikiRouteResolution"
+    WikiPageListData:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - pageInfo
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/WikiPage"
+        pageInfo:
+          $ref: "#/components/schemas/PageInfo"
+    SdkWorkApiResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - data
+        - traceId
+      properties:
+        code:
+          type: integer
+          format: int32
+          const: 0
+        data: {}
+        traceId:
+          type: string
+          format: uuid
+    DriveEventReceiptResponse:
+      allOf:
+        - $ref: "#/components/schemas/SdkWorkApiResponse"
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: "#/components/schemas/DriveEventReceiptResourceData"
+    WikiPublicationResponse:
+      allOf:
+        - $ref: "#/components/schemas/SdkWorkApiResponse"
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: "#/components/schemas/WikiPublicationResourceData"
+    WikiRouteResolutionResponse:
+      allOf:
+        - $ref: "#/components/schemas/SdkWorkApiResponse"
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: "#/components/schemas/WikiRouteResolutionResourceData"
+    WikiPageListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SdkWorkApiResponse"
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: "#/components/schemas/WikiPageListData"
+    SdkWorkPlatformErrorCode:
+      type: integer
+      format: int32
+      minimum: 40001
+      maximum: 79999
+    ProblemDetail:
+      type: object
+      additionalProperties: true
+      required:
+        - type
+        - title
+        - status
+        - code
+        - traceId
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          $ref: "#/components/schemas/SdkWorkPlatformErrorCode"
+        traceId:
+          type: string
+          format: uuid

@@ -112,7 +112,7 @@ function parseArgs(argv) {
 function printHelp() {
   console.log(`Usage: node scripts/knowledgebase-dev.mjs [options]
 
-Topology-aware Knowledgebase dev entry. Loads configs/topology profile env via @sdkwork/app-topology.
+Topology-aware Knowledgebase dev entry. Loads etc/topology profile env via @sdkwork/app-topology.
 
 Database profiles:
   postgres (default)  IAM/login and Knowledgebase HTTP handlers share PostgreSQL from .env.postgres.

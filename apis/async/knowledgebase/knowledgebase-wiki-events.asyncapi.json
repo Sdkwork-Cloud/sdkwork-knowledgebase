@@ -1,0 +1,300 @@
+{
+  "asyncapi": "3.0.0",
+  "id": "urn:sdkwork:knowledgebase:wiki-events",
+  "info": {
+    "title": "SDKWork Knowledgebase Wiki Provider Events",
+    "version": "1.0.0",
+    "description": "Owner-defined Wiki provider lifecycle events for Web Server freshness. Delivery is at least once. sequenceNo is strictly increasing but not contiguous within one WikiPublication stream; consumers deduplicate by id, persist their checkpoint only after idempotent invalidation, and reconcile provider metadata when a checkpoint is lost or event ordering is uncertain. Deploy is not an ordinary Wiki content-event relay."
+  },
+  "defaultContentType": "application/json",
+  "channels": {
+    "wikiProviderChanged": {
+      "address": "knowledgebase.wiki.provider.changed.v1",
+      "messages": {
+        "WikiProviderChangedV1": {
+          "$ref": "#/components/messages/WikiProviderChangedV1"
+        }
+      }
+    },
+    "wikiRouteChanged": {
+      "address": "knowledgebase.wiki.route.changed.v1",
+      "messages": {
+        "WikiRouteChangedV1": {
+          "$ref": "#/components/messages/WikiRouteChangedV1"
+        }
+      }
+    },
+    "wikiRouteRevoked": {
+      "address": "knowledgebase.wiki.route.revoked.v1",
+      "messages": {
+        "WikiRouteRevokedV1": {
+          "$ref": "#/components/messages/WikiRouteRevokedV1"
+        }
+      }
+    },
+    "wikiNavigationChanged": {
+      "address": "knowledgebase.wiki.navigation.changed.v1",
+      "messages": {
+        "WikiNavigationChangedV1": {
+          "$ref": "#/components/messages/WikiNavigationChangedV1"
+        }
+      }
+    },
+    "wikiSearchChanged": {
+      "address": "knowledgebase.wiki.search.changed.v1",
+      "messages": {
+        "WikiSearchChangedV1": {
+          "$ref": "#/components/messages/WikiSearchChangedV1"
+        }
+      }
+    }
+  },
+  "operations": {
+    "publishWikiProviderChanged": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/wikiProviderChanged"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/wikiProviderChanged/messages/WikiProviderChangedV1"
+        }
+      ]
+    },
+    "publishWikiRouteChanged": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/wikiRouteChanged"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/wikiRouteChanged/messages/WikiRouteChangedV1"
+        }
+      ]
+    },
+    "publishWikiRouteRevoked": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/wikiRouteRevoked"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/wikiRouteRevoked/messages/WikiRouteRevokedV1"
+        }
+      ]
+    },
+    "publishWikiNavigationChanged": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/wikiNavigationChanged"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/wikiNavigationChanged/messages/WikiNavigationChangedV1"
+        }
+      ]
+    },
+    "publishWikiSearchChanged": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/wikiSearchChanged"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/wikiSearchChanged/messages/WikiSearchChangedV1"
+        }
+      ]
+    }
+  },
+  "components": {
+    "messages": {
+      "WikiProviderChangedV1": {
+        "name": "knowledgebase.wiki.provider.changed.v1",
+        "title": "Wiki provider eligibility or provider-wide generation changed",
+        "x-sdkwork-event-type": "knowledgebase.wiki.provider.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/WikiProviderEventEnvelope"
+        }
+      },
+      "WikiRouteChangedV1": {
+        "name": "knowledgebase.wiki.route.changed.v1",
+        "title": "A public Wiki route representation changed",
+        "x-sdkwork-event-type": "knowledgebase.wiki.route.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/WikiProviderEventEnvelope"
+        }
+      },
+      "WikiRouteRevokedV1": {
+        "name": "knowledgebase.wiki.route.revoked.v1",
+        "title": "A formerly public Wiki route was revoked",
+        "x-sdkwork-event-type": "knowledgebase.wiki.route.revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/WikiProviderEventEnvelope"
+        }
+      },
+      "WikiNavigationChangedV1": {
+        "name": "knowledgebase.wiki.navigation.changed.v1",
+        "title": "The public Wiki navigation generation changed",
+        "x-sdkwork-event-type": "knowledgebase.wiki.navigation.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/WikiProviderEventEnvelope"
+        }
+      },
+      "WikiSearchChangedV1": {
+        "name": "knowledgebase.wiki.search.changed.v1",
+        "title": "The public Wiki search generation changed",
+        "x-sdkwork-event-type": "knowledgebase.wiki.search.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/WikiProviderEventEnvelope"
+        }
+      }
+    },
+    "schemas": {
+      "WikiProviderEventEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "source",
+          "specversion",
+          "time",
+          "tenantId",
+          "organizationId",
+          "subject",
+          "sequenceNo",
+          "data"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "minLength": 36,
+            "maxLength": 36
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "knowledgebase.wiki.provider.changed.v1",
+              "knowledgebase.wiki.route.changed.v1",
+              "knowledgebase.wiki.route.revoked.v1",
+              "knowledgebase.wiki.navigation.changed.v1",
+              "knowledgebase.wiki.search.changed.v1"
+            ]
+          },
+          "source": {
+            "const": "sdkwork-knowledgebase"
+          },
+          "specversion": {
+            "const": "1.0"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tenantId": {
+            "$ref": "#/components/schemas/PositiveInt64String"
+          },
+          "organizationId": {
+            "$ref": "#/components/schemas/NonNegativeInt64String"
+          },
+          "subject": {
+            "type": "string",
+            "pattern": "^wiki-publication:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "sequenceNo": {
+            "$ref": "#/components/schemas/PositiveInt64String"
+          },
+          "data": {
+            "$ref": "#/components/schemas/WikiProviderEventData"
+          }
+        }
+      },
+      "WikiProviderEventData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "providerResourceUuid",
+          "providerGeneration",
+          "navigationGeneration",
+          "searchGeneration",
+          "operation"
+        ],
+        "properties": {
+          "providerResourceUuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "providerGeneration": {
+            "$ref": "#/components/schemas/PositiveInt64String"
+          },
+          "navigationGeneration": {
+            "$ref": "#/components/schemas/PositiveInt64String"
+          },
+          "searchGeneration": {
+            "$ref": "#/components/schemas/PositiveInt64String"
+          },
+          "sourceFileUuid": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "route": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 2048,
+            "pattern": "^/"
+          },
+          "pagePublicVersion": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NonNegativeInt64String"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "previousPagePublicVersion": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NonNegativeInt64String"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+          },
+          "driveCheckpoint": {
+            "$ref": "#/components/schemas/PositiveInt64String"
+          },
+          "reason": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          }
+        }
+      },
+      "PositiveInt64String": {
+        "type": "string",
+        "format": "int64",
+        "pattern": "^[1-9][0-9]*$",
+        "x-sdkwork-int64-string": true
+      },
+      "NonNegativeInt64String": {
+        "type": "string",
+        "format": "int64",
+        "pattern": "^(0|[1-9][0-9]*)$",
+        "x-sdkwork-int64-string": true
+      }
+    }
+  }
+}

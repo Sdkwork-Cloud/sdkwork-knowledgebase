@@ -41,12 +41,12 @@ describe('knowledgebase launch runbook alignment', () => {
   });
 
   it('defaults structured JSON logging in production topology', () => {
-    const topology = readRepoFile('configs/topology/cloud.production.env');
+    const topology = readRepoFile('etc/topology/cloud.production.env');
     assert.match(topology, /^SDKWORK_KNOWLEDGEBASE_LOG_FORMAT=json/m);
   });
 
   it('documents OTEL enablement without exposing metrics on public ingress', () => {
-    const topology = readRepoFile('configs/topology/cloud.production.env');
+    const topology = readRepoFile('etc/topology/cloud.production.env');
     const ingress = readRepoFile('deployments/kubernetes/ingress.yaml');
     assert.match(topology, /OTEL_EXPORTER_OTLP_ENDPOINT/);
     assert.doesNotMatch(ingress, /\/metrics/);

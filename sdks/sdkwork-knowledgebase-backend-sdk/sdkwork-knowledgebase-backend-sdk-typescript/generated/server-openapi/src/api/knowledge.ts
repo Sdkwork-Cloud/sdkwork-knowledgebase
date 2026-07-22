@@ -497,7 +497,7 @@ export class KnowledgeOkfBundleIndexApi {
 
 
 /** Rebuild the OKF bundle index */
-  async create(body: OkfBundleIndexRebuildRequest): Promise<OkfIndexDocument> {
+  async rebuild(body: OkfBundleIndexRebuildRequest): Promise<OkfIndexDocument> {
     return this.client.post<OkfIndexDocument>(backendApiPath(`/knowledge/okf/index/rebuild`), body, undefined, undefined, 'application/json');
   }
 }

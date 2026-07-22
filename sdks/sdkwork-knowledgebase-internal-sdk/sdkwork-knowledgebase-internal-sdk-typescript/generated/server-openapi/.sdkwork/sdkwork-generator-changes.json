@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "generator": "@sdkwork/sdk-generator",
+  "sdk": {
+    "name": "sdkwork-knowledgebase-internal-sdk",
+    "version": "0.1.0",
+    "language": "typescript",
+    "sdkType": "custom",
+    "protocol": "http",
+    "packageName": "sdkwork-knowledgebase-internal-sdk-generated-typescript"
+  },
+  "changeFingerprint": "d5220fbcb03467d9e1b52d9d3df214278f9ef586c741a8a7b3d613c6f8fa070c",
+  "changes": {
+    "createdGeneratedFiles": [],
+    "updatedGeneratedFiles": [
+      "src/types/wiki-page.ts"
+    ],
+    "unchangedGeneratedFiles": [
+      "bin/publish-core.mjs",
+      "bin/publish.ps1",
+      "bin/publish.sh",
+      "bin/sdk-gen.bat",
+      "bin/sdk-gen.sh",
+      "CHANGELOG.md",
+      "LICENSE",
+      "package.json",
+      "README.md",
+      "sdkwork-sdk.json",
+      "src/api/base.ts",
+      "src/api/index.ts",
+      "src/api/knowledgebase-internal-wiki.ts",
+      "src/api/paths.ts",
+      "src/auth/index.ts",
+      "src/http/client.ts",
+      "src/http/index.ts",
+      "src/index.ts",
+      "src/sdk.ts",
+      "src/types/common.ts",
+      "src/types/drive-cloud-event.ts",
+      "src/types/drive-event-receipt-resource-data.ts",
+      "src/types/drive-event-receipt-response.ts",
+      "src/types/drive-event-receipt.ts",
+      "src/types/drive-event-receive-disposition.ts",
+      "src/types/index.ts",
+      "src/types/non-negative-int64-string.ts",
+      "src/types/page-info.ts",
+      "src/types/positive-int64-string.ts",
+      "src/types/problem-detail.ts",
+      "src/types/resolve-wiki-route-request.ts",
+      "src/types/sdk-work-api-response.ts",
+      "src/types/sdk-work-platform-error-code.ts",
+      "src/types/wiki-file-kind.ts",
+      "src/types/wiki-page-list-data.ts",
+      "src/types/wiki-page-list-response.ts",
+      "src/types/wiki-publication-resource-data.ts",
+      "src/types/wiki-publication-response.ts",
+      "src/types/wiki-publication.ts",
+      "src/types/wiki-route-resolution-resource-data.ts",
+      "src/types/wiki-route-resolution-response.ts",
+      "src/types/wiki-route-resolution.ts",
+      "tsconfig.json"
+    ],
+    "deletedGeneratedFiles": [],
+    "scaffoldedFiles": [],
+    "preservedScaffoldFiles": [
+      "custom/build-runtime.mjs",
+      "custom/README.md"
+    ],
+    "backedUpFiles": []
+  },
+  "impact": {
+    "schemaVersion": 1,
+    "areas": [
+      "models"
+    ],
+    "details": [
+      {
+        "area": "models",
+        "paths": [
+          "src/types/wiki-page.ts"
+        ]
+      }
+    ],
+    "requiresVerification": true,
+    "summary": "Detected impact areas: models. Verification is required."
+  },
+  "verificationPlan": {
+    "shouldRun": true,
+    "runPhase": "now",
+    "summary": "Detected impact areas: models. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "steps": [
+      {
+        "id": "check",
+        "title": "Unified package check",
+        "required": true,
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-internal-sdk\\sdkwork-knowledgebase-internal-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "check"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action check"
+      },
+      {
+        "id": "build",
+        "title": "Unified package build",
+        "required": true,
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-internal-sdk\\sdkwork-knowledgebase-internal-sdk-typescript\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "typescript",
+          "--project-dir",
+          ".",
+          "--action",
+          "build"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language typescript --project-dir . --action build"
+      }
+    ]
+  },
+  "executionDecision": {
+    "schemaVersion": 1,
+    "riskLevel": "medium",
+    "nextAction": "verify",
+    "requiresManualReview": false,
+    "applyRequiresExpectedFingerprint": false,
+    "summary": "Changes have been applied. Run the required verification plan now.",
+    "reasons": [
+      "verification-required"
+    ]
+  },
+  "preservedLegacyFiles": false
+}

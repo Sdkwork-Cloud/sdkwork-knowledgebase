@@ -83,7 +83,7 @@ const requiredDirectories = [
   'crates',
   'sdks',
   'deployments',
-  'configs',
+  'etc',
   'scripts',
   'docs',
   'tests',
@@ -94,6 +94,11 @@ const requiredDirectories = [
 for (const directory of requiredDirectories) {
   assertDirectory(directory);
 }
+
+assert(
+  !fs.existsSync(path.join(repoRoot, 'configs')),
+  'configs/ is retired; source-controlled application configuration must exist only under etc/',
+);
 
 assert(fs.existsSync(path.join(repoRoot, 'sdkwork.app.config.json')), 'sdkwork.app.config.json must exist');
 assert(fs.existsSync(path.join(repoRoot, 'sdkwork.workflow.json')), 'sdkwork.workflow.json must exist');
@@ -220,6 +225,9 @@ const expectedTopologyProfileIds = [
   'standalone.development',
   'standalone.production',
 ];
+const expectedDeploymentProfileIds = expectedTopologyProfileIds
+  .filter((profileId) => profileId.endsWith('.production'))
+  .sort();
 assert(
   topologySpec.vocabulary?.deploymentProfile?.allowed?.join(',') === 'standalone,cloud',
   'specs/topology.spec.json must use deploymentProfile standalone/cloud vocabulary',
@@ -236,14 +244,14 @@ assert(
   JSON.stringify(Object.keys(topologySpec.profileFiles ?? {}).sort()) === JSON.stringify(expectedTopologyProfileIds),
   'specs/topology.spec.json profileFiles must declare only v5 topology profile ids',
 );
-const topologyEnvFiles = listFilesRecursive('configs/topology')
+const topologyEnvFiles = listFilesRecursive('etc/topology')
   .filter((relativePath) => relativePath.endsWith('.env'))
   .sort();
 assert(
   JSON.stringify(topologyEnvFiles) === JSON.stringify(
-    expectedTopologyProfileIds.map((profileId) => `configs/topology/${profileId}.env`).sort(),
+    expectedTopologyProfileIds.map((profileId) => `etc/topology/${profileId}.env`).sort(),
   ),
-  'configs/topology must contain only v5 deploymentProfile.environment env files',
+  'etc/topology must contain only v5 deploymentProfile.environment env files',
 );
 for (const relativePath of topologyEnvFiles) {
   const profileId = path.basename(relativePath, '.env');
@@ -296,16 +304,21 @@ assert(
   !retiredTopologyPattern.test(deploymentYaml),
   'deployments/deploy.yaml must not contain retired topology vocabulary',
 );
+const defaultDeploymentProfileId = deploymentYaml.match(/^defaultProfile:\s*(\S+)\s*$/mu)?.[1] ?? '';
 assert(
-  v5TopologyProfileIdPattern.test(deploymentYaml.match(/^defaultProfile:\s*(\S+)\s*$/mu)?.[1] ?? ''),
+  v5TopologyProfileIdPattern.test(defaultDeploymentProfileId),
   'deployments/deploy.yaml defaultProfile must use a v5 topology profile id',
 );
 const deploymentProfileIds = [...deploymentYaml.matchAll(/^  ([A-Za-z0-9.-]+):\s*$/gmu)]
   .map((match) => match[1])
   .sort();
 assert(
-  JSON.stringify(deploymentProfileIds) === JSON.stringify(expectedTopologyProfileIds),
-  'deployments/deploy.yaml profiles must match the v5 topology profile ids',
+  JSON.stringify(deploymentProfileIds) === JSON.stringify(expectedDeploymentProfileIds),
+  'deployments/deploy.yaml profiles must match the production topology profile ids',
+);
+assert(
+  deploymentProfileIds.includes(defaultDeploymentProfileId),
+  'deployments/deploy.yaml defaultProfile must reference a declared production deployment profile',
 );
 assert(
   !retiredTopologyPattern.test(readText('deployments/kubernetes/networkpolicy.yaml')),
@@ -394,6 +407,7 @@ const routeManifestPaths = [
   'sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json',
   'sdks/_route-manifests/app-api/sdkwork-routes-knowledgebase-app-api.route-manifest.json',
   'sdks/_route-manifests/backend-api/sdkwork-routes-knowledgebase-backend-api.route-manifest.json',
+  'sdks/_route-manifests/internal-api/sdkwork-routes-knowledgebase-internal-api.route-manifest.json',
 ];
 
 for (const relativePath of routeManifestPaths) {
@@ -404,7 +418,7 @@ for (const relativePath of routeManifestPaths) {
       `${relativePath} route ${route.method} ${route.path} must declare WebRequestContext`,
     );
     assert(
-      ['open-api', 'app-api', 'backend-api'].includes(route.apiSurface),
+      ['open-api', 'app-api', 'backend-api', 'internal-api'].includes(route.apiSurface),
       `${relativePath} route ${route.method} ${route.path} must declare canonical apiSurface`,
     );
   }
@@ -460,7 +474,7 @@ const requiredSkeletonPaths = [
   'apis/authority-manifest.json',
   'apis/rpc/README.md',
   'deployments/README.md',
-  'configs/README.md',
+  'etc/README.md',
   'scripts/README.md',
   'apps/README.md',
   'apps/sdkwork-knowledgebase-pc/AGENTS.md',

@@ -119,6 +119,109 @@ fn app_openapi_exposes_drive_bound_contract_fields() {
 }
 
 #[test]
+fn app_openapi_exposes_version_fenced_wiki_publication_contracts() {
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json"
+    ))
+    .unwrap();
+
+    for (operation_id, item_schema_ref, permission, mutation) in [
+        (
+            "wikiPublications.retrieve",
+            "#/components/schemas/KnowledgeWikiPublication",
+            "knowledge.spaces.read",
+            false,
+        ),
+        (
+            "wikiPublications.activate",
+            "#/components/schemas/KnowledgeWikiPublication",
+            "knowledge.spaces.write",
+            true,
+        ),
+        (
+            "wikiPublications.pause",
+            "#/components/schemas/KnowledgeWikiPublication",
+            "knowledge.spaces.write",
+            true,
+        ),
+        (
+            "wikiSourceFiles.publish",
+            "#/components/schemas/KnowledgeWikiSourceFileCommandResult",
+            "knowledge.spaces.write",
+            true,
+        ),
+        (
+            "wikiSourceFiles.unpublish",
+            "#/components/schemas/KnowledgeWikiSourceFileCommandResult",
+            "knowledge.spaces.write",
+            true,
+        ),
+        (
+            "wikiSourceFiles.visibility.update",
+            "#/components/schemas/KnowledgeWikiSourceFileCommandResult",
+            "knowledge.spaces.write",
+            true,
+        ),
+    ] {
+        assert_resource_response_envelope(&spec, operation_id, item_schema_ref);
+        let operation = operation_by_id(&spec, operation_id);
+        assert_eq!(operation["x-sdkwork-permission"], permission);
+        assert_eq!(operation["x-sdkwork-tenant-scope"], "tenant");
+        assert_eq!(operation["x-sdkwork-data-scope"], "organization");
+        if mutation {
+            assert_eq!(operation["x-sdkwork-rate-limit-tier"], "auth-critical");
+            assert_eq!(operation["x-sdkwork-idempotent"], true);
+            assert!(operation["x-sdkwork-audit-event"].as_str().is_some());
+        } else {
+            assert!(operation.get("x-sdkwork-idempotent").is_none());
+        }
+    }
+
+    for (schema_name, fields) in [
+        (
+            "KnowledgeWikiPublication",
+            vec![
+                "spaceId",
+                "providerGeneration",
+                "navigationGeneration",
+                "searchGeneration",
+                "lastProjectedDriveCheckpoint",
+                "version",
+            ],
+        ),
+        (
+            "KnowledgeWikiSourceFile",
+            vec!["sizeBytes", "pagePublicVersion", "version"],
+        ),
+        (
+            "KnowledgeWikiPublicationVersionCommandRequest",
+            vec!["expectedVersion"],
+        ),
+        (
+            "PublishKnowledgeWikiSourceFileRequest",
+            vec!["expectedPublicationVersion", "expectedPageVersion"],
+        ),
+        (
+            "KnowledgeWikiSourceFileVersionCommandRequest",
+            vec!["expectedPublicationVersion", "expectedPageVersion"],
+        ),
+        (
+            "ChangeKnowledgeWikiSourceFileVisibilityRequest",
+            vec!["expectedPublicationVersion", "expectedPageVersion"],
+        ),
+    ] {
+        let properties = &spec["components"]["schemas"][schema_name]["properties"];
+        for field in fields {
+            assert_eq!(properties[field]["type"], "string", "{schema_name}.{field}");
+            assert_eq!(
+                properties[field]["x-sdkwork-int64-string"], true,
+                "{schema_name}.{field}"
+            );
+        }
+    }
+}
+
+#[test]
 fn app_openapi_exposes_browser_list_data_context_contract() {
     let spec: Value = serde_json::from_str(include_str!(
         "../../../sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json"
@@ -489,6 +592,18 @@ fn assert_named_list_response_envelope(
     assert!(required.iter().any(|field| field == "pageInfo"));
 }
 
+fn assert_resource_response_envelope(spec: &Value, operation_id: &str, item_schema_ref: &str) {
+    let schema = operation_response_schema(spec, operation_id);
+    let all_of = schema["allOf"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{operation_id} must use SdkWorkApiResponse allOf envelope"));
+    assert_eq!(all_of[0]["$ref"], "#/components/schemas/SdkWorkApiResponse");
+    assert_eq!(
+        all_of[1]["properties"]["data"]["properties"]["item"]["$ref"], item_schema_ref,
+        "{operation_id} resource item drift"
+    );
+}
+
 fn assert_list_response_envelope(spec: &Value, operation_id: &str, item_schema_ref: &str) {
     let schema = operation_response_schema(spec, operation_id);
     let all_of = schema["allOf"]
@@ -554,7 +669,8 @@ fn concrete_uri(template_path: &str) -> String {
         .replace("{ingestId}", "11")
         .replace("{documentId}", "13")
         .replace("{conceptId}", "17")
-        .replace("{queryId}", "19");
+        .replace("{queryId}", "19")
+        .replace("{sourceFileUuid}", "source-file-001");
     let path = path
         .replace("{retrievalId}", "23")
         .replace("{profileId}", "41")
@@ -575,6 +691,16 @@ fn request_body(operation_id: &str) -> &'static str {
     match operation_id {
         "spaces.create" => r#"{"name":"Knowledge Space","description":"Demo"}"#,
         "spaces.update" => r#"{"name":"Renamed Knowledge Space"}"#,
+        "wikiPublications.activate" | "wikiPublications.pause" => r#"{"expectedVersion":"1"}"#,
+        "wikiSourceFiles.publish" => {
+            r#"{"visibility":"public","expectedPublicationVersion":"1","expectedPageVersion":"1"}"#
+        }
+        "wikiSourceFiles.unpublish" => {
+            r#"{"expectedPublicationVersion":"1","expectedPageVersion":"1"}"#
+        }
+        "wikiSourceFiles.visibility.update" => {
+            r#"{"visibility":"unlisted","expectedPublicationVersion":"1","expectedPageVersion":"1"}"#
+        }
         "driveImports.create" => {
             r#"{"spaceId":7,"title":"Quarterly Report","driveStorageProviderId":"provider-kb","driveBucket":"knowledgebase-source","driveObjectKey":"incoming/report.md","idempotencyKey":"drive-report"}"#
         }

@@ -74,7 +74,7 @@ pub(crate) fn require_actor_id(context: &KnowledgeAppRequestContext) -> ApiResul
     require_numeric_actor_id(context).map(|value| value.to_string())
 }
 
-fn require_numeric_actor_id(context: &KnowledgeAppRequestContext) -> ApiResult<u64> {
+pub(crate) fn require_numeric_actor_id(context: &KnowledgeAppRequestContext) -> ApiResult<u64> {
     context.actor_id.filter(|value| *value != 0).ok_or_else(|| {
         ApiError::new(
             StatusCode::UNAUTHORIZED,
@@ -312,8 +312,6 @@ pub(crate) async fn create_space_with_context(
         sdkwork_intelligence_knowledgebase_service::wiki_initialization::KnowledgeWikiInitializationService::new(
             runtime.wiki_store(),
             runtime.wiki_store(),
-            runtime.drive_workspace(),
-            runtime.drive_tree(),
             runtime.wiki_drive_scope(),
         );
     KnowledgeSpaceService::new(runtime.space_store(), &okf_initializer)

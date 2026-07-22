@@ -47,7 +47,7 @@ describe('knowledgebase observability standard alignment', () => {
 
   it('documents audit and OTLP env keys for production operations', () => {
     const deploymentsReadme = readRepoFile('deployments/README.md');
-    const productionEnv = readRepoFile('configs/topology/cloud.production.env');
+    const productionEnv = readRepoFile('etc/topology/cloud.production.env');
     assert.match(deploymentsReadme, /OTEL_EXPORTER_OTLP_ENDPOINT/);
     assert.match(deploymentsReadme, /knowledgebase_health_status/);
     assert.match(deploymentsReadme, /knowledge\.document\.visibility_changed/);

@@ -24,8 +24,8 @@ use std::sync::Arc;
 pub use client::{chunk_id_from_content, HaystackApiClient};
 pub use config::{
     HaystackConnectorConfig, HaystackDeploymentMode, HAYSTACK_BASE_URL_ENV,
-    HAYSTACK_CREDENTIAL_ENV, HAYSTACK_DEPLOYMENT_MODE_ENV, HAYSTACK_PIPELINE_ENV,
-    HAYSTACK_QUERY_FIELD_ENV, HAYSTACK_WORKSPACE_ENV,
+    HAYSTACK_DEPLOYMENT_MODE_ENV, HAYSTACK_PIPELINE_ENV, HAYSTACK_QUERY_FIELD_ENV,
+    HAYSTACK_WORKSPACE_ENV,
 };
 
 pub const HAYSTACK_VENDOR_ID: &str = "haystack";

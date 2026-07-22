@@ -51,6 +51,24 @@ pub struct ApiAssembly {
     pub router: Router,
 }
 
+async fn runtime_from_environment_with_group_launch_ticket_consumer(
+    group_launch_ticket_consumer: Option<Arc<dyn GroupLaunchTicketConsumer>>,
+) -> Result<Arc<KnowledgebaseRuntime>, Box<dyn std::error::Error + Send + Sync>> {
+    validate_process_config();
+    let database_url = resolve_database_url();
+    let tenant_id = std::env::var("SDKWORK_KNOWLEDGEBASE_TENANT_ID")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(1);
+    let runtime = KnowledgebaseRuntime::connect(&database_url, tenant_id).await?;
+    let runtime = match group_launch_ticket_consumer {
+        Some(consumer) => runtime.with_group_launch_ticket_consumer(consumer),
+        None => runtime,
+    };
+    runtime.readiness_check().await?;
+    Ok(Arc::new(runtime))
+}
+
 impl ApiAssembly {
     pub async fn from_environment<T>(
         group_launch_ticket_consumer: Option<T>,
@@ -58,35 +76,25 @@ impl ApiAssembly {
     where
         T: GroupLaunchTicketConsumer + 'static,
     {
-        Self::from_environment_with_group_launch_ticket_consumer(
+        let runtime = runtime_from_environment_with_group_launch_ticket_consumer(
             group_launch_ticket_consumer
                 .map(|consumer| Arc::new(consumer) as Arc<dyn GroupLaunchTicketConsumer>),
         )
-        .await
-    }
-
-    async fn from_environment_with_group_launch_ticket_consumer(
-        group_launch_ticket_consumer: Option<Arc<dyn GroupLaunchTicketConsumer>>,
-    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        validate_process_config();
-        let database_url = resolve_database_url();
-        let tenant_id = std::env::var("SDKWORK_KNOWLEDGEBASE_TENANT_ID")
-            .ok()
-            .and_then(|value| value.parse::<u64>().ok())
-            .unwrap_or(1);
-        let runtime = KnowledgebaseRuntime::connect(&database_url, tenant_id).await?;
-        let runtime = match group_launch_ticket_consumer {
-            Some(consumer) => runtime.with_group_launch_ticket_consumer(consumer),
-            None => runtime,
-        };
-        runtime.readiness_check().await?;
-        Ok(assemble_api_router(Arc::new(runtime)).await)
+        .await?;
+        Ok(assemble_api_router(runtime).await)
     }
 }
 
 pub async fn assemble_api_router_from_environment(
 ) -> Result<ApiAssembly, Box<dyn std::error::Error + Send + Sync>> {
-    ApiAssembly::from_environment_with_group_launch_ticket_consumer(None).await
+    let runtime = runtime_from_environment_with_group_launch_ticket_consumer(None).await?;
+    Ok(assemble_api_router(runtime).await)
+}
+
+pub async fn assemble_business_routes_from_environment(
+) -> Result<ApiAssembly, Box<dyn std::error::Error + Send + Sync>> {
+    let runtime = runtime_from_environment_with_group_launch_ticket_consumer(None).await?;
+    Ok(assemble_business_routes(runtime).await)
 }
 
 fn host_mounts_iam_app_api_routes() -> bool {
@@ -115,6 +123,11 @@ pub async fn assemble_business_routes(runtime: Arc<KnowledgebaseRuntime>) -> Api
     }
     let router = router
         .merge(runtime.build_full_app_router_with_web_framework().await)
+        .merge(
+            runtime
+                .build_internal_business_router_with_web_framework()
+                .await,
+        )
         .merge(
             runtime
                 .build_backend_business_router_with_web_framework()

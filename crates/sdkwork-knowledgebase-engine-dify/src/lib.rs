@@ -22,9 +22,7 @@ use sdkwork_knowledgebase_provider_runtime::{ProviderExecutionContext, ProviderO
 use std::sync::Arc;
 
 pub use client::DifyApiClient;
-pub use config::{
-    DifyConnectorConfig, DIFY_BASE_URL_ENV, DIFY_CREDENTIAL_ENV, DIFY_DATASET_ID_ENV,
-};
+pub use config::{DifyConnectorConfig, DIFY_BASE_URL_ENV, DIFY_DATASET_ID_ENV};
 
 pub const DIFY_VENDOR_ID: &str = "dify";
 pub const DIFY_IMPLEMENTATION_ID: &str = "engine.knowledge.external.dify";

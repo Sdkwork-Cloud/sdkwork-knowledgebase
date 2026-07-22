@@ -87,8 +87,7 @@
     "dependencyApiSurfaces": [],
     "events": [],
     "configKeys": [
-      "SDKWORK_KNOWLEDGEBASE_ONYX_BASE_URL",
-      "SDKWORK_KNOWLEDGEBASE_ONYX_CREDENTIAL"
+      "SDKWORK_KNOWLEDGEBASE_ONYX_BASE_URL"
     ]
   },
   "verification": {

@@ -123,7 +123,6 @@ certification, supported ingest/sync, upstream-version compatibility, licensing 
 | --- | --- | --- | --- |
 | P1 | No live provider/version certification | mocks do not prove upstream compatibility | certification matrix and release gate |
 | P1 | Concrete production secret backend and drill evidence are missing | the managed injection boundary does not prove Vault/KMS TLS, timeouts, custody, audit retention or operations | approved backend integration, least-privilege policy, TLS/timeout proof, audit retention, rotation/revocation and outage drills |
-| P1 | Source configuration standard is not yet enforceable | `etc/` discovery/profile authority is absent while retired `configs/` and concrete app-manifest environment URLs remain | human-reviewed production configuration migration to `etc/`, manifest cleanup, deployment validation and rollback evidence |
 | P1 | Release PostgreSQL and migration evidence missing | SQLite cannot prove production locking/RLS behavior | PostgreSQL concurrency, RLS, cutover, rollback, backup/restore evidence |
 | P1 | Release Provider UI acceptance not executed | local IAM database drift prevents an authenticated browser session | repair/review IAM PostgreSQL drift, then run accessibility and operator E2E acceptance |
 | P1 | Real release load/outage/SLO evidence missing | commercial capacity and recovery are unproven despite the implemented evidence contract | execute version-pinned load and fault-injection runs, then attach raw samples, dashboards, alerts, and reviewed evidence |
@@ -166,10 +165,10 @@ certification, supported ingest/sync, upstream-version compatibility, licensing 
   stops in a concurrent site-publication test that still references removed `paths::SPACE_SITE`.
 - Root `pnpm check` currently stops in API materialization because concurrent site-publication route
   changes have not regenerated the app-api route-manifest artifact. The Provider checks pass
-  independently, and this review does not mutate an unaccepted public API surface. The dedicated source-
-  config validator also reports missing `etc/README.md` and deployment profile authority, retired
-  `configs/`, and concrete environment URLs in the app manifest. Production config migration
-  requires human review and was not changed under ADR-20260720.
+  independently, and this review does not mutate an unaccepted public API surface. A subsequent
+  reviewed configuration closure on 2026-07-21 established `etc/README.md`, the deployment profile
+  index, topology profile authority, and manifest discovery pointers; the dedicated source-config,
+  topology, and deployment validators pass.
 - Repository-wide verification is not green. The locked Rust route test-target check currently
   fails because `tests/integration_commerce_routes.rs` references removed `paths::SPACE_SITE`. The
   dedicated security suite separately passes `28/29`; its remaining assertion reads the concurrently

@@ -26,24 +26,6 @@ profiles:
       nginx:
         clientMaxBodySize: 32m
 
-  cloud.development:
-    install:
-      layout: source-tree
-    expose:
-      - domain: localhost
-        tls: off
-        mode: web+api
-        web: pc
-    packages: []
-    overrides:
-      allowInsecureTls: true
-      proxy:
-        upstreams:
-          application.public-ingress: http://127.0.0.1:18081
-          application.backend-http: http://127.0.0.1:18081
-          application.open-http: http://127.0.0.1:18081
-          platform.api-gateway: http://127.0.0.1:3900
-
   standalone.production:
     install:
       layout: binary-package
@@ -65,21 +47,3 @@ profiles:
           platform.api-gateway: http://127.0.0.1:3900
       nginx:
         clientMaxBodySize: 32m
-
-  standalone.development:
-    install:
-      layout: source-tree
-    expose:
-      - domain: localhost
-        tls: off
-        mode: web+api
-        web: pc
-    packages: []
-    overrides:
-      allowInsecureTls: true
-      proxy:
-        upstreams:
-          application.public-ingress: http://127.0.0.1:18081
-          application.backend-http: http://127.0.0.1:18081
-          application.open-http: http://127.0.0.1:18081
-          platform.api-gateway: http://127.0.0.1:3900

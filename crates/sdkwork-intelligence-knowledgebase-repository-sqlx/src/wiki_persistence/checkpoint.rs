@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::{
     AdvanceWikiReconciliationRequest, ClaimWikiReconciliationRequest,
-    CompleteWikiReconciliationRequest, ProvisionWikiDriveCheckpointRequest, WikiDriveCheckpoint,
+    CompleteWikiReconciliationRequest, ListWikiDriveCheckpointsRequest,
+    ProvisionWikiDriveCheckpointRequest, WikiDriveCheckpoint, WikiDriveCheckpointPage,
     WikiDriveCheckpointStore, WikiPersistenceError, WikiPersistenceScope,
 };
 use sdkwork_utils_rust::uuid;
@@ -18,6 +19,8 @@ pub(super) const CHECKPOINT_COLUMNS: &str = r#"
     stream_state, gap_from_sequence_no, gap_to_sequence_no,
     reconciliation_cursor, lease_token, fence_token, version
 "#;
+
+const MAX_CHECKPOINT_PAGE_SIZE: u32 = 200;
 
 #[async_trait]
 impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
@@ -143,6 +146,75 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
                 id: checkpoint_id,
             })?;
         checkpoint_from_row(&row)
+    }
+
+    async fn find_checkpoint_by_drive_scope(
+        &self,
+        scope: WikiPersistenceScope,
+        drive_space_uuid: &str,
+        source_scope_uuid: &str,
+    ) -> Result<Option<WikiDriveCheckpoint>, WikiPersistenceError> {
+        validate_scope(scope)?;
+        let drive_space_uuid = require_text("drive_space_uuid", drive_space_uuid, 64)?;
+        let source_scope_uuid = require_text("source_scope_uuid", source_scope_uuid, 64)?;
+        let query = format!(
+            "SELECT {CHECKPOINT_COLUMNS}
+             FROM kb_drive_source_checkpoint
+             WHERE tenant_id = $1 AND organization_id = $2
+               AND drive_space_uuid = $3 AND source_scope_uuid = $4 AND status = 1
+             ORDER BY id ASC LIMIT 1",
+        );
+        sqlx::query(&query)
+            .bind(to_i64("tenant_id", scope.tenant_id)?)
+            .bind(to_i64("organization_id", scope.organization_id)?)
+            .bind(drive_space_uuid)
+            .bind(source_scope_uuid)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(sql_error)?
+            .map(|row| checkpoint_from_row(&row))
+            .transpose()
+    }
+
+    async fn list_checkpoints(
+        &self,
+        request: ListWikiDriveCheckpointsRequest,
+    ) -> Result<WikiDriveCheckpointPage, WikiPersistenceError> {
+        validate_scope(request.scope)?;
+        if request.limit == 0 || request.limit > MAX_CHECKPOINT_PAGE_SIZE {
+            return Err(WikiPersistenceError::InvalidRequest(format!(
+                "limit must be between 1 and {MAX_CHECKPOINT_PAGE_SIZE}"
+            )));
+        }
+        let after_checkpoint_id = request.after_checkpoint_id.unwrap_or(0);
+        let query = format!(
+            "SELECT {CHECKPOINT_COLUMNS} FROM kb_drive_source_checkpoint \
+             WHERE tenant_id = $1 AND organization_id = $2 AND status = 1 AND id > $3 \
+             ORDER BY id ASC LIMIT $4",
+        );
+        let rows = sqlx::query(&query)
+            .bind(to_i64("tenant_id", request.scope.tenant_id)?)
+            .bind(to_i64("organization_id", request.scope.organization_id)?)
+            .bind(to_i64("after_checkpoint_id", after_checkpoint_id)?)
+            .bind(i64::from(request.limit) + 1)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(sql_error)?;
+        let mut checkpoints = rows
+            .iter()
+            .map(checkpoint_from_row)
+            .collect::<Result<Vec<_>, _>>()?;
+        let has_more = checkpoints.len() > request.limit as usize;
+        if has_more {
+            checkpoints.truncate(request.limit as usize);
+        }
+        let next_after_checkpoint_id = has_more
+            .then(|| checkpoints.last().map(|checkpoint| checkpoint.id))
+            .flatten();
+        Ok(WikiDriveCheckpointPage {
+            checkpoints,
+            next_after_checkpoint_id,
+        })
     }
 
     async fn claim_reconciliation(

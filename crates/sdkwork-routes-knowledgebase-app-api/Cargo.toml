@@ -17,8 +17,10 @@ sdkwork-web-axum.workspace = true
 sdkwork-web-core.workspace = true
 sdkwork-web-bootstrap.workspace = true
 sdkwork-routes-knowledgebase-backend-api.workspace = true
+sdkwork-routes-knowledgebase-internal-api.workspace = true
 sdkwork-routes-knowledgebase-open-api.workspace = true
 sdkwork-drive-storage-local = { workspace = true }
+sdkwork-drive-workspace-service.workspace = true
 sdkwork-intelligence-knowledgebase-service.workspace = true
 sdkwork-intelligence-knowledgebase-repository-sqlx.workspace = true
 sdkwork-database-id.workspace = true
@@ -54,4 +56,5 @@ wiremock.workspace = true
 sdkwork-knowledgebase-observability.workspace = true
 sdkwork-knowledgebase-worker.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
+sdkwork-drive-contract.workspace = true
 sdkwork-knowledgebase-test-support.workspace = true

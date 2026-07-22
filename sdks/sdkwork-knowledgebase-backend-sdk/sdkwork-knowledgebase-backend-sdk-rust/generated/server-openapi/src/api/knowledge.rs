@@ -79,7 +79,7 @@ impl KnowledgeApi {
     }
 
     /// Rebuild the OKF bundle index
-    pub async fn okf_bundle_index_create(&self, body: &OkfBundleIndexRebuildRequest) -> Result<OkfIndexDocument, SdkworkError> {
+    pub async fn okf_bundle_index_rebuild(&self, body: &OkfBundleIndexRebuildRequest) -> Result<OkfIndexDocument, SdkworkError> {
         let path = backend_path(&"/knowledge/okf/index/rebuild".to_string());
         self.client.post(&path, Some(body), None, None, Some("application/json")).await
     }

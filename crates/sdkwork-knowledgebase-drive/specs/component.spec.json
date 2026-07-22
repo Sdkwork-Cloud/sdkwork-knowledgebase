@@ -1,4 +1,4 @@
-﻿{
+{
     "schemaVersion":  1,
     "kind":  "sdkwork.component.spec",
     "component":  {
@@ -55,6 +55,8 @@
                       "publicExports":  [
                                             ".",
                                             "KnowledgebaseDriveInternalSdkAdapter",
+                                            "KnowledgebaseDriveEmbeddedEventRelay",
+                                            "KnowledgebaseDriveEmbeddedWikiSourceAdapter",
                                             "KnowledgebaseDriveRootScopeAdapter"
                                         ],
                       "runtimeEntrypoints":  [
@@ -68,6 +70,10 @@
                                             {
                                                 "name":  "knowledgeWikiDriveScopeEmbedded",
                                                 "export":  "KnowledgebaseDriveRootScopeAdapter"
+                                            },
+                                            {
+                                                "name":  "driveDomainOutboxEmbeddedRelay",
+                                                "export":  "KnowledgebaseDriveEmbeddedEventRelay"
                                             }
                                         ],
                       "requiredPorts":  [
@@ -108,15 +114,26 @@
                                                     }
                                                 ],
                       "events":  [
-
+                                     "drive.node.version.committed.v1",
+                                     "drive.node.path.changed.v1",
+                                     "drive.node.eligibility.changed.v1",
+                                     "drive.node.deleted.v1"
                                  ],
                       "configKeys":  [
-                                         "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_BASE_URL"
+                                         "SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE",
+                                         "SDKWORK_DRIVE_DOMAIN_OUTBOX_EMBEDDED_DISPATCH",
+                                         "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_BASE_URL",
+                                         "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE",
+                                         "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_CALLBACK_URL",
+                                         "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_SIGNING_SECRET_FILE",
+                                         "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_PREVIOUS_SIGNING_SECRET_FILE",
+                                         "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_CHANNEL_TTL_SECONDS"
                                      ]
                   },
     "verification":  {
                          "commands":  [
                                           "cargo test -p sdkwork-knowledgebase-drive",
+                                          "cargo test -p sdkwork-routes-knowledgebase-app-api --test integration_ingest_outbox",
                                           "node ../sdkwork-specs/tools/check-component-port-bindings.mjs --root ."
                                       ]
                      }

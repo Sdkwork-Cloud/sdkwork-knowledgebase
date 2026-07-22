@@ -116,9 +116,11 @@ mod tests {
             let id = pending.len() as u64 + 1;
             pending.push(PendingOutboxEvent {
                 id,
+                event_uuid: format!("event-{id}"),
                 event_type: record.event_type,
                 aggregate_type: record.aggregate_type,
                 aggregate_id: record.aggregate_id,
+                retry_count: 0,
                 payload_json: record.payload_json,
             });
             Ok(())

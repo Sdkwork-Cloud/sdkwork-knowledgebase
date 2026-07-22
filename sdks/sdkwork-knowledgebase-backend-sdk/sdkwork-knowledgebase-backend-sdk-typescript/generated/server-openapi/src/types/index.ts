@@ -124,7 +124,7 @@ export type { OkfCandidatesRejectResponse } from './okf-candidates-reject-respon
 export type { OkfConceptsPublishResponse } from './okf-concepts-publish-response';
 export type { OkfProfileCreateResponse201 } from './okf-profile-create-response201';
 export type { OkfProfileUpdateResponse } from './okf-profile-update-response';
-export type { OkfBundleIndexCreateResponse201 } from './okf-bundle-index-create-response201';
+export type { OkfBundleIndexRebuildResponse } from './okf-bundle-index-rebuild-response';
 export type { OkfLogEntriesCreateResponse201 } from './okf-log-entries-create-response201';
 export type { OkfBundleExportCreateResponse201 } from './okf-bundle-export-create-response201';
 export type { OkfBundleExportRetrieveResponse } from './okf-bundle-export-retrieve-response';

@@ -41,6 +41,37 @@ pub const ROUTES: &[RouteManifestEntry] = &[
         operation_id: "spaces.delete",
     },
     RouteManifestEntry {
+        method: "GET",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication",
+        operation_id: "wikiPublications.retrieve",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/activate",
+        operation_id: "wikiPublications.activate",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/pause",
+        operation_id: "wikiPublications.pause",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/publish",
+        operation_id: "wikiSourceFiles.publish",
+    },
+    RouteManifestEntry {
+        method: "POST",
+        path: "/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/unpublish",
+        operation_id: "wikiSourceFiles.unpublish",
+    },
+    RouteManifestEntry {
+        method: "PATCH",
+        path:
+            "/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/visibility",
+        operation_id: "wikiSourceFiles.visibility.update",
+    },
+    RouteManifestEntry {
         method: "POST",
         path: "/app/v3/api/knowledge/drive_imports",
         operation_id: "driveImports.create",

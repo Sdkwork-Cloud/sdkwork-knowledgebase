@@ -153,7 +153,7 @@ pub trait KnowledgeBackendApi: Send + Sync + 'static {
         _request: OkfIndexRebuildRequest,
     ) -> BackendApiResult<OkfIndexDocument> {
         Err(BackendApiError::unsupported_operation(
-            "okf.bundle.index.create",
+            "okf.bundle.index.rebuild",
         ))
     }
 

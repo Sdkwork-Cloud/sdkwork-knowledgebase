@@ -22,10 +22,7 @@ use sdkwork_knowledgebase_provider_runtime::{ProviderExecutionContext, ProviderO
 use std::sync::Arc;
 
 pub use client::{chunk_id_from_content, OpenWebuiApiClient};
-pub use config::{
-    OpenWebuiConnectorConfig, OPEN_WEBUI_BASE_URL_ENV, OPEN_WEBUI_CREDENTIAL_ENV,
-    OPEN_WEBUI_KNOWLEDGE_ID_ENV,
-};
+pub use config::{OpenWebuiConnectorConfig, OPEN_WEBUI_BASE_URL_ENV, OPEN_WEBUI_KNOWLEDGE_ID_ENV};
 
 pub const OPEN_WEBUI_VENDOR_ID: &str = "open-webui";
 pub const OPEN_WEBUI_IMPLEMENTATION_ID: &str = "engine.knowledge.external.open-webui";

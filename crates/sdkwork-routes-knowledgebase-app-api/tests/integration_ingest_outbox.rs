@@ -1,8 +1,14 @@
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
-use sdkwork_knowledgebase_worker::run_maintenance_tick;
+use sdkwork_drive_contract::drive::events::{
+    DriveEventEnvelope, DriveNodeDeletedV1Data, DriveRootScopeEffect, DriveRootScopeKind,
+};
+use sdkwork_knowledgebase_worker::{
+    run_maintenance_tick, MaintenanceConfig, MaintenanceTickState, WikiDriveEventMaintenanceConfig,
+};
 use sdkwork_routes_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
 use serde_json::{json, Value};
+use sqlx::Row;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::util::ServiceExt;
@@ -52,16 +58,11 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
     .expect("count pending outbox");
     assert_eq!(pending, 1);
 
+    let maintenance_config = maintenance_config();
     let tick = run_maintenance_tick(
         &runtime,
-        "integration-worker",
-        time::Duration::minutes(5),
-        std::time::Duration::from_secs(120),
-        10,
-        10,
-        10,
-        10,
-        None,
+        &maintenance_config,
+        MaintenanceTickState::default(),
     )
     .await
     .expect("maintenance tick");
@@ -74,6 +75,132 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
     .await
     .expect("count pending after publish");
     assert_eq!(still_pending, 0);
+
+    let checkpoint = sqlx::query(
+        "SELECT checkpoint.id, checkpoint.source_scope_uuid, checkpoint.drive_space_uuid
+         FROM kb_drive_source_checkpoint checkpoint
+         INNER JOIN kb_site_publication publication
+           ON publication.tenant_id = checkpoint.tenant_id
+          AND publication.organization_id = checkpoint.organization_id
+          AND publication.id = checkpoint.site_publication_id
+         WHERE publication.tenant_id = 1
+           AND publication.organization_id = 42
+           AND publication.space_id = $1
+           AND publication.status = 1
+           AND checkpoint.status = 1",
+    )
+    .bind(i64::try_from(space_id).expect("space id fits signed bigint"))
+    .fetch_one(runtime.pool())
+    .await
+    .expect("created space has an active Wiki Drive checkpoint");
+    let checkpoint_id: i64 = checkpoint.get("id");
+    let source_scope_uuid: String = checkpoint.get("source_scope_uuid");
+    let drive_space_uuid: String = checkpoint.get("drive_space_uuid");
+    let outbox_id = format!("outbox-{}", uuid::Uuid::new_v4());
+    let event_id = format!("event-{}", uuid::Uuid::new_v4());
+    let drive_node_uuid = uuid::Uuid::new_v4().to_string();
+    let payload_json = serde_json::to_string(&DriveEventEnvelope::new(
+        event_id.clone(),
+        "drive.node.deleted.v1",
+        "2026-07-21T00:00:00Z",
+        "1",
+        Some("42".to_string()),
+        format!("drive://spaces/{drive_space_uuid}/nodes/{drive_node_uuid}"),
+        "9001",
+        1,
+        DriveNodeDeletedV1Data {
+            operation_id: uuid::Uuid::new_v4().to_string(),
+            space_id: drive_space_uuid.clone(),
+            node_id: drive_node_uuid.clone(),
+            drive_uri: format!("drive://spaces/{drive_space_uuid}/nodes/{drive_node_uuid}"),
+            drive_version_id: None,
+            version_no: None,
+            last_space_relative_path: "sources/raw/guide/removed.md".to_string(),
+            deletion_reason: "PERMANENT_DELETE".to_string(),
+            root_scopes: vec![DriveRootScopeEffect {
+                scope_id: source_scope_uuid.clone(),
+                scope_kind: DriveRootScopeKind::KnowledgebaseRaw,
+                relative_path: "guide/removed.md".to_string(),
+                root_generation: Some("1".to_string()),
+            }],
+        },
+    ))
+    .expect("serialize Drive event");
+    sqlx::query(
+        "INSERT INTO dr_drive_domain_outbox (
+            id, tenant_id, space_id, node_id, event_type, actor_id, sequence_no, payload_json
+         ) VALUES ($1, '1', $2, $3, 'drive.node.deleted.v1', '9001', 1, $4)",
+    )
+    .bind(&outbox_id)
+    .bind(&drive_space_uuid)
+    .bind(&drive_node_uuid)
+    .bind(&payload_json)
+    .execute(runtime.pool())
+    .await
+    .expect("seed Drive outbox event");
+
+    let relay_tick = run_maintenance_tick(
+        &runtime,
+        &maintenance_config,
+        MaintenanceTickState::default(),
+    )
+    .await
+    .expect("relay and apply Drive event in one maintenance tick");
+    assert!(relay_tick.wiki_drive_outbox_events_processed >= 1);
+    assert_eq!(relay_tick.wiki_drive_outbox_events_delivered, 1);
+    assert_eq!(relay_tick.wiki_drive_events_applied, 1);
+
+    let drive_outbox_status: String =
+        sqlx::query_scalar("SELECT delivery_status FROM dr_drive_domain_outbox WHERE id = $1")
+            .bind(&outbox_id)
+            .fetch_one(runtime.pool())
+            .await
+            .expect("read relayed Drive outbox status");
+    assert_eq!(drive_outbox_status, "delivered");
+    let inbox_state: String = sqlx::query_scalar(
+        "SELECT processing_state FROM kb_drive_event_inbox
+         WHERE tenant_id = 1 AND organization_id = 42 AND source_event_id = $1",
+    )
+    .bind(&event_id)
+    .fetch_one(runtime.pool())
+    .await
+    .expect("read relayed Knowledgebase inbox event");
+    assert_eq!(inbox_state, "APPLIED");
+    let checkpoint_sequence: i64 =
+        sqlx::query_scalar("SELECT last_sequence_no FROM kb_drive_source_checkpoint WHERE id = $1")
+            .bind(checkpoint_id)
+            .fetch_one(runtime.pool())
+            .await
+            .expect("read advanced Wiki Drive checkpoint");
+    assert_eq!(checkpoint_sequence, 1);
+}
+
+fn maintenance_config() -> MaintenanceConfig {
+    MaintenanceConfig {
+        worker_id: "integration-worker".to_string(),
+        ingestion_job_lease: time::Duration::minutes(5),
+        provider_migration_lease: std::time::Duration::from_secs(120),
+        outbox_limit: 10,
+        ingestion_job_limit: 10,
+        provider_migration_limit: 10,
+        group_archive_limit: 10,
+        wiki_backfill: None,
+        wiki_drive_events: wiki_drive_event_config(),
+    }
+}
+
+fn wiki_drive_event_config() -> WikiDriveEventMaintenanceConfig {
+    WikiDriveEventMaintenanceConfig {
+        tenant_id: 1,
+        organization_id: 42,
+        actor_id: 9001,
+        checkpoint_page_size: 50,
+        event_batch_size: 25,
+        lease_seconds: 120,
+        retry_delay_seconds: 30,
+        max_attempts: 20,
+        delivery_renewal_page_size: 50,
+    }
 }
 
 async fn create_space(app: &axum::Router) -> u64 {
@@ -156,7 +283,7 @@ async fn test_runtime() -> KnowledgebaseRuntime {
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "42");
     std::env::remove_var("SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_URL");
-    std::env::remove_var("SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_SECRET");
+    std::env::remove_var("SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_SECRET_FILE");
 
     KnowledgebaseRuntime::connect(&database_url, 1)
         .await

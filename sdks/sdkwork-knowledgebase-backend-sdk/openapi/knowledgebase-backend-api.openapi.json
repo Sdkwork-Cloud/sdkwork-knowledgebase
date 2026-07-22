@@ -1684,13 +1684,13 @@
     },
     "/backend/v3/api/knowledge/okf/index/rebuild": {
       "post": {
-        "operationId": "okf.bundle.index.create",
+        "operationId": "okf.bundle.index.rebuild",
         "tags": [
           "knowledge"
         ],
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {

@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "generator": "@sdkwork/sdk-generator",
+  "sdk": {
+    "name": "sdkwork-knowledgebase-internal-sdk",
+    "version": "0.1.0",
+    "language": "typescript",
+    "sdkType": "custom",
+    "protocol": "http",
+    "packageName": "sdkwork-knowledgebase-internal-sdk-generated-typescript"
+  },
+  "generatedFiles": [
+    {
+      "path": "bin/publish-core.mjs",
+      "sha256": "98ad0918a78bfbe22bf8f12fec709b0bed545b9e01edd40f5e4abf31a23378a5"
+    },
+    {
+      "path": "bin/publish.ps1",
+      "sha256": "78c6419400b988409d9393c2ecd85aa02dd6760f73edb3cc84cb28fefc51b41e"
+    },
+    {
+      "path": "bin/publish.sh",
+      "sha256": "899087c23e670b6951a12a13490fd557f761c96d78fabfb7e58a37e367db889f"
+    },
+    {
+      "path": "bin/sdk-gen.bat",
+      "sha256": "22d4c9b71d0d722b795098598c01ceb4ca7aec230eb189a517c714c472849777"
+    },
+    {
+      "path": "bin/sdk-gen.sh",
+      "sha256": "b24c21c7b42fa17fffb3c7c563a7329722624441696b1d6a841e2a7520da7260"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "fb941a0806986a54fc192f98a98f6d9c282b8d350b2b19a3e71dda404e92d545"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "7840cc7d2b36ff364ac16c2fc5ec15b861bfe96854eecf81fb59b00edb8b1447"
+    },
+    {
+      "path": "package.json",
+      "sha256": "877d5117a0f79d8e28f833132dec8ec4a0e817cc28aa7cf84a96f1406f4e8c39"
+    },
+    {
+      "path": "README.md",
+      "sha256": "f6ac36de1d422f6a6ef809acf3af46074a13f16f6c3ee2223e6a290b574c292f"
+    },
+    {
+      "path": "sdkwork-sdk.json",
+      "sha256": "1ee746582f321d8986c03812f7fc2a4cf99fb41902524460c1bc7cbc4e388690"
+    },
+    {
+      "path": "src/api/base.ts",
+      "sha256": "02ad25e6bf331ff241ba387c2947ddf1900dd849038e08c2757416a3aa788a04"
+    },
+    {
+      "path": "src/api/index.ts",
+      "sha256": "4ba76ca7ff616be3f90f337fc993973ed86e4afd78cfa56930b4be1ec7ba828c"
+    },
+    {
+      "path": "src/api/knowledgebase-internal-wiki.ts",
+      "sha256": "49dd730b9c1dc8544fc95882d5e551ea8c06894531d82e72af9b104bb64d7574"
+    },
+    {
+      "path": "src/api/paths.ts",
+      "sha256": "f0c38a2f29996532fc0bce2f69896d6277868badbdce6b844bbe9d653fa0a15a"
+    },
+    {
+      "path": "src/auth/index.ts",
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+    },
+    {
+      "path": "src/http/client.ts",
+      "sha256": "8ae2b11449c875fba293e3e5a93c18c788cbbd92e402c1f64cd788b38a3f793c"
+    },
+    {
+      "path": "src/http/index.ts",
+      "sha256": "fc204fbe89750b9d25ecaffe41003e6ac243a1a895b65e65856202ab825d2dbe"
+    },
+    {
+      "path": "src/index.ts",
+      "sha256": "fc24aa54a11e7cc51893f4849c41cec5d2d5f8aa8d491ab1ce5b223ed3096d89"
+    },
+    {
+      "path": "src/sdk.ts",
+      "sha256": "a98122568f803d0af2f18687aa6132bc8d9fee1a3a6cc748cd459acdababb04d"
+    },
+    {
+      "path": "src/types/common.ts",
+      "sha256": "2d75166aa61cdbf2c56569b4fd1dcb10c0a070fe8bf8123bd519af10844bee29"
+    },
+    {
+      "path": "src/types/drive-cloud-event.ts",
+      "sha256": "2ee076205ced1cbb6187ff4a0fecba50fc128aac7c434ae9d7959440670208c8"
+    },
+    {
+      "path": "src/types/drive-event-receipt-resource-data.ts",
+      "sha256": "da7ad6f29ab7f7b9c491c3180653549638f65e1766732da7d7e68efb90678c94"
+    },
+    {
+      "path": "src/types/drive-event-receipt-response.ts",
+      "sha256": "26eb31bb3e1610ad932385760a03e581d15722caf758da42cc21b7995a90256e"
+    },
+    {
+      "path": "src/types/drive-event-receipt.ts",
+      "sha256": "b2b52be7b1211832883356272fbe5dadf6f15597f1513b23202241719acd6634"
+    },
+    {
+      "path": "src/types/drive-event-receive-disposition.ts",
+      "sha256": "04f3aaf9f74e0312aff42053d947fbf697de897bf0de5324f04fa4d11f8537e9"
+    },
+    {
+      "path": "src/types/index.ts",
+      "sha256": "e2cfc72ecd0d820620cc36bb0148354211106c046c5feb5438edaf018e082ccb"
+    },
+    {
+      "path": "src/types/non-negative-int64-string.ts",
+      "sha256": "2d4fbc21f0864de415dbbe7423083f30402d6c81461a2a3e9ec6c70e9520aa08"
+    },
+    {
+      "path": "src/types/page-info.ts",
+      "sha256": "458c5fc9ebf5d47d7fea77f951334facbcf70f6e8ddad0441f2bc9b92f173f32"
+    },
+    {
+      "path": "src/types/positive-int64-string.ts",
+      "sha256": "cd972027b8abe89be8e5ef8cd1634ff0265ae81696c8528840b79f3dd4f26fd3"
+    },
+    {
+      "path": "src/types/problem-detail.ts",
+      "sha256": "284ba27df70f7eb3793893cfc9001ccc78308266d3d6c6c5eb309c9433cc2ce8"
+    },
+    {
+      "path": "src/types/resolve-wiki-route-request.ts",
+      "sha256": "f45ec8a1d32854eba69ec470fd6cb19032321063344dda60d2c499ffcb4c664b"
+    },
+    {
+      "path": "src/types/sdk-work-api-response.ts",
+      "sha256": "b0e8a26047d6002f67c43b0accaebb34d4d7a4d6ba8f77c55ed9bd0a9036cc77"
+    },
+    {
+      "path": "src/types/sdk-work-platform-error-code.ts",
+      "sha256": "1734c71d3fc9ae63f6c997f0453dee042341c8a1b8e0fabadaf6af7d914b6698"
+    },
+    {
+      "path": "src/types/wiki-file-kind.ts",
+      "sha256": "fca1ec348c843c743b1b6eae6de9753c0dfe9c4b0201b0bd88d11462b49ffd4b"
+    },
+    {
+      "path": "src/types/wiki-page-list-data.ts",
+      "sha256": "fbf377870fa76874a63f3ccd0ba6ce006c2243bf6bda001336377ab29aaae477"
+    },
+    {
+      "path": "src/types/wiki-page-list-response.ts",
+      "sha256": "f5d96ff70a93b47cfc4ee85eb735750dba429f171696b04aac482c2442ae913a"
+    },
+    {
+      "path": "src/types/wiki-page.ts",
+      "sha256": "573e1b14c962fa5630d1a19b5b500580a16b0798af94d4c56e7bcbaad7524b8b"
+    },
+    {
+      "path": "src/types/wiki-publication-resource-data.ts",
+      "sha256": "23473898aef9fd64482a5d4199b3314adec45b9727ca624921d76c8bf494dce1"
+    },
+    {
+      "path": "src/types/wiki-publication-response.ts",
+      "sha256": "2fce909bfc574851fbfe3be92f61d62a3e1e06e3d16935f845aa58f051b1151c"
+    },
+    {
+      "path": "src/types/wiki-publication.ts",
+      "sha256": "d4d3162c167a6dab9042cdaf58b564423640058845a1975397dd4573da95e3fb"
+    },
+    {
+      "path": "src/types/wiki-route-resolution-resource-data.ts",
+      "sha256": "a3db0a6220a590ec2cf3cbb456b4890b3f93a29f074937e769bbbb5df5bfa4fe"
+    },
+    {
+      "path": "src/types/wiki-route-resolution-response.ts",
+      "sha256": "53676d58bab0fc9254c65463a170af4d0276b823cfd7602a84601ef85f30c6a2"
+    },
+    {
+      "path": "src/types/wiki-route-resolution.ts",
+      "sha256": "0fadfa1044cc77c118d0f6e820bcebb3578aecb00430cd88d5334ea417206dea"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "7c8a6c2b00fb208ec28e1e6045194487d1b3e563d6c44cef4783fd4fe0e8ffad"
+    }
+  ],
+  "scaffoldFiles": [
+    "custom/build-runtime.mjs",
+    "custom/README.md"
+  ],
+  "customRoots": [
+    "custom/"
+  ]
+}

@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "89e16cde4e52ad3f2763c151d4cb4ca5f4ff703aae41ba1b3d9f39b798f34ffd"
+      "sha256": "43d7072f40d1b096b4eb9661c38925b6611f92a0c5fd51259aa1671eb7bb245c"
     },
     {
       "path": "src/api/paths.ts",
@@ -144,7 +144,7 @@
     },
     {
       "path": "src/types/index.ts",
-      "sha256": "d27fce9a7aab41d09af37dbb65e4eb5aec9aca48e9ada499901ec5c3cf58e250"
+      "sha256": "033ae5eb23ed8654e10ec9fd3e1b3856311f506fa297acc86909eec3284b9f57"
     },
     {
       "path": "src/types/indexes-create-response201.ts",
@@ -459,12 +459,12 @@
       "sha256": "8565c829eba1a6ef4ecfbaa4be0445629cfc0433258f25bae5939f340fe679e9"
     },
     {
-      "path": "src/types/okf-bundle-index-create-response201.ts",
-      "sha256": "ab1146258307b4fed85c0a5a948c8e198c9f4ff07fd0132cfdb10bd24ad25c71"
-    },
-    {
       "path": "src/types/okf-bundle-index-rebuild-request.ts",
       "sha256": "3224c2086a085f587513e8aaf78d01f3a59c90e23b3d6bb738d69684a84ace60"
+    },
+    {
+      "path": "src/types/okf-bundle-index-rebuild-response.ts",
+      "sha256": "409fd2b31f165016b714bc405f26044a28adf6c55c0a22ae582e7b96a06a2d7d"
     },
     {
       "path": "src/types/okf-candidate-result-list.ts",

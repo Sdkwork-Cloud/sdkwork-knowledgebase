@@ -27,6 +27,13 @@ spec:
                 name: sdkwork-knowledgebase-app-api
                 port:
                   name: http
+          - path: /internal/v3/api
+            pathType: Prefix
+            backend:
+              service:
+                name: sdkwork-knowledgebase-app-api
+                port:
+                  name: http
     - host: knowledgebase-admin.sdkwork.com
       http:
         paths:

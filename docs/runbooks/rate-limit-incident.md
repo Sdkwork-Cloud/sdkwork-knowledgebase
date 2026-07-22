@@ -22,7 +22,7 @@ Abuse, accidental retry storms, or ineffective rate limiting across replicas.
 ## Hardening
 
 - Never run multi-replica production without Redis rate-limit store.
-- Keep rate-limit configuration in topology env templates under `configs/topology/`.
+- Keep rate-limit configuration in topology env templates under `etc/topology/`.
 
 ## Verification
 

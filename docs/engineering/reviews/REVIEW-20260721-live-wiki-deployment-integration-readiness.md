@@ -1,200 +1,188 @@
 # REVIEW-20260721 Live Wiki Deployment Integration Readiness
 
-Status: implementation-in-progress-publication-blocked
+Status: implementation-in-progress-delivery-blocked
 Owner: SDKWork Knowledgebase maintainers
 Date: 2026-07-21
 Requirement: REQ-2026-0721
 Decision: ADR-20260721-live-mounted-wiki-publication (accepted)
 Machine contract: `specs/live-wiki-publication.spec.json`
-Specs: REQUIREMENTS_SPEC.md, ARCHITECTURE_DECISION_SPEC.md, API_SPEC.md, SDK_SPEC.md,
-EVENT_SPEC.md, DATABASE_SPEC.md, DEPLOYMENT_SPEC.md, RELEASE_SPEC.md, SECURITY_SPEC.md,
-PERFORMANCE_SPEC.md, TEST_SPEC.md
+Specs: REQUIREMENTS_SPEC.md, ARCHITECTURE_DECISION_SPEC.md, API_SPEC.md, INTERNAL_API_SPEC.md,
+SDK_SPEC.md, EVENT_SPEC.md, DATABASE_SPEC.md, DEPLOYMENT_SPEC.md, RELEASE_SPEC.md,
+SECURITY_SPEC.md, PERFORMANCE_SPEC.md, PAGINATION_SPEC.md, TEST_SPEC.md
 
-## 1. Scope And Method
+## 1. Scope And Review States
 
-This review checks the current working implementation, not only the proposed PRD. It inspects the
-Knowledgebase, Drive, Deployments, and Web Server application manifests, component contracts,
-OpenAPI authorities, database baselines, Rust services/routes, frontend publication UI, event
-producers/consumers, certificate behavior, and tests.
+This review records executable implementation evidence across Knowledgebase, Drive, Deployments,
+and Web Server. It supersedes earlier absence findings that were closed by the canonical Wiki
+schema, Drive event projection, Knowledgebase public provider, generated Internal SDK, and Web
+Server immutable runtime-set work.
 
-The reviewed end-to-end outcome is:
+The states in this review mean:
+
+- `closed`: the owned contract and focused executable evidence exist;
+- `partially closed`: a bounded production-shaped implementation exists but a named capability or
+  cross-repository proof is still missing;
+- `blocking`: the required business or runtime path is absent, so public/commercial claims remain
+  prohibited.
+
+The reviewed request path is:
 
 ```text
 Drive sources/raw commit
-  -> Knowledgebase source projection and publication command
-  -> Knowledgebase typed provider and versioned change event
-  -> Deploy-owned active Site Resource/Mount/Binding/SiteRevision
-  -> Web Server WIKI provider adapter, cache invalidation and public response
+  -> Knowledgebase durable event projection
+  -> WikiPublication and page public-version state
+  -> Knowledgebase typed Internal API / generated SDK
+  -> Web Server KNOWLEDGEBASE_WIKI adapter
+  -> Deploy-owned Site/Binding/Variant/Mount routing
+  -> public HTTP response
 ```
+
+Ordinary source updates, publish/unpublish actions, navigation changes, and search changes are
+provider lifecycle operations. They must not create a Deploy Release, Deployment, or SiteRevision.
 
 ## 2. Verdict
 
-The target architecture is accepted and implementation is in progress, but the current repositories
-do not yet provide an integrated or realtime Wiki publication capability. The existing system must
-not be described as live, publicly deployable, production-ready, or commercially ready.
+The storage, source-projection, explicit publication lifecycle, public-read, contract-generation,
+immutable Web runtime foundations, generated-SDK Web Server provider adapter, data-plane bootstrap,
+and public HTTP mapping are implemented. The repositories still do not provide the complete
+integrated public Wiki product because durable Web provider-event consumption, provider-aware cache
+invalidation, rendition pipeline, managed TLS closure, UI workflows, and real deployed
+end-to-end production evidence remain incomplete.
 
-What exists today is limited to Drive-backed `sources/raw` browsing/upload foundations,
-Knowledgebase ingestion and a generic outbox, release-oriented Deploy APIs, duplicated Web Server
-control-plane APIs, and partial certificate management. The canonical WikiPublication, provider,
-content events, descriptor runtime, and public WIKI handler remain design-only.
+The system must therefore be described as `implementation-in-progress-delivery-blocked`. It is
+incorrect to describe the Wiki schema, Drive consumer, Knowledgebase provider API/SDK, or Web
+runtime-set as absent. It is also incorrect to describe the overall capability as production-ready,
+commercially ready, or fully realtime.
 
-## 3. Current Evidence
+## 3. Current Evidence Matrix
 
-| Surface | Current evidence | Result |
+| Surface | Executable evidence | State |
 | --- | --- | --- |
-| Contract status | `specs/live-wiki-publication.spec.json` and the governing ADR are accepted for implementation; capability claims remain gated by this review | implementation authorized, publication blocked |
-| Application release | `sdkwork.app.config.json` is prelaunch-gated with missing release and production evidence | blocked |
-| Wiki API | Knowledgebase app/open/backend OpenAPI has no WikiPublication, Wiki Site Resource, provider validate/open, or Wiki event operations | absent |
-| Wiki schema | Knowledgebase baseline and schema contract have no canonical WikiPublication/source-publication projection tables | absent |
-| Source update | `crates/sdkwork-knowledgebase-drive/src/adapter.rs` rejects an existing `sources/raw` logical path as immutable | conflicts with edits/republish |
-| Outbox | the implemented producer emits `knowledge.ingest.succeeded`; no Wiki provider/public-route event is produced | insufficient |
-| Component events | Knowledgebase and Drive root component contracts declare empty event inventories | absent contract |
-| Publish UI | `PublishModal.tsx` implements WeChat distribution, contains disabled third-party channels and has no Wiki/Site/Mount/Domain workflow | wrong product surface |
-| Deploy source model | `CreateDeploymentRequest` optionally references `releaseId`; no Site Resource/Variant/Mount/Binding/SiteRevision API or tables exist | release-oriented |
-| Dual authority | Deploy owns writable `deploy_site/domain/certificate/deployment`; Web Server owns writable parallel `web_*` tables and overlapping app APIs | unsafe split brain |
-| Web data plane | no WebsiteRuntimeDescriptor ingestion, Drive/Knowledgebase provider adapter, WIKI handler, provider event checkpoint, or public content tests exist | absent |
-| Provider SDK wiring | Deploy does not declare a Knowledgebase SDK; Web Server does not declare Drive or Knowledgebase provider SDKs | disconnected |
-| Managed TLS | certificate renew only sets `renewal_status=planned`; OpenAPI states the ACME worker is not online | not automatic |
-| E2E evidence | no upload-to-public, update-to-public, revoke-to-not-public, event-gap, cache, or multi-Site provider-reuse test exists | absent |
+| Canonical contract | Accepted requirement, ADR, and `specs/live-wiki-publication.spec.json` | closed |
+| Wiki persistence | PostgreSQL and SQLite baselines/migrations contain `kb_site_publication`, `kb_source_file_projection`, rendition, redirect, checkpoint, inbox, and outbox structures | closed |
+| Wiki initialization | One canonical DRAFT/private publication is provisioned and existing spaces are backfilled idempotently | closed |
+| Drive source sync | Root-scoped events, inbox/checkpoint fencing, projection application, reconciliation, and standalone/cloud typed Drive adapters exist | closed |
+| Knowledgebase public provider | Active-publication lookup, normalized route/redirect resolution, opaque content handles, exact public-version validation, navigation, and metadata search are implemented | closed |
+| Internal API and SDK | Six ingress-token owner operations exist in OpenAPI, route manifest, Rust routes, and generated TypeScript/Rust transports | closed |
+| Public isolation | Provider reads derive tenant/organization from the authenticated principal and use non-disclosing not-found behavior | closed |
+| Web runtime descriptor/set | Strict descriptor plus node-scoped `sdkwork.website-runtime-set.v1`, bounded compilation, collision rejection, atomic activation, replay fencing, and rollback exist | closed |
+| Web delivery executor | Immutable provider registry and runtime-set-backed STATIC/explicit SPA fallback/WIKI execution preserve compiled tenant/Site/Binding/Variant/Mount scope, typed outcomes, bounded streams, and browser HTTP semantics | closed |
+| Content open | Exact pinned Drive version, length, SHA-256, and current page public-version are revalidated; the reader buffers at most 16 MiB and has no Range contract | partially closed |
+| Search | Store-paginated metadata search covers title, canonical route, and source path; rendition-backed full-text search is absent | partially closed |
+| Publication lifecycle | Owner-only activate/pause plus Writer publish/republish/unpublish/visibility commands use optimistic publication/page fences, exact Drive-version pinning, transactional lifecycle events, and transactionally coupled audit records | closed |
+| App API and SDK | Six owner operations exist in App OpenAPI, Rust routes/manifest, and the generated TypeScript App SDK; Reader/Writer/Owner and organization-isolation tests pass | closed |
+| Provider event production | The owner AsyncAPI authority defines all five event types; provider, route change/revocation, navigation, and search events are transactionally produced, and source-driven public revocation advances navigation/search generations and emits all three invalidation facts atomically | closed |
+| Provider event consumption | Durable Web Server checkpoints, duplicate/order/gap fencing, reconciliation, and route-scoped invalidation are absent | blocking |
+| Web Server Wiki adapter | Generated Knowledgebase Rust Internal SDK adapter implements resource/Wiki ports with tenant-bound resolution, conditional metadata, bounded content, navigation/search, registry/bootstrap wiring, initial/hot-update validation, and browser-facing tests | closed |
+| Render/rendition safety | The target processor/sanitizer/rendition policy is documented, but the complete multi-format production chain is not executable | blocking |
+| Deploy-to-Web delivery | Control-plane and data-plane contracts exist, but an activated Site-to-Wiki end-to-end delivery test is absent | blocking |
+| Managed TLS | Domain/certificate policy foundations exist; automated ACME renewal, rotation, fleet convergence, and expiry-drill evidence remain incomplete | blocking |
+| User/admin workflows | Generated-SDK-backed publication, source-state, domain/TLS, provider-health, reconciliation, and failure-management views are incomplete | blocking |
+| Commercial launch | Release, security, performance, soak, backup/restore, billing reconciliation, rollout, rollback, and live-smoke evidence are incomplete | blocking |
 
-## 4. P0 Blocking Findings
+## 4. Implemented Public Provider Contract
 
-### P0-1 WikiPublication Aggregate Is Not Implemented
+The Knowledgebase Internal API authority owns exactly these operations:
 
-There is no canonical publication row, per-file source/publication/visibility projection, provider
-generation, page public version, publication command API, provider API, or migration. Existing OKF
-concept publication is a separate semantic capability and cannot authorize public Wiki delivery.
+| Operation id | Method and path | Implemented behavior |
+| --- | --- | --- |
+| `driveEvents.receive` | `POST /internal/v3/api/knowledgebase/drive_events` | authenticated Drive event ingestion |
+| `wikiPublications.retrieve` | `GET /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}` | active publication metadata and provider generations |
+| `wikiPublications.routes.resolve` | `POST /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/routes/resolve` | normalized route or reviewed redirect resolution |
+| `wikiPublications.contents.retrieve` | `GET /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/contents/{contentHandle}` | bounded exact pinned-version binary retrieval |
+| `wikiPublications.navigation.list` | `GET /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/navigation` | public-only keyset navigation window |
+| `wikiPublications.pages.search` | `GET /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/pages/search` | public-only keyset metadata search |
 
-Closure requires accepted schema/API/SDK ownership, dual-engine migrations, idempotent provisioning
-for every Knowledgebase, backfill, lifecycle fencing, and negative tenant/visibility tests.
+Direct route resolution permits `PUBLIC` and `UNLISTED`. Navigation permits only `PUBLIC` with
+`nav_hidden=false`. Search permits only `PUBLIC` with `index_state=READY`. Every public read
+revalidates tenant, organization, publication status, page eligibility, and current page public
+version.
 
-### P0-2 Current Source Immutability Blocks Realtime Updates
+The current binary operation is deliberately not described as streaming: it rejects a source
+representation larger than 16 MiB and returns a bounded buffered body. The current search operation
+is deliberately not described as full-text: it searches normalized metadata only.
 
-The current adapter rejects a write when the same `sources/raw` logical object already exists. A
-Wiki must instead keep a stable Drive node while each edit creates a new immutable Drive version.
-Physical version/blob immutability remains mandatory; logical path immutability is forbidden.
+## 5. Remaining P0 Closure Work
 
-Closure requires update/version, rename/move, delete/restore, concurrent write, rollback and old/new
-route invalidation tests using stable node and version identities.
+### P0-1 Durable Provider Event Consumption
 
-### P0-3 Drive-To-Knowledgebase Change Stream Is Missing
+Add Web Server checkpoints, duplicate/order/gap fencing, reconciliation, and route-scoped
+invalidation for `knowledgebase.wiki.provider.changed.v1`,
+`knowledgebase.wiki.route.changed.v1`, `knowledgebase.wiki.route.revoked.v1`,
+`knowledgebase.wiki.navigation.changed.v1`, and `knowledgebase.wiki.search.changed.v1`.
+Deployments must remain outside this content hot path.
 
-There is no accepted Drive AsyncAPI contract, root-scoped subscription, durable Knowledgebase
-checkpoint, replay protocol, or reconciliation implementation for `sources/raw`. The current
-Knowledgebase outbox publishes ingestion success after local work; it does not consume Drive node
-version/path/security lifecycle as the publication source.
+### P0-2 Rendition, Range, And Search Completion
 
-Closure requires the versioned Drive input event types named by the machine contract, at-least-once
-delivery, idempotency, ordering fences, gap detection, dead letter, replay, and bounded root scan.
+Add a streaming/Range contract before enabling large PDF/media/download workloads. Complete the
+versioned Markdown/HTML sanitizer and isolated multi-format rendition chain. Replace metadata-only
+search with a tenant/publication/public-version-filtered rendition index before claiming full-text
+Wiki search.
 
-### P0-4 Knowledgebase Provider Contract And SDK Are Missing
+### P0-3 Integrated Delivery, TLS, And Product Operations
 
-Deploy and Web Server cannot validate or open a canonical Wiki resource. The required authority is
-a Knowledgebase-owned `internal-api` and generated `sdkwork-knowledgebase-internal-sdk`, with an
-equivalent typed Rust port in standalone topology. Raw HTTP, manual service headers, direct
-Knowledgebase database access, and an anonymous Knowledgebase public router are forbidden.
+Prove Site/Binding/Variant/Mount-to-provider execution in standalone and cloud topologies. Complete
+automatic ACME renewal/rotation and served-SNI convergence. Deliver generated-SDK-backed user/admin
+workflows, provider health, lag/gap, reconcile, cache purge, quota, audit, and commercial usage
+operations.
 
-### P0-5 Deployments Remains Release-Oriented
+## 6. Realtime Claim Boundary
 
-Deploy currently creates deployments around optional `releaseId` and owns `deploy_release`; it has
-no discriminated `DRIVE_DIRECTORY`/`KNOWLEDGEBASE_WIKI` source resolver, Site Resource, Variant,
-Mount, Binding, immutable SiteRevision, or runtime descriptor persistence/distribution.
+Drive-to-Knowledgebase projection and explicit public-state transitions are event-driven and
+durable. Public Wiki freshness is not yet an end-to-end realtime capability because durable Web
+Server event consumption, gap recovery, and provider-aware cache invalidation are not closed.
 
-Closure requires the proposed live-resource schema and owner SDK integrations while retaining
-Release only for frozen package/Git/image workflows.
+When those paths are implemented, realtime means bounded eventual visibility from the committed
+public-state transition, not from upload completion. Events improve freshness; authenticated
+provider read-through validation remains the correctness authority. Private, quarantine, delete,
+pause, and unpublish transitions must deny public reads immediately even during event or cache lag.
 
-### P0-6 Deployments And Web Server Are Competing Control Planes
+## 7. Verification Evidence
 
-Both repositories expose writable Site/Domain/Deployment management and persist near-equivalent
-tables. No public cutover is safe while both can write. Deployments must become the only Site,
-Domain, Certificate-policy and Revision authority. Web Server must retain only immutable runtime/TLS
-snapshots, provider checkpoints, bounded cache metadata, observations and usage spool state.
+The implemented provider boundary has passed:
 
-Closure requires shadow comparison, migration reconciliation, a single-writer fence, removal of Web
-app-api write routes, retirement of `web_site/domain/deployment/certificate` authority, and rollback
-evidence that cannot reactivate dual writers.
+```text
+cargo test -p sdkwork-intelligence-knowledgebase-service --test wiki_public_provider
+cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx --test wiki_public_provider_store
+cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx --test wiki_publication_lifecycle_store
+cargo test -p sdkwork-routes-knowledgebase-app-api --test wiki_publication_routes
+cargo test -p sdkwork-routes-knowledgebase-app-api --test wiki_publication_hosted_access
+cargo test -p sdkwork-routes-knowledgebase-app-api --test app_openapi_routes
+cargo test -p sdkwork-routes-knowledgebase-internal-api --test internal_routes
+pnpm api:materialize:check
+node tools/knowledgebase_sdk_generate.mjs --check --family sdkwork-knowledgebase-app-sdk
+pnpm --dir sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript typecheck
+node sdks/sdkwork-knowledgebase-internal-sdk/bin/generate-sdk.mjs --check
+node --test sdks/sdkwork-knowledgebase-internal-sdk/tests/sdk-family-smoke.test.mjs
+pnpm --dir sdks/sdkwork-knowledgebase-internal-sdk/sdkwork-knowledgebase-internal-sdk-typescript typecheck
+node ../sdkwork-specs/tools/check-api-operation-patterns.mjs --root .
+node ../sdkwork-specs/tools/check-api-response-envelope.mjs --root .
+node ../sdkwork-specs/tools/check-route-path-collisions.mjs --root .
+node ../sdkwork-specs/tools/check-pagination.mjs --workspace .
+```
 
-### P0-7 Web Server Has No WIKI Delivery Runtime
+The Web Server repository adapter boundary has additionally passed:
 
-The compiled descriptor validator/index, atomic active pointer, WIKI provider adapter, public route
-resolution, pinned representation streaming, safe render response, provider event consumer and
-route-scoped cache invalidation are absent. Existing Nginx configuration synchronization is useful
-infrastructure but is not the proposed website runtime.
+```text
+cargo test -p sdkwork-webserver-contract
+cargo test -p sdkwork-webserver-delivery-runtime
+cargo test -p sdkwork-webserver-knowledgebase-provider
+cargo test -p sdkwork-api-web-server-standalone-gateway
+cargo check --workspace
+cargo clippy -p sdkwork-webserver-core -p sdkwork-webserver-contract -p sdkwork-webserver-drive-provider -p sdkwork-webserver-knowledgebase-provider -p sdkwork-webserver-delivery-runtime -p sdkwork-api-web-server-standalone-gateway --all-targets -- -D warnings
+```
 
-### P0-8 Realtime Publication Events Are Missing
-
-Knowledgebase does not atomically commit public state plus a Wiki outbox event. Web Server does not
-consume provider generation/page version events. Deploy must not be inserted into this content hot
-path: it compiles configuration revisions, while Knowledgebase emits provider events directly to Web
-Server consumers.
-
-### P0-9 Automatic Certificate Renewal Is Not Closed
-
-The current renew operation schedules state only. There is no ACME account/order/challenge worker,
-DNS-01 provider, HTTP-01 routing, KMS-backed key issuance, certificate version activation, fleet
-distribution, served-SNI convergence, retry/escalation, or expiry drill evidence.
-
-### P0-10 User And Admin Workflows Do Not Match The Target
-
-The existing Publish modal is a third-party content distribution surface, not Wiki publication.
-The required Wiki overview, source state explorer, page preview/publish controls, Site attachment,
-Mount/domain/TLS status, event lag, cache purge/reconcile, failed job and provider health views are
-not implemented through generated SDKs.
-
-## 5. Realtime Capability Standard
-
-Realtime means event-driven bounded eventual visibility. It does not mean unsafe publication at
-upload completion, synchronous conversion of every format, or bypassing review/security gates.
-
-| Workflow | Required public behavior |
-| --- | --- |
-| `REVIEW_REQUIRED` first upload | author state and private preview update promptly; public content changes only after a version-fenced publish command |
-| `REVIEW_REQUIRED` published-page edit | prior verified public version remains or is removed per explicit policy; new version requires republish |
-| `AUTO_PUBLIC_AFTER_CHECKS` native update | new version publishes automatically after scan, parse/render, route and policy gates |
-| conversion-required update | asynchronous progress; no synchronous freshness claim; last verified public policy remains explicit |
-| private/quarantine/delete/unpublish | priority revocation; stale public delivery is forbidden regardless of processor or event backlog |
-
-Target measurements are defined in the machine contract. A realtime claim requires native
-auto-public Drive-commit-to-public p95/p99 evidence, explicit-publish-to-public evidence, priority
-revocation evidence, and event-lag/gap dashboards in both standalone and cloud topologies.
-
-## 6. Required Generation And Event Model
-
-The implementation must keep these identities separate:
-
-- Drive source checkpoint: ingestion/reconciliation progress, never a public cache key;
-- provider generation: provider-wide eligibility/root/policy fence;
-- page public version: per-route public representation and revocation fence;
-- navigation generation: navigation snapshot version;
-- search generation: public search snapshot version;
-- SiteRevision policy generation: Deploy-owned configuration version.
-
-Private processing must not flush public caches. An ordinary page update invalidates only affected
-routes plus required navigation/search snapshots. Provider-wide generation changes are reserved for
-provider-wide eligibility or policy transitions.
-
-## 7. Implementation And Launch Gates
-
-1. Accept the four repository ADRs, exact source/public/internal API names, AsyncAPI event schemas,
-   database contracts and no-compatibility prelaunch migration.
-2. Implement Drive change events/subscriptions and logical-update-to-immutable-version semantics.
-3. Implement canonical WikiPublication, projection workers, commands, internal SDK and provider
-   events with reconciliation.
-4. Implement Deploy Site Resource/Variant/Mount/Binding/SiteRevision and descriptor compiler;
-   migrate to one control-plane writer.
-5. Implement Web descriptor activation, WIKI provider adapter, provider-event checkpoints, cache,
-   stream delivery and TLS snapshot execution.
-6. Implement managed certificate orchestration and prove renewal/rotation/expiry recovery.
-7. Build generated-SDK-backed user/admin UI and close permission, accessibility and error states.
-8. Pass contract, dual-engine, tenant isolation, security, E2E, load/soak, event fault, backup,
-   rollout and rollback evidence.
+The generated TypeScript and Rust package check/build workflows also pass. These checks prove the
+bounded provider, explicit publication-command, generated-SDK Web adapter, runtime-set activation,
+bootstrap, and browser HTTP mapping boundaries. They do not prove provider-event consumption,
+provider-aware caching, TLS, UI, renderer, or real deployed cross-repository delivery paths.
 
 ## 8. Claim Policy
 
-Until every P0 finding is closed with executable evidence:
+Until every remaining P0 item is closed with executable evidence:
 
-- the accepted Live Wiki contract remains implementation-only and publication-gated;
-- no repository may claim that Wiki public deployment is implemented;
-- no repository may claim upload/update-to-public realtime behavior;
-- no commercial or production launch may rely on the target architecture;
-- preview or ingestion success must not be presented as public publication success.
+- Wiki public deployment remains implementation-only and delivery-gated;
+- upload or processing success must not be presented as public publication success;
+- the current binary reader must not be presented as large-object streaming or Range delivery;
+- the current metadata query must not be presented as full-text search;
+- no commercial or production launch may rely on the incomplete end-to-end path.

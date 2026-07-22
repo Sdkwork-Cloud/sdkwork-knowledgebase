@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.deployment-index",
+  "application": "sdkwork-knowledgebase",
+  "topology": "../specs/topology.spec.json",
+  "defaultProfile": "standalone.development",
+  "environments": {
+    "development": {
+      "catalogAccessUrl": "https://api-dev.sdkwork.com/apps/sdkwork-knowledgebase",
+      "catalogDeployUrl": "https://api-dev.sdkwork.com/apps/sdkwork-knowledgebase",
+      "deployEnvironment": "dev"
+    },
+    "test": {
+      "catalogAccessUrl": "https://api-test.sdkwork.com/apps/sdkwork-knowledgebase",
+      "catalogDeployUrl": "https://api-test.sdkwork.com/apps/sdkwork-knowledgebase",
+      "deployEnvironment": "test"
+    },
+    "production": {
+      "catalogAccessUrl": "https://api.sdkwork.com/apps/sdkwork-knowledgebase",
+      "catalogDeployUrl": "https://api.sdkwork.com/apps/sdkwork-knowledgebase",
+      "deployEnvironment": "production"
+    }
+  },
+  "profiles": {
+    "standalone.development": {
+      "config": "topology/standalone.development.env"
+    },
+    "standalone.production": {
+      "config": "topology/standalone.production.env"
+    },
+    "cloud.development": {
+      "config": "topology/cloud.development.env",
+      "gatewayConfig": "sdkwork-api-cloud-gateway.knowledgebase.development.toml"
+    },
+    "cloud.production": {
+      "config": "topology/cloud.production.env",
+      "gatewayConfig": "sdkwork-api-cloud-gateway.knowledgebase.production.toml"
+    }
+  }
+}

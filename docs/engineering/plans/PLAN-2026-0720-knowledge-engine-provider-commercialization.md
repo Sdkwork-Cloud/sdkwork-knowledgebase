@@ -191,9 +191,9 @@ documentation claiming more than the evidence proves.
   is separately red because the same concurrent work removed `hosted_upload.rs` while its
   upload-session ACL assertion remains. These public API/security test conflicts are not guessed,
   bypassed, or deleted under ADR-20260720.
-- The source-config validator remains red because `etc/README.md` and the deployment profile index
-  are absent, retired `configs/` remains an authority, and concrete environment URLs remain in the
-  app manifest. Production configuration migration requires human review.
+- Source configuration closure completed on 2026-07-21: `etc/` owns the profile index and topology
+  values, the app manifest contains discovery pointers only, and source-config/topology/deploy
+  validation passes. Production rollout values still require normal release review and evidence.
 - Live browser/open/backend API smoke tests were skipped because no release-environment URLs and
   credentials were configured. Evidence scope remains implementation/contract only and does not
   satisfy live Provider certification, production PostgreSQL, migration/rollback, load/SLO,
@@ -311,9 +311,9 @@ documentation claiming more than the evidence proves.
   diff hygiene pass. Root `pnpm check` is red on concurrent live-wiki terminology; root `pnpm test`
   passes topology and frontend before stopping on stale Drive import contract test fields. A
   concurrent, not-yet-accepted site-publication change also removed the upload-session
-  implementation while a security test still asserts it. Source configuration requires a reviewed
-  `configs/`/manifest-to-`etc/` migration. None of those production configuration or public API
-  decisions is changed under this ADR.
+  implementation while a security test still asserts it. Subsequent work completed the reviewed
+  single-authority source configuration migration to `etc/`; the unresolved public API decisions
+  remain outside this ADR.
 
 ## 2026-07-20 Provider Management UI Evidence
 

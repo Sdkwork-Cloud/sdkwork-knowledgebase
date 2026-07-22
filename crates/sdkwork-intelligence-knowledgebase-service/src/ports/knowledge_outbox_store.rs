@@ -49,9 +49,11 @@ pub struct AppendOutboxEventRecord {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PendingOutboxEvent {
     pub id: u64,
+    pub event_uuid: String,
     pub event_type: String,
     pub aggregate_type: String,
     pub aggregate_id: u64,
+    pub retry_count: u32,
     pub payload_json: String,
 }
 

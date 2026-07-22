@@ -102,7 +102,9 @@
       }
     ],
     "sdkClients": [
-      "SdkworkKnowledgebaseAppClient"
+      "SdkworkKnowledgebaseAppClient",
+      "SdkworkKnowledgebaseAppClient.knowledge.wikiPublications",
+      "SdkworkKnowledgebaseAppClient.knowledge.wikiSourceFiles"
     ],
     "events": [],
     "configKeys": [
@@ -118,6 +120,9 @@
   "verification": {
     "commands": [
       "node sdks/standardize-knowledgebase-sdk-family.mjs --check",
+      "node tools/knowledgebase_sdk_generate.mjs --check --family sdkwork-knowledgebase-app-sdk",
+      "node sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi/bin/publish-core.mjs --language typescript --project-dir sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi --action check",
+      "pnpm --dir sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript typecheck",
       "node sdks/test/verify-sdk-ownership-boundaries.test.mjs",
       "powershell -ExecutionPolicy Bypass -File tools/verify_openapi_operation_ids.ps1"
     ]

@@ -1,8 +1,11 @@
 mod backfill;
 mod checkpoint;
+mod event_application;
 mod inbox;
 mod projection;
+mod public_provider;
 mod publication;
+mod publication_lifecycle;
 mod rendition;
 
 use std::str::FromStr;

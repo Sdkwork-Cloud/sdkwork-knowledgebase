@@ -6,6 +6,7 @@ mod binding_scope_filters;
 mod browser_projection_store;
 mod chunk_transaction;
 pub mod db;
+mod drive_import_linkage_snapshot;
 mod drive_object_ref_store;
 mod embedding_store;
 mod id;

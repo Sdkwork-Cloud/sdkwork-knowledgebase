@@ -253,9 +253,9 @@ pub(crate) async fn rebuild_okf_index(
     context: RequiredBackendContext,
     Json(request): Json<OkfIndexRebuildRequest>,
 ) -> Result<Response, BackendApiProblem> {
-    let context = require_backend_mutation_context(&state, context, "okf.bundle.index.create")?;
+    let context = require_backend_mutation_context(&state, context, "okf.bundle.index.rebuild")?;
     let result = state.api.rebuild_okf_index(request).await;
-    created_json(audit_backend_mutation(&context, "okf.bundle.index.create", result).await?)
+    ok_json(audit_backend_mutation(&context, "okf.bundle.index.rebuild", result).await?)
 }
 
 pub(crate) async fn create_okf_log_entry(

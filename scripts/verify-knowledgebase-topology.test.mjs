@@ -46,6 +46,14 @@ function normalizePathForAssert(relativePath) {
   return relativePath.replaceAll('\\', '/');
 }
 
+function ingressRuleForHost(manifest, host) {
+  const marker = `    - host: ${host}`;
+  const start = manifest.indexOf(marker);
+  assert.notEqual(start, -1, `ingress rule for ${host} must exist`);
+  const nextRule = manifest.indexOf('\n    - host: ', start + marker.length);
+  return manifest.slice(start, nextRule === -1 ? manifest.length : nextRule);
+}
+
 function parseEnvValues(text) {
   const values = {};
   for (const line of text.split(/\r?\n/u)) {
@@ -180,13 +188,13 @@ test('topology governance files do not retain retired deployment profile segment
     'standalone.production',
   ]);
 
-  const topologyEnvFiles = (await listFiles('configs/topology'))
+  const topologyEnvFiles = (await listFiles('etc/topology'))
     .map(normalizePathForAssert)
     .filter((relativePath) => relativePath.endsWith('.env'))
     .sort();
   assert.deepEqual(
     topologyEnvFiles,
-    expectedProfileIds.map((profileId) => `configs/topology/${profileId}.env`).sort(),
+    expectedProfileIds.map((profileId) => `etc/topology/${profileId}.env`).sort(),
   );
 
   for (const relativePath of topologyEnvFiles) {
@@ -204,7 +212,14 @@ test('topology governance files do not retain retired deployment profile segment
   const deploymentProfileIds = [...deployment.matchAll(/^  ([A-Za-z0-9.-]+):\s*$/gmu)]
     .map((match) => match[1])
     .sort();
-  assert.deepEqual(deploymentProfileIds, expectedProfileIds);
+  const expectedDeploymentProfileIds = expectedProfileIds
+    .filter((profileId) => profileId.endsWith('.production'))
+    .sort();
+  assert.deepEqual(deploymentProfileIds, expectedDeploymentProfileIds);
+  assert.ok(
+    deploymentProfileIds.includes(defaultProfile),
+    'deployments/deploy.yaml defaultProfile must reference a declared production profile',
+  );
 
   const networkPolicy = await read('deployments/kubernetes/networkpolicy.yaml');
   assert.doesNotMatch(networkPolicy, RETIRED_TOPOLOGY_PATTERN);
@@ -410,8 +425,17 @@ test('production cloud topology orchestrates background worker and health probes
   const ingressRouting = await read('deployments/kubernetes/ingress.yaml');
   assert.equal(
     ingressRouting.match(/name: sdkwork-knowledgebase-app-api/gu)?.length,
-    3,
+    4,
   );
+  assert.equal(ingressRouting.match(/path: \/internal\/v3\/api/gu)?.length, 1);
+
+  const publicIngressRule = ingressRuleForHost(ingressRouting, 'knowledgebase.sdkwork.com');
+  const adminIngressRule = ingressRuleForHost(ingressRouting, 'knowledgebase-admin.sdkwork.com');
+  const openIngressRule = ingressRuleForHost(ingressRouting, 'knowledge.sdkwork.com');
+  assert.match(publicIngressRule, /path: \/app\/v3\/api/u);
+  assert.match(publicIngressRule, /path: \/internal\/v3\/api/u);
+  assert.doesNotMatch(adminIngressRule, /path: \/internal\/v3\/api/u);
+  assert.doesNotMatch(openIngressRule, /path: \/internal\/v3\/api/u);
   for (const manifestPath of [
     'deployments/kubernetes/hpa.yaml',
     'deployments/kubernetes/poddisruptionbudget.yaml',

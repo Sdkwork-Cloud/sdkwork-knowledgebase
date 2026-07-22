@@ -3,7 +3,6 @@
 use zeroize::Zeroizing;
 
 pub const DIFY_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DIFY_BASE_URL";
-pub const DIFY_CREDENTIAL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DIFY_CREDENTIAL";
 pub const DIFY_DATASET_ID_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DIFY_DATASET_ID";
 
 #[derive(Clone, PartialEq, Eq)]

@@ -353,6 +353,7 @@ impl KnowledgeAppApi for AgentAndRetrievalAppApi {
 
 pub struct FullAppApi {
     space: Arc<dyn KnowledgeSpaceAppService>,
+    wiki: Arc<dyn crate::KnowledgeWikiPublicationAppService>,
     group_launch: Arc<dyn crate::KnowledgeGroupLaunchAppService>,
     drive_import: Arc<dyn KnowledgeDriveImportAppService>,
     git_import: Arc<dyn KnowledgeGitImportAppService>,
@@ -371,6 +372,7 @@ impl FullAppApi {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         space: Arc<dyn KnowledgeSpaceAppService>,
+        wiki: Arc<dyn crate::KnowledgeWikiPublicationAppService>,
         group_launch: Arc<dyn crate::KnowledgeGroupLaunchAppService>,
         drive_import: Arc<dyn KnowledgeDriveImportAppService>,
         git_import: Arc<dyn KnowledgeGitImportAppService>,
@@ -386,6 +388,7 @@ impl FullAppApi {
     ) -> Self {
         Self {
             space,
+            wiki,
             group_launch,
             drive_import,
             git_import,
@@ -435,6 +438,72 @@ impl KnowledgeAppApi for FullAppApi {
         space_id: u64,
     ) -> ApiResult<()> {
         self.space.delete_space(context, space_id).await
+    }
+
+    async fn retrieve_wiki_publication(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+    ) -> ApiResult<sdkwork_knowledgebase_contract::KnowledgeWikiPublication> {
+        self.wiki.retrieve_wiki_publication(context, space_id).await
+    }
+
+    async fn activate_wiki_publication(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: sdkwork_knowledgebase_contract::KnowledgeWikiPublicationVersionCommandRequest,
+    ) -> ApiResult<sdkwork_knowledgebase_contract::KnowledgeWikiPublication> {
+        self.wiki
+            .activate_wiki_publication(context, space_id, request)
+            .await
+    }
+
+    async fn pause_wiki_publication(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        request: sdkwork_knowledgebase_contract::KnowledgeWikiPublicationVersionCommandRequest,
+    ) -> ApiResult<sdkwork_knowledgebase_contract::KnowledgeWikiPublication> {
+        self.wiki
+            .pause_wiki_publication(context, space_id, request)
+            .await
+    }
+
+    async fn publish_wiki_source_file(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        source_file_uuid: String,
+        request: sdkwork_knowledgebase_contract::PublishKnowledgeWikiSourceFileRequest,
+    ) -> ApiResult<sdkwork_knowledgebase_contract::KnowledgeWikiSourceFileCommandResult> {
+        self.wiki
+            .publish_wiki_source_file(context, space_id, source_file_uuid, request)
+            .await
+    }
+
+    async fn unpublish_wiki_source_file(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        source_file_uuid: String,
+        request: sdkwork_knowledgebase_contract::KnowledgeWikiSourceFileVersionCommandRequest,
+    ) -> ApiResult<sdkwork_knowledgebase_contract::KnowledgeWikiSourceFileCommandResult> {
+        self.wiki
+            .unpublish_wiki_source_file(context, space_id, source_file_uuid, request)
+            .await
+    }
+
+    async fn change_wiki_source_file_visibility(
+        &self,
+        context: KnowledgeAppRequestContext,
+        space_id: u64,
+        source_file_uuid: String,
+        request: sdkwork_knowledgebase_contract::ChangeKnowledgeWikiSourceFileVisibilityRequest,
+    ) -> ApiResult<sdkwork_knowledgebase_contract::KnowledgeWikiSourceFileCommandResult> {
+        self.wiki
+            .change_wiki_source_file_visibility(context, space_id, source_file_uuid, request)
+            .await
     }
 
     async fn list_space_members(

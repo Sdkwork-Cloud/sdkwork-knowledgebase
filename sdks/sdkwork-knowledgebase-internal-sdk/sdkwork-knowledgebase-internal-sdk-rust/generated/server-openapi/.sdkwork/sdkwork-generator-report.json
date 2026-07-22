@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "generator": "@sdkwork/sdk-generator",
+  "artifacts": {
+    "stateDir": ".sdkwork",
+    "manifestPath": ".sdkwork/sdkwork-generator-manifest.json",
+    "changeSummaryPath": ".sdkwork/sdkwork-generator-changes.json",
+    "executionReportPath": ".sdkwork/sdkwork-generator-report.json",
+    "manualBackupDir": ".sdkwork/manual-backups"
+  },
+  "status": "ok",
+  "mode": "apply",
+  "hasChanges": true,
+  "hasDestructiveChanges": false,
+  "changeFingerprint": "adfcbb94ea9d83b5d4f14ed84545c6c936b6dd15cf2e41155069db48c5c1afa4",
+  "changeImpact": {
+    "schemaVersion": 1,
+    "areas": [
+      "models"
+    ],
+    "details": [
+      {
+        "area": "models",
+        "paths": [
+          "src/models/wiki_page.rs"
+        ]
+      }
+    ],
+    "requiresVerification": true,
+    "summary": "Detected impact areas: models. Verification is required."
+  },
+  "executionDecision": {
+    "schemaVersion": 1,
+    "riskLevel": "medium",
+    "nextAction": "verify",
+    "requiresManualReview": false,
+    "applyRequiresExpectedFingerprint": false,
+    "summary": "Changes have been applied. Run the required verification plan now.",
+    "reasons": [
+      "verification-required"
+    ]
+  },
+  "executionHandoff": {
+    "schemaVersion": 1,
+    "summary": "Run the required verification commands now.",
+    "steps": [
+      {
+        "id": "verify-check",
+        "title": "Unified package check",
+        "required": true,
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-internal-sdk\\sdkwork-knowledgebase-internal-sdk-rust\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "rust",
+          "--project-dir",
+          ".",
+          "--action",
+          "check"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language rust --project-dir . --action check"
+      },
+      {
+        "id": "verify-build",
+        "title": "Unified package build",
+        "required": true,
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-internal-sdk\\sdkwork-knowledgebase-internal-sdk-rust\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "rust",
+          "--project-dir",
+          ".",
+          "--action",
+          "build"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language rust --project-dir . --action build"
+      }
+    ]
+  },
+  "verificationPlan": {
+    "shouldRun": true,
+    "runPhase": "now",
+    "summary": "Detected impact areas: models. Verification is required. Run the required verification commands now against the generated SDK output.",
+    "steps": [
+      {
+        "id": "check",
+        "title": "Unified package check",
+        "required": true,
+        "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-internal-sdk\\sdkwork-knowledgebase-internal-sdk-rust\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "rust",
+          "--project-dir",
+          ".",
+          "--action",
+          "check"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language rust --project-dir . --action check"
+      },
+      {
+        "id": "build",
+        "title": "Unified package build",
+        "required": true,
+        "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
+        "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-internal-sdk\\sdkwork-knowledgebase-internal-sdk-rust\\generated\\server-openapi",
+        "command": "node",
+        "args": [
+          "./bin/publish-core.mjs",
+          "--language",
+          "rust",
+          "--project-dir",
+          ".",
+          "--action",
+          "build"
+        ],
+        "displayCommand": "node ./bin/publish-core.mjs --language rust --project-dir . --action build"
+      }
+    ]
+  },
+  "sdk": {
+    "name": "sdkwork-knowledgebase-internal-sdk",
+    "version": "0.1.0",
+    "language": "rust",
+    "sdkType": "custom",
+    "protocol": "http",
+    "outputPath": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-internal-sdk\\sdkwork-knowledgebase-internal-sdk-rust\\generated\\server-openapi",
+    "packageName": "sdkwork-knowledgebase-internal-sdk-generated-rust"
+  },
+  "versioning": {
+    "resolvedVersion": "0.1.0",
+    "localVersions": []
+  },
+  "stats": {
+    "totalFiles": 36,
+    "models": 17,
+    "apis": 1,
+    "types": 19
+  },
+  "warnings": [],
+  "syncSummary": {
+    "dryRun": false,
+    "controlPlaneEnabled": true,
+    "writtenFiles": 1,
+    "skippedScaffoldFiles": 1,
+    "skippedUnchangedGeneratedFiles": 34,
+    "deletedGeneratedFiles": 0,
+    "changeSummaryPath": ".sdkwork/sdkwork-generator-changes.json",
+    "changeFingerprint": "adfcbb94ea9d83b5d4f14ed84545c6c936b6dd15cf2e41155069db48c5c1afa4",
+    "changes": {
+      "createdGeneratedFiles": [],
+      "updatedGeneratedFiles": [
+        "src/models/wiki_page.rs"
+      ],
+      "unchangedGeneratedFiles": [
+        "bin/publish-core.mjs",
+        "bin/publish.ps1",
+        "bin/publish.sh",
+        "Cargo.toml",
+        "CHANGELOG.md",
+        "LICENSE",
+        "README.md",
+        "sdkwork-sdk.json",
+        "src/api/base.rs",
+        "src/api/knowledgebase_internal_wiki.rs",
+        "src/api/mod.rs",
+        "src/api/paths.rs",
+        "src/client.rs",
+        "src/http/client.rs",
+        "src/http/mod.rs",
+        "src/lib.rs",
+        "src/models/common.rs",
+        "src/models/drive_cloud_event.rs",
+        "src/models/drive_event_receipt_resource_data.rs",
+        "src/models/drive_event_receipt_response.rs",
+        "src/models/drive_event_receipt.rs",
+        "src/models/mod.rs",
+        "src/models/page_info.rs",
+        "src/models/problem_detail.rs",
+        "src/models/resolve_wiki_route_request.rs",
+        "src/models/sdk_work_api_response.rs",
+        "src/models/wiki_page_list_data.rs",
+        "src/models/wiki_page_list_response.rs",
+        "src/models/wiki_publication_resource_data.rs",
+        "src/models/wiki_publication_response.rs",
+        "src/models/wiki_publication.rs",
+        "src/models/wiki_route_resolution_resource_data.rs",
+        "src/models/wiki_route_resolution_response.rs",
+        "src/models/wiki_route_resolution.rs"
+      ],
+      "deletedGeneratedFiles": [],
+      "scaffoldedFiles": [],
+      "preservedScaffoldFiles": [
+        "custom/README.md"
+      ],
+      "backedUpFiles": []
+    },
+    "impact": {
+      "schemaVersion": 1,
+      "areas": [
+        "models"
+      ],
+      "details": [
+        {
+          "area": "models",
+          "paths": [
+            "src/models/wiki_page.rs"
+          ]
+        }
+      ],
+      "requiresVerification": true,
+      "summary": "Detected impact areas: models. Verification is required."
+    },
+    "verificationPlan": {
+      "shouldRun": true,
+      "runPhase": "now",
+      "summary": "Detected impact areas: models. Verification is required. Run the required verification commands now against the generated SDK output.",
+      "steps": [
+        {
+          "id": "check",
+          "title": "Unified package check",
+          "required": true,
+          "rationale": "Validate the generated package with the unified publish helper. Triggered by: models.",
+          "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-internal-sdk\\sdkwork-knowledgebase-internal-sdk-rust\\generated\\server-openapi",
+          "command": "node",
+          "args": [
+            "./bin/publish-core.mjs",
+            "--language",
+            "rust",
+            "--project-dir",
+            ".",
+            "--action",
+            "check"
+          ],
+          "displayCommand": "node ./bin/publish-core.mjs --language rust --project-dir . --action check"
+        },
+        {
+          "id": "build",
+          "title": "Unified package build",
+          "required": true,
+          "rationale": "Run the full package build because this language uses a lighter check path than the final build. Triggered by: models.",
+          "workingDirectory": "E:\\sdkwork-space\\sdkwork-knowledgebase\\sdks\\sdkwork-knowledgebase-internal-sdk\\sdkwork-knowledgebase-internal-sdk-rust\\generated\\server-openapi",
+          "command": "node",
+          "args": [
+            "./bin/publish-core.mjs",
+            "--language",
+            "rust",
+            "--project-dir",
+            ".",
+            "--action",
+            "build"
+          ],
+          "displayCommand": "node ./bin/publish-core.mjs --language rust --project-dir . --action build"
+        }
+      ]
+    },
+    "executionDecision": {
+      "schemaVersion": 1,
+      "riskLevel": "medium",
+      "nextAction": "verify",
+      "requiresManualReview": false,
+      "applyRequiresExpectedFingerprint": false,
+      "summary": "Changes have been applied. Run the required verification plan now.",
+      "reasons": [
+        "verification-required"
+      ]
+    },
+    "backedUpFiles": [],
+    "preservedLegacyFiles": false
+  }
+}

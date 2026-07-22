@@ -9,7 +9,25 @@ pub const MAX_WIKI_SOURCE_READ_BYTES: u64 = 16 * 1024 * 1024;
 pub struct EnsureKnowledgebaseRawScopeRequest {
     pub drive_space_id: String,
     pub knowledgebase_uuid: String,
-    pub raw_folder_node_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RenewKnowledgebaseRawScopeEventDeliveryRequest {
+    pub subscription_uuid: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KnowledgeWikiDriveEventDeliveryMode {
+    CloudWebhook,
+    EmbeddedTrustedRelay,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnowledgebaseRawScopeEventDelivery {
+    pub subscription_uuid: String,
+    pub channel_id: String,
+    pub expiration_epoch_ms: Option<i64>,
+    pub mode: KnowledgeWikiDriveEventDeliveryMode,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,6 +88,15 @@ pub trait KnowledgeWikiDriveScope: Send + Sync {
         &self,
         subscription_uuid: &str,
     ) -> Result<KnowledgebaseRawScope, KnowledgeWikiDriveSourceError>;
+
+    async fn renew_raw_scope_event_delivery(
+        &self,
+        _request: RenewKnowledgebaseRawScopeEventDeliveryRequest,
+    ) -> Result<KnowledgebaseRawScopeEventDelivery, KnowledgeWikiDriveSourceError> {
+        Err(KnowledgeWikiDriveSourceError::Upstream(
+            "Drive event delivery renewal is not configured for this source adapter".to_string(),
+        ))
+    }
 }
 
 #[async_trait]
@@ -97,4 +124,16 @@ pub enum KnowledgeWikiDriveSourceError {
     IntegrityFailed(String),
     #[error("Wiki Drive source upstream error: {0}")]
     Upstream(String),
+}
+
+impl KnowledgeWikiDriveSourceError {
+    pub const fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "wiki_drive_source_request_invalid",
+            Self::NotFound(_) => "wiki_drive_source_not_found",
+            Self::Conflict(_) => "wiki_drive_source_conflict",
+            Self::IntegrityFailed(_) => "wiki_drive_source_integrity_failed",
+            Self::Upstream(_) => "wiki_drive_source_upstream_failed",
+        }
+    }
 }

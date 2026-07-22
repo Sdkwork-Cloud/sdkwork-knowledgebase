@@ -32,7 +32,7 @@ sdks/
   sdkwork-knowledgebase-app-sdk            App SDK family, app-api OpenAPI authority, generated transport, and composed TypeScript facade (`createKnowledgebaseAppClient`).
   sdkwork-knowledgebase-backend-sdk        Backend SDK family, backend-api OpenAPI authority, and generated TypeScript SDK.
   sdkwork-knowledgebase-sdk                Open SDK family and generated TypeScript SDK.
-jobs/ plugins/ examples/ configs/ deployments/ scripts/ tests/
+jobs/ plugins/ examples/ etc/ deployments/ scripts/ tests/
                                              Standard root capability directories for jobs, plugins, deployment, and verification.
 ```
 
@@ -54,9 +54,9 @@ Governance metadata is applied by:
 
 `plugins/` stores application/runtime plugin source packages. `.sdkwork/plugins/` stores repository/application agent plugin workspaces. They are distinct directories with different purposes.
 
-### configs/ vs runtime config
+### etc/ vs runtime config
 
-`configs/` stores source-controlled safe config templates, schemas, profile examples, and non-secret defaults. Runtime user/private config is governed by `RUNTIME_DIRECTORY_SPEC.md` and must not be committed.
+`etc/` is the only source-controlled authority for safe deployment profiles, gateway templates, examples, and non-secret defaults. Runtime user/private config is governed by `RUNTIME_DIRECTORY_SPEC.md` and must not be committed. No alternate source-configuration entrypoint is supported.
 ## Storage Rule
 
 `sdkwork-drive` is the only lower-level file/object storage boundary.
@@ -131,7 +131,7 @@ Default `pnpm dev` uses the topology profile `standalone.development`:
 | `sdkwork-api-knowledgebase-standalone-gateway` | `127.0.0.1:18081` | unified app/backend/open + embedded IAM app-api |
 | `sdkwork-knowledgebase-worker` | health `127.0.0.1:18085` | background worker |
 
-Cloud profiles use `configs/topology/cloud.development.env` and may autostart `sdkwork-api-cloud-gateway` on `3900`.
+Cloud profiles use `etc/topology/cloud.development.env`; cloud development consumes deployed API surfaces and does not start a local cloud gateway.
 
 Run from the repository root:
 

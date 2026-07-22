@@ -29,6 +29,7 @@ pub mod space;
 pub mod space_member;
 pub mod tenant;
 pub mod wechat;
+pub mod wiki_publication;
 
 pub use agent_chat::*;
 pub use agent_implementation::*;
@@ -62,3 +63,4 @@ pub use space::*;
 pub use space_member::*;
 pub use tenant::*;
 pub use wechat::*;
+pub use wiki_publication::*;

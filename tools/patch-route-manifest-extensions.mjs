@@ -18,6 +18,10 @@ const manifests = [
     file: "sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json",
     apiSurface: "open-api",
   },
+  {
+    file: "sdks/_route-manifests/internal-api/sdkwork-routes-knowledgebase-internal-api.route-manifest.json",
+    apiSurface: "internal-api",
+  },
 ];
 
 for (const manifestSpec of manifests) {

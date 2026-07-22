@@ -86,9 +86,6 @@ backup/
 coverage/
 **/.pnpm-store/
 **/.sdkwork/dart/pub-cache/
-**/.sdkwork/sdkwork-generator-changes.json
-**/.sdkwork/sdkwork-generator-manifest.json
-**/.sdkwork/sdkwork-generator-report.json
 
 # Common runtime/build artifacts (auto-aligned)
 *.sqlite-shm

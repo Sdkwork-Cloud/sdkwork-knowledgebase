@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.route.manifest",
+  "packageName": "sdkwork-routes-knowledgebase-internal-api",
+  "surface": "internal-api",
+  "owner": "sdkwork-knowledgebase",
+  "domain": "knowledgebase",
+  "capability": "wiki-public-provider",
+  "apiAuthority": "sdkwork-knowledgebase-internal-api",
+  "sdkFamily": "sdkwork-knowledgebase-internal-sdk",
+  "prefix": "/internal/v3/api",
+  "source": {
+    "crateRoot": "crates/sdkwork-routes-knowledgebase-internal-api",
+    "crateImport": "sdkwork_routes_knowledgebase_internal_api",
+    "openApiAuthority": "apis/internal-api/knowledgebase/sdkwork-knowledgebase-internal-api.openapi.yaml"
+  },
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/internal/v3/api/knowledgebase/drive_events",
+      "operationId": "driveEvents.receive",
+      "tags": [
+        "knowledgebaseInternalWiki"
+      ],
+      "auth": {
+        "mode": "ingress-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-internal-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "internal-api"
+    },
+    {
+      "method": "GET",
+      "path": "/internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}",
+      "operationId": "wikiPublications.retrieve",
+      "tags": [
+        "knowledgebaseInternalWiki"
+      ],
+      "auth": {
+        "mode": "ingress-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-internal-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "internal-api"
+    },
+    {
+      "method": "GET",
+      "path": "/internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/contents/{contentHandle}",
+      "operationId": "wikiPublications.contents.retrieve",
+      "tags": [
+        "knowledgebaseInternalWiki"
+      ],
+      "auth": {
+        "mode": "ingress-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-internal-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "internal-api"
+    },
+    {
+      "method": "GET",
+      "path": "/internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/navigation",
+      "operationId": "wikiPublications.navigation.list",
+      "tags": [
+        "knowledgebaseInternalWiki"
+      ],
+      "auth": {
+        "mode": "ingress-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-internal-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "internal-api"
+    },
+    {
+      "method": "GET",
+      "path": "/internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/pages/search",
+      "operationId": "wikiPublications.pages.search",
+      "tags": [
+        "knowledgebaseInternalWiki"
+      ],
+      "auth": {
+        "mode": "ingress-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-internal-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "internal-api"
+    },
+    {
+      "method": "POST",
+      "path": "/internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/routes/resolve",
+      "operationId": "wikiPublications.routes.resolve",
+      "tags": [
+        "knowledgebaseInternalWiki"
+      ],
+      "auth": {
+        "mode": "ingress-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-internal-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "internal-api"
+    }
+  ]
+}

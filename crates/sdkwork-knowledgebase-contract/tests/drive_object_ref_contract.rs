@@ -1,7 +1,7 @@
 use sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef;
 
 #[test]
-fn drive_object_ref_contract_serializes_stable_locator_without_delivery_secrets() {
+fn drive_object_ref_contract_serializes_public_identity_without_storage_locators() {
     let object_ref = KnowledgeDriveObjectRef {
         id: 91,
         space_id: 7,
@@ -27,12 +27,12 @@ fn drive_object_ref_contract_serializes_stable_locator_without_delivery_secrets(
     assert_eq!(json["driveSpaceId"], "drv-kb-001");
     assert_eq!(json["driveNodeId"], "node-001");
     assert_eq!(json["logicalPath"], "raw/documents/report.md");
-    assert_eq!(json["driveProviderKind"], "sdkwork-drive");
-    assert_eq!(json["driveStorageProviderId"], "provider-kb");
-    assert_eq!(json["driveBucket"], "knowledgebase-source");
-    assert_eq!(json["driveObjectKey"], "incoming/quarterly-report.md");
-    assert_eq!(json["driveObjectVersion"], "v1");
-    assert_eq!(json["driveEtag"], "etag");
+    assert!(json.get("driveProviderKind").is_none());
+    assert!(json.get("driveStorageProviderId").is_none());
+    assert!(json.get("driveBucket").is_none());
+    assert!(json.get("driveObjectKey").is_none());
+    assert!(json.get("driveObjectVersion").is_none());
+    assert!(json.get("driveEtag").is_none());
     assert_eq!(json["objectRole"], "original_document");
     assert_eq!(json["accessMode"], "managed");
     assert!(json.get("presignedUrl").is_none());

@@ -126,6 +126,138 @@
       "apiSurface": "app-api"
     },
     {
+      "method": "GET",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication",
+      "operationId": "wikiPublications.retrieve",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/activate",
+      "operationId": "wikiPublications.activate",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/pause",
+      "operationId": "wikiPublications.pause",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/publish",
+      "operationId": "wikiSourceFiles.publish",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "POST",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/unpublish",
+      "operationId": "wikiSourceFiles.unpublish",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
+      "method": "PATCH",
+      "path": "/app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/visibility",
+      "operationId": "wikiSourceFiles.visibility.update",
+      "tags": [
+        "knowledge"
+      ],
+      "auth": {
+        "mode": "dual-token",
+        "required": true
+      },
+      "handler": {
+        "module": "crate::routes",
+        "name": null
+      },
+      "ownership": {
+        "owner": "sdkwork-knowledgebase",
+        "apiAuthority": "sdkwork-knowledgebase-app-api"
+      },
+      "requestContext": "WebRequestContext",
+      "apiSurface": "app-api"
+    },
+    {
       "method": "POST",
       "path": "/app/v3/api/knowledge/drive_imports",
       "operationId": "driveImports.create",

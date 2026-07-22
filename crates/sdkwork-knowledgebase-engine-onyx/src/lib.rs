@@ -21,7 +21,7 @@ use sdkwork_knowledgebase_provider_runtime::{ProviderExecutionContext, ProviderO
 use std::sync::Arc;
 
 pub use client::{decode_url_document_id, encode_url_document_id, OnyxApiClient};
-pub use config::{OnyxConnectorConfig, ONYX_BASE_URL_ENV, ONYX_CREDENTIAL_ENV};
+pub use config::{OnyxConnectorConfig, ONYX_BASE_URL_ENV};
 
 pub const ONYX_VENDOR_ID: &str = "onyx";
 pub const ONYX_IMPLEMENTATION_ID: &str = "engine.knowledge.external.onyx";

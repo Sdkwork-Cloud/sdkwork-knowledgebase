@@ -63,7 +63,7 @@ pub const ROUTES: &[RouteManifestEntry] = &[
     RouteManifestEntry {
         method: "POST",
         path: "/backend/v3/api/knowledge/okf/index/rebuild",
-        operation_id: "okf.bundle.index.create",
+        operation_id: "okf.bundle.index.rebuild",
     },
     RouteManifestEntry {
         method: "POST",

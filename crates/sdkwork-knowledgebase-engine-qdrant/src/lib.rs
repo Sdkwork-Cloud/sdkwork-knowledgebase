@@ -23,8 +23,8 @@ use std::sync::Arc;
 
 pub use client::QdrantApiClient;
 pub use config::{
-    QdrantConnectorConfig, QDRANT_BASE_URL_ENV, QDRANT_COLLECTION_NAME_ENV, QDRANT_CREDENTIAL_ENV,
-    QDRANT_QUERY_MODEL_ENV, QDRANT_USING_VECTOR_ENV,
+    QdrantConnectorConfig, QDRANT_BASE_URL_ENV, QDRANT_COLLECTION_NAME_ENV, QDRANT_QUERY_MODEL_ENV,
+    QDRANT_USING_VECTOR_ENV,
 };
 
 pub const QDRANT_VENDOR_ID: &str = "qdrant";

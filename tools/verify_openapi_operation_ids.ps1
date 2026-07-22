@@ -46,6 +46,7 @@ $required = @(
     "documents.versions.versions",
     "documents.versions.list",
     "okf.bundle.index.list",
+    "okf.bundle.index.rebuild",
     "okf.bundle.log.list",
     "okf.log.entries.create",
     "okf.bundle.profile.list",

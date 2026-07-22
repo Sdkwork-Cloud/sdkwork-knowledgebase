@@ -175,8 +175,6 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
             sdkwork_intelligence_knowledgebase_service::wiki_initialization::KnowledgeWikiInitializationService::new(
                 dependencies.wiki_store.as_ref(),
                 dependencies.wiki_store.as_ref(),
-                dependencies.drive_workspace.as_ref(),
-                dependencies.drive_tree.as_ref(),
                 dependencies.wiki_drive_scope.as_ref(),
             );
         let service = KnowledgeGroupKnowledgeSpaceService::new(

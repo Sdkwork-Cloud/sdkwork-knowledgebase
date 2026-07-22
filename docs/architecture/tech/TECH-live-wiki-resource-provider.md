@@ -59,7 +59,33 @@ flowchart TB
 The projection and search index are derived and rebuildable. Wiki publication settings and explicit
 file publication/visibility decisions are business authority and require backup/migration/audit.
 
-### 2.1 Deploy Descriptor And Web Server Adapter Alignment
+### 2.1 Implementation Status
+
+This document defines the complete target contract. The following status boundary prevents target
+requirements from being mistaken for current production claims:
+
+| Capability | Current status |
+| --- | --- |
+| PostgreSQL/SQLite Wiki schema, canonical publication initialization, and backfill | implemented |
+| Drive `sources/raw` event inbox/checkpoint, projection, and reconciliation | implemented |
+| Active-publication, route/redirect, bounded content, navigation, and metadata-search provider service | implemented |
+| Ingress-token Internal API, route manifest, and generated TypeScript/Rust Internal SDK | implemented |
+| Read-through tenant/publication/page/public-version eligibility | implemented |
+| Explicit activate/pause and publish/republish/unpublish/visibility commands | implemented with Reader/Writer/Owner authorization, optimistic fences, generated App SDK, transactional outbox, and transactional audit |
+| Provider/route/navigation/search outbox production | implemented for applicable explicit publication and source-eligibility transitions with the owner AsyncAPI authority at `apis/async/knowledgebase/knowledgebase-wiki-events.asyncapi.json`; source-driven public revocation advances route, navigation, and search state in one transaction |
+| Automatic/scheduled publication execution | not implemented |
+| Large-object Range/streaming provider API | not implemented; current exact-version read is buffered and capped at 16 MiB |
+| Rendition-backed full-text search | not implemented; current search covers title, canonical route, and source path metadata |
+| Complete sanitizer/renderer/multi-format rendition chain | not implemented |
+| Web Server runtime-set delivery executor/provider registry | implemented with bounded descriptor compilation, atomic activation/rollback, handler-specific provider validation before activation, and public HTTP mapping for STATIC/explicit SPA fallback/WIKI |
+| Web Server generated-SDK `KNOWLEDGEBASE_WIKI` adapter | implemented and registered by website data-plane bootstrap with explicit Internal API endpoint/token-file configuration, fixed single-tenant credential scope, initial and hot-update provider validation, and browser-facing adapter tests |
+| Web Server provider-event consumer | not implemented |
+| Deploy-to-Web-to-Knowledgebase public E2E and commercial launch evidence | not implemented against real deployed Deploy/Knowledgebase services; in-process descriptor-to-browser adapter coverage exists |
+
+Accordingly, the implemented provider is a bounded, production-shaped read contract, not a claim
+that the integrated public Wiki product is ready for launch.
+
+### 2.2 Deploy Descriptor And Web Server Adapter Alignment
 
 The cloud runtime contract is Deploy's `sdkwork.website-runtime.v1` descriptor. Knowledgebase does
 not compile, distribute, activate, or roll back that descriptor. A valid Wiki request follows the
@@ -91,9 +117,10 @@ Deployment, or `SiteRevision`. TLS snapshots also advance independently.
 
 ## 3. Target Database Contract
 
-This is the planned portable contract. Executable PostgreSQL/SQLite migrations, RLS, and generated
-models require separate human review. Standard SDKWork ID, UUID, tenant/organization, audit,
-lifecycle, optimistic version, and UTC time rules apply.
+This is the canonical portable contract. PostgreSQL and SQLite baselines and migrations implement
+the tables and indexes described here. Any further table, column, index, or migration change still
+requires separate human review. Standard SDKWork ID, UUID, tenant/organization, audit, lifecycle,
+optimistic version, and UTC time rules apply.
 
 ### 3.1 `kb_site_publication`
 
@@ -422,13 +449,22 @@ durable checkpoint scoped by tenant, Drive Space, and `sources/raw` binding. Del
 at-least-once; consumers fence by event, stable node, version and checkpoint, and repair gaps with a
 bounded root reconciliation.
 
-Knowledgebase atomically commits public state plus one of
+The owner authority at
+`apis/async/knowledgebase/knowledgebase-wiki-events.asyncapi.json` defines the output family. The
+lifecycle atomically commits public state plus one of
 `knowledgebase.wiki.provider.changed.v1`, `knowledgebase.wiki.route.changed.v1`,
 `knowledgebase.wiki.route.revoked.v1`, `knowledgebase.wiki.navigation.changed.v1`, or
 `knowledgebase.wiki.search.changed.v1`. Events contain provider identity, provider generation,
 affected normalized routes, page public versions, operation, checkpoint, reason and time, not
 bodies or storage topology. A move invalidates both old and new routes. Web Server consumes provider
-events directly; Deploy compiles configuration and is not in the content-update hot path.
+events directly; Deploy compiles configuration and is not in the content-update hot path. Event
+IDs equal their outbox UUIDs, `sequenceNo` is strictly increasing but not required to be contiguous
+within one publication stream, and actor identity remains in the audit stream rather than the
+provider event payload.
+
+Current implementation closes command-side and source-eligibility lifecycle event production.
+Until durable Web Server consumption is implemented, public freshness must rely on provider
+read-through validation and must not be advertised as fully realtime.
 
 Generation domains are independent:
 
@@ -472,6 +508,23 @@ commands, schedules, navigation, route preview/redirects, renderer/SEO/search se
 Deploy Site and Site Resource summaries. Backend SDK covers publication fleet, projection/index
 queues, renderer policy, rebuild/reprocess, quotas, provider health, and audit.
 
+The implemented App API authority currently exposes these explicit publication operations through
+the generated TypeScript App SDK:
+
+| Operation id | Method and path |
+| --- | --- |
+| `wikiPublications.retrieve` | `GET /app/v3/api/knowledge/spaces/{spaceId}/wiki_publication` |
+| `wikiPublications.activate` | `POST /app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/activate` |
+| `wikiPublications.pause` | `POST /app/v3/api/knowledge/spaces/{spaceId}/wiki_publication/pause` |
+| `wikiSourceFiles.publish` | `POST /app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/publish` |
+| `wikiSourceFiles.unpublish` | `POST /app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/unpublish` |
+| `wikiSourceFiles.visibility.update` | `PATCH /app/v3/api/knowledge/spaces/{spaceId}/wiki_source_files/{sourceFileUuid}/visibility` |
+
+All command versions are decimal strings on the wire. Tenant, organization, and actor come only
+from authenticated context. Public state, lifecycle outbox events, and `kb_audit_event` records
+commit in one SQLx transaction, so audit failure cannot leave a committed command behind a failed
+API response.
+
 Bytes continue through Drive Uploader dependency SDK. Deploy Site/domain/TLS actions use the
 declared Deploy app SDK/facade. All authenticated app/dependency SDKs share the application global
 TokenManager through bootstrap injection. Backend-admin UI uses backend SDKs and does not call app
@@ -482,6 +535,22 @@ service port, not an anonymous Knowledgebase
 management or data endpoint. Both standalone and cloud traffic enter Web Server through an active
 WebsiteRuntimeDescriptor Binding/Variant/WIKI Mount. Standalone composition may inject the same
 typed Rust service in-process, but it does not create a Knowledgebase-owned `/wiki/...` route.
+
+The implemented Internal API authority currently contains exactly six operations:
+
+| Operation id | Method and path |
+| --- | --- |
+| `driveEvents.receive` | `POST /internal/v3/api/knowledgebase/drive_events` |
+| `wikiPublications.retrieve` | `GET /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}` |
+| `wikiPublications.routes.resolve` | `POST /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/routes/resolve` |
+| `wikiPublications.contents.retrieve` | `GET /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/contents/{contentHandle}` |
+| `wikiPublications.navigation.list` | `GET /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/navigation` |
+| `wikiPublications.pages.search` | `GET /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/pages/search` |
+
+Content retrieval validates the opaque handle, current page public version, exact pinned Drive
+version, byte length, and SHA-256 before returning a body. It is currently capped at 16 MiB and does
+not implement HTTP Range or streaming. Search is cursor-paginated in the repository and applies
+public eligibility filters, but it is metadata search rather than rendition-backed full-text search.
 
 ## 11. UI Package Boundaries
 
@@ -553,22 +622,24 @@ aggregates reconcile before commercial GA.
 
 ## 16. Migration And Rollout
 
-1. Preserve the completed clean baseline: old release/host-binding APIs, tables, routes, code, SDK
-   output, permissions, configuration, and UI remain absent.
-2. Approve the new requirement/ADR/database/API/state/permission vocabulary and confirm that no
-   customer or production data existed in the removed prelaunch model.
-3. Add Wiki publication/file projection through additive dual-engine migrations; provision one
-   canonical DRAFT/PRIVATE WikiPublication for new Knowledgebases and backfill existing eligible
-   Knowledgebases idempotently before exposure.
-4. Implement Drive event projection, renderer/search, and typed provider behind feature flags.
-   Drive input and Knowledgebase output AsyncAPI authorities plus component event inventories are a
-   prerequisite, not follow-up documentation.
-5. Regenerate Knowledgebase SDKs from owner OpenAPI and update UI through injected dependency SDKs.
-6. Integrate Deploy resource and Web Server WIKI handler in a non-public shadow environment, then a
-   bounded pilot; do not restore an old public router for comparison or rollback.
+1. Preserve the completed prelaunch baseline cleanup; do not restore old release/host-binding APIs,
+   tables, routes, SDK output, permissions, configuration, or UI as compatibility paths.
+2. Keep the accepted requirement, ADR, database, API, state, and permission vocabulary authoritative.
+3. Maintain the implemented dual-engine Wiki schema, canonical DRAFT/private provisioning, and
+   idempotent backfill as one contract.
+4. Maintain the implemented Drive event projection, explicit publication lifecycle, all five
+   public-state output event families, and bounded typed public provider; complete automatic and
+   scheduled execution, renderer, and rendition search.
+5. Keep Knowledgebase Internal SDK generation idempotent from the owner OpenAPI and consume the
+   generated SDK through injected service adapters and UI facades.
+6. Maintain the implemented Web Server WIKI registry/bootstrap/public-listener path, add durable
+   provider-event consumption and provider-aware cache invalidation, then integrate the Deploy
+   resource with real Knowledgebase and Drive services in a non-public shadow environment and
+   bounded pilot.
 7. Run the shared descriptor-reference, provider-port, error, cache-key, event-gap, standalone/cloud,
    and last-known-good contract suites against Deploy and Web Server.
-8. Certify isolation, freshness, load, backup/rebuild, domain/TLS, operations, and commercial gates.
+8. Certify isolation, freshness, load, backup/rebuild, domain/TLS, operations, and commercial gates
+   before changing the application publication gate.
 
 Detailed sequencing and rollback are in the linked migration plan. Database changes require human
 review and are not authorized by this document alone.

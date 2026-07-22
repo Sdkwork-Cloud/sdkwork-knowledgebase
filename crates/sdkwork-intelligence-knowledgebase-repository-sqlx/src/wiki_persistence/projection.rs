@@ -14,7 +14,7 @@ use super::{
     SqlxWikiPersistenceStore,
 };
 
-const PROJECTION_COLUMNS: &str = r#"
+pub(super) const PROJECTION_COLUMNS: &str = r#"
     id, uuid, tenant_id, organization_id, site_publication_id, space_id,
     drive_space_uuid, drive_node_uuid, drive_version_uuid, source_path,
     canonical_route, file_kind, media_type, size_bytes, content_sha256,

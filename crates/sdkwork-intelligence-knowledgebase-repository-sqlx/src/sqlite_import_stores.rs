@@ -2694,8 +2694,8 @@ fn merge_drive_import_linkage_metadata(
         .transpose()
         .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?
         .unwrap_or_else(|| serde_json::json!({}));
-    let object = serde_json::to_value(&linkage.original_object_ref)
-        .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))?;
+    let object = encode_drive_object_ref_snapshot(&linkage.original_object_ref)
+        .map_err(IngestionJobStoreError::Internal)?;
     metadata["drive_import"] = serde_json::json!({
         "source_id": linkage.source_id,
         "document_id": linkage.document_id,
@@ -2733,8 +2733,7 @@ fn parse_drive_import_linkage(
             )
         })
         .and_then(|value| {
-            serde_json::from_value(value.clone())
-                .map_err(|error| IngestionJobStoreError::Internal(error.to_string()))
+            decode_drive_object_ref_snapshot(value).map_err(IngestionJobStoreError::Internal)
         })?;
     Ok(Some(DriveImportJobLinkage {
         source_id: read_u64("source_id")?,
@@ -3092,3 +3091,6 @@ fn job_fetch_error(job_id: i64, error: sqlx::Error) -> IngestionJobStoreError {
     }
     job_sqlx_error(error)
 }
+use crate::drive_import_linkage_snapshot::{
+    decode_drive_object_ref_snapshot, encode_drive_object_ref_snapshot,
+};

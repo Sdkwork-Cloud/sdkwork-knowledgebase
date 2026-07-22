@@ -480,7 +480,7 @@ fn request_body(operation_id: &str) -> &'static str {
         "okf.profile.create" | "okf.profile.update" => {
             r#"{"spaceId":7,"profileVersion":"2026-06-05"}"#
         }
-        "okf.bundle.index.create" => r#"{"spaceId":7}"#,
+        "okf.bundle.index.rebuild" => r#"{"spaceId":7}"#,
         "okf.log.entries.create" => {
             r#"{"occurredAt":"2026-06-05T00:00:00Z","eventType":"publish","title":"Published","actor":"system","affectedConcepts":[],"warnings":[]}"#
         }

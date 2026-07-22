@@ -246,6 +246,19 @@ pub struct WikiDriveCheckpoint {
     pub version: u64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ListWikiDriveCheckpointsRequest {
+    pub scope: WikiPersistenceScope,
+    pub after_checkpoint_id: Option<u64>,
+    pub limit: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WikiDriveCheckpointPage {
+    pub checkpoints: Vec<WikiDriveCheckpoint>,
+    pub next_after_checkpoint_id: Option<u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WikiDriveInboxEvent {
     pub id: u64,
@@ -497,6 +510,53 @@ pub struct CompleteWikiDriveEventRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WikiDriveSourceMetadata {
+    pub drive_version_uuid: String,
+    pub source_path: String,
+    pub file_kind: WikiSourceFileKind,
+    pub media_type: String,
+    pub size_bytes: u64,
+    pub content_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WikiDriveProjectionMutation {
+    None,
+    Upsert(WikiDriveSourceMetadata),
+    MoveWithin {
+        source_path: String,
+    },
+    MarkEligible,
+    Revoke {
+        source_state: WikiSourceState,
+        publication_state: WikiPagePublicationState,
+        reason_code: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplyWikiDriveEventRequest {
+    pub complete: CompleteWikiDriveEventRequest,
+    pub mutation: WikiDriveProjectionMutation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WikiPublicRouteChange {
+    pub event_type: &'static str,
+    pub route: Option<String>,
+    pub page_public_version: u64,
+    pub provider_generation: u64,
+    pub reason_code: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WikiDriveEventApplicationResult {
+    pub event: WikiDriveInboxEvent,
+    pub projection: Option<WikiSourceProjection>,
+    pub public_route_change: Option<WikiPublicRouteChange>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RetryWikiDriveEventRequest {
     pub scope: WikiPersistenceScope,
     pub event_id: u64,
@@ -588,6 +648,18 @@ pub trait WikiDriveCheckpointStore: Send + Sync {
         checkpoint_id: u64,
     ) -> Result<WikiDriveCheckpoint, WikiPersistenceError>;
 
+    async fn find_checkpoint_by_drive_scope(
+        &self,
+        scope: WikiPersistenceScope,
+        drive_space_uuid: &str,
+        source_scope_uuid: &str,
+    ) -> Result<Option<WikiDriveCheckpoint>, WikiPersistenceError>;
+
+    async fn list_checkpoints(
+        &self,
+        request: ListWikiDriveCheckpointsRequest,
+    ) -> Result<WikiDriveCheckpointPage, WikiPersistenceError>;
+
     async fn claim_reconciliation(
         &self,
         request: ClaimWikiReconciliationRequest,
@@ -620,6 +692,11 @@ pub trait WikiDriveEventInboxStore: Send + Sync {
         &self,
         request: CompleteWikiDriveEventRequest,
     ) -> Result<WikiDriveInboxEvent, WikiPersistenceError>;
+
+    async fn apply_event(
+        &self,
+        request: ApplyWikiDriveEventRequest,
+    ) -> Result<WikiDriveEventApplicationResult, WikiPersistenceError>;
 
     async fn retry_event(
         &self,

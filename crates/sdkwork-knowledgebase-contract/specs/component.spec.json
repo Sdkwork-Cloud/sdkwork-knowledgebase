@@ -1,4 +1,4 @@
-﻿{
+{
     "schemaVersion":  1,
     "kind":  "sdkwork.component.spec",
     "component":  {
@@ -56,7 +56,13 @@
                                             "."
                                         ],
                       "runtimeEntrypoints":  [
-
+                                                 "KnowledgeWikiPublication",
+                                                 "KnowledgeWikiSourceFile",
+                                                 "KnowledgeWikiPublicationVersionCommandRequest",
+                                                 "PublishKnowledgeWikiSourceFileRequest",
+                                                 "KnowledgeWikiSourceFileVersionCommandRequest",
+                                                 "ChangeKnowledgeWikiSourceFileVisibilityRequest",
+                                                 "KnowledgeWikiSourceFileCommandResult"
                                              ],
                       "routeManifest":  null,
                       "sdkClients":  [
@@ -80,7 +86,7 @@
                   },
     "verification":  {
                          "commands":  [
-                                          "cargo test"
+                                          "cargo test -p sdkwork-knowledgebase-contract"
                                       ]
                      }
 }

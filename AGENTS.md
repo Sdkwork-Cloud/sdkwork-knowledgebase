@@ -48,7 +48,7 @@ Read `sdkwork.app.config.json` only when the task touches Knowledgebase applicat
 - `apps/`: runnable Knowledgebase application roots and application surfaces.
 - `crates/`: reusable Rust crates and route/runtime crates.
 - `sdks/`: SDK families, SDK generation manifests, composed facades, and generated SDK artifacts.
-- `configs/`, `deployments/`, `scripts/`, `tools/`, `docs/`, `tests/`: config templates, deployment descriptors, thin command entrypoints, validators, documentation, and verification assets.
+- `deployments/`, `scripts/`, `tools/`, `docs/`, `tests/`: deployment descriptors, thin command entrypoints, validators, documentation, and verification assets; source configuration is owned only by `etc/`.
 - `package.json`, `Cargo.toml`: language/build manifests.
 
 ## Documentation Canon

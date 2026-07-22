@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-knowledgebase-internal-sdk",
+    "displayName": "SDKWork Knowledgebase Internal API SDK",
+    "version": "0.1.0",
+    "type": "sdk-family",
+    "root": ".",
+    "domain": "knowledgebase",
+    "capability": "wiki-public-provider",
+    "status": "standardized",
+    "languages": ["typescript", "rust"],
+    "generated": true,
+    "private": true,
+    "manifests": ["sdk-manifest.json"],
+    "surface": "internal-api"
+  },
+  "canonicalSpecs": [
+    {"file": "INTERNAL_API_SPEC.md", "path": "../../../sdkwork-specs/INTERNAL_API_SPEC.md", "purpose": "Internal API authority, ingress, auth, and SDK rules."},
+    {"file": "API_SPEC.md", "path": "../../../sdkwork-specs/API_SPEC.md", "purpose": "OpenAPI and SDKWork v3 wire contract."},
+    {"file": "PAGINATION_SPEC.md", "path": "../../../sdkwork-specs/PAGINATION_SPEC.md", "purpose": "Generated navigation/search cursor contract."},
+    {"file": "SDK_SPEC.md", "path": "../../../sdkwork-specs/SDK_SPEC.md", "purpose": "Generated SDK ownership and consumer integration."},
+    {"file": "SDK_WORKSPACE_GENERATION_SPEC.md", "path": "../../../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md", "purpose": "Application-root SDK family layout and generation."}
+  ],
+  "contracts": {
+    "apiAuthority": {"name": "sdkwork-knowledgebase-internal-api", "prefix": "/internal/v3/api", "authorityOpenApi": "openapi/sdkwork-knowledgebase-internal-api.openapi.yaml", "derivedOpenApi": ["openapi/sdkwork-knowledgebase-internal-api.sdkgen.yaml"], "owner": "sdkwork-knowledgebase", "surface": "internal"},
+    "publicExports": [
+      "sdkwork-knowledgebase-internal-sdk-typescript/src/index.ts",
+      "sdkwork-knowledgebase-internal-sdk-rust/generated/server-openapi/src/lib.rs"
+    ],
+    "runtimeEntrypoints": ["sdk-manifest.json"],
+    "sdkDependencies": [],
+    "sdkClients": [
+      "SdkworkKnowledgebaseInternalClient",
+      "SdkworkCustomClient",
+      "KnowledgebaseInternalWikiApi"
+    ],
+    "events": ["drive.node.version.committed.v1", "drive.node.path.changed.v1", "drive.node.eligibility.changed.v1", "drive.node.deleted.v1"],
+    "configKeys": ["sdk-manifest.json"],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": []
+  },
+  "integration": {
+    "transportPolicy": "Consumers use the private @sdkwork/knowledgebase-internal-sdk composed facade; generated transport stays under generated/server-openapi, and raw HTTP or local DTO forks are forbidden.",
+    "securityPolicy": "Ingress tokens are supplied by the runtime credential provider and are never persisted or logged.",
+    "generationPolicy": "The family wrapper invokes the canonical @sdkwork/sdk-generator sdkgen executable and never edits generated/server-openapi output."
+  },
+  "verification": {
+    "commands": [
+      "node sdks/sdkwork-knowledgebase-internal-sdk/bin/generate-sdk.mjs --check",
+      "node --test sdks/sdkwork-knowledgebase-internal-sdk/tests/sdk-family-smoke.test.mjs",
+      "pnpm --dir sdks/sdkwork-knowledgebase-internal-sdk/sdkwork-knowledgebase-internal-sdk-typescript typecheck",
+      "node sdks/sdkwork-knowledgebase-internal-sdk/sdkwork-knowledgebase-internal-sdk-rust/generated/server-openapi/bin/publish-core.mjs --language rust --project-dir sdks/sdkwork-knowledgebase-internal-sdk/sdkwork-knowledgebase-internal-sdk-rust/generated/server-openapi --action check"
+    ]
+  }
+}

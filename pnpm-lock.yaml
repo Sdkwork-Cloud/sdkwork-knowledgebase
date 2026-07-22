@@ -1043,6 +1043,16 @@ importers:
         specifier: workspace:*
         version: link:../../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript
 
+  sdks/sdkwork-knowledgebase-internal-sdk/sdkwork-knowledgebase-internal-sdk-typescript:
+    dependencies:
+      '@sdkwork/sdk-common':
+        specifier: workspace:*
+        version: link:../../../../sdkwork-sdk-commons/sdkwork-sdk-common-typescript
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.8.3
+
 packages:
 
   '@adobe/css-tools@4.5.0':

@@ -5,6 +5,17 @@ pub const HEALTHZ: &str = "/healthz";
 pub const SPACES: &str = "/app/v3/api/knowledge/spaces";
 pub const GROUP_LAUNCHES_CONSUME: &str = "/app/v3/api/knowledge/group_launches/consume";
 pub const SPACE: &str = "/app/v3/api/knowledge/spaces/{space_id}";
+pub const WIKI_PUBLICATION: &str = "/app/v3/api/knowledge/spaces/{space_id}/wiki_publication";
+pub const WIKI_PUBLICATION_ACTIVATE: &str =
+    "/app/v3/api/knowledge/spaces/{space_id}/wiki_publication/activate";
+pub const WIKI_PUBLICATION_PAUSE: &str =
+    "/app/v3/api/knowledge/spaces/{space_id}/wiki_publication/pause";
+pub const WIKI_SOURCE_FILE_PUBLISH: &str =
+    "/app/v3/api/knowledge/spaces/{space_id}/wiki_source_files/{source_file_uuid}/publish";
+pub const WIKI_SOURCE_FILE_UNPUBLISH: &str =
+    "/app/v3/api/knowledge/spaces/{space_id}/wiki_source_files/{source_file_uuid}/unpublish";
+pub const WIKI_SOURCE_FILE_VISIBILITY: &str =
+    "/app/v3/api/knowledge/spaces/{space_id}/wiki_source_files/{source_file_uuid}/visibility";
 pub const DRIVE_IMPORTS: &str = "/app/v3/api/knowledge/drive_imports";
 pub const GIT_IMPORTS: &str = "/app/v3/api/knowledge/git_imports";
 pub const GIT_SYNCS: &str = "/app/v3/api/knowledge/git_syncs";

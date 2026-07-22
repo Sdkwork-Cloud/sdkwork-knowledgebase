@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,6 +23,31 @@ const targets = [
     jsonFile: 'sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json',
     apiSurface: 'open-api',
   },
+  {
+    manifestRs: 'crates/sdkwork-routes-knowledgebase-internal-api/src/http_route_manifest.rs',
+    jsonFile: 'sdks/_route-manifests/internal-api/sdkwork-routes-knowledgebase-internal-api.route-manifest.json',
+    apiSurface: 'internal-api',
+    parser: 'http-route-builder',
+    initialManifest: {
+      schemaVersion: 1,
+      kind: 'sdkwork.route.manifest',
+      packageName: 'sdkwork-routes-knowledgebase-internal-api',
+      surface: 'internal-api',
+      owner: 'sdkwork-knowledgebase',
+      domain: 'knowledgebase',
+      capability: 'wiki-public-provider',
+      apiAuthority: 'sdkwork-knowledgebase-internal-api',
+      sdkFamily: 'sdkwork-knowledgebase-internal-sdk',
+      prefix: '/internal/v3/api',
+      source: {
+        crateRoot: 'crates/sdkwork-routes-knowledgebase-internal-api',
+        crateImport: 'sdkwork_routes_knowledgebase_internal_api',
+        openApiAuthority:
+          'apis/internal-api/knowledgebase/sdkwork-knowledgebase-internal-api.openapi.yaml',
+      },
+      routes: [],
+    },
+  },
 ];
 
 function parseRoutes(manifestSource) {
@@ -39,14 +64,33 @@ function parseRoutes(manifestSource) {
   return routes;
 }
 
+function parseHttpRouteBuilders(manifestSource) {
+  const routes = [];
+  const entryPattern =
+    /HttpRoute::ingress_token\(\s*HttpMethod::([A-Za-z]+),\s*"([^"]+)",\s*"[^"]+",\s*"([^"]+)",\s*\)/g;
+  for (const match of manifestSource.matchAll(entryPattern)) {
+    routes.push({
+      method: match[1].toUpperCase(),
+      path: match[2],
+      operationId: match[3],
+    });
+  }
+  return routes;
+}
+
 function buildRoute(route, manifest, apiSurface) {
+  const authMode = apiSurface === 'open-api'
+    ? 'bearer'
+    : apiSurface === 'internal-api'
+      ? 'ingress-token'
+      : 'dual-token';
   return {
     method: route.method,
     path: route.path,
     operationId: route.operationId,
-    tags: ['knowledge'],
+    tags: apiSurface === 'internal-api' ? ['knowledgebaseInternalWiki'] : ['knowledge'],
     auth: {
-      mode: apiSurface === 'open-api' ? 'bearer' : 'dual-token',
+      mode: authMode,
       required: true,
     },
     handler: {
@@ -65,20 +109,32 @@ function buildRoute(route, manifest, apiSurface) {
 for (const target of targets) {
   const manifestSource = await readFile(path.join(workspaceRoot, target.manifestRs), 'utf8');
   const jsonPath = path.join(workspaceRoot, target.jsonFile);
-  const manifest = JSON.parse(await readFile(jsonPath, 'utf8'));
-  const routes = parseRoutes(manifestSource);
+  let current = '';
+  try {
+    current = await readFile(jsonPath, 'utf8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT' || !target.initialManifest) {
+      throw error;
+    }
+  }
+  const manifest = current
+    ? JSON.parse(current)
+    : structuredClone(target.initialManifest);
+  const routes = target.parser === 'http-route-builder'
+    ? parseHttpRouteBuilders(manifestSource)
+    : parseRoutes(manifestSource);
   if (routes.length === 0) {
     throw new Error(`No routes parsed from ${target.manifestRs}`);
   }
   manifest.routes = routes.map((route) => buildRoute(route, manifest, target.apiSurface));
   const desired = `${JSON.stringify(manifest, null, 2)}\n`;
-  const current = await readFile(jsonPath, 'utf8');
   if (current === desired) {
     continue;
   }
 
   pendingChanges.push(target.jsonFile);
   if (!checkOnly) {
+    await mkdir(path.dirname(jsonPath), { recursive: true });
     await writeFile(jsonPath, desired, 'utf8');
     console.log(`Synced ${routes.length} routes to ${target.jsonFile}`);
   }

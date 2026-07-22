@@ -22,9 +22,7 @@ use sdkwork_knowledgebase_provider_runtime::{ProviderExecutionContext, ProviderO
 use std::sync::Arc;
 
 pub use client::RagflowApiClient;
-pub use config::{
-    RagflowConnectorConfig, RAGFLOW_BASE_URL_ENV, RAGFLOW_CREDENTIAL_ENV, RAGFLOW_DATASET_ID_ENV,
-};
+pub use config::{RagflowConnectorConfig, RAGFLOW_BASE_URL_ENV, RAGFLOW_DATASET_ID_ENV};
 
 pub const RAGFLOW_VENDOR_ID: &str = "ragflow";
 pub const RAGFLOW_IMPLEMENTATION_ID: &str = "engine.knowledge.external.ragflow";

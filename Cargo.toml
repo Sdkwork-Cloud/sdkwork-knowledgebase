@@ -11,6 +11,7 @@ members = [
     "crates/sdkwork-routes-knowledgebase-app-api",
     "crates/sdkwork-routes-knowledgebase-open-api",
     "crates/sdkwork-routes-knowledgebase-backend-api",
+    "crates/sdkwork-routes-knowledgebase-internal-api",
     "crates/sdkwork-api-knowledgebase-standalone-gateway",
     "crates/sdkwork-knowledgebase-contract-tests",
     "crates/sdkwork-knowledgebase-observability",
@@ -88,6 +89,7 @@ sdkwork-intelligence-knowledgebase-rpc = { path = "crates/sdkwork-intelligence-k
 sdkwork-intelligence-knowledgebase-rpc-bin = { path = "crates/sdkwork-intelligence-knowledgebase-rpc-bin" }
 sdkwork-routes-knowledgebase-app-api = { path = "crates/sdkwork-routes-knowledgebase-app-api" }
 sdkwork-routes-knowledgebase-backend-api = { path = "crates/sdkwork-routes-knowledgebase-backend-api" }
+sdkwork-routes-knowledgebase-internal-api = { path = "crates/sdkwork-routes-knowledgebase-internal-api" }
 sdkwork-routes-knowledgebase-open-api = { path = "crates/sdkwork-routes-knowledgebase-open-api" }
 sdkwork-intelligence-knowledgebase-service = { path = "crates/sdkwork-intelligence-knowledgebase-service" }
 sdkwork-intelligence-knowledgebase-repository-sqlx = { path = "crates/sdkwork-intelligence-knowledgebase-repository-sqlx" }
@@ -105,6 +107,8 @@ sdkwork-knowledgebase-database-host = { path = "crates/sdkwork-knowledgebase-dat
 # storage provider and prevents knowledgebase service crates from using object
 # storage SDKs directly.
 sdkwork-drive-storage-contract = { path = "../sdkwork-drive/crates/sdkwork-drive-storage-contract" }
+sdkwork-drive-object-runtime = { path = "../sdkwork-drive/crates/sdkwork-drive-object-runtime" }
+sdkwork-drive-contract = { path = "../sdkwork-drive/crates/sdkwork-drive-contract" }
 
 # SDKWork workspace members - declared once at workspace root
 sdkwork-knowledgebase-drive = { path = "crates/sdkwork-knowledgebase-drive" }

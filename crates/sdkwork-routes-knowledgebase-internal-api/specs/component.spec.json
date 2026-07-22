@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.component.spec",
+  "component": {
+    "name": "sdkwork-routes-knowledgebase-internal-api",
+    "displayName": "SDKWork Knowledgebase Internal API Routes",
+    "version": "0.1.0",
+    "type": "rust-route-crate",
+    "root": ".",
+    "domain": "knowledgebase",
+    "capability": "wiki-public-provider",
+    "languages": ["rust"],
+    "generated": false,
+    "manifests": ["Cargo.toml"],
+    "surface": "internal-api"
+  },
+  "canonicalSpecs": [
+    {"file": "INTERNAL_API_SPEC.md", "path": "../../../sdkwork-specs/INTERNAL_API_SPEC.md", "purpose": "Internal API ingress, authority, auth, and SDK rules."},
+    {"file": "API_SPEC.md", "path": "../../../sdkwork-specs/API_SPEC.md", "purpose": "OpenAPI and response envelope contracts."},
+    {"file": "PAGINATION_SPEC.md", "path": "../../../sdkwork-specs/PAGINATION_SPEC.md", "purpose": "Bounded navigation and search cursor contracts."},
+    {"file": "WEB_FRAMEWORK_SPEC.md", "path": "../../../sdkwork-specs/WEB_FRAMEWORK_SPEC.md", "purpose": "WebRequestContext and interceptor integration."},
+    {"file": "SECURITY_SPEC.md", "path": "../../../sdkwork-specs/SECURITY_SPEC.md", "purpose": "Ingress authentication, signature verification, and tenant isolation."},
+    {"file": "SDK_SPEC.md", "path": "../../../sdkwork-specs/SDK_SPEC.md", "purpose": "Generated SDK ownership and consumer boundaries."},
+    {"file": "SDK_WORKSPACE_GENERATION_SPEC.md", "path": "../../../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md", "purpose": "Route-to-OpenAPI-to-SDK materialization rules."}
+  ],
+  "contracts": {
+    "publicExports": ["."],
+    "runtimeEntrypoints": ["build_router_with_services", "gateway_mount", "internal_route_manifest"],
+    "routeManifest": "sdks/_route-manifests/internal-api/sdkwork-routes-knowledgebase-internal-api.route-manifest.json",
+    "authMode": "ingress-token",
+    "sdkClients": [],
+    "events": ["drive.node.version.committed.v1", "drive.node.path.changed.v1", "drive.node.eligibility.changed.v1", "drive.node.deleted.v1"],
+    "configKeys": ["SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_CALLER_APP_ID", "SDKWORK_KNOWLEDGEBASE_WIKI_PROVIDER_CALLER_APP_ID"],
+    "sdkDependencies": [],
+    "dependencyApiExports": [],
+    "dependencyApiSurfaces": []
+  },
+  "verification": {
+    "commands": ["cargo test -p sdkwork-routes-knowledgebase-internal-api"]
+  }
+}

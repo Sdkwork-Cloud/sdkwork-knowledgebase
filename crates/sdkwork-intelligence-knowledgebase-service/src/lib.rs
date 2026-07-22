@@ -31,4 +31,8 @@ pub mod space;
 pub mod tenant_quota;
 pub mod wechat;
 pub mod wiki_backfill;
+pub mod wiki_event_consumer;
+pub mod wiki_event_delivery;
 pub mod wiki_initialization;
+pub mod wiki_public_provider;
+pub mod wiki_publication_lifecycle;
