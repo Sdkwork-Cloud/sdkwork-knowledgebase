@@ -80,7 +80,7 @@ requirements from being mistaken for current production claims:
 | Sanitizer/renderer and multi-format rendition chain | native Markdown/MDX, HTML, and text pages produce bounded sanitized HTML; isolated PDF/Office/presentation/spreadsheet/media processors and Drive-backed rendition upload are not implemented |
 | Web Server runtime-set delivery executor/provider registry | implemented with bounded descriptor compilation, atomic activation/rollback, handler-specific provider validation before activation, and public HTTP mapping for STATIC/explicit SPA fallback/WIKI |
 | Web Server generated-SDK `KNOWLEDGEBASE_WIKI` adapter | implemented and registered by website data-plane bootstrap with explicit Internal API endpoint/token-file configuration, fixed single-tenant credential scope, initial and hot-update provider validation, and browser-facing adapter tests |
-| Web Server provider-event consumer | implemented with authenticated loopback ingress, durable dual-slot checkpoints, duplicate/order/gap fencing, generated-SDK reconciliation, bounded cross-stream concurrency, and route-scoped cacheless invalidation |
+| Web Server provider-event consumer | implemented with authenticated loopback ingress, durable dual-slot checkpoints, duplicate/order/gap fencing, generated-SDK reconciliation, bounded cross-stream concurrency, and route/Provider-scoped invalidation of the executor-owned resolution metadata cache |
 | Deploy-to-Web-to-Knowledgebase public E2E and commercial launch evidence | focused cross-repository contract implemented with real Deploy compiler output, Web activation/device routing, Knowledgebase adapter/fake generated-SDK execution, private failure closure, and revision-free live update; real deployed services, TLS, load, and commercial launch evidence remain open |
 
 Accordingly, the implemented provider is a bounded, production-shaped read contract, not a claim
@@ -476,10 +476,12 @@ provider event payload.
 
 Current implementation closes command-side/source-eligibility lifecycle event production and
 durable Web Server consumption. Web authenticates deliveries, fences duplicates/order/gaps,
-persists dual-slot checkpoints, reconciles uncertain state through the generated SDK, and scopes
-cacheless invalidation to the affected provider/route. Authenticated provider read-through remains
-the correctness authority. The path must not be advertised as a certified commercial realtime SLO
-until deployed end-to-end p95/p99 freshness, outage, and future concrete-cache eviction evidence
+persists dual-slot checkpoints, reconciles uncertain state through the generated SDK, and evicts
+the affected route or Provider from its bounded resolution metadata cache. The cache provides
+provider-qualified positive/negative entries, single-flight, stale revalidation, uncertainty purge,
+epoch fencing, and fixed-cardinality metrics; authenticated provider read-through remains the
+correctness authority. The path must not be advertised as a certified commercial realtime SLO
+until deployed end-to-end p95/p99 freshness, outage, event-storm, eviction, and capacity evidence
 exist.
 
 Generation domains are independent:
@@ -651,9 +653,9 @@ aggregates reconcile before commercial GA.
 5. Keep Knowledgebase Internal SDK generation idempotent from the owner OpenAPI and consume the
    generated SDK through injected service adapters and UI facades.
 6. Maintain the implemented Web Server WIKI registry/bootstrap/public-listener, isolated node-local
-   activation probe, durable provider-event consumption, and cacheless route-scoped invalidation;
-   add provider-aware cache behavior and integrate the Deploy resource with real Knowledgebase and
-   Drive services in a non-public shadow environment and bounded pilot.
+   activation probe, durable provider-event consumption, and bounded Provider-aware resolution
+   cache with route/Provider/type invalidation; integrate the Deploy resource with real
+   Knowledgebase and Drive services in a non-public shadow environment and bounded pilot.
 7. Run the shared descriptor-reference, provider-port, error, cache-key, event-gap, standalone/cloud,
    and last-known-good contract suites against Deploy and Web Server.
 8. Certify isolation, freshness, load, backup/rebuild, domain/TLS, operations, and commercial gates

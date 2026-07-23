@@ -114,10 +114,14 @@ Web Server now consumes `knowledgebase.wiki.provider.changed.v1`,
 `knowledgebase.wiki.route.changed.v1`, `knowledgebase.wiki.route.revoked.v1`,
 `knowledgebase.wiki.navigation.changed.v1`, and `knowledgebase.wiki.search.changed.v1` through a
 durable checkpoint/reconciliation processor. The current delivery path has no content cache, so the
-invalidation adapter records affected provider/route scope while authenticated provider reads
-remain the correctness path. Before enabling a concrete cache, add provider-qualified positive and
-negative cache entries, priority revocation eviction, stampede bounds, and measured deployed
-freshness/outage evidence. Deployments remains outside this content hot path.
+delivery executor instead maintains a bounded node-local resolution metadata cache and never caches
+response bodies or credentials. It has Provider-qualified positive and non-disclosing negative
+entries, exact route/Provider/type invalidation, revocation eviction, bounded single-flight,
+positive-only stale revalidation, uncertainty purge, epoch fencing, O(1) LRU eviction, and
+fixed-cardinality Prometheus metrics. Authenticated provider read-through remains the correctness
+path. Remaining closure is measured deployed freshness, outage, event-storm, eviction, and capacity
+evidence; shared/edge body caching is separate future work. Deployments remains outside this content
+hot path.
 
 ### P0-2 Rendition, Range, And Search Completion
 
@@ -193,8 +197,8 @@ tests additionally prove durable checkpoints, duplicate/order/gap handling, reco
 route-scoped invalidation. These checks prove the bounded provider, explicit publication command,
 generated-SDK Web adapter, event/source processors, native safe renderer, runtime-set activation,
 bootstrap, browser HTTP mapping, and real Deploy-compiler-to-Web/Knowledgebase execution boundaries.
-They do not prove a future concrete content cache, multi-format rendition chain, TLS, UI, or real
-deployed cross-repository delivery SLOs.
+They do not prove production cache capacity and invalidation SLOs, a multi-format rendition chain,
+TLS, UI, or real deployed cross-repository delivery SLOs.
 
 ## 8. Claim Policy
 
