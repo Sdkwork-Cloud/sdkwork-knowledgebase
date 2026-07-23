@@ -1,3 +1,4 @@
+use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 
 use crate::ports::{
@@ -105,7 +106,7 @@ fn validate_common(
     if audit
         .trace_id
         .as_deref()
-        .is_some_and(|trace_id| trace_id.trim().is_empty() || trace_id.len() > 128)
+        .is_some_and(|trace_id| is_blank(Some(trace_id)) || trace_id.len() > 128)
     {
         return Err(KnowledgeWikiPublicationLifecycleError::InvalidRequest(
             "audit trace_id must contain between 1 and 128 bytes when present".to_string(),

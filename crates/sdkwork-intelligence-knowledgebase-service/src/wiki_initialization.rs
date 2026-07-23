@@ -9,6 +9,7 @@ use crate::ports::{
         WikiPublicationStore,
     },
 };
+use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
 
 pub const KNOWLEDGE_WIKI_SOURCE_ROOT_PATH: &str = "sources/raw";
@@ -114,8 +115,8 @@ fn validate_request(
     if request.scope.tenant_id == 0
         || request.space_id == 0
         || request.actor_id == 0
-        || request.knowledgebase_uuid.trim().is_empty()
-        || request.drive_space_uuid.trim().is_empty()
+        || is_blank(Some(&request.knowledgebase_uuid))
+        || is_blank(Some(&request.drive_space_uuid))
     {
         return Err(KnowledgeWikiInitializationError::InvalidRequest(
             "tenant_id, space_id, actor_id, knowledgebase_uuid, and drive_space_uuid are required"
@@ -131,7 +132,7 @@ fn validate_source_scope(
 ) -> Result<(), KnowledgeWikiInitializationError> {
     if source_scope.drive_space_id != request.drive_space_uuid
         || source_scope.knowledgebase_uuid != request.knowledgebase_uuid
-        || source_scope.raw_folder_node_id.trim().is_empty()
+        || is_blank(Some(&source_scope.raw_folder_node_id))
         || source_scope.consumer_kind != KNOWLEDGEBASE_RAW_CONSUMER_KIND
         || !source_scope.scope_status.eq_ignore_ascii_case("ACTIVE")
     {

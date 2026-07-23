@@ -472,7 +472,7 @@ fn read_optional_bounded_secret_file(
             )))
         }
     };
-    if value.trim().is_empty() {
+    if is_blank(Some(&value)) {
         return if required {
             Err(configuration_error(format!(
                 "{environment_key} must not be blank"

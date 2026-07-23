@@ -79,7 +79,7 @@ requirements from being mistaken for current production claims:
 | Complete sanitizer/renderer/multi-format rendition chain | not implemented |
 | Web Server runtime-set delivery executor/provider registry | implemented with bounded descriptor compilation, atomic activation/rollback, handler-specific provider validation before activation, and public HTTP mapping for STATIC/explicit SPA fallback/WIKI |
 | Web Server generated-SDK `KNOWLEDGEBASE_WIKI` adapter | implemented and registered by website data-plane bootstrap with explicit Internal API endpoint/token-file configuration, fixed single-tenant credential scope, initial and hot-update provider validation, and browser-facing adapter tests |
-| Web Server provider-event consumer | not implemented |
+| Web Server provider-event consumer | implemented with authenticated loopback ingress, durable dual-slot checkpoints, duplicate/order/gap fencing, generated-SDK reconciliation, bounded cross-stream concurrency, and route-scoped cacheless invalidation |
 | Deploy-to-Web-to-Knowledgebase public E2E and commercial launch evidence | not implemented against real deployed Deploy/Knowledgebase services; in-process descriptor-to-browser adapter coverage exists |
 
 Accordingly, the implemented provider is a bounded, production-shaped read contract, not a claim
@@ -462,9 +462,13 @@ IDs equal their outbox UUIDs, `sequenceNo` is strictly increasing but not requir
 within one publication stream, and actor identity remains in the audit stream rather than the
 provider event payload.
 
-Current implementation closes command-side and source-eligibility lifecycle event production.
-Until durable Web Server consumption is implemented, public freshness must rely on provider
-read-through validation and must not be advertised as fully realtime.
+Current implementation closes command-side/source-eligibility lifecycle event production and
+durable Web Server consumption. Web authenticates deliveries, fences duplicates/order/gaps,
+persists dual-slot checkpoints, reconciles uncertain state through the generated SDK, and scopes
+cacheless invalidation to the affected provider/route. Authenticated provider read-through remains
+the correctness authority. The path must not be advertised as a certified commercial realtime SLO
+until deployed end-to-end p95/p99 freshness, outage, and future concrete-cache eviction evidence
+exist.
 
 Generation domains are independent:
 
@@ -632,10 +636,10 @@ aggregates reconcile before commercial GA.
    scheduled execution, renderer, and rendition search.
 5. Keep Knowledgebase Internal SDK generation idempotent from the owner OpenAPI and consume the
    generated SDK through injected service adapters and UI facades.
-6. Maintain the implemented Web Server WIKI registry/bootstrap/public-listener path, add durable
-   provider-event consumption and provider-aware cache invalidation, then integrate the Deploy
-   resource with real Knowledgebase and Drive services in a non-public shadow environment and
-   bounded pilot.
+6. Maintain the implemented Web Server WIKI registry/bootstrap/public-listener, isolated node-local
+   activation probe, durable provider-event consumption, and cacheless route-scoped invalidation;
+   add provider-aware cache behavior and integrate the Deploy resource with real Knowledgebase and
+   Drive services in a non-public shadow environment and bounded pilot.
 7. Run the shared descriptor-reference, provider-port, error, cache-key, event-gap, standalone/cloud,
    and last-known-good contract suites against Deploy and Web Server.
 8. Certify isolation, freshness, load, backup/rebuild, domain/TLS, operations, and commercial gates

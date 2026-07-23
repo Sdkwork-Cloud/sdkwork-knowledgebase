@@ -244,7 +244,7 @@ test('root package.json wires @sdkwork/app-topology and standard dev scripts', a
 test('declares cloud gateway config bundles referenced by topology spec', async () => {
   const spec = await readJson('specs/topology.spec.json');
   for (const configFile of spec.packaging.cloudConfigFiles) {
-    const configPath = path.join('configs', configFile);
+    const configPath = path.join('etc', configFile);
     assert.equal(await exists(configPath), true, `${configPath} should exist`);
   }
 });

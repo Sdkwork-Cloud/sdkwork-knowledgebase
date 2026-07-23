@@ -97,7 +97,7 @@ if ($topologySpec.kind -ne "sdkwork.app.topology") {
     throw "specs/topology.spec.json kind must be sdkwork.app.topology"
 }
 foreach ($configFile in $topologySpec.packaging.cloudConfigFiles) {
-    Assert-PathExists (Join-Path "configs" $configFile) "Missing cloud gateway config bundle"
+    Assert-PathExists (Join-Path "etc" $configFile) "Missing cloud gateway config bundle"
 }
 
 $agent = Get-Content -Raw -LiteralPath "AGENTS.md"
@@ -119,7 +119,7 @@ $requiredRootDirectories = @(
     "tools",
     "plugins",
     "examples",
-    "configs",
+    "etc",
     "deployments",
     "scripts",
     "docs",
@@ -283,7 +283,7 @@ $activeSearchRoots = @(
     ".sdkwork",
     "apis",
     "apps",
-    "configs",
+    "etc",
     "crates",
     "deployments",
     "examples",

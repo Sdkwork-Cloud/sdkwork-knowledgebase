@@ -103,7 +103,7 @@ impl From<WikiPublicPublicationMetadata> for WikiPublicationResponse {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WikiPageResponse {
+pub struct WikiPublicPageResponse {
     pub projection_uuid: String,
     pub canonical_route: String,
     pub file_kind: &'static str,
@@ -122,7 +122,7 @@ pub struct WikiPageResponse {
     pub public_updated_at: String,
 }
 
-impl From<WikiPublicPageMetadata> for WikiPageResponse {
+impl From<WikiPublicPageMetadata> for WikiPublicPageResponse {
     fn from(value: WikiPublicPageMetadata) -> Self {
         Self {
             projection_uuid: value.projection_uuid,
@@ -141,7 +141,7 @@ impl From<WikiPublicPageMetadata> for WikiPageResponse {
     }
 }
 
-impl From<WikiPublicPageListItem> for WikiPageResponse {
+impl From<WikiPublicPageListItem> for WikiPublicPageResponse {
     fn from(value: WikiPublicPageListItem) -> Self {
         value.page.into()
     }
@@ -151,7 +151,7 @@ impl From<WikiPublicPageListItem> for WikiPageResponse {
 #[serde(tag = "disposition", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WikiRouteResolutionResponse {
     Page {
-        page: Box<WikiPageResponse>,
+        page: Box<WikiPublicPageResponse>,
         #[serde(rename = "contentHandle")]
         content_handle: String,
     },

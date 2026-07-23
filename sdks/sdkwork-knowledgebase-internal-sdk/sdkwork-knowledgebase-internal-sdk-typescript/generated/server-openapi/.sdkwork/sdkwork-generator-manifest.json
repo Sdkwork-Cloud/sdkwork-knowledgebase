@@ -12,7 +12,7 @@
   "generatedFiles": [
     {
       "path": "bin/publish-core.mjs",
-      "sha256": "98ad0918a78bfbe22bf8f12fec709b0bed545b9e01edd40f5e4abf31a23378a5"
+      "sha256": "582c020e50ece8a369ab0c5b2f18d6efe16a54d7c46cd4b29d0a2d560ea07d6c"
     },
     {
       "path": "bin/publish.ps1",
@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledgebase-internal-wiki.ts",
-      "sha256": "49dd730b9c1dc8544fc95882d5e551ea8c06894531d82e72af9b104bb64d7574"
+      "sha256": "e306002728c2e69ae4a3a95b55892cb3385d9e1dcc22ddbc97233a504c17bf78"
     },
     {
       "path": "src/api/paths.ts",
@@ -112,7 +112,7 @@
     },
     {
       "path": "src/types/index.ts",
-      "sha256": "e2cfc72ecd0d820620cc36bb0148354211106c046c5feb5438edaf018e082ccb"
+      "sha256": "0c07ca915e2b98cfa59427115fd23e408fb11048abe94e01b8fddd3286d4eaef"
     },
     {
       "path": "src/types/non-negative-int64-string.ts",
@@ -147,16 +147,16 @@
       "sha256": "fca1ec348c843c743b1b6eae6de9753c0dfe9c4b0201b0bd88d11462b49ffd4b"
     },
     {
-      "path": "src/types/wiki-page-list-data.ts",
-      "sha256": "fbf377870fa76874a63f3ccd0ba6ce006c2243bf6bda001336377ab29aaae477"
+      "path": "src/types/wiki-public-page-list-data.ts",
+      "sha256": "997f25bc70a495ba75c4b4e4f72cd2b59f273f4669de3058ca192f78af979b5a"
     },
     {
-      "path": "src/types/wiki-page-list-response.ts",
-      "sha256": "f5d96ff70a93b47cfc4ee85eb735750dba429f171696b04aac482c2442ae913a"
+      "path": "src/types/wiki-public-page-list-response.ts",
+      "sha256": "4c7519cf89bb737c598560784798c81c7939a2fb3fc2db96884eb6f2d2b84fae"
     },
     {
-      "path": "src/types/wiki-page.ts",
-      "sha256": "573e1b14c962fa5630d1a19b5b500580a16b0798af94d4c56e7bcbaad7524b8b"
+      "path": "src/types/wiki-public-page-metadata.ts",
+      "sha256": "c161c22275a71d936eb0a29e7fc2e4b386e0427a16182cfaaf48fd008f45b613"
     },
     {
       "path": "src/types/wiki-publication-resource-data.ts",
@@ -180,7 +180,7 @@
     },
     {
       "path": "src/types/wiki-route-resolution.ts",
-      "sha256": "0fadfa1044cc77c118d0f6e820bcebb3578aecb00430cd88d5334ea417206dea"
+      "sha256": "a01d62fd29b04fae7abc21995c0c406c77e19a58690f2755f4a5e8c739222bea"
     },
     {
       "path": "tsconfig.json",

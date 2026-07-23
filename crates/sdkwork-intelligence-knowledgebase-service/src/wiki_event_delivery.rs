@@ -8,6 +8,7 @@ use crate::ports::{
         WikiDriveCheckpointStore, WikiPersistenceError, WikiPersistenceScope,
     },
 };
+use sdkwork_utils_rust::is_blank;
 
 pub const MAX_EVENT_DELIVERY_RENEWAL_PAGE_SIZE: u32 = 200;
 
@@ -113,7 +114,7 @@ async fn renew_checkpoint(
         })
         .await?;
     if delivery.subscription_uuid != checkpoint.source_scope_uuid
-        || delivery.channel_id.trim().is_empty()
+        || is_blank(Some(&delivery.channel_id))
     {
         return Err(crate::ports::knowledge_wiki_drive_source::KnowledgeWikiDriveSourceError::IntegrityFailed(
             "Drive event delivery renewal response does not match the checkpoint source scope".to_string(),

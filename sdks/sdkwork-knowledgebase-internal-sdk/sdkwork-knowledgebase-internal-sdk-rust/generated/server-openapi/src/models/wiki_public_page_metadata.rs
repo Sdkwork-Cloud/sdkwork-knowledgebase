@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct WikiPage {
+pub struct WikiPublicPageMetadata {
     #[serde(rename = "projectionUuid")]
     pub projection_uuid: String,
 

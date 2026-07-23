@@ -59,6 +59,7 @@
     }
   ],
   "contracts": {
+    "layerRole": "sdk-facade",
     "rpcManifest": "rpc/sdkwork-knowledgebase-rpc.manifest.json",
     "protoRoot": "../../apis/rpc",
     "protoPackages": [

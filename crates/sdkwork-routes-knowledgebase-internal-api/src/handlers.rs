@@ -25,8 +25,9 @@ use sdkwork_web_core::RequireInternalApi;
 
 use crate::{
     dto::{
-        DriveEventReceiptResponse, ResolveWikiRouteBody, WikiNavigationQuery, WikiPageResponse,
-        WikiPublicationResponse, WikiRouteResolutionResponse, WikiSearchQuery,
+        DriveEventReceiptResponse, ResolveWikiRouteBody, WikiNavigationQuery,
+        WikiPublicPageResponse, WikiPublicationResponse, WikiRouteResolutionResponse,
+        WikiSearchQuery,
     },
     error::InternalApiProblem,
     response::{success_json, success_list_json},
@@ -206,7 +207,11 @@ fn public_page_response(
 ) -> Response {
     let has_more = page.next_cursor.is_some();
     success_list_json(SdkWorkPageData {
-        items: page.items.into_iter().map(WikiPageResponse::from).collect(),
+        items: page
+            .items
+            .into_iter()
+            .map(WikiPublicPageResponse::from)
+            .collect(),
         page_info: PageInfo {
             mode: PageMode::Cursor,
             page: None,

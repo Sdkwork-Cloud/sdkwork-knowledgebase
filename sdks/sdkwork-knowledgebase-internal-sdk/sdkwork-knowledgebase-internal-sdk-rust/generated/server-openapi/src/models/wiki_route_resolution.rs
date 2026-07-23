@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::WikiPage;
+use crate::models::{WikiPublicPageMetadata};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct WikiRouteResolution {
     pub disposition: String,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub page: Option<WikiPage>,
+    pub page: Option<WikiPublicPageMetadata>,
 
     #[serde(rename = "contentHandle")]
     #[serde(default, skip_serializing_if = "Option::is_none")]

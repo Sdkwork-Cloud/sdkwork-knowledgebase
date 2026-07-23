@@ -2,7 +2,7 @@ import type { NonNegativeInt64String } from './non-negative-int64-string';
 import type { PositiveInt64String } from './positive-int64-string';
 import type { WikiFileKind } from './wiki-file-kind';
 
-export interface WikiPage {
+export interface WikiPublicPageMetadata {
   projectionUuid: string;
   canonicalRoute: string;
   fileKind: WikiFileKind;

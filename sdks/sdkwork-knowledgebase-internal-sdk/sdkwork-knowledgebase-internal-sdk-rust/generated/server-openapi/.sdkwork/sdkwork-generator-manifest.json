@@ -12,7 +12,7 @@
   "generatedFiles": [
     {
       "path": "bin/publish-core.mjs",
-      "sha256": "98ad0918a78bfbe22bf8f12fec709b0bed545b9e01edd40f5e4abf31a23378a5"
+      "sha256": "582c020e50ece8a369ab0c5b2f18d6efe16a54d7c46cd4b29d0a2d560ea07d6c"
     },
     {
       "path": "bin/publish.ps1",
@@ -48,7 +48,7 @@
     },
     {
       "path": "src/api/knowledgebase_internal_wiki.rs",
-      "sha256": "a0cf72e8491c8693e615159c384dac07b9726ba026af9ec95ac7fa3c4e1e5260"
+      "sha256": "81417cf42f1ba4b34a91466ef74415e57a0571f5cf33e3f72fa928208a921de0"
     },
     {
       "path": "src/api/mod.rs",
@@ -96,7 +96,7 @@
     },
     {
       "path": "src/models/mod.rs",
-      "sha256": "9c97728673bd945e68649a4f6342d681ca631f98e9571cda7202d53c2926d912"
+      "sha256": "0353b014eb93fb8f87ebcd08f6b3cab8cf25535647da353dcabbed6729bd0084"
     },
     {
       "path": "src/models/page_info.rs",
@@ -115,16 +115,16 @@
       "sha256": "308c0ed1e784c8628d4aa9f64bf904f1cf9dd8dae6a599bea18daa7719e7c89f"
     },
     {
-      "path": "src/models/wiki_page_list_data.rs",
-      "sha256": "7b9afd496eee1e7e6e37f275b369fe1b1f45758fdae788a827f4f8348982efd2"
+      "path": "src/models/wiki_public_page_list_data.rs",
+      "sha256": "2e1ccc4d2ed3b2e0e29bab2c213911f749fb9fe1b363c5753fd2ccd07fc7e60c"
     },
     {
-      "path": "src/models/wiki_page_list_response.rs",
-      "sha256": "6f9080b02ddc6425d848b566116787e2ecc6313f76ade64d650d059f7d4dd441"
+      "path": "src/models/wiki_public_page_list_response.rs",
+      "sha256": "285fe9f185f50f6a77d1612a9c3ed40cc40e00fb3b7564aab32404ed373b69f3"
     },
     {
-      "path": "src/models/wiki_page.rs",
-      "sha256": "7edae3dbc1de1e4704091c6f9dac8de13a4f2d4809af7acfecf373d5d3bb1a5a"
+      "path": "src/models/wiki_public_page_metadata.rs",
+      "sha256": "79eeefe9c994e255cb98852eb9a45cafa5bbf97c7c2b05b311d2c76cdb4ce76b"
     },
     {
       "path": "src/models/wiki_publication_resource_data.rs",
@@ -148,7 +148,7 @@
     },
     {
       "path": "src/models/wiki_route_resolution.rs",
-      "sha256": "e5b099546abd17357f486737b8d9f0141041258006b58b668a821c8b8d363ed0"
+      "sha256": "1081b619076ffe7b430203bda9ec55b76cf05929b84ac131e2384dacbffefe20"
     }
   ],
   "scaffoldFiles": [

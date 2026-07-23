@@ -110,7 +110,7 @@ impl KnowledgebaseWikiPublicProvider for FakeWikiProvider {
     ) -> Result<WikiPublicRouteResolution, KnowledgeWikiPublicProviderError> {
         self.scopes.lock().expect("scope lock").push(request.scope);
         Ok(WikiPublicRouteResolution::Page(WikiResolvedPublicPage {
-            page: wiki_page(),
+            page: public_wiki_page(),
             content_handle: "content-1".to_string(),
         }))
     }
@@ -136,7 +136,9 @@ impl KnowledgebaseWikiPublicProvider for FakeWikiProvider {
     ) -> Result<WikiPublicPageList, KnowledgeWikiPublicProviderError> {
         self.scopes.lock().expect("scope lock").push(request.scope);
         Ok(WikiPublicPageList {
-            items: vec![WikiPublicPageListItem { page: wiki_page() }],
+            items: vec![WikiPublicPageListItem {
+                page: public_wiki_page(),
+            }],
             next_cursor: Some("next-page".to_string()),
             page_size: request.page_size.unwrap_or(20),
         })
@@ -148,14 +150,16 @@ impl KnowledgebaseWikiPublicProvider for FakeWikiProvider {
     ) -> Result<WikiPublicPageList, KnowledgeWikiPublicProviderError> {
         self.scopes.lock().expect("scope lock").push(request.scope);
         Ok(WikiPublicPageList {
-            items: vec![WikiPublicPageListItem { page: wiki_page() }],
+            items: vec![WikiPublicPageListItem {
+                page: public_wiki_page(),
+            }],
             next_cursor: None,
             page_size: request.page_size.unwrap_or(20),
         })
     }
 }
 
-fn wiki_page() -> WikiPublicPageMetadata {
+fn public_wiki_page() -> WikiPublicPageMetadata {
     WikiPublicPageMetadata {
         projection_uuid: "11111111-1111-4111-8111-111111111111".to_string(),
         canonical_route: "/guide/".to_string(),

@@ -268,7 +268,7 @@ impl KnowledgeWikiDriveSource for KnowledgebaseDriveInternalSdkAdapter {
 
         let range = format!("bytes=0-{}", request.resource.content_length - 1);
         let etag =
-            (!request.resource.etag.trim().is_empty()).then_some(request.resource.etag.as_str());
+            (!is_blank(Some(&request.resource.etag))).then_some(request.resource.etag.as_str());
         let bytes = self
             .client
             .drive_internal_publishing()

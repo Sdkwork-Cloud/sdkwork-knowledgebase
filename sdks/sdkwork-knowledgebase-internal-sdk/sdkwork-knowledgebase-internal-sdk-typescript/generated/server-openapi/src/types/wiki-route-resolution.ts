@@ -1,9 +1,9 @@
 import type { PositiveInt64String } from './positive-int64-string';
-import type { WikiPage } from './wiki-page';
+import type { WikiPublicPageMetadata } from './wiki-public-page-metadata';
 
 export interface WikiRouteResolution {
   disposition: 'PAGE' | 'REDIRECT';
-  page?: WikiPage;
+  page?: WikiPublicPageMetadata;
   contentHandle?: string;
   requestedRoute?: string;
   canonicalRoute?: string;

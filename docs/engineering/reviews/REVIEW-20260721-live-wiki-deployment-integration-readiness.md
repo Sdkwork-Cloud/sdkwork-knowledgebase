@@ -1,6 +1,6 @@
 # REVIEW-20260721 Live Wiki Deployment Integration Readiness
 
-Status: implementation-in-progress-delivery-blocked
+Status: implementation-active-production-evidence-blocked
 Owner: SDKWork Knowledgebase maintainers
 Date: 2026-07-21
 Requirement: REQ-2026-0721
@@ -42,12 +42,12 @@ provider lifecycle operations. They must not create a Deploy Release, Deployment
 
 ## 2. Verdict
 
-The storage, source-projection, explicit publication lifecycle, public-read, contract-generation,
-immutable Web runtime foundations, generated-SDK Web Server provider adapter, data-plane bootstrap,
-and public HTTP mapping are implemented. The repositories still do not provide the complete
-integrated public Wiki product because durable Web provider-event consumption, provider-aware cache
-invalidation, rendition pipeline, managed TLS closure, UI workflows, and real deployed
-end-to-end production evidence remain incomplete.
+The storage, source projection, explicit publication lifecycle, public reads, contract generation,
+immutable Web runtime, generated-SDK Web provider adapter, durable provider-event processing,
+data-plane bootstrap, and public HTTP mapping are implemented. The repositories still do not
+provide the complete commercial Wiki product because the production rendition/full-text pipeline,
+managed cloud TLS closure, UI workflows, and deployed end-to-end freshness, security, and scale
+evidence remain incomplete.
 
 The system must therefore be described as `implementation-in-progress-delivery-blocked`. It is
 incorrect to describe the Wiki schema, Drive consumer, Knowledgebase provider API/SDK, or Web
@@ -72,7 +72,7 @@ commercially ready, or fully realtime.
 | Publication lifecycle | Owner-only activate/pause plus Writer publish/republish/unpublish/visibility commands use optimistic publication/page fences, exact Drive-version pinning, transactional lifecycle events, and transactionally coupled audit records | closed |
 | App API and SDK | Six owner operations exist in App OpenAPI, Rust routes/manifest, and the generated TypeScript App SDK; Reader/Writer/Owner and organization-isolation tests pass | closed |
 | Provider event production | The owner AsyncAPI authority defines all five event types; provider, route change/revocation, navigation, and search events are transactionally produced, and source-driven public revocation advances navigation/search generations and emits all three invalidation facts atomically | closed |
-| Provider event consumption | Durable Web Server checkpoints, duplicate/order/gap fencing, reconciliation, and route-scoped invalidation are absent | blocking |
+| Provider event consumption | Durable Web Server checkpoints, duplicate/order/gap fencing, initial/gap reconciliation, concurrent stream isolation, and route-scoped invalidation are implemented and tested | closed |
 | Web Server Wiki adapter | Generated Knowledgebase Rust Internal SDK adapter implements resource/Wiki ports with tenant-bound resolution, conditional metadata, bounded content, navigation/search, registry/bootstrap wiring, initial/hot-update validation, and browser-facing tests | closed |
 | Render/rendition safety | The target processor/sanitizer/rendition policy is documented, but the complete multi-format production chain is not executable | blocking |
 | Deploy-to-Web delivery | Control-plane and data-plane contracts exist, but an activated Site-to-Wiki end-to-end delivery test is absent | blocking |
@@ -104,13 +104,16 @@ is deliberately not described as full-text: it searches normalized metadata only
 
 ## 5. Remaining P0 Closure Work
 
-### P0-1 Durable Provider Event Consumption
+### P0-1 Deployed Freshness And Cache Evidence
 
-Add Web Server checkpoints, duplicate/order/gap fencing, reconciliation, and route-scoped
-invalidation for `knowledgebase.wiki.provider.changed.v1`,
+Web Server now consumes `knowledgebase.wiki.provider.changed.v1`,
 `knowledgebase.wiki.route.changed.v1`, `knowledgebase.wiki.route.revoked.v1`,
-`knowledgebase.wiki.navigation.changed.v1`, and `knowledgebase.wiki.search.changed.v1`.
-Deployments must remain outside this content hot path.
+`knowledgebase.wiki.navigation.changed.v1`, and `knowledgebase.wiki.search.changed.v1` through a
+durable checkpoint/reconciliation processor. The current delivery path has no content cache, so the
+invalidation adapter records affected provider/route scope while authenticated provider reads
+remain the correctness path. Before enabling a concrete cache, add provider-qualified positive and
+negative cache entries, priority revocation eviction, stampede bounds, and measured deployed
+freshness/outage evidence. Deployments remains outside this content hot path.
 
 ### P0-2 Rendition, Range, And Search Completion
 
@@ -128,9 +131,11 @@ operations.
 
 ## 6. Realtime Claim Boundary
 
-Drive-to-Knowledgebase projection and explicit public-state transitions are event-driven and
-durable. Public Wiki freshness is not yet an end-to-end realtime capability because durable Web
-Server event consumption, gap recovery, and provider-aware cache invalidation are not closed.
+Drive-to-Knowledgebase projection, explicit public-state transitions, and Web provider-event
+consumption are event-driven and durable. Web fences duplicates and ordering, reconciles gaps, and
+scopes invalidation to the affected publication/route. Public Wiki freshness is not yet a certified
+commercial realtime SLO because the cross-repository path has not been measured in a deployed
+production-like environment and a future content cache still needs its concrete eviction evidence.
 
 When those paths are implemented, realtime means bounded eventual visibility from the committed
 public-state transition, not from upload completion. Events improve freshness; authenticated
@@ -172,16 +177,18 @@ cargo check --workspace
 cargo clippy -p sdkwork-webserver-core -p sdkwork-webserver-contract -p sdkwork-webserver-drive-provider -p sdkwork-webserver-knowledgebase-provider -p sdkwork-webserver-delivery-runtime -p sdkwork-api-web-server-standalone-gateway --all-targets -- -D warnings
 ```
 
-The generated TypeScript and Rust package check/build workflows also pass. These checks prove the
-bounded provider, explicit publication-command, generated-SDK Web adapter, runtime-set activation,
-bootstrap, and browser HTTP mapping boundaries. They do not prove provider-event consumption,
-provider-aware caching, TLS, UI, renderer, or real deployed cross-repository delivery paths.
+The generated TypeScript and Rust package check/build workflows also pass. Web Server provider-event
+tests additionally prove durable checkpoints, duplicate/order/gap handling, reconciliation, and
+route-scoped invalidation. These checks prove the bounded provider, explicit publication command,
+generated-SDK Web adapter, event processor, runtime-set activation, bootstrap, and browser HTTP
+mapping boundaries. They do not prove a future concrete content cache, TLS, UI, renderer, or real
+deployed cross-repository delivery SLOs.
 
 ## 8. Claim Policy
 
 Until every remaining P0 item is closed with executable evidence:
 
-- Wiki public deployment remains implementation-only and delivery-gated;
+- Wiki public deployment remains production-evidence-gated;
 - upload or processing success must not be presented as public publication success;
 - the current binary reader must not be presented as large-object streaming or Range delivery;
 - the current metadata query must not be presented as full-text search;

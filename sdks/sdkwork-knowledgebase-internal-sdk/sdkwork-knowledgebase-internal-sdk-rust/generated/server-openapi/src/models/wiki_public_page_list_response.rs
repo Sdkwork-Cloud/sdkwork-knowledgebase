@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct WikiPageListResponse {
+pub struct WikiPublicPageListResponse {
     pub code: i64,
 
     pub data: serde_json::Value,

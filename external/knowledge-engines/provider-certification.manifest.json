@@ -60,8 +60,8 @@
       "contractCertification": {
         "status": "passed",
         "suiteVersion": "1.0.0",
-        "verifiedAt": "2026-07-21",
-        "sourceFingerprint": "223c085f3368c9d4f4c88be920fa94b3f8cf136a48d0cb4fa17f8a518cec642e",
+        "verifiedAt": "2026-07-22",
+        "sourceFingerprint": "cab2ed4dc1e18feb98ff683c0096f0a183852ea237fe86e4dc57868bf6e1790e",
         "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-dify", "--all-targets"] },
         "evidence": {
           "capability": ["crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs", "crates/sdkwork-knowledgebase-engine-dify/tests/dify_read_adapter_http.rs"],
@@ -80,8 +80,8 @@
       "contractCertification": {
         "status": "passed",
         "suiteVersion": "1.0.0",
-        "verifiedAt": "2026-07-21",
-        "sourceFingerprint": "7346cc1e4d08d1713988de9489bb1fb6752c6eb06ee9a74ee0b4358e2ab9533f",
+        "verifiedAt": "2026-07-22",
+        "sourceFingerprint": "4d3438a36815ebdd2e15b971582539291caefc3c257c09137703fba3e13bdec8",
         "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-ragflow", "--all-targets"] },
         "evidence": {
           "capability": ["crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs", "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_read_adapter_http.rs"],
@@ -100,8 +100,8 @@
       "contractCertification": {
         "status": "passed",
         "suiteVersion": "1.0.0",
-        "verifiedAt": "2026-07-21",
-        "sourceFingerprint": "16a84e23826f21bf9e14182d17220c188c588ac5d55be8c78c3ff9957ffcd1bf",
+        "verifiedAt": "2026-07-22",
+        "sourceFingerprint": "3fcf5cc98c72678a29c861d76ccbd88496c3a8c6667d2855fce73d5d41d7d24f",
         "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-onyx", "--all-targets"] },
         "evidence": {
           "capability": ["crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs"],
@@ -120,8 +120,8 @@
       "contractCertification": {
         "status": "passed",
         "suiteVersion": "1.0.0",
-        "verifiedAt": "2026-07-21",
-        "sourceFingerprint": "a57a3117c6f9f289c75e594fb129a8421e31e9a9a94d80f5db389007a54bf5cd",
+        "verifiedAt": "2026-07-22",
+        "sourceFingerprint": "fa31ea2e04197357b91fed666f720d9e76e676c7a307cced2839a065af189e30",
         "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-anythingllm", "--all-targets"] },
         "evidence": {
           "capability": ["crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs"],
@@ -140,8 +140,8 @@
       "contractCertification": {
         "status": "passed",
         "suiteVersion": "1.0.0",
-        "verifiedAt": "2026-07-21",
-        "sourceFingerprint": "cd28dc4d21f7e9d93338d854a92e6de77d16fd1f613702902c3d47af3972ecdc",
+        "verifiedAt": "2026-07-22",
+        "sourceFingerprint": "1bec32862672fe4ab7efa90eb9f569e1a62aa6a16f2db16951acf8d8bb569f40",
         "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-open-webui", "--all-targets"] },
         "evidence": {
           "capability": ["crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs"],
@@ -160,8 +160,8 @@
       "contractCertification": {
         "status": "passed",
         "suiteVersion": "1.0.0",
-        "verifiedAt": "2026-07-21",
-        "sourceFingerprint": "2dccac8ba71998c853d5bfaa13d7dd67745cb7ae0abc4bb525877ec24ea11c9e",
+        "verifiedAt": "2026-07-22",
+        "sourceFingerprint": "34f64cd3e2bac458da30696424754a2ffd13ce21285da18b9490c26f09036623",
         "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-flowise", "--all-targets"] },
         "evidence": {
           "capability": ["crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs"],
@@ -180,8 +180,8 @@
       "contractCertification": {
         "status": "passed",
         "suiteVersion": "1.0.0",
-        "verifiedAt": "2026-07-21",
-        "sourceFingerprint": "2543144bf910129f02c093d7c5d267a5f539bce88f940732c9af1f8068b2a46d",
+        "verifiedAt": "2026-07-22",
+        "sourceFingerprint": "6e3ebe3bd1cda7c02c0f069b8a7e23ea3c782022a50ff93be04d063c6edc8650",
         "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-haystack", "--all-targets"] },
         "evidence": {
           "capability": ["crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs"],
@@ -200,8 +200,8 @@
       "contractCertification": {
         "status": "passed",
         "suiteVersion": "1.0.0",
-        "verifiedAt": "2026-07-21",
-        "sourceFingerprint": "d6f3e07f193b1a7a1c3237b1f06a663be395ad6cc3c41dc4daa53624f1b9fa0a",
+        "verifiedAt": "2026-07-22",
+        "sourceFingerprint": "237254877154e9f59e0ddd96c4b03ebac387d2c97f7fd1b90b28fadef6e1d442",
         "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-chroma", "--all-targets"] },
         "evidence": {
           "capability": ["crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs"],
@@ -220,8 +220,8 @@
       "contractCertification": {
         "status": "passed",
         "suiteVersion": "1.0.0",
-        "verifiedAt": "2026-07-21",
-        "sourceFingerprint": "2f36c335c0d855a4497b6597eb168643db825d09cc93740a1fbef21bc22cc633",
+        "verifiedAt": "2026-07-22",
+        "sourceFingerprint": "31cc6a2bc1332dc9552401ce378be173afc46c3370dc97e7f15221349eefc2bc",
         "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-qdrant", "--all-targets"] },
         "evidence": {
           "capability": ["crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs"],
@@ -240,8 +240,8 @@
       "contractCertification": {
         "status": "passed",
         "suiteVersion": "1.0.0",
-        "verifiedAt": "2026-07-21",
-        "sourceFingerprint": "7613535b76e142c4d52f1391b2adc2bb967e7e96032b1c1a8acf8e144bd12de6",
+        "verifiedAt": "2026-07-22",
+        "sourceFingerprint": "3af19166f050aca9985754ce7202643bc4dd845ffed194a875ce6bf5d7acafd6",
         "command": { "program": "cargo", "args": ["test", "-p", "sdkwork-knowledgebase-engine-weaviate", "--all-targets"] },
         "evidence": {
           "capability": ["crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs"],

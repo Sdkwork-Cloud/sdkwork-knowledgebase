@@ -1,7 +1,7 @@
 import { customApiPath } from './paths';
 import type { HttpClient } from '../http/client';
 
-import type { DriveCloudEvent, DriveEventReceipt, ResolveWikiRouteRequest, WikiPageListData, WikiPublication, WikiRouteResolution } from '../types';
+import type { DriveCloudEvent, DriveEventReceipt, ResolveWikiRouteRequest, WikiPublication, WikiPublicPageListData, WikiRouteResolution } from '../types';
 
 
 export interface KnowledgebaseInternalWikiWikiPublicationsPagesSearchParams {
@@ -20,14 +20,14 @@ export class KnowledgebaseInternalWikiWikiPublicationsPagesApi {
 
 
 /** Search public Wiki page metadata */
-  async search(publicationUuid: string, params: KnowledgebaseInternalWikiWikiPublicationsPagesSearchParams): Promise<WikiPageListData> {
+  async search(publicationUuid: string, params: KnowledgebaseInternalWikiWikiPublicationsPagesSearchParams): Promise<WikiPublicPageListData> {
     const query = buildQueryString([
       { name: 'q', value: params.q, style: 'form', explode: true, allowReserved: false },
       { name: 'locale', value: params.locale, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<WikiPageListData>(appendQueryString(customApiPath(`/knowledgebase/wiki_publications/${serializePathParameter(publicationUuid, { name: 'publicationUuid', style: 'simple', explode: false })}/pages/search`), query));
+    return this.client.get<WikiPublicPageListData>(appendQueryString(customApiPath(`/knowledgebase/wiki_publications/${serializePathParameter(publicationUuid, { name: 'publicationUuid', style: 'simple', explode: false })}/pages/search`), query));
   }
 }
 
@@ -46,13 +46,13 @@ export class KnowledgebaseInternalWikiWikiPublicationsNavigationApi {
 
 
 /** List public Wiki navigation pages */
-  async list(publicationUuid: string, params?: KnowledgebaseInternalWikiWikiPublicationsNavigationListParams): Promise<WikiPageListData> {
+  async list(publicationUuid: string, params?: KnowledgebaseInternalWikiWikiPublicationsNavigationListParams): Promise<WikiPublicPageListData> {
     const query = buildQueryString([
       { name: 'locale', value: params?.locale, style: 'form', explode: true, allowReserved: false },
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.get<WikiPageListData>(appendQueryString(customApiPath(`/knowledgebase/wiki_publications/${serializePathParameter(publicationUuid, { name: 'publicationUuid', style: 'simple', explode: false })}/navigation`), query));
+    return this.client.get<WikiPublicPageListData>(appendQueryString(customApiPath(`/knowledgebase/wiki_publications/${serializePathParameter(publicationUuid, { name: 'publicationUuid', style: 'simple', explode: false })}/navigation`), query));
   }
 }
 
@@ -141,12 +141,12 @@ export class KnowledgebaseInternalWikiDriveEventsApi {
 }
 
 export class KnowledgebaseInternalWikiApi {
-  private client: HttpClient;
+
   public readonly driveEvents: KnowledgebaseInternalWikiDriveEventsApi;
   public readonly wikiPublications: KnowledgebaseInternalWikiWikiPublicationsApi;
 
   constructor(client: HttpClient) {
-    this.client = client;
+
     this.driveEvents = new KnowledgebaseInternalWikiDriveEventsApi(client);
     this.wikiPublications = new KnowledgebaseInternalWikiWikiPublicationsApi(client);
   }

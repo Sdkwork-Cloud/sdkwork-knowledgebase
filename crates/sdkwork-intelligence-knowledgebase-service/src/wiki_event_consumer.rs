@@ -4,7 +4,7 @@ use sdkwork_drive_contract::drive::events::{
     DriveNodePathChangedV1Data, DriveNodeVersionCommittedV1Data, DriveRootScopeEffect,
     DriveRootScopeKind, EVENT_SOURCE, EVENT_SPEC_VERSION,
 };
-use sdkwork_utils_rust::{hmac_sha256, sha256_hash};
+use sdkwork_utils_rust::{hmac_sha256, is_blank, sha256_hash};
 use serde::de::DeserializeOwned;
 use std::collections::HashSet;
 use thiserror::Error;
@@ -743,15 +743,15 @@ fn validate_event_authority(
         || event.declared_type() != event.event_type().as_str()
         || event.tenant_id() != scope.tenant_id.to_string()
         || !organization_matches
-        || event.id().trim().is_empty()
-        || event.time().trim().is_empty()
+        || is_blank(Some(event.id()))
+        || is_blank(Some(event.time()))
         || event.sequence_no()? == 0
         || publication.scope != scope
         || publication.id != checkpoint_publication_id
         || publication.drive_space_uuid != checkpoint_drive_space_uuid
         || publication.drive_space_uuid != event.space_id()
         || publication.source_scope_uuid.as_deref() != Some(checkpoint_source_scope_uuid)
-        || event.node_id().trim().is_empty()
+        || is_blank(Some(event.node_id()))
     {
         return Err(KnowledgeWikiDriveEventConsumerError::Integrity(
             "Drive event authority does not match the bound Wiki source checkpoint".to_string(),
@@ -811,8 +811,8 @@ fn validate_resolved_source(
     validate_sha256_checksum(&resource.checksum_sha256_hex)?;
     if resource.subscription_uuid != source_scope_uuid
         || resource.normalized_relative_path != expected_path
-        || resource.drive_node_id.trim().is_empty()
-        || resource.drive_node_version_id.trim().is_empty()
+        || is_blank(Some(&resource.drive_node_id))
+        || is_blank(Some(&resource.drive_node_version_id))
         || resource.scope_status != "ACTIVE"
         || resource.node_status != "ACTIVE"
         || resource.eligibility != "ELIGIBLE"
@@ -950,7 +950,7 @@ fn validate_trusted_receive_request(
     request: &ReceiveKnowledgeWikiDriveTrustedEventRequest,
 ) -> Result<(), KnowledgeWikiDriveEventConsumerError> {
     if request.scope.tenant_id == 0
-        || request.source_scope_uuid.trim().is_empty()
+        || is_blank(Some(&request.source_scope_uuid))
         || request.source_scope_uuid.len() > 160
         || request.payload_json.is_empty()
         || request.payload_json.len() > 65_536
@@ -1031,7 +1031,7 @@ fn validate_process_request(
     if request.scope.tenant_id == 0
         || request.checkpoint_id == 0
         || request.actor_id == 0
-        || request.worker_id.trim().is_empty()
+        || is_blank(Some(&request.worker_id))
         || request.worker_id.len() > 128
         || request.limit == 0
         || request.limit > MAX_EVENT_BATCH_SIZE

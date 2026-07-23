@@ -2,7 +2,7 @@
 
 Status: active  
 Owner: SDKWork maintainers  
-Updated: 2026-07-21<br>
+Updated: 2026-07-22<br>
 Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -13,7 +13,7 @@ Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 - [TECH-2026-06-11-sdkwork-structure-standardization-implementation.md](TECH-2026-06-11-sdkwork-structure-standardization-implementation.md)
 - [TECH-2026-06-19-okf-knowledge-bundle-design.md](TECH-2026-06-19-okf-knowledge-bundle-design.md)
 - [TECH-okf-knowledge-bundle.md](TECH-okf-knowledge-bundle.md)
-- [TECH-live-wiki-resource-provider.md](TECH-live-wiki-resource-provider.md) (proposed; human review required)
+- [TECH-live-wiki-resource-provider.md](TECH-live-wiki-resource-provider.md) (active)
 - [TECH-2026-06-01-knowledgebase-backend-design.md](TECH-2026-06-01-knowledgebase-backend-design.md)
 - [TECH-2026-06-01-knowledgebase-backend-phase1-implementation.md](TECH-2026-06-01-knowledgebase-backend-phase1-implementation.md)
 - [TECH-2026-06-09-knowledgebase-agent-rag-design.md](TECH-2026-06-09-knowledgebase-agent-rag-design.md)
@@ -37,7 +37,11 @@ SDKWork Knowledgebase is a Rust backend with a horizontally scalable application
 | Open API | `/knowledge/v3/api` | `sdkwork-knowledgebase-sdk` | API key |
 | Worker | — | — | internal |
 
-OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via `pnpm api:materialize`, and consumed by generated TypeScript SDKs.
+App, backend, and open API authority documents are maintained under their owning SDK family and
+materialized into `apis/` by `pnpm api:materialize`. The internal Wiki provider API is authored in
+`apis/internal-api/knowledgebase/`, mirrored into its SDK family by the canonical generation
+workflow, and consumed through generated TypeScript and Rust transports. The direction is explicit
+per surface; generated transports are never API authority.
 
 ## 2. Technology Choices
 
@@ -72,8 +76,9 @@ OpenAPI contracts are authored in `sdks/*/openapi/`, synchronized to `apis/` via
 - Media tasks consume the generated `clawrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
 - Wiki publication projects Drive nodes under the fixed `sources/raw` root into per-file source,
   publication, visibility, route, render, and index state. Eligible Markdown pages and static assets
-  resolve live through the typed Knowledgebase Wiki provider; ordinary content changes do not build
-  `kb_site_release`. Deploy owns Site/domain/Variant/TLS/runtime configuration and Web Server owns
+  resolve live through the typed Knowledgebase Wiki provider; ordinary content changes advance
+  live provider generations and create no immutable site artifact, Deploy Release, Deployment, or
+  SiteRevision. Deploy owns Site/domain/Variant/TLS/runtime configuration and Web Server owns
   public HTTP/TLS/cache execution. See
   [ADR-20260721-live-mounted-wiki-publication.md](../decisions/ADR-20260721-live-mounted-wiki-publication.md)
   and [TECH-live-wiki-resource-provider.md](TECH-live-wiki-resource-provider.md).

@@ -6,7 +6,7 @@
     "displayName": "SDKWork Knowledgebase Internal API Routes",
     "version": "0.1.0",
     "type": "rust-route-crate",
-    "root": ".",
+    "root": "sdkwork-knowledgebase/crates/sdkwork-routes-knowledgebase-internal-api",
     "domain": "knowledgebase",
     "capability": "wiki-public-provider",
     "languages": ["rust"],
@@ -24,6 +24,7 @@
     {"file": "SDK_WORKSPACE_GENERATION_SPEC.md", "path": "../../../sdkwork-specs/SDK_WORKSPACE_GENERATION_SPEC.md", "purpose": "Route-to-OpenAPI-to-SDK materialization rules."}
   ],
   "contracts": {
+    "layerRole": "backend-route",
     "publicExports": ["."],
     "runtimeEntrypoints": ["build_router_with_services", "gateway_mount", "internal_route_manifest"],
     "routeManifest": "sdks/_route-manifests/internal-api/sdkwork-routes-knowledgebase-internal-api.route-manifest.json",

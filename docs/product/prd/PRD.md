@@ -3,14 +3,14 @@
 Status: active
 Owner: SDKWork maintainers
 Application: sdkwork-knowledgebase
-Updated: 2026-07-21
+Updated: 2026-07-22
 Specs: REQUIREMENTS_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
 
 - [PRD-mvp-launch.md](PRD-mvp-launch.md) - MVP launch scope and acceptance criteria
 - [PRD-phase2-commercial-saas.md](PRD-phase2-commercial-saas.md) - Phase 2 multi-tenant commercial SaaS criteria
-- [PRD-live-wiki-publication.md](PRD-live-wiki-publication.md) - proposed live `sources/raw` Wiki,
+- [PRD-live-wiki-publication.md](PRD-live-wiki-publication.md) - active live `sources/raw` Wiki,
   per-file state, reader/author/admin experience, Deploy integration, quotas, and launch gates.
 
 ## 1. Background And Problem
@@ -135,7 +135,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - `docs/product/requirements/REQ-2026-0721-live-wiki-cloud-publication.md`
 - `docs/architecture/decisions/ADR-20260721-live-mounted-wiki-publication.md`
 - `specs/okf-knowledge-bundle.spec.json` - OKF bundle layers, browser views, and raw source file list contract
-- `specs/live-wiki-publication.spec.json` - proposed Wiki eligibility, state, provider, routing, and freshness contract
+- `specs/live-wiki-publication.spec.json` - active Wiki eligibility, state, provider, routing, and freshness contract
 - `../sdkwork-specs/SECURITY_SPEC.md`, `IAM_SPEC.md`, `APP_SDK_INTEGRATION_SPEC.md`
 - `deployments/README.md` - tenant isolation and observability
 
