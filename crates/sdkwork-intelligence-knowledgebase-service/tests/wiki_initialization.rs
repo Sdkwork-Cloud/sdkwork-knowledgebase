@@ -4,8 +4,9 @@ use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::{
     ports::{
         knowledge_wiki_drive_source::{
-            EnsureKnowledgebaseRawScopeRequest, KnowledgeWikiDriveScope,
-            KnowledgeWikiDriveSourceError, KnowledgebaseRawScope,
+            EnsureKnowledgebaseRawScopeRequest, KnowledgeWikiDriveEventDeliveryMode,
+            KnowledgeWikiDriveScope, KnowledgeWikiDriveSourceError, KnowledgebaseRawScope,
+            KnowledgebaseRawScopeEventDelivery, RenewKnowledgebaseRawScopeEventDeliveryRequest,
         },
         knowledge_wiki_persistence::*,
     },
@@ -48,6 +49,8 @@ async fn initialization_ensures_canonical_raw_scope_and_checkpoint() {
         Some("scope-drive-501")
     );
     assert_eq!(result.checkpoint.source_scope_uuid, "scope-drive-501");
+    assert_eq!(result.publication.wiki_status, WikiPublicationStatus::Ready);
+    assert_eq!(result.event_delivery.channel_id, "kbraw:scope-drive-501");
 }
 
 #[tokio::test]
@@ -200,6 +203,24 @@ impl WikiPublicationStore for MemoryWikiPersistence {
         value.version += 1;
         Ok(value.clone())
     }
+
+    async fn mark_publication_ready(
+        &self,
+        request: MarkWikiPublicationReadyRequest,
+    ) -> Result<WikiPublication, WikiPersistenceError> {
+        let mut publications = self.publications.lock().unwrap();
+        let value = publications
+            .values_mut()
+            .find(|publication| publication.id == request.site_publication_id)
+            .ok_or(WikiPersistenceError::NotFound {
+                resource: "wiki_publication",
+                id: request.site_publication_id,
+            })?;
+        assert_eq!(value.version, request.expected_version);
+        value.wiki_status = WikiPublicationStatus::Ready;
+        value.version += 1;
+        Ok(value.clone())
+    }
 }
 
 #[async_trait]
@@ -295,6 +316,18 @@ impl KnowledgeWikiDriveScope for FixedDriveScope {
         _subscription_uuid: &str,
     ) -> Result<KnowledgebaseRawScope, KnowledgeWikiDriveSourceError> {
         unimplemented!()
+    }
+
+    async fn renew_raw_scope_event_delivery(
+        &self,
+        request: RenewKnowledgebaseRawScopeEventDeliveryRequest,
+    ) -> Result<KnowledgebaseRawScopeEventDelivery, KnowledgeWikiDriveSourceError> {
+        Ok(KnowledgebaseRawScopeEventDelivery {
+            channel_id: format!("kbraw:{}", request.subscription_uuid),
+            subscription_uuid: request.subscription_uuid,
+            expiration_epoch_ms: Some(4_102_444_800_000),
+            mode: KnowledgeWikiDriveEventDeliveryMode::CloudWebhook,
+        })
     }
 }
 

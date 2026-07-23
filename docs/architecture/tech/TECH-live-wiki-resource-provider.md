@@ -2,7 +2,7 @@
 
 Status: accepted
 Owner: SDKWork Knowledgebase maintainers
-Updated: 2026-07-21
+Updated: 2026-07-23
 Requirement: REQ-2026-0721
 Decision: ADR-20260721-live-mounted-wiki-publication
 Machine contract: `specs/live-wiki-publication.spec.json`
@@ -66,21 +66,22 @@ requirements from being mistaken for current production claims:
 
 | Capability | Current status |
 | --- | --- |
-| PostgreSQL/SQLite Wiki schema, canonical publication initialization, and backfill | implemented |
+| PostgreSQL/SQLite Wiki schema, canonical publication initialization, and backfill | implemented; initialization binds `sources/raw`, provisions the checkpoint, verifies event delivery, and moves `DRAFT -> VALIDATING -> READY` before explicit activation |
 | Drive `sources/raw` event inbox/checkpoint, projection, and reconciliation | implemented |
+| Native source processing | implemented with bounded checkpoint/source pages, lease/fence claims, exact Drive pin/length/SHA-256/MIME validation, canonical routes, Markdown/MDX and safe HTML/text validation, retry, quarantine, and worker counters |
 | Active-publication, route/redirect, bounded content, navigation, and metadata-search provider service | implemented |
 | Ingress-token Internal API, route manifest, and generated TypeScript/Rust Internal SDK | implemented |
 | Read-through tenant/publication/page/public-version eligibility | implemented |
 | Explicit activate/pause and publish/republish/unpublish/visibility commands | implemented with Reader/Writer/Owner authorization, optimistic fences, generated App SDK, transactional outbox, and transactional audit |
 | Provider/route/navigation/search outbox production | implemented for applicable explicit publication and source-eligibility transitions with the owner AsyncAPI authority at `apis/async/knowledgebase/knowledgebase-wiki-events.asyncapi.json`; source-driven public revocation advances route, navigation, and search state in one transaction |
-| Automatic/scheduled publication execution | not implemented |
+| Automatic/scheduled publication execution | `AUTO_PUBLIC_AFTER_CHECKS` implemented through the existing version-fenced publish command and tenant-local service actor; scheduled execution not implemented |
 | Large-object Range/streaming provider API | not implemented; current exact-version read is buffered and capped at 16 MiB |
 | Rendition-backed full-text search | not implemented; current search covers title, canonical route, and source path metadata |
-| Complete sanitizer/renderer/multi-format rendition chain | not implemented |
+| Sanitizer/renderer and multi-format rendition chain | native Markdown/MDX, HTML, and text pages produce bounded sanitized HTML; isolated PDF/Office/presentation/spreadsheet/media processors and Drive-backed rendition upload are not implemented |
 | Web Server runtime-set delivery executor/provider registry | implemented with bounded descriptor compilation, atomic activation/rollback, handler-specific provider validation before activation, and public HTTP mapping for STATIC/explicit SPA fallback/WIKI |
 | Web Server generated-SDK `KNOWLEDGEBASE_WIKI` adapter | implemented and registered by website data-plane bootstrap with explicit Internal API endpoint/token-file configuration, fixed single-tenant credential scope, initial and hot-update provider validation, and browser-facing adapter tests |
 | Web Server provider-event consumer | implemented with authenticated loopback ingress, durable dual-slot checkpoints, duplicate/order/gap fencing, generated-SDK reconciliation, bounded cross-stream concurrency, and route-scoped cacheless invalidation |
-| Deploy-to-Web-to-Knowledgebase public E2E and commercial launch evidence | not implemented against real deployed Deploy/Knowledgebase services; in-process descriptor-to-browser adapter coverage exists |
+| Deploy-to-Web-to-Knowledgebase public E2E and commercial launch evidence | focused cross-repository contract implemented with real Deploy compiler output, Web activation/device routing, Knowledgebase adapter/fake generated-SDK execution, private failure closure, and revision-free live update; real deployed services, TLS, load, and commercial launch evidence remain open |
 
 Accordingly, the implemented provider is a bounded, production-shaped read contract, not a claim
 that the integrated public Wiki product is ready for launch.
@@ -232,6 +233,7 @@ zero presence and does not define a transform, compatibility view, dual read, or
 ```mermaid
 stateDiagram-v2
   [*] --> Discovered
+  Discovered --> Processing: bounded claim
   Discovered --> Queued
   Queued --> Processing
   Processing --> Ready: scan/parse/route/render checks pass
@@ -268,6 +270,16 @@ Processing steps:
 Workers use durable leases/fencing, bounded batches/concurrency/deadlines, idempotency, retry with
 jitter, dead-letter/problem state, and checkpoint reconciliation. No step holds whole large source
 trees in memory.
+
+The current executable native path is deliberately narrower than the complete processor registry
+above. After applying a Drive event page, the same worker tick claims a bounded source page,
+resolves the exact pinned Drive version, validates root scope/path/node/version/MIME/length/SHA-256,
+reads at most 16 MiB for native pages, validates a sanitized representation bounded to 32 MiB,
+derives the canonical route, and completes `READY` under the lease/fence. Failures store fixed
+bounded error metadata and release the lease for retry; maximum attempts move the source to
+`QUARANTINED`. Active JavaScript, SVG, and WebAssembly are blocked before public eligibility.
+Auto-public reloads the current publication and invokes the normal optimistic publish command;
+review-required/private policy stops at `READY`, and publication conflicts remain reclaimable.
 
 ## 5. Publication State Transitions
 
@@ -552,9 +564,11 @@ The implemented Internal API authority currently contains exactly six operations
 | `wikiPublications.pages.search` | `GET /internal/v3/api/knowledgebase/wiki_publications/{publicationUuid}/pages/search` |
 
 Content retrieval validates the opaque handle, current page public version, exact pinned Drive
-version, byte length, and SHA-256 before returning a body. It is currently capped at 16 MiB and does
-not implement HTTP Range or streaming. Search is cursor-paginated in the repository and applies
-public eligibility filters, but it is metadata search rather than rendition-backed full-text search.
+version, source byte length/SHA-256, and the selected representation media type/byte length/SHA-256
+before returning a body. Native pages return sanitized `text/html; charset=utf-8`; passive assets
+retain their approved source representation. Source reads are currently capped at 16 MiB and do not
+implement HTTP Range or streaming. Search is cursor-paginated in the repository and applies public
+eligibility filters, but it is metadata search rather than rendition-backed full-text search.
 
 ## 11. UI Package Boundaries
 
@@ -631,9 +645,9 @@ aggregates reconcile before commercial GA.
 2. Keep the accepted requirement, ADR, database, API, state, and permission vocabulary authoritative.
 3. Maintain the implemented dual-engine Wiki schema, canonical DRAFT/private provisioning, and
    idempotent backfill as one contract.
-4. Maintain the implemented Drive event projection, explicit publication lifecycle, all five
-   public-state output event families, and bounded typed public provider; complete automatic and
-   scheduled execution, renderer, and rendition search.
+4. Maintain the implemented Drive event projection, native source processor, explicit lifecycle,
+   automatic publication, all five public-state output event families, and bounded typed public
+   provider; complete scheduled execution, isolated multi-format renditions, and rendition search.
 5. Keep Knowledgebase Internal SDK generation idempotent from the owner OpenAPI and consume the
    generated SDK through injected service adapters and UI facades.
 6. Maintain the implemented Web Server WIKI registry/bootstrap/public-listener, isolated node-local

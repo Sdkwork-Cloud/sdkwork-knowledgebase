@@ -1,9 +1,9 @@
 # SDKWork Knowledgebase Live Wiki Publication PRD
 
-Status: approved for implementation
+Status: implementation active; production evidence blocked
 Owner: SDKWork Knowledgebase maintainers
 Application: sdkwork-knowledgebase
-Updated: 2026-07-21
+Updated: 2026-07-23
 Requirement: REQ-2026-0721
 Parent: [PRD.md](PRD.md)
 Machine contract: `specs/live-wiki-publication.spec.json`
@@ -16,7 +16,8 @@ MIGRATION_SPEC.md, RELEASE_SPEC.md, MEDIA_RESOURCE_SPEC.md, SUPPLY_CHAIN_SECURIT
 
 Make every Knowledgebase Wiki-capable through one canonical, Knowledgebase-owned
 `WikiPublication` whose fixed source root is the Drive directory `sources/raw`. The publication is
-created in `DRAFT`/`PRIVATE` state and does not make content public. Authors upload Wiki pages,
+provisioned in `DRAFT`/`PRIVATE`, then initialization binds and verifies the root/checkpoint/event
+delivery before converging to `READY`; none of these states makes content public. Authors upload Wiki pages,
 documents, presentations, spreadsheets,
 source code, media, archives, and website assets through Drive, manage each file's processing,
 publication, visibility, index, route, and public-version state in Knowledgebase, and make eligible
@@ -27,6 +28,24 @@ active Deploy `KNOWLEDGEBASE_WIKI` resource, WIKI Mount, verified Binding, and a
 `SiteRevision`. `sources/raw` is the only eligible public source tree; it is not an unconditional
 public ACL for every file. Standalone and cloud traffic both enter through Web Server's compiled
 descriptor and WIKI handler; Knowledgebase owns no anonymous fixed public route.
+
+### 1.1 Current Delivery Boundary
+
+The canonical initialization, Drive event projection, native source processor, explicit and
+automatic publication commands, bounded safe HTML representation, generated Internal SDK provider,
+and Web Server WIKI adapter are implemented and covered by focused executable tests. Native means
+Markdown/MDX, sanitized HTML, escaped text pages, and passive assets within the current bounded
+reader contract. Scheduled publication, isolated multi-format conversion and Drive-backed
+renditions, large-object Range/streaming, rendition full-text search, complete user/admin workflows,
+managed TLS evidence, and a deployed Deploy-to-Web end-to-end freshness/load certification remain
+release blockers. The product must not be described as commercially or production ready while
+those gates remain open.
+
+A focused cross-repository contract test now uses real Deploy compiler output, Web activation and
+device routing, and the Knowledgebase provider/fake generated-SDK boundary. It proves public Wiki
+delivery, private/unpublished failure closure, and live content refresh without a new Deploy
+Release, Deployment, SiteRevision, runtime generation, or snapshot. This is implementation evidence,
+not deployed SLO or launch evidence.
 
 ## 2. Problem
 
@@ -464,7 +483,8 @@ use a processor-class asynchronous SLO and never inherit the native realtime cla
 ## 17. Acceptance Criteria
 
 - Only active Wiki publications rooted at `sources/raw` validate as `KNOWLEDGEBASE_WIKI` resources.
-- Every Knowledgebase has exactly one canonical WikiPublication initialized DRAFT/PRIVATE and
+- Every Knowledgebase has exactly one canonical WikiPublication provisioned DRAFT/PRIVATE,
+  initialized through bound `sources/raw` checkpoint/event-delivery verification to READY, and
   transitioned with the Knowledgebase lifecycle;
   idempotent provisioning/backfill, archive/delete, retry, and concurrency tests pass.
 - One canonical WikiPublication can be reused by multiple authorized Deploy Sites/Variants/Mounts;

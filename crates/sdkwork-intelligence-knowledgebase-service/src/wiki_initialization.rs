@@ -1,12 +1,13 @@
 use crate::ports::{
     knowledge_wiki_drive_source::{
         EnsureKnowledgebaseRawScopeRequest, KnowledgeWikiDriveScope, KnowledgeWikiDriveSourceError,
-        KnowledgebaseRawScope, KNOWLEDGEBASE_RAW_CONSUMER_KIND,
+        KnowledgebaseRawScope, KnowledgebaseRawScopeEventDelivery,
+        RenewKnowledgebaseRawScopeEventDeliveryRequest, KNOWLEDGEBASE_RAW_CONSUMER_KIND,
     },
     knowledge_wiki_persistence::{
-        BindWikiSourceScopeRequest, ProvisionWikiDriveCheckpointRequest, WikiDriveCheckpoint,
-        WikiDriveCheckpointStore, WikiPersistenceError, WikiPersistenceScope, WikiPublication,
-        WikiPublicationStore,
+        BindWikiSourceScopeRequest, MarkWikiPublicationReadyRequest,
+        ProvisionWikiDriveCheckpointRequest, WikiDriveCheckpoint, WikiDriveCheckpointStore,
+        WikiPersistenceError, WikiPersistenceScope, WikiPublication, WikiPublicationStore,
     },
 };
 use sdkwork_utils_rust::is_blank;
@@ -28,6 +29,7 @@ pub struct KnowledgeWikiInitializationResult {
     pub publication: WikiPublication,
     pub source_scope: KnowledgebaseRawScope,
     pub checkpoint: WikiDriveCheckpoint,
+    pub event_delivery: KnowledgebaseRawScopeEventDelivery,
 }
 
 pub struct KnowledgeWikiInitializationService<'a> {
@@ -100,13 +102,44 @@ impl<'a> KnowledgeWikiInitializationService<'a> {
                 actor_id: request.actor_id,
             })
             .await?;
+        let event_delivery = self
+            .drive_scope
+            .renew_raw_scope_event_delivery(RenewKnowledgebaseRawScopeEventDeliveryRequest {
+                subscription_uuid: source_scope.subscription_uuid.clone(),
+            })
+            .await?;
+        validate_event_delivery(&source_scope, &event_delivery)?;
+        let publication = self
+            .publication_store
+            .mark_publication_ready(MarkWikiPublicationReadyRequest {
+                scope: request.scope,
+                site_publication_id: publication.id,
+                expected_version: publication.version,
+                actor_id: request.actor_id,
+            })
+            .await?;
 
         Ok(KnowledgeWikiInitializationResult {
             publication,
             source_scope,
             checkpoint,
+            event_delivery,
         })
     }
+}
+
+fn validate_event_delivery(
+    source_scope: &KnowledgebaseRawScope,
+    delivery: &KnowledgebaseRawScopeEventDelivery,
+) -> Result<(), KnowledgeWikiInitializationError> {
+    if delivery.subscription_uuid != source_scope.subscription_uuid
+        || is_blank(Some(&delivery.channel_id))
+    {
+        return Err(KnowledgeWikiInitializationError::IdentityConflict(
+            "Drive event delivery does not match the canonical Knowledgebase raw scope".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_request(

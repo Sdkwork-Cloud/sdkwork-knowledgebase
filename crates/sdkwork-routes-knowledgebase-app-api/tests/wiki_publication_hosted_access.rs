@@ -196,9 +196,9 @@ async fn grant_role(runtime: &KnowledgebaseRuntime, space_id: u64, actor_id: u64
 }
 
 async fn prepare_publication_for_activation(runtime: &KnowledgebaseRuntime, space_id: u64) -> u64 {
-    let row: (Option<String>, Option<String>, i64) = sqlx::query_as(
+    let row: (Option<String>, Option<String>, String, i64) = sqlx::query_as(
         r#"
-        SELECT source_root_node_uuid, source_scope_uuid, version
+        SELECT source_root_node_uuid, source_scope_uuid, wiki_status, version
         FROM kb_site_publication
         WHERE tenant_id = $1 AND organization_id = 0 AND space_id = $2 AND status = 1
         "#,
@@ -210,21 +210,8 @@ async fn prepare_publication_for_activation(runtime: &KnowledgebaseRuntime, spac
     .expect("Wiki publication initialized with knowledge space");
     assert!(row.0.as_deref().is_some_and(|value| !value.is_empty()));
     assert!(row.1.as_deref().is_some_and(|value| !value.is_empty()));
-
-    sqlx::query(
-        r#"
-        UPDATE kb_site_publication
-        SET wiki_status = 'READY'
-        WHERE tenant_id = $1 AND organization_id = 0 AND space_id = $2 AND version = $3
-        "#,
-    )
-    .bind(i64::try_from(TENANT_ID).unwrap())
-    .bind(i64::try_from(space_id).unwrap())
-    .bind(row.2)
-    .execute(runtime.pool())
-    .await
-    .expect("prepare Wiki publication status");
-    u64::try_from(row.2).unwrap()
+    assert_eq!(row.2, "READY");
+    u64::try_from(row.3).unwrap()
 }
 
 async fn assert_status(

@@ -3,7 +3,7 @@
 Status: active  
 Application: sdkwork-knowledgebase  
 Topology: `cloud.production`<br>
-Updated: 2026-07-21
+Updated: 2026-07-23
 
 ## Purpose
 
@@ -19,6 +19,7 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
    - Drive event signing master secret (`sdkwork-knowledgebase-drive-events/current`)
    - Database-backed Snowflake node lease identity for every ingress/worker replica
    - No static `SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID` unless an emergency change record explicitly enables the override
+   - A dedicated tenant-local service actor matching `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID`; it must not be a human administrator account
 2. Apply topology from `etc/topology/cloud.production.env`.
 3. Ensure public ingress exposes the app/backend/open paths and the single protected Drive callback at `/internal/v3/api/knowledgebase/drive_events`. The callback requires both application ingress authentication and the Drive signature contract and must not be re-exported by `platform.api-gateway`. **Do not expose `/metrics` on ingress**; Prometheus scrapes in-cluster via ServiceMonitor.
 4. Run repository gates:
@@ -72,7 +73,8 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
    SDKWORK_KNOWLEDGEBASE_SMOKE_API_KEY=... \
    pnpm test:launch-readiness
    ```
-6. Confirm worker `/readyz` returns 200 and queued ingestion jobs drain after a test ingest.
+6. Confirm worker `/readyz` returns 200, queued ingestion jobs drain, and Wiki source counters do
+   not show a growing retry/quarantine backlog after a test ingest.
 
 ## Drive event delivery and signing-secret rotation
 
@@ -104,9 +106,12 @@ workflow; do not place them in shell history, manifests, tickets, or logs.
 7. Remove `SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_PREVIOUS_SIGNING_SECRET_FILE` from both Deployments,
    roll the app API and worker, then remove the `previous` Secret key. A missing file must never be
    referenced by the environment.
-8. Upload or delete one file under a Wiki `sources/raw` root and verify: Drive outbox status is
-   delivered, the Knowledgebase inbox event is applied, its checkpoint advances, and public Wiki
-   state changes without creating a Release or Deployment.
+8. Upload a Markdown file under a Wiki `sources/raw` root and verify: Drive outbox status is
+   delivered, the Knowledgebase inbox event is applied, its checkpoint advances, the source moves
+   `DISCOVERED -> PROCESSING -> READY`, and an auto-public Wiki moves the page to `PUBLISHED`.
+   Resolve the public route and verify the response is sanitized `text/html; charset=utf-8` pinned
+   to the uploaded Drive version. Delete the same file and verify the public route is revoked
+   immediately. Neither operation may create a Deploy Release, Deployment, or SiteRevision.
 
 Rollback before step 7 by restoring the old secret as `current`, retaining the new value as
 `previous`, rolling both Deployments, and renewing all pages again. After step 7, use the same

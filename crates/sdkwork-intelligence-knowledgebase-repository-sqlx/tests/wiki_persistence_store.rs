@@ -11,8 +11,9 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistenc
     ClaimWikiSourceProcessingRequest, CompleteWikiDriveEventRequest,
     CompleteWikiReconciliationRequest, CompleteWikiRenditionRequest,
     CompleteWikiSourceProcessingRequest, ListWikiDriveCheckpointsRequest,
-    ListWikiPublicationBackfillCandidatesRequest, ProvisionWikiDriveCheckpointRequest,
-    ProvisionWikiPublicationRequest, ReceiveWikiDriveEventRequest, RetryWikiDriveEventRequest,
+    ListWikiPublicationBackfillCandidatesRequest, MarkWikiPublicationReadyRequest,
+    ProvisionWikiDriveCheckpointRequest, ProvisionWikiPublicationRequest,
+    ReceiveWikiDriveEventRequest, RetryWikiDriveEventRequest, RetryWikiSourceProcessingRequest,
     UpsertWikiRenditionRequest, UpsertWikiSourceProjectionRequest, WikiDriveCheckpointStore,
     WikiDriveEventInboxStore, WikiDriveEventProcessingState, WikiDriveEventReceiveDisposition,
     WikiDriveEventType, WikiDriveProjectionMutation, WikiDriveSourceMetadata, WikiDriveStreamState,
@@ -85,6 +86,16 @@ async fn publication_and_checkpoint_provisioning_are_idempotent_scoped_and_optim
         .await
         .expect("replay checkpoint provisioning");
     assert_eq!(checkpoint_replay.id, checkpoint.id);
+    let ready = store
+        .mark_publication_ready(MarkWikiPublicationReadyRequest {
+            scope: SCOPE,
+            site_publication_id: bound.id,
+            expected_version: bound.version,
+            actor_id: 9001,
+        })
+        .await
+        .expect("mark fully initialized publication ready");
+    assert_eq!(ready.wiki_status, WikiPublicationStatus::Ready);
 
     let wrong_scope = WikiPersistenceScope {
         tenant_id: SCOPE.tenant_id,
@@ -352,6 +363,7 @@ async fn stable_drive_node_upsert_preserves_identity_and_fences_processing() {
     let completed = store
         .complete_source_processing(CompleteWikiSourceProcessingRequest {
             scope: SCOPE,
+            site_publication_id: publication.id,
             projection_id: claimed[0].id,
             lease_token,
             processing_fence: claimed[0].processing_fence,
@@ -481,6 +493,37 @@ async fn stable_drive_node_upsert_preserves_identity_and_fences_processing() {
     .await
     .expect("resolve pinned public snapshot while next version processes");
     assert_eq!(public_lookup_count, 1);
+
+    let retried_claim = store
+        .claim_source_processing(ClaimWikiSourceProcessingRequest {
+            scope: SCOPE,
+            site_publication_id: publication.id,
+            claim_owner: "wiki-worker-2".to_string(),
+            lease_seconds: 60,
+            after_id: None,
+            limit: 10,
+        })
+        .await
+        .expect("claim next source version");
+    assert_eq!(retried_claim.len(), 1);
+    let quarantined = store
+        .retry_source_processing(RetryWikiSourceProcessingRequest {
+            scope: SCOPE,
+            projection_id: retried_claim[0].id,
+            lease_token: retried_claim[0]
+                .processing_lease_token
+                .clone()
+                .expect("source retry lease token"),
+            processing_fence: retried_claim[0].processing_fence,
+            error_code: "wiki_source_rendering_failed".to_string(),
+            error_summary: "Wiki source processing failed".to_string(),
+            retry_delay_seconds: 30,
+            max_attempts: 1,
+            actor_id: 9001,
+        })
+        .await
+        .expect("quarantine exhausted source processing");
+    assert_eq!(quarantined.source_state, WikiSourceState::Quarantined);
 }
 
 #[tokio::test]

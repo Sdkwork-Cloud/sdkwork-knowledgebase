@@ -36,10 +36,12 @@ MEDIA_RESOURCE_SPEC.md, SUPPLY_CHAIN_SECURITY_SPEC.md
 
 ## Requirements
 
-1. Every Knowledgebase shall own exactly one canonical `WikiPublication`, initialized with
+1. Every Knowledgebase shall own exactly one canonical `WikiPublication`, provisioned with
    `publicationType=wiki`, `wikiStatus=DRAFT`, `publicationMode=REVIEW_REQUIRED`, and
-   `defaultVisibility=PRIVATE`. Only `wikiStatus=ACTIVE` with fixed Drive root `sources/raw` can
-   validate as publicly eligible `KNOWLEDGEBASE_WIKI`.
+   `defaultVisibility=PRIVATE`. Initialization shall bind the fixed Drive root `sources/raw`,
+   provision its checkpoint, verify event delivery, and converge through `VALIDATING` to `READY`.
+   Only an explicit version-fenced transition to `ACTIVE` can validate as publicly eligible
+   `KNOWLEDGEBASE_WIKI`.
 2. Uploads use Drive app SDK/uploader and Knowledgebase stores stable Space/node/version references,
    never object keys or presigned URLs.
 3. Maintain per-file source, publication, visibility, and index state with permissioned optimistic
@@ -123,6 +125,30 @@ MEDIA_RESOURCE_SPEC.md, SUPPLY_CHAIN_SECURITY_SPEC.md
 27. Keep implementation status blocked until the linked integration-readiness review closes every
     P0 finding. Ingestion success, private preview, a proposed contract, or a planned certificate
     renewal must not be represented as public/realtime publication success.
+
+## Implemented Evidence (2026-07-23)
+
+- Knowledgebase creation now performs the complete bounded initialization chain: canonical
+  publication, `sources/raw` scope, immutable binding, Drive checkpoint, event-delivery
+  registration/verification, then `READY`. Activation no longer depends on test or operator SQL.
+- The worker applies Drive events and then claims the same bounded checkpoint page's source
+  projections with lease/fence protection. Native Markdown/MDX, sanitized HTML, and escaped text
+  pages derive canonical routes and become `READY`; JavaScript, SVG, WebAssembly, pin mismatches,
+  and exhausted failures remain non-public and become retryable errors or `QUARANTINED`.
+- `AUTO_PUBLIC_AFTER_CHECKS` now invokes the same optimistic page publish command with a configured
+  tenant-local service actor. Review-required and private-default publications remain `READY` but
+  unpublished, and an optimistic auto-publish conflict is reclaimable without another Drive event.
+- Public native pages are materialized as sanitized `text/html; charset=utf-8`; opaque handles bind
+  the exact rendered SHA-256, byte length, media type, public page version, and Drive version, all
+  of which are revalidated on content open.
+- A focused cross-repository contract compiles a real Deploy Site/runtime set, activates it in Web,
+  executes desktop/mobile Wiki routes through the Knowledgebase adapter/fake generated-SDK
+  boundary, fails private/unpublished routes closed, and observes updated content with the same
+  SiteRevision, runtime generation, and snapshot hash.
+- These closures do not complete isolated PDF/Office/presentation/spreadsheet/media conversion,
+  Drive-backed rendition upload, large-object streaming/Range, rendition full-text search,
+  Deploy-to-Web deployed-service E2E/SLO evidence, managed TLS/ACME evidence, or user/admin UI
+  workflows.
 
 ## Acceptance Criteria
 

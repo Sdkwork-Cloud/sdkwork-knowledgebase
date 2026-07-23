@@ -330,6 +330,14 @@ pub struct BindWikiSourceScopeRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MarkWikiPublicationReadyRequest {
+    pub scope: WikiPersistenceScope,
+    pub site_publication_id: u64,
+    pub expected_version: u64,
+    pub actor_id: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpsertWikiSourceProjectionRequest {
     pub scope: WikiPersistenceScope,
     pub site_publication_id: u64,
@@ -374,11 +382,25 @@ pub struct ClaimWikiSourceProcessingRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompleteWikiSourceProcessingRequest {
     pub scope: WikiPersistenceScope,
+    pub site_publication_id: u64,
     pub projection_id: u64,
     pub lease_token: String,
     pub processing_fence: u64,
     pub canonical_route: String,
     pub index_state: WikiIndexState,
+    pub actor_id: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RetryWikiSourceProcessingRequest {
+    pub scope: WikiPersistenceScope,
+    pub projection_id: u64,
+    pub lease_token: String,
+    pub processing_fence: u64,
+    pub error_code: String,
+    pub error_summary: String,
+    pub retry_delay_seconds: u64,
+    pub max_attempts: u32,
     pub actor_id: u64,
 }
 
@@ -590,6 +612,11 @@ pub trait WikiPublicationStore: Send + Sync {
         &self,
         request: BindWikiSourceScopeRequest,
     ) -> Result<WikiPublication, WikiPersistenceError>;
+
+    async fn mark_publication_ready(
+        &self,
+        request: MarkWikiPublicationReadyRequest,
+    ) -> Result<WikiPublication, WikiPersistenceError>;
 }
 
 #[async_trait]
@@ -614,6 +641,11 @@ pub trait WikiSourceProjectionStore: Send + Sync {
     async fn complete_source_processing(
         &self,
         request: CompleteWikiSourceProcessingRequest,
+    ) -> Result<WikiSourceProjection, WikiPersistenceError>;
+
+    async fn retry_source_processing(
+        &self,
+        request: RetryWikiSourceProcessingRequest,
     ) -> Result<WikiSourceProjection, WikiPersistenceError>;
 }
 

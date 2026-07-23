@@ -210,6 +210,26 @@ fn resolve_wiki_drive_event_config(tenant_id: u64) -> WikiDriveEventMaintenanceC
             20,
             100,
         ),
+        source_batch_size: bounded_u32_env(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_BATCH_SIZE",
+            10,
+            100,
+        ),
+        source_lease_seconds: bounded_u64_env(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_LEASE_SECONDS",
+            120,
+            3_600,
+        ),
+        source_retry_delay_seconds: bounded_u64_env(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_RETRY_DELAY_SECONDS",
+            30,
+            86_400,
+        ),
+        source_max_attempts: bounded_u32_env(
+            "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_MAX_ATTEMPTS",
+            10,
+            100,
+        ),
         delivery_renewal_page_size: bounded_u32_env(
             "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_DELIVERY_RENEWAL_PAGE_SIZE",
             50,
@@ -263,13 +283,17 @@ mod tests {
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
-    const WIKI_EVENT_ENV_KEYS: [&str; 6] = [
+    const WIKI_EVENT_ENV_KEYS: [&str; 10] = [
         "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID",
         "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_CHECKPOINT_PAGE_SIZE",
         "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_BATCH_SIZE",
         "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_LEASE_SECONDS",
         "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_RETRY_DELAY_SECONDS",
         "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_MAX_ATTEMPTS",
+        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_BATCH_SIZE",
+        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_LEASE_SECONDS",
+        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_RETRY_DELAY_SECONDS",
+        "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_MAX_ATTEMPTS",
     ];
 
     #[test]
@@ -344,6 +368,10 @@ mod tests {
         assert_eq!(config.lease_seconds, 120);
         assert_eq!(config.retry_delay_seconds, 30);
         assert_eq!(config.max_attempts, 20);
+        assert_eq!(config.source_batch_size, 10);
+        assert_eq!(config.source_lease_seconds, 120);
+        assert_eq!(config.source_retry_delay_seconds, 30);
+        assert_eq!(config.source_max_attempts, 10);
 
         clear_wiki_event_env();
         std::env::remove_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID");
@@ -370,6 +398,10 @@ mod tests {
             ),
             (
                 "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_MAX_ATTEMPTS",
+                "101",
+            ),
+            (
+                "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_BATCH_SIZE",
                 "101",
             ),
         ] {

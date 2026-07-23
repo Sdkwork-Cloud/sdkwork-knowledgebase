@@ -8,6 +8,10 @@ use sdkwork_intelligence_knowledgebase_service::{
     wiki_event_consumer::{
         KnowledgeWikiDriveCheckpointPageResult, ProcessKnowledgeWikiDriveCheckpointPageRequest,
     },
+    wiki_source_processor::{
+        KnowledgeWikiSourceCheckpointPageResult,
+        ProcessKnowledgeWikiSourceCheckpointPageRequest,
+    },
 };
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 
@@ -31,6 +35,10 @@ pub struct WikiDriveEventMaintenanceConfig {
     pub lease_seconds: u64,
     pub retry_delay_seconds: u64,
     pub max_attempts: u32,
+    pub source_batch_size: u32,
+    pub source_lease_seconds: u64,
+    pub source_retry_delay_seconds: u64,
+    pub source_max_attempts: u32,
     pub delivery_renewal_page_size: u32,
 }
 
@@ -79,6 +87,12 @@ pub struct MaintenanceTickResult {
     pub wiki_drive_events_retried: usize,
     pub wiki_drive_events_dead_lettered: usize,
     pub wiki_drive_public_changes: usize,
+    pub wiki_sources_claimed: usize,
+    pub wiki_sources_ready: usize,
+    pub wiki_sources_auto_published: usize,
+    pub wiki_sources_retried: usize,
+    pub wiki_sources_quarantined: usize,
+    pub wiki_auto_publications_deferred: usize,
     pub wiki_drive_next_after_checkpoint_id: Option<u64>,
     pub wiki_drive_event_deliveries_renewed: usize,
     pub wiki_drive_event_delivery_relays_verified: usize,
@@ -96,6 +110,8 @@ pub enum MaintenanceTickError {
     WikiBackfill(String),
     #[error("Wiki Drive event batch failed: {0}")]
     WikiDriveEvents(String),
+    #[error("Wiki source processing batch failed: {0}")]
+    WikiSourceProcessing(String),
 }
 
 pub async fn run_maintenance_tick(
@@ -132,6 +148,13 @@ pub async fn run_maintenance_tick(
         .await
         .map_err(MaintenanceTickError::WikiDriveEvents)?;
     let wiki_drive_result = run_wiki_drive_event_maintenance(
+        runtime,
+        &config.worker_id,
+        config.wiki_drive_events,
+        state.wiki_checkpoint_cursor,
+    )
+    .await?;
+    let wiki_source_result = run_wiki_source_maintenance(
         runtime,
         &config.worker_id,
         config.wiki_drive_events,
@@ -191,6 +214,12 @@ pub async fn run_maintenance_tick(
         wiki_drive_events_retried: wiki_drive_result.events.retried,
         wiki_drive_events_dead_lettered: wiki_drive_result.events.dead_lettered,
         wiki_drive_public_changes: wiki_drive_result.events.public_changes,
+        wiki_sources_claimed: wiki_source_result.sources_claimed,
+        wiki_sources_ready: wiki_source_result.sources_ready,
+        wiki_sources_auto_published: wiki_source_result.sources_auto_published,
+        wiki_sources_retried: wiki_source_result.sources_retried,
+        wiki_sources_quarantined: wiki_source_result.sources_quarantined,
+        wiki_auto_publications_deferred: wiki_source_result.auto_publications_deferred,
         wiki_drive_next_after_checkpoint_id: wiki_drive_result.next_after_checkpoint_id,
         wiki_drive_event_deliveries_renewed: wiki_delivery_result.cloud_deliveries_renewed,
         wiki_drive_event_delivery_relays_verified: wiki_delivery_result.embedded_relays_verified,
@@ -218,6 +247,14 @@ async fn run_wiki_drive_event_maintenance(
         || config.retry_delay_seconds > 86_400
         || config.max_attempts == 0
         || config.max_attempts > 100
+        || config.source_batch_size == 0
+        || config.source_batch_size > 100
+        || config.source_lease_seconds == 0
+        || config.source_lease_seconds > 3_600
+        || config.source_retry_delay_seconds == 0
+        || config.source_retry_delay_seconds > 86_400
+        || config.source_max_attempts == 0
+        || config.source_max_attempts > 100
         || config.delivery_renewal_page_size == 0
         || config.delivery_renewal_page_size > 200
     {
@@ -242,6 +279,31 @@ async fn run_wiki_drive_event_maintenance(
         })
         .await
         .map_err(MaintenanceTickError::WikiDriveEvents)
+}
+
+async fn run_wiki_source_maintenance(
+    runtime: &KnowledgebaseRuntime,
+    worker_id: &str,
+    config: WikiDriveEventMaintenanceConfig,
+    after_checkpoint_id: Option<u64>,
+) -> Result<KnowledgeWikiSourceCheckpointPageResult, MaintenanceTickError> {
+    runtime
+        .process_wiki_source_checkpoint_page(ProcessKnowledgeWikiSourceCheckpointPageRequest {
+            scope: WikiPersistenceScope {
+                tenant_id: config.tenant_id,
+                organization_id: config.organization_id,
+            },
+            after_checkpoint_id,
+            worker_id: worker_id.to_string(),
+            actor_id: config.actor_id,
+            lease_seconds: config.source_lease_seconds,
+            checkpoint_limit: config.checkpoint_page_size,
+            source_limit_per_checkpoint: config.source_batch_size,
+            retry_delay_seconds: config.source_retry_delay_seconds,
+            max_attempts: config.source_max_attempts,
+        })
+        .await
+        .map_err(MaintenanceTickError::WikiSourceProcessing)
 }
 
 async fn run_wiki_backfill_compensation(
@@ -336,6 +398,12 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                             || result.wiki_drive_events_retried > 0
                             || result.wiki_drive_events_dead_lettered > 0
                             || result.wiki_drive_public_changes > 0
+                            || result.wiki_sources_claimed > 0
+                            || result.wiki_sources_ready > 0
+                            || result.wiki_sources_auto_published > 0
+                            || result.wiki_sources_retried > 0
+                            || result.wiki_sources_quarantined > 0
+                            || result.wiki_auto_publications_deferred > 0
                             || result.wiki_drive_event_deliveries_renewed > 0
                             || result.wiki_drive_event_delivery_relays_verified > 0
                             || result.wiki_drive_event_delivery_failures > 0
@@ -358,6 +426,12 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                                 wiki_drive_events_retried = result.wiki_drive_events_retried,
                                 wiki_drive_events_dead_lettered = result.wiki_drive_events_dead_lettered,
                                 wiki_drive_public_changes = result.wiki_drive_public_changes,
+                                wiki_sources_claimed = result.wiki_sources_claimed,
+                                wiki_sources_ready = result.wiki_sources_ready,
+                                wiki_sources_auto_published = result.wiki_sources_auto_published,
+                                wiki_sources_retried = result.wiki_sources_retried,
+                                wiki_sources_quarantined = result.wiki_sources_quarantined,
+                                wiki_auto_publications_deferred = result.wiki_auto_publications_deferred,
                                 wiki_drive_event_deliveries_renewed = result.wiki_drive_event_deliveries_renewed,
                                 wiki_drive_event_delivery_relays_verified = result.wiki_drive_event_delivery_relays_verified,
                                 wiki_drive_event_delivery_failures = result.wiki_drive_event_delivery_failures,
@@ -405,6 +479,12 @@ mod tests {
             wiki_drive_events_retried: 1,
             wiki_drive_events_dead_lettered: 0,
             wiki_drive_public_changes: 2,
+            wiki_sources_claimed: 5,
+            wiki_sources_ready: 4,
+            wiki_sources_auto_published: 3,
+            wiki_sources_retried: 1,
+            wiki_sources_quarantined: 1,
+            wiki_auto_publications_deferred: 1,
             wiki_drive_next_after_checkpoint_id: Some(9),
             wiki_drive_event_deliveries_renewed: 1,
             wiki_drive_event_delivery_relays_verified: 0,
@@ -428,6 +508,12 @@ mod tests {
         assert_eq!(result.wiki_drive_events_retried, 1);
         assert_eq!(result.wiki_drive_events_dead_lettered, 0);
         assert_eq!(result.wiki_drive_public_changes, 2);
+        assert_eq!(result.wiki_sources_claimed, 5);
+        assert_eq!(result.wiki_sources_ready, 4);
+        assert_eq!(result.wiki_sources_auto_published, 3);
+        assert_eq!(result.wiki_sources_retried, 1);
+        assert_eq!(result.wiki_sources_quarantined, 1);
+        assert_eq!(result.wiki_auto_publications_deferred, 1);
         assert_eq!(result.wiki_drive_next_after_checkpoint_id, Some(9));
         assert_eq!(result.wiki_drive_event_deliveries_renewed, 1);
         assert_eq!(result.wiki_drive_event_delivery_relays_verified, 0);

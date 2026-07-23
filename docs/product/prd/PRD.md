@@ -65,7 +65,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - OKF original file list: knowledgebase file lists call `spaces.browser.list?view=files`; for OKF spaces this displays original source files under `sources/raw` only and must not expose `okf/`, `output/`, `.sdkwork/`, or Drive root system folders.
 - OKF browser view separation: OKF concept and bundle tooling uses `view=okf_bundle`; generated output tooling uses `view=outputs`. Root uploads and root folder creation use response `data.parentId` as the Drive parent folder id, never Drive root or a hard-coded `sources/raw` path.
 - Knowledgebase Wiki publication: every Knowledgebase is Wiki-capable through exactly one canonical
-  DRAFT/PRIVATE WikiPublication; no special Knowledgebase type or conversion is required. An
+  WikiPublication provisioned DRAFT/PRIVATE and initialized through fixed-root/checkpoint/event
+  delivery verification to READY; no special Knowledgebase type or conversion is required. An
   explicitly active Wiki projects governed multi-format sources
   and static assets from the fixed Drive `sources/raw` root, maintains processing, publication,
   visibility, index, route, and public-version state per file, and resolves eligible representations

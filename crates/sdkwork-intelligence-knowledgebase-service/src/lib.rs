@@ -36,3 +36,5 @@ pub mod wiki_event_delivery;
 pub mod wiki_initialization;
 pub mod wiki_public_provider;
 pub mod wiki_publication_lifecycle;
+pub mod wiki_representation;
+pub mod wiki_source_processor;

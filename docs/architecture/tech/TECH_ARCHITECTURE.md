@@ -75,7 +75,9 @@ per surface; generated transports are never API authority.
 - Production Snowflake generators obtain fenced node IDs from `sdkwork_node_registry`. Lease loss disables ID generation and fails runtime readiness; Kubernetes supplies only the pod UID identity, never a hashed node ID.
 - Media tasks consume the generated `clawrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
 - Wiki publication projects Drive nodes under the fixed `sources/raw` root into per-file source,
-  publication, visibility, route, render, and index state. Eligible Markdown pages and static assets
+  publication, visibility, route, render, and index state. The bounded worker validates pinned
+  Drive versions, canonicalizes native routes, sanitizes Markdown/HTML/text pages, and executes
+  eligible owner-approved auto-public commands. Eligible native pages and passive static assets
   resolve live through the typed Knowledgebase Wiki provider; ordinary content changes advance
   live provider generations and create no immutable site artifact, Deploy Release, Deployment, or
   SiteRevision. Deploy owns Site/domain/Variant/TLS/runtime configuration and Web Server owns

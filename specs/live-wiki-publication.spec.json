@@ -398,6 +398,22 @@
   },
   "governance": {
     "implementationClaimGate": "implementation is approved, but no realtime/publication capability may be claimed until the readiness review P0 findings have executable evidence",
+    "implementationEvidence": {
+      "asOf": "2026-07-23",
+      "closed": [
+        "canonical initialization through sources/raw binding, checkpoint and event-delivery verification to READY",
+        "bounded native source processing with exact Drive pin validation, canonical routes, lease/fence retry and quarantine",
+        "owner-approved AUTO_PUBLIC_AFTER_CHECKS through the normal optimistic publish command",
+        "sanitized Markdown, MDX, HTML and text page representation with rendered hash, length and media-type binding"
+      ],
+      "open": [
+        "scheduled publication execution",
+        "isolated PDF, Office, presentation, spreadsheet and media conversion with Drive-backed renditions",
+        "large-object streaming and Range",
+        "rendition-backed full-text search",
+        "deployed Deploy-to-Web end-to-end freshness, managed TLS, UI and commercial operations evidence"
+      ]
+    },
     "supersedesUponApproval": [
       "docs/architecture/decisions/ADR-20260721-drive-backed-knowledgebase-site-publication.md"
     ],

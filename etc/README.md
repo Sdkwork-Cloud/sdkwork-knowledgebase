@@ -23,6 +23,13 @@ come from the deployment secret manager or mounted ignored secret files. Install
 is materialized to the locations governed by `../sdkwork-specs/RUNTIME_DIRECTORY_SPEC.md`; source
 `etc/` is never used as mutable runtime state.
 
+Every profile declares the bounded Wiki event and source-processing controls consumed by
+`sdkwork-knowledgebase-worker`. `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID` identifies a
+tenant-local, non-human service actor that must be provisioned and retained for audit attribution;
+deployments must replace the profile example when their IAM allocation differs. Source processing
+runs only after the corresponding Drive event page, uses independent leases/retry limits, and never
+creates a Deploy Release, Deployment, or SiteRevision.
+
 Validate this authority with:
 
 ```powershell

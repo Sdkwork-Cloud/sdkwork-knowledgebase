@@ -1,16 +1,16 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::{
     ClaimWikiSourceProcessingRequest, CompleteWikiSourceProcessingRequest,
-    UpsertWikiSourceProjectionRequest, WikiPersistenceError, WikiPersistenceScope,
-    WikiSourceProjection, WikiSourceProjectionStore, WikiSourceProjectionUpsertDisposition,
-    WikiSourceProjectionUpsertResult, WikiUpdatePolicy,
+    RetryWikiSourceProcessingRequest, UpsertWikiSourceProjectionRequest, WikiPersistenceError,
+    WikiPersistenceScope, WikiSourceProjection, WikiSourceProjectionStore,
+    WikiSourceProjectionUpsertDisposition, WikiSourceProjectionUpsertResult, WikiUpdatePolicy,
 };
 use sdkwork_utils_rust::uuid;
 use sqlx::{any::AnyRow, Row};
 
 use super::{
     claim_limit, from_i32, from_i64, lease_times, new_lease_token, parse_enum, require_id,
-    require_sha256, require_text, row_error, sql_error, to_i64, validate_scope,
+    require_sha256, require_text, retry_time, row_error, sql_error, to_i64, validate_scope,
     SqlxWikiPersistenceStore,
 };
 
@@ -259,7 +259,26 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
             FROM kb_source_file_projection
             WHERE tenant_id = $1 AND organization_id = $2 AND site_publication_id = $3
               AND id > COALESCE($4, 0) AND status = 1
-              AND source_state IN ('DISCOVERED', 'QUEUED', 'ERROR')
+              AND (
+                    source_state IN ('DISCOVERED', 'QUEUED', 'ERROR')
+                    OR (
+                        source_state = 'READY'
+                        AND EXISTS (
+                            SELECT 1 FROM kb_site_publication publication
+                            WHERE publication.tenant_id = kb_source_file_projection.tenant_id
+                              AND publication.organization_id = kb_source_file_projection.organization_id
+                              AND publication.id = kb_source_file_projection.site_publication_id
+                              AND publication.publication_mode = 'AUTO_PUBLIC_AFTER_CHECKS'
+                              AND publication.default_visibility IN ('UNLISTED', 'PUBLIC')
+                              AND publication.status = 1
+                        )
+                        AND (
+                            publication_state <> 'PUBLISHED'
+                            OR public_drive_version_uuid IS NULL
+                            OR public_drive_version_uuid <> drive_version_uuid
+                        )
+                    )
+              )
               AND (next_processing_at IS NULL OR next_processing_at <= {now_expr})
               AND (processing_lease_expires_at IS NULL OR processing_lease_expires_at <= {now_expr})
             ORDER BY id ASC
@@ -336,6 +355,41 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
         let lease_token = require_text("lease_token", &request.lease_token, 128)?;
         let canonical_route = require_text("canonical_route", &request.canonical_route, 2_048)?;
         let now = super::now()?;
+        let mut transaction = self.pool.begin().await.map_err(sql_error)?;
+        sqlx::query(
+            r#"
+            UPDATE kb_site_publication SET updated_at = updated_at
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1
+            "#,
+        )
+        .bind(to_i64("tenant_id", request.scope.tenant_id)?)
+        .bind(to_i64("organization_id", request.scope.organization_id)?)
+        .bind(require_id("site_publication_id", request.site_publication_id)?)
+        .execute(&mut *transaction)
+        .await
+        .map_err(sql_error)?;
+        let collision: Option<i64> = sqlx::query_scalar(
+            r#"
+            SELECT id FROM kb_source_file_projection
+            WHERE tenant_id = $1 AND organization_id = $2 AND site_publication_id = $3
+              AND id <> $4 AND canonical_route = $5 AND status = 1
+              AND source_state <> 'DELETED'
+            ORDER BY id ASC LIMIT 1
+            "#,
+        )
+        .bind(to_i64("tenant_id", request.scope.tenant_id)?)
+        .bind(to_i64("organization_id", request.scope.organization_id)?)
+        .bind(require_id("site_publication_id", request.site_publication_id)?)
+        .bind(require_id("projection_id", request.projection_id)?)
+        .bind(canonical_route)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(sql_error)?;
+        if collision.is_some() {
+            return Err(WikiPersistenceError::Conflict(
+                "another Wiki source projection already owns the canonical route".to_string(),
+            ));
+        }
         let timestamp = self.dialect.sql_timestamp_expr("$9");
         let query = format!(
             r#"
@@ -368,6 +422,73 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
             .bind(request.index_state.as_str())
             .bind(require_id("actor_id", request.actor_id)?)
             .bind(&now)
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(sql_error)?
+            .ok_or_else(|| {
+                WikiPersistenceError::Conflict(format!(
+                    "source projection {} processing lease is stale",
+                    request.projection_id
+                ))
+            })?;
+        let projection = projection_from_row(&row)?;
+        transaction.commit().await.map_err(sql_error)?;
+        Ok(projection)
+    }
+
+    async fn retry_source_processing(
+        &self,
+        request: RetryWikiSourceProcessingRequest,
+    ) -> Result<WikiSourceProjection, WikiPersistenceError> {
+        validate_scope(request.scope)?;
+        let lease_token = require_text("lease_token", &request.lease_token, 128)?;
+        let error_code = require_text("error_code", &request.error_code, 128)?;
+        let error_summary = require_text("error_summary", &request.error_summary, 1_024)?;
+        if request.max_attempts == 0 || request.max_attempts > 100 {
+            return Err(WikiPersistenceError::InvalidRequest(
+                "max_attempts must be between 1 and 100".to_string(),
+            ));
+        }
+        let (now, retry_at) = retry_time(request.retry_delay_seconds)?;
+        let updated_at = self.dialect.sql_timestamp_expr("$10");
+        let retry_at_expr = self.dialect.sql_timestamp_expr("$11");
+        let query = format!(
+            r#"
+            UPDATE kb_source_file_projection
+            SET source_state = CASE
+                    WHEN processing_attempt_count >= $8 THEN 'QUARANTINED'
+                    ELSE 'ERROR'
+                END,
+                next_processing_at = CASE
+                    WHEN processing_attempt_count >= $8 THEN NULL
+                    ELSE {retry_at_expr}
+                END,
+                processing_lease_owner = NULL,
+                processing_lease_token = NULL,
+                processing_lease_expires_at = NULL,
+                last_error_code = $6,
+                last_error_summary = $7,
+                updated_by = $9,
+                updated_at = {updated_at},
+                version = version + 1
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3
+              AND processing_lease_token = $4 AND processing_fence = $5
+              AND source_state = 'PROCESSING' AND status = 1
+            RETURNING {PROJECTION_COLUMNS}
+            "#,
+        );
+        let row = sqlx::query(&query)
+            .bind(to_i64("tenant_id", request.scope.tenant_id)?)
+            .bind(to_i64("organization_id", request.scope.organization_id)?)
+            .bind(require_id("projection_id", request.projection_id)?)
+            .bind(lease_token)
+            .bind(to_i64("processing_fence", request.processing_fence)?)
+            .bind(error_code)
+            .bind(error_summary)
+            .bind(i64::from(request.max_attempts))
+            .bind(require_id("actor_id", request.actor_id)?)
+            .bind(&now)
+            .bind(&retry_at)
             .fetch_optional(&self.pool)
             .await
             .map_err(sql_error)?

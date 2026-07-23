@@ -48,6 +48,11 @@ Production deployment descriptors for the `cloud.production` topology profile.
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | When set, API/worker processes export traces over OTLP/HTTP (requires `otel` feature build) |
 | `SDKWORK_NODE_INSTANCE_ID` | Stable per-process allocator identity; Kubernetes injects the pod UID |
 | `SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_JOB_LEASE_SECONDS` | Worker job lease TTL, 30-3600 seconds; default `300` |
+| `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID` | Required tenant-local service actor for auditable Wiki maintenance commands |
+| `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_BATCH_SIZE` | Maximum source projections claimed per checkpoint and tick, 1-100; default `10` |
+| `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_LEASE_SECONDS` | Source-processing lease TTL, 1-3600 seconds; default `120` |
+| `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_RETRY_DELAY_SECONDS` | Delay before retrying a failed source, 1-86400 seconds; default `30` |
+| `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_MAX_ATTEMPTS` | Maximum processing attempts before quarantine, 1-100; default `10` |
 
 Production ID generation uses the shared `sdkwork_node_registry` database table. The allocator heartbeats a fenced node lease and `/readyz` fails if the lease becomes unhealthy. Do not set `SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID` in normal deployments; a static numeric override additionally requires `SDKWORK_KNOWLEDGEBASE_ALLOW_STATIC_SNOWFLAKE_NODE_ID=true` in production-like environments.
 | `OTEL_SERVICE_NAME` | Overrides the default OpenTelemetry service name per process |
@@ -58,6 +63,12 @@ The Drive event receiver is mounted only at
 `/internal/v3/api/knowledgebase/drive_events` on `application.public-ingress`. It requires both
 the ingress token and the signed Drive event headers. The callback is not routed through
 `platform.api-gateway`; no legacy or alternate callback path is supported.
+
+Each maintenance tick first applies the bounded Drive event page and then processes the same
+checkpoint page's source projections. Markdown/MDX and approved passive page formats are rendered
+to sanitized HTML; JavaScript, SVG, WebAssembly, invalid pins, and exhausted failures are
+quarantined. `AUTO_PUBLIC_AFTER_CHECKS` uses the same version-fenced page publication command as
+manual publication, while review-required and private content remains unpublished.
 
 Structured audit events (for example `knowledge.document.visibility_changed`, `knowledge.space.member_granted`, `knowledge.space.member_revoked`, `okf.concept.published`) are written to structured logs with an `audit_event` field. Related Prometheus counters are exported at `GET /metrics` (`knowledge_audit_*`).
 

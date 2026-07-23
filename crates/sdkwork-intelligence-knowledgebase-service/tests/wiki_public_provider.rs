@@ -220,6 +220,8 @@ async fn exact_route_returns_bound_handle_and_reviewed_redirect() {
         panic!("exact route must resolve a page");
     };
     assert_eq!(exact.page.page_public_version, 7);
+    assert_eq!(exact.page.media_type, "text/html; charset=utf-8");
+    assert_ne!(exact.page.content_sha256, source_checksum());
     assert!(!exact.content_handle.contains(PUBLICATION_UUID));
 
     let redirect = service
@@ -265,8 +267,14 @@ async fn content_revalidates_public_state_and_exact_pinned_version() {
         .retrieve_content(request.clone())
         .await
         .expect("retrieve exact pinned content");
-    assert_eq!(content.bytes, SOURCE_BYTES);
-    assert_eq!(content.content_sha256, source_checksum());
+    assert_eq!(
+        content.content_sha256,
+        format!("sha256:{}", sha256_hash(&content.bytes))
+    );
+    let html = String::from_utf8(content.bytes).expect("rendered Wiki HTML");
+    assert!(html.contains("<h1>Wiki</h1>"));
+    assert_eq!(content.media_type, "text/html; charset=utf-8");
+    assert_ne!(content.content_sha256, source_checksum());
 
     let wrong_scope = service
         .retrieve_content(RetrieveWikiPublicContentRequest {

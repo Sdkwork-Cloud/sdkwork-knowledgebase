@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::{
-    BindWikiSourceScopeRequest, ProvisionWikiPublicationRequest, WikiPersistenceError,
-    WikiPersistenceScope, WikiPublication, WikiPublicationProvisioningResult, WikiPublicationStore,
+    BindWikiSourceScopeRequest, MarkWikiPublicationReadyRequest, ProvisionWikiPublicationRequest,
+    WikiPersistenceError, WikiPersistenceScope, WikiPublication, WikiPublicationProvisioningResult,
+    WikiPublicationStatus, WikiPublicationStore,
 };
 use sdkwork_utils_rust::uuid;
 use sqlx::{any::AnyRow, Row};
@@ -218,6 +219,86 @@ impl WikiPublicationStore for SqlxWikiPersistenceStore {
             .bind(root_uuid)
             .bind(scope_uuid)
             .bind(require_id("actor_id", request.actor_id)?)
+            .bind(to_i64("expected_version", request.expected_version)?)
+            .bind(&now)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(sql_error)?
+            .ok_or(WikiPersistenceError::StaleVersion {
+                resource: "wiki_publication",
+                id: request.site_publication_id,
+                expected: request.expected_version,
+            })?;
+        publication_from_row(&row)
+    }
+
+    async fn mark_publication_ready(
+        &self,
+        request: MarkWikiPublicationReadyRequest,
+    ) -> Result<WikiPublication, WikiPersistenceError> {
+        validate_scope(request.scope)?;
+        let actor_id = require_id("actor_id", request.actor_id)?;
+        let publication = self
+            .get_publication(request.scope, request.site_publication_id)
+            .await?;
+        if publication.version != request.expected_version {
+            return Err(WikiPersistenceError::StaleVersion {
+                resource: "wiki_publication",
+                id: publication.id,
+                expected: request.expected_version,
+            });
+        }
+        if publication.wiki_status == WikiPublicationStatus::Ready {
+            return Ok(publication);
+        }
+        if publication.wiki_status != WikiPublicationStatus::Validating
+            || publication.source_root_node_uuid.is_none()
+            || publication.source_scope_uuid.is_none()
+        {
+            return Err(WikiPersistenceError::Conflict(format!(
+                "Wiki publication {} is not eligible to become READY",
+                publication.id
+            )));
+        }
+        let checkpoint_count: i64 = sqlx::query_scalar(
+            r#"
+            SELECT COUNT(*) FROM kb_drive_source_checkpoint
+            WHERE tenant_id = $1 AND organization_id = $2
+              AND site_publication_id = $3 AND drive_space_uuid = $4
+              AND source_scope_uuid = $5 AND status = 1
+            "#,
+        )
+        .bind(to_i64("tenant_id", request.scope.tenant_id)?)
+        .bind(to_i64("organization_id", request.scope.organization_id)?)
+        .bind(require_id("site_publication_id", request.site_publication_id)?)
+        .bind(publication.drive_space_uuid.as_str())
+        .bind(publication.source_scope_uuid.as_deref())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(sql_error)?;
+        if checkpoint_count != 1 {
+            return Err(WikiPersistenceError::Conflict(
+                "Wiki publication cannot become READY without its Drive checkpoint".to_string(),
+            ));
+        }
+
+        let now = now()?;
+        let updated_at = self.dialect.sql_timestamp_expr("$6");
+        let query = format!(
+            r#"
+            UPDATE kb_site_publication
+            SET wiki_status = 'READY', last_error_code = NULL,
+                updated_by = $4, updated_at = {updated_at}, version = version + 1
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3
+              AND version = $5 AND wiki_status = 'VALIDATING' AND status = 1
+            RETURNING {PUBLICATION_COLUMNS}
+            "#,
+        );
+        let row = sqlx::query(&query)
+            .bind(to_i64("tenant_id", request.scope.tenant_id)?)
+            .bind(to_i64("organization_id", request.scope.organization_id)?)
+            .bind(require_id("site_publication_id", request.site_publication_id)?)
+            .bind(actor_id)
             .bind(to_i64("expected_version", request.expected_version)?)
             .bind(&now)
             .fetch_optional(&self.pool)

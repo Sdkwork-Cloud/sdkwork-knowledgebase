@@ -871,7 +871,9 @@ fn classify_source_kind(path: &str, media_type: &str) -> WikiSourceFileKind {
         .map(|(_, extension)| extension.to_ascii_lowercase())
         .unwrap_or_default();
     match extension.as_str() {
-        "md" | "markdown" | "mdx" => WikiSourceFileKind::Page,
+        "md" | "markdown" | "mdx" | "html" | "htm" | "txt" | "rst" | "adoc" | "asciidoc" => {
+            WikiSourceFileKind::Page
+        }
         "pdf" | "doc" | "docx" | "odt" | "rtf" => WikiSourceFileKind::Document,
         "ppt" | "pptx" | "odp" => WikiSourceFileKind::Presentation,
         "xls" | "xlsx" | "ods" | "csv" => WikiSourceFileKind::Spreadsheet,

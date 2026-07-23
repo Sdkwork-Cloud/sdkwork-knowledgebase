@@ -598,6 +598,13 @@ impl WikiPublicationStore for FakePersistence {
     ) -> Result<WikiPublication, WikiPersistenceError> {
         unimplemented!()
     }
+
+    async fn mark_publication_ready(
+        &self,
+        _request: MarkWikiPublicationReadyRequest,
+    ) -> Result<WikiPublication, WikiPersistenceError> {
+        unimplemented!()
+    }
 }
 
 #[async_trait]

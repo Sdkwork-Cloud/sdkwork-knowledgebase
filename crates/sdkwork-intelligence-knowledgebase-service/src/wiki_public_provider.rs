@@ -14,6 +14,7 @@ use crate::ports::{
         WikiPublicPageProjection, WikiPublicProviderStore, WikiPublicPublication,
     },
 };
+use crate::wiki_representation::{is_rendered_page, render_wiki_page};
 use sdkwork_utils_rust::{
     base64url_decode, base64url_encode, sha256_hash, DEFAULT_LIST_PAGE_SIZE, MAX_LIST_PAGE_SIZE,
 };
@@ -21,7 +22,7 @@ use sdkwork_utils_rust::{
 const CONTENT_HANDLE_KIND: &str = "wiki-content";
 const NAVIGATION_CURSOR_KIND: &str = "wiki-navigation";
 const SEARCH_CURSOR_KIND: &str = "wiki-search";
-const PROVIDER_TOKEN_VERSION: u8 = 1;
+const PROVIDER_TOKEN_VERSION: u8 = 2;
 const MAX_PROVIDER_TOKEN_LENGTH: usize = 4_096;
 const MAX_PUBLICATION_UUID_BYTES: usize = 64;
 const MAX_ROUTE_BYTES: usize = 2_048;
@@ -151,6 +152,15 @@ struct ContentHandle {
     publication_uuid: String,
     projection_uuid: String,
     page_public_version: u64,
+    content_sha256: String,
+    media_type: String,
+    content_length: u64,
+}
+
+struct MaterializedWikiContent {
+    bytes: Vec<u8>,
+    media_type: String,
+    content_sha256: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -215,14 +225,21 @@ impl KnowledgeWikiPublicProviderService {
                 page_public_version: route_match.page.page_public_version,
             });
         }
+        let page = route_match.page;
+        let content = self.materialize_public_content(&publication, &page).await?;
+        let content_length = u64::try_from(content.bytes.len())
+            .map_err(|_| KnowledgeWikiPublicProviderError::ContentUnavailable)?;
         let content_handle = encode_content_handle(
             request.scope,
             &publication.uuid,
-            &route_match.page.uuid,
-            route_match.page.page_public_version,
+            &page.uuid,
+            page.page_public_version,
+            &content.content_sha256,
+            &content.media_type,
+            content_length,
         )?;
         Ok(WikiPublicRouteResolution::Page(WikiResolvedPublicPage {
-            page: page_metadata(route_match.page),
+            page: page_metadata_with_content(page, &content),
             content_handle,
         }))
     }
@@ -249,13 +266,35 @@ impl KnowledgeWikiPublicProviderService {
             )
             .await?
             .ok_or(KnowledgeWikiPublicProviderError::NotFoundOrNotPublic)?;
+        let content = self.materialize_public_content(&publication, &page).await?;
+        let content_length = u64::try_from(content.bytes.len())
+            .map_err(|_| KnowledgeWikiPublicProviderError::ContentUnavailable)?;
+        if handle.content_sha256 != content.content_sha256
+            || handle.media_type != content.media_type
+            || handle.content_length != content_length
+        {
+            return Err(KnowledgeWikiPublicProviderError::IntegrityFailed);
+        }
+        Ok(WikiPublicContent {
+            bytes: content.bytes,
+            media_type: content.media_type,
+            content_sha256: content.content_sha256,
+            page_public_version: page.page_public_version,
+        })
+    }
+
+    async fn materialize_public_content(
+        &self,
+        publication: &WikiPublicPublication,
+        page: &WikiPublicPageProjection,
+    ) -> Result<MaterializedWikiContent, KnowledgeWikiPublicProviderError> {
         if page.size_bytes > MAX_WIKI_SOURCE_READ_BYTES {
             return Err(KnowledgeWikiPublicProviderError::ContentUnavailable);
         }
         let resource = self
             .drive_source
             .resolve_source(ResolveKnowledgeWikiSourceRequest {
-                subscription_uuid: publication.source_scope_uuid,
+                subscription_uuid: publication.source_scope_uuid.clone(),
                 relative_path: page.source_path.clone(),
                 pinned_generation: None,
                 pinned_node_version_id: Some(page.public_drive_version_uuid.clone()),
@@ -280,11 +319,20 @@ impl KnowledgeWikiPublicProviderService {
         {
             return Err(KnowledgeWikiPublicProviderError::IntegrityFailed);
         }
-        Ok(WikiPublicContent {
+        if is_rendered_page(&page.source_path, page.file_kind) {
+            let rendered = render_wiki_page(&page.source_path, page.file_kind, &bytes)
+                .map_err(|_| KnowledgeWikiPublicProviderError::ContentUnavailable)?
+                .ok_or(KnowledgeWikiPublicProviderError::ContentUnavailable)?;
+            return Ok(MaterializedWikiContent {
+                bytes: rendered.bytes,
+                media_type: rendered.media_type.to_string(),
+                content_sha256: rendered.content_sha256,
+            });
+        }
+        Ok(MaterializedWikiContent {
             bytes,
-            media_type: page.media_type,
-            content_sha256: page.content_sha256,
-            page_public_version: page.page_public_version,
+            media_type: page.media_type.clone(),
+            content_sha256: page.content_sha256.clone(),
         })
     }
 
@@ -452,6 +500,17 @@ fn page_metadata(page: WikiPublicPageProjection) -> WikiPublicPageMetadata {
     }
 }
 
+fn page_metadata_with_content(
+    page: WikiPublicPageProjection,
+    content: &MaterializedWikiContent,
+) -> WikiPublicPageMetadata {
+    let mut metadata = page_metadata(page);
+    metadata.media_type = content.media_type.clone();
+    metadata.size_bytes = content.bytes.len() as u64;
+    metadata.content_sha256 = content.content_sha256.clone();
+    metadata
+}
+
 fn validate_scope(scope: WikiPersistenceScope) -> Result<(), KnowledgeWikiPublicProviderError> {
     if scope.tenant_id == 0 {
         return Err(KnowledgeWikiPublicProviderError::InvalidRequest(
@@ -532,6 +591,9 @@ fn encode_content_handle(
     publication_uuid: &str,
     projection_uuid: &str,
     page_public_version: u64,
+    content_sha256: &str,
+    media_type: &str,
+    content_length: u64,
 ) -> Result<String, KnowledgeWikiPublicProviderError> {
     encode_token(&ContentHandle {
         version: PROVIDER_TOKEN_VERSION,
@@ -541,6 +603,9 @@ fn encode_content_handle(
         publication_uuid: publication_uuid.to_string(),
         projection_uuid: projection_uuid.to_string(),
         page_public_version,
+        content_sha256: content_sha256.to_string(),
+        media_type: media_type.to_string(),
+        content_length,
     })
 }
 
@@ -557,12 +622,25 @@ fn decode_content_handle(
         || payload.publication_uuid != publication_uuid
         || payload.projection_uuid.is_empty()
         || payload.page_public_version == 0
+        || !is_canonical_sha256(&payload.content_sha256)
+        || payload.media_type.is_empty()
+        || payload.media_type.len() > 255
+        || payload.media_type.chars().any(char::is_control)
     {
         return Err(KnowledgeWikiPublicProviderError::InvalidRequest(
             "content handle is invalid for this publication scope".to_string(),
         ));
     }
     Ok(payload)
+}
+
+fn is_canonical_sha256(value: &str) -> bool {
+    value.strip_prefix("sha256:").is_some_and(|digest| {
+        digest.len() == 64
+            && digest
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    })
 }
 
 fn encode_page_cursor(

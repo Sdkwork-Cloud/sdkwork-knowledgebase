@@ -199,6 +199,10 @@ fn wiki_drive_event_config() -> WikiDriveEventMaintenanceConfig {
         lease_seconds: 120,
         retry_delay_seconds: 30,
         max_attempts: 20,
+        source_batch_size: 10,
+        source_lease_seconds: 120,
+        source_retry_delay_seconds: 30,
+        source_max_attempts: 10,
         delivery_renewal_page_size: 50,
     }
 }

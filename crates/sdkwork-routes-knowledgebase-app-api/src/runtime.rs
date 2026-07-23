@@ -1827,6 +1827,28 @@ impl KnowledgebaseRuntime {
         .map_err(|error| error.to_string())
     }
 
+    pub async fn process_wiki_source_checkpoint_page(
+        &self,
+        request: sdkwork_intelligence_knowledgebase_service::wiki_source_processor::ProcessKnowledgeWikiSourceCheckpointPageRequest,
+    ) -> Result<
+        sdkwork_intelligence_knowledgebase_service::wiki_source_processor::KnowledgeWikiSourceCheckpointPageResult,
+        String,
+    >{
+        use sdkwork_intelligence_knowledgebase_service::wiki_source_processor::KnowledgeWikiSourceProcessorService;
+
+        self.ensure_wiki_runtime_scope(request.scope)?;
+        KnowledgeWikiSourceProcessorService::new(
+            self.wiki_store(),
+            self.wiki_store(),
+            self.wiki_store(),
+            self.wiki_store(),
+            self.wiki_drive_source(),
+        )
+        .process_checkpoint_page(request)
+        .await
+        .map_err(|error| error.to_string())
+    }
+
     pub async fn renew_wiki_drive_event_delivery_page(
         &self,
         request: sdkwork_intelligence_knowledgebase_service::wiki_event_delivery::RenewWikiDriveEventDeliveryPageRequest,
