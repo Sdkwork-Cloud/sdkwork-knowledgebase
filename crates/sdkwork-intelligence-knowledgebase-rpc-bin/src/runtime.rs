@@ -30,8 +30,8 @@ use sdkwork_knowledgebase_contract::group_space::{
 };
 use sdkwork_knowledgebase_drive::{
     connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
-    KnowledgebaseDriveSpaceProvisionerAdapter, KnowledgebaseDriveStorageAdapter,
     KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveRootScopeAdapter,
+    KnowledgebaseDriveSpaceProvisionerAdapter, KnowledgebaseDriveStorageAdapter,
     KnowledgebaseDriveWorkspaceAdapter, KnowledgebaseKnowledgeAccessControlAdapter,
 };
 use thiserror::Error;
@@ -61,22 +61,16 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
         verify_drive_storage_root(&drive_storage_root)?;
         let pool = connect_knowledgebase_and_install_schema(database_url)
             .await
-            .map_err(|_| {
-                KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable
-            })?;
+            .map_err(|_| dependency_unavailable("knowledgebase-schema-connect"))?;
         let drive_pool = connect_knowledgebase_drive_pool(database_url)
             .await
-            .map_err(|_| {
-                KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable
-            })?;
-        knowledgebase_health_check(&pool).await.map_err(|_| {
-            KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable
-        })?;
+            .map_err(|_| dependency_unavailable("drive-schema-connect"))?;
+        knowledgebase_health_check(&pool)
+            .await
+            .map_err(|_| dependency_unavailable("knowledgebase-health"))?;
         knowledgebase_drive_health_check(&drive_pool)
             .await
-            .map_err(|_| {
-                KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable
-            })?;
+            .map_err(|_| dependency_unavailable("drive-health"))?;
 
         Ok(Self {
             pool,
@@ -95,14 +89,12 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
     pub async fn readiness_check(
         &self,
     ) -> Result<(), KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError> {
-        knowledgebase_health_check(&self.pool).await.map_err(|_| {
-            KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable
-        })?;
+        knowledgebase_health_check(&self.pool)
+            .await
+            .map_err(|_| dependency_unavailable("knowledgebase-readiness"))?;
         knowledgebase_drive_health_check(&self.drive_pool)
             .await
-            .map_err(|_| {
-                KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable
-            })
+            .map_err(|_| dependency_unavailable("drive-readiness"))
     }
 
     fn dependencies_for_scope(
@@ -291,8 +283,14 @@ struct GroupKnowledgeSpaceLifecycleDependencies {
 
 #[derive(Debug, Error)]
 pub enum KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError {
-    #[error("Knowledgebase lifecycle runtime dependency is unavailable")]
-    DependencyUnavailable,
+    #[error("Knowledgebase lifecycle runtime dependency is unavailable at stage `{stage}`")]
+    DependencyUnavailable { stage: &'static str },
+}
+
+fn dependency_unavailable(
+    stage: &'static str,
+) -> KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError {
+    KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable { stage }
 }
 
 /// Creates the configured root when needed and verifies that it is a directory usable for Drive
@@ -301,14 +299,16 @@ pub enum KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError {
 fn verify_drive_storage_root(
     drive_storage_root: &Path,
 ) -> Result<(), KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError> {
-    fs::create_dir_all(drive_storage_root).map_err(|_| {
-        KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable
-    })?;
-    if !fs::metadata(drive_storage_root)
-        .map_err(|_| KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable)?
-        .is_dir()
-    {
-        return Err(KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable);
+    match fs::metadata(drive_storage_root) {
+        Ok(metadata) if !metadata.is_dir() => {
+            return Err(dependency_unavailable("drive-storage-root-not-directory"));
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir_all(drive_storage_root)
+                .map_err(|_| dependency_unavailable("drive-storage-root-create"))?;
+        }
+        Err(_) => return Err(dependency_unavailable("drive-storage-root-metadata")),
     }
 
     let probe_path = drive_storage_root.join(format!(
@@ -337,7 +337,7 @@ fn verify_drive_storage_root(
 
     if result.is_err() {
         let _ = fs::remove_file(&probe_path);
-        return Err(KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable);
+        return Err(dependency_unavailable("drive-storage-root-probe"));
     }
     Ok(())
 }
@@ -371,7 +371,11 @@ mod tests {
 
         assert!(matches!(
             verify_drive_storage_root(&root),
-            Err(KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable)
+            Err(
+                KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError::DependencyUnavailable {
+                    stage: "drive-storage-root-not-directory"
+                }
+            )
         ));
     }
 }

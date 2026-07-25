@@ -77,7 +77,7 @@ fn build_app_web_framework_layer(
                 public_path_prefixes: knowledgebase_public_path_prefixes(),
                 ..WebRequestContextProfile::default()
             })
-            .with_route_manifest(route_manifest)
+            .with_route_manifest(route_manifest.clone())
             .with_authorization_policy(Arc::new(ManifestAuthorizationPolicy::new(route_manifest)))
             .with_domain_injector(Arc::new(KnowledgeAppContextInjector))
             .with_rate_limit_store(knowledgebase_rate_limit_store())

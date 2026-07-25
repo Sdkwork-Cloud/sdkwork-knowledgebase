@@ -84,9 +84,9 @@ impl GroupKnowledgeSpaceLifecycleRpcHostConfig {
         let system_actor_id = sdkwork_knowledgebase_contract::parse_canonical_positive_signed_i64(
             &required_env(ACTOR_ID_ENV)?,
         )
-        .map_err(|_| GroupKnowledgeSpaceLifecycleRpcHostConfigError::InvalidValue {
-            key: ACTOR_ID_ENV,
-        })?;
+        .map_err(
+            |_| GroupKnowledgeSpaceLifecycleRpcHostConfigError::InvalidValue { key: ACTOR_ID_ENV },
+        )?;
         let spiffe_trust_domain = required_env(RPC_SPIFFE_TRUST_DOMAIN_ENV)?;
         let caller_context_signing_key = RpcCallerContextSigningKey::from_base64url(
             read_secret_env_or_file(
