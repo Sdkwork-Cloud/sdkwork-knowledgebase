@@ -1,6 +1,6 @@
 # MIG-2026-0721 Release To Live Wiki Publication
 
-Status: approved for implementation
+Status: implementation active; production evidence blocked
 Requirement: REQ-2026-0721
 Decision: ADR-20260721-live-mounted-wiki-publication
 Owner: SDKWork Knowledgebase maintainers
@@ -23,7 +23,7 @@ Preserve the clean removal of the unlaunched immutable `kb_site` / `kb_site_rele
 schema approval. Site/domain/TLS/runtime configuration authority belongs to `sdkwork-deployments`;
 Knowledgebase retains Wiki state, rendering, navigation, search, and public page/asset eligibility.
 
-This plan governs the approved prelaunch realignment. It authorizes additive implementation work
+This migration governs the approved prelaunch realignment. It authorizes additive implementation work
 under the stated review and verification gates; it does not authorize deleting user changes or
 declaring incomplete capability production-ready.
 

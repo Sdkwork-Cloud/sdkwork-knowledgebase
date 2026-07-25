@@ -1,6 +1,6 @@
 # REVIEW-20260721 Live Wiki Deployment Integration Readiness
 
-Status: implementation-active-production-evidence-blocked
+Status: core-delivery-implemented-production-evidence-blocked
 Owner: SDKWork Knowledgebase maintainers
 Date: 2026-07-23
 Requirement: REQ-2026-0721
@@ -21,7 +21,7 @@ The states in this review mean:
 
 - `closed`: the owned contract and focused executable evidence exist;
 - `partially closed`: a bounded production-shaped implementation exists but a named capability or
-  cross-repository proof is still missing;
+  its required production evidence is still missing;
 - `blocking`: the required business or runtime path is absent, so public/commercial claims remain
   prohibited.
 
@@ -50,10 +50,11 @@ provide the complete commercial Wiki product because isolated multi-format rendi
 rendition full-text search, managed cloud TLS closure, UI workflows, and deployed end-to-end
 freshness, security, and scale evidence remain incomplete.
 
-The system must therefore be described as `implementation-in-progress-production-evidence-blocked`. It is
-incorrect to describe the Wiki schema, Drive consumer, Knowledgebase provider API/SDK, or Web
-runtime-set as absent. It is also incorrect to describe the overall capability as production-ready,
-commercially ready, or fully realtime.
+The system must therefore be described as `core-delivery-implemented-production-evidence-blocked`.
+It is incorrect to describe the Wiki schema, Drive consumer, Knowledgebase provider API/SDK, Web
+runtime-set, or focused cross-repository delivery path as absent. It is also incorrect to describe
+the overall capability as production-ready, commercially ready, or backed by a certified realtime
+SLO.
 
 ## 3. Current Evidence Matrix
 
@@ -147,10 +148,10 @@ Wiki freshness is not yet a certified commercial realtime SLO because the cross-
 not been measured in a deployed production-like environment and a future content cache still needs
 its concrete eviction evidence.
 
-When those paths are implemented, realtime means bounded eventual visibility from the committed
-public-state transition, not from upload completion. Events improve freshness; authenticated
-provider read-through validation remains the correctness authority. Private, quarantine, delete,
-pause, and unpublish transitions must deny public reads immediately even during event or cache lag.
+For this system, realtime means bounded eventual visibility from the committed public-state
+transition, not from upload completion. Events improve freshness; authenticated provider
+read-through validation remains the correctness authority. Private, quarantine, delete, pause, and
+unpublish transitions must deny public reads immediately even during event or cache lag.
 
 ## 7. Verification Evidence
 
@@ -209,4 +210,5 @@ Until every remaining P0 item is closed with executable evidence:
 - the current bounded representation reader must not be presented as large-object streaming or
   Range delivery;
 - the current metadata query must not be presented as full-text search;
-- no commercial or production launch may rely on the incomplete end-to-end path.
+- no commercial or production launch may rely on the path until its deployed production evidence
+  is complete.
