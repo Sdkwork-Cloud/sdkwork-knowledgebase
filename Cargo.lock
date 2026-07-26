@@ -3687,6 +3687,7 @@ dependencies = [
  "sdkwork-api-iam-assembly",
  "sdkwork-database-config",
  "sdkwork-iam-database-host",
+ "sdkwork-iam-web-adapter",
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-routes-knowledgebase-app-api",
  "sdkwork-routes-knowledgebase-backend-api",
@@ -4178,6 +4179,7 @@ name = "sdkwork-intelligence-knowledgebase-rpc-bin"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "rustls 0.23.40",
  "sdkwork-database-config",
  "sdkwork-drive-storage-local",
  "sdkwork-intelligence-knowledgebase-repository-sqlx",

@@ -2,7 +2,6 @@
 //! Multi-surface merges mount shared infrastructure routes once at the assembly layer.
 
 use axum::Router;
-use sdkwork_api_iam_assembly::assemble_api_router as assemble_iam_application_business_router;
 use sdkwork_intelligence_knowledgebase_service::ports::group_launch_ticket_consumer::GroupLaunchTicketConsumer;
 use sdkwork_routes_knowledgebase_app_api::bootstrap::{
     resolve_database_url, validate_process_config,
@@ -118,8 +117,19 @@ pub async fn assemble_business_routes(runtime: Arc<KnowledgebaseRuntime>) -> Api
     // the platform assembly layer and must set `SDKWORK_IAM_APP_API_HOST_MOUNTED=true`.
     let mut router = Router::new();
     if !host_mounts_iam_app_api_routes() {
-        let iam_router = assemble_iam_application_business_router().await.router;
-        router = router.merge(iam_router);
+        let (iam, host) = sdkwork_api_iam_assembly::bootstrap_iam_for_application()
+            .await
+            .expect("initialize embedded IAM owner API surfaces");
+        let resolver = sdkwork_iam_web_adapter::IamWebRequestContextResolver::from_database_pool(
+            Some(host.pool().clone()),
+        );
+        router = router.merge(
+            sdkwork_iam_web_adapter::wrap_router_with_iam_owner_web_framework(
+                iam.router,
+                resolver,
+                iam.route_manifest,
+            ),
+        );
     }
     let router = router
         .merge(runtime.build_full_app_router_with_web_framework().await)

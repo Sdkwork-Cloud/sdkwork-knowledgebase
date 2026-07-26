@@ -9,8 +9,7 @@ use sdkwork_intelligence_knowledgebase_service::{
         KnowledgeWikiDriveCheckpointPageResult, ProcessKnowledgeWikiDriveCheckpointPageRequest,
     },
     wiki_source_processor::{
-        KnowledgeWikiSourceCheckpointPageResult,
-        ProcessKnowledgeWikiSourceCheckpointPageRequest,
+        KnowledgeWikiSourceCheckpointPageResult, ProcessKnowledgeWikiSourceCheckpointPageRequest,
     },
 };
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;

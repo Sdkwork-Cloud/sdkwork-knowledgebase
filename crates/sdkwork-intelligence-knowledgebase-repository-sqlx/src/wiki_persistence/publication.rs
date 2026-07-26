@@ -270,7 +270,10 @@ impl WikiPublicationStore for SqlxWikiPersistenceStore {
         )
         .bind(to_i64("tenant_id", request.scope.tenant_id)?)
         .bind(to_i64("organization_id", request.scope.organization_id)?)
-        .bind(require_id("site_publication_id", request.site_publication_id)?)
+        .bind(require_id(
+            "site_publication_id",
+            request.site_publication_id,
+        )?)
         .bind(publication.drive_space_uuid.as_str())
         .bind(publication.source_scope_uuid.as_deref())
         .fetch_one(&self.pool)
@@ -297,7 +300,10 @@ impl WikiPublicationStore for SqlxWikiPersistenceStore {
         let row = sqlx::query(&query)
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
-            .bind(require_id("site_publication_id", request.site_publication_id)?)
+            .bind(require_id(
+                "site_publication_id",
+                request.site_publication_id,
+            )?)
             .bind(actor_id)
             .bind(to_i64("expected_version", request.expected_version)?)
             .bind(&now)

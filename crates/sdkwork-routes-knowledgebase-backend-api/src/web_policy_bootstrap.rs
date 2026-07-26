@@ -89,7 +89,7 @@ async fn seed_postgres(
         sqlx::query(
             "INSERT INTO web_rate_limit_policy \
              (tenant_id, environment, tier_key, max_requests, window_secs, enabled, version) \
-             VALUES ($1, $2, $3, $4, $5, TRUE, 1) \
+             VALUES ($1, $2, $3, $4, $5, 1, 1) \
              ON CONFLICT (tenant_id, environment, tier_key) DO NOTHING",
         )
         .bind(tenant_id)
@@ -105,7 +105,7 @@ async fn seed_postgres(
     sqlx::query(
         "INSERT INTO web_tenant_runtime_profile \
          (tenant_id, environment, rate_limit_enabled, max_content_length, max_concurrent_requests, version) \
-         VALUES ($1, $2, TRUE, NULL, NULL, 1) \
+         VALUES ($1, $2, 1, NULL, NULL, 1) \
          ON CONFLICT (tenant_id, environment) DO NOTHING",
     )
     .bind(tenant_id)

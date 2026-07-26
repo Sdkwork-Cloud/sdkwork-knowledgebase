@@ -364,7 +364,10 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
         )
         .bind(to_i64("tenant_id", request.scope.tenant_id)?)
         .bind(to_i64("organization_id", request.scope.organization_id)?)
-        .bind(require_id("site_publication_id", request.site_publication_id)?)
+        .bind(require_id(
+            "site_publication_id",
+            request.site_publication_id,
+        )?)
         .execute(&mut *transaction)
         .await
         .map_err(sql_error)?;
@@ -379,7 +382,10 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
         )
         .bind(to_i64("tenant_id", request.scope.tenant_id)?)
         .bind(to_i64("organization_id", request.scope.organization_id)?)
-        .bind(require_id("site_publication_id", request.site_publication_id)?)
+        .bind(require_id(
+            "site_publication_id",
+            request.site_publication_id,
+        )?)
         .bind(require_id("projection_id", request.projection_id)?)
         .bind(canonical_route)
         .fetch_optional(&mut *transaction)

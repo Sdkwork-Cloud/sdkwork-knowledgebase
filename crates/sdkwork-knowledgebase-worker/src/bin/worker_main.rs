@@ -400,10 +400,7 @@ mod tests {
                 "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_EVENT_MAX_ATTEMPTS",
                 "101",
             ),
-            (
-                "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_BATCH_SIZE",
-                "101",
-            ),
+            ("SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_BATCH_SIZE", "101"),
         ] {
             std::env::set_var(name, value);
             assert!(
