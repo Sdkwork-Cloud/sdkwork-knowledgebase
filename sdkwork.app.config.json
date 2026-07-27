@@ -139,7 +139,8 @@
     }
   },
   "publish": {
-    "status": "INACTIVE",
+    "status": "DRAFT",
+    "preLaunch": true,
     "installSkill": {
       "name": "sdkwork-skills-app"
     },
@@ -179,6 +180,7 @@
           "enabled": false,
           "metadata": {
             "releaseStatus": "prelaunch-artifact-pending",
+            "releaseBuildDeferred": true,
             "reason": "Web artifact distribution is disabled until checksum, signature, SBOM, provenance, attestation, workflow run, rollout, rollback, and live smoke evidence exist.",
             "requiredEvidence": [
               "checksum",
@@ -192,8 +194,11 @@
             ]
           },
           "architecture": "universal",
+          "profileBinding": "fixed",
           "deploymentProfile": "cloud",
-          "runtimeTarget": "browser"
+          "runtimeTarget": "browser",
+          "targetPlatform": "web",
+          "clientArchitecture": "pc-web"
         },
         {
           "id": "windows-x64-standalone-desktop-zip",
@@ -205,11 +210,15 @@
           "enabled": false,
           "metadata": {
             "releaseStatus": "prelaunch-disabled",
+            "releaseBuildDeferred": true,
             "reason": "Desktop packaging workflow not wired for Phase 0.1; enable when desktop CI targets ship."
           },
           "architecture": "x64",
+          "profileBinding": "fixed",
           "deploymentProfile": "standalone",
-          "runtimeTarget": "desktop"
+          "runtimeTarget": "desktop",
+          "targetPlatform": "windows",
+          "clientArchitecture": "tauri"
         },
         {
           "id": "macos-universal-standalone-desktop-dmg",
@@ -221,11 +230,15 @@
           "enabled": false,
           "metadata": {
             "releaseStatus": "prelaunch-disabled",
+            "releaseBuildDeferred": true,
             "reason": "Desktop packaging workflow not wired for Phase 0.1; enable when desktop CI targets ship."
           },
           "architecture": "universal",
+          "profileBinding": "fixed",
           "deploymentProfile": "standalone",
-          "runtimeTarget": "desktop"
+          "runtimeTarget": "desktop",
+          "targetPlatform": "macos",
+          "clientArchitecture": "tauri"
         },
         {
           "id": "linux-x64-standalone-desktop-appimage",
@@ -237,14 +250,18 @@
           "enabled": false,
           "metadata": {
             "releaseStatus": "prelaunch-disabled",
+            "releaseBuildDeferred": true,
             "reason": "Desktop packaging workflow not wired for Phase 0.1; enable when desktop CI targets ship.",
             "linux": {
               "distro": "generic"
             }
           },
           "architecture": "x64",
+          "profileBinding": "fixed",
           "deploymentProfile": "standalone",
-          "runtimeTarget": "desktop"
+          "runtimeTarget": "desktop",
+          "targetPlatform": "linux",
+          "clientArchitecture": "tauri"
         }
       ],
       "metadata": {

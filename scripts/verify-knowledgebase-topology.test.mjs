@@ -5,7 +5,7 @@ import test from 'node:test';
 
 const ROOT = process.cwd();
 const RETIRED_TOPOLOGY_PATTERN = /self-hosted|cloud-hosted|--service-layout|serviceLayout|SERVICE_LAYOUT|unified-process|split-services/u;
-const PROFILE_ID_PATTERN = /^(?:standalone|cloud)\.(?:development|production)$/u;
+const PROFILE_ID_PATTERN = /^(?:standalone|cloud)\.(?:development|test|staging|production)$/u;
 
 async function exists(relativePath) {
   try {
@@ -124,8 +124,12 @@ test('declares SDKWork v5 deployment topology spec and profile env files for sdk
 
   for (const profileId of [
     'standalone.development',
+    'standalone.test',
+    'standalone.staging',
     'standalone.production',
     'cloud.development',
+    'cloud.test',
+    'cloud.staging',
     'cloud.production',
   ]) {
     assert.equal(profileId.split('.').length, 2, `${profileId} must use deploymentProfile.environment`);
@@ -184,8 +188,12 @@ test('topology governance files do not retain retired deployment profile segment
   assert.deepEqual(expectedProfileIds, [
     'cloud.development',
     'cloud.production',
+    'cloud.staging',
+    'cloud.test',
     'standalone.development',
     'standalone.production',
+    'standalone.staging',
+    'standalone.test',
   ]);
 
   const topologyEnvFiles = (await listFiles('etc/topology'))

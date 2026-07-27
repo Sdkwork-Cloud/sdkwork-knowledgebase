@@ -9,3 +9,5 @@ playwright/.cache/
 *.log
 .env*
 !.env.example
+!.env.standalone.*
+!.env.cloud.*

@@ -5,8 +5,8 @@ Knowledgebase. It selects typed profile values from `topology/`; the topology co
 `../specs/topology.spec.json` and the global authority is
 `../sdkwork-specs/SOURCE_CONFIG_SPEC.md`.
 
-Supported source profiles are `standalone.development`, `standalone.production`,
-`cloud.development`, and `cloud.production`. Standalone development owns the local application
+The canonical matrix contains `standalone|cloud` crossed with
+`development|test|staging|production`. Standalone development owns the local application
 gateway and worker. Cloud development starts clients only and consumes explicit deployed
 application and platform surfaces.
 
@@ -34,6 +34,7 @@ Validate this authority with:
 
 ```powershell
 node ../sdkwork-specs/tools/check-source-config-standard.mjs --root .
+pnpm check:client-env
 pnpm topology:validate
 pnpm deploy:validate
 ```
