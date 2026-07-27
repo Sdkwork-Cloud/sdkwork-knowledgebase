@@ -143,7 +143,7 @@ pnpm dev:browser:cloud
 
 Common environment variables:
 
-- `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` (PostgreSQL in default `pnpm dev`; SQLite via `pnpm dev:browser:sqlite`)
+- `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` (PostgreSQL in the public development and deployment profiles)
 - `SDKWORK_KNOWLEDGEBASE_TENANT_ID` (must match IAM login tenant; development profiles use `100001` from `sdkwork.app.config.json`)
 - `SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND` / `SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL`
 - `SDKWORK_KNOWLEDGEBASE_DEV_ALLOWED_ORIGINS` (dev CORS allowlist for browser origins such as `http://127.0.0.1:5184`)

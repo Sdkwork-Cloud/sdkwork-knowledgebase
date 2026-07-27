@@ -27,7 +27,6 @@ pnpm topology:validate
 Explicit development variants use suffixed commands such as:
 
 ```bash
-pnpm dev:browser:sqlite
 pnpm dev:browser:cloud
 ```
 

@@ -2,7 +2,7 @@ import type { KnowledgeSpaceContextBinding } from './knowledge-space-context-bin
 
 export interface ContextBindingsRetrieveResponse {
   code: 0;
-  data: unknown & Record<string, unknown>;
+  data: unknown & { item: KnowledgeSpaceContextBinding; };
   /** Server-owned request correlation id. */
   traceId: string;
 }

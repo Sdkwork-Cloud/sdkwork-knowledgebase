@@ -4,7 +4,7 @@ import type { AuthTokenManager } from '@sdkwork/sdk-common';
 
 import { KnowledgeApi, createKnowledgeApi } from './api/knowledge';
 
-export class SdkworkAppClient {
+export class SdkworkKnowledgebaseAppClient {
   private httpClient: HttpClient;
 
   public readonly knowledge: KnowledgeApi;
@@ -13,12 +13,6 @@ export class SdkworkAppClient {
     this.httpClient = createHttpClient(config);
     this.knowledge = createKnowledgeApi(this.httpClient);
   }
-
-  setApiKey(apiKey: string): this {
-    this.httpClient.setApiKey(apiKey);
-    return this;
-  }
-
   setAuthToken(token: string): this {
     this.httpClient.setAuthToken(token);
     return this;
@@ -39,8 +33,8 @@ export class SdkworkAppClient {
   }
 }
 
-export function createClient(config: SdkworkAppConfig): SdkworkAppClient {
-  return new SdkworkAppClient(config);
+export function createClient(config: SdkworkAppConfig): SdkworkKnowledgebaseAppClient {
+  return new SdkworkKnowledgebaseAppClient(config);
 }
 
-export default SdkworkAppClient;
+export default SdkworkKnowledgebaseAppClient;
