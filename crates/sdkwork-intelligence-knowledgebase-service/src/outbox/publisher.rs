@@ -64,12 +64,17 @@ impl<'a> KnowledgeOutboxPublisherService<'a> {
             }
         }
 
-        Ok(OutboxPublishBatchResult { published, failed })
+        Ok(OutboxPublishBatchResult {
+            requeued: 0,
+            published,
+            failed,
+        })
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutboxPublishBatchResult {
+    pub requeued: usize,
     pub published: usize,
     pub failed: usize,
 }
@@ -94,6 +99,7 @@ mod tests {
         pending: tokio::sync::Mutex<Vec<PendingOutboxEvent>>,
         published: tokio::sync::Mutex<Vec<u64>>,
         failed: tokio::sync::Mutex<Vec<(u64, String)>>,
+        fail_claim: bool,
     }
 
     impl InMemoryOutboxStore {
@@ -102,6 +108,14 @@ mod tests {
                 pending: tokio::sync::Mutex::new(Vec::new()),
                 published: tokio::sync::Mutex::new(Vec::new()),
                 failed: tokio::sync::Mutex::new(Vec::new()),
+                fail_claim: false,
+            }
+        }
+
+        fn failing_claim() -> Self {
+            Self {
+                fail_claim: true,
+                ..Self::new()
             }
         }
     }
@@ -138,6 +152,11 @@ mod tests {
             &self,
             limit: u32,
         ) -> Result<Vec<PendingOutboxEvent>, KnowledgeOutboxStoreError> {
+            if self.fail_claim {
+                return Err(KnowledgeOutboxStoreError::Internal(
+                    "simulated claim failure".to_string(),
+                ));
+            }
             let mut pending = self.pending.lock().await;
             let claimed: Vec<PendingOutboxEvent> =
                 pending.iter().take(limit as usize).cloned().collect();
@@ -184,6 +203,8 @@ mod tests {
 
     struct AlwaysFailDispatcher;
 
+    struct AlwaysSucceedDispatcher;
+
     #[async_trait]
     impl KnowledgeOutboxDispatcher for AlwaysFailDispatcher {
         async fn dispatch(
@@ -194,6 +215,17 @@ mod tests {
             Err(KnowledgeOutboxDispatchError::DeliveryFailed(
                 "simulated failure".to_string(),
             ))
+        }
+    }
+
+    #[async_trait]
+    impl KnowledgeOutboxDispatcher for AlwaysSucceedDispatcher {
+        async fn dispatch(
+            &self,
+            _tenant_id: u64,
+            _event: &PendingOutboxEvent,
+        ) -> Result<(), KnowledgeOutboxDispatchError> {
+            Ok(())
         }
     }
 
@@ -217,7 +249,50 @@ mod tests {
 
         assert_eq!(result.published, 0);
         assert_eq!(result.failed, 1);
+        assert_eq!(result.requeued, 0);
         assert!(store.published.lock().await.is_empty());
         assert_eq!(store.failed.lock().await.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn publish_pending_reports_successful_dispatches() {
+        let store = Arc::new(InMemoryOutboxStore::new());
+        for aggregate_id in 1..=2 {
+            store
+                .append_event(AppendOutboxEventRecord {
+                    aggregate_type: "ingestion_job".to_string(),
+                    aggregate_id,
+                    event_type: "knowledge.ingest.succeeded".to_string(),
+                    payload_json: format!(r#"{{"spaceId":{aggregate_id}}}"#),
+                })
+                .await
+                .expect("append");
+        }
+
+        let result =
+            KnowledgeOutboxPublisherService::new(1, store.as_ref(), &AlwaysSucceedDispatcher)
+                .publish_pending(10)
+                .await
+                .expect("publish batch");
+
+        assert_eq!(result.published, 2);
+        assert_eq!(result.failed, 0);
+        assert_eq!(result.requeued, 0);
+        assert_eq!(store.published.lock().await.as_slice(), &[1, 2]);
+    }
+
+    #[tokio::test]
+    async fn publish_pending_propagates_claim_failure() {
+        let store = InMemoryOutboxStore::failing_claim();
+
+        let error = KnowledgeOutboxPublisherService::new(1, &store, &AlwaysSucceedDispatcher)
+            .publish_pending(10)
+            .await
+            .expect_err("claim failure must fail the batch");
+
+        assert!(matches!(
+            error,
+            KnowledgeOutboxPublisherServiceError::Store(KnowledgeOutboxStoreError::Internal(_))
+        ));
     }
 }

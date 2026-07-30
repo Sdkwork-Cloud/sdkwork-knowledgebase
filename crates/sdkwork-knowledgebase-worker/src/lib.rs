@@ -69,7 +69,9 @@ pub struct MaintenancePollingConfig {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MaintenanceTickResult {
+    pub outbox_requeued: usize,
     pub outbox_published: usize,
+    pub outbox_failed: usize,
     pub ingestion_jobs_processed: usize,
     pub provider_migration_phases_processed: usize,
     pub provider_migrations_completed: usize,
@@ -101,6 +103,8 @@ pub struct MaintenanceTickResult {
 
 #[derive(Debug, thiserror::Error)]
 pub enum MaintenanceTickError {
+    #[error("outbox batch failed: {0}")]
+    Outbox(String),
     #[error("ingestion job batch failed: {0}")]
     Ingestion(String),
     #[error("Provider migration batch failed: {0}")]
@@ -118,9 +122,15 @@ pub async fn run_maintenance_tick(
     config: &MaintenanceConfig,
     state: MaintenanceTickState,
 ) -> Result<MaintenanceTickResult, MaintenanceTickError> {
-    let outbox_published = runtime
+    let outbox = runtime
         .publish_pending_outbox_events(config.outbox_limit)
-        .await;
+        .await
+        .map_err(MaintenanceTickError::Outbox)?;
+    sdkwork_knowledgebase_observability::record_outbox_maintenance_batch(
+        outbox.requeued,
+        outbox.published,
+        outbox.failed,
+    );
     let ingestion_jobs_processed = runtime
         .process_queued_ingestion_jobs(
             &config.worker_id,
@@ -196,7 +206,9 @@ pub async fn run_maintenance_tick(
         );
     }
     Ok(MaintenanceTickResult {
-        outbox_published,
+        outbox_requeued: outbox.requeued,
+        outbox_published: outbox.published,
+        outbox_failed: outbox.failed,
         ingestion_jobs_processed,
         provider_migration_phases_processed: provider_migrations.processed,
         provider_migrations_completed: provider_migrations.completed,
@@ -383,7 +395,9 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                     Ok(result) => {
                         wiki_checkpoint_cursor = result.wiki_drive_next_after_checkpoint_id;
                         wiki_delivery_cursor = result.wiki_drive_next_after_event_delivery_checkpoint_id;
-                        if result.outbox_published > 0
+                        if result.outbox_requeued > 0
+                            || result.outbox_published > 0
+                            || result.outbox_failed > 0
                             || result.ingestion_jobs_processed > 0
                             || result.provider_migration_phases_processed > 0
                             || result.group_archives_processed > 0
@@ -408,7 +422,9 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                             || result.wiki_drive_event_delivery_failures > 0
                         {
                             tracing::info!(
+                                outbox_requeued = result.outbox_requeued,
                                 outbox_published = result.outbox_published,
+                                outbox_failed = result.outbox_failed,
                                 ingestion_jobs_processed = result.ingestion_jobs_processed,
                                 provider_migration_phases_processed = result.provider_migration_phases_processed,
                                 provider_migrations_completed = result.provider_migrations_completed,
@@ -439,6 +455,7 @@ pub async fn run_polling_loop(runtime: KnowledgebaseRuntime, config: Maintenance
                         }
                     }
                     Err(error) => {
+                        sdkwork_knowledgebase_observability::record_worker_maintenance_failure();
                         tracing::error!(
                             error = %error,
                             "knowledgebase worker maintenance tick failed"
@@ -461,7 +478,9 @@ mod tests {
     #[test]
     fn maintenance_tick_result_tracks_worker_outputs() {
         let result = MaintenanceTickResult {
+            outbox_requeued: 1,
             outbox_published: 2,
+            outbox_failed: 1,
             ingestion_jobs_processed: 3,
             provider_migration_phases_processed: 5,
             provider_migrations_completed: 1,
@@ -490,7 +509,9 @@ mod tests {
             wiki_drive_event_delivery_failures: 0,
             wiki_drive_next_after_event_delivery_checkpoint_id: Some(10),
         };
+        assert_eq!(result.outbox_requeued, 1);
         assert_eq!(result.outbox_published, 2);
+        assert_eq!(result.outbox_failed, 1);
         assert_eq!(result.ingestion_jobs_processed, 3);
         assert_eq!(result.provider_migration_phases_processed, 5);
         assert_eq!(result.provider_migrations_completed, 1);

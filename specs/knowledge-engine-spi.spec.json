@@ -319,7 +319,7 @@
     "sourceTypes": ["connector", "api"],
     "configStorage": "kb_provider_binding + write-only kb_provider_credential_reference; kb_source remains content association metadata only",
     "adapterCratePattern": "crates/sdkwork-knowledgebase-engine-{vendorId}",
-    "integrationTiers": ["catalog", "stub", "adapter", "production"],
+    "integrationTiers": ["catalog", "adapter", "production"],
     "sdkRule": "Consume vendor SDK or composed facade; raw HTTP only inside adapter integration tests"
   },
   "evaluation": {

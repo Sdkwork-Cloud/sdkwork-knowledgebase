@@ -58,11 +58,11 @@ use sdkwork_knowledgebase_contract::rag::{
 };
 use sdkwork_knowledgebase_drive::{
     connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
-    KnowledgebaseDriveEmbeddedEventRelay, KnowledgebaseDriveEmbeddedWikiSourceAdapter,
-    KnowledgebaseDriveEventDeliveryConfig, KnowledgebaseDriveInternalSdkAdapter,
-    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
-    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
-    KnowledgebaseKnowledgeAccessControlAdapter,
+    resolve_cloud_knowledgebase_drive_storage, KnowledgebaseDriveEmbeddedEventRelay,
+    KnowledgebaseDriveEmbeddedWikiSourceAdapter, KnowledgebaseDriveEventDeliveryConfig,
+    KnowledgebaseDriveInternalSdkAdapter, KnowledgebaseDriveNodeTreeAdapter,
+    KnowledgebaseDriveSpaceProvisionerAdapter, KnowledgebaseDriveStorageAdapter,
+    KnowledgebaseDriveWorkspaceAdapter, KnowledgebaseKnowledgeAccessControlAdapter,
 };
 use sdkwork_knowledgebase_provider_secret_adapter::{
     KnowledgebaseProviderCredentialEnvironment, KnowledgebaseProviderCredentialResolver,
@@ -70,7 +70,7 @@ use sdkwork_knowledgebase_provider_secret_adapter::{
 };
 use sdkwork_utils_rust::is_blank;
 use sdkwork_web_bootstrap::{ReadinessCheck as FrameworkReadinessCheck, ReadinessFuture};
-use sqlx::AnyPool;
+use sqlx::{AnyPool, PgPool};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -112,6 +112,7 @@ const KNOWLEDGEBASE_ID_SERVICE_NAME: &str = "sdkwork-knowledgebase";
 const PROVIDER_SECRETS_DIR_ENV: &str = "SDKWORK_KNOWLEDGEBASE_PROVIDER_SECRETS_DIR";
 const DEPLOYMENT_PROFILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE";
 const DRIVE_INTERNAL_API_BASE_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_BASE_URL";
+const DRIVE_STORAGE_PROVIDER_ID_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_PROVIDER_ID";
 const DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV: &str =
     "SDKWORK_KNOWLEDGEBASE_DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE";
 const DRIVE_EVENT_CALLBACK_URL_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DRIVE_EVENT_CALLBACK_URL";
@@ -132,7 +133,7 @@ static RUNTIME_NODE_LEASE: OnceCell<Option<NodeLease>> = OnceCell::const_new();
 #[derive(Clone)]
 pub struct KnowledgebaseRuntime {
     pool: AnyPool,
-    drive_pool: AnyPool,
+    drive_pool: PgPool,
     tenant_id: u64,
     organization_id: u64,
     tenant_id_str: String,
@@ -325,8 +326,23 @@ impl KnowledgebaseDeploymentProfile {
     }
 }
 
+fn required_cloud_drive_storage_provider_id() -> Result<String, sqlx::Error> {
+    let value = std::env::var(DRIVE_STORAGE_PROVIDER_ID_ENV).map_err(|_| {
+        configuration_error(format!(
+            "{DRIVE_STORAGE_PROVIDER_ID_ENV} is required for cloud deployments"
+        ))
+    })?;
+    let value = value.trim();
+    if value.is_empty() || value.len() > 255 || value.chars().any(char::is_control) {
+        return Err(configuration_error(format!(
+            "{DRIVE_STORAGE_PROVIDER_ID_ENV} must be a non-empty provider id of at most 255 bytes"
+        )));
+    }
+    Ok(value.to_string())
+}
+
 fn build_wiki_drive_ports(
-    drive_pool: AnyPool,
+    drive_pool: PgPool,
     tenant_id: &str,
     operator_id: &str,
     deployment_profile: KnowledgebaseDeploymentProfile,
@@ -750,7 +766,11 @@ impl KnowledgebaseRuntime {
         let snowflake_node_lease = initialize_runtime_id_generator(database_url).await?;
         let drive_pool = connect_knowledgebase_drive_pool(database_url).await?;
         let pg_pool: Option<sqlx::PgPool> = if is_postgres_database_url(database_url) {
-            connect_postgres_pool(database_url).await.ok()
+            Some(
+                connect_postgres_pool(database_url)
+                    .await
+                    .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?,
+            )
         } else {
             None
         };
@@ -773,12 +793,13 @@ impl KnowledgebaseRuntime {
             snowflake_node_lease,
             provider_credential_resolver,
         )
+        .await
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn from_pools(
+    async fn from_pools(
         pool: AnyPool,
-        drive_pool: AnyPool,
+        drive_pool: PgPool,
         tenant_id: u64,
         organization_id: u64,
         operator_id: String,
@@ -796,13 +817,38 @@ impl KnowledgebaseRuntime {
             resolve_internal_caller_app_id(WIKI_PROVIDER_CALLER_APP_ID_ENV, "sdkwork-web")?;
         let quota_limits =
             sdkwork_knowledgebase_observability::KnowledgebaseTenantQuotaLimits::from_env();
-        let object_store = Arc::new(LocalDriveObjectStore::new(drive_storage_root));
-        let drive_storage = Arc::new(KnowledgebaseDriveStorageAdapter::new(
-            object_store,
-            DEFAULT_DRIVE_PROVIDER_ID,
-            DEFAULT_DRIVE_BUCKET,
-            tenant_id_str.clone(),
-        ));
+        let drive_storage = Arc::new(match deployment_profile {
+            KnowledgebaseDeploymentProfile::Standalone => {
+                let object_store = Arc::new(LocalDriveObjectStore::new(drive_storage_root));
+                let adapter = KnowledgebaseDriveStorageAdapter::new(
+                    object_store,
+                    DEFAULT_DRIVE_PROVIDER_ID,
+                    DEFAULT_DRIVE_BUCKET,
+                    tenant_id_str.clone(),
+                );
+                adapter.ensure_bucket().await.map_err(|error| {
+                    configuration_error(format!(
+                        "standalone Knowledgebase storage bucket initialization failed: {error}"
+                    ))
+                })?;
+                adapter
+            }
+            KnowledgebaseDeploymentProfile::Cloud => {
+                let provider_id = required_cloud_drive_storage_provider_id()?;
+                let provider_pool = pg_pool.clone().ok_or_else(|| {
+                    configuration_error(
+                        "cloud Knowledgebase storage requires the authoritative PostgreSQL pool",
+                    )
+                })?;
+                resolve_cloud_knowledgebase_drive_storage(
+                    provider_pool,
+                    &provider_id,
+                    &tenant_id_str,
+                )
+                .await
+                .map_err(|error| configuration_error(error.to_string()))?
+            }
+        });
         let drive_space_provisioner = Arc::new(KnowledgebaseDriveSpaceProvisionerAdapter::new(
             drive_pool.clone(),
         ));
@@ -1158,6 +1204,18 @@ impl KnowledgebaseRuntime {
         knowledgebase_drive_health_check(&self.drive_pool)
             .await
             .map_err(|error| Box::new(error) as Box<dyn std::error::Error + Send + Sync>)?;
+        let object_store_readiness = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            self.drive_storage.readiness_check(),
+        )
+        .await
+        .map_err(|_| {
+            Box::new(std::io::Error::other(
+                "knowledge storage readiness check timed out",
+            )) as Box<dyn std::error::Error + Send + Sync>
+        })?;
+        object_store_readiness
+            .map_err(|error| Box::new(error) as Box<dyn std::error::Error + Send + Sync>)?;
         Ok(())
     }
 
@@ -1203,6 +1261,33 @@ impl KnowledgebaseRuntime {
             .await
     }
 
+    pub fn build_backend_business_router(&self) -> axum::Router {
+        sdkwork_routes_knowledgebase_backend_api::build_business_router_with_shared_backend_api(
+            Arc::new(HostedBackendApi::new(self.clone())),
+            self.tenant_id(),
+        )
+    }
+
+    pub fn build_open_business_router(&self) -> axum::Router {
+        sdkwork_routes_knowledgebase_open_api::build_business_router_with_shared_open_api(Arc::new(
+            HostedOpenApi::new(self.clone()),
+        ))
+    }
+
+    pub fn build_internal_business_router(&self) -> axum::Router {
+        sdkwork_routes_knowledgebase_internal_api::build_business_router_with_services(
+            Arc::new(KnowledgebaseRuntimeWikiDriveEventReceiver {
+                runtime: self.clone(),
+            }),
+            Arc::new(KnowledgeWikiPublicProviderService::new(
+                self.wiki_store.clone(),
+                self.wiki_drive_source.clone(),
+            )),
+            self.wiki_event_caller_app_id.to_string(),
+            self.wiki_provider_caller_app_id.to_string(),
+        )
+    }
+
     pub async fn build_agent_and_retrieval_router_with_web_framework(&self) -> axum::Router {
         crate::web_bootstrap::wrap_router_with_web_framework_from_env(
             self.build_agent_and_retrieval_router(),
@@ -1227,19 +1312,14 @@ impl KnowledgebaseRuntime {
 
     pub async fn build_backend_business_router_with_web_framework(&self) -> axum::Router {
         sdkwork_routes_knowledgebase_backend_api::wrap_router_with_web_framework_from_env(
-            sdkwork_routes_knowledgebase_backend_api::build_business_router_with_shared_backend_api(
-                Arc::new(HostedBackendApi::new(self.clone())),
-                self.tenant_id(),
-            ),
+            self.build_backend_business_router(),
         )
         .await
     }
 
     pub async fn build_open_business_router_with_web_framework(&self) -> axum::Router {
         sdkwork_routes_knowledgebase_open_api::wrap_router_with_web_framework_from_env(
-            sdkwork_routes_knowledgebase_open_api::build_business_router_with_shared_open_api(
-                Arc::new(HostedOpenApi::new(self.clone())),
-            ),
+            self.build_open_business_router(),
         )
         .await
     }
@@ -1719,22 +1799,27 @@ impl KnowledgebaseRuntime {
             .ok()
     }
 
-    pub async fn publish_pending_outbox_events(&self, limit: u32) -> usize {
+    pub async fn publish_pending_outbox_events(
+        &self,
+        limit: u32,
+    ) -> Result<sdkwork_intelligence_knowledgebase_service::outbox::OutboxPublishBatchResult, String>
+    {
         use sdkwork_intelligence_knowledgebase_service::outbox::KnowledgeOutboxPublisherService;
 
-        let _ = self.requeue_failed_outbox_events(limit).await;
-        KnowledgeOutboxPublisherService::new(
+        let requeued = self.requeue_failed_outbox_events(limit).await?;
+        let mut result = KnowledgeOutboxPublisherService::new(
             self.tenant_id(),
             self.outbox_store(),
             self.outbox_dispatcher(),
         )
         .publish_pending(limit)
         .await
-        .map(|result| result.published)
-        .unwrap_or(0)
+        .map_err(|error| error.to_string())?;
+        result.requeued = requeued;
+        Ok(result)
     }
 
-    pub async fn requeue_failed_outbox_events(&self, limit: u32) -> usize {
+    pub async fn requeue_failed_outbox_events(&self, limit: u32) -> Result<usize, String> {
         let max_retry_count = std::env::var("SDKWORK_KNOWLEDGEBASE_OUTBOX_MAX_RETRIES")
             .ok()
             .and_then(|value| value.parse::<u32>().ok())
@@ -1743,7 +1828,7 @@ impl KnowledgebaseRuntime {
         self.outbox_store()
             .requeue_failed_events(limit, max_retry_count)
             .await
-            .unwrap_or(0)
+            .map_err(|error| error.to_string())
     }
 
     pub async fn run_wiki_publication_backfill_page(

@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.process-database-pool",
+  "tenantModel": "one-tenant-per-process",
+  "profile": {
+    "exampleFile": ".env.postgres.example",
+    "database": "sdkwork_ai_dev",
+    "schema": "sdkwork_ai_dev"
+  },
+  "processes": [
+    {
+      "id": "sdkwork-api-knowledgebase-standalone-gateway",
+      "entrypoint": "crates/sdkwork-api-knowledgebase-standalone-gateway/src/bin/app_main.rs",
+      "poolOwner": "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs",
+      "driver": "sqlx::PgPool",
+      "poolCount": 1,
+      "databaseUrlEnv": "SDKWORK_DATABASE_URL",
+      "schemaEnv": "SDKWORK_DATABASE_SCHEMA",
+      "maxConnectionsEnv": "SDKWORK_DATABASE_MAX_CONNECTIONS",
+      "productionSourceRoots": [
+        "crates/sdkwork-api-knowledgebase-standalone-gateway/src",
+        "crates/sdkwork-api-knowledgebase-assembly/src",
+        "crates/sdkwork-routes-knowledgebase-app-api/src",
+        "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src",
+        "crates/sdkwork-knowledgebase-drive/src"
+      ],
+      "consumers": [
+        {
+          "module": "Knowledgebase repositories and lifecycle",
+          "poolMode": "installed-process-pool",
+          "evidence": [
+            "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs"
+          ]
+        },
+        {
+          "module": "Knowledgebase Drive adapters",
+          "poolMode": "installed-process-pool",
+          "evidence": [
+            "crates/sdkwork-knowledgebase-drive/src/bootstrap.rs"
+          ]
+        },
+        {
+          "module": "embedded IAM app API",
+          "poolMode": "installed-process-pool",
+          "evidence": [
+            "crates/sdkwork-api-knowledgebase-standalone-gateway/src/bin/app_main.rs"
+          ]
+        }
+      ],
+      "temporaryDriverExceptions": [
+        {
+          "driver": "sqlx::AnyPool",
+          "owner": "sdkwork-knowledgebase maintainers",
+          "removalMilestone": "Migrate authoritative PostgreSQL Knowledgebase and embedded Drive repositories to typed PgPool before the first commercial production release",
+          "combinedConnectionBudget": "SDKWORK_DATABASE_MAX_CONNECTIONS",
+          "adr": "docs/architecture/decisions/ADR-20260730-knowledgebase-process-shared-database-pool.md",
+          "evidence": [
+            "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sdkwork-knowledgebase-worker",
+      "entrypoint": "crates/sdkwork-knowledgebase-worker/src/bin/worker_main.rs",
+      "poolOwner": "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs",
+      "driver": "sqlx::PgPool",
+      "poolCount": 1,
+      "databaseUrlEnv": "SDKWORK_DATABASE_URL",
+      "schemaEnv": "SDKWORK_DATABASE_SCHEMA",
+      "maxConnectionsEnv": "SDKWORK_DATABASE_MAX_CONNECTIONS",
+      "productionSourceRoots": [
+        "crates/sdkwork-knowledgebase-worker/src",
+        "crates/sdkwork-routes-knowledgebase-app-api/src",
+        "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src",
+        "crates/sdkwork-knowledgebase-drive/src"
+      ],
+      "consumers": [
+        {
+          "module": "Knowledgebase maintenance and ingestion repositories",
+          "poolMode": "installed-process-pool",
+          "evidence": [
+            "crates/sdkwork-knowledgebase-worker/src/bin/worker_main.rs",
+            "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs"
+          ]
+        },
+        {
+          "module": "Knowledgebase Drive maintenance adapters",
+          "poolMode": "installed-process-pool",
+          "evidence": [
+            "crates/sdkwork-knowledgebase-drive/src/bootstrap.rs"
+          ]
+        }
+      ],
+      "temporaryDriverExceptions": [
+        {
+          "driver": "sqlx::AnyPool",
+          "owner": "sdkwork-knowledgebase maintainers",
+          "removalMilestone": "Migrate authoritative PostgreSQL Knowledgebase and embedded Drive repositories to typed PgPool before the first commercial production release",
+          "combinedConnectionBudget": "SDKWORK_DATABASE_MAX_CONNECTIONS",
+          "adr": "docs/architecture/decisions/ADR-20260730-knowledgebase-process-shared-database-pool.md",
+          "evidence": [
+            "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sdkwork-intelligence-knowledgebase-rpc-bin",
+      "entrypoint": "crates/sdkwork-intelligence-knowledgebase-rpc-bin/src/bin/rpc_main.rs",
+      "poolOwner": "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs",
+      "driver": "sqlx::PgPool",
+      "poolCount": 1,
+      "databaseUrlEnv": "SDKWORK_DATABASE_URL",
+      "schemaEnv": "SDKWORK_DATABASE_SCHEMA",
+      "maxConnectionsEnv": "SDKWORK_DATABASE_MAX_CONNECTIONS",
+      "productionSourceRoots": [
+        "crates/sdkwork-intelligence-knowledgebase-rpc-bin/src",
+        "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src",
+        "crates/sdkwork-knowledgebase-drive/src"
+      ],
+      "consumers": [
+        {
+          "module": "Knowledgebase group lifecycle RPC repositories",
+          "poolMode": "installed-process-pool",
+          "evidence": [
+            "crates/sdkwork-intelligence-knowledgebase-rpc-bin/src/runtime.rs",
+            "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs"
+          ]
+        },
+        {
+          "module": "Knowledgebase Drive lifecycle adapters",
+          "poolMode": "installed-process-pool",
+          "evidence": [
+            "crates/sdkwork-knowledgebase-drive/src/bootstrap.rs"
+          ]
+        }
+      ],
+      "temporaryDriverExceptions": [
+        {
+          "driver": "sqlx::AnyPool",
+          "owner": "sdkwork-knowledgebase maintainers",
+          "removalMilestone": "Migrate authoritative PostgreSQL Knowledgebase and embedded Drive repositories to typed PgPool before the first commercial production release",
+          "combinedConnectionBudget": "SDKWORK_DATABASE_MAX_CONNECTIONS",
+          "adr": "docs/architecture/decisions/ADR-20260730-knowledgebase-process-shared-database-pool.md",
+          "evidence": [
+            "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs"
+          ]
+        }
+      ]
+    }
+  ],
+  "verification": [
+    "node ../sdkwork-specs/tools/check-process-shared-database-pool.mjs --root .",
+    "cargo check -p sdkwork-api-knowledgebase-standalone-gateway -p sdkwork-knowledgebase-worker -p sdkwork-intelligence-knowledgebase-rpc-bin"
+  ]
+}

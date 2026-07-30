@@ -74,31 +74,21 @@
       "sdkwork_api_knowledgebase_assembly::assemble_api_router_from_environment",
       "sdkwork_api_knowledgebase_assembly::assemble_business_routes",
       "sdkwork_api_knowledgebase_assembly::assemble_business_routes_from_environment",
-      "sdkwork_api_knowledgebase_assembly::ApiAssembly::from_environment",
+      "sdkwork_api_knowledgebase_assembly::assemble_api_router_from_environment_with_group_launch_ticket_consumer",
       "sdkwork_api_knowledgebase_assembly::ApiAssembly"
     ],
     "runtimeEntrypoints": [
       "sdkwork_api_knowledgebase_assembly::assemble_api_router",
       "sdkwork_api_knowledgebase_assembly::assemble_api_router_from_environment",
       "sdkwork_api_knowledgebase_assembly::assemble_business_routes_from_environment",
-      "sdkwork_api_knowledgebase_assembly::ApiAssembly::from_environment"
+      "sdkwork_api_knowledgebase_assembly::assemble_api_router_from_environment_with_group_launch_ticket_consumer"
     ],
-    "dependencyApiSurfaces": [
-      {
-        "workspace": "sdkwork-iam",
-        "sdkFamily": "sdkwork-iam-app-sdk",
-        "apiAuthority": "sdkwork-iam-app-api",
-        "surface": "app-api",
-        "runtimeMode": "embedded",
-        "sameOriginAllowed": true,
-        "embeddedExecutableExport": "sdkwork_api_iam_assembly::assemble_api_router",
-        "cargoDependency": "sdkwork_api_iam_assembly"
-      }
-    ],
+    "requiredPorts": [],
+    "dependencyApiSurfaces": [],
     "layerRole": "runtime-composition"
   },
   "integration": {
-    "dependencyPolicy": "The host-neutral API assembly embeds IAM app-api business routes through sdkwork-api-iam-assembly when the consuming host has not already mounted IAM; consumers must not depend on sdkwork-routes-iam-app-api directly.",
+    "dependencyPolicy": "The host-neutral assembly exports only Knowledgebase-owned API routes; the final gateway composes dependency-owned IAM API contributions without depending on IAM route crates directly.",
     "sdkPolicy": "Gateway hosts consume this assembly export and must not bypass dependency assembly boundaries."
   },
   "verification": {

@@ -23,6 +23,5 @@
     "syncSources": false
   },
   "authModels": ["api_key", "env_config"],
-  "adapterCrate": "crates/sdkwork-knowledgebase-engine-llamaindex",
   "notes": "Data framework for indexing and retrieval pipelines; often embedded in custom services."
 }

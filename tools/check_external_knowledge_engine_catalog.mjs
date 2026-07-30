@@ -358,13 +358,6 @@ for (const vendorId of certificationsByVendor.keys()) {
   );
 }
 
-const externalCatalogSource = await readFile(
-  path.join(
-    root,
-    "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/external_catalog.rs",
-  ),
-  "utf8",
-);
 const registryModSource = await readFile(
   path.join(
     root,
@@ -374,16 +367,10 @@ const registryModSource = await readFile(
 );
 
 assert(
-  registryModSource.includes("load_external_engines_from_catalog"),
-  "knowledge_engine/mod.rs must register catalog external engines via load_external_engines_from_catalog",
+  !registryModSource.includes("load_external_engines_from_catalog")
+    && !registryModSource.includes("CatalogExternalKnowledgeEngine"),
+  "catalog metadata must not be materialized as executable runtime knowledge engines",
 );
-
-for (const entry of catalog.vendors ?? []) {
-  assert(
-    externalCatalogSource.includes(`"${entry.vendorId}"`),
-    `external_catalog.rs must embed vendor manifest loader for ${entry.vendorId}`,
-  );
-}
 
 if (violations.length > 0) {
   console.error("External knowledge engine catalog violations:\n" + violations.join("\n"));

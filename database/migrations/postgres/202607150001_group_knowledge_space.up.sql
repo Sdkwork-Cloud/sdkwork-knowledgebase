@@ -1,3 +1,16 @@
+-- sdkwork:migration
+-- id: 202607150001_group_knowledge_space
+-- engine: postgres
+-- module: knowledgebase
+-- purpose: Add group knowledge-space persistence for installations on an older baseline
+-- reversible: false
+-- rollback: forward-fix
+-- transactional: true
+-- lock: lightweight
+-- lock_timeout: 2s
+-- statement_timeout: 30s
+-- contract_version: 1.1.0
+
 -- Backfilled expand migration for installations whose baseline predates the IM group-space
 -- aggregate. The lifecycle skips mutable baselines once kb_space exists, so these tables must
 -- also be created by an ordered runtime migration before later corrections alter them.

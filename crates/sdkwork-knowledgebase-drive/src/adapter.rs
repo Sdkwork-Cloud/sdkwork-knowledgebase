@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_drive_storage_contract::{
-    DeleteObjectRequest, DriveByteRange, DriveObjectLocator, DriveObjectStore,
-    DriveObjectStoreError, DriveObjectStoreErrorKind, HeadObjectRequest, PutObjectRequest,
-    ReadObjectRangeRequest,
+    CreateBucketRequest, DeleteObjectRequest, DriveByteRange, DriveObjectLocator, DriveObjectStore,
+    DriveObjectStoreError, DriveObjectStoreErrorKind, HeadBucketRequest, HeadObjectRequest,
+    PutObjectRequest, ReadObjectRangeRequest,
 };
 use sdkwork_drive_workspace_service::application::space_service::{
     CreateSpaceCommand, DeleteSpaceCommand, GetSpaceCommand, SqlDriveSpaceService,
@@ -36,7 +36,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_workspace
     EnsureKnowledgeDriveNodesRequest, KnowledgeDriveWorkspace, KnowledgeDriveWorkspaceError,
 };
 use sdkwork_utils_rust::{is_blank, sha256_hash};
-use sqlx::AnyPool;
+use sqlx::PgPool;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
@@ -49,28 +49,24 @@ pub struct KnowledgebaseDriveStorageAdapter {
 
 #[derive(Debug, Clone)]
 pub struct KnowledgebaseDriveSpaceProvisionerAdapter {
-    pool: AnyPool,
+    pool: PgPool,
 }
 
 impl KnowledgebaseDriveSpaceProvisionerAdapter {
-    pub fn new(pool: AnyPool) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct KnowledgebaseDriveWorkspaceAdapter {
-    pool: AnyPool,
+    pool: PgPool,
     tenant_id: String,
     operator_id: String,
 }
 
 impl KnowledgebaseDriveWorkspaceAdapter {
-    pub fn new(
-        pool: AnyPool,
-        tenant_id: impl Into<String>,
-        operator_id: impl Into<String>,
-    ) -> Self {
+    pub fn new(pool: PgPool, tenant_id: impl Into<String>, operator_id: impl Into<String>) -> Self {
         Self {
             pool,
             tenant_id: tenant_id.into(),
@@ -81,12 +77,12 @@ impl KnowledgebaseDriveWorkspaceAdapter {
 
 #[derive(Debug, Clone)]
 pub struct KnowledgebaseDriveNodeTreeAdapter {
-    pool: AnyPool,
+    pool: PgPool,
     tenant_id: String,
 }
 
 impl KnowledgebaseDriveNodeTreeAdapter {
-    pub fn new(pool: AnyPool, tenant_id: impl Into<String>) -> Self {
+    pub fn new(pool: PgPool, tenant_id: impl Into<String>) -> Self {
         Self {
             pool,
             tenant_id: tenant_id.into(),
@@ -104,12 +100,56 @@ impl KnowledgebaseDriveStorageAdapter {
     where
         S: DriveObjectStore + 'static,
     {
+        Self::from_object_store(store, storage_provider_id, bucket, tenant_id)
+    }
+
+    pub fn from_object_store(
+        store: Arc<dyn DriveObjectStore>,
+        storage_provider_id: impl Into<String>,
+        bucket: impl Into<String>,
+        tenant_id: impl Into<String>,
+    ) -> Self {
         Self {
             store,
             storage_provider_id: storage_provider_id.into(),
             bucket: bucket.into(),
             tenant_id: tenant_id.into(),
         }
+    }
+
+    pub fn for_tenant(&self, tenant_id: impl Into<String>) -> Self {
+        Self {
+            store: self.store.clone(),
+            storage_provider_id: self.storage_provider_id.clone(),
+            bucket: self.bucket.clone(),
+            tenant_id: tenant_id.into(),
+        }
+    }
+
+    pub async fn ensure_bucket(&self) -> Result<(), KnowledgeStorageError> {
+        self.store
+            .create_bucket(CreateBucketRequest {
+                bucket: self.bucket.clone(),
+            })
+            .await
+            .map_err(map_drive_error)?;
+        Ok(())
+    }
+
+    pub async fn readiness_check(&self) -> Result<(), KnowledgeStorageError> {
+        let response = self
+            .store
+            .head_bucket(HeadBucketRequest {
+                bucket: self.bucket.clone(),
+            })
+            .await
+            .map_err(map_drive_error)?;
+        if !response.exists || response.bucket != self.bucket {
+            return Err(KnowledgeStorageError::NotFound(
+                "knowledge storage bucket is unavailable".to_string(),
+            ));
+        }
+        Ok(())
     }
 
     fn locator_for(

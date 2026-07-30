@@ -1,12 +1,12 @@
 schema_version: 1
 kind: sdkwork.database.schema
+database_role: authoritative-server
 module_id: knowledgebase
 contract_version: 1.1.0
 owner_team: knowledgebase-platform
 compliance_level: L2
 engines:
   - postgres
-  - sqlite
 table_prefix: kb_
 tables:
   - name: kb_space
@@ -106,9 +106,6 @@ tables:
     lifecycle_status: active
     owner: knowledgebase-platform
   - name: kb_audit_event
-    lifecycle_status: active
-    owner: knowledgebase-platform
-  - name: web_audit_event
     lifecycle_status: active
     owner: knowledgebase-platform
   - name: kb_site_publication

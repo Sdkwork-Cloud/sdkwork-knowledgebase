@@ -34,12 +34,8 @@ pub struct RagflowKnowledgeEngine {
 }
 
 impl RagflowKnowledgeEngine {
-    pub fn from_env() -> Self {
-        let config = RagflowConnectorConfig::from_env();
-        let client = config
-            .as_ref()
-            .map(|value| RagflowApiClient::new(value.clone()));
-        Self { config, client }
+    pub fn from_env() -> Option<Self> {
+        RagflowConnectorConfig::from_env().map(Self::with_config)
     }
 
     pub fn with_config(config: RagflowConnectorConfig) -> Self {
@@ -47,13 +43,6 @@ impl RagflowKnowledgeEngine {
         Self {
             config: Some(config),
             client: Some(client),
-        }
-    }
-
-    pub fn stub() -> Self {
-        Self {
-            config: None,
-            client: None,
         }
     }
 

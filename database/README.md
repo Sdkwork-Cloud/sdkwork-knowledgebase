@@ -4,7 +4,7 @@ Canonical lifecycle assets for `sdkwork-knowledgebase` per `DATABASE_FRAMEWORK_S
 
 - moduleId: `knowledgebase`
 - serviceCode: `KNOWLEDGEBASE`
-- tablePrefixes: `kb_` for Knowledgebase-owned tables, `web_` for embedded SDKWork Web Framework audit tables.
+- tablePrefix: `kb_`; SDKWork Web Framework owns and migrates `web_` tables independently in the shared schema.
 - baselineAnchorTable: `kb_space`
 
 ## Initialization State
@@ -15,9 +15,9 @@ This module is in **initialization state** for greenfield deployments:
 2. **Migrations** - `database/migrations/{engine}/` contains forward-safe corrections for already initialized environments. Greenfield DDL folds the same final contract into its baseline.
 3. **Drift** - run `pnpm db:drift:check` before release. Business tables are not ignored by drift policy.
 
-SQLite and PostgreSQL baselines are maintained separately because SQLite uses TEXT/REAL storage, FTS5 virtual tables, and folded pre-GA columns instead of PostgreSQL extensions, `JSONB`, `tsvector`, RLS, or `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`.
+The authoritative lifecycle contains only PostgreSQL. Historical SQLite parity assets are test fixtures and do not define server authority.
 
-SQLite additions that cannot be expressed idempotently with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` are owned by a versioned forward migration and are materialized immediately after baseline initialization. PostgreSQL may fold the same final columns into its baseline while retaining an idempotent forward migration.
+Web Framework audit tables are initialized by `sdkwork-web-framework`, not copied into this module's baseline.
 
 ## Commands
 

@@ -14,16 +14,25 @@ use sdkwork_knowledgebase_engine_weaviate::WeaviateKnowledgeEngine;
 use std::sync::Arc;
 
 pub fn load_runtime_external_adapter_engines() -> Vec<Arc<dyn KnowledgeEngine>> {
-    vec![
-        Arc::new(DifyKnowledgeEngine::from_env()),
-        Arc::new(RagflowKnowledgeEngine::from_env()),
-        Arc::new(OnyxKnowledgeEngine::from_env()),
-        Arc::new(AnythingLlmKnowledgeEngine::from_env()),
-        Arc::new(OpenWebuiKnowledgeEngine::from_env()),
-        Arc::new(FlowiseKnowledgeEngine::from_env()),
-        Arc::new(ChromaKnowledgeEngine::from_env()),
-        Arc::new(QdrantKnowledgeEngine::from_env()),
-        Arc::new(WeaviateKnowledgeEngine::from_env()),
-        Arc::new(HaystackKnowledgeEngine::from_env()),
-    ]
+    let mut engines = Vec::new();
+    push_if_configured(&mut engines, DifyKnowledgeEngine::from_env());
+    push_if_configured(&mut engines, RagflowKnowledgeEngine::from_env());
+    push_if_configured(&mut engines, OnyxKnowledgeEngine::from_env());
+    push_if_configured(&mut engines, AnythingLlmKnowledgeEngine::from_env());
+    push_if_configured(&mut engines, OpenWebuiKnowledgeEngine::from_env());
+    push_if_configured(&mut engines, FlowiseKnowledgeEngine::from_env());
+    push_if_configured(&mut engines, ChromaKnowledgeEngine::from_env());
+    push_if_configured(&mut engines, QdrantKnowledgeEngine::from_env());
+    push_if_configured(&mut engines, WeaviateKnowledgeEngine::from_env());
+    push_if_configured(&mut engines, HaystackKnowledgeEngine::from_env());
+    engines
+}
+
+fn push_if_configured<E>(engines: &mut Vec<Arc<dyn KnowledgeEngine>>, engine: Option<E>)
+where
+    E: KnowledgeEngine + 'static,
+{
+    if let Some(engine) = engine {
+        engines.push(Arc::new(engine));
+    }
 }

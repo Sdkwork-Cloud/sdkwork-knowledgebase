@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::{
     AppendOutboxEventRecord, KnowledgeOutboxStore, KnowledgeOutboxStoreError, PendingOutboxEvent,
+    MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES,
 };
 use sdkwork_utils_rust::{is_blank, truncate};
 use sqlx::{AnyPool, Row};
@@ -79,6 +80,16 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                 "payload_json is required".to_string(),
             ));
         }
+        if record.payload_json.len() > MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES {
+            return Err(KnowledgeOutboxStoreError::InvalidRequest(format!(
+                "payload_json exceeds {MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES} bytes"
+            )));
+        }
+        serde_json::from_str::<serde_json::Value>(&record.payload_json).map_err(|_| {
+            KnowledgeOutboxStoreError::InvalidRequest(
+                "payload_json must contain valid JSON".to_string(),
+            )
+        })?;
 
         let id = next_i64_id(&self.id_generator).map_err(id_error)?;
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;

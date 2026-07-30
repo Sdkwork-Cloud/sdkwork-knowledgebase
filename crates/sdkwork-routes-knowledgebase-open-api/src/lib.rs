@@ -24,8 +24,9 @@ pub use routes::{
 };
 pub use sdkwork_knowledgebase_contract::ProblemDetails;
 pub use web_bootstrap::{
-    knowledgebase_open_api_prefixes, knowledgebase_open_api_public_path_prefixes,
-    wrap_router_with_web_framework, wrap_router_with_web_framework_from_env,
+    knowledgebase_open_api_context_injector, knowledgebase_open_api_prefixes,
+    knowledgebase_open_api_public_path_prefixes, wrap_router_with_web_framework,
+    wrap_router_with_web_framework_from_env,
 };
 
 pub fn gateway_route_manifest() -> HttpRouteManifest {

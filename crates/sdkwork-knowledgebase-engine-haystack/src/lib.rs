@@ -38,12 +38,8 @@ pub struct HaystackKnowledgeEngine {
 }
 
 impl HaystackKnowledgeEngine {
-    pub fn from_env() -> Self {
-        let config = HaystackConnectorConfig::from_env();
-        let client = config
-            .as_ref()
-            .map(|value| HaystackApiClient::new(value.clone()));
-        Self { config, client }
+    pub fn from_env() -> Option<Self> {
+        HaystackConnectorConfig::from_env().map(Self::with_config)
     }
 
     pub fn with_config(config: HaystackConnectorConfig) -> Self {
@@ -51,13 +47,6 @@ impl HaystackKnowledgeEngine {
         Self {
             config: Some(config),
             client: Some(client),
-        }
-    }
-
-    pub fn stub() -> Self {
-        Self {
-            config: None,
-            client: None,
         }
     }
 

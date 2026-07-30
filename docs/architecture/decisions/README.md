@@ -11,5 +11,6 @@ Retired layout: `docs/adr/` must not be used for new ADRs.
 - [ADR-20260720-knowledge-engine-provider-binding-spi-v2.md](ADR-20260720-knowledge-engine-provider-binding-spi-v2.md) (accepted)
 - [ADR-20260721-drive-backed-knowledgebase-site-publication.md](ADR-20260721-drive-backed-knowledgebase-site-publication.md) (superseded)
 - [ADR-20260721-live-mounted-wiki-publication.md](ADR-20260721-live-mounted-wiki-publication.md) (proposed)
+- [ADR-20260730-knowledgebase-process-shared-database-pool.md](ADR-20260730-knowledgebase-process-shared-database-pool.md) (temporary exception)
 
 See `ARCHITECTURE_DECISION_SPEC.md`.

@@ -17,10 +17,11 @@ use sdkwork_knowledgebase_contract::group_space::{
 use sqlx::AnyPool;
 
 const SQLITE_GROUP_TENANT_SCOPE_MIGRATION: &str = include_str!(
-    "../../../database/migrations/sqlite/202607160001_group_knowledgebase_tenant_scope.up.sql"
+    "../../../tests/fixtures/database/sqlite/migrations/202607160001_group_knowledgebase_tenant_scope.up.sql"
 );
-const SQLITE_GROUP_SPACE_EXPAND_MIGRATION: &str =
-    include_str!("../../../database/migrations/sqlite/202607150001_group_knowledge_space.up.sql");
+const SQLITE_GROUP_SPACE_EXPAND_MIGRATION: &str = include_str!(
+    "../../../tests/fixtures/database/sqlite/migrations/202607150001_group_knowledge_space.up.sql"
+);
 
 #[tokio::test]
 async fn anchored_database_upgrade_creates_group_tables_before_scope_correction() {

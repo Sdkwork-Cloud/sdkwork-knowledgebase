@@ -101,6 +101,13 @@
         "export": "serve_router_with_runtime_shutdown"
       }
     ],
+    "requiredPorts": [
+      {
+        "name": "iamAppApiContribution",
+        "export": "sdkwork_api_iam_assembly::assemble_app_api_contribution",
+        "provider": "sdkwork-api-iam-assembly"
+      }
+    ],
     "routeManifest": null,
     "sdkClients": [],
     "sdkDependencies": [],
@@ -114,10 +121,16 @@
         "apiPrefix": "/app/v3/api",
         "runtimeMode": "same-origin",
         "sameOriginAllowed": true,
-        "executablePublicExport": "serve_router_with_runtime_shutdown",
+        "embeddedExecutableExport": "sdkwork_api_iam_assembly::assemble_app_api_contribution",
         "routerAssemblyExport": "sdkwork_api_knowledgebase_assembly::assemble_api_router",
-        "cargoDependency": "sdkwork-api-knowledgebase-assembly",
-        "coverage": "verified"
+        "cargoDependency": "sdkwork-api-iam-assembly",
+        "profileCoverage": [
+          "standalone"
+        ],
+        "coverage": "verified",
+        "coverageEvidence": [
+          "crates/sdkwork-api-knowledgebase-standalone-gateway/src/bin/app_main.rs"
+        ]
       }
     ],
     "events": [],

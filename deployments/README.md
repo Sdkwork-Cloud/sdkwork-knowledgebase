@@ -47,6 +47,8 @@ Production deployment descriptors for the `cloud.production` topology profile.
 | `SDKWORK_KNOWLEDGEBASE_LOG_FORMAT` | Set to `json` for structured JSON logs in production aggregators |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | When set, API/worker processes export traces over OTLP/HTTP (requires `otel` feature build) |
 | `SDKWORK_NODE_INSTANCE_ID` | Stable per-process allocator identity; Kubernetes injects the pod UID |
+| `SDKWORK_DATABASE_MAX_CONNECTIONS` | Combined per-process connection budget shared by embedded modules and the temporary compatibility driver |
+| `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_PROVIDER_ID` | Required cloud Drive provider id; provider must be active, non-local, and bucket-ready |
 | `SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_JOB_LEASE_SECONDS` | Worker job lease TTL, 30-3600 seconds; default `300` |
 | `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID` | Required tenant-local service actor for auditable Wiki maintenance commands |
 | `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_BATCH_SIZE` | Maximum source projections claimed per checkpoint and tick, 1-100; default `10` |
@@ -55,6 +57,12 @@ Production deployment descriptors for the `cloud.production` topology profile.
 | `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_MAX_ATTEMPTS` | Maximum processing attempts before quarantine, 1-100; default `10` |
 
 Production ID generation uses the shared `sdkwork_node_registry` database table. The allocator heartbeats a fenced node lease and `/readyz` fails if the lease becomes unhealthy. Do not set `SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID` in normal deployments; a static numeric override additionally requires `SDKWORK_KNOWLEDGEBASE_ALLOW_STATIC_SNOWFLAKE_NODE_ID=true` in production-like environments.
+
+Cloud API and worker replicas resolve object storage through the Drive provider registry. The
+provider credential is referenced by Drive configuration and resolved only inside the trusted Drive
+runtime. `local_filesystem` and `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT` are rejected as cloud
+storage authority. Provider lookup, version, active state, adapter creation, and bucket health are
+part of startup readiness.
 | `OTEL_SERVICE_NAME` | Overrides the default OpenTelemetry service name per process |
 
 HTTP APIs emit an `x-request-id` response header (or echo inbound `x-request-id`) for request correlation. Prometheus metrics are exposed at `GET /metrics` on API and worker health processes, including `knowledgebase_health_status` (updated by `/readyz`). **Do not expose `/metrics` on public ingress**; use in-cluster ServiceMonitor scraping only.

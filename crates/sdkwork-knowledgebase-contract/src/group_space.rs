@@ -25,6 +25,8 @@ pub const GROUP_KNOWLEDGE_SPACE_ACTOR_ID_MAX_LENGTH: usize = 256;
 pub const GROUP_KNOWLEDGE_SPACE_SOURCE_EVENT_ID_MAX_LENGTH: usize = 512;
 pub const GROUP_KNOWLEDGE_SPACE_BINDING_UUID_MAX_LENGTH: usize = 64;
 pub const GROUP_KNOWLEDGE_SPACE_SPACE_UUID_MAX_LENGTH: usize = 64;
+/// Maximum roster accepted in one atomic IM membership snapshot.
+pub const GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS: usize = 10_000;
 
 /// Returns whether an opaque IM group-launch ticket has the canonical wire shape.
 ///

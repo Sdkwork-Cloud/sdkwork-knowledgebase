@@ -27,6 +27,10 @@ pub fn knowledgebase_public_path_prefixes() -> Vec<String> {
 #[derive(Clone, Default)]
 struct KnowledgeAppContextInjector;
 
+pub fn knowledgebase_app_context_injector() -> Arc<dyn DomainContextInjector> {
+    Arc::new(KnowledgeAppContextInjector)
+}
+
 impl DomainContextInjector for KnowledgeAppContextInjector {
     fn inject(&self, request: &mut axum::extract::Request, context: &WebRequestContext) {
         if let Some(app_context) = knowledge_app_context_from_web_request(context) {
@@ -79,7 +83,7 @@ fn build_app_web_framework_layer(
             })
             .with_route_manifest(route_manifest.clone())
             .with_authorization_policy(Arc::new(ManifestAuthorizationPolicy::new(route_manifest)))
-            .with_domain_injector(Arc::new(KnowledgeAppContextInjector))
+            .with_domain_injector(knowledgebase_app_context_injector())
             .with_rate_limit_store(knowledgebase_rate_limit_store())
             .with_rate_limit_resolver(Arc::new(DefaultRateLimitPolicyResolver)),
     )

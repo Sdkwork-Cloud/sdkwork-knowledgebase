@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "kind": "sdkwork.database.migration-metadata",
+  "engine": "postgres",
+  "sourcePolicy": "historical-immutable",
+  "migrations": {
+    "202607210001_live_wiki_publication.up.sql": {
+      "engine": "postgres",
+      "reversible": "true",
+      "rollback": "down-migration",
+      "transactional": "true",
+      "lock": "lightweight",
+      "lock_timeout": "2s",
+      "statement_timeout": "30s"
+    }
+  }
+}

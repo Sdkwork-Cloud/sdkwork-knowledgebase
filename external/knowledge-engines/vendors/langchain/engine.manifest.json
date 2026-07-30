@@ -23,6 +23,5 @@
     "syncSources": false
   },
   "authModels": ["api_key", "env_config"],
-  "adapterCrate": "crates/sdkwork-knowledgebase-engine-langchain",
   "notes": "Composable LLM/RAG framework; integrate via LangServe or custom retrieval chains."
 }

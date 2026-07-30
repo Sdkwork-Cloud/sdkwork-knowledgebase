@@ -24,6 +24,7 @@ path = "src/bin/wiki_backfill.rs"
 axum.workspace = true
 sdkwork-intelligence-knowledgebase-service = { workspace = true }
 sdkwork-intelligence-knowledgebase-repository-sqlx.workspace = true
+sdkwork-database-sqlx.workspace = true
 sdkwork-knowledgebase-contract.workspace = true
 sdkwork-api-knowledgebase-standalone-gateway.workspace = true
 sdkwork-knowledgebase-observability = { workspace = true, features = ["otel"] }

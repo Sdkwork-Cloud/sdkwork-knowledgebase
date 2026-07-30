@@ -1,7 +1,6 @@
 //! Native and external knowledge engine implementations for the product SPI.
 
 mod execution_handle;
-mod external_catalog;
 mod kernel_bridge;
 mod okf_native;
 mod okf_search;
@@ -15,7 +14,6 @@ pub use kernel_bridge::{
 pub use space_resolver::KnowledgeEngineSpaceResolver;
 
 pub use execution_handle::KnowledgeEngineExecutionHandle;
-pub use external_catalog::{load_external_engines_from_catalog, CatalogExternalKnowledgeEngine};
 pub use okf_native::{OkfNativeKnowledgeEngine, OkfNativeKnowledgeEngineDeps};
 pub use okf_search::{normalize_query, rank_okf_concept, rank_okf_concepts};
 pub use rag_native::{RagIndexRebuildDeps, RagNativeKnowledgeEngine};
@@ -320,23 +318,11 @@ pub fn build_default_registry(deps: KnowledgeEngineRuntimeDeps) -> DefaultKnowle
         .register(rag_native.clone())
         .expect("RAG native knowledge engine registration must be unique");
 
-    let mut registered_ids = std::collections::HashSet::new();
     for engine in deps.external_engines {
-        let implementation_id = engine.descriptor().implementation_id.clone();
         registry.register(engine).unwrap_or_else(|error| {
             panic!("external knowledge engine registration failed: {error}")
         });
-        registered_ids.insert(implementation_id);
     }
-    for engine in load_external_engines_from_catalog() {
-        let implementation_id = engine.descriptor().implementation_id.clone();
-        if registered_ids.insert(implementation_id) {
-            registry.register(engine).unwrap_or_else(|error| {
-                panic!("catalog knowledge engine registration failed: {error}")
-            });
-        }
-    }
-
     DefaultKnowledgeEngineRegistry {
         registry,
         okf_native,

@@ -51,10 +51,24 @@ static REQUEST_ERRORS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static REQUEST_AUTH_FAILURES_TOTAL: AtomicU64 = AtomicU64::new(0);
 static REQUEST_DURATION_MS_TOTAL: AtomicU64 = AtomicU64::new(0);
 static HEALTH_STATUS: AtomicU64 = AtomicU64::new(1);
+static OUTBOX_REQUEUED_TOTAL: AtomicU64 = AtomicU64::new(0);
+static OUTBOX_PUBLISHED_TOTAL: AtomicU64 = AtomicU64::new(0);
+static OUTBOX_FAILED_TOTAL: AtomicU64 = AtomicU64::new(0);
+static WORKER_MAINTENANCE_FAILURES_TOTAL: AtomicU64 = AtomicU64::new(0);
 
 /// Update the exported readiness gauge (`1` = dependencies ready, `0` = not ready).
 pub fn set_readiness_status(ready: bool) {
     HEALTH_STATUS.store(u64::from(ready), Ordering::Relaxed);
+}
+
+pub fn record_outbox_maintenance_batch(requeued: usize, published: usize, failed: usize) {
+    OUTBOX_REQUEUED_TOTAL.fetch_add(requeued as u64, Ordering::Relaxed);
+    OUTBOX_PUBLISHED_TOTAL.fetch_add(published as u64, Ordering::Relaxed);
+    OUTBOX_FAILED_TOTAL.fetch_add(failed as u64, Ordering::Relaxed);
+}
+
+pub fn record_worker_maintenance_failure() {
+    WORKER_MAINTENANCE_FAILURES_TOTAL.fetch_add(1, Ordering::Relaxed);
 }
 
 pub async fn metrics_middleware(request: Request, next: Next) -> Response {
@@ -94,12 +108,24 @@ pub async fn metrics_handler() -> impl IntoResponse {
          # HELP knowledgebase_health_status Service readiness gauge (1=ready, 0=not ready).\n\
          # TYPE knowledgebase_health_status gauge\n\
          knowledgebase_health_status {}\n\
+         # HELP knowledgebase_outbox_events_total Knowledgebase outbox events handled by durable delivery status.\n\
+         # TYPE knowledgebase_outbox_events_total counter\n\
+         knowledgebase_outbox_events_total{{status=\"requeued\"}} {}\n\
+         knowledgebase_outbox_events_total{{status=\"published\"}} {}\n\
+         knowledgebase_outbox_events_total{{status=\"failed\"}} {}\n\
+         # HELP knowledgebase_worker_maintenance_failures_total Knowledgebase worker maintenance ticks that failed.\n\
+         # TYPE knowledgebase_worker_maintenance_failures_total counter\n\
+         knowledgebase_worker_maintenance_failures_total {}\n\
          {}{}{}{}",
         REQUESTS_TOTAL.load(Ordering::Relaxed),
         REQUEST_ERRORS_TOTAL.load(Ordering::Relaxed),
         REQUEST_AUTH_FAILURES_TOTAL.load(Ordering::Relaxed),
         REQUEST_DURATION_MS_TOTAL.load(Ordering::Relaxed),
         HEALTH_STATUS.load(Ordering::Relaxed),
+        OUTBOX_REQUEUED_TOTAL.load(Ordering::Relaxed),
+        OUTBOX_PUBLISHED_TOTAL.load(Ordering::Relaxed),
+        OUTBOX_FAILED_TOTAL.load(Ordering::Relaxed),
+        WORKER_MAINTENANCE_FAILURES_TOTAL.load(Ordering::Relaxed),
         render_okf_prometheus_metrics(),
         audit::render_audit_prometheus_metrics(),
         billing_metrics::render_billing_prometheus_metrics(),
@@ -157,6 +183,8 @@ mod tests {
         assert!(text.contains("knowledge_api_requests_total"));
         assert!(text.contains("knowledge_api_auth_failures_total"));
         assert!(text.contains("knowledgebase_health_status"));
+        assert!(text.contains("knowledgebase_outbox_events_total{status=\"published\"}"));
+        assert!(text.contains("knowledgebase_worker_maintenance_failures_total"));
         assert!(text.contains("knowledge_audit_document_visibility_changed_total"));
         assert!(text.contains("kb_okf_concept_publish_total"));
         assert!(text.contains("knowledge_retrievals_total"));

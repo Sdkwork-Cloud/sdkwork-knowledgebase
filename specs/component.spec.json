@@ -147,53 +147,7 @@
         "surface": "open-api"
       }
     ],
-    "sdkDependencies": [
-      {
-        "workspace": "sdkwork-web-framework",
-        "role": "http-request-context-and-interceptor-framework",
-        "required": true
-      },
-      {
-        "workspace": "sdkwork-database",
-        "role": "database-pool-config-and-sqlx-bootstrap",
-        "required": true
-      },
-      {
-        "workspace": "sdkwork-utils",
-        "role": "cross-language-generic-utility-helpers",
-        "required": true
-      },
-      {
-        "workspace": "sdkwork-appbase",
-        "role": "appbase-identity-and-session-capability",
-        "required": true
-      },
-      {
-        "workspace": "sdkwork-id",
-        "role": "identifier-generation",
-        "required": true
-      },
-      {
-        "workspace": "sdkwork-sdk-generator",
-        "role": "openapi-sdk-generation",
-        "required": true
-      },
-      {
-        "workspace": "sdkwork-drive",
-        "role": "drive-file-and-media-capability",
-        "required": true
-      },
-      {
-        "workspace": "sdkwork-memory",
-        "role": "memory-context-capability",
-        "required": true
-      },
-      {
-        "workspace": "sdkwork-kernel",
-        "role": "agent-kernel-capability",
-        "required": true
-      }
-    ],
+    "sdkDependencies": [],
     "dependencyApiExports": [],
     "dependencyApiSurfaces": [],
     "events": [

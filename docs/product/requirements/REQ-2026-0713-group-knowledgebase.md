@@ -75,6 +75,9 @@ desktop application for that exact space; Guest, left, removed, and non-member a
 9. PostgreSQL and SQLite schema contracts, RLS, SDK materialization, tests, runbooks, and rollback
    guidance change together. No ticket, token, document content, or unredacted membership payload
    is written to logs, analytics, or audit error text.
+10. One atomic IM membership snapshot contains at most 10,000 unique user principals. Knowledgebase
+    rejects larger inbound snapshots before persistence, bounds defensive database reads to 10,001
+    rows, and never attempts an unbounded roster allocation. IM must enforce the same upstream cap.
 
 ## Quality Attributes
 
@@ -83,7 +86,7 @@ desktop application for that exact space; Guest, left, removed, and non-member a
 | Security | Fail closed on IM/Drive/ACL dependency failure; current-Owner-only initialization; least privilege; opaque, hash-stored one-time tickets; tenant and organization isolation. |
 | Privacy | Persist only ticket hashes and minimum operational metadata; never persist raw tickets, session credentials, or document content in the integration ledger. |
 | Reliability | Unique constraints, leases, idempotent inbox/outbox events, durable retry state, and archive-first lifecycle behavior. |
-| Performance | O(1) binding lookup, bounded member projection work, no generic list scans for launch, and no client-side full-space fallback. |
+| Performance | O(1) binding lookup, membership snapshots bounded to 10,000 principals, bounded member projection work, no generic list scans for launch, and no client-side full-space fallback. |
 | Operations | Metrics and alerts for provisioning failure, ticket consumption failure, ACL projection failure, and synchronization lag; logs redact opaque tickets. |
 
 ## Traceability

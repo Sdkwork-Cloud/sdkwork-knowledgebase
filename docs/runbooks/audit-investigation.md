@@ -25,9 +25,11 @@ LIMIT 200;
 
 Production-like HTTP surfaces fail closed when no framework audit emitter is available. Before rollout:
 
-1. Apply `database/migrations/postgres/0006_web_audit_event.up.sql` (or sqlite `0006` for standalone sqlite).
-2. Set `SDKWORK_DATABASE_URL` on app-api, backend-api, and open-api processes.
-3. Alternatively for standalone sqlite dev only, configure `WEB_STORE` so `sdkwork-web-store-sqlx` can bootstrap `web_audit_event`.
+1. Set the authoritative PostgreSQL `SDKWORK_DATABASE_URL` for the serving process.
+2. Verify `sdkwork-web-store-sqlx` lifecycle bootstrap creates and validates `web_audit_event`;
+   Knowledgebase must not duplicate this framework-owned table in its application baseline.
+3. Confirm startup fails closed in staging and production when the shared framework audit emitter
+   cannot be initialized.
 
 ## Investigation steps
 

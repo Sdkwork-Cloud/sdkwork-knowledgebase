@@ -22,7 +22,11 @@ Run application readiness checks against `/readyz` before traffic cutover.
 
 ## Drive object storage
 
-Drive objects are owned by `sdkwork-drive`. Back up the configured drive storage root or remote bucket using provider-native snapshot/replication policies aligned with RPO/RTO targets.
+Drive objects are owned by `sdkwork-drive`. Cloud profiles must back up and replicate the remote
+bucket selected by `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_PROVIDER_ID` using provider-native controls.
+Standalone profiles back up the configured local Drive provider root. Record the provider version,
+bucket, encryption policy, object versioning state, and restore checkpoint with each database backup;
+database and object restores must use a mutually consistent recovery point.
 
 ## Outbox webhook
 
@@ -35,3 +39,4 @@ Document `SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_URL` and signing secret rotation 
 - [ ] Worker processes queued ingestion jobs after restore
 - [ ] Every restored API/worker replica has a healthy row in `sdkwork_node_registry`
 - [ ] `/readyz` fails when the fenced Snowflake node lease cannot be renewed
+- [ ] Cloud startup fails when the Drive provider is missing, inactive, local-only, or its bucket is unavailable

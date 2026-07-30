@@ -89,7 +89,12 @@ describe('knowledgebase security standard alignment', () => {
     );
     assert.match(appBootstrap, /attach_knowledgebase_audit_emitter/);
     const baseline = readRepoFile('database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql');
-    assert.match(baseline, /web_audit_event/);
+    assert.doesNotMatch(
+      baseline,
+      /web_audit_event/,
+      'framework web audit schema must remain owned by sdkwork-web-store-sqlx',
+    );
+    assert.match(webAuditStore, /connect_and_bootstrap_webstore_database_from_env/);
     const openBootstrap = readRepoFile(
       'crates/sdkwork-routes-knowledgebase-open-api/src/web_bootstrap.rs',
     );
@@ -279,12 +284,16 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(buildRelatedMedia, /buildKbMediaItems\(docs, allowDemo\)/);
   });
 
-  it('uses sdkwork_utils_rust is_blank in gateway bootstrap', () => {
-    const gatewayBootstrap = readRepoFile(
+  it('uses sdkwork_utils_rust is_blank in runtime config bootstrap', () => {
+    const runtimeBootstrap = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-app-api/src/bootstrap.rs',
+    );
+    assert.match(runtimeBootstrap, /sdkwork_utils_rust::is_blank/);
+    assert.doesNotMatch(runtimeBootstrap, /\.trim\(\)\.is_empty\(\)/);
+    const assemblyBootstrap = readRepoFile(
       'crates/sdkwork-api-knowledgebase-assembly/src/bootstrap.rs',
     );
-    assert.match(gatewayBootstrap, /sdkwork_utils_rust::is_blank/);
-    assert.doesNotMatch(gatewayBootstrap, /\.trim\(\)\.is_empty\(\)/);
+    assert.match(assemblyBootstrap, /validate_process_config\(\)/);
   });
 
   it('does not ship synthetic third-party asset library demo content', () => {

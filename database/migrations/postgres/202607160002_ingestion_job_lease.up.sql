@@ -1,3 +1,16 @@
+-- sdkwork:migration
+-- id: 202607160002_ingestion_job_lease
+-- engine: postgres
+-- module: knowledgebase
+-- purpose: Add bounded ingestion-job lease ownership and expiry state
+-- reversible: false
+-- rollback: forward-fix
+-- transactional: true
+-- lock: lightweight
+-- lock_timeout: 2s
+-- statement_timeout: 30s
+-- contract_version: 1.1.0
+
 ALTER TABLE kb_ingestion_job ADD COLUMN IF NOT EXISTS claim_owner VARCHAR(255);
 ALTER TABLE kb_ingestion_job ADD COLUMN IF NOT EXISTS claim_token VARCHAR(64);
 ALTER TABLE kb_ingestion_job ADD COLUMN IF NOT EXISTS lease_expires_at TIMESTAMP;

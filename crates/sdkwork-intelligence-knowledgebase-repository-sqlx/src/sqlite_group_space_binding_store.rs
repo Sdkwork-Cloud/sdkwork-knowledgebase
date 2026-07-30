@@ -13,6 +13,7 @@ use sdkwork_knowledgebase_contract::group_space::{
     GroupKnowledgeSpacePrincipalKind, GROUP_KNOWLEDGE_SPACE_ACTOR_ID_MAX_LENGTH,
     GROUP_KNOWLEDGE_SPACE_BINDING_UUID_MAX_LENGTH,
     GROUP_KNOWLEDGE_SPACE_CONVERSATION_ID_MAX_LENGTH, GROUP_KNOWLEDGE_SPACE_GROUP_NAME_MAX_LENGTH,
+    GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS,
     GROUP_KNOWLEDGE_SPACE_SOURCE_EVENT_ID_MAX_LENGTH, GROUP_KNOWLEDGE_SPACE_SPACE_UUID_MAX_LENGTH,
 };
 use sdkwork_knowledgebase_contract::rag::KnowledgeAgentKnowledgeMode;
@@ -3194,15 +3195,31 @@ where
         FROM kb_group_knowledge_space_member
         WHERE tenant_id = $1 AND organization_id = $2 AND binding_id = $3 AND status = $4
         ORDER BY actor_id ASC
+        LIMIT $5
         "#,
     )
     .bind(group_to_i64("tenant_id", scope.tenant_id)?)
     .bind(group_to_i64("organization_id", scope.organization_id)?)
     .bind(group_to_i64("binding_id", binding_id)?)
     .bind(ACTIVE_STATUS)
+    .bind(
+        i64::try_from(GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS + 1).map_err(|_| {
+            KnowledgeGroupSpaceBindingStoreError::Internal(
+                "group membership snapshot limit exceeds the database boundary".to_string(),
+            )
+        })?,
+    )
     .fetch_all(executor)
     .await
     .map_err(group_sqlx_error)?;
+    if rows.len() > GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS {
+        return Err(KnowledgeGroupSpaceBindingStoreError::InvalidRequest(
+            format!(
+                "stored group membership snapshot exceeds the {} member limit",
+                GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS
+            ),
+        ));
+    }
     rows.into_iter()
         .map(|row| group_member_from_row(&row))
         .collect()
@@ -3639,6 +3656,14 @@ fn validate_members(
     if members.is_empty() {
         return Err(KnowledgeGroupSpaceBindingStoreError::InvalidRequest(
             "at least one group member is required".to_string(),
+        ));
+    }
+    if members.len() > GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS {
+        return Err(KnowledgeGroupSpaceBindingStoreError::InvalidRequest(
+            format!(
+                "group membership snapshot must contain no more than {} members",
+                GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS
+            ),
         ));
     }
     let mut owner_count = 0usize;

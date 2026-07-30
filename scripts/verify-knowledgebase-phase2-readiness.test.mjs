@@ -64,12 +64,16 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/postgres_tenant_session.rs',
     );
     const phase2Prd = readRepoFile('docs/product/prd/PRD-phase2-commercial-saas.md');
-    assert.match(bootstrap, /after_connect/);
+    assert.match(bootstrap, /postgres_url_with_deployment_tenant/);
+    assert.match(bootstrap, /POSTGRES_TENANT_SESSION_KEY/);
+    assert.match(bootstrap, /create_pool_from_config/);
+    assert.doesNotMatch(bootstrap, /PgPoolOptions|after_connect/);
     assert.match(tenantSession, /deployment-bound tenant id/);
     assert.match(phase2Prd, /Shared request checkout uses a transaction-scoped `SET LOCAL/);
     assert.match(phase2Prd, /\[ \] Shared request checkout/);
-    assert.match(bootstrap, /set_postgres_session_tenant_id/);
     assert.match(tenantSession, /require_postgres_rls_tenant_id/);
+    const processPoolSpec = readRepoFile('specs/process-database-pool.spec.json');
+    assert.match(processPoolSpec, /one-tenant-per-process|one tenant per process/i);
     const webAudit = readRepoFile('crates/sdkwork-routes-knowledgebase-backend-api/src/web_audit_store.rs');
     assert.match(webAudit, /connect_and_bootstrap_webstore_database_from_env/);
     assert.match(webAudit, /shared_audit_emitter_pg/);

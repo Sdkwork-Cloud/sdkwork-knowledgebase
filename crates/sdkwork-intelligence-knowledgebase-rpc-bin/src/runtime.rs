@@ -3,15 +3,16 @@ use std::{
     io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 
 use async_trait::async_trait;
 use sdkwork_database_config::DatabaseEngine;
 use sdkwork_drive_storage_local::LocalDriveObjectStore;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_knowledgebase_and_install_schema, is_postgres_database_url, knowledgebase_health_check,
-    SqliteGroupKnowledgeSpaceBindingStore, SqliteKnowledgeOkfBundleFileStore,
-    SqliteKnowledgeSpaceStore, SqlxWikiPersistenceStore,
+    connect_knowledgebase_and_install_schema, connect_postgres_pool, is_postgres_database_url,
+    knowledgebase_health_check, SqliteGroupKnowledgeSpaceBindingStore,
+    SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeSpaceStore, SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_rpc::GroupKnowledgeSpaceLifecycleRuntime;
 use sdkwork_intelligence_knowledgebase_service::{
@@ -30,11 +31,14 @@ use sdkwork_knowledgebase_contract::group_space::{
 };
 use sdkwork_knowledgebase_drive::{
     connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
-    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveRootScopeAdapter,
-    KnowledgebaseDriveSpaceProvisionerAdapter, KnowledgebaseDriveStorageAdapter,
-    KnowledgebaseDriveWorkspaceAdapter, KnowledgebaseKnowledgeAccessControlAdapter,
+    resolve_cloud_knowledgebase_drive_storage, KnowledgebaseDriveNodeTreeAdapter,
+    KnowledgebaseDriveRootScopeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
+    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
+    KnowledgebaseKnowledgeAccessControlAdapter,
 };
 use thiserror::Error;
+
+use crate::config::DriveStorageRuntimeConfig;
 
 const DRIVE_PROVIDER_ID: &str = "sdkwork-knowledgebase-local";
 const DRIVE_BUCKET: &str = "knowledgebase";
@@ -44,9 +48,9 @@ const DRIVE_BUCKET: &str = "knowledgebase";
 #[derive(Clone)]
 pub struct KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
     pool: sqlx::AnyPool,
-    drive_pool: sqlx::AnyPool,
+    drive_pool: sqlx::PgPool,
     database_engine: DatabaseEngine,
-    object_store: Arc<LocalDriveObjectStore>,
+    drive_storage: Arc<KnowledgebaseDriveStorageAdapter>,
     operator_id: String,
     system_actor_id: u64,
 }
@@ -54,11 +58,10 @@ pub struct KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
 impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
     pub async fn connect(
         database_url: &str,
-        drive_storage_root: PathBuf,
+        drive_storage: DriveStorageRuntimeConfig,
         operator_id: String,
         system_actor_id: u64,
     ) -> Result<Self, KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError> {
-        verify_drive_storage_root(&drive_storage_root)?;
         let pool = connect_knowledgebase_and_install_schema(database_url)
             .await
             .map_err(|_| dependency_unavailable("knowledgebase-schema-connect"))?;
@@ -71,6 +74,34 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
         knowledgebase_drive_health_check(&drive_pool)
             .await
             .map_err(|_| dependency_unavailable("drive-health"))?;
+        let drive_storage = match drive_storage {
+            DriveStorageRuntimeConfig::StandaloneLocal(drive_storage_root) => {
+                verify_drive_storage_root(&drive_storage_root)?;
+                let adapter = KnowledgebaseDriveStorageAdapter::new(
+                    Arc::new(LocalDriveObjectStore::new(drive_storage_root)),
+                    DRIVE_PROVIDER_ID,
+                    DRIVE_BUCKET,
+                    "deployment",
+                );
+                adapter
+                    .ensure_bucket()
+                    .await
+                    .map_err(|_| dependency_unavailable("local-object-store-bucket"))?;
+                adapter
+            }
+            DriveStorageRuntimeConfig::CloudProvider(provider_id) => {
+                let postgres_pool = connect_postgres_pool(database_url)
+                    .await
+                    .map_err(|_| dependency_unavailable("cloud-object-store-postgres-pool"))?;
+                resolve_cloud_knowledgebase_drive_storage(postgres_pool, &provider_id, "deployment")
+                    .await
+                    .map_err(|_| dependency_unavailable("cloud-object-store-provider"))?
+            }
+        };
+        tokio::time::timeout(Duration::from_secs(5), drive_storage.readiness_check())
+            .await
+            .map_err(|_| dependency_unavailable("object-store-readiness-timeout"))?
+            .map_err(|_| dependency_unavailable("object-store-readiness"))?;
 
         Ok(Self {
             pool,
@@ -80,7 +111,7 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
             } else {
                 DatabaseEngine::Sqlite
             },
-            object_store: Arc::new(LocalDriveObjectStore::new(drive_storage_root)),
+            drive_storage: Arc::new(drive_storage),
             operator_id,
             system_actor_id,
         })
@@ -94,7 +125,11 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
             .map_err(|_| dependency_unavailable("knowledgebase-readiness"))?;
         knowledgebase_drive_health_check(&self.drive_pool)
             .await
-            .map_err(|_| dependency_unavailable("drive-readiness"))
+            .map_err(|_| dependency_unavailable("drive-readiness"))?;
+        tokio::time::timeout(Duration::from_secs(5), self.drive_storage.readiness_check())
+            .await
+            .map_err(|_| dependency_unavailable("object-store-readiness-timeout"))?
+            .map_err(|_| dependency_unavailable("object-store-readiness"))
     }
 
     fn dependencies_for_scope(
@@ -123,12 +158,7 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
                 SqliteKnowledgeOkfBundleFileStore::new(self.pool.clone(), scope.tenant_id)
                     .with_database_engine(self.database_engine),
             ),
-            drive_storage: Arc::new(KnowledgebaseDriveStorageAdapter::new(
-                self.object_store.clone(),
-                DRIVE_PROVIDER_ID,
-                DRIVE_BUCKET,
-                tenant_id.clone(),
-            )),
+            drive_storage: Arc::new(self.drive_storage.for_tenant(tenant_id.clone())),
             drive_space_provisioner: Arc::new(KnowledgebaseDriveSpaceProvisionerAdapter::new(
                 self.drive_pool.clone(),
             )),
@@ -324,9 +354,11 @@ fn verify_drive_storage_root(
         probe.write_all(b"sdkwork-knowledgebase-rpc-preflight")?;
         probe.sync_all()?;
         probe.seek(SeekFrom::Start(0))?;
-        let mut contents = Vec::new();
-        probe.read_to_end(&mut contents)?;
-        if contents != b"sdkwork-knowledgebase-rpc-preflight" {
+        const PROBE_CONTENT: &[u8] = b"sdkwork-knowledgebase-rpc-preflight";
+        let mut contents = [0_u8; PROBE_CONTENT.len()];
+        probe.read_exact(&mut contents)?;
+        let mut trailing = [0_u8; 1];
+        if contents != PROBE_CONTENT || probe.read(&mut trailing)? != 0 {
             return Err(std::io::Error::other(
                 "drive storage probe readback mismatch",
             ));

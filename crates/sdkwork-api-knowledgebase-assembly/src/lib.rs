@@ -6,8 +6,10 @@ mod bootstrap;
 mod generated;
 
 pub use bootstrap::{
-    assemble_api_router, assemble_api_router_from_environment, assemble_business_routes,
-    assemble_business_routes_from_environment, ApiAssembly,
+    assemble_api_router, assemble_api_router_from_environment,
+    assemble_api_router_from_environment_with_group_launch_ticket_consumer,
+    assemble_app_api_contribution, assemble_app_api_contribution_from_environment,
+    assemble_business_routes, assemble_business_routes_from_environment, ApiAssembly,
 };
 
 pub fn assembly_route_count() -> usize {

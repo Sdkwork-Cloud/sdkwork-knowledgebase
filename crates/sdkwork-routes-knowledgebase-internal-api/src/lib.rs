@@ -11,7 +11,8 @@ mod web_bootstrap;
 
 pub use http_route_manifest::internal_route_manifest;
 pub use routes::{
-    build_router_with_services, gateway_mount, wrap_router_with_web_framework_from_env,
+    build_business_router_with_services, build_router_with_services, gateway_mount,
+    wrap_router_with_web_framework_from_env,
 };
 pub use state::{
     InternalApiState, KnowledgebaseDriveEventReceiver, KnowledgebaseWikiPublicProvider,

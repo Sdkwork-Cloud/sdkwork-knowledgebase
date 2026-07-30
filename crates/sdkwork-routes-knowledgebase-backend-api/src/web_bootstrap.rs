@@ -45,6 +45,10 @@ impl AuthorizationPolicy for KnowledgeBackendAuthorizationPolicy {
 #[derive(Clone, Default)]
 struct KnowledgeBackendContextInjector;
 
+pub fn knowledgebase_backend_context_injector() -> Arc<dyn DomainContextInjector> {
+    Arc::new(KnowledgeBackendContextInjector)
+}
+
 impl DomainContextInjector for KnowledgeBackendContextInjector {
     fn inject(&self, request: &mut axum::extract::Request, context: &WebRequestContext) {
         if let Some(principal) = context.principal.as_ref() {
@@ -103,7 +107,7 @@ fn build_backend_web_framework_layer(
             })
             .with_route_manifest(route_manifest)
             .with_authorization_policy(Arc::new(KnowledgeBackendAuthorizationPolicy))
-            .with_domain_injector(Arc::new(KnowledgeBackendContextInjector))
+            .with_domain_injector(knowledgebase_backend_context_injector())
             .with_rate_limit_store(crate::web_rate_limit_store::knowledgebase_rate_limit_store())
             .with_rate_limit_resolver(Arc::new(DefaultRateLimitPolicyResolver)),
     )

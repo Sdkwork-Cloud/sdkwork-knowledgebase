@@ -15,7 +15,7 @@
   "vendorIdPattern": "^[a-z0-9][a-z0-9_-]*$",
   "implementationIdPattern": "^engine\\.knowledge\\.external\\.[a-z0-9][a-z0-9_-]*$",
   "agentProviderIdPattern": "^provider\\.knowledge\\.external\\.[a-z0-9][a-z0-9_-]*$",
-  "integrationTiers": ["catalog", "stub", "adapter", "production"],
+  "integrationTiers": ["catalog", "adapter", "production"],
   "categories": [
     "knowledge_platform",
     "rag_engine",
@@ -45,7 +45,7 @@
   ],
   "adapterCratePattern": "crates/sdkwork-knowledgebase-engine-{vendorId}",
   "rules": [
-    "Catalog metadata is authoritative for external engine registration; upstream git submodules are optional pins under external/knowledge-engines/upstream/{vendorId}.",
+    "Catalog metadata is authoritative for external engine discovery and certification only; runtime registration requires an explicitly configured executable adapter. Upstream git submodules are optional pins under external/knowledge-engines/upstream/{vendorId}.",
     "SDKWork handlers and services MUST NOT call vendor HTTP APIs directly; only approved adapter crates may integrate upstream code or APIs.",
     "Native OKF and native RAG engines are NOT listed in this catalog; they are defined in specs/knowledge-engine-spi.spec.json.",
     "Adding a vendor requires engine.manifest.json, catalog.manifest.json entry, and passing tools/check_external_knowledge_engine_catalog.mjs.",

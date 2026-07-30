@@ -5,7 +5,8 @@ use sdkwork_intelligence_knowledgebase_service::outbox::{
     KnowledgeOutboxPublisherService, LoggingKnowledgeOutboxDispatcher,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::{
-    AppendOutboxEventRecord, KnowledgeOutboxStore,
+    AppendOutboxEventRecord, KnowledgeOutboxStore, KnowledgeOutboxStoreError,
+    MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES,
 };
 
 #[tokio::test]
@@ -128,4 +129,32 @@ async fn sqlite_outbox_store_requeues_failed_events_under_retry_limit() {
     .await
     .expect("count pending");
     assert_eq!(pending, 1);
+}
+
+#[tokio::test]
+async fn sqlite_outbox_store_rejects_invalid_or_oversized_payloads() {
+    let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+        .await
+        .expect("schema install");
+    let store = SqliteKnowledgeOutboxStore::new(pool, 1);
+
+    for payload_json in [
+        "not-json".to_string(),
+        format!("\"{}\"", "x".repeat(MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES)),
+    ] {
+        let error = store
+            .append_event(AppendOutboxEventRecord {
+                aggregate_type: "knowledge_document".to_string(),
+                aggregate_id: 42,
+                event_type: "knowledge.document.changed.v1".to_string(),
+                payload_json,
+            })
+            .await
+            .expect_err("invalid payload must be rejected before persistence");
+
+        assert!(matches!(
+            error,
+            KnowledgeOutboxStoreError::InvalidRequest(_)
+        ));
+    }
 }

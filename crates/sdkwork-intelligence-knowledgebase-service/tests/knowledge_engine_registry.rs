@@ -1,14 +1,18 @@
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
-    load_external_engines_from_catalog, InMemoryKnowledgeEngineRegistry, KnowledgeEngineRegistry,
+    InMemoryKnowledgeEngineRegistry, KnowledgeEngine, KnowledgeEngineRegistry,
 };
 use sdkwork_knowledgebase_contract::knowledge_engine::KnowledgeEngineError;
+use sdkwork_knowledgebase_engine_dify::{DifyConnectorConfig, DifyKnowledgeEngine};
+use std::sync::Arc;
 
 #[test]
 fn registry_rejects_duplicate_implementation_ids_without_replacing_engine() {
-    let engine = load_external_engines_from_catalog()
-        .into_iter()
-        .next()
-        .expect("catalog fixture engine");
+    let engine: Arc<dyn KnowledgeEngine> =
+        Arc::new(DifyKnowledgeEngine::with_config(DifyConnectorConfig {
+            base_url: "http://127.0.0.1:1".to_string(),
+            api_key: Default::default(),
+            default_dataset_id: None,
+        }));
     let implementation_id = engine.descriptor().implementation_id;
     let mut registry = InMemoryKnowledgeEngineRegistry::new();
 

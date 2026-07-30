@@ -11,7 +11,9 @@ use zeroize::Zeroizing;
 use crate::ports::knowledge_outbox_dispatcher::{
     KnowledgeOutboxDispatchError, KnowledgeOutboxDispatcher,
 };
-use crate::ports::knowledge_outbox_store::PendingOutboxEvent;
+use crate::ports::knowledge_outbox_store::{
+    PendingOutboxEvent, MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES,
+};
 
 const OUTBOX_WEBHOOK_ENV: &str = "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_URL";
 const OUTBOX_WEBHOOK_SECRET_FILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_OUTBOX_WEBHOOK_SECRET_FILE";
@@ -107,6 +109,11 @@ impl KnowledgeOutboxDispatcher for WebhookKnowledgeOutboxDispatcher {
         _tenant_id: u64,
         event: &PendingOutboxEvent,
     ) -> Result<(), KnowledgeOutboxDispatchError> {
+        if event.payload_json.len() > MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES {
+            return Err(KnowledgeOutboxDispatchError::Internal(format!(
+                "outbox payload exceeds {MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES} bytes"
+            )));
+        }
         let event_time = OffsetDateTime::now_utc()
             .format(&Rfc3339)
             .unwrap_or_else(|_| "1970-01-01T00:00:00Z".to_string());

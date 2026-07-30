@@ -166,7 +166,8 @@
         "x-sdkwork-source-route-crate": "sdkwork-routes-knowledgebase-app-api",
         "x-sdkwork-auth-mode": "dual-token",
         "x-sdkwork-permission": "knowledge.spaces.read",
-        "x-sdkwork-rate-limit-tier": "auth-critical"
+        "x-sdkwork-rate-limit-tier": "auth-critical",
+        "x-sdkwork-idempotent": true
       }
     },
     "/app/v3/api/knowledge/spaces": {
@@ -11606,6 +11607,9 @@
         "description": "Activate Wiki publication",
         "parameters": [
           {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          },
+          {
             "name": "spaceId",
             "in": "path",
             "required": true,
@@ -11799,6 +11803,9 @@
         "description": "Pause Wiki publication",
         "parameters": [
           {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          },
+          {
             "name": "spaceId",
             "in": "path",
             "required": true,
@@ -11991,6 +11998,9 @@
         "summary": "Publish Wiki source file",
         "description": "Publish Wiki source file",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          },
           {
             "name": "spaceId",
             "in": "path",
@@ -12195,6 +12205,9 @@
         "description": "Unpublish Wiki source file",
         "parameters": [
           {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          },
+          {
             "name": "spaceId",
             "in": "path",
             "required": true,
@@ -12397,6 +12410,9 @@
         "summary": "Change Wiki source file visibility",
         "description": "Change Wiki source file visibility",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          },
           {
             "name": "spaceId",
             "in": "path",
@@ -12601,7 +12617,7 @@
         "description": "Client retry key scoped by the authenticated principal and ticket-consumption operation.",
         "schema": {
           "type": "string",
-          "minLength": 8,
+          "minLength": 1,
           "maxLength": 128,
           "pattern": "^[A-Za-z0-9._:-]+$"
         }

@@ -1,3 +1,16 @@
+-- sdkwork:migration
+-- id: 202607200001_knowledge_engine_provider_binding
+-- engine: postgres
+-- module: knowledgebase
+-- purpose: Add tenant-scoped knowledge-engine provider binding persistence
+-- reversible: false
+-- rollback: forward-fix
+-- transactional: true
+-- lock: lightweight
+-- lock_timeout: 2s
+-- statement_timeout: 30s
+-- contract_version: 1.1.0
+
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_provider_scope
     ON kb_space (tenant_id, organization_id, id);
 

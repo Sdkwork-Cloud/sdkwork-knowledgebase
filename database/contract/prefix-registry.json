@@ -6,11 +6,6 @@
       "prefix": "kb_",
       "owner": "knowledgebase-platform",
       "domain": "knowledgebase"
-    },
-    {
-      "prefix": "web_",
-      "owner": "knowledgebase-platform",
-      "domain": "knowledgebase"
     }
   ]
 }

@@ -374,7 +374,13 @@ async fn default_registry_registers_native_engines() {
     });
 
     let descriptors = engines.list_registered();
-    assert_eq!(descriptors.len(), 4);
+    assert_eq!(descriptors.len(), 2);
+    assert!(engines
+        .resolve_by_id(&KnowledgeEngineId::external("dify").0)
+        .is_err());
+    assert!(engines
+        .resolve_by_id(&KnowledgeEngineId::external("ragflow").0)
+        .is_err());
 
     let okf = engines
         .resolve_for_mode(KnowledgeAgentKnowledgeMode::OkfBundle)
@@ -394,8 +400,8 @@ async fn default_registry_registers_native_engines() {
 }
 
 #[tokio::test]
-async fn adapter_registration_overrides_catalog_stub_for_ragflow() {
-    use sdkwork_knowledgebase_engine_ragflow::RagflowKnowledgeEngine;
+async fn runtime_registers_explicit_ragflow_adapter() {
+    use sdkwork_knowledgebase_engine_ragflow::{RagflowConnectorConfig, RagflowKnowledgeEngine};
 
     let engines = build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
@@ -415,7 +421,13 @@ async fn adapter_registration_overrides_catalog_stub_for_ragflow() {
         rag_index_store: None,
         rag_embedding_store: None,
         rag_embedder: None,
-        external_engines: vec![Arc::new(RagflowKnowledgeEngine::stub())],
+        external_engines: vec![Arc::new(RagflowKnowledgeEngine::with_config(
+            RagflowConnectorConfig {
+                base_url: "http://127.0.0.1:1".to_string(),
+                api_key: Default::default(),
+                default_dataset_id: None,
+            },
+        ))],
     });
 
     let ragflow = engines
@@ -423,13 +435,13 @@ async fn adapter_registration_overrides_catalog_stub_for_ragflow() {
         .expect("ragflow engine");
     assert_eq!(
         ragflow.descriptor().display_name,
-        "RAGFlow (external adapter — unconfigured)"
+        "RAGFlow (external adapter)"
     );
 }
 
 #[tokio::test]
-async fn adapter_registration_overrides_catalog_stub_for_dify() {
-    use sdkwork_knowledgebase_engine_dify::DifyKnowledgeEngine;
+async fn runtime_registers_explicit_dify_adapter() {
+    use sdkwork_knowledgebase_engine_dify::{DifyConnectorConfig, DifyKnowledgeEngine};
 
     let engines = build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
@@ -449,16 +461,19 @@ async fn adapter_registration_overrides_catalog_stub_for_dify() {
         rag_index_store: None,
         rag_embedding_store: None,
         rag_embedder: None,
-        external_engines: vec![Arc::new(DifyKnowledgeEngine::stub())],
+        external_engines: vec![Arc::new(DifyKnowledgeEngine::with_config(
+            DifyConnectorConfig {
+                base_url: "http://127.0.0.1:1".to_string(),
+                api_key: Default::default(),
+                default_dataset_id: None,
+            },
+        ))],
     });
 
     let dify = engines
         .resolve_by_id(&KnowledgeEngineId::external("dify").0)
         .expect("dify engine");
-    assert_eq!(
-        dify.descriptor().display_name,
-        "Dify (external adapter — unconfigured)"
-    );
+    assert_eq!(dify.descriptor().display_name, "Dify (external adapter)");
 }
 
 #[tokio::test]

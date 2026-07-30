@@ -56,7 +56,7 @@ const requiredPaths = [
   "crates/sdkwork-intelligence-knowledgebase-service/src/provider_binding.rs",
   "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/provider_binding_store.rs",
   "crates/sdkwork-intelligence-knowledgebase-repository-sqlx/tests/provider_binding_store.rs",
-  "database/migrations/sqlite/202607200001_knowledge_engine_provider_binding.up.sql",
+  "tests/fixtures/database/sqlite/migrations/202607200001_knowledge_engine_provider_binding.up.sql",
   "database/migrations/postgres/202607200001_knowledge_engine_provider_binding.up.sql",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/mod.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/execution_handle.rs",
@@ -65,43 +65,31 @@ const requiredPaths = [
   "crates/sdkwork-knowledgebase-provider-secret-adapter/src/resolver.rs",
   "crates/sdkwork-knowledgebase-provider-secret-adapter/tests/provider_secret_adapter.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/okf_native.rs",
-  "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/external_catalog.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/rag_native.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/rag/index_rebuild.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/ports/knowledge_index_store.rs",
   "crates/sdkwork-knowledgebase-engine-dify/src/lib.rs",
-  "crates/sdkwork-knowledgebase-engine-dify/tests/dify_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-dify/tests/dify_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-dify/tests/dify_read_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-ragflow/src/lib.rs",
-  "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-ragflow/tests/ragflow_read_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-onyx/src/lib.rs",
-  "crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-onyx/tests/onyx_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-anythingllm/src/lib.rs",
-  "crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-anythingllm/tests/anythingllm_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-open-webui/src/lib.rs",
-  "crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-open-webui/tests/open_webui_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-flowise/src/lib.rs",
-  "crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-flowise/tests/flowise_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-chroma/src/lib.rs",
-  "crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-chroma/tests/chroma_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-qdrant/src/lib.rs",
-  "crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-qdrant/tests/qdrant_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-weaviate/src/lib.rs",
-  "crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-weaviate/tests/weaviate_adapter_http.rs",
   "crates/sdkwork-knowledgebase-engine-haystack/src/lib.rs",
-  "crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_stub_engine.rs",
   "crates/sdkwork-knowledgebase-engine-haystack/tests/haystack_adapter_http.rs",
-  "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_catalog.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_native.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/space_resolver.rs",
   "crates/sdkwork-intelligence-knowledgebase-service/tests/knowledge_engine_space_resolver.rs",
@@ -151,26 +139,21 @@ assert(
     path.join(root, "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/mod.rs"),
     "utf8",
   )).includes("deps.external_engines"),
-  "build_default_registry must register runtime adapter engines before catalog stubs",
+  "build_default_registry must register explicitly supplied runtime adapter engines",
 );
 
 const registryModSource = await readFile(
   path.join(root, "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/mod.rs"),
   "utf8",
 );
-assert(
-  registryModSource.includes("load_external_engines_from_catalog"),
-  "build_default_registry must register catalog external engines",
-);
 const registryBuildFnStart = registryModSource.indexOf("pub fn build_default_registry");
 const registryBuildFnEnd = registryModSource.indexOf("tenant_id: deps.tenant_id,", registryBuildFnStart);
 const registryBuildBody = registryModSource.slice(registryBuildFnStart, registryBuildFnEnd);
 assert(
-  registryBuildBody.includes("deps.external_engines")
-    && registryBuildBody.includes("load_external_engines_from_catalog")
-    && registryBuildBody.indexOf("deps.external_engines")
-      < registryBuildBody.indexOf("load_external_engines_from_catalog"),
-  "adapter crate registration must precede catalog stub registration inside build_default_registry",
+  registryBuildBody.includes("for engine in deps.external_engines")
+    && !registryBuildBody.includes("load_external_engines_from_catalog")
+    && !registryModSource.includes("CatalogExternalKnowledgeEngine"),
+  "build_default_registry must register only explicit runtime adapters and must not materialize catalog-only providers",
 );
 
 assert(
@@ -479,16 +462,10 @@ assert(
   "external engine baseline capabilities must not imply document listing",
 );
 
-const externalCatalogSource = await readFile(
-  path.join(
-    root,
-    "crates/sdkwork-intelligence-knowledgebase-service/src/knowledge_engine/external_catalog.rs",
-  ),
-  "utf8",
-);
 assert(
-  externalCatalogSource.includes('integration_tier == "adapter"'),
-  "catalog loader must skip adapter-tier vendors (runtime adapter crates own registration)",
+  !registryModSource.includes("load_external_engines_from_catalog")
+    && !registryModSource.includes("CatalogExternalKnowledgeEngine"),
+  "catalog metadata must never be registered as an executable runtime knowledge engine",
 );
 
 for (const traitName of ["OkfBundleEngine", "RagKnowledgeEngine", "ExternalKnowledgeEngine"]) {
@@ -618,6 +595,11 @@ for (const adapterCrate of providerAdapterCrates) {
   const adapterSource = await readFile(path.join(adapterRoot, "lib.rs"), "utf8");
   const configSource = await readFile(path.join(adapterRoot, "config.rs"), "utf8");
   assert(
+    adapterSource.includes("pub fn from_env() -> Option<Self>")
+      && !adapterSource.includes("unconfigured_catalog_entry"),
+    `${adapterCrate} adapter must not construct or expose an unconfigured runtime engine`,
+  );
+  assert(
     /fn bind_provider\(\s*&self,\s*[^,]+,\s*credential:\s*Option<KnowledgeEngineProviderCredential>,/s.test(adapterSource),
     `${adapterCrate} adapter must consume the one-time resolved Provider credential in bind_provider`,
   );
@@ -637,6 +619,16 @@ for (const adapterCrate of providerAdapterCrates) {
     `${adapterCrate} adapter must not retain the retired credential-file environment alias`,
   );
 }
+const adapterLoaderSource = await readFile(
+  path.join(root, "crates/sdkwork-routes-knowledgebase-app-api/src/knowledge_engine_adapters.rs"),
+  "utf8",
+);
+assert(
+  adapterLoaderSource.includes("push_if_configured")
+    && adapterLoaderSource.includes("engine: Option<E>")
+    && !adapterLoaderSource.includes("Arc::new(DifyKnowledgeEngine::from_env())"),
+  "runtime adapter loader must omit providers without executable configuration",
+);
 const providerRuntimeSource = await readFile(
   path.join(root, "crates/sdkwork-knowledgebase-provider-runtime/src/runtime.rs"),
   "utf8",
@@ -674,7 +666,7 @@ for (const forbiddenInference of [
 const sqliteProviderMigration = await readFile(
   path.join(
     root,
-    "database/migrations/sqlite/202607200001_knowledge_engine_provider_binding.up.sql",
+    "tests/fixtures/database/sqlite/migrations/202607200001_knowledge_engine_provider_binding.up.sql",
   ),
   "utf8",
 );

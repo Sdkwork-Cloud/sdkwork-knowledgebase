@@ -1,3 +1,16 @@
+-- sdkwork:migration
+-- id: 202607160001_group_knowledgebase_tenant_scope
+-- engine: postgres
+-- module: knowledgebase
+-- purpose: Enforce tenant and organization scope on group knowledge-space relations
+-- reversible: false
+-- rollback: forward-fix
+-- transactional: true
+-- lock: heavyweight
+-- lock_timeout: 2s
+-- statement_timeout: 30s
+-- contract_version: 1.1.0
+
 ALTER TABLE kb_group_knowledge_space_membership_projection
     DROP CONSTRAINT IF EXISTS ck_kb_group_knowledge_space_membership_projection_organization;
 ALTER TABLE kb_group_knowledge_space_membership_projection

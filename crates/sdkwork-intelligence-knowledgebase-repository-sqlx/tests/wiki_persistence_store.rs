@@ -24,8 +24,9 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistenc
 };
 use sdkwork_utils_rust::sha256_hash;
 
-const SQLITE_BASELINE: &str =
-    include_str!("../../../database/ddl/baseline/sqlite/0001_knowledgebase_baseline.sql");
+const SQLITE_BASELINE: &str = include_str!(
+    "../../../tests/fixtures/database/sqlite/ddl/baseline/0001_knowledgebase_baseline.sql"
+);
 
 const SCOPE: WikiPersistenceScope = WikiPersistenceScope {
     tenant_id: 101,

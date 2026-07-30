@@ -29,12 +29,14 @@ and compatibility work; they are not runtime dependencies.
 | Tier | Meaning |
 | --- | --- |
 | `catalog` | Discovery metadata only; no executable SDKWork adapter |
-| `stub` | Non-production adapter skeleton with no advertised executable capability |
 | `adapter` | Executable SDKWork adapter with the local versioned contract suite |
 | `production` | Adapter plus current live, licensing, security/privacy, and SLO evidence |
 
 An `adapter` result never implies production support. Production promotion is rejected unless the
 live evidence required by the certification policy is complete and current.
+Catalog entries are never registered as runtime engines. A runtime can register only explicitly
+configured executable adapter instances; metadata-only vendors remain discoverable but unavailable
+for execution.
 
 ## Submodule Policy
 

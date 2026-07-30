@@ -4,7 +4,8 @@ use sdkwork_drive_contract::drive::events::{
     DriveEventEnvelope, DriveNodeDeletedV1Data, DriveRootScopeEffect, DriveRootScopeKind,
 };
 use sdkwork_knowledgebase_worker::{
-    run_maintenance_tick, MaintenanceConfig, MaintenanceTickState, WikiDriveEventMaintenanceConfig,
+    run_maintenance_tick, MaintenanceConfig, MaintenanceTickError, MaintenanceTickState,
+    WikiDriveEventMaintenanceConfig,
 };
 use sdkwork_routes_knowledgebase_app_api::{dev_auth, paths, KnowledgebaseRuntime};
 use serde_json::{json, Value};
@@ -66,7 +67,9 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
     )
     .await
     .expect("maintenance tick");
+    assert_eq!(tick.outbox_requeued, 0);
     assert_eq!(tick.outbox_published, 1);
+    assert_eq!(tick.outbox_failed, 0);
 
     let still_pending: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND status = 0",
@@ -173,6 +176,22 @@ async fn ingest_appends_outbox_event_and_worker_publishes_it() {
             .await
             .expect("read advanced Wiki Drive checkpoint");
     assert_eq!(checkpoint_sequence, 1);
+}
+
+#[tokio::test]
+async fn maintenance_tick_propagates_outbox_store_failure() {
+    let runtime = test_runtime().await;
+    runtime.pool().close().await;
+
+    let error = run_maintenance_tick(
+        &runtime,
+        &maintenance_config(),
+        MaintenanceTickState::default(),
+    )
+    .await
+    .expect_err("closed outbox store must fail the maintenance tick");
+
+    assert!(matches!(error, MaintenanceTickError::Outbox(_)));
 }
 
 fn maintenance_config() -> MaintenanceConfig {

@@ -9,7 +9,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_permissio
     GrantDrivePermissionRequest, KnowledgeDrivePermissionError, KnowledgeDrivePermissionProvider,
     ListDrivePermissionsRequest, RevokeDrivePermissionRequest,
 };
-use sqlx::AnyPool;
+use sqlx::PgPool;
 
 #[derive(Debug, Clone)]
 pub struct KnowledgebaseDrivePermissionAdapter {
@@ -17,7 +17,7 @@ pub struct KnowledgebaseDrivePermissionAdapter {
 }
 
 impl KnowledgebaseDrivePermissionAdapter {
-    pub fn new(pool: AnyPool) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
             service: SqlDrivePermissionService::new(pool),
         }

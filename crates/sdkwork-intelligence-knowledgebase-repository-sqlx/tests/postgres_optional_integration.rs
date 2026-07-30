@@ -160,53 +160,6 @@ async fn postgres_audit_event_table_accepts_append_when_database_url_configured(
 }
 
 #[tokio::test]
-async fn postgres_web_audit_event_table_accepts_append_when_database_url_configured() {
-    let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping postgres web audit integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
-        return;
-    };
-
-    let pool = connect_postgres_and_install_schema(&database_url)
-        .await
-        .expect("connect postgres knowledgebase schema");
-
-    let request_id = format!(
-        "req-web-audit-{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos()
-    );
-
-    sqlx::query(
-        "INSERT INTO web_audit_event \
-         (request_id, tenant_id, user_id, api_surface, path, method, operation_id, status_code, duration_ms, created_at) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-    )
-    .bind(&request_id)
-    .bind("100001")
-    .bind("99")
-    .bind("App")
-    .bind("/app/v3/api/knowledge/spaces")
-    .bind("GET")
-    .bind(Option::<String>::None)
-    .bind(200_i32)
-    .bind(12_i32)
-    .bind(1_700_000_000_i64)
-    .execute(&pool)
-    .await
-    .expect("insert web audit row");
-
-    let count: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM web_audit_event WHERE request_id = $1")
-            .bind(&request_id)
-            .fetch_one(&pool)
-            .await
-            .expect("count web audit rows");
-    assert_eq!(count.0, 1);
-}
-
-#[tokio::test]
 async fn postgres_agent_profile_create_when_database_url_configured() {
     let Some(database_url) = optional_postgres_database_url() else {
         eprintln!(

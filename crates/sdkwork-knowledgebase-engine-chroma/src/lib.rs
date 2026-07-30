@@ -37,12 +37,8 @@ pub struct ChromaKnowledgeEngine {
 }
 
 impl ChromaKnowledgeEngine {
-    pub fn from_env() -> Self {
-        let config = ChromaConnectorConfig::from_env();
-        let client = config
-            .as_ref()
-            .map(|value| ChromaApiClient::new(value.clone()));
-        Self { config, client }
+    pub fn from_env() -> Option<Self> {
+        ChromaConnectorConfig::from_env().map(Self::with_config)
     }
 
     pub fn with_config(config: ChromaConnectorConfig) -> Self {
@@ -50,13 +46,6 @@ impl ChromaKnowledgeEngine {
         Self {
             config: Some(config),
             client: Some(client),
-        }
-    }
-
-    pub fn stub() -> Self {
-        Self {
-            config: None,
-            client: None,
         }
     }
 

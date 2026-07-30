@@ -144,13 +144,18 @@ pnpm dev:browser:cloud
 Common environment variables:
 
 - `SDKWORK_DATABASE_URL` (PostgreSQL in the public development and deployment profiles)
+- `SDKWORK_DATABASE_MAX_CONNECTIONS` (combined process budget shared by all embedded database consumers)
+- `SDKWORK_DATABASE_TEMPORARY_ANY_POOL_EXCEPTION=true` and
+  `SDKWORK_DATABASE_TEMPORARY_DRIVER_POOL_COUNT=1` (tracked pre-release compatibility contract)
 - `SDKWORK_KNOWLEDGEBASE_TENANT_ID` (must match IAM login tenant; development profiles use `100001` from `sdkwork.app.config.json`)
 - `SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND` / `SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_HTTP_URL`
 - `SDKWORK_KNOWLEDGEBASE_DEV_ALLOWED_ORIGINS` (dev CORS allowlist for browser origins such as `http://127.0.0.1:5184`)
-- `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT` (default `data/drive-objects`)
+- `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT` (standalone local Drive provider only; default `data/drive-objects`)
+- `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_PROVIDER_ID` (required in cloud; identifies an active,
+  non-local Drive provider whose credential remains a Drive-owned reference)
 
 Runtime authentication is owned by `sdkwork-iam` through the shared web framework,
-`sdkwork-iam-web-adapter`, and embedded `sdkwork-iam-gateway-assembly` business routes in standalone mode.
+`sdkwork-iam-web-adapter`, and the embedded IAM app API assembly in standalone mode.
 Local and production deployments must provide standard IAM-backed request context instead of product-local auth bypass middleware.
 
 ## Runtime ID Configuration
@@ -184,7 +189,7 @@ Valid values are `0` through `1023`. Local and test runs may omit the variable a
 - App and Backend OpenAPI authority files use SDKWork dotted operation IDs, including `okf.bundle.index.list`, `okf.bundle.log.list`, `driveImports.create`, `documents.versions.versions`, and `sources.create`.
 - Generated App and Backend TypeScript SDKs are produced with the canonical `sdkwork-sdk-generator` using the SDKWork v3 standard profile.
 - App and Backend SDK families declare Appbase, Drive, and Memory dependency SDKs; dependency-owned Appbase, Drive, and Memory APIs are not generated into knowledgebase transports.
-- App and Backend Rust API crates mount every generated OpenAPI operation path. The hosted SQLx runtime (`KnowledgebaseRuntime`) wires all **109** HTTP operations (69 app + 32 backend + 8 open) to concrete service implementations; trait default stubs in route crates remain only for library-only injection tests.
+- App and Backend Rust API crates mount every generated OpenAPI operation path. The hosted SQLx runtime (`KnowledgebaseRuntime`) wires all **109** HTTP operations (69 app + 32 backend + 8 open) to concrete service implementations; test doubles are confined to test modules and are never mounted by a deployable runtime.
 - The agent provider crate exposes `provider.knowledge.sdkwork-knowledgebase` as a typed `sdkwork-agent-kernel::KnowledgeProvider` adapter backed by an injected retrieval client.
 
 ## SDKWork Documentation Contract

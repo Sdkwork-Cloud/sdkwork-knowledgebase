@@ -10,6 +10,10 @@ path = "src/bin/app_main.rs"
 
 [dependencies]
 sdkwork-api-knowledgebase-assembly.workspace = true
+sdkwork-database-sqlx.workspace = true
+sdkwork_api_iam_assembly.workspace = true
+sdkwork-iam-web-adapter.workspace = true
+sdkwork-web-bootstrap.workspace = true
 axum.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true

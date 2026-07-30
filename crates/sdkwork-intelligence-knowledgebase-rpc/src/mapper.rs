@@ -9,6 +9,7 @@ use sdkwork_knowledgebase_contract::{
         GROUP_KNOWLEDGE_SPACE_BINDING_UUID_MAX_LENGTH,
         GROUP_KNOWLEDGE_SPACE_CONVERSATION_ID_MAX_LENGTH,
         GROUP_KNOWLEDGE_SPACE_GROUP_NAME_MAX_LENGTH,
+        GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS,
         GROUP_KNOWLEDGE_SPACE_SOURCE_EVENT_ID_MAX_LENGTH,
         GROUP_KNOWLEDGE_SPACE_SPACE_UUID_MAX_LENGTH,
     },
@@ -276,6 +277,12 @@ fn group_members_from_proto(
             "at least one group member is required",
         ));
     }
+    if members.len() > GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS {
+        return Err(Status::resource_exhausted(format!(
+            "group membership snapshot exceeds {} members",
+            GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS
+        )));
+    }
 
     let mut actor_ids = BTreeSet::new();
     let mut owner_count = 0usize;
@@ -474,6 +481,21 @@ mod tests {
         assert!(group_members_from_proto(&[owner(), duplicate]).is_err());
         assert!(parse_nonnegative("membership_epoch", "01").is_err());
         assert!(parse_positive("knowledge_space_id", "0").is_err());
+    }
+
+    #[test]
+    fn membership_mapping_rejects_oversized_snapshot_before_mapping() {
+        let members = vec![
+            proto::GroupKnowledgeSpaceMember::default();
+            GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS + 1
+        ];
+
+        assert_eq!(
+            group_members_from_proto(&members)
+                .expect_err("oversized snapshot must be rejected")
+                .code(),
+            tonic::Code::ResourceExhausted
+        );
     }
 
     #[test]

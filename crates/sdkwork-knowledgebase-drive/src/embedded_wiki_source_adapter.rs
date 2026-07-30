@@ -16,7 +16,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_drive_sour
     MAX_WIKI_SOURCE_READ_BYTES, ROOT_SCOPE_SUBSCRIPTION_TYPE,
 };
 use sdkwork_utils_rust::sha256_hash;
-use sqlx::AnyPool;
+use sqlx::PgPool;
 
 use crate::KnowledgebaseDriveRootScopeAdapter;
 
@@ -34,11 +34,7 @@ pub struct KnowledgebaseDriveEmbeddedWikiSourceAdapter {
 }
 
 impl KnowledgebaseDriveEmbeddedWikiSourceAdapter {
-    pub fn new(
-        pool: AnyPool,
-        tenant_id: impl Into<String>,
-        operator_id: impl Into<String>,
-    ) -> Self {
+    pub fn new(pool: PgPool, tenant_id: impl Into<String>, operator_id: impl Into<String>) -> Self {
         let tenant_id = tenant_id.into();
         Self {
             scope: KnowledgebaseDriveRootScopeAdapter::new(

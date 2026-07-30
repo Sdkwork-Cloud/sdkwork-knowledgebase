@@ -53,8 +53,8 @@ pub use routes::{
 pub use runtime::KnowledgebaseRuntime;
 pub use sdkwork_knowledgebase_contract::ProblemDetails;
 pub use web_bootstrap::{
-    knowledgebase_public_path_prefixes, wrap_router_with_web_framework,
-    wrap_router_with_web_framework_from_env,
+    knowledgebase_app_context_injector, knowledgebase_public_path_prefixes,
+    wrap_router_with_web_framework, wrap_router_with_web_framework_from_env,
 };
 
 pub fn gateway_route_manifest() -> HttpRouteManifest {

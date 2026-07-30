@@ -1090,38 +1090,6 @@ CREATE INDEX IF NOT EXISTS idx_kb_audit_event_resource
 CREATE INDEX IF NOT EXISTS idx_kb_audit_event_event_type
     ON kb_audit_event (tenant_id, event_type, created_at DESC);
 
--- folded migration: migrations/postgres/0006_web_audit_event.up.sql
--- source: sdkwork-web-framework/crates/sdkwork-web-store-sqlx/migrations/003_web_audit_event.sql
--- source: sdkwork-web-framework/crates/sdkwork-web-store-sqlx/migrations/009_web_audit_outcome.sql
--- source: sdkwork-web-framework/crates/sdkwork-web-store-sqlx/migrations/013_web_event_expires_at.sql
-
-CREATE TABLE IF NOT EXISTS web_audit_event (
-    id BIGSERIAL PRIMARY KEY,
-    request_id VARCHAR(128) NOT NULL,
-    tenant_id VARCHAR(128),
-    user_id VARCHAR(128),
-    api_surface VARCHAR(64) NOT NULL,
-    path TEXT NOT NULL,
-    method VARCHAR(16) NOT NULL,
-    operation_id VARCHAR(128),
-    status_code INTEGER,
-    duration_ms INTEGER,
-    expires_at BIGINT,
-    created_at BIGINT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_web_audit_event_created
-    ON web_audit_event (created_at);
-
-CREATE INDEX IF NOT EXISTS idx_web_audit_event_request
-    ON web_audit_event (request_id);
-
-CREATE INDEX IF NOT EXISTS idx_web_audit_event_tenant
-    ON web_audit_event (tenant_id);
-
-CREATE INDEX IF NOT EXISTS idx_web_audit_expires
-    ON web_audit_event (expires_at);
-
 -- Canonical live Wiki publication authority (ADR-20260721).
 -- Shared scoped parent key for Wiki publication and Provider Binding foreign keys.
 CREATE UNIQUE INDEX IF NOT EXISTS uk_kb_space_provider_scope
@@ -1790,26 +1758,4 @@ BEGIN
             );
         END IF;
     END LOOP;
-END $$;
-
--- Framework HTTP audit rows (tenant_id stored as text)
-DO $$
-BEGIN
-    ALTER TABLE web_audit_event ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE web_audit_event FORCE ROW LEVEL SECURITY;
-
-    IF NOT EXISTS (
-        SELECT 1
-        FROM pg_policies
-        WHERE schemaname = current_schema()
-          AND tablename = 'web_audit_event'
-          AND policyname = 'tenant_isolation'
-    ) THEN
-        CREATE POLICY tenant_isolation ON web_audit_event
-            AS PERMISSIVE
-            FOR ALL
-            TO PUBLIC
-            USING (tenant_id IS NOT DISTINCT FROM current_setting('app.current_tenant_id', true))
-            WITH CHECK (tenant_id IS NOT DISTINCT FROM current_setting('app.current_tenant_id', true));
-    END IF;
 END $$;

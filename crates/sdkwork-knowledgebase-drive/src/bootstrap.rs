@@ -1,88 +1,51 @@
 use sdkwork_database_config::workspace_database::normalize_workspace_postgres_url;
-use sdkwork_database_config::{DatabaseConfig, DatabaseEngine as SdkDatabaseEngine};
-use sdkwork_database_sqlx::{create_any_pool_from_config, PoolError};
-use sdkwork_drive_config::{
-    DatabaseConfig as DriveDatabaseConfig, DatabaseEngine as DriveDatabaseEngine,
-};
-use sdkwork_drive_workspace_service::infrastructure::sql::{
-    connect_any_database_and_install_schema, install_any_schema,
-};
-use sqlx::AnyPool;
+use sdkwork_drive_config::DatabaseConfig as DriveDatabaseConfig;
+use sdkwork_drive_workspace_service::infrastructure::sql::connect_postgres_database_and_install_schema;
+use sqlx::PgPool;
 
 const DEFAULT_DRIVE_PROVIDER_ID: &str = "sdkwork-knowledgebase-local";
 const DEFAULT_DRIVE_BUCKET: &str = "knowledgebase";
+const DEPLOYMENT_PROFILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE";
 
 const KNOWLEDGEBASE_DRIVE_POOL_MAX_CONNECTIONS: u32 = 5;
 
-pub async fn connect_knowledgebase_drive_pool(database_url: &str) -> Result<AnyPool, sqlx::Error> {
-    let (database_config, drive_engine) = drive_database_config_from_url(database_url)?;
-    let pool = match drive_engine {
-        DriveDatabaseEngine::Postgresql => {
-            let drive_config = DriveDatabaseConfig::from_url_with_max_connections(
-                database_config.url.as_str(),
-                database_config.max_connections,
-            )
-            .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
-            connect_any_database_and_install_schema(&drive_config).await?
-        }
-        DriveDatabaseEngine::Sqlite => {
-            let pool = create_any_pool_from_config(database_config)
-                .await
-                .map_err(map_pool_error)?;
-            install_any_schema(&pool, drive_engine)
-                .await
-                .map_err(|error| sqlx::Error::Protocol(error.to_string()))?;
-            pool
-        }
-    };
-    seed_default_drive_storage_provider(&pool, drive_engine).await?;
+pub async fn connect_knowledgebase_drive_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
+    let normalized = normalize_workspace_postgres_url(database_url.trim())
+        .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
+    let drive_config = DriveDatabaseConfig::from_url_with_max_connections(
+        normalized.as_str(),
+        KNOWLEDGEBASE_DRIVE_POOL_MAX_CONNECTIONS,
+    )
+    .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
+    let pool = connect_postgres_database_and_install_schema(&drive_config).await?;
+    if should_seed_standalone_local_provider()? {
+        seed_default_drive_storage_provider(&pool).await?;
+    }
     Ok(pool)
 }
 
-pub async fn knowledgebase_drive_health_check(pool: &AnyPool) -> Result<(), sqlx::Error> {
+pub async fn knowledgebase_drive_health_check(pool: &PgPool) -> Result<(), sqlx::Error> {
     sqlx::query_scalar::<_, i64>("SELECT 1")
         .fetch_one(pool)
         .await
         .map(|_| ())
 }
 
-fn drive_database_config_from_url(
-    database_url: &str,
-) -> Result<(DatabaseConfig, DriveDatabaseEngine), sqlx::Error> {
-    let normalized = database_url.trim();
-    let engine = SdkDatabaseEngine::from_url(normalized).ok_or_else(|| {
-        sqlx::Error::Configuration(
-            format!("unsupported knowledgebase drive database url: {normalized}").into(),
-        )
-    })?;
-    let drive_engine = match engine {
-        SdkDatabaseEngine::Sqlite => DriveDatabaseEngine::Sqlite,
-        SdkDatabaseEngine::Postgres => DriveDatabaseEngine::Postgresql,
-    };
-    Ok((
-        DatabaseConfig {
-            engine,
-            url: if engine == SdkDatabaseEngine::Postgres {
-                normalize_workspace_postgres_url(normalized)
-                    .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?
-            } else {
-                normalized.to_string()
-            },
-            max_connections: KNOWLEDGEBASE_DRIVE_POOL_MAX_CONNECTIONS,
-            ..DatabaseConfig::default()
-        },
-        drive_engine,
-    ))
+fn should_seed_standalone_local_provider() -> Result<bool, sqlx::Error> {
+    match std::env::var(DEPLOYMENT_PROFILE_ENV) {
+        Ok(value) if value.trim().eq_ignore_ascii_case("standalone") => Ok(true),
+        Ok(value) if value.trim().eq_ignore_ascii_case("cloud") => Ok(false),
+        Ok(_) => Err(sqlx::Error::Configuration(
+            format!("{DEPLOYMENT_PROFILE_ENV} must be standalone or cloud").into(),
+        )),
+        Err(std::env::VarError::NotPresent) => Ok(true),
+        Err(error) => Err(sqlx::Error::Configuration(
+            format!("{DEPLOYMENT_PROFILE_ENV} could not be read: {error}").into(),
+        )),
+    }
 }
 
-fn map_pool_error(error: PoolError) -> sqlx::Error {
-    sqlx::Error::Configuration(error.to_string().into())
-}
-
-async fn seed_default_drive_storage_provider(
-    pool: &AnyPool,
-    engine: DriveDatabaseEngine,
-) -> Result<(), sqlx::Error> {
+async fn seed_default_drive_storage_provider(pool: &PgPool) -> Result<(), sqlx::Error> {
     let exists: Option<i64> =
         sqlx::query_scalar("SELECT 1 FROM dr_drive_storage_provider WHERE id = $1")
             .bind(DEFAULT_DRIVE_PROVIDER_ID)
@@ -92,28 +55,14 @@ async fn seed_default_drive_storage_provider(
         return Ok(());
     }
 
-    let sql = match engine {
-        DriveDatabaseEngine::Sqlite => {
-            "INSERT INTO dr_drive_storage_provider (
-            id, provider_kind, name, endpoint_url, region, bucket, path_style,
-            strict_tls, credential_ref, server_side_encryption_mode, default_storage_class,
-            status, version, created_by, updated_by
-        ) VALUES (
-            $1, 'local_filesystem', $2, 'file://localhost', 'local', $2, 1, 1,
-            'plain:local:local', NULL, NULL, 'active', 1, 'system', 'system'
-        )"
-        }
-        DriveDatabaseEngine::Postgresql => {
-            "INSERT INTO dr_drive_storage_provider (
+    let sql = "INSERT INTO dr_drive_storage_provider (
             id, provider_kind, name, endpoint_url, region, bucket, path_style,
             strict_tls, credential_ref, server_side_encryption_mode, default_storage_class,
             status, version, created_by, updated_by
         ) VALUES (
             $1, 'local_filesystem', $2, 'file://localhost', 'local', $2, TRUE, TRUE,
             'plain:local:local', NULL, NULL, 'active', 1, 'system', 'system'
-        )"
-        }
-    };
+        )";
 
     sqlx::query(sql)
         .bind(DEFAULT_DRIVE_PROVIDER_ID)

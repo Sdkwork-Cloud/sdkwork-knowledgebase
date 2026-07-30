@@ -102,21 +102,6 @@
     ],
     "sdkDependencies": [
       {
-        "workspace": "sdkwork-appbase",
-        "surface": "local-native",
-        "credentialMode": "local-native"
-      },
-      {
-        "workspace": "sdkwork-database",
-        "surface": "local-native",
-        "credentialMode": "local-native"
-      },
-      {
-        "workspace": "sdkwork-drive",
-        "surface": "local-native",
-        "credentialMode": "local-native"
-      },
-      {
         "workspace": "sdkwork-drive-app-sdk",
         "permissionModuleId": "drive",
         "surface": "app-api",
@@ -129,63 +114,33 @@
         "credentialMode": "authenticated-app-api"
       },
       {
-        "workspace": "sdkwork-id",
-        "surface": "local-native",
-        "credentialMode": "local-native"
-      },
-      {
-        "workspace": "sdkwork-kernel",
-        "surface": "local-native",
-        "credentialMode": "local-native"
-      },
-      {
         "workspace": "sdkwork-knowledgebase-app-sdk",
         "permissionModuleId": "knowledge",
         "surface": "app-api",
         "credentialMode": "authenticated-app-api"
-      },
-      {
-        "workspace": "sdkwork-memory",
-        "surface": "local-native",
-        "credentialMode": "local-native"
-      },
-      {
-        "workspace": "sdkwork-sdk-generator",
-        "surface": "local-native",
-        "credentialMode": "local-native"
-      },
-      {
-        "workspace": "sdkwork-utils",
-        "surface": "local-native",
-        "credentialMode": "local-native"
-      },
-      {
-        "workspace": "sdkwork-web-framework",
-        "surface": "local-native",
-        "credentialMode": "local-native"
       }
     ],
     "permissionComposition": {
       "inheritanceMode": "module-catalog-with-overrides",
       "applicationModule": {
-        "manifestRef": "../../../../../specs/iam.module.manifest.json"
+        "manifestRef": "../../../../specs/iam.module.manifest.json"
       },
       "moduleCatalogRefs": [
         {
           "moduleId": "drive",
-          "manifestRef": "../../../../../../sdkwork-iam/iam/modules/drive/iam.module.manifest.json",
+          "manifestRef": "../../../../../sdkwork-iam/iam/modules/drive/iam.module.manifest.json",
           "inheritPermissions": true,
           "inheritRoles": true
         },
         {
           "moduleId": "iam-kernel",
-          "manifestRef": "../../../../../../sdkwork-iam/iam/modules/iam-kernel/iam.module.manifest.json",
+          "manifestRef": "../../../../../sdkwork-iam/iam/modules/iam-kernel/iam.module.manifest.json",
           "inheritPermissions": true,
           "inheritRoles": true
         },
         {
           "moduleId": "knowledge",
-          "manifestRef": "../../../../../specs/iam.module.manifest.json",
+          "manifestRef": "../../../../specs/iam.module.manifest.json",
           "inheritPermissions": true,
           "inheritRoles": true
         }

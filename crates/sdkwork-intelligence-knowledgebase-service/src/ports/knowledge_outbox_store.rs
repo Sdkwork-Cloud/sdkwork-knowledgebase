@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
+pub const MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES: usize = 64 * 1024;
+
 #[async_trait]
 pub trait KnowledgeOutboxStore: Send + Sync {
     async fn append_event(

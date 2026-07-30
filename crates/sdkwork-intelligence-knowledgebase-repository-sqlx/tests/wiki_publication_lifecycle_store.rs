@@ -17,8 +17,9 @@ use sdkwork_intelligence_knowledgebase_service::ports::{
     },
 };
 
-const SQLITE_BASELINE: &str =
-    include_str!("../../../database/ddl/baseline/sqlite/0001_knowledgebase_baseline.sql");
+const SQLITE_BASELINE: &str = include_str!(
+    "../../../tests/fixtures/database/sqlite/ddl/baseline/0001_knowledgebase_baseline.sql"
+);
 const SCOPE: WikiPersistenceScope = WikiPersistenceScope {
     tenant_id: 101,
     organization_id: 202,

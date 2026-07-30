@@ -3,7 +3,7 @@
 Status: active
 Owner: SDKWork maintainers
 Application: sdkwork-knowledgebase
-Updated: 2026-07-22
+Updated: 2026-07-30
 Specs: REQUIREMENTS_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -35,6 +35,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - Knowledge spaces with Drive-backed storage, ingest, and RAG retrieval
 - PC browser and desktop shell for authoring, search, and market/catalog
 - Production deployment topology (replicated application public ingress, worker, Postgres, probes, audit)
+- Shared cloud object storage through an active Drive provider; cloud replicas never use pod-local
+  files as authoritative knowledge content
 - Fail-closed auth, tenant/org guards, and backend `knowledge.platform.manage` RBAC
 - Managed IM Conversation group knowledge spaces that are created only by the current IM Owner's
   first initialization or failed-provisioning retry, use dedicated group binding and
@@ -86,7 +88,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 2. **Member searches knowledge** - search module -> RAG answer with citations -> navigate to source doc
 3. **Admin configures ingest** - backend operator with `knowledge.platform.manage` -> create source -> worker completes job -> retrieval returns new chunks
 4. **Integrator retrieves via Open API** - API key with org context -> retrieval -> context pack for downstream agent
-5. **Operator deploys tenant** - K8s manifests + env (tenant, org, secrets, outbox webhook) -> `/readyz` green -> smoke test
+5. **Operator deploys tenant** - register and health-check the Drive provider -> configure K8s
+   tenant, database, provider id, secrets, and outbox delivery -> `/readyz` green -> smoke test
 6. **Admin activates an external Provider** - create a write-only credential reference -> create a
    draft binding for one remote resource -> test capabilities -> activate with optimistic version
    fencing -> observe health and quality -> retain the predecessor for rollback
@@ -116,12 +119,13 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 | Eligible Wiki public-version commit to Web visibility | p95 <= 5s, p99 <= 30s; >= 99% within objective |
 | Draft/private/quarantined/deleted/cross-tenant public disclosure | 0 |
 | Canonical WikiPublication cardinality | exactly 1 per Knowledgebase; no duplicate on retry/backfill |
+| Cloud object storage readiness | 100% of ready replicas resolve the same active non-local Drive provider and bucket |
 
 ## 7. Phases
 
 | Phase | Focus | Exit criteria |
 |-------|-------|---------------|
-| **1.0 (current)** | Production launch (single-tenant-per-process) | Postgres prod path, runbooks, PRD acceptance, E2E on real API |
+| **1.0 (current, prelaunch)** | Production launch (single-tenant-per-process) | Postgres release evidence, shared Drive provider, runbooks, PRD acceptance, E2E on real API, and removal of the temporary AnyPool driver exception |
 | **2.0** | Commercial SaaS and Live Wiki | Shared multi-tenant, billing, quotas, GDPR workflows, and approved live Wiki publication |
 | **3.0** | Industry parity | Real-time collab, analytics, mobile |
 
@@ -129,6 +133,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 - `docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md`
 - `docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md`
+- `docs/architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md`
 - `docs/product/requirements/REQ-2026-0713-group-knowledgebase.md`
 - `docs/architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md`
 - `docs/product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md`
@@ -142,6 +147,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 ## 9. Resolved And Open Questions
 
-- **Multi-tenant data model:** Postgres RLS - decided in [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../../architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md); migration shipped for Phase 2.1
+- **Multi-tenant data model:** PostgreSQL tenant columns and deployment-bound RLS are implemented;
+  shared-tenant request pooling is not approved until transaction-local context and contamination
+  tests are complete. Current production scope remains one tenant per process/deployment.
 - **Billing owner:** SDKWork platform vs standalone Stripe - open; decide before Phase 2 commercial launch
 - **Minimum enterprise audit retention period:** documented in [audit-retention.md](../../runbooks/audit-retention.md); automated purge/export jobs remain Phase 2.4

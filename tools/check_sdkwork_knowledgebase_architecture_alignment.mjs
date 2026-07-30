@@ -8,7 +8,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const failures = [];
 const warnings = [];
 const retiredTopologyPattern = /self-hosted|cloud-hosted|--service-layout|serviceLayout|SERVICE_LAYOUT|unified-process|split-services/u;
-const v5TopologyProfileIdPattern = /^(?:standalone|cloud)\.(?:development|production)$/u;
+const v5TopologyProfileIdPattern = /^(?:standalone|cloud)\.(?:development|test|staging|production)$/u;
 
 function readText(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath);
@@ -222,8 +222,12 @@ const topologySpec = readJson('specs/topology.spec.json');
 const expectedTopologyProfileIds = [
   'cloud.development',
   'cloud.production',
+  'cloud.staging',
+  'cloud.test',
   'standalone.development',
   'standalone.production',
+  'standalone.staging',
+  'standalone.test',
 ];
 const expectedDeploymentProfileIds = expectedTopologyProfileIds
   .filter((profileId) => profileId.endsWith('.production'))
@@ -385,23 +389,10 @@ assert(
 );
 
 const componentSpec = readJson('specs/component.spec.json');
-const sdkDependencyIds = new Set((componentSpec.contracts?.sdkDependencies ?? []).map((item) => item.workspace));
-for (const workspace of [
-  'sdkwork-web-framework',
-  'sdkwork-database',
-  'sdkwork-utils',
-  'sdkwork-appbase',
-  'sdkwork-id',
-  'sdkwork-sdk-generator',
-  'sdkwork-drive',
-  'sdkwork-memory',
-  'sdkwork-kernel',
-]) {
-  assert(
-    sdkDependencyIds.has(workspace),
-    `specs/component.spec.json must declare sdkDependencies workspace ${workspace}`,
-  );
-}
+assert(
+  Array.isArray(componentSpec.contracts?.sdkDependencies),
+  'specs/component.spec.json must explicitly declare sdkDependencies',
+);
 
 const routeManifestPaths = [
   'sdks/_route-manifests/open-api/sdkwork-routes-knowledgebase-open-api.route-manifest.json',

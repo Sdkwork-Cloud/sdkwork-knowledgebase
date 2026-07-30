@@ -13,23 +13,19 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_drive_sour
     KnowledgeWikiDriveScope, KnowledgeWikiDriveSourceError, KnowledgebaseRawScope,
     KnowledgebaseRawScopeEventDelivery, RenewKnowledgebaseRawScopeEventDeliveryRequest,
 };
-use sqlx::AnyPool;
+use sqlx::PgPool;
 
 use crate::embedded_knowledgebase_raw_channel_id;
 
 #[derive(Clone)]
 pub struct KnowledgebaseDriveRootScopeAdapter {
-    pool: AnyPool,
+    pool: PgPool,
     tenant_id: String,
     operator_id: String,
 }
 
 impl KnowledgebaseDriveRootScopeAdapter {
-    pub fn new(
-        pool: AnyPool,
-        tenant_id: impl Into<String>,
-        operator_id: impl Into<String>,
-    ) -> Self {
+    pub fn new(pool: PgPool, tenant_id: impl Into<String>, operator_id: impl Into<String>) -> Self {
         Self {
             pool,
             tenant_id: tenant_id.into().trim().to_string(),

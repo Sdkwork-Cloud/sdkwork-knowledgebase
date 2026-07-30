@@ -16,9 +16,7 @@ pub fn resolve_database_url() -> String {
     match std::env::var("SDKWORK_DATABASE_URL") {
         Ok(url) if !is_blank(Some(url.as_str())) => url,
         _ if is_production_like_environment() => {
-            eprintln!(
-                "SDKWORK_DATABASE_URL must be set for production-like environments"
-            );
+            eprintln!("SDKWORK_DATABASE_URL must be set for production-like environments");
             std::process::exit(1);
         }
         _ => "sqlite://data/knowledgebase.db?mode=rwc".to_string(),
@@ -82,9 +80,7 @@ fn validate_postgres_for_production() {
         return;
     }
 
-    eprintln!(
-        "SDKWORK_DATABASE_URL must use PostgreSQL for production-like environments"
-    );
+    eprintln!("SDKWORK_DATABASE_URL must use PostgreSQL for production-like environments");
     std::process::exit(1);
 }
 

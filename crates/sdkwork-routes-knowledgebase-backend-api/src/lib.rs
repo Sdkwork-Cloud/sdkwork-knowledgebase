@@ -37,8 +37,8 @@ pub use routes::{
 pub use sdkwork_knowledgebase_contract::ProblemDetails;
 pub use web_audit_store::attach_knowledgebase_audit_emitter;
 pub use web_bootstrap::{
-    knowledgebase_backend_public_path_prefixes, wrap_router_with_web_framework,
-    wrap_router_with_web_framework_from_env,
+    knowledgebase_backend_context_injector, knowledgebase_backend_public_path_prefixes,
+    wrap_router_with_web_framework, wrap_router_with_web_framework_from_env,
 };
 pub use web_framework_assembly::apply_knowledgebase_web_framework;
 pub use web_rate_limit_store::knowledgebase_rate_limit_store;

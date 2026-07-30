@@ -3601,6 +3601,9 @@ name = "sdkwork-agent-plugin-core"
 version = "0.1.0"
 dependencies = [
  "sdkwork-agent-kernel",
+ "semver",
+ "serde_json",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3667,6 +3670,7 @@ name = "sdkwork-api-iam-assembly"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
+ "sdkwork-database-sqlx",
  "sdkwork-iam-database-host",
  "sdkwork-iam-embedded-application-bootstrap",
  "sdkwork-iam-web-adapter",
@@ -3687,16 +3691,11 @@ name = "sdkwork-api-knowledgebase-assembly"
 version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
- "sdkwork-api-iam-assembly",
- "sdkwork-database-config",
- "sdkwork-iam-database-host",
- "sdkwork-iam-web-adapter",
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-routes-knowledgebase-app-api",
  "sdkwork-routes-knowledgebase-backend-api",
  "sdkwork-routes-knowledgebase-internal-api",
  "sdkwork-routes-knowledgebase-open-api",
- "sdkwork-utils-rust",
  "sdkwork-web-bootstrap",
  "tokio",
 ]
@@ -3708,12 +3707,16 @@ dependencies = [
  "axum 0.8.9",
  "hyper 1.10.1",
  "hyper-util",
+ "sdkwork-api-iam-assembly",
  "sdkwork-api-knowledgebase-assembly",
+ "sdkwork-database-sqlx",
+ "sdkwork-iam-web-adapter",
  "sdkwork-knowledgebase-agent-provider",
  "sdkwork-knowledgebase-im-rpc-adapter",
  "sdkwork-knowledgebase-observability",
  "sdkwork-rpc-core",
  "sdkwork-utils-rust",
+ "sdkwork-web-bootstrap",
  "thiserror 1.0.69",
  "tokio",
  "tower 0.5.3",
@@ -3838,7 +3841,6 @@ dependencies = [
 name = "sdkwork-database-sqlx"
 version = "0.1.0"
 dependencies = [
- "libsqlite3-sys",
  "sdkwork-database-config",
  "serde",
  "sqlx",
@@ -4155,6 +4157,7 @@ dependencies = [
  "time",
  "tokio",
  "tracing",
+ "url",
  "uuid",
 ]
 
@@ -4185,6 +4188,7 @@ dependencies = [
  "async-trait",
  "rustls 0.23.40",
  "sdkwork-database-config",
+ "sdkwork-database-sqlx",
  "sdkwork-drive-storage-local",
  "sdkwork-intelligence-knowledgebase-repository-sqlx",
  "sdkwork-intelligence-knowledgebase-rpc",
@@ -4307,7 +4311,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "sdkwork-database-config",
- "sdkwork-database-sqlx",
  "sdkwork-drive-config",
  "sdkwork-drive-internal-sdk-generated-rust",
  "sdkwork-drive-object-runtime",
@@ -4612,6 +4615,7 @@ version = "0.1.0"
 dependencies = [
  "axum 0.8.9",
  "sdkwork-api-knowledgebase-standalone-gateway",
+ "sdkwork-database-sqlx",
  "sdkwork-intelligence-knowledgebase-repository-sqlx",
  "sdkwork-intelligence-knowledgebase-service",
  "sdkwork-knowledgebase-contract",
@@ -4939,6 +4943,7 @@ dependencies = [
  "async-trait",
  "axum 0.8.9",
  "http 1.4.1",
+ "sdkwork-database-sqlx",
  "sdkwork-web-axum",
  "sdkwork-web-contract",
  "sdkwork-web-core",

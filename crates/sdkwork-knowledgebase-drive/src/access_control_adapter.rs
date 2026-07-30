@@ -10,7 +10,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_access_control:
     KnowledgeNodeAccessCheckRequest, KnowledgeSpaceMember, KnowledgeSpaceMemberList,
     KnowledgeSubjectType, ListKnowledgeSpaceMembersRequest, RevokeKnowledgeSpaceAccessRequest,
 };
-use sqlx::AnyPool;
+use sqlx::PgPool;
 
 #[derive(Debug, Clone)]
 pub struct KnowledgebaseKnowledgeAccessControlAdapter {
@@ -18,7 +18,7 @@ pub struct KnowledgebaseKnowledgeAccessControlAdapter {
 }
 
 impl KnowledgebaseKnowledgeAccessControlAdapter {
-    pub fn new(pool: AnyPool) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
             service: SqlDrivePermissionService::new(pool),
         }

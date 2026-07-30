@@ -2,7 +2,7 @@
 
 Status: active  
 Owner: SDKWork maintainers  
-Updated: 2026-07-22<br>
+Updated: 2026-07-30<br>
 Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -45,8 +45,11 @@ per surface; generated transports are never API authority.
 
 ## 2. Technology Choices
 
-- **Backend**: Rust, Axum, SQLx, `sdkwork-web-framework`, PostgreSQL (production), SQLite (local dev)
-- **Storage**: `sdkwork-drive` via `sdkwork-knowledgebase-drive` adapter only
+- **Backend**: Rust, Axum, SQLx, `sdkwork-web-framework`, PostgreSQL authoritative server storage;
+  SQLite exists only in test/client-local fixtures and is not a server profile
+- **Storage**: `sdkwork-drive` via `sdkwork-knowledgebase-drive` only. Standalone may use the Drive
+  local provider; cloud requires an active non-local Drive provider resolved from Drive metadata
+  and credential references, and startup verifies the configured bucket.
 - **OKF browser views**: PC file lists use `spaces.browser.list?view=files`, which resolves OKF spaces to `sources/raw` original files. OKF bundle inspection uses `view=okf_bundle`; generated outputs use `view=outputs`.
 - **Memory**: `sdkwork-memory` via `sdkwork-knowledgebase-memory` port only
 - **Frontend**: React 19, Vite, TipTap, IAM app SDK, generated knowledgebase app SDK, `@sdkwork/drive-app-sdk` for persistent uploads
@@ -73,6 +76,11 @@ per surface; generated transports are never API authority.
   migration maintenance)
 - Ingestion workers atomically claim Drive jobs with owner/token leases, renew leases during processing, reclaim expired work after crashes, and fence stale workers from success or failure commits. Chunk replacement, job completion, and outbox append remain one database transaction.
 - Production Snowflake generators obtain fenced node IDs from `sdkwork_node_registry`. Lease loss disables ID generation and fails runtime readiness; Kubernetes supplies only the pod UID identity, never a hashed node ID.
+- Gateway, worker, and internal RPC processes enable the SDKWork process-shared database pool before
+  module bootstrap. `SDKWORK_DATABASE_MAX_CONNECTIONS` is one combined process budget. The remaining
+  `AnyPool` compatibility driver is explicitly bounded and must be removed before the first
+  commercial production release; see
+  [ADR-20260730-knowledgebase-process-shared-database-pool.md](../decisions/ADR-20260730-knowledgebase-process-shared-database-pool.md).
 - Media tasks consume the generated `clawrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
 - Wiki publication projects Drive nodes under the fixed `sources/raw` root into per-file source,
   publication, visibility, route, render, and index state. The bounded worker validates pinned
@@ -173,7 +181,13 @@ Tauri process, not an IM-owned iframe or Webview. See
 
 ## 5. Deployment Topology
 
-Production uses `cloud.production`; process decomposition remains an implementation detail inside that profile. Kubernetes runs one replicated `application.public-ingress` Deployment for all application HTTP route surfaces and one replicated worker Deployment. The platform cloud gateway preserves distinct app/backend/open authorities while routing them to the same bounded public-ingress Service. See `deployments/README.md` and `etc/topology/`.
+Production uses `cloud.production`; process decomposition remains an implementation detail inside
+that profile. Kubernetes runs one replicated `application.public-ingress` Deployment for all
+application HTTP route surfaces and one replicated worker Deployment. Every replica uses the same
+deployment-managed PostgreSQL identity and a shared Drive object-storage provider selected by
+`SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_PROVIDER_ID`; pod-local files are not authoritative cloud
+content. The platform cloud gateway preserves distinct app/backend/open authorities while routing
+them to the same bounded public-ingress Service. See `deployments/README.md` and `etc/topology/`.
 
 ## 6. Verification
 
@@ -181,6 +195,7 @@ Production uses `cloud.production`; process decomposition remains an implementat
 pnpm check
 pnpm check:app-composition
 node ../sdkwork-specs/tools/check-api-response-envelope.mjs --workspace .
+node ../sdkwork-specs/tools/check-process-shared-database-pool.mjs --root .
 pnpm verify
 pnpm test
 ```

@@ -158,6 +158,7 @@ impl<'a> KnowledgeGroupKnowledgeSpaceService<'a> {
                 "IM synchronization actor is required".to_string(),
             ));
         }
+        validate_group_member_snapshot_size(request.members.len())?;
         let command = SynchronizeGroupKnowledgeSpaceMembersCommand {
             scope,
             conversation_id: request.conversation_id,
@@ -629,6 +630,7 @@ impl<'a> KnowledgeGroupKnowledgeSpaceService<'a> {
         actor_id: &str,
         members: &[GroupKnowledgeSpaceMember],
     ) -> Result<(), KnowledgeGroupKnowledgeSpaceServiceError> {
+        validate_group_member_snapshot_size(members.len())?;
         validate_group_command_actor(
             actor_id,
             self.operator_id.as_str(),
@@ -767,6 +769,19 @@ impl<'a> KnowledgeGroupKnowledgeSpaceService<'a> {
 #[derive(Clone, Copy)]
 enum GroupKnowledgeSpaceCommandAuthorization {
     OwnerOrAdmin,
+}
+
+fn validate_group_member_snapshot_size(
+    member_count: usize,
+) -> Result<(), KnowledgeGroupKnowledgeSpaceServiceError> {
+    if member_count > sdkwork_knowledgebase_contract::group_space::GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS
+    {
+        return Err(KnowledgeGroupKnowledgeSpaceServiceError::InvalidRequest(format!(
+            "group membership snapshot must contain no more than {} members",
+            sdkwork_knowledgebase_contract::group_space::GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS
+        )));
+    }
+    Ok(())
 }
 
 fn validate_group_command_actor(
@@ -1121,6 +1136,17 @@ mod tests {
                 Err(KnowledgeGroupKnowledgeSpaceServiceError::Denied(_))
             ));
         }
+    }
+
+    #[test]
+    fn membership_snapshot_size_is_bounded_before_projection() {
+        let maximum = sdkwork_knowledgebase_contract::group_space::GROUP_KNOWLEDGE_SPACE_MEMBER_SNAPSHOT_MAX_ITEMS;
+        assert!(validate_group_member_snapshot_size(maximum).is_ok());
+        assert!(matches!(
+            validate_group_member_snapshot_size(maximum + 1),
+            Err(KnowledgeGroupKnowledgeSpaceServiceError::InvalidRequest(message))
+                if message.contains("no more than")
+        ));
     }
 
     #[test]

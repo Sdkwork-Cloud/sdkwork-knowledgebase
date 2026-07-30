@@ -42,18 +42,32 @@ fn business_router(state: InternalApiState) -> Router {
         .with_state(state)
 }
 
+pub fn build_business_router_with_services(
+    receiver: Arc<dyn KnowledgebaseDriveEventReceiver>,
+    wiki_provider: Arc<dyn KnowledgebaseWikiPublicProvider>,
+    drive_event_caller_app_id: impl Into<String>,
+    wiki_provider_caller_app_id: impl Into<String>,
+) -> Router {
+    business_router(InternalApiState::new(
+        receiver,
+        wiki_provider,
+        drive_event_caller_app_id,
+        wiki_provider_caller_app_id,
+    ))
+}
+
 pub fn build_router_with_services(
     receiver: Arc<dyn KnowledgebaseDriveEventReceiver>,
     wiki_provider: Arc<dyn KnowledgebaseWikiPublicProvider>,
     drive_event_caller_app_id: impl Into<String>,
     wiki_provider_caller_app_id: impl Into<String>,
 ) -> Router {
-    let router = business_router(InternalApiState::new(
+    let router = build_business_router_with_services(
         receiver,
         wiki_provider,
         drive_event_caller_app_id,
         wiki_provider_caller_app_id,
-    ));
+    );
     crate::web_bootstrap::wrap_with_default_resolver(router)
 }
 
@@ -77,11 +91,11 @@ pub async fn wrap_router_with_web_framework_from_env(
     drive_event_caller_app_id: impl Into<String>,
     wiki_provider_caller_app_id: impl Into<String>,
 ) -> Router {
-    let router = business_router(InternalApiState::new(
+    let router = build_business_router_with_services(
         receiver,
         wiki_provider,
         drive_event_caller_app_id,
         wiki_provider_caller_app_id,
-    ));
+    );
     crate::web_bootstrap::wrap_from_env(router).await
 }

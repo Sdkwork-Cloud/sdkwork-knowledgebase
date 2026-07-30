@@ -34,12 +34,8 @@ pub struct FlowiseKnowledgeEngine {
 }
 
 impl FlowiseKnowledgeEngine {
-    pub fn from_env() -> Self {
-        let config = FlowiseConnectorConfig::from_env();
-        let client = config
-            .as_ref()
-            .map(|value| FlowiseApiClient::new(value.clone()));
-        Self { config, client }
+    pub fn from_env() -> Option<Self> {
+        FlowiseConnectorConfig::from_env().map(Self::with_config)
     }
 
     pub fn with_config(config: FlowiseConnectorConfig) -> Self {
@@ -47,13 +43,6 @@ impl FlowiseKnowledgeEngine {
         Self {
             config: Some(config),
             client: Some(client),
-        }
-    }
-
-    pub fn stub() -> Self {
-        Self {
-            config: None,
-            client: None,
         }
     }
 

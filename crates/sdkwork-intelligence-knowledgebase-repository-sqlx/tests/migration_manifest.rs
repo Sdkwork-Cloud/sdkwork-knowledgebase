@@ -12,27 +12,30 @@ use std::collections::BTreeSet;
 
 const APP_ROOT_POSTGRES_BASELINE: &str =
     include_str!("../../../database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql");
-const APP_ROOT_SQLITE_BASELINE: &str =
-    include_str!("../../../database/ddl/baseline/sqlite/0001_knowledgebase_baseline.sql");
+const APP_ROOT_SQLITE_BASELINE: &str = include_str!(
+    "../../../tests/fixtures/database/sqlite/ddl/baseline/0001_knowledgebase_baseline.sql"
+);
 const APP_ROOT_POSTGRES_GROUP_SPACE_MIGRATION: &str =
     include_str!("../../../database/migrations/postgres/202607150001_group_knowledge_space.up.sql");
-const APP_ROOT_SQLITE_GROUP_SPACE_MIGRATION: &str =
-    include_str!("../../../database/migrations/sqlite/202607150001_group_knowledge_space.up.sql");
+const APP_ROOT_SQLITE_GROUP_SPACE_MIGRATION: &str = include_str!(
+    "../../../tests/fixtures/database/sqlite/migrations/202607150001_group_knowledge_space.up.sql"
+);
 const APP_ROOT_POSTGRES_TENANT_SCOPE_MIGRATION: &str = include_str!(
     "../../../database/migrations/postgres/202607160001_group_knowledgebase_tenant_scope.up.sql"
 );
 const APP_ROOT_SQLITE_TENANT_SCOPE_MIGRATION: &str = include_str!(
-    "../../../database/migrations/sqlite/202607160001_group_knowledgebase_tenant_scope.up.sql"
+    "../../../tests/fixtures/database/sqlite/migrations/202607160001_group_knowledgebase_tenant_scope.up.sql"
 );
 const APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION: &str =
     include_str!("../../../database/migrations/postgres/202607210001_live_wiki_publication.up.sql");
-const APP_ROOT_SQLITE_LIVE_WIKI_MIGRATION: &str =
-    include_str!("../../../database/migrations/sqlite/202607210001_live_wiki_publication.up.sql");
+const APP_ROOT_SQLITE_LIVE_WIKI_MIGRATION: &str = include_str!(
+    "../../../tests/fixtures/database/sqlite/migrations/202607210001_live_wiki_publication.up.sql"
+);
 const APP_ROOT_POSTGRES_LIVE_WIKI_ROLLBACK: &str = include_str!(
     "../../../database/migrations/postgres/202607210001_live_wiki_publication.down.sql"
 );
 const APP_ROOT_SQLITE_LIVE_WIKI_ROLLBACK: &str =
-    include_str!("../../../database/migrations/sqlite/202607210001_live_wiki_publication.down.sql");
+    include_str!("../../../tests/fixtures/database/sqlite/migrations/202607210001_live_wiki_publication.down.sql");
 const APP_ROOT_DATABASE_MANIFEST: &str = include_str!("../../../database/database.manifest.json");
 const APP_ROOT_DATABASE_SCHEMA: &str = include_str!("../../../database/contract/schema.yaml");
 const APP_ROOT_DATABASE_TABLE_REGISTRY: &str =
@@ -821,8 +824,7 @@ fn app_root_database_baselines_are_engine_specific_single_snapshots() {
         );
     }
 
-    assert!(APP_ROOT_POSTGRES_BASELINE.contains("expires_at BIGINT"));
-    assert!(APP_ROOT_POSTGRES_BASELINE.contains("idx_web_audit_expires"));
+    assert!(!APP_ROOT_POSTGRES_BASELINE.contains("web_audit_event"));
     assert!(APP_ROOT_SQLITE_BASELINE.contains("expires_at INTEGER"));
     assert!(APP_ROOT_SQLITE_BASELINE.contains("idx_web_audit_expires"));
     for obsolete_table in ["kb_site", "kb_site_release", "kb_site_host_binding"] {

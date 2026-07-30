@@ -27,6 +27,10 @@ pub fn knowledgebase_open_api_prefixes() -> Vec<String> {
 #[derive(Clone, Default)]
 struct KnowledgeOpenApiContextInjector;
 
+pub fn knowledgebase_open_api_context_injector() -> Arc<dyn DomainContextInjector> {
+    Arc::new(KnowledgeOpenApiContextInjector)
+}
+
 impl DomainContextInjector for KnowledgeOpenApiContextInjector {
     fn inject(&self, request: &mut axum::extract::Request, context: &WebRequestContext) {
         if let Some(open_context) = knowledge_open_api_context_from_web_request(context) {
@@ -84,7 +88,7 @@ fn build_open_web_framework_layer(
             })
             .with_route_manifest(route_manifest.clone())
             .with_authorization_policy(Arc::new(ManifestAuthorizationPolicy::new(route_manifest)))
-            .with_domain_injector(Arc::new(KnowledgeOpenApiContextInjector))
+            .with_domain_injector(knowledgebase_open_api_context_injector())
             .with_rate_limit_store(knowledgebase_rate_limit_store())
             .with_rate_limit_resolver(Arc::new(DefaultRateLimitPolicyResolver)),
     )

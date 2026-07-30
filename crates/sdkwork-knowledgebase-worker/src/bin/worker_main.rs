@@ -10,6 +10,7 @@ use sdkwork_routes_knowledgebase_app_api::{bootstrap, KnowledgebaseRuntime};
 
 #[tokio::main]
 async fn main() {
+    sdkwork_database_sqlx::enable_process_shared_database_pool();
     bootstrap::validate_process_config();
     init_tracing("worker");
 
@@ -22,6 +23,7 @@ async fn main() {
     let outbox_limit = std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_OUTBOX_BATCH_SIZE")
         .ok()
         .and_then(|value| value.parse::<u32>().ok())
+        .filter(|value| (1..=200).contains(value))
         .unwrap_or(50);
     let ingestion_job_limit =
         std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_JOB_BATCH_SIZE")
