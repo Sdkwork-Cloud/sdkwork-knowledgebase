@@ -199,7 +199,7 @@ pub async fn connect_sqlite_pool_via_framework(database_url: &str) -> Result<Any
         .max_connections(config.max_connections)
         .connect(&config.url)
         .await
-        .map_err(map_pool_error)
+        .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))
 }
 
 pub async fn connect_postgres_pool_via_framework(
