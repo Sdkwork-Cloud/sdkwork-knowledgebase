@@ -284,7 +284,7 @@ test('default PostgreSQL development path is not blocked by SQLite-only runtime 
 
   assert.doesNotMatch(
     runtimeSource,
-    /postgresql SDKWORK_KNOWLEDGEBASE_DATABASE_URL is not wired to HTTP handlers yet|use sqlite/i,
+    /postgresql SDKWORK_DATABASE_URL is not wired to HTTP handlers yet|use sqlite/i,
   );
   assert.doesNotMatch(
     `${gatewayMain}\n${gatewayAssembly}`,

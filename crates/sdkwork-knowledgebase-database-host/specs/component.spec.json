@@ -85,7 +85,7 @@
     "events": [],
     "configKeys": [
       "SDKWORK_KNOWLEDGEBASE_APP_ROOT",
-      "SDKWORK_KNOWLEDGEBASE_DATABASE_URL"
+      "SDKWORK_DATABASE_URL"
     ]
   },
   "verification": {

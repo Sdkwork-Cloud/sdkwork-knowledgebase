@@ -251,7 +251,7 @@ async fn initialize_runtime_id_generator(
             let database_lease_enabled =
                 sdkwork_knowledgebase_observability::is_production_like_environment()
                     || environment_flag_enabled(
-                        "SDKWORK_KNOWLEDGEBASE_DATABASE_NODE_LEASE_ENABLED",
+                        "SDKWORK_DATABASE_NODE_LEASE_ENABLED",
                     );
             if !database_lease_enabled {
                 return Ok(None);

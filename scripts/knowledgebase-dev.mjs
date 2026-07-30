@@ -155,8 +155,8 @@ function resolveKnowledgebaseRuntimeTenantEnv(env = {}) {
   };
 }
 
-function materializePostgresDatabaseSearchPath(env, urlKey, servicePrefix) {
-  const databaseUrl = normalizeText(env[urlKey]);
+function materializeWorkspacePostgresSearchPath(env) {
+  const databaseUrl = normalizeText(env.SDKWORK_DATABASE_URL);
   if (!databaseUrl || !/^postgres(?:ql)?:\/\//i.test(databaseUrl)) {
     return env;
   }
@@ -164,55 +164,83 @@ function materializePostgresDatabaseSearchPath(env, urlKey, servicePrefix) {
     return env;
   }
 
-  const schema =
-    normalizeText(env[`${servicePrefix}_DATABASE_SCHEMA`])
-    || normalizeText(env.SDKWORK_CLAW_DATABASE_SCHEMA)
-    || 'sdkwork_ai_dev';
+  const parsed = new URL(databaseUrl);
+  const database = decodeURIComponent(parsed.pathname.replace(/^\//u, ''));
+  const username = decodeURIComponent(parsed.username);
+  if (database !== 'sdkwork_ai_dev' || username !== 'sdkwork_ai_dev') {
+    throw new Error(
+      'Knowledgebase development PostgreSQL URL must use database and username sdkwork_ai_dev.',
+    );
+  }
+  const schema = normalizeText(env.SDKWORK_DATABASE_SCHEMA) || database;
+  if (schema !== database) {
+    throw new Error(
+      `SDKWORK_DATABASE_SCHEMA must equal workspace database ${database}, got ${schema}`,
+    );
+  }
   const optionValue = encodeURIComponent(`-c search_path=${schema},public`);
   const separator = databaseUrl.includes('?') ? '&' : '?';
   return {
     ...env,
-    [urlKey]: `${databaseUrl}${separator}options=${optionValue}`,
+    SDKWORK_DATABASE_URL: `${databaseUrl}${separator}options=${optionValue}`,
   };
 }
 
-function materializeIamDatabaseSearchPath(env) {
-  return materializePostgresDatabaseSearchPath(env, 'SDKWORK_IAM_DATABASE_URL', 'SDKWORK_IAM');
-}
-
-function materializeKnowledgebaseDevDatabaseEnv(env) {
-  return materializePostgresDatabaseSearchPath(
-    materializeIamDatabaseSearchPath(env),
-    'SDKWORK_KNOWLEDGEBASE_DATABASE_URL',
-    'SDKWORK_KNOWLEDGEBASE',
-  );
-}
-
 function resolvePostgresKnowledgebaseDatabaseUrl(sourceEnv) {
-  const direct =
-    normalizeText(sourceEnv.SDKWORK_KNOWLEDGEBASE_DATABASE_URL)
-    || normalizeText(sourceEnv.SDKWORK_IAM_DATABASE_URL)
-    || normalizeText(sourceEnv.SDKWORK_CLAW_DATABASE_URL)
-    || normalizeText(sourceEnv.SDKWORK_DATABASE_URL);
-  if (!direct) {
-    throw new Error(
-      'PostgreSQL dev profile requires SDKWORK_CLAW_DATABASE_* in .env.postgres or SDKWORK_KNOWLEDGEBASE_DATABASE_URL.',
-    );
-  }
-  if (!/^postgres(?:ql)?:\/\//i.test(direct)) {
+  const direct = normalizeText(sourceEnv.SDKWORK_DATABASE_URL);
+  if (direct && !/^postgres(?:ql)?:\/\//i.test(direct)) {
     throw new Error(
       `Knowledgebase PostgreSQL dev profile requires a postgres URL, got: ${redactDatabaseUrl(direct)}`,
     );
   }
-  return direct;
+  if (direct) {
+    return direct;
+  }
+
+  const engine = normalizeText(sourceEnv.SDKWORK_DATABASE_ENGINE)?.toLowerCase();
+  if (engine !== 'postgres' && engine !== 'postgresql') {
+    throw new Error('PostgreSQL dev profile requires SDKWORK_DATABASE_ENGINE=postgresql.');
+  }
+  const host = normalizeText(sourceEnv.SDKWORK_DATABASE_HOST);
+  const port = normalizeText(sourceEnv.SDKWORK_DATABASE_PORT) || '5432';
+  const database = normalizeText(sourceEnv.SDKWORK_DATABASE_NAME);
+  const schema = normalizeText(sourceEnv.SDKWORK_DATABASE_SCHEMA);
+  const username = normalizeText(sourceEnv.SDKWORK_DATABASE_USERNAME);
+  const passwordFile = normalizeText(sourceEnv.SDKWORK_DATABASE_PASSWORD_FILE);
+  const inlinePassword = normalizeText(sourceEnv.SDKWORK_DATABASE_PASSWORD);
+  if (passwordFile && inlinePassword) {
+    throw new Error(
+      'SDKWORK_DATABASE_PASSWORD and SDKWORK_DATABASE_PASSWORD_FILE are mutually exclusive.',
+    );
+  }
+  const password = passwordFile
+    ? normalizeText(fs.readFileSync(passwordFile, 'utf8'))
+    : inlinePassword;
+  const missing = [
+    ['SDKWORK_DATABASE_HOST', host],
+    ['SDKWORK_DATABASE_NAME', database],
+    ['SDKWORK_DATABASE_SCHEMA', schema],
+    ['SDKWORK_DATABASE_USERNAME', username],
+    ['SDKWORK_DATABASE_PASSWORD[_FILE]', password],
+  ].filter(([, value]) => !value).map(([key]) => key);
+  if (missing.length > 0) {
+    throw new Error(`PostgreSQL dev profile is missing ${missing.join(', ')}.`);
+  }
+  if (database !== 'sdkwork_ai_dev' || schema !== database || username !== 'sdkwork_ai_dev') {
+    throw new Error(
+      'Knowledgebase development must use database/schema/username sdkwork_ai_dev.',
+    );
+  }
+  const sslMode = normalizeText(sourceEnv.SDKWORK_DATABASE_SSL_MODE) || 'disable';
+  return `postgresql://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${encodeURIComponent(database)}?sslmode=${encodeURIComponent(sslMode)}`;
 }
 
 function resolveKnowledgebaseAppDatabaseEnv() {
   return {
-    SDKWORK_KNOWLEDGEBASE_DATABASE_ENGINE: 'sqlite',
-    SDKWORK_KNOWLEDGEBASE_DATABASE_FILE: './.sdkwork/runtime/knowledgebase/knowledgebase.sqlite',
-    SDKWORK_KNOWLEDGEBASE_DATABASE_URL: resolveDefaultSqliteDatabaseUrl(),
-    SDKWORK_KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS: '1',
+    SDKWORK_DATABASE_ENGINE: 'sqlite',
+    SDKWORK_DATABASE_FILE: './.sdkwork/runtime/knowledgebase/knowledgebase.sqlite',
+    SDKWORK_DATABASE_URL: resolveDefaultSqliteDatabaseUrl(),
+    SDKWORK_DATABASE_MAX_CONNECTIONS: '1',
   };
 }
 
@@ -220,12 +248,10 @@ function databaseEnv(settings, sourceEnv = {}) {
   if (settings.database === 'postgres') {
     const databaseUrl = resolvePostgresKnowledgebaseDatabaseUrl(sourceEnv);
     return {
-      SDKWORK_KNOWLEDGEBASE_DATABASE_ENGINE: 'postgresql',
-      SDKWORK_KNOWLEDGEBASE_DATABASE_URL: databaseUrl,
-      SDKWORK_KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS:
-        sourceEnv.SDKWORK_KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS
-        || sourceEnv.SDKWORK_CLAW_DATABASE_MAX_CONNECTIONS
-        || '10',
+      SDKWORK_DATABASE_ENGINE: 'postgresql',
+      SDKWORK_DATABASE_URL: databaseUrl,
+      SDKWORK_DATABASE_MAX_CONNECTIONS:
+        sourceEnv.SDKWORK_DATABASE_MAX_CONNECTIONS || '10',
     };
   }
   return resolveKnowledgebaseAppDatabaseEnv();
@@ -375,7 +401,7 @@ async function main() {
     settings.database === 'postgres' ? loadEnvFile(resolvePostgresDevEnvFile(settings)) : {};
   const iamSourceEnv = mergeRuntimeEnv(process.env, profileEnv, postgresDevEnv);
   const iamResolvedEnv = resolveIamDevEnv(iamSourceEnv);
-  const runtimeEnv = materializeKnowledgebaseDevDatabaseEnv(mergeRepoDevBootstrapAccessTokenEnv({
+  const runtimeEnv = materializeWorkspacePostgresSearchPath(mergeRepoDevBootstrapAccessTokenEnv({
     repoRoot: REPO_ROOT,
     appId: 'sdkwork-knowledgebase-pc',
     env: mergeRuntimeEnv(
@@ -386,7 +412,6 @@ async function main() {
       resolveKnowledgebaseRuntimeTenantEnv(iamSourceEnv),
       {
         SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE: settings.deploymentProfile,
-        SDKWORK_KNOWLEDGEBASE_DATABASE_PROFILE: settings.database,
         SDKWORK_KNOWLEDGEBASE_PROFILE_ID: profileId,
         SDKWORK_KNOWLEDGEBASE_DEV_MODE: '1',
         SDKWORK_KNOWLEDGEBASE_RUNTIME_TARGET: settings.target === 'desktop' ? 'desktop' : 'browser',
@@ -410,7 +435,7 @@ async function main() {
 
   if (settings.dryRun) {
     console.log(
-      `[sdkwork-knowledgebase] profile=${profileId} deploymentProfile=${settings.deploymentProfile} database=${settings.database} target=${settings.target} knowledgeDatabase=${redactDatabaseUrl(runtimeEnv.SDKWORK_KNOWLEDGEBASE_DATABASE_URL)} iamDatabase=${redactDatabaseUrl(runtimeEnv.SDKWORK_IAM_DATABASE_URL ?? runtimeEnv.SDKWORK_CLAW_DATABASE_URL)}`,
+      `[sdkwork-knowledgebase] profile=${profileId} deploymentProfile=${settings.deploymentProfile} database=${settings.database} target=${settings.target} workspaceDatabase=${redactDatabaseUrl(runtimeEnv.SDKWORK_DATABASE_URL)}`,
     );
     for (const entry of processes) {
       console.log(`[${entry.label}] ${entry.command} ${entry.args.join(' ')}`);

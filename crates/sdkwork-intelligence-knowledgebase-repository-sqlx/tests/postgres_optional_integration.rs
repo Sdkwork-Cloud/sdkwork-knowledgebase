@@ -30,7 +30,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Barrier;
 
 fn optional_postgres_database_url() -> Option<String> {
-    std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_URL")
+    std::env::var("SDKWORK_DATABASE_URL")
         .or_else(|_| std::env::var("DATABASE_URL"))
         .ok()
         .filter(|url| is_postgres_database_url(url))
@@ -39,7 +39,7 @@ fn optional_postgres_database_url() -> Option<String> {
 #[tokio::test]
 async fn postgres_repository_health_check_when_database_url_configured() {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping postgres integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!("skipping postgres integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
         return;
     };
 
@@ -54,7 +54,7 @@ async fn postgres_repository_health_check_when_database_url_configured() {
 #[tokio::test]
 async fn postgres_ingest_quota_advisory_lock_is_atomic_when_database_url_configured() {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping postgres quota integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!("skipping postgres quota integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
         return;
     };
 
@@ -116,7 +116,7 @@ async fn postgres_ingest_quota_advisory_lock_is_atomic_when_database_url_configu
 #[tokio::test]
 async fn postgres_audit_event_table_accepts_append_when_database_url_configured() {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping postgres audit integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!("skipping postgres audit integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
         return;
     };
 
@@ -162,7 +162,7 @@ async fn postgres_audit_event_table_accepts_append_when_database_url_configured(
 #[tokio::test]
 async fn postgres_web_audit_event_table_accepts_append_when_database_url_configured() {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping postgres web audit integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!("skipping postgres web audit integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
         return;
     };
 
@@ -210,7 +210,7 @@ async fn postgres_web_audit_event_table_accepts_append_when_database_url_configu
 async fn postgres_agent_profile_create_when_database_url_configured() {
     let Some(database_url) = optional_postgres_database_url() else {
         eprintln!(
-            "skipping postgres agent profile integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL or DATABASE_URL to a postgres URL"
+            "skipping postgres agent profile integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
         );
         return;
     };
@@ -256,7 +256,7 @@ async fn postgres_agent_profile_create_when_database_url_configured() {
 #[tokio::test]
 async fn postgres_create_space_when_database_url_configured() {
     let Some(database_url) = optional_postgres_database_url() else {
-        eprintln!("skipping postgres create space integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL or DATABASE_URL to a postgres URL");
+        eprintln!("skipping postgres create space integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL");
         return;
     };
 
@@ -280,7 +280,7 @@ async fn postgres_create_space_when_database_url_configured() {
 async fn postgres_browser_projection_batches_document_status_when_database_url_configured() {
     let Some(database_url) = optional_postgres_database_url() else {
         eprintln!(
-            "skipping postgres browser projection integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL or DATABASE_URL to a postgres URL"
+            "skipping postgres browser projection integration test: set SDKWORK_DATABASE_URL or DATABASE_URL to a postgres URL"
         );
         return;
     };

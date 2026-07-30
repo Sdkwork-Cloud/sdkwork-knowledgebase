@@ -35,7 +35,7 @@ async fn main() {
 
 async fn run(arguments: impl IntoIterator<Item = String>) -> Result<bool, BackfillCommandError> {
     let arguments = BackfillArguments::parse(arguments)?;
-    let database_url = std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_URL")
+    let database_url = std::env::var("SDKWORK_DATABASE_URL")
         .map_err(|_| BackfillCommandError::DatabaseUrlMissing)?;
     let tenant_id = required_tenant_id()?;
 
@@ -228,7 +228,7 @@ enum BackfillCommandError {
     MissingArgumentValue(&'static str),
     #[error("unexpected or repeated argument: {0}\n{}", usage())]
     UnexpectedArgument(String),
-    #[error("SDKWORK_KNOWLEDGEBASE_DATABASE_URL is required")]
+    #[error("SDKWORK_DATABASE_URL is required")]
     DatabaseUrlMissing,
     #[error("SDKWORK_KNOWLEDGEBASE_TENANT_ID is required")]
     TenantIdMissing,

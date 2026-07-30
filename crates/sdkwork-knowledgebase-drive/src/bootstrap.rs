@@ -1,4 +1,4 @@
-use sdkwork_database_config::claw_database::postgres_url_with_search_path;
+use sdkwork_database_config::workspace_database::normalize_workspace_postgres_url;
 use sdkwork_database_config::{DatabaseConfig, DatabaseEngine as SdkDatabaseEngine};
 use sdkwork_database_sqlx::{create_any_pool_from_config, PoolError};
 use sdkwork_drive_config::{
@@ -63,7 +63,8 @@ fn drive_database_config_from_url(
         DatabaseConfig {
             engine,
             url: if engine == SdkDatabaseEngine::Postgres {
-                postgres_url_with_search_path(normalized, "SDKWORK_KNOWLEDGEBASE")
+                normalize_workspace_postgres_url(normalized)
+                    .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?
             } else {
                 normalized.to_string()
             },

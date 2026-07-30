@@ -11,13 +11,13 @@ pub use sdkwork_knowledgebase_observability::{
 use crate::KnowledgebaseRuntime;
 
 /// Resolves the knowledgebase database URL. Production-like environments fail closed
-/// when `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` is unset.
+/// when `SDKWORK_DATABASE_URL` is unset.
 pub fn resolve_database_url() -> String {
-    match std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_URL") {
+    match std::env::var("SDKWORK_DATABASE_URL") {
         Ok(url) if !is_blank(Some(url.as_str())) => url,
         _ if is_production_like_environment() => {
             eprintln!(
-                "SDKWORK_KNOWLEDGEBASE_DATABASE_URL must be set for production-like environments"
+                "SDKWORK_DATABASE_URL must be set for production-like environments"
             );
             std::process::exit(1);
         }
@@ -83,7 +83,7 @@ fn validate_postgres_for_production() {
     }
 
     eprintln!(
-        "SDKWORK_KNOWLEDGEBASE_DATABASE_URL must use PostgreSQL for production-like environments"
+        "SDKWORK_DATABASE_URL must use PostgreSQL for production-like environments"
     );
     std::process::exit(1);
 }

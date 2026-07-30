@@ -66,7 +66,7 @@ where
             ),
         None if is_production_like_environment() => {
             eprintln!(
-                "Web audit emitter is required for production-like environments; configure SDKWORK_WEB_STORE_DATABASE_URL and bootstrap web_audit_event migrations"
+                "Web audit emitter is required for production-like environments; configure SDKWORK_DATABASE_URL and bootstrap web_audit_event migrations"
             );
             std::process::exit(1);
         }

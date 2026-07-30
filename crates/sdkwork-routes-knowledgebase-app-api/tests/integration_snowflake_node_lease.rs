@@ -22,7 +22,7 @@ async fn runtime_uses_a_healthy_database_backed_snowflake_node_lease() {
     let database_url = format!("sqlite://{relative_database_path}?mode=rwc");
 
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ENVIRONMENT", "development");
-    std::env::set_var("SDKWORK_KNOWLEDGEBASE_DATABASE_NODE_LEASE_ENABLED", "true");
+    std::env::set_var("SDKWORK_DATABASE_NODE_LEASE_ENABLED", "true");
     std::env::set_var("SDKWORK_NODE_INSTANCE_ID", "integration-snowflake-lease");
     std::env::set_var(
         "SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT",

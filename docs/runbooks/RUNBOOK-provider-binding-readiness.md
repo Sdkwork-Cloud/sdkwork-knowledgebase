@@ -14,7 +14,7 @@ read `kb_source`, create Bindings, or choose a Provider.
 ## Preconditions
 
 - Use an approved read-capable database identity for the target environment.
-- Inject `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` through the environment's approved configuration or
+- Inject `SDKWORK_DATABASE_URL` through the environment's approved configuration or
   secret mechanism. Do not place a credential-bearing URL in command arguments, shell history, or
   the generated report.
 - Set `SDKWORK_KNOWLEDGEBASE_TENANT_ID` to the canonical positive decimal tenant ID. PostgreSQL
@@ -27,7 +27,7 @@ read `kb_source`, create Bindings, or choose a Provider.
 ## Run One Page
 
 ```powershell
-$env:SDKWORK_KNOWLEDGEBASE_DATABASE_URL = '<approved-database-url>'
+$env:SDKWORK_DATABASE_URL = '<approved-database-url>'
 $env:SDKWORK_KNOWLEDGEBASE_TENANT_ID = '<tenant-id>'
 cargo run -p sdkwork-knowledgebase-worker --bin sdkwork-knowledgebase-provider-binding-prelaunch-report -- --organization-id <organization-id> --page-size 20
 ```

@@ -97,15 +97,15 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Bootstrap PostgreSQL schema and validate drift
         env:
-          SDKWORK_KNOWLEDGEBASE_DATABASE_URL: postgresql://sdkwork:sdkworkdev123@localhost:5432/sdkwork
-          SDKWORK_KNOWLEDGEBASE_DATABASE_ENGINE: postgresql
+          SDKWORK_DATABASE_URL: postgresql://sdkwork:sdkworkdev123@localhost:5432/sdkwork
+          SDKWORK_DATABASE_ENGINE: postgresql
         run: |
           pnpm db:bootstrap
           pnpm db:validate
           pnpm db:drift:check
       - name: Postgres repository integration
         env:
-          SDKWORK_KNOWLEDGEBASE_DATABASE_URL: postgresql://sdkwork:sdkworkdev123@localhost:5432/sdkwork
+          SDKWORK_DATABASE_URL: postgresql://sdkwork:sdkworkdev123@localhost:5432/sdkwork
         run: cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx postgres_
 
   e2e-playwright:

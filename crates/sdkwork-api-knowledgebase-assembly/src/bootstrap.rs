@@ -8,37 +8,10 @@ use sdkwork_routes_knowledgebase_app_api::bootstrap::{
 };
 use sdkwork_routes_knowledgebase_app_api::KnowledgebaseRuntime;
 use sdkwork_routes_knowledgebase_backend_api::health;
-use sdkwork_utils_rust::is_blank;
 use sdkwork_web_bootstrap::assemble_multi_surface_router;
 use std::sync::Arc;
 
-fn bridge_embedded_iam_database_env_from_knowledgebase() {
-    if !is_blank(std::env::var("SDKWORK_IAM_DATABASE_URL").ok().as_deref()) {
-        return;
-    }
-
-    let Ok(knowledgebase_database_url) = std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_URL") else {
-        return;
-    };
-    let trimmed = knowledgebase_database_url.trim();
-    if is_blank(Some(trimmed))
-        || (!trimmed.starts_with("postgres://") && !trimmed.starts_with("postgresql://"))
-    {
-        return;
-    }
-
-    let iam_database_url = sdkwork_database_config::claw_database::postgres_url_with_search_path(
-        trimmed,
-        "SDKWORK_IAM",
-    );
-    // SAFETY: gateway bootstrap runs sequentially on the main runtime thread.
-    unsafe {
-        std::env::set_var("SDKWORK_IAM_DATABASE_URL", iam_database_url);
-    }
-}
-
 async fn ensure_iam_session_resolution_database_ready() {
-    bridge_embedded_iam_database_env_from_knowledgebase();
     if let Err(error) = sdkwork_iam_database_host::bootstrap_iam_database_from_env().await {
         eprintln!(
             "[sdkwork-api-knowledgebase-assembly] IAM database bootstrap for session resolution skipped: {error}"

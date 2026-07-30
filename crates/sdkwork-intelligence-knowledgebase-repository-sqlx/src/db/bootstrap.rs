@@ -26,7 +26,7 @@ pub type KnowledgebaseDatabasePool = DatabasePool;
 const KNOWLEDGEBASE_POOL_MAX_CONNECTIONS: u32 = 5;
 
 fn resolve_max_connections(engine: DatabaseEngine, database_url: &str) -> u32 {
-    std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_MAX_CONNECTIONS")
+    std::env::var("SDKWORK_DATABASE_MAX_CONNECTIONS")
         .ok()
         .and_then(|value| value.trim().parse::<u32>().ok())
         .filter(|value| *value > 0)
@@ -48,10 +48,8 @@ pub fn database_config_from_url(database_url: &str) -> Result<DatabaseConfig, Po
         ))
     })?;
     let url = if engine == DatabaseEngine::Postgres {
-        sdkwork_database_config::claw_database::postgres_url_with_search_path(
-            normalized,
-            "SDKWORK_KNOWLEDGEBASE",
-        )
+        sdkwork_database_config::workspace_database::normalize_workspace_postgres_url(normalized)
+            .map_err(|error| PoolError::InvalidUrl(error.to_string()))?
     } else {
         normalized.to_string()
     };

@@ -17,7 +17,7 @@ async fn postgres_create_space_test_lock() -> MutexGuard<'static, ()> {
 }
 
 fn optional_postgres_database_url() -> Option<String> {
-    std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_URL")
+    std::env::var("SDKWORK_DATABASE_URL")
         .ok()
         .filter(|url| is_postgres_database_url(url))
 }
@@ -27,14 +27,14 @@ async fn postgres_runtime_creates_space_through_app_router() {
     let _guard = postgres_create_space_test_lock().await;
     let Some(database_url) = optional_postgres_database_url() else {
         eprintln!(
-            "skipping postgres create space integration test: set SDKWORK_KNOWLEDGEBASE_DATABASE_URL to a postgres URL"
+            "skipping postgres create space integration test: set SDKWORK_DATABASE_URL to a postgres URL"
         );
         return;
     };
 
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_TENANT_ID", "100001");
     std::env::set_var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID", "0");
-    std::env::set_var("SDKWORK_CLAW_DATABASE_SCHEMA", "sdkwork_ai_dev");
+    std::env::set_var("SDKWORK_DATABASE_SCHEMA", "sdkwork_ai_dev");
     let drive_root = std::env::current_dir()
         .expect("current directory")
         .join("target")

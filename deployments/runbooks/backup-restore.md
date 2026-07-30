@@ -5,7 +5,7 @@
 ### Backup (logical)
 
 ```bash
-pg_dump --format=custom --no-owner --file=knowledgebase-$(date +%Y%m%d).dump "$SDKWORK_KNOWLEDGEBASE_DATABASE_URL"
+pg_dump --format=custom --no-owner --file=knowledgebase-$(date +%Y%m%d).dump "$SDKWORK_DATABASE_URL"
 ```
 
 Store dumps in encrypted object storage with 30-day retention minimum.

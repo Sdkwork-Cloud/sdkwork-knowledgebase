@@ -18,7 +18,7 @@ Decision: SDKWork Knowledgebase remains prelaunch and must not be treated as a p
 - [ ] Replace placeholder catalog media: icon, screenshot, and preview entries are disabled with `generatedPlaceholder=true` and `releaseStatus=prelaunch-placeholder`; production listing requires Drive-backed, real product media assets.
 - [ ] Attach `web-universal-cloud-browser-zip` artifact evidence: checksum value, signing evidence, SBOM, provenance/attestation, immutable artifact URL or digest, and build workflow run.
 - [ ] Record rollout, rollback, monitoring, and smoke-test evidence for each runtime target and deployment profile.
-- [ ] Run and record release-environment PostgreSQL verification with `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` pointing at the target PostgreSQL service; local SQLite and contract gates are not enough for a commercial cutover claim.
+- [ ] Run and record release-environment PostgreSQL verification with `SDKWORK_DATABASE_URL` pointing at the target PostgreSQL service; local SQLite and contract gates are not enough for a commercial cutover claim.
 - [ ] Run and archive final launch gates on the release candidate artifact: `pnpm verify`, `pnpm test`, `pnpm test:e2e:playwright`, and live smoke probes with configured app/backend/open API URLs.
 
 ## Phase 0.1 Exit Criteria

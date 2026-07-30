@@ -12,7 +12,7 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
 ## Pre-flight
 
 1. Confirm secrets are provisioned outside topology files:
-   - Database password (`SDKWORK_CLAW_DATABASE_PASSWORD_FILE`)
+   - Database password (`SDKWORK_DATABASE_PASSWORD_FILE`)
    - Secrets encryption key (`SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY_FILE`)
    - Outbox webhook URL and signing secret
    - Drive Internal API ingress token (`sdkwork-knowledgebase-drive-internal-api/ingress-token`)
@@ -31,7 +31,7 @@ Operational checklist for launching SDKWork Knowledgebase in a tenant-scoped pro
 
 ## Database bootstrap
 
-1. Point `SDKWORK_KNOWLEDGEBASE_DATABASE_URL` at the production PostgreSQL instance.
+1. Point `SDKWORK_DATABASE_URL` at the production PostgreSQL instance.
 2. Bootstrap and validate:
    ```bash
    pnpm db:bootstrap

@@ -15,7 +15,7 @@ use sdkwork_knowledgebase_contract::{
 async fn postgres_readiness_query_is_read_only_and_dialect_compatible_when_configured() {
     let Some(database_url) = optional_postgres_database_url() else {
         eprintln!(
-            "skipping PostgreSQL Provider Binding readiness query: configure a PostgreSQL SDKWORK_KNOWLEDGEBASE_DATABASE_URL and tenant scope"
+            "skipping PostgreSQL Provider Binding readiness query: configure a PostgreSQL SDKWORK_DATABASE_URL and tenant scope"
         );
         return;
     };
@@ -67,7 +67,7 @@ async fn postgres_readiness_query_is_read_only_and_dialect_compatible_when_confi
 }
 
 fn optional_postgres_database_url() -> Option<String> {
-    std::env::var("SDKWORK_KNOWLEDGEBASE_DATABASE_URL")
+    std::env::var("SDKWORK_DATABASE_URL")
         .or_else(|_| std::env::var("DATABASE_URL"))
         .ok()
         .filter(|url| is_postgres_database_url(url))
