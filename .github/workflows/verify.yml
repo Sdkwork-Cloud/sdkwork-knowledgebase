@@ -73,13 +73,13 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: sdkwork
+          POSTGRES_USER: sdkwork_ai_test
           POSTGRES_PASSWORD: sdkworkdev123
-          POSTGRES_DB: sdkwork
+          POSTGRES_DB: sdkwork_ai_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U sdkwork -d sdkwork"
+          --health-cmd "pg_isready -U sdkwork_ai_test -d sdkwork_ai_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -97,7 +97,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Bootstrap PostgreSQL schema and validate drift
         env:
-          SDKWORK_DATABASE_URL: postgresql://sdkwork:sdkworkdev123@localhost:5432/sdkwork
+          SDKWORK_DATABASE_URL: postgresql://sdkwork_ai_test:sdkworkdev123@localhost:5432/sdkwork_ai_test
           SDKWORK_DATABASE_ENGINE: postgresql
         run: |
           pnpm db:bootstrap
@@ -105,7 +105,7 @@ jobs:
           pnpm db:drift:check
       - name: Postgres repository integration
         env:
-          SDKWORK_DATABASE_URL: postgresql://sdkwork:sdkworkdev123@localhost:5432/sdkwork
+          SDKWORK_DATABASE_URL: postgresql://sdkwork_ai_test:sdkworkdev123@localhost:5432/sdkwork_ai_test
         run: cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx postgres_
 
   e2e-playwright:
