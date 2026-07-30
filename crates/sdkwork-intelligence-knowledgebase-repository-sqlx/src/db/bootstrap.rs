@@ -1,9 +1,7 @@
 //! SDKWork database pool bootstrap via `sdkwork-database`.
 
 use sdkwork_database_config::{DatabaseConfig, DatabaseEngine, PgSslMode};
-use sdkwork_database_sqlx::{
-    create_any_pool_from_config, create_pool_from_config, DatabasePool, PoolError,
-};
+use sdkwork_database_sqlx::{create_pool_from_config, DatabasePool, PoolError};
 use sqlx::{AnyPool, PgPool};
 use url::Url;
 
@@ -150,7 +148,12 @@ async fn connect_knowledgebase_pool_from_config(
 async fn connect_knowledgebase_any_pool_from_config(
     config: DatabaseConfig,
 ) -> Result<AnyPool, PoolError> {
-    create_any_pool_from_config(config).await
+    sqlx::any::install_default_drivers();
+    sqlx::any::AnyPoolOptions::new()
+        .max_connections(config.max_connections)
+        .connect(&config.url)
+        .await
+        .map_err(PoolError::from)
 }
 
 pub async fn connect_knowledgebase_pool_from_env() -> Result<KnowledgebaseDatabasePool, PoolError> {
@@ -191,7 +194,10 @@ pub async fn connect_sqlite_pool_via_framework(database_url: &str) -> Result<Any
             "expected sqlite knowledgebase database url".into(),
         ));
     }
-    create_any_pool_from_config(config)
+    sqlx::any::install_default_drivers();
+    sqlx::any::AnyPoolOptions::new()
+        .max_connections(config.max_connections)
+        .connect(&config.url)
         .await
         .map_err(map_pool_error)
 }
