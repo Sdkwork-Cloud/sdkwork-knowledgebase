@@ -1,4 +1,6 @@
-use crate::bounded_http_body::{read_bounded_http_body, BoundedHttpBodyError};
+use crate::bounded_http_body::{
+    read_bounded_http_body, redacted_reqwest_error_detail, BoundedHttpBodyError,
+};
 use reqwest::header::{HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use sdkwork_utils_rust::is_blank;
 use thiserror::Error;
@@ -144,7 +146,7 @@ pub async fn list_importable_github_files(
         .headers(github_headers(access_token)?)
         .send()
         .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+        .map_err(|error| GitHubApiError::Upstream(redacted_reqwest_error_detail(&error)))?;
     if !response.status().is_success() {
         return Err(GitHubApiError::Upstream(format!(
             "failed to list repository tree: HTTP {}",
@@ -214,7 +216,7 @@ pub async fn fetch_github_file_content(
         .headers(headers)
         .send()
         .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+        .map_err(|error| GitHubApiError::Upstream(redacted_reqwest_error_detail(&error)))?;
     if !response.status().is_success() {
         return Err(GitHubApiError::Upstream(format!(
             "failed to fetch \"{path}\": HTTP {}",
@@ -275,7 +277,7 @@ pub async fn create_github_commit(
         .headers(github_headers(Some(token))?)
         .send()
         .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+        .map_err(|error| GitHubApiError::Upstream(redacted_reqwest_error_detail(&error)))?;
     if !ref_response.status().is_success() {
         return Err(GitHubApiError::Upstream(format!(
             "failed to resolve git ref \"{branch}\": HTTP {}",
@@ -302,7 +304,7 @@ pub async fn create_github_commit(
         .headers(github_headers(Some(token))?)
         .send()
         .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+        .map_err(|error| GitHubApiError::Upstream(redacted_reqwest_error_detail(&error)))?;
     if !commit_response.status().is_success() {
         return Err(GitHubApiError::Upstream(format!(
             "failed to resolve parent commit tree: HTTP {}",
@@ -342,7 +344,7 @@ pub async fn create_github_commit(
             .json(&blob_payload)
             .send()
             .await
-            .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+            .map_err(|error| GitHubApiError::Upstream(redacted_reqwest_error_detail(&error)))?;
         if !blob_response.status().is_success() {
             return Err(GitHubApiError::Upstream(format!(
                 "failed to create git blob for \"{}\": HTTP {}",
@@ -384,7 +386,7 @@ pub async fn create_github_commit(
         .json(&tree_payload)
         .send()
         .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+        .map_err(|error| GitHubApiError::Upstream(redacted_reqwest_error_detail(&error)))?;
     if !tree_response.status().is_success() {
         return Err(GitHubApiError::Upstream(format!(
             "failed to create git tree: HTTP {}",
@@ -414,7 +416,7 @@ pub async fn create_github_commit(
         .json(&new_commit_payload)
         .send()
         .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+        .map_err(|error| GitHubApiError::Upstream(redacted_reqwest_error_detail(&error)))?;
     if !new_commit_response.status().is_success() {
         return Err(GitHubApiError::Upstream(format!(
             "failed to create git commit: HTTP {}",
@@ -434,7 +436,7 @@ pub async fn create_github_commit(
         .json(&serde_json::json!({ "sha": commit_sha }))
         .send()
         .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+        .map_err(|error| GitHubApiError::Upstream(redacted_reqwest_error_detail(&error)))?;
     if !update_ref_response.status().is_success() {
         return Err(GitHubApiError::Upstream(format!(
             "failed to update git ref \"{branch}\": HTTP {}",
@@ -463,7 +465,7 @@ async fn resolve_branch_sha(
         .headers(github_headers(access_token)?)
         .send()
         .await
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))?;
+        .map_err(|error| GitHubApiError::Upstream(redacted_reqwest_error_detail(&error)))?;
     if !response.status().is_success() {
         let detail = if response.status() == reqwest::StatusCode::NOT_FOUND {
             format!("branch \"{branch}\" was not found")
@@ -489,7 +491,7 @@ fn github_client() -> Result<reqwest::Client, GitHubApiError> {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
-        .map_err(|error| GitHubApiError::Upstream(error.to_string()))
+        .map_err(|error| GitHubApiError::Upstream(redacted_reqwest_error_detail(&error)))
 }
 
 async fn read_github_json(
@@ -508,7 +510,7 @@ fn map_github_json_body_error(error: BoundedHttpBodyError, context: &str) -> Git
         BoundedHttpBodyError::TooLarge { .. } => GitHubApiError::Upstream(format!(
             "{context} response exceeds the {MAX_GITHUB_JSON_RESPONSE_BYTES} byte safety limit"
         )),
-        BoundedHttpBodyError::Read(error) => GitHubApiError::Upstream(error.to_string()),
+        BoundedHttpBodyError::Read { detail } => GitHubApiError::Upstream(detail),
     }
 }
 
@@ -517,7 +519,7 @@ fn map_github_file_body_error(error: BoundedHttpBodyError, path: &str) -> GitHub
         BoundedHttpBodyError::TooLarge { .. } => GitHubApiError::InvalidRequest(format!(
             "file \"{path}\" exceeds the {MAX_FILE_BYTES} byte import limit"
         )),
-        BoundedHttpBodyError::Read(error) => GitHubApiError::Upstream(error.to_string()),
+        BoundedHttpBodyError::Read { detail } => GitHubApiError::Upstream(detail),
     }
 }
 

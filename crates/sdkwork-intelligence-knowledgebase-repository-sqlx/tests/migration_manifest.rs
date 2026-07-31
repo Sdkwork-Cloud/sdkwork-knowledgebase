@@ -28,6 +28,11 @@ const APP_ROOT_SQLITE_TENANT_SCOPE_MIGRATION: &str = include_str!(
 );
 const APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION: &str =
     include_str!("../../../database/migrations/postgres/202607210001_live_wiki_publication.up.sql");
+const APP_ROOT_POSTGRES_ORGANIZATION_ISOLATION_MIGRATION: &str = include_str!(
+    "../../../database/migrations/postgres/202607310001_core_organization_isolation.up.sql"
+);
+const APP_ROOT_POSTGRES_OUTBOX_CLAIM_FENCING_MIGRATION: &str =
+    include_str!("../../../database/migrations/postgres/202607310002_outbox_claim_fencing.up.sql");
 const APP_ROOT_SQLITE_LIVE_WIKI_MIGRATION: &str = include_str!(
     "../../../tests/fixtures/database/sqlite/migrations/202607210001_live_wiki_publication.up.sql"
 );
@@ -807,6 +812,35 @@ fn outbox_claim_migrations_add_claimed_at_column() {
 }
 
 #[test]
+fn outbox_claim_fencing_migrations_require_scope_owner_token_and_dead_letter_state() {
+    use sdkwork_intelligence_knowledgebase_repository_sqlx::migrations::SQLITE_OUTBOX_CLAIM_FENCING_MIGRATION;
+
+    for migration in [
+        SQLITE_OUTBOX_CLAIM_FENCING_MIGRATION,
+        APP_ROOT_POSTGRES_OUTBOX_CLAIM_FENCING_MIGRATION,
+    ] {
+        for required in [
+            "claim_owner",
+            "claim_token",
+            "dead_lettered_at",
+            "organization_id",
+            "idx_kb_outbox_event_scope_claim",
+        ] {
+            assert!(
+                migration.contains(required),
+                "migration is missing {required}"
+            );
+        }
+    }
+    assert!(
+        APP_ROOT_POSTGRES_OUTBOX_CLAIM_FENCING_MIGRATION.contains("ck_kb_outbox_event_claim_pair")
+    );
+    assert!(
+        APP_ROOT_POSTGRES_OUTBOX_CLAIM_FENCING_MIGRATION.contains("ck_kb_outbox_event_dead_letter")
+    );
+}
+
+#[test]
 fn app_root_database_baselines_are_engine_specific_single_snapshots() {
     for (needle, expected_count) in [
         ("CREATE TABLE IF NOT EXISTS kb_market_listing", 1),
@@ -1144,7 +1178,7 @@ fn live_wiki_persistence_keeps_release_and_storage_locator_state_out_of_knowledg
 }
 
 #[test]
-fn live_wiki_migrations_are_paired_and_registered_at_contract_version_1_1_0() {
+fn live_wiki_history_and_current_database_contract_versions_are_explicit() {
     for migration in [
         APP_ROOT_POSTGRES_LIVE_WIKI_MIGRATION,
         APP_ROOT_SQLITE_LIVE_WIKI_MIGRATION,
@@ -1165,8 +1199,10 @@ fn live_wiki_migrations_are_paired_and_registered_at_contract_version_1_1_0() {
         }
     }
 
-    assert!(APP_ROOT_DATABASE_MANIFEST.contains("\"contractVersion\": \"1.1.0\""));
-    assert!(APP_ROOT_DATABASE_SCHEMA.contains("contract_version: 1.1.0"));
+    assert!(APP_ROOT_POSTGRES_ORGANIZATION_ISOLATION_MIGRATION.contains("contract_version: 1.2.0"));
+    assert!(APP_ROOT_POSTGRES_OUTBOX_CLAIM_FENCING_MIGRATION.contains("contract_version: 1.3.0"));
+    assert!(APP_ROOT_DATABASE_MANIFEST.contains("\"contractVersion\": \"1.3.0\""));
+    assert!(APP_ROOT_DATABASE_SCHEMA.contains("contract_version: 1.3.0"));
     for table in LIVE_WIKI_TABLES {
         assert!(
             APP_ROOT_DATABASE_SCHEMA.contains(&format!("name: {table}")),

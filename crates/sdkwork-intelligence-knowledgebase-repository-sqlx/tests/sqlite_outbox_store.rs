@@ -14,7 +14,7 @@ async fn sqlite_outbox_store_appends_pending_events() {
     let pool = connect_sqlite_and_install_schema("sqlite::memory:")
         .await
         .expect("schema install");
-    let store = SqliteKnowledgeOutboxStore::new(pool.clone(), 1);
+    let store = SqliteKnowledgeOutboxStore::new(pool.clone(), 1, 7, "worker-a");
     store
         .append_event(AppendOutboxEventRecord {
             aggregate_type: "ingestion_job".to_string(),
@@ -26,7 +26,7 @@ async fn sqlite_outbox_store_appends_pending_events() {
         .expect("append outbox event");
 
     let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND status = 0",
+        "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND organization_id = 7 AND status = 0",
     )
     .fetch_one(&pool)
     .await
@@ -39,7 +39,7 @@ async fn sqlite_outbox_store_marks_pending_events_published() {
     let pool = connect_sqlite_and_install_schema("sqlite::memory:")
         .await
         .expect("schema install");
-    let store = SqliteKnowledgeOutboxStore::new(pool.clone(), 1);
+    let store = SqliteKnowledgeOutboxStore::new(pool.clone(), 1, 7, "worker-a");
     store
         .append_event(AppendOutboxEventRecord {
             aggregate_type: "ingestion_job".to_string(),
@@ -59,7 +59,7 @@ async fn sqlite_outbox_store_marks_pending_events_published() {
     assert_eq!(published.failed, 0);
 
     let pending: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND status = 0",
+        "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND organization_id = 7 AND status = 0",
     )
     .fetch_one(&pool)
     .await
@@ -72,7 +72,7 @@ async fn sqlite_outbox_store_claim_prevents_duplicate_publish() {
     let pool = connect_sqlite_and_install_schema("sqlite::memory:")
         .await
         .expect("schema install");
-    let store = SqliteKnowledgeOutboxStore::new(pool.clone(), 1);
+    let store = SqliteKnowledgeOutboxStore::new(pool.clone(), 1, 7, "worker-a");
     store
         .append_event(AppendOutboxEventRecord {
             aggregate_type: "ingestion_job".to_string(),
@@ -95,7 +95,7 @@ async fn sqlite_outbox_store_requeues_failed_events_under_retry_limit() {
     let pool = connect_sqlite_and_install_schema("sqlite::memory:")
         .await
         .expect("schema install");
-    let store = SqliteKnowledgeOutboxStore::new(pool.clone(), 1);
+    let store = SqliteKnowledgeOutboxStore::new(pool.clone(), 1, 7, "worker-a");
     store
         .append_event(AppendOutboxEventRecord {
             aggregate_type: "ingestion_job".to_string(),
@@ -106,13 +106,14 @@ async fn sqlite_outbox_store_requeues_failed_events_under_retry_limit() {
         .await
         .expect("append outbox event");
 
-    let event_id: i64 = sqlx::query_scalar("SELECT id FROM kb_outbox_event WHERE tenant_id = 1")
-        .fetch_one(&pool)
+    let claimed = store
+        .claim_pending_events(1)
         .await
-        .expect("event id");
-
+        .expect("claim")
+        .pop()
+        .expect("claimed event");
     store
-        .mark_failed(event_id as u64, "dispatch failed")
+        .mark_failed(&claimed, "dispatch failed")
         .await
         .expect("mark failed");
 
@@ -123,7 +124,7 @@ async fn sqlite_outbox_store_requeues_failed_events_under_retry_limit() {
     assert_eq!(requeued, 1);
 
     let pending: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND status = 0",
+        "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND organization_id = 7 AND status = 0",
     )
     .fetch_one(&pool)
     .await
@@ -136,7 +137,7 @@ async fn sqlite_outbox_store_rejects_invalid_or_oversized_payloads() {
     let pool = connect_sqlite_and_install_schema("sqlite::memory:")
         .await
         .expect("schema install");
-    let store = SqliteKnowledgeOutboxStore::new(pool, 1);
+    let store = SqliteKnowledgeOutboxStore::new(pool, 1, 7, "worker-a");
 
     for payload_json in [
         "not-json".to_string(),
@@ -157,4 +158,101 @@ async fn sqlite_outbox_store_rejects_invalid_or_oversized_payloads() {
             KnowledgeOutboxStoreError::InvalidRequest(_)
         ));
     }
+}
+
+#[tokio::test]
+async fn sqlite_outbox_store_fences_a_stale_worker_after_reclaim() {
+    let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+        .await
+        .expect("schema install");
+    let first_store = SqliteKnowledgeOutboxStore::new(pool.clone(), 1, 7, "worker-a");
+    let second_store = SqliteKnowledgeOutboxStore::new(pool.clone(), 1, 7, "worker-b");
+    first_store
+        .append_event(AppendOutboxEventRecord {
+            aggregate_type: "knowledge_document".to_string(),
+            aggregate_id: 42,
+            event_type: "knowledge.document.changed.v1".to_string(),
+            payload_json: r#"{"documentId":42}"#.to_string(),
+        })
+        .await
+        .expect("append");
+
+    let stale_claim = first_store
+        .claim_pending_events(1)
+        .await
+        .expect("first claim")
+        .pop()
+        .expect("claimed event");
+    sqlx::query(
+        "UPDATE kb_outbox_event SET claimed_at = '2000-01-01T00:00:00Z' WHERE tenant_id = 1 AND organization_id = 7",
+    )
+    .execute(&pool)
+    .await
+    .expect("expire claim");
+
+    let current_claim = second_store
+        .claim_pending_events(1)
+        .await
+        .expect("reclaim")
+        .pop()
+        .expect("reclaimed event");
+    assert_ne!(stale_claim.claim.token, current_claim.claim.token);
+
+    let stale_result = first_store.mark_published(&stale_claim).await;
+    assert!(matches!(
+        stale_result,
+        Err(KnowledgeOutboxStoreError::InvalidRequest(_))
+    ));
+    second_store
+        .mark_published(&current_claim)
+        .await
+        .expect("current owner publishes");
+}
+
+#[tokio::test]
+async fn sqlite_outbox_store_isolates_organizations_and_dead_letters_exhausted_events() {
+    let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+        .await
+        .expect("schema install");
+    let organization_seven = SqliteKnowledgeOutboxStore::new(pool.clone(), 1, 7, "worker-a");
+    let organization_eight = SqliteKnowledgeOutboxStore::new(pool.clone(), 1, 8, "worker-b");
+    organization_seven
+        .append_event(AppendOutboxEventRecord {
+            aggregate_type: "knowledge_document".to_string(),
+            aggregate_id: 9,
+            event_type: "knowledge.document.changed.v1".to_string(),
+            payload_json: r#"{"documentId":9}"#.to_string(),
+        })
+        .await
+        .expect("append");
+
+    assert!(organization_eight
+        .claim_pending_events(10)
+        .await
+        .expect("cross-organization claim")
+        .is_empty());
+    let claimed = organization_seven
+        .claim_pending_events(1)
+        .await
+        .expect("claim")
+        .pop()
+        .expect("claimed event");
+    organization_seven
+        .mark_failed(&claimed, "permanent failure")
+        .await
+        .expect("mark failed");
+    assert_eq!(
+        organization_seven
+            .requeue_failed_events(10, 1)
+            .await
+            .expect("dead letter exhausted event"),
+        0
+    );
+    let dead_letter_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM kb_outbox_event WHERE tenant_id = 1 AND organization_id = 7 AND status = 4 AND dead_lettered_at IS NOT NULL",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("dead letter count");
+    assert_eq!(dead_letter_count, 1);
 }

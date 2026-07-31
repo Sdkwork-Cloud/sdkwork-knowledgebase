@@ -21,6 +21,7 @@
     "react": "^19.0.0"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
     "@sdkwork/drive-app-sdk": "workspace:*",
     "@sdkwork/knowledgebase-app-sdk": "workspace:*",
     "@sdkwork/sdkwork-knowledgebase-pc-commons": "workspace:*",

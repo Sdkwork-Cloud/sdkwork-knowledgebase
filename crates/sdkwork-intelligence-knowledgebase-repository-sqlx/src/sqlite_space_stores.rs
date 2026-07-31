@@ -816,23 +816,31 @@ impl SqliteKnowledgeSpaceStore {
 pub struct SqliteKnowledgeOkfBundleFileStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeOkfBundleFileStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
-        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
+        Self::with_id_generator(
+            pool,
+            tenant_id,
+            organization_id,
+            default_knowledge_id_generator(),
+        )
     }
 
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
         }
@@ -867,18 +875,20 @@ impl SqliteKnowledgeOkfBundleFileStore {
         record: CreateKnowledgeOkfBundleFileRecord,
     ) -> Result<KnowledgeOkfBundleFile, KnowledgeOkfBundleFileStoreError> {
         let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = okf_bundle_file_to_i64("organization_id", self.organization_id)?;
         let space_id = okf_bundle_file_to_i64("space_id", record.space_id)?;
         let id = next_i64_id(&self.id_generator).map_err(okf_bundle_file_id_error)?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeOkfBundleFileStoreError::Internal)?;
 
-        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
-        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
         let query = format!(
             r#"
             INSERT INTO kb_okf_bundle_file (
                 id,
                 uuid,
                 tenant_id,
+                organization_id,
                 space_id,
                 logical_path,
                 file_kind,
@@ -891,7 +901,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {created_at_expr}, {updated_at_expr}, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, {created_at_expr}, {updated_at_expr}, $15)
             RETURNING
                 id,
                 space_id,
@@ -907,6 +917,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(space_id)
             .bind(record.logical_path)
             .bind(okf_bundle_file_type_code(record.file_kind))
@@ -930,18 +941,20 @@ impl SqliteKnowledgeOkfBundleFileStore {
         record: CreateKnowledgeOkfBundleFileRecord,
     ) -> Result<KnowledgeOkfBundleFile, KnowledgeOkfBundleFileStoreError> {
         let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = okf_bundle_file_to_i64("organization_id", self.organization_id)?;
         let space_id = okf_bundle_file_to_i64("space_id", record.space_id)?;
         let id = next_i64_id(&self.id_generator).map_err(okf_bundle_file_id_error)?;
         let now = utc_sql_timestamp_text().map_err(KnowledgeOkfBundleFileStoreError::Internal)?;
 
-        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
-        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
         let query = format!(
             r#"
             INSERT INTO kb_okf_bundle_file (
                 id,
                 uuid,
                 tenant_id,
+                organization_id,
                 space_id,
                 logical_path,
                 file_kind,
@@ -954,8 +967,8 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {created_at_expr}, {updated_at_expr}, $14)
-            ON CONFLICT(tenant_id, space_id, logical_path)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, {created_at_expr}, {updated_at_expr}, $15)
+            ON CONFLICT(tenant_id, organization_id, space_id, logical_path)
             DO UPDATE SET
                 file_kind = excluded.file_kind,
                 artifact_role = excluded.artifact_role,
@@ -980,6 +993,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(space_id)
             .bind(record.logical_path)
             .bind(okf_bundle_file_type_code(record.file_kind))
@@ -1002,6 +1016,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
         &self,
     ) -> Result<Vec<KnowledgeOkfBundleFile>, KnowledgeOkfBundleFileStoreError> {
         let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = okf_bundle_file_to_i64("organization_id", self.organization_id)?;
         let rows = sqlx::query(
             r#"
             SELECT
@@ -1014,12 +1029,13 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 drive_object_key,
                 checksum_sha256_hex
             FROM kb_okf_bundle_file
-            WHERE tenant_id = $1 AND status = $2
+            WHERE tenant_id = $1 AND organization_id = $2 AND status = $3
             ORDER BY id ASC
             LIMIT 200
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(ACTIVE_STATUS)
         .fetch_all(&self.pool)
         .await
@@ -1035,6 +1051,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
     ) -> Result<(Vec<KnowledgeOkfBundleFile>, Option<String>, bool), KnowledgeOkfBundleFileStoreError>
     {
         let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = okf_bundle_file_to_i64("organization_id", self.organization_id)?;
         let cursor = cursor
             .map(|value| okf_bundle_file_to_i64("cursor", value))
             .transpose()?;
@@ -1044,12 +1061,13 @@ impl SqliteKnowledgeOkfBundleFileStore {
             SELECT id, space_id, logical_path, file_kind, artifact_role,
                    drive_bucket, drive_object_key, checksum_sha256_hex
             FROM kb_okf_bundle_file
-            WHERE tenant_id = $1 AND status = $2 AND ($3 IS NULL OR id > $3)
+            WHERE tenant_id = $1 AND organization_id = $2 AND status = $3 AND ($4 IS NULL OR id > $4)
             ORDER BY id ASC
-            LIMIT $4
+            LIMIT $5
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(ACTIVE_STATUS)
         .bind(cursor)
         .bind((page_size + 1) as i64)
@@ -1074,6 +1092,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
         entry_id: u64,
     ) -> Result<KnowledgeOkfBundleFile, KnowledgeOkfBundleFileStoreError> {
         let tenant_id = okf_bundle_file_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = okf_bundle_file_to_i64("organization_id", self.organization_id)?;
         let entry_id = okf_bundle_file_to_i64("entry_id", entry_id)?;
         let row = sqlx::query(
             r#"
@@ -1087,11 +1106,12 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 drive_object_key,
                 checksum_sha256_hex
             FROM kb_okf_bundle_file
-            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = $4
             LIMIT 1
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(entry_id)
         .bind(ACTIVE_STATUS)
         .fetch_optional(&self.pool)

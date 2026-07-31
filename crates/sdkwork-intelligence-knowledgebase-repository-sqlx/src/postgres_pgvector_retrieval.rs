@@ -15,11 +15,16 @@ const ACTIVE_STATUS: i64 = 1;
 pub struct PgVectorKnowledgeRetrievalBackend {
     pool: PgPool,
     tenant_id: u64,
+    organization_id: u64,
 }
 
 impl PgVectorKnowledgeRetrievalBackend {
-    pub fn new(pool: PgPool, tenant_id: u64) -> Self {
-        Self { pool, tenant_id }
+    pub fn new(pool: PgPool, tenant_id: u64, organization_id: u64) -> Self {
+        Self {
+            pool,
+            tenant_id,
+            organization_id,
+        }
     }
 }
 
@@ -47,6 +52,7 @@ impl KnowledgeRetrievalBackend for PgVectorKnowledgeRetrievalBackend {
         })?;
         let vector_literal = format_pgvector_literal(query_embedding);
         let tenant_id = backend_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = backend_to_i64("organization_id", self.organization_id)?;
         let space_id = backend_to_i64("space_id", request.binding.space_id)?;
         let collection_id = request
             .binding
@@ -79,6 +85,7 @@ impl KnowledgeRetrievalBackend for PgVectorKnowledgeRetrievalBackend {
             FROM kb_chunk c
             JOIN kb_document d
               ON d.tenant_id = c.tenant_id
+             AND d.organization_id = c.organization_id
              AND d.id = c.document_id
              AND d.status =
             "#,
@@ -88,6 +95,7 @@ impl KnowledgeRetrievalBackend for PgVectorKnowledgeRetrievalBackend {
             r#"
             INNER JOIN kb_embedding e
               ON e.tenant_id = c.tenant_id
+             AND e.organization_id = c.organization_id
              AND e.chunk_id = c.id
              AND e.status =
             "#,
@@ -100,6 +108,8 @@ impl KnowledgeRetrievalBackend for PgVectorKnowledgeRetrievalBackend {
             "#,
         );
         query.push_bind(tenant_id);
+        query.push(" AND c.organization_id = ");
+        query.push_bind(organization_id);
         query.push(" AND c.space_id = ");
         query.push_bind(space_id);
         query.push(" AND c.status = ");
@@ -108,7 +118,13 @@ impl KnowledgeRetrievalBackend for PgVectorKnowledgeRetrievalBackend {
             query.push(" AND c.collection_id = ");
             query.push_bind(collection_id);
         }
-        push_binding_scope_filters_postgres(&mut query, tenant_id, space_id, &request.binding)?;
+        push_binding_scope_filters_postgres(
+            &mut query,
+            tenant_id,
+            organization_id,
+            space_id,
+            &request.binding,
+        )?;
         query.push(" ORDER BY e.embedding_vector <=> CAST(");
         query.push_bind(vector_literal);
         query.push(" AS vector) LIMIT ");

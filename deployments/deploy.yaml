@@ -9,8 +9,8 @@ profiles:
       deliveryKind: container-image
       deploymentDriver: kubernetes
       managementModel: sdkwork-managed
-      tenancyModel: multi-tenant
-      isolationModel: shared
+      tenancyModel: single-tenant
+      isolationModel: dedicated
       networkExposure: public
       rolloutStrategy: rolling
       availabilityMode: high-availability

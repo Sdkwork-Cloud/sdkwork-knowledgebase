@@ -3036,15 +3036,17 @@ async fn append_outbox_event(
     payload_json: &str,
 ) -> Result<(), KnowledgeGroupSpaceBindingStoreError> {
     let id = next_group_id(operation_context.id_generator)?;
-    let payload_expr = operation_context.timestamp_dialect.sql_json_expr("$7");
-    let created_at_expr = operation_context.timestamp_dialect.sql_timestamp_expr("$9");
+    let payload_expr = operation_context.timestamp_dialect.sql_json_expr("$8");
+    let created_at_expr = operation_context
+        .timestamp_dialect
+        .sql_timestamp_expr("$10");
     let query = format!(
         r#"
         INSERT INTO kb_outbox_event (
-            id, uuid, tenant_id, aggregate_type, aggregate_id, event_type, payload, status,
+            id, uuid, tenant_id, organization_id, aggregate_type, aggregate_id, event_type, payload, status,
             created_at, version
         )
-        VALUES ($1, $2, $3, $4, $5, $6, {payload_expr}, $8, {created_at_expr}, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, {payload_expr}, $9, {created_at_expr}, $11)
         "#,
     );
     sqlx::query(&query)
@@ -3053,6 +3055,10 @@ async fn append_outbox_event(
         .bind(group_to_i64(
             "tenant_id",
             operation_context.scope.tenant_id,
+        )?)
+        .bind(group_to_i64(
+            "organization_id",
+            operation_context.scope.organization_id,
         )?)
         .bind("group_knowledge_space_binding")
         .bind(group_to_i64("binding_id", binding_id)?)

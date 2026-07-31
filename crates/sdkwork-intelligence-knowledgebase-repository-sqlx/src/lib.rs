@@ -51,10 +51,13 @@ pub use browser_projection_store::SqliteKnowledgeBrowserProjectionStore;
 pub use db::{
     connect_knowledgebase_and_install_schema, connect_postgres_and_install_schema,
     connect_postgres_pool, connect_postgres_via_framework_lifecycle,
-    connect_sqlite_and_install_schema, connect_sqlite_pool, install_sqlite_core_schema,
-    install_sqlite_schema, is_postgres_database_url, knowledgebase_health_check,
-    postgres_health_check, set_postgres_session_tenant_id, sqlite_health_check,
-    PostgresRepositoryError, POSTGRES_TENANT_SESSION_KEY,
+    connect_sqlite_and_install_schema, connect_sqlite_pool, database_config_from_url,
+    install_sqlite_core_schema, install_sqlite_schema, is_postgres_database_url,
+    knowledgebase_health_check, knowledgebase_process_pool_budget_from_url, postgres_health_check,
+    require_postgres_rls_organization_id, require_postgres_rls_tenant_id,
+    set_postgres_session_organization_id, set_postgres_session_tenant_id, sqlite_health_check,
+    KnowledgebaseProcessPoolBudget, PostgresRepositoryError, POSTGRES_ORGANIZATION_SESSION_KEY,
+    POSTGRES_TENANT_SESSION_KEY,
 };
 pub use drive_object_ref_store::SqliteKnowledgeDriveObjectRefStore;
 pub use embedding_store::SqliteKnowledgeEmbeddingStore;

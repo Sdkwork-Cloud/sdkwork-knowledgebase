@@ -18,18 +18,21 @@ pub trait KnowledgeOutboxStore: Send + Sync {
     async fn claim_pending_events(
         &self,
         limit: u32,
-    ) -> Result<Vec<PendingOutboxEvent>, KnowledgeOutboxStoreError>;
+    ) -> Result<Vec<ClaimedOutboxEvent>, KnowledgeOutboxStoreError>;
 
     async fn release_stale_claimed_events(
         &self,
         stale_after_secs: u64,
     ) -> Result<usize, KnowledgeOutboxStoreError>;
 
-    async fn mark_published(&self, event_id: u64) -> Result<(), KnowledgeOutboxStoreError>;
+    async fn mark_published(
+        &self,
+        claimed: &ClaimedOutboxEvent,
+    ) -> Result<(), KnowledgeOutboxStoreError>;
 
     async fn mark_failed(
         &self,
-        event_id: u64,
+        claimed: &ClaimedOutboxEvent,
         error_message: &str,
     ) -> Result<(), KnowledgeOutboxStoreError>;
 
@@ -57,6 +60,18 @@ pub struct PendingOutboxEvent {
     pub aggregate_id: u64,
     pub retry_count: u32,
     pub payload_json: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutboxClaim {
+    pub owner: String,
+    pub token: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClaimedOutboxEvent {
+    pub event: PendingOutboxEvent,
+    pub claim: OutboxClaim,
 }
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]

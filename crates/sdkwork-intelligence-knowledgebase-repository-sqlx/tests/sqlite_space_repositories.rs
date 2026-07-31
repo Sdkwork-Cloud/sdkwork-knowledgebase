@@ -17,7 +17,8 @@ async fn sqlite_space_repository_initializes_okf_bundle_standard_files() {
     let organization_id = 7001_u64;
 
     let spaces = SqliteKnowledgeSpaceStore::new(pool.clone(), tenant_id, organization_id);
-    let bundle_file_entries = SqliteKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id);
+    let bundle_file_entries =
+        SqliteKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id, organization_id);
     let drive = FakeKnowledgeDriveStorage::default();
     let registry = OkfBundleFileRegistryService::new(&bundle_file_entries);
     let okf_initializer = OkfBundleInitializerService::new(&drive).with_registry(&registry);

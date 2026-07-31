@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use sdkwork_database_config::DatabaseEngine;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_outbox_store::{
-    AppendOutboxEventRecord, KnowledgeOutboxStore, KnowledgeOutboxStoreError, PendingOutboxEvent,
-    MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES,
+    AppendOutboxEventRecord, ClaimedOutboxEvent, KnowledgeOutboxStore, KnowledgeOutboxStoreError,
+    OutboxClaim, PendingOutboxEvent, MAX_KNOWLEDGE_OUTBOX_PAYLOAD_BYTES,
 };
 use sdkwork_utils_rust::{is_blank, truncate};
 use sqlx::{AnyPool, Row};
@@ -17,21 +17,36 @@ const OUTBOX_STATUS_PENDING: i64 = 0;
 const OUTBOX_STATUS_PUBLISHED: i64 = 1;
 const OUTBOX_STATUS_FAILED: i64 = 2;
 const OUTBOX_STATUS_CLAIMED: i64 = 3;
+const OUTBOX_STATUS_DEAD_LETTER: i64 = 4;
 const INITIAL_VERSION: i64 = 0;
 const DEFAULT_STALE_CLAIM_SECS: u64 = 300;
+const MAX_CLAIM_OWNER_BYTES: usize = 128;
 
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeOutboxStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
+    claim_owner: String,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     use_postgres_skip_locked_claim: bool,
     timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeOutboxStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
-        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    pub fn new(
+        pool: AnyPool,
+        tenant_id: u64,
+        organization_id: u64,
+        claim_owner: impl Into<String>,
+    ) -> Self {
+        Self::with_id_generator(
+            pool,
+            tenant_id,
+            organization_id,
+            claim_owner,
+            default_knowledge_id_generator(),
+        )
     }
 
     pub fn with_postgres_skip_locked_claim(mut self, enabled: bool) -> Self {
@@ -47,11 +62,15 @@ impl SqliteKnowledgeOutboxStore {
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
+        claim_owner: impl Into<String>,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
+            claim_owner: claim_owner.into(),
             id_generator,
             use_postgres_skip_locked_claim: false,
             timestamp_dialect: SqlTimestampDialect::default(),
@@ -93,24 +112,26 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
 
         let id = next_i64_id(&self.id_generator).map_err(id_error)?;
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let aggregate_id = to_i64("aggregate_id", record.aggregate_id)?;
         let now = now_rfc3339()?;
-        let payload_expr = self.timestamp_dialect.sql_json_expr("$7");
-        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$9");
+        let payload_expr = self.timestamp_dialect.sql_json_expr("$8");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$10");
 
         let query = format!(
             r#"
             INSERT INTO kb_outbox_event (
-                id, uuid, tenant_id, aggregate_type, aggregate_id, event_type,
+                id, uuid, tenant_id, organization_id, aggregate_type, aggregate_id, event_type,
                 payload, status, created_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, {payload_expr}, $8, {created_at_expr}, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, {payload_expr}, $9, {created_at_expr}, $11)
             "#,
         );
         sqlx::query(&query)
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(record.aggregate_type)
             .bind(aggregate_id)
             .bind(record.event_type)
@@ -130,18 +151,20 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         limit: u32,
     ) -> Result<Vec<PendingOutboxEvent>, KnowledgeOutboxStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let limit = i64::from(limit.clamp(1, 200));
         let rows = sqlx::query(
             r#"
             SELECT id, uuid, aggregate_type, aggregate_id, event_type, retry_count,
                    CAST(payload AS TEXT) AS payload
             FROM kb_outbox_event
-            WHERE tenant_id = $1 AND status = $2
+            WHERE tenant_id = $1 AND organization_id = $2 AND status = $3
             ORDER BY created_at ASC, id ASC
-            LIMIT $3
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(OUTBOX_STATUS_PENDING)
         .bind(limit)
         .fetch_all(&self.pool)
@@ -172,27 +195,31 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
     async fn claim_pending_events(
         &self,
         limit: u32,
-    ) -> Result<Vec<PendingOutboxEvent>, KnowledgeOutboxStoreError> {
+    ) -> Result<Vec<ClaimedOutboxEvent>, KnowledgeOutboxStoreError> {
         let _ = self
             .release_stale_claimed_events(DEFAULT_STALE_CLAIM_SECS)
             .await?;
 
+        validate_claim_owner(&self.claim_owner)?;
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let limit = i64::from(limit.clamp(1, 200));
         let now = now_rfc3339()?;
+        let claim_token = Uuid::new_v4().to_string();
         let claimed_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
 
         let rows = if self.use_postgres_skip_locked_claim {
             let query = format!(
                 r#"
                 UPDATE kb_outbox_event
-                SET status = $1, claimed_at = {claimed_at_expr}, version = version + 1
+                SET status = $1, claimed_at = {claimed_at_expr}, claim_owner = $3,
+                    claim_token = $4, dead_lettered_at = NULL, version = version + 1
                 WHERE id IN (
                     SELECT id
                     FROM kb_outbox_event
-                    WHERE tenant_id = $3 AND status = $4
+                    WHERE tenant_id = $5 AND organization_id = $6 AND status = $7
                     ORDER BY created_at ASC, id ASC
-                    LIMIT $5
+                    LIMIT $8
                     FOR UPDATE SKIP LOCKED
                 )
                 RETURNING id, uuid, aggregate_type, aggregate_id, event_type, retry_count,
@@ -202,7 +229,10 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
             sqlx::query(&query)
                 .bind(OUTBOX_STATUS_CLAIMED)
                 .bind(&now)
+                .bind(&self.claim_owner)
+                .bind(&claim_token)
                 .bind(tenant_id)
+                .bind(organization_id)
                 .bind(OUTBOX_STATUS_PENDING)
                 .bind(limit)
                 .fetch_all(&self.pool)
@@ -212,13 +242,14 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
             let query = format!(
                 r#"
                 UPDATE kb_outbox_event
-                SET status = $1, claimed_at = {claimed_at_expr}, version = version + 1
+                SET status = $1, claimed_at = {claimed_at_expr}, claim_owner = $3,
+                    claim_token = $4, dead_lettered_at = NULL, version = version + 1
                 WHERE id IN (
                     SELECT id
                     FROM kb_outbox_event
-                    WHERE tenant_id = $3 AND status = $4
+                    WHERE tenant_id = $5 AND organization_id = $6 AND status = $7
                     ORDER BY created_at ASC, id ASC
-                    LIMIT $5
+                    LIMIT $8
                 )
                 RETURNING id, uuid, aggregate_type, aggregate_id, event_type, retry_count,
                           CAST(payload AS TEXT) AS payload
@@ -227,7 +258,10 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
             sqlx::query(&query)
                 .bind(OUTBOX_STATUS_CLAIMED)
                 .bind(&now)
+                .bind(&self.claim_owner)
+                .bind(&claim_token)
                 .bind(tenant_id)
+                .bind(organization_id)
                 .bind(OUTBOX_STATUS_PENDING)
                 .bind(limit)
                 .fetch_all(&self.pool)
@@ -235,22 +269,15 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                 .map_err(sqlx_error)?
         };
 
+        let claim = OutboxClaim {
+            owner: self.claim_owner.clone(),
+            token: claim_token,
+        };
         rows.into_iter()
             .map(|row| {
-                Ok(PendingOutboxEvent {
-                    id: from_i64("id", row.try_get("id").map_err(sqlx_error)?)?,
-                    event_uuid: row.try_get("uuid").map_err(sqlx_error)?,
-                    aggregate_type: row.try_get("aggregate_type").map_err(sqlx_error)?,
-                    aggregate_id: from_i64(
-                        "aggregate_id",
-                        row.try_get("aggregate_id").map_err(sqlx_error)?,
-                    )?,
-                    event_type: row.try_get("event_type").map_err(sqlx_error)?,
-                    retry_count: from_i64_u32(
-                        "retry_count",
-                        row.try_get("retry_count").map_err(sqlx_error)?,
-                    )?,
-                    payload_json: row.try_get("payload").map_err(sqlx_error)?,
+                Ok(ClaimedOutboxEvent {
+                    event: pending_event_from_row(&row)?,
+                    claim: claim.clone(),
                 })
             })
             .collect()
@@ -261,19 +288,22 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         stale_after_secs: u64,
     ) -> Result<usize, KnowledgeOutboxStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let cutoff = OffsetDateTime::now_utc()
             - time::Duration::seconds(i64::try_from(stale_after_secs).unwrap_or(300));
         let cutoff = cutoff
             .format(&Rfc3339)
             .map_err(|error| KnowledgeOutboxStoreError::Internal(error.to_string()))?;
-        let cutoff_expr = self.timestamp_dialect.sql_timestamp_expr("$4");
+        let cutoff_expr = self.timestamp_dialect.sql_timestamp_expr("$5");
 
         let query = format!(
             r#"
             UPDATE kb_outbox_event
-            SET status = $1, claimed_at = NULL, version = version + 1
+            SET status = $1, claimed_at = NULL, claim_owner = NULL, claim_token = NULL,
+                version = version + 1
             WHERE tenant_id = $2
-              AND status = $3
+              AND organization_id = $3
+              AND status = $4
               AND claimed_at IS NOT NULL
               AND claimed_at < {cutoff_expr}
             "#,
@@ -281,6 +311,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         let updated = sqlx::query(&query)
             .bind(OUTBOX_STATUS_PENDING)
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(OUTBOX_STATUS_CLAIMED)
             .bind(cutoff)
             .execute(&self.pool)
@@ -290,31 +321,40 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         Ok(updated.rows_affected() as usize)
     }
 
-    async fn mark_published(&self, event_id: u64) -> Result<(), KnowledgeOutboxStoreError> {
+    async fn mark_published(
+        &self,
+        claimed: &ClaimedOutboxEvent,
+    ) -> Result<(), KnowledgeOutboxStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
-        let event_id = to_i64("event_id", event_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
+        let event_id = to_i64("event_id", claimed.event.id)?;
         let now = now_rfc3339()?;
         let published_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
         let query = format!(
             r#"
             UPDATE kb_outbox_event
-            SET status = $1, published_at = {published_at_expr}, claimed_at = NULL, version = version + 1
-            WHERE tenant_id = $3 AND id = $4 AND status = $5
+            SET status = $1, published_at = {published_at_expr}, claimed_at = NULL,
+                claim_owner = NULL, claim_token = NULL, version = version + 1
+            WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
+              AND claim_owner = $7 AND claim_token = $8
             "#,
         );
         let updated = sqlx::query(&query)
             .bind(OUTBOX_STATUS_PUBLISHED)
             .bind(now)
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(event_id)
             .bind(OUTBOX_STATUS_CLAIMED)
+            .bind(&claimed.claim.owner)
+            .bind(&claimed.claim.token)
             .execute(&self.pool)
             .await
             .map_err(sqlx_error)?;
 
         if updated.rows_affected() == 0 {
             return Err(KnowledgeOutboxStoreError::InvalidRequest(format!(
-                "outbox event was not claimed: {event_id}"
+                "outbox event claim is stale or invalid: {event_id}"
             )));
         }
         Ok(())
@@ -322,11 +362,12 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
 
     async fn mark_failed(
         &self,
-        event_id: u64,
+        claimed: &ClaimedOutboxEvent,
         error_message: &str,
     ) -> Result<(), KnowledgeOutboxStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
-        let event_id = to_i64("event_id", event_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
+        let event_id = to_i64("event_id", claimed.event.id)?;
         let truncated_error = truncate_outbox_error(error_message);
         let updated = sqlx::query(
             r#"
@@ -334,24 +375,29 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
             SET status = $1,
                 last_error = $2,
                 claimed_at = NULL,
+                claim_owner = NULL,
+                claim_token = NULL,
                 retry_count = retry_count + 1,
                 version = version + 1
-            WHERE tenant_id = $3 AND id = $4 AND status IN ($5, $6)
+            WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
+              AND claim_owner = $7 AND claim_token = $8
             "#,
         )
         .bind(OUTBOX_STATUS_FAILED)
         .bind(truncated_error)
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(event_id)
-        .bind(OUTBOX_STATUS_PENDING)
         .bind(OUTBOX_STATUS_CLAIMED)
+        .bind(&claimed.claim.owner)
+        .bind(&claimed.claim.token)
         .execute(&self.pool)
         .await
         .map_err(sqlx_error)?;
 
         if updated.rows_affected() == 0 {
             return Err(KnowledgeOutboxStoreError::InvalidRequest(format!(
-                "outbox event was not pending or claimed: {event_id}"
+                "outbox event claim is stale or invalid: {event_id}"
             )));
         }
         Ok(())
@@ -362,41 +408,96 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
         limit: u32,
         max_retry_count: u32,
     ) -> Result<usize, KnowledgeOutboxStoreError> {
-        const OUTBOX_STATUS_PENDING: i64 = 0;
-        const OUTBOX_STATUS_FAILED: i64 = 2;
-
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let limit = i64::from(limit.clamp(1, 200));
         let max_retry_count = i64::from(max_retry_count);
+        let now = now_rfc3339()?;
+        let dead_lettered_at_expr = self.timestamp_dialect.sql_timestamp_expr("$2");
+        let mut transaction = self.pool.begin().await.map_err(sqlx_error)?;
+        let dead_letter_query = format!(
+            r#"
+            UPDATE kb_outbox_event
+            SET status = $1, dead_lettered_at = {dead_lettered_at_expr}, version = version + 1
+            WHERE tenant_id = $3
+              AND organization_id = $4
+              AND status = $5
+              AND retry_count >= $6
+            "#,
+        );
+        sqlx::query(&dead_letter_query)
+            .bind(OUTBOX_STATUS_DEAD_LETTER)
+            .bind(now)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(OUTBOX_STATUS_FAILED)
+            .bind(max_retry_count)
+            .execute(&mut *transaction)
+            .await
+            .map_err(sqlx_error)?;
+
         let updated = sqlx::query(
             r#"
             UPDATE kb_outbox_event
-            SET status = $1, version = version + 1
+            SET status = $1, dead_lettered_at = NULL, version = version + 1
             WHERE tenant_id = $2
-              AND status = $3
-              AND retry_count < $4
+              AND organization_id = $3
+              AND status = $4
+              AND retry_count < $5
               AND id IN (
                 SELECT id
                 FROM kb_outbox_event
                 WHERE tenant_id = $2
-                  AND status = $3
-                  AND retry_count < $4
+                  AND organization_id = $3
+                  AND status = $4
+                  AND retry_count < $5
                 ORDER BY created_at ASC, id ASC
-                LIMIT $5
+                LIMIT $6
               )
             "#,
         )
         .bind(OUTBOX_STATUS_PENDING)
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(OUTBOX_STATUS_FAILED)
         .bind(max_retry_count)
         .bind(limit)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(sqlx_error)?;
+        transaction.commit().await.map_err(sqlx_error)?;
 
         Ok(updated.rows_affected() as usize)
     }
+}
+
+fn pending_event_from_row(
+    row: &sqlx::any::AnyRow,
+) -> Result<PendingOutboxEvent, KnowledgeOutboxStoreError> {
+    Ok(PendingOutboxEvent {
+        id: from_i64("id", row.try_get("id").map_err(sqlx_error)?)?,
+        event_uuid: row.try_get("uuid").map_err(sqlx_error)?,
+        aggregate_type: row.try_get("aggregate_type").map_err(sqlx_error)?,
+        aggregate_id: from_i64(
+            "aggregate_id",
+            row.try_get("aggregate_id").map_err(sqlx_error)?,
+        )?,
+        event_type: row.try_get("event_type").map_err(sqlx_error)?,
+        retry_count: from_i64_u32(
+            "retry_count",
+            row.try_get("retry_count").map_err(sqlx_error)?,
+        )?,
+        payload_json: row.try_get("payload").map_err(sqlx_error)?,
+    })
+}
+
+fn validate_claim_owner(owner: &str) -> Result<(), KnowledgeOutboxStoreError> {
+    if is_blank(Some(owner)) || owner.len() > MAX_CLAIM_OWNER_BYTES {
+        return Err(KnowledgeOutboxStoreError::InvalidRequest(format!(
+            "claim_owner must contain 1 to {MAX_CLAIM_OWNER_BYTES} bytes"
+        )));
+    }
+    Ok(())
 }
 
 fn truncate_outbox_error(error_message: &str) -> String {

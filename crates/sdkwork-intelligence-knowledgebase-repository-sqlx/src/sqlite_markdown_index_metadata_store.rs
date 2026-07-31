@@ -24,6 +24,7 @@ use crate::sqlite_knowledge_document_metadata_transaction::{
 pub struct SqliteMarkdownIndexMetadataStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
     database_engine: DatabaseEngine,
@@ -31,18 +32,25 @@ pub struct SqliteMarkdownIndexMetadataStore {
 }
 
 impl SqliteMarkdownIndexMetadataStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
-        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
+        Self::with_id_generator(
+            pool,
+            tenant_id,
+            organization_id,
+            default_knowledge_id_generator(),
+        )
     }
 
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
             database_engine: DatabaseEngine::Sqlite,
@@ -71,6 +79,7 @@ impl MarkdownIndexMetadataStore for SqliteMarkdownIndexMetadataStore {
         sqlite_create_or_prepare_markdown_index_metadata(
             &self.pool,
             self.tenant_id,
+            self.organization_id,
             &self.id_generator,
             self.timestamp_dialect,
             self.database_engine,
@@ -84,6 +93,7 @@ impl MarkdownIndexMetadataStore for SqliteMarkdownIndexMetadataStore {
 async fn sqlite_create_or_prepare_markdown_index_metadata(
     pool: &AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
     database_engine: DatabaseEngine,
@@ -97,8 +107,11 @@ async fn sqlite_create_or_prepare_markdown_index_metadata(
     let tenant_id_i64 = i64::try_from(tenant_id).map_err(|_| {
         MarkdownIndexMetadataStoreError::invalid_request("tenant_id exceeds i64 range")
     })?;
+    let organization_id_i64 = i64::try_from(organization_id).map_err(|_| {
+        MarkdownIndexMetadataStoreError::invalid_request("organization_id exceeds i64 range")
+    })?;
     let mut transaction = if quota_limits.is_some() {
-        begin_tenant_quota_transaction(pool, database_engine, tenant_id_i64)
+        begin_tenant_quota_transaction(pool, database_engine, tenant_id_i64, organization_id_i64)
             .await
             .map_err(|error| MarkdownIndexMetadataStoreError::internal(error.to_string()))?
     } else {
@@ -113,6 +126,7 @@ async fn sqlite_create_or_prepare_markdown_index_metadata(
             create_or_get_source_in_transaction(
                 &mut transaction,
                 tenant_id,
+                organization_id,
                 id_generator,
                 timestamp_dialect,
                 source_record,
@@ -126,6 +140,7 @@ async fn sqlite_create_or_prepare_markdown_index_metadata(
     let object_ref = create_or_get_object_ref_in_transaction(
         &mut transaction,
         tenant_id,
+        organization_id,
         id_generator,
         timestamp_dialect,
         &record.object_ref,
@@ -138,6 +153,7 @@ async fn sqlite_create_or_prepare_markdown_index_metadata(
     let document = create_or_get_document_in_transaction(
         &mut transaction,
         tenant_id,
+        organization_id,
         id_generator,
         timestamp_dialect,
         &document_record,
@@ -151,6 +167,7 @@ async fn sqlite_create_or_prepare_markdown_index_metadata(
     let version = create_or_get_document_version_in_transaction(
         &mut transaction,
         tenant_id,
+        organization_id,
         id_generator,
         timestamp_dialect,
         &version_record,
@@ -161,6 +178,7 @@ async fn sqlite_create_or_prepare_markdown_index_metadata(
     bind_document_current_version_in_transaction(
         &mut transaction,
         tenant_id,
+        organization_id,
         timestamp_dialect,
         document.id,
         version.id,
@@ -170,9 +188,15 @@ async fn sqlite_create_or_prepare_markdown_index_metadata(
     .map_err(map_markdown_index_metadata_error)?;
 
     if let Some(limits) = quota_limits {
-        enforce_tenant_quotas_after_write(&mut transaction, database_engine, tenant_id_i64, limits)
-            .await
-            .map_err(map_quota_transaction_error)?;
+        enforce_tenant_quotas_after_write(
+            &mut transaction,
+            database_engine,
+            tenant_id_i64,
+            organization_id_i64,
+            limits,
+        )
+        .await
+        .map_err(map_quota_transaction_error)?;
     }
 
     transaction

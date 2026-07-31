@@ -1,27 +1,31 @@
 # ADR-20260624-phase2-postgres-rls-multi-tenant
 
-Status: accepted
+Status: deprecated
 Owner: SDKWork Knowledgebase maintainers
 Date: 2026-06-24
 Specs: ARCHITECTURE_DECISION_SPEC.md, DATABASE_SPEC.md, SECURITY_SPEC.md, RELEASE_SPEC.md
-Related: [PRD-phase2-commercial-saas.md](../../product/prd/PRD-phase2-commercial-saas.md)
+Related: [ADR-20260731-dedicated-tenant-organization-runtime.md](ADR-20260731-dedicated-tenant-organization-runtime.md)
 
 ## Context
 
-Phase 1.0 binds one tenant per API/worker deployment with application-layer `tenant_id` filters on every query. Phase 2 requires a shared multi-tenant SaaS platform where many tenants share one Postgres cluster and process fleet.
+This record captured an earlier shared-process roadmap. It is not the release-candidate
+architecture: it omitted organization-scoped RLS and depended on request-scoped connection
+checkout that was never implemented or approved for production.
 
 All knowledge tables already carry `tenant_id` columns and composite indexes. Integration tests enforce cross-tenant access denial at the HTTP layer.
 
 ## Decision
 
-Adopt **Postgres Row Level Security (RLS)** on tenant-scoped tables, retaining existing `tenant_id` columns and application guards as defense in depth.
+The retained part of this decision is the use of PostgreSQL RLS as defense in depth. The
+tenant-only policy and shared-process roadmap are deprecated. The proposed replacement binds both
+tenant and organization to a dedicated deployment.
 
 ## Alternatives
 
 - **Schema-per-tenant:** higher operational cost, slower tenant onboarding, harder migrations at scale.
 - **Application-only filters:** insufficient for shared-process SaaS; one query bug could become a cross-tenant data breach.
 
-## Implementation Phases
+## Deprecated Implementation Plan
 
 ### Phase 2.1: RLS policies (database)
 
@@ -44,7 +48,7 @@ Adopt **Postgres Row Level Security (RLS)** on tenant-scoped tables, retaining e
 
 - Positive: defense in depth, auditable isolation, aligns with SDKWork IAM tenant model.
 - Negative: migration complexity, connection pools must set session context reliably.
-- Neutral: Phase 1.0 single-tenant deployments continue unchanged until RLS migration is applied.
+- Neutral: this record provides decision history only and must not drive runtime configuration.
 
 ## Verification
 
@@ -56,4 +60,6 @@ pnpm test:multi-tenant-isolation
 
 ## Supersedes / Superseded By
 
-The retired compatibility path `docs/adr/ADR-2026-06-24-phase2-postgres-rls-multi-tenant.md` redirects to this record.
+Proposed replacement:
+[ADR-20260731-dedicated-tenant-organization-runtime.md](ADR-20260731-dedicated-tenant-organization-runtime.md).
+The retired `docs/adr/` compatibility path continues to redirect to this historical record.

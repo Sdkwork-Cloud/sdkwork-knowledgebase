@@ -6,6 +6,7 @@ import {
   resolveKnowledgebaseFeatureFlags,
   type KnowledgebaseFeatureFlags,
 } from './knowledgebaseFeatureFlags';
+import { isTauriDesktopRuntime } from '../host/tauriBridge';
 export type SdkworkEnvironment = 'development' | 'test' | 'staging' | 'production';
 export type SdkworkConfigProfile = 'dev' | 'test' | 'staging' | 'prod';
 export type SdkworkBuildMode = 'development' | 'test' | 'staging' | 'production';
@@ -317,8 +318,7 @@ export function detectRuntimeTargetFromEnv(env: RuntimeEnv = import.meta.env): S
     return explicit as SdkworkRuntimeTarget;
   }
 
-  const tauri = (globalThis as typeof globalThis & { __TAURI__?: unknown }).__TAURI__;
-  if (tauri) {
+  if (isTauriDesktopRuntime()) {
     return 'desktop';
   }
 

@@ -16,7 +16,7 @@ base64 = "0.22"
 dirs = "6"
 open = "5"
 pulldown-cmark = "0.13"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 rfd = "0.15"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -24,7 +24,7 @@ keyring = "3"
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-deep-link = "2"
 tauri-plugin-single-instance = "2"
-tokio = { version = "1", features = ["rt-multi-thread", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "fs", "io-util", "sync"] }
 typst = "0.14"
 typst-as-lib = "0.15"
 typst-pdf = "0.14"

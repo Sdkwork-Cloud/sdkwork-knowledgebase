@@ -4,6 +4,7 @@ import { DocumentMeta } from './services/document';
 import { CodeEditor } from './CodeEditor';
 import { Columns, FileCode2, Eye, MonitorSmartphone, Smartphone, Tablet, RefreshCw, Maximize, Code } from 'lucide-react';
 import type { ReactKeyedComponentProps } from '@sdkwork/sdkwork-knowledgebase-pc-commons/reactKeyedProps';
+import { buildSandboxedHtmlPreview } from './services/sandboxedHtmlPreview';
 
 export interface CodeEditorPanelProps extends ReactKeyedComponentProps {
   activeDoc: DocumentMeta;
@@ -18,6 +19,10 @@ export function CodeEditorPanel({ activeDoc, docContent, onContentChange }: Code
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const previewDocument = useMemo(
+    () => buildSandboxedHtmlPreview(docContent),
+    [docContent],
+  );
   
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -225,10 +230,11 @@ export function CodeEditorPanel({ activeDoc, docContent, onContentChange }: Code
                 >
                   <iframe
                     key={`${activeDoc.id}-${refreshKey}`}
-                    srcDoc={docContent}
+                    srcDoc={previewDocument}
                     title="HTML Preview"
                     className="w-full h-full border-none bg-white font-sans text-sm"
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    referrerPolicy="no-referrer"
+                    sandbox=""
                   />
                 </div>
               </div>

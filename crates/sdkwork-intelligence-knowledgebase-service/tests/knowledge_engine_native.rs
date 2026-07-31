@@ -1,11 +1,14 @@
 use async_trait::async_trait;
+#[path = "support/okf_engine_deps.rs"]
+mod okf_engine_deps_support;
 #[path = "support/okf_pagination.rs"]
 mod okf_pagination_support;
 
+use okf_engine_deps_support::{okf_test_deps, UnavailableLinkStore, UnavailableSpaceStore};
 use okf_pagination_support::validated_okf_test_page_size;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
     build_default_registry, KnowledgeEngine, KnowledgeEngineRegistry, KnowledgeEngineRuntimeDeps,
-    OkfNativeKnowledgeEngine, OkfNativeKnowledgeEngineDeps,
+    OkfNativeKnowledgeEngine,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_store::{
     CreateKnowledgeDocumentRecord, KnowledgeDocumentStore, KnowledgeDocumentStoreError,
@@ -354,7 +357,7 @@ impl KnowledgeRetrievalBackend for MockRetrievalBackend {
 async fn default_registry_registers_native_engines() {
     let engines = build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
-        okf: OkfNativeKnowledgeEngineDeps::minimal(
+        okf: okf_test_deps(
             Arc::new(MockOkfConceptStore {
                 summaries: HashMap::new(),
             }),
@@ -405,7 +408,7 @@ async fn runtime_registers_explicit_ragflow_adapter() {
 
     let engines = build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
-        okf: OkfNativeKnowledgeEngineDeps::minimal(
+        okf: okf_test_deps(
             Arc::new(MockOkfConceptStore {
                 summaries: HashMap::new(),
             }),
@@ -445,7 +448,7 @@ async fn runtime_registers_explicit_dify_adapter() {
 
     let engines = build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
-        okf: OkfNativeKnowledgeEngineDeps::minimal(
+        okf: okf_test_deps(
             Arc::new(MockOkfConceptStore {
                 summaries: HashMap::new(),
             }),
@@ -496,12 +499,12 @@ async fn okf_native_engine_search_and_read() {
         "# Ownership".to_string(),
     );
 
-    let engine = OkfNativeKnowledgeEngine::new(
+    let engine = OkfNativeKnowledgeEngine::from_deps(okf_test_deps(
         Arc::new(MockOkfConceptStore {
             summaries: HashMap::from([(7, summaries)]),
         }),
         Arc::new(MockDriveStorage { objects }),
-    );
+    ));
 
     let health = engine.health().await.expect("health");
     assert_eq!(health.status, KnowledgeEngineHealthStatus::Available);
@@ -546,6 +549,64 @@ async fn okf_native_engine_search_and_read() {
         .await
         .expect("list");
     assert_eq!(listed.items.len(), 1);
+}
+
+#[tokio::test]
+async fn okf_native_search_propagates_link_store_failure() {
+    let mut deps = okf_test_deps(
+        Arc::new(MockOkfConceptStore {
+            summaries: HashMap::new(),
+        }),
+        Arc::new(MockDriveStorage {
+            objects: HashMap::new(),
+        }),
+    );
+    deps.link_store = Arc::new(UnavailableLinkStore);
+    let engine = OkfNativeKnowledgeEngine::from_deps(deps);
+
+    let error = engine
+        .search(
+            &native_execution_context(7),
+            KnowledgeEngineSearchRequest {
+                tenant_id: 1,
+                space_id: 7,
+                query: "ownership".to_string(),
+                top_k: 5,
+            },
+        )
+        .await
+        .expect_err("link repository failures must not become an empty link graph");
+
+    assert!(error.to_string().contains("test link store unavailable"));
+}
+
+#[tokio::test]
+async fn okf_native_search_propagates_space_store_failure() {
+    let mut deps = okf_test_deps(
+        Arc::new(MockOkfConceptStore {
+            summaries: HashMap::new(),
+        }),
+        Arc::new(MockDriveStorage {
+            objects: HashMap::new(),
+        }),
+    );
+    deps.space_store = Arc::new(UnavailableSpaceStore);
+    let engine = OkfNativeKnowledgeEngine::from_deps(deps);
+
+    let error = engine
+        .search(
+            &native_execution_context(7),
+            KnowledgeEngineSearchRequest {
+                tenant_id: 1,
+                space_id: 7,
+                query: "ownership".to_string(),
+                top_k: 5,
+            },
+        )
+        .await
+        .expect_err("space repository failures must not become an unbound Drive lookup");
+
+    assert!(error.to_string().contains("test space store unavailable"));
 }
 
 fn native_execution_context(space_id: u64) -> KnowledgeEngineExecutionContext {

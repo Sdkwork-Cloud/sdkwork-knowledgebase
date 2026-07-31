@@ -33,7 +33,8 @@ impl<'a> KnowledgeOutboxPublisherService<'a> {
 
         let mut published = 0usize;
         let mut failed = 0usize;
-        for event in pending {
+        for claimed in pending {
+            let event = &claimed.event;
             tracing::info!(
                 event_id = event.id,
                 event_type = %event.event_type,
@@ -41,10 +42,10 @@ impl<'a> KnowledgeOutboxPublisherService<'a> {
                 aggregate_id = event.aggregate_id,
                 "dispatching knowledgebase outbox event"
             );
-            match self.dispatcher.dispatch(self.tenant_id, &event).await {
+            match self.dispatcher.dispatch(self.tenant_id, event).await {
                 Ok(()) => {
                     self.outbox
-                        .mark_published(event.id)
+                        .mark_published(&claimed)
                         .await
                         .map_err(KnowledgeOutboxPublisherServiceError::Store)?;
                     published += 1;
@@ -56,7 +57,7 @@ impl<'a> KnowledgeOutboxPublisherService<'a> {
                         "knowledgebase outbox dispatch failed"
                     );
                     self.outbox
-                        .mark_failed(event.id, &error.to_string())
+                        .mark_failed(&claimed, &error.to_string())
                         .await
                         .map_err(KnowledgeOutboxPublisherServiceError::Store)?;
                     failed += 1;
@@ -93,7 +94,9 @@ mod tests {
 
     use super::*;
     use crate::ports::knowledge_outbox_dispatcher::KnowledgeOutboxDispatchError;
-    use crate::ports::knowledge_outbox_store::{AppendOutboxEventRecord, PendingOutboxEvent};
+    use crate::ports::knowledge_outbox_store::{
+        AppendOutboxEventRecord, ClaimedOutboxEvent, OutboxClaim, PendingOutboxEvent,
+    };
 
     struct InMemoryOutboxStore {
         pending: tokio::sync::Mutex<Vec<PendingOutboxEvent>>,
@@ -151,15 +154,25 @@ mod tests {
         async fn claim_pending_events(
             &self,
             limit: u32,
-        ) -> Result<Vec<PendingOutboxEvent>, KnowledgeOutboxStoreError> {
+        ) -> Result<Vec<ClaimedOutboxEvent>, KnowledgeOutboxStoreError> {
             if self.fail_claim {
                 return Err(KnowledgeOutboxStoreError::Internal(
                     "simulated claim failure".to_string(),
                 ));
             }
             let mut pending = self.pending.lock().await;
-            let claimed: Vec<PendingOutboxEvent> =
-                pending.iter().take(limit as usize).cloned().collect();
+            let claimed: Vec<ClaimedOutboxEvent> = pending
+                .iter()
+                .take(limit as usize)
+                .cloned()
+                .map(|event| ClaimedOutboxEvent {
+                    event,
+                    claim: OutboxClaim {
+                        owner: "test-worker".to_string(),
+                        token: "test-claim".to_string(),
+                    },
+                })
+                .collect();
             pending.drain(0..claimed.len());
             Ok(claimed)
         }
@@ -171,7 +184,11 @@ mod tests {
             Ok(0)
         }
 
-        async fn mark_published(&self, event_id: u64) -> Result<(), KnowledgeOutboxStoreError> {
+        async fn mark_published(
+            &self,
+            claimed: &ClaimedOutboxEvent,
+        ) -> Result<(), KnowledgeOutboxStoreError> {
+            let event_id = claimed.event.id;
             let mut pending = self.pending.lock().await;
             pending.retain(|event| event.id != event_id);
             self.published.lock().await.push(event_id);
@@ -180,9 +197,10 @@ mod tests {
 
         async fn mark_failed(
             &self,
-            event_id: u64,
+            claimed: &ClaimedOutboxEvent,
             error_message: &str,
         ) -> Result<(), KnowledgeOutboxStoreError> {
+            let event_id = claimed.event.id;
             let mut pending = self.pending.lock().await;
             pending.retain(|event| event.id != event_id);
             self.failed

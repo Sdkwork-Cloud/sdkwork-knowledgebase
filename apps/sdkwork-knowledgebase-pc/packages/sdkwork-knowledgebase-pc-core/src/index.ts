@@ -42,6 +42,11 @@ export type {
   SdkworkRuntimeTarget,
 } from './config/runtimeConfig';
 export { createHostAdapter, decodeBinaryResourcePayload } from './host/hostAdapter';
+export {
+  invokeDesktopCommand,
+  isTauriDesktopRuntime,
+  listenDesktopEvent,
+} from './host/tauriBridge';
 export type {
   BinaryResourcePayload,
   HostAdapter,

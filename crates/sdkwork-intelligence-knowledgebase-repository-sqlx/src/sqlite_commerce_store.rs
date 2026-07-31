@@ -18,14 +18,16 @@ const DELETED_STATUS: i64 = 0;
 #[derive(Debug, Clone)]
 pub struct SqliteCommerceStore {
     pool: AnyPool,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteCommerceStore {
-    pub fn new(pool: AnyPool) -> Self {
+    pub fn new(pool: AnyPool, organization_id: u64) -> Self {
         Self {
             pool,
+            organization_id,
             id_generator: default_knowledge_id_generator(),
             timestamp_dialect: SqlTimestampDialect::default(),
         }
@@ -35,106 +37,6 @@ impl SqliteCommerceStore {
         self.timestamp_dialect = SqlTimestampDialect::from_database_engine(database_engine);
         self
     }
-
-    async fn bootstrap_market_listings_from_spaces(
-        &self,
-        tenant_id: u64,
-    ) -> Result<(), KnowledgeMarketStoreError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT
-                s.id,
-                s.name,
-                s.description,
-                COALESCE((
-                    SELECT COUNT(*)
-                    FROM kb_document d
-                    WHERE d.tenant_id = s.tenant_id
-                      AND d.space_id = s.id
-                      AND d.status = 1
-                ), 0) AS documents_count
-            FROM kb_space s
-            WHERE s.tenant_id = $1 AND s.status = 1
-              AND NOT EXISTS (
-                    SELECT 1
-                    FROM kb_group_knowledge_space_binding group_binding
-                    WHERE group_binding.tenant_id = s.tenant_id
-                      AND group_binding.organization_id = s.organization_id
-                      AND group_binding.space_id = s.id
-              )
-            ORDER BY s.updated_at DESC
-            LIMIT 12
-            "#,
-        )
-        .bind(tenant_id as i64)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
-
-        if rows.is_empty() {
-            return Ok(());
-        }
-
-        let now = now_rfc3339()?;
-        for row in rows {
-            let space_id = row.get::<i64, _>("id");
-            let title = row.get::<String, _>("name");
-            let description = row
-                .try_get::<String, _>("description")
-                .ok()
-                .filter(|value| !is_blank(Some(value.as_str())))
-                .unwrap_or_else(|| format!("Shared knowledge space: {title}"));
-            let documents_count = row.get::<i64, _>("documents_count").max(0);
-            let listing_id = next_i64_id(&self.id_generator)
-                .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
-
-            let already_listed = sqlx::query_scalar::<_, i64>(
-                "SELECT id FROM kb_market_listing WHERE tenant_id = $1 AND space_id = $2 AND status = 1",
-            )
-            .bind(tenant_id as i64)
-            .bind(space_id)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
-            if already_listed.is_some() {
-                continue;
-            }
-
-            let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
-            let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$15");
-            let query = format!(
-                r#"
-                INSERT INTO kb_market_listing (
-                    id, tenant_id, space_id, title, icon, description, author, tags_json,
-                    provider, model_name, subscribers_count, documents_count,
-                    status, created_at, updated_at, version
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, {created_at_expr}, {updated_at_expr}, $16)
-                "#,
-            );
-            sqlx::query(&query)
-                .bind(listing_id)
-                .bind(tenant_id as i64)
-                .bind(space_id)
-                .bind(&title)
-                .bind("📘")
-                .bind(&description)
-                .bind("SDKWork")
-                .bind(r#"["知识共享","团队协同"]"#)
-                .bind("Google")
-                .bind("gemini-3.5-flash")
-                .bind(0_i64)
-                .bind(documents_count)
-                .bind(ACTIVE_STATUS)
-                .bind(&now)
-                .bind(&now)
-                .bind(0_i64)
-                .execute(&self.pool)
-                .await
-                .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
-        }
-
-        Ok(())
-    }
 }
 
 fn now_rfc3339() -> Result<String, KnowledgeMarketStoreError> {
@@ -143,27 +45,46 @@ fn now_rfc3339() -> Result<String, KnowledgeMarketStoreError> {
         .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))
 }
 
-fn map_catalog_row(row: &sqlx::any::AnyRow) -> KnowledgeMarketCatalogItem {
-    map_catalog_item(
-        row.get::<i64, _>("id") as u64,
+fn map_catalog_row(
+    row: &sqlx::any::AnyRow,
+) -> Result<KnowledgeMarketCatalogItem, KnowledgeMarketStoreError> {
+    Ok(map_catalog_item(
+        market_from_i64("listing_id", row.get("id"))?,
         row.get("title"),
-        row.try_get("icon").ok(),
-        row.try_get("description").ok(),
-        row.try_get("author").ok(),
-        row.get("tags_json"),
-        row.try_get("provider").ok(),
-        row.try_get("model_name").ok(),
-        row.get::<i64, _>("subscribers_count") as u32,
-        row.get::<i64, _>("documents_count") as u32,
+        required_catalog_text(row, "icon")?,
+        row.try_get("description").unwrap_or_default(),
+        required_catalog_text(row, "author")?,
+        serde_json::from_str::<Vec<String>>(row.get("tags_json")).map_err(|error| {
+            KnowledgeMarketStoreError::Internal(format!(
+                "stored market listing tags_json is invalid: {error}"
+            ))
+        })?,
+        required_catalog_text(row, "provider")?,
+        required_catalog_text(row, "model_name")?,
+        market_from_i64("subscribers_count", row.get("subscribers_count"))?
+            .try_into()
+            .map_err(|_| {
+                KnowledgeMarketStoreError::Internal(
+                    "subscribers_count exceeds the API u32 range".to_string(),
+                )
+            })?,
+        market_from_i64("documents_count", row.get("documents_count"))?
+            .try_into()
+            .map_err(|_| {
+                KnowledgeMarketStoreError::Internal(
+                    "documents_count exceeds the API u32 range".to_string(),
+                )
+            })?,
         row.get::<i64, _>("is_subscribed") == 1,
-    )
+    ))
 }
 
 async fn fetch_catalog_rows(
     pool: &AnyPool,
-    tenant_id: u64,
-    subscriber_actor_id: Option<u64>,
-    cursor: Option<u64>,
+    tenant_id: i64,
+    organization_id: i64,
+    subscriber_actor_id: Option<i64>,
+    cursor: Option<i64>,
     fetch_limit: i64,
 ) -> Result<Vec<sqlx::any::AnyRow>, KnowledgeMarketStoreError> {
     sqlx::query(
@@ -172,27 +93,30 @@ async fn fetch_catalog_rows(
             l.id, l.title, l.icon, l.description, l.author, l.tags_json,
             l.provider, l.model_name, l.subscribers_count, l.documents_count,
             CASE
-                WHEN $2 IS NULL THEN 0
+                WHEN $3 IS NULL THEN 0
                 WHEN EXISTS (
                     SELECT 1 FROM kb_market_subscription s
                     WHERE s.tenant_id = l.tenant_id
+                      AND s.organization_id = l.organization_id
                       AND s.listing_id = l.id
-                      AND s.subscriber_actor_id = $2
+                      AND s.subscriber_actor_id = $3
                       AND s.status = 1
                 ) THEN 1
                 ELSE 0
             END AS is_subscribed
         FROM kb_market_listing l
         WHERE l.tenant_id = $1
+          AND l.organization_id = $2
           AND l.status = 1
-          AND ($3 IS NULL OR l.id < $3)
+          AND ($4 IS NULL OR l.id < $4)
         ORDER BY l.id DESC
-        LIMIT $4
+        LIMIT $5
         "#,
     )
-    .bind(tenant_id as i64)
-    .bind(subscriber_actor_id.map(|value| value as i64))
-    .bind(cursor.map(|value| value as i64))
+    .bind(tenant_id)
+    .bind(organization_id)
+    .bind(subscriber_actor_id)
+    .bind(cursor)
     .bind(fetch_limit)
     .fetch_all(pool)
     .await
@@ -211,27 +135,23 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
     {
         let page_size = page_size.clamp(1, 200);
         let fetch_limit = i64::from(page_size.saturating_add(1));
-        let mut rows = fetch_catalog_rows(
+        let tenant_id = market_to_i64("tenant_id", tenant_id)?;
+        let organization_id = market_to_i64("organization_id", self.organization_id)?;
+        let subscriber_actor_id = subscriber_actor_id
+            .map(|value| market_to_i64("subscriber_actor_id", value))
+            .transpose()?;
+        let cursor = cursor
+            .map(|value| market_to_i64("cursor", value))
+            .transpose()?;
+        let rows = fetch_catalog_rows(
             &self.pool,
             tenant_id,
+            organization_id,
             subscriber_actor_id,
             cursor,
             fetch_limit,
         )
         .await?;
-
-        if rows.is_empty() && cursor.is_none() {
-            self.bootstrap_market_listings_from_spaces(tenant_id)
-                .await?;
-            rows = fetch_catalog_rows(
-                &self.pool,
-                tenant_id,
-                subscriber_actor_id,
-                cursor,
-                fetch_limit,
-            )
-            .await?;
-        }
 
         let has_more = rows.len() > page_size as usize;
         let rows = rows
@@ -243,7 +163,10 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
         } else {
             None
         };
-        let items = rows.iter().map(map_catalog_row).collect();
+        let items = rows
+            .iter()
+            .map(map_catalog_row)
+            .collect::<Result<Vec<_>, _>>()?;
         Ok((items, next_cursor, has_more))
     }
 
@@ -253,12 +176,22 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
         subscriber_actor_id: u64,
         listing_id: u64,
     ) -> Result<(), KnowledgeMarketStoreError> {
+        let tenant_id = market_to_i64("tenant_id", tenant_id)?;
+        let organization_id = market_to_i64("organization_id", self.organization_id)?;
+        let subscriber_actor_id = market_to_i64("subscriber_actor_id", subscriber_actor_id)?;
+        let listing_id = market_to_i64("listing_id", listing_id)?;
+        let mut transaction = self
+            .pool
+            .begin()
+            .await
+            .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
         let listing_exists = sqlx::query_scalar::<_, i64>(
-            "SELECT id FROM kb_market_listing WHERE tenant_id = $1 AND id = $2 AND status = 1",
+            "SELECT id FROM kb_market_listing WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1",
         )
-        .bind(tenant_id as i64)
-        .bind(listing_id as i64)
-        .fetch_optional(&self.pool)
+        .bind(tenant_id)
+        .bind(organization_id)
+        .bind(listing_id)
+        .fetch_optional(&mut *transaction)
         .await
         .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
         if listing_exists.is_none() {
@@ -268,22 +201,23 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
         let now = now_rfc3339()?;
         let id = next_i64_id(&self.id_generator)
             .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
-        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$5");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$6");
         let query = format!(
             r#"
             INSERT INTO kb_market_subscription (
-                id, tenant_id, subscriber_actor_id, listing_id, created_at, status
-            ) VALUES ($1, $2, $3, $4, {created_at_expr}, $6)
+                id, tenant_id, organization_id, subscriber_actor_id, listing_id, created_at, status
+            ) VALUES ($1, $2, $3, $4, $5, {created_at_expr}, $7)
             "#,
         );
         sqlx::query(&query)
             .bind(id)
-            .bind(tenant_id as i64)
-            .bind(subscriber_actor_id as i64)
-            .bind(listing_id as i64)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(subscriber_actor_id)
+            .bind(listing_id)
             .bind(&now)
             .bind(ACTIVE_STATUS)
-            .execute(&self.pool)
+            .execute(&mut *transaction)
             .await
             .map_err(|error| {
                 let message = error.to_string();
@@ -296,15 +230,24 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
                 }
             })?;
 
-        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$3");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$4");
         let query = format!(
-            "UPDATE kb_market_listing SET subscribers_count = subscribers_count + 1, updated_at = {updated_at_expr} WHERE tenant_id = $1 AND id = $2",
+            "UPDATE kb_market_listing SET subscribers_count = subscribers_count + 1, updated_at = {updated_at_expr} WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1",
         );
-        sqlx::query(&query)
-            .bind(tenant_id as i64)
-            .bind(listing_id as i64)
+        let result = sqlx::query(&query)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(listing_id)
             .bind(&now)
-            .execute(&self.pool)
+            .execute(&mut *transaction)
+            .await
+            .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
+        if result.rows_affected() != 1 {
+            return Err(KnowledgeMarketStoreError::NotFound);
+        }
+
+        transaction
+            .commit()
             .await
             .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
 
@@ -317,19 +260,29 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
         subscriber_actor_id: u64,
         listing_id: u64,
     ) -> Result<(), KnowledgeMarketStoreError> {
+        let tenant_id = market_to_i64("tenant_id", tenant_id)?;
+        let organization_id = market_to_i64("organization_id", self.organization_id)?;
+        let subscriber_actor_id = market_to_i64("subscriber_actor_id", subscriber_actor_id)?;
+        let listing_id = market_to_i64("listing_id", listing_id)?;
         let now = now_rfc3339()?;
+        let mut transaction = self
+            .pool
+            .begin()
+            .await
+            .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
         let result = sqlx::query(
             r#"
             UPDATE kb_market_subscription
-            SET status = $4
-            WHERE tenant_id = $1 AND subscriber_actor_id = $2 AND listing_id = $3 AND status = 1
+            SET status = $5
+            WHERE tenant_id = $1 AND organization_id = $2 AND subscriber_actor_id = $3 AND listing_id = $4 AND status = 1
             "#,
         )
-        .bind(tenant_id as i64)
-        .bind(subscriber_actor_id as i64)
-        .bind(listing_id as i64)
+        .bind(tenant_id)
+        .bind(organization_id)
+        .bind(subscriber_actor_id)
+        .bind(listing_id)
         .bind(DELETED_STATUS)
-        .execute(&self.pool)
+        .execute(&mut *transaction)
         .await
         .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
 
@@ -337,18 +290,60 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
             return Err(KnowledgeMarketStoreError::NotFound);
         }
 
-        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$3");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$4");
         let query = format!(
-            "UPDATE kb_market_listing SET subscribers_count = CASE WHEN subscribers_count > 0 THEN subscribers_count - 1 ELSE 0 END, updated_at = {updated_at_expr} WHERE tenant_id = $1 AND id = $2",
+            "UPDATE kb_market_listing SET subscribers_count = CASE WHEN subscribers_count > 0 THEN subscribers_count - 1 ELSE 0 END, updated_at = {updated_at_expr} WHERE tenant_id = $1 AND organization_id = $2 AND id = $3",
         );
-        sqlx::query(&query)
-            .bind(tenant_id as i64)
-            .bind(listing_id as i64)
+        let result = sqlx::query(&query)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(listing_id)
             .bind(&now)
-            .execute(&self.pool)
+            .execute(&mut *transaction)
+            .await
+            .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
+        if result.rows_affected() != 1 {
+            return Err(KnowledgeMarketStoreError::Internal(
+                "active market subscription references a missing listing".to_string(),
+            ));
+        }
+
+        transaction
+            .commit()
             .await
             .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?;
 
         Ok(())
     }
+}
+
+fn market_to_i64(field: &str, value: u64) -> Result<i64, KnowledgeMarketStoreError> {
+    i64::try_from(value).map_err(|_| {
+        KnowledgeMarketStoreError::InvalidRequest(format!(
+            "{field} exceeds the supported signed 64-bit range"
+        ))
+    })
+}
+
+fn market_from_i64(field: &str, value: i64) -> Result<u64, KnowledgeMarketStoreError> {
+    u64::try_from(value).map_err(|_| {
+        KnowledgeMarketStoreError::Internal(format!(
+            "stored {field} is outside the supported unsigned range"
+        ))
+    })
+}
+
+fn required_catalog_text(
+    row: &sqlx::any::AnyRow,
+    field: &str,
+) -> Result<String, KnowledgeMarketStoreError> {
+    let value = row
+        .try_get::<Option<String>, _>(field)
+        .map_err(|error| KnowledgeMarketStoreError::Internal(error.to_string()))?
+        .filter(|value| !is_blank(Some(value.as_str())));
+    value.ok_or_else(|| {
+        KnowledgeMarketStoreError::Internal(format!(
+            "stored market listing {field} is required by the API contract"
+        ))
+    })
 }

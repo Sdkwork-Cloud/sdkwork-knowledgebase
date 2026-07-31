@@ -25,7 +25,7 @@ async fn document_store_pages_by_id_cursor() {
         .await
         .expect("create space");
 
-    let store = SqliteKnowledgeDocumentStore::new(pool, tenant_id);
+    let store = SqliteKnowledgeDocumentStore::new(pool, tenant_id, 0);
     for (index, title) in ["Alpha", "Beta", "Gamma"].into_iter().enumerate() {
         store
             .create_document(CreateKnowledgeDocumentRecord {

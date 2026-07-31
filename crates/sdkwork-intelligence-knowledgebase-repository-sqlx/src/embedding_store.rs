@@ -17,6 +17,7 @@ use crate::postgres_pgvector_retrieval::format_pgvector_literal;
 const ACTIVE_STATUS: i64 = 1;
 const INITIAL_VERSION: i64 = 0;
 const EMBEDDING_UPSERT_BATCH_SIZE: usize = 32;
+const MAX_EMBEDDING_DIMENSION: usize = 16_384;
 const DEFAULT_PROVIDER_ID: &str = "provider.model.sdkwork-claw-router";
 const DEFAULT_EMBEDDING_MODEL: &str = "openai/text-embedding-3-small";
 
@@ -30,6 +31,7 @@ pub enum SqliteKnowledgeEmbeddingStoreError {
 pub struct SqliteKnowledgeEmbeddingStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     database_engine: DatabaseEngine,
 }
@@ -39,6 +41,7 @@ struct PreparedEmbeddingUpsert {
     id: i64,
     uuid: String,
     tenant_id: i64,
+    organization_id: i64,
     index_id: i64,
     chunk_id: i64,
     embedding_hash: String,
@@ -52,10 +55,16 @@ struct PreparedEmbeddingUpsert {
 }
 
 impl SqliteKnowledgeEmbeddingStore {
-    pub fn new(pool: AnyPool, tenant_id: u64, database_engine: DatabaseEngine) -> Self {
+    pub fn new(
+        pool: AnyPool,
+        tenant_id: u64,
+        organization_id: u64,
+        database_engine: DatabaseEngine,
+    ) -> Self {
         Self::with_id_generator(
             pool,
             tenant_id,
+            organization_id,
             default_knowledge_id_generator(),
             database_engine,
         )
@@ -64,12 +73,14 @@ impl SqliteKnowledgeEmbeddingStore {
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
         database_engine: DatabaseEngine,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
             id_generator,
             database_engine,
         }
@@ -93,17 +104,16 @@ impl SqliteKnowledgeEmbeddingStore {
 
         let is_postgres = self.database_engine == DatabaseEngine::Postgres;
         let timestamp_dialect = SqlTimestampDialect::from_database_engine(self.database_engine);
-        let mut prepared = Vec::with_capacity(requests.len());
-        for request in requests {
-            prepared.push(self.prepare_embedding_upsert(request)?);
-        }
-
         let mut tx = self.pool.begin().await.map_err(sqlx_error)?;
-        for batch in prepared.chunks(EMBEDDING_UPSERT_BATCH_SIZE) {
+        for request_batch in requests.chunks(EMBEDDING_UPSERT_BATCH_SIZE) {
+            let prepared = request_batch
+                .iter()
+                .map(|request| self.prepare_embedding_upsert(request))
+                .collect::<Result<Vec<_>, _>>()?;
             if is_postgres {
-                bulk_upsert_embeddings_postgres(&mut tx, timestamp_dialect, batch).await?;
+                bulk_upsert_embeddings_postgres(&mut tx, timestamp_dialect, &prepared).await?;
             } else {
-                bulk_upsert_embeddings_sqlite(&mut tx, batch).await?;
+                bulk_upsert_embeddings_sqlite(&mut tx, &prepared).await?;
             }
         }
         tx.commit().await.map_err(sqlx_error)?;
@@ -115,13 +125,19 @@ impl SqliteKnowledgeEmbeddingStore {
         request: &ChunkEmbeddingUpsertRequest,
     ) -> Result<PreparedEmbeddingUpsert, SqliteKnowledgeEmbeddingStoreError> {
         ensure_tenant_scope(self.tenant_id, request.tenant_id)?;
-        if request.vector.is_empty() {
+        if request.vector.is_empty() || request.vector.len() > MAX_EMBEDDING_DIMENSION {
+            return Err(SqliteKnowledgeEmbeddingStoreError::Internal(format!(
+                "embedding dimension must be between 1 and {MAX_EMBEDDING_DIMENSION}"
+            )));
+        }
+        if request.vector.iter().any(|value| !value.is_finite()) {
             return Err(SqliteKnowledgeEmbeddingStoreError::Internal(
-                "embedding vector must not be empty".to_string(),
+                "embedding vector contains a non-finite value".to_string(),
             ));
         }
 
         let tenant_id = to_i64("tenant_id", request.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let index_id = to_i64("index_id", request.index_id)?;
         let chunk_id = to_i64("chunk_id", request.chunk_id)?;
         let dimension = i64::try_from(request.vector.len()).map_err(|_| {
@@ -142,6 +158,7 @@ impl SqliteKnowledgeEmbeddingStore {
             id: next_i64_id(&self.id_generator).map_err(id_error)?,
             uuid: Uuid::new_v4().to_string(),
             tenant_id,
+            organization_id,
             index_id,
             chunk_id,
             embedding_hash: format!("sha256:chunk:{chunk_id}:index:{index_id}"),
@@ -160,16 +177,18 @@ impl SqliteKnowledgeEmbeddingStore {
         chunk_id: u64,
     ) -> Result<Option<String>, SqliteKnowledgeEmbeddingStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let chunk_id = to_i64("chunk_id", chunk_id)?;
         let content = sqlx::query_scalar::<_, String>(
             r#"
             SELECT content_text
             FROM kb_chunk
-            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = $4
             LIMIT 1
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(chunk_id)
         .bind(ACTIVE_STATUS)
         .fetch_optional(&self.pool)
@@ -184,17 +203,19 @@ impl SqliteKnowledgeEmbeddingStore {
         space_id: u64,
     ) -> Result<Vec<u64>, SqliteKnowledgeEmbeddingStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
         let rows = sqlx::query_scalar::<_, i64>(
             r#"
             SELECT id
             FROM kb_chunk
-            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+            WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = $4
             ORDER BY id ASC
             LIMIT 2000
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(space_id)
         .bind(ACTIVE_STATUS)
         .fetch_all(&self.pool)
@@ -217,6 +238,7 @@ impl SqliteKnowledgeEmbeddingStore {
         limit: u32,
     ) -> Result<Vec<(u64, String)>, SqliteKnowledgeEmbeddingStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
         let after_chunk_id = to_i64("after_chunk_id", after_chunk_id)?;
         let limit = i64::from(limit.clamp(1, 512));
@@ -225,14 +247,16 @@ impl SqliteKnowledgeEmbeddingStore {
             SELECT id, content_text
             FROM kb_chunk
             WHERE tenant_id = $1
-              AND space_id = $2
-              AND status = $3
-              AND id > $4
+              AND organization_id = $2
+              AND space_id = $3
+              AND status = $4
+              AND id > $5
             ORDER BY id ASC
-            LIMIT $5
+            LIMIT $6
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(space_id)
         .bind(ACTIVE_STATUS)
         .bind(after_chunk_id)
@@ -263,7 +287,7 @@ async fn bulk_upsert_embeddings_sqlite(
     let mut builder = QueryBuilder::new(
         r#"
         INSERT INTO kb_embedding (
-            id, uuid, tenant_id, index_id, chunk_id, embedding_hash, vector_ref, vector_json,
+            id, uuid, tenant_id, organization_id, index_id, chunk_id, embedding_hash, vector_ref, vector_json,
             dimension, provider_id, model, metadata, status, created_at, updated_at, version
         )
         "#,
@@ -272,6 +296,7 @@ async fn bulk_upsert_embeddings_sqlite(
         row.push_bind(item.id)
             .push_bind(item.uuid.as_str())
             .push_bind(item.tenant_id)
+            .push_bind(item.organization_id)
             .push_bind(item.index_id)
             .push_bind(item.chunk_id)
             .push_bind(item.embedding_hash.as_str())
@@ -288,7 +313,7 @@ async fn bulk_upsert_embeddings_sqlite(
     });
     builder.push(
         r#"
-        ON CONFLICT (tenant_id, index_id, chunk_id) DO UPDATE SET
+        ON CONFLICT (tenant_id, organization_id, index_id, chunk_id) DO UPDATE SET
             embedding_hash = excluded.embedding_hash,
             vector_ref = excluded.vector_ref,
             vector_json = excluded.vector_json,
@@ -316,7 +341,7 @@ async fn bulk_upsert_embeddings_postgres(
     let mut builder = QueryBuilder::new(
         r#"
         INSERT INTO kb_embedding (
-            id, uuid, tenant_id, index_id, chunk_id, embedding_hash, vector_ref, vector_json,
+            id, uuid, tenant_id, organization_id, index_id, chunk_id, embedding_hash, vector_ref, vector_json,
             embedding_vector, dimension, provider_id, model, metadata, status, created_at, updated_at, version
         )
         "#,
@@ -325,6 +350,7 @@ async fn bulk_upsert_embeddings_postgres(
         row.push_bind(item.id)
             .push_bind(item.uuid.as_str())
             .push_bind(item.tenant_id)
+            .push_bind(item.organization_id)
             .push_bind(item.index_id)
             .push_bind(item.chunk_id)
             .push_bind(item.embedding_hash.as_str())
@@ -344,7 +370,7 @@ async fn bulk_upsert_embeddings_postgres(
     });
     builder.push(
         r#"
-        ON CONFLICT (tenant_id, index_id, chunk_id) DO UPDATE SET
+        ON CONFLICT (tenant_id, organization_id, index_id, chunk_id) DO UPDATE SET
             embedding_hash = excluded.embedding_hash,
             vector_ref = excluded.vector_ref,
             vector_json = excluded.vector_json,

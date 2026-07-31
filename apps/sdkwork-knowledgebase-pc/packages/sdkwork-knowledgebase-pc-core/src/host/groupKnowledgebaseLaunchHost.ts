@@ -1,4 +1,9 @@
 import { isValidGroupKnowledgebaseLaunchTicket } from '../runtime/groupKnowledgebaseLaunchTicket';
+import {
+  invokeDesktopCommand,
+  isTauriDesktopRuntime,
+  listenDesktopEvent,
+} from './tauriBridge';
 
 export const GROUP_KNOWLEDGEBASE_LAUNCH_EVENT = 'sdkwork://knowledgebase/group-launch';
 
@@ -11,26 +16,6 @@ export interface GroupKnowledgebaseDesktopLaunchEvent {
 export interface GroupKnowledgebaseDesktopLaunchHost {
   subscribe(listener: (route: string) => void): () => void;
   takePending(): Promise<string | null>;
-}
-
-interface TauriEventPayload {
-  payload: unknown;
-}
-
-interface TauriGlobal {
-  core?: {
-    invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
-  };
-  event?: {
-    listen(
-      event: string,
-      listener: (event: TauriEventPayload) => void,
-    ): Promise<() => void>;
-  };
-}
-
-function getTauriGlobal(): TauriGlobal | undefined {
-  return (globalThis as typeof globalThis & { __TAURI__?: TauriGlobal }).__TAURI__;
 }
 
 export function parseGroupKnowledgebaseLaunchRoute(value: unknown): string | null {
@@ -53,15 +38,14 @@ function readRoute(payload: unknown): string | null {
 export function createGroupKnowledgebaseDesktopLaunchHost(): GroupKnowledgebaseDesktopLaunchHost {
   return {
     subscribe(listener) {
-      const listen = getTauriGlobal()?.event?.listen;
-      if (!listen) {
+      if (!isTauriDesktopRuntime()) {
         return () => undefined;
       }
 
       let disposed = false;
       let unlisten: (() => void) | undefined;
-      void listen(GROUP_KNOWLEDGEBASE_LAUNCH_EVENT, (event) => {
-        const route = readRoute(event.payload);
+      void listenDesktopEvent<unknown>(GROUP_KNOWLEDGEBASE_LAUNCH_EVENT, (payload) => {
+        const route = readRoute(payload);
         if (route) {
           listener(route);
         }
@@ -81,12 +65,11 @@ export function createGroupKnowledgebaseDesktopLaunchHost(): GroupKnowledgebaseD
       };
     },
     async takePending() {
-      const invoke = getTauriGlobal()?.core?.invoke;
-      if (!invoke) {
+      if (!isTauriDesktopRuntime()) {
         return null;
       }
       try {
-        const event = await invoke<GroupKnowledgebaseDesktopLaunchEvent | null>(
+        const event = await invokeDesktopCommand<GroupKnowledgebaseDesktopLaunchEvent | null>(
           'take_pending_group_knowledgebase_launch',
         );
         return readRoute(event);

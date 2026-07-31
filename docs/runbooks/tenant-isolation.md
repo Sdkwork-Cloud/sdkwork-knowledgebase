@@ -5,16 +5,16 @@ Owner: SDKWork Knowledgebase operators
 
 ## Supported Model
 
-Production currently uses one tenant per API/worker deployment. Every deployment binds:
+Production uses one tenant and one organization per API/worker deployment. Every deployment binds:
 
 - `SDKWORK_KNOWLEDGEBASE_TENANT_ID`
-- `SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID` (non-zero in production-like environments)
+- `SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID` (required and non-zero in production-like environments)
 
-PostgreSQL RLS policies exist, and pools set `app.current_tenant_id` in `after_connect`
-for the deployment tenant. This is not request-scoped shared checkout. Do not route two
-tenants through one process until transaction-scoped `SET LOCAL`, connection reuse,
-rollback, cancellation, and contamination tests pass against release PostgreSQL.
-See [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md).
+PostgreSQL pools inject `app.current_tenant_id` and `app.current_organization_id` through
+connection options before the shared process pool is created. RLS policies and ordinary
+repository operations bind both columns. Request-scoped identity switching is unsupported;
+never route a different tenant or organization through an existing deployment.
+See [ADR-20260731-dedicated-tenant-organization-runtime.md](../architecture/decisions/ADR-20260731-dedicated-tenant-organization-runtime.md).
 
 ## Cross-Tenant Access Suspicion
 
@@ -39,4 +39,4 @@ See [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../architecture/decisions
 - `integration_tenant_isolation` passes in CI.
 - A request with the wrong tenant or organization returns HTTP 403 ProblemDetail.
 - Release PostgreSQL verifies forced RLS with a non-owner application role.
-- Shared-pool mode remains disabled until the Phase 2 PRD exit criteria are complete.
+- Request-scoped shared-pool mode is outside the supported production architecture.

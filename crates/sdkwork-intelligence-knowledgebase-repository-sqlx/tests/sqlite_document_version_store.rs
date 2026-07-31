@@ -134,7 +134,7 @@ async fn version_fixture() -> VersionFixture {
         })
         .await
         .expect("create space");
-    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id);
+    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id, 0);
     let document = documents
         .create_document(CreateKnowledgeDocumentRecord {
             space_id: space.id,
@@ -148,7 +148,7 @@ async fn version_fixture() -> VersionFixture {
         })
         .await
         .expect("create document");
-    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, 0);
     let object_ref = object_refs
         .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
             space_id: space.id,
@@ -171,7 +171,7 @@ async fn version_fixture() -> VersionFixture {
         .expect("create object ref");
 
     VersionFixture {
-        versions: SqliteKnowledgeDocumentVersionStore::new(pool, tenant_id),
+        versions: SqliteKnowledgeDocumentVersionStore::new(pool, tenant_id, 0),
         document_id: document.id,
         object_ref_id: object_ref.id,
     }

@@ -14,7 +14,7 @@ fn main() {
             "write_secure_session_value",
             "remove_secure_session_value",
             "clear_secure_session_values",
-            "read_secure_session_snapshot",
+            "read_secure_session_value",
             "take_pending_group_knowledgebase_launch",
         ]));
 

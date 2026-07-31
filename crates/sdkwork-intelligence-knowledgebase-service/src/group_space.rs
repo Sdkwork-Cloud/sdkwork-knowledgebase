@@ -571,9 +571,16 @@ impl<'a> KnowledgeGroupKnowledgeSpaceService<'a> {
         T: std::fmt::Display,
     {
         if let Some(space_id) = binding.space_id {
-            let _ = self.space_store.mark_space_deleted(space_id).await;
+            if let Err(cleanup_error) = self.space_store.mark_space_deleted(space_id).await {
+                tracing::error!(
+                    space_id,
+                    binding_id = binding.id,
+                    error = %cleanup_error,
+                    "failed to compensate group knowledge space after provisioning failure"
+                );
+            }
         }
-        let _ = self
+        if let Err(cleanup_error) = self
             .binding_store
             .mark_group_space_failed(
                 scope,
@@ -582,7 +589,14 @@ impl<'a> KnowledgeGroupKnowledgeSpaceService<'a> {
                 "group_space_provisioning_failed",
                 actor_id,
             )
-            .await;
+            .await
+        {
+            tracing::error!(
+                binding_id = binding.id,
+                error = %cleanup_error,
+                "failed to persist group knowledge space provisioning failure"
+            );
+        }
         Err(KnowledgeGroupKnowledgeSpaceServiceError::Provisioning(
             error.to_string(),
         ))

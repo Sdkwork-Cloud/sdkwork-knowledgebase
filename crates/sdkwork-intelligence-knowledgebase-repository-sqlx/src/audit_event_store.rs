@@ -50,23 +50,31 @@ pub trait KnowledgeAuditEventStore: Send + Sync {
 pub struct SqliteKnowledgeAuditEventStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeAuditEventStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
-        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
+        Self::with_id_generator(
+            pool,
+            tenant_id,
+            organization_id,
+            default_knowledge_id_generator(),
+        )
     }
 
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
         }
@@ -101,6 +109,9 @@ impl SqliteKnowledgeAuditEventStore {
             .map_err(|error| KnowledgeAuditEventStoreError::IdGeneration(error.to_string()))?;
         let tenant_id = i64::try_from(self.tenant_id)
             .map_err(|_| KnowledgeAuditEventStoreError::InvalidRequest("tenant_id".to_string()))?;
+        let organization_id = i64::try_from(self.organization_id).map_err(|_| {
+            KnowledgeAuditEventStoreError::InvalidRequest("organization_id".to_string())
+        })?;
         let resource_id = event
             .resource_id
             .map(i64::try_from)
@@ -112,22 +123,23 @@ impl SqliteKnowledgeAuditEventStore {
         let now =
             utc_sql_timestamp_text().map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
 
-        let payload_expr = self.timestamp_dialect.sql_json_expr("$12");
-        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let payload_expr = self.timestamp_dialect.sql_json_expr("$13");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
         let query = format!(
             r#"
             INSERT INTO kb_audit_event (
-                id, uuid, tenant_id, event_type, actor_type, actor_id,
+                id, uuid, tenant_id, organization_id, event_type, actor_type, actor_id,
                 resource_type, resource_id, result, request_id, trace_id,
                 payload, created_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {payload_expr}, {created_at_expr}, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, {payload_expr}, {created_at_expr}, $15)
             "#,
         );
         sqlx::query(&query)
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(event.event_type)
             .bind(event.actor_type)
             .bind(event.actor_id)
@@ -157,18 +169,22 @@ impl SqliteKnowledgeAuditEventStore {
         }
         let tenant_id = i64::try_from(self.tenant_id)
             .map_err(|_| KnowledgeAuditEventStoreError::InvalidRequest("tenant_id".to_string()))?;
+        let organization_id = i64::try_from(self.organization_id).map_err(|_| {
+            KnowledgeAuditEventStoreError::InvalidRequest("organization_id".to_string())
+        })?;
         let limit = i64::from(limit.clamp(1, 5_000));
         let rows = sqlx::query(
             r#"
             SELECT id, uuid, event_type, actor_type, actor_id, resource_type, resource_id,
                    result, request_id, trace_id, CAST(created_at AS TEXT) AS created_at
             FROM kb_audit_event
-            WHERE tenant_id = $1 AND actor_id = $2
-            ORDER BY created_at ASC
-            LIMIT $3
+            WHERE tenant_id = $1 AND organization_id = $2 AND actor_id = $3
+            ORDER BY created_at DESC, id DESC
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(actor_id)
         .bind(limit)
         .fetch_all(&self.pool)
@@ -224,14 +240,18 @@ impl SqliteKnowledgeAuditEventStore {
         }
         let tenant_id = i64::try_from(self.tenant_id)
             .map_err(|_| KnowledgeAuditEventStoreError::InvalidRequest("tenant_id".to_string()))?;
+        let organization_id = i64::try_from(self.organization_id).map_err(|_| {
+            KnowledgeAuditEventStoreError::InvalidRequest("organization_id".to_string())
+        })?;
         let result = sqlx::query(
             r#"
             UPDATE kb_audit_event
             SET actor_id = 'gdpr-redacted', actor_type = 'system'
-            WHERE tenant_id = $1 AND actor_id = $2
+            WHERE tenant_id = $1 AND organization_id = $2 AND actor_id = $3
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(actor_id)
         .execute(&self.pool)
         .await?;
@@ -260,7 +280,7 @@ mod tests {
         let pool = connect_sqlite_and_install_schema("sqlite::memory:")
             .await
             .expect("sqlite pool");
-        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001);
+        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001, 7);
         store
             .append_event(KnowledgeAuditEventRecord {
                 id: None,
@@ -279,11 +299,12 @@ mod tests {
             .await
             .expect("append");
 
-        let count: (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM kb_audit_event WHERE tenant_id = 100001")
-                .fetch_one(&pool)
-                .await
-                .expect("count");
+        let count: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM kb_audit_event WHERE tenant_id = 100001 AND organization_id = 7",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("count");
         assert_eq!(count.0, 1);
     }
 
@@ -292,7 +313,7 @@ mod tests {
         let pool = connect_sqlite_and_install_schema("sqlite::memory:")
             .await
             .expect("sqlite pool");
-        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001);
+        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001, 7);
         for actor_id in ["42", "42", "99"] {
             store
                 .append_event(KnowledgeAuditEventRecord {
@@ -323,7 +344,7 @@ mod tests {
         let pool = connect_sqlite_and_install_schema("sqlite::memory:")
             .await
             .expect("sqlite pool");
-        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001);
+        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001, 7);
         store
             .append_event(KnowledgeAuditEventRecord {
                 id: None,
@@ -346,7 +367,7 @@ mod tests {
         assert_eq!(anonymized, 1);
 
         let row: (String, String) = sqlx::query_as(
-            "SELECT actor_id, actor_type FROM kb_audit_event WHERE tenant_id = 100001 LIMIT 1",
+            "SELECT actor_id, actor_type FROM kb_audit_event WHERE tenant_id = 100001 AND organization_id = 7 LIMIT 1",
         )
         .fetch_one(&pool)
         .await
@@ -356,11 +377,50 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn actor_operations_are_isolated_between_organizations() {
+        let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+            .await
+            .expect("sqlite pool");
+        let organization_seven = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001, 7);
+        let organization_eight = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001, 8);
+        organization_seven
+            .append_event(KnowledgeAuditEventRecord {
+                id: None,
+                uuid: None,
+                event_type: "knowledge.document.read".to_string(),
+                actor_type: "user".to_string(),
+                actor_id: "42".to_string(),
+                resource_type: "document".to_string(),
+                resource_id: Some(9),
+                result: "success".to_string(),
+                request_id: None,
+                trace_id: None,
+                payload: None,
+                created_at: None,
+            })
+            .await
+            .expect("append");
+
+        assert!(organization_eight
+            .list_events_by_actor("42", 100)
+            .await
+            .expect("list")
+            .is_empty());
+        assert_eq!(
+            organization_eight
+                .anonymize_actor("42")
+                .await
+                .expect("anonymize"),
+            0
+        );
+    }
+
+    #[tokio::test]
     async fn record_returns_database_failure_instead_of_detaching_write() {
         let pool = connect_sqlite_and_install_schema("sqlite::memory:")
             .await
             .expect("sqlite pool");
-        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001);
+        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001, 7);
         pool.close().await;
 
         let error = store

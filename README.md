@@ -111,7 +111,7 @@ pnpm lint
 
 `pnpm verify` includes Phase 1 contract checks, security/observability alignment, launch-readiness gates, and cloud gateway validation.
 
-Current commercialization status: prelaunch-gated. The app manifest now blocks publication with `publish.status=INACTIVE`, `release.defaultChannel=DEV`, disabled prelaunch packages, and disabled placeholder media projection. Production/commercial publication still requires the unresolved release evidence listed in [docs/product/prd/PRD-mvp-launch.md](docs/product/prd/PRD-mvp-launch.md), including real product media assets, artifact checksum/signature/SBOM/provenance evidence, release-environment PostgreSQL validation, rollout/rollback evidence, and live smoke records.
+Current commercialization status: prelaunch-gated. The app manifest remains a `DRAFT` with `publish.preLaunch=true`, `release.defaultChannel=DEV`, disabled prelaunch packages, and disabled placeholder media projection. Production/commercial publication still requires the unresolved release evidence listed in [docs/product/prd/PRD-mvp-launch.md](docs/product/prd/PRD-mvp-launch.md), including real product media assets, artifact checksum/signature/SBOM/provenance evidence, release-environment PostgreSQL validation, rollout/rollback evidence, and live smoke records.
 
 Launch runbook: [deployments/runbooks/production-launch.md](deployments/runbooks/production-launch.md)
 

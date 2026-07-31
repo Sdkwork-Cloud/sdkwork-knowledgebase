@@ -17,6 +17,7 @@ export const KnowledgebaseErrorCodes = {
   DRIVE_SPACE_MISSING: 'validation.driveSpaceMissing',
   DRIVE_NODE_ID_MISSING: 'validation.driveNodeIdMissing',
   FILE_EMPTY: 'validation.fileEmpty',
+  PAYLOAD_TOO_LARGE: 'validation.payloadTooLarge',
   INGEST_FAILED: 'operation.ingestFailed',
   REPO_URL_REQUIRED: 'validation.repoUrlRequired',
   COMMIT_MESSAGE_REQUIRED: 'validation.commitMessageRequired',

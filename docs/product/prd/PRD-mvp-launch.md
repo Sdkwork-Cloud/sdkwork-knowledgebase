@@ -3,7 +3,7 @@
 Status: prelaunch-gated
 Owner: SDKWork maintainers
 Application: sdkwork-knowledgebase
-Updated: 2026-07-09
+Updated: 2026-07-31
 Parent: [PRD.md](PRD.md)
 
 ## Purpose
@@ -12,13 +12,14 @@ Phase 0.1 exit criteria and Phase 1.0 launch acceptance checklist for SDKWork Kn
 
 ## Commercialization Readiness Decision
 
-Decision: SDKWork Knowledgebase remains prelaunch and must not be treated as a production/commercial release until release-governance evidence is attached. The app manifest now blocks publication through `publish.status=INACTIVE`, `release.defaultChannel=DEV`, disabled prelaunch packages, and disabled placeholder media projection.
+Decision: SDKWork Knowledgebase remains prelaunch and must not be treated as a production/commercial release until release-governance evidence is attached. The app manifest remains a `DRAFT` with `publish.preLaunch=true`, `release.defaultChannel=DEV`, disabled prelaunch packages, and disabled placeholder media projection.
 
-- [x] Align manifest launch state: `sdkwork.app.config.json` now projects `publish.status=INACTIVE`, `release.defaultChannel=DEV`, `release.latest.DEV=0.1.0`, and `metadata.releaseStatus=prelaunch-gated`.
+- [x] Align manifest launch state: `sdkwork.app.config.json` projects `publish.status=DRAFT`, `publish.preLaunch=true`, `release.defaultChannel=DEV`, `release.latest.DEV=0.1.0`, and `publish.metadata.releaseStatus=prelaunch-gated`.
 - [ ] Replace placeholder catalog media: icon, screenshot, and preview entries are disabled with `generatedPlaceholder=true` and `releaseStatus=prelaunch-placeholder`; production listing requires Drive-backed, real product media assets.
 - [ ] Attach `web-universal-cloud-browser-zip` artifact evidence: checksum value, signing evidence, SBOM, provenance/attestation, immutable artifact URL or digest, and build workflow run.
 - [ ] Record rollout, rollback, monitoring, and smoke-test evidence for each runtime target and deployment profile.
 - [ ] Run and record release-environment PostgreSQL verification with `SDKWORK_DATABASE_URL` pointing at the target PostgreSQL service; local SQLite and contract gates are not enough for a commercial cutover claim.
+- [ ] Replace the WeChat article `cover` URL field with a managed Drive object reference, resolve it through the Drive server-side boundary, and attach real WeChat cover publish/preview evidence. URL-only cover values currently fail closed instead of being silently ignored.
 - [ ] Run and archive final launch gates on the release candidate artifact: `pnpm verify`, `pnpm test`, `pnpm test:e2e:playwright`, and live smoke probes with configured app/backend/open API URLs.
 
 ## Phase 0.1 Exit Criteria
@@ -56,6 +57,7 @@ Decision: SDKWork Knowledgebase remains prelaunch and must not be treated as a p
 - [x] K8s manifests include PDB, NetworkPolicy, and `securityContext`
 - [x] Ingest pipelines log failures when `mark_failed` cannot persist state
 - [x] Production topology documents mandatory Outbox webhook configuration
+- [x] WeChat tenant configuration reads and writes are bounded to 1 MiB, reject duplicate/oversized account and applet sets, and preserve existing encrypted configuration when Drive reads fail
 
 ### Frontend
 
@@ -103,20 +105,23 @@ pnpm lint
 - [x] Search scenario: RAG answer with citations navigates to source document (`e2e/search.flow.spec.ts`, Playwright CI)
 - [x] Admin scenario contract: backend source listing requires `knowledge.platform.manage` (`scripts/smoke-knowledgebase-admin-ingest.test.mjs`; live probe optional via `SDKWORK_KNOWLEDGEBASE_SMOKE_BACKEND_URL`)
 - [x] Open API scenario contract: api-key `context_packs` and `retrievals` (`scripts/smoke-knowledgebase-open-api.test.mjs`; live probe optional via `SDKWORK_KNOWLEDGEBASE_SMOKE_OPEN_URL`)
-- [x] WeChat publish modal uses API-backed account selection; fan tag groups load from WeChat `tags/get` API via `wechat.officialAccounts.fanTags.list`; mass send uses `message/mass/sendall` when `sendNotification` is enabled
+- [x] WeChat publish modal uses API-backed account selection; fan tag groups load from WeChat `tags/get` API via `wechat.officialAccounts.fanTags.list`; one bounded multi-article draft contains every selected article; mass send uses `message/mass/sendall` when `sendNotification` is enabled; preview sends the same complete draft
 - [x] WeChat publish path blocks demo fallback in production builds (`shouldUseKnowledgebaseDemoFallback`; hosted API smoke optional before cutover)
+- [ ] WeChat cover publishing uses a managed Drive object reference end to end. The current URL-only contract is rejected by the service and remains a launch blocker; it is not counted as implemented cover support.
 
 ### Operations
 
-- [x] PostgreSQL lifecycle path covered by CI/database gates; release-environment PostgreSQL verification with the target service remains a cutover blocker above.
+- [x] PostgreSQL schema, migration ordering, and RLS contracts are covered by repository/static gates;
+  non-owner execution, upgrade/recovery, and target release-environment PostgreSQL evidence remain
+  cutover blockers above.
 - [x] Backup/restore runbook documented (`deployments/runbooks/backup-restore.md`) and referenced by launch runbook
-- [x] Split-services deployment smoke script: public `SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL=... pnpm test:smoke` probes `/livez` and `/readyz`; optional internal `SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS=... pnpm test:smoke` probes `/metrics` through in-cluster Service URLs only.
+- [x] Application public-ingress smoke script: public `SDKWORK_KNOWLEDGEBASE_SMOKE_BASE_URL=... pnpm test:smoke` probes `/livez` and `/readyz`; optional internal `SDKWORK_KNOWLEDGEBASE_SMOKE_METRICS_URLS=... pnpm test:smoke` probes `/metrics` through in-cluster Service URLs only.
 - [x] JSON logging enabled in production topology; OTEL documented when collector is available (`SDKWORK_KNOWLEDGEBASE_LOG_FORMAT=json`)
 
 ### Release
 
 - [ ] Web bundle `web-universal-cloud-browser-zip` release evidence attached: checksum, signature, SBOM, provenance/attestation, immutable artifact reference, and workflow run. The manifest declares these controls as required and keeps the package disabled until evidence exists.
-- [x] Three TypeScript SDK families indexed for release consumption (`specs/component.spec.json`)
+- [x] Four SDK families (app, backend, internal, and open) indexed for governed consumption (`specs/component.spec.json`)
 - [x] Desktop packaging workflow explicitly prelaunch-disabled until desktop CI targets ship (`sdkwork.app.config.json` metadata)
 
 Launch orchestration runbook: [deployments/runbooks/production-launch.md](../../../deployments/runbooks/production-launch.md)
@@ -141,7 +146,8 @@ pnpm test:e2e:playwright
 
 ## Out of Scope for 1.0
 
-- Multi-tenant SaaS billing - see [PRD-phase2-commercial-saas.md](PRD-phase2-commercial-saas.md)
+- Shared request-scoped tenant pooling; commercial release gates are tracked in
+  [PRD-phase2-commercial-saas.md](PRD-phase2-commercial-saas.md)
 - Real-time collaborative editing
 - Mobile native clients
 - SOC2 program (platform-level)

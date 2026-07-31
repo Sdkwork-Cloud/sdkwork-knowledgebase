@@ -9,12 +9,13 @@ const ACTIVE_STATUS: i64 = 1;
 pub fn push_binding_scope_filters(
     query: &mut QueryBuilder<'_, Any>,
     tenant_id: i64,
+    organization_id: i64,
     space_id: i64,
     binding: &KnowledgeRetrievalBinding,
 ) -> Result<(), KnowledgeRetrievalBackendError> {
     if let Some(filters) = binding.source_filter.as_ref() {
         for filter in filters {
-            push_source_scope_filter(query, tenant_id, space_id, filter)?;
+            push_source_scope_filter(query, tenant_id, organization_id, space_id, filter)?;
         }
     }
     if let Some(filters) = binding.document_filter.as_ref() {
@@ -28,12 +29,13 @@ pub fn push_binding_scope_filters(
 pub fn push_binding_scope_filters_postgres(
     query: &mut QueryBuilder<'_, Postgres>,
     tenant_id: i64,
+    organization_id: i64,
     space_id: i64,
     binding: &KnowledgeRetrievalBinding,
 ) -> Result<(), KnowledgeRetrievalBackendError> {
     if let Some(filters) = binding.source_filter.as_ref() {
         for filter in filters {
-            push_source_scope_filter_postgres(query, tenant_id, space_id, filter)?;
+            push_source_scope_filter_postgres(query, tenant_id, organization_id, space_id, filter)?;
         }
     }
     if let Some(filters) = binding.document_filter.as_ref() {
@@ -47,14 +49,19 @@ pub fn push_binding_scope_filters_postgres(
 fn push_source_scope_filter(
     query: &mut QueryBuilder<'_, Any>,
     tenant_id: i64,
+    organization_id: i64,
     space_id: i64,
     filter: &KnowledgeFilter,
 ) -> Result<(), KnowledgeRetrievalBackendError> {
     match classify_source_filter_key(&filter.key) {
         SourceFilterKey::SourceType => {
-            query.push(" AND d.source_id IN (SELECT id FROM kb_source WHERE tenant_id = ");
+            query.push(
+                " AND d.source_id IN (SELECT id FROM kb_source WHERE (tenant_id, organization_id) = (",
+            );
             query.push_bind(tenant_id);
-            query.push(" AND space_id = ");
+            query.push(", ");
+            query.push_bind(organization_id);
+            query.push(") AND space_id = ");
             query.push_bind(space_id);
             query.push(" AND source_type = ");
             query.push_bind(filter.value.clone());
@@ -63,9 +70,13 @@ fn push_source_scope_filter(
             query.push(")");
         }
         SourceFilterKey::Provider => {
-            query.push(" AND d.source_id IN (SELECT id FROM kb_source WHERE tenant_id = ");
+            query.push(
+                " AND d.source_id IN (SELECT id FROM kb_source WHERE (tenant_id, organization_id) = (",
+            );
             query.push_bind(tenant_id);
-            query.push(" AND space_id = ");
+            query.push(", ");
+            query.push_bind(organization_id);
+            query.push(") AND space_id = ");
             query.push_bind(space_id);
             query.push(" AND provider = ");
             query.push_bind(filter.value.clone());
@@ -88,14 +99,19 @@ fn push_source_scope_filter(
 fn push_source_scope_filter_postgres(
     query: &mut QueryBuilder<'_, Postgres>,
     tenant_id: i64,
+    organization_id: i64,
     space_id: i64,
     filter: &KnowledgeFilter,
 ) -> Result<(), KnowledgeRetrievalBackendError> {
     match classify_source_filter_key(&filter.key) {
         SourceFilterKey::SourceType => {
-            query.push(" AND d.source_id IN (SELECT id FROM kb_source WHERE tenant_id = ");
+            query.push(
+                " AND d.source_id IN (SELECT id FROM kb_source WHERE (tenant_id, organization_id) = (",
+            );
             query.push_bind(tenant_id);
-            query.push(" AND space_id = ");
+            query.push(", ");
+            query.push_bind(organization_id);
+            query.push(") AND space_id = ");
             query.push_bind(space_id);
             query.push(" AND source_type = ");
             query.push_bind(filter.value.clone());
@@ -104,9 +120,13 @@ fn push_source_scope_filter_postgres(
             query.push(")");
         }
         SourceFilterKey::Provider => {
-            query.push(" AND d.source_id IN (SELECT id FROM kb_source WHERE tenant_id = ");
+            query.push(
+                " AND d.source_id IN (SELECT id FROM kb_source WHERE (tenant_id, organization_id) = (",
+            );
             query.push_bind(tenant_id);
-            query.push(" AND space_id = ");
+            query.push(", ");
+            query.push_bind(organization_id);
+            query.push(") AND space_id = ");
             query.push_bind(space_id);
             query.push(" AND provider = ");
             query.push_bind(filter.value.clone());

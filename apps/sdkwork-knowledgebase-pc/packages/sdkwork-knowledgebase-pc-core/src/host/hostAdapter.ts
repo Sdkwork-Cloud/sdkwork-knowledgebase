@@ -1,5 +1,9 @@
 import { throwKnowledgebaseError } from '../errors/knowledgebaseAppError';
 import { KnowledgebaseErrorCodes } from '../errors/knowledgebaseErrorCodes';
+import { invokeDesktopCommand, isTauriDesktopRuntime } from './tauriBridge';
+
+const MAX_DESKTOP_EXPORT_BYTES = 64 * 1024 * 1024;
+const MAX_DESKTOP_RESOURCE_BYTES = 32 * 1024 * 1024;
 
 export interface BinaryResourcePayload {
   dataBase64: string;
@@ -34,22 +38,6 @@ export interface NativeSaveExportFileResult {
 
 export type WindowControlAction = 'minimize' | 'maximize' | 'unmaximize' | 'close' | 'show';
 
-interface TauriGlobal {
-  core?: {
-    invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
-  };
-  shell?: {
-    open(url: string): Promise<void>;
-  };
-  clipboard?: {
-    writeText(text: string): Promise<void>;
-  };
-}
-
-function getTauriGlobal(): TauriGlobal | undefined {
-  return (globalThis as typeof globalThis & { __TAURI__?: TauriGlobal }).__TAURI__;
-}
-
 function assertSafeExternalUrl(url: string): void {
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
@@ -58,6 +46,9 @@ function assertSafeExternalUrl(url: string): void {
 }
 
 function encodeBytesBase64(bytes: Uint8Array): string {
+  if (bytes.byteLength > MAX_DESKTOP_EXPORT_BYTES) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.PAYLOAD_TOO_LARGE);
+  }
   let binary = '';
   const chunkSize = 0x8000;
   for (let index = 0; index < bytes.length; index += chunkSize) {
@@ -68,7 +59,18 @@ function encodeBytesBase64(bytes: Uint8Array): string {
 }
 
 export function decodeBinaryResourcePayload(payload: BinaryResourcePayload): Uint8Array {
+  const maxEncodedBytes = Math.ceil(MAX_DESKTOP_RESOURCE_BYTES / 3) * 4;
+  if (
+    payload.byteLength < 0
+    || payload.byteLength > MAX_DESKTOP_RESOURCE_BYTES
+    || payload.dataBase64.length > maxEncodedBytes
+  ) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.PAYLOAD_TOO_LARGE);
+  }
   const binary = atob(payload.dataBase64);
+  if (binary.length !== payload.byteLength || binary.length > MAX_DESKTOP_RESOURCE_BYTES) {
+    throwKnowledgebaseError(KnowledgebaseErrorCodes.PAYLOAD_TOO_LARGE);
+  }
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) {
     bytes[index] = binary.charCodeAt(index);
@@ -85,57 +87,43 @@ function basenameFromPath(path: string): string {
 export function createHostAdapter(): HostAdapter {
   return {
     get isNativeHost() {
-      return Boolean(getTauriGlobal());
+      return isTauriDesktopRuntime();
     },
     async windowControl(action) {
-      const tauri = getTauriGlobal();
-      if (!tauri?.core?.invoke) {
+      if (!isTauriDesktopRuntime()) {
         return;
       }
-      await tauri.core.invoke('window_control', { request: { action } });
+      await invokeDesktopCommand('window_control', { request: { action } });
     },
     async openExternal(url) {
       assertSafeExternalUrl(url);
-      const tauri = getTauriGlobal();
-      if (tauri?.core?.invoke) {
-        await tauri.core.invoke('open_external_url', { request: { url } });
-        return;
-      }
-      if (tauri?.shell?.open) {
-        await tauri.shell.open(url);
+      if (isTauriDesktopRuntime()) {
+        await invokeDesktopCommand('open_external_url', { request: { url } });
         return;
       }
       globalThis.open?.(url, '_blank', 'noopener,noreferrer');
     },
     async writeTextToClipboard(text) {
-      const tauri = getTauriGlobal();
-      if (tauri?.clipboard?.writeText) {
-        await tauri.clipboard.writeText(text);
-        return;
-      }
       await navigator.clipboard?.writeText(text);
     },
     async fetchBinaryResource(url) {
-      const tauri = getTauriGlobal();
-      if (!tauri?.core?.invoke) {
+      if (!isTauriDesktopRuntime()) {
         throwKnowledgebaseError(KnowledgebaseErrorCodes.DESKTOP_ONLY);
       }
-      return tauri.core.invoke<BinaryResourcePayload>('fetch_binary_resource', {
+      return invokeDesktopCommand<BinaryResourcePayload>('fetch_binary_resource', {
         request: { url },
       });
     },
     async readLocalResource(path) {
-      const tauri = getTauriGlobal();
-      if (!tauri?.core?.invoke) {
+      if (!isTauriDesktopRuntime()) {
         throwKnowledgebaseError(KnowledgebaseErrorCodes.DESKTOP_ONLY);
       }
-      return tauri.core.invoke<BinaryResourcePayload>('read_local_resource', {
+      return invokeDesktopCommand<BinaryResourcePayload>('read_local_resource', {
         request: { path },
       });
     },
     async saveBinaryResource(suggestedName, bytes) {
-      const tauri = getTauriGlobal();
-      if (!tauri?.core?.invoke) {
+      if (!isTauriDesktopRuntime()) {
         const blob = new Blob([bytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
@@ -145,7 +133,7 @@ export function createHostAdapter(): HostAdapter {
         URL.revokeObjectURL(url);
         return true;
       }
-      return tauri.core.invoke<boolean>('save_binary_resource', {
+      return invokeDesktopCommand<boolean>('save_binary_resource', {
         request: {
           suggestedName,
           dataBase64: encodeBytesBase64(bytes),
@@ -153,11 +141,10 @@ export function createHostAdapter(): HostAdapter {
       });
     },
     async saveExportFile({ suggestedName, bytes, mode }) {
-      const tauri = getTauriGlobal();
-      if (!tauri?.core?.invoke) {
+      if (!isTauriDesktopRuntime()) {
         throwKnowledgebaseError(KnowledgebaseErrorCodes.DESKTOP_ONLY);
       }
-      const response = await tauri.core.invoke<NativeSaveExportFileResult>('save_export_file', {
+      const response = await invokeDesktopCommand<NativeSaveExportFileResult>('save_export_file', {
         request: {
           suggestedName,
           dataBase64: encodeBytesBase64(bytes),
@@ -167,30 +154,27 @@ export function createHostAdapter(): HostAdapter {
       return response;
     },
     async revealExportFile(path) {
-      const tauri = getTauriGlobal();
-      if (!tauri?.core?.invoke) {
+      if (!isTauriDesktopRuntime()) {
         return;
       }
-      await tauri.core.invoke('reveal_export_file', {
+      await invokeDesktopCommand('reveal_export_file', {
         request: { path },
       });
     },
     async openExportFile(path) {
-      const tauri = getTauriGlobal();
-      if (!tauri?.core?.invoke) {
+      if (!isTauriDesktopRuntime()) {
         return;
       }
-      await tauri.core.invoke('open_export_file', {
+      await invokeDesktopCommand('open_export_file', {
         request: { path },
       });
     },
     async locateExportFile(fileName) {
-      const tauri = getTauriGlobal();
-      if (!tauri?.core?.invoke) {
+      if (!isTauriDesktopRuntime()) {
         return null;
       }
       try {
-        return await tauri.core.invoke<string>('locate_export_file', {
+        return await invokeDesktopCommand<string>('locate_export_file', {
           request: { fileName },
         });
       } catch {

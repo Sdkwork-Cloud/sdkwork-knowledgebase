@@ -28,23 +28,31 @@ pub enum KnowledgeIndexStoreError {
 pub struct SqliteKnowledgeIndexStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeIndexStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
-        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
+        Self::with_id_generator(
+            pool,
+            tenant_id,
+            organization_id,
+            default_knowledge_id_generator(),
+        )
     }
 
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
         }
@@ -68,21 +76,22 @@ impl SqliteKnowledgeIndexStore {
 
         let id = next_i64_id(&self.id_generator).map_err(id_error)?;
         let tenant_id = to_i64("tenant_id", request.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", request.space_id)?;
         let collection_id = to_i64("collection_id", request.collection_id.unwrap_or(0))?;
         let dimension = request.dimension.map(i64::from).unwrap_or_default();
         let now = now_rfc3339()?;
 
-        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
-        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$15");
         let query = format!(
             r#"
             INSERT INTO kb_index (
-                id, uuid, tenant_id, space_id, collection_id, index_kind,
+                id, uuid, tenant_id, organization_id, space_id, collection_id, index_kind,
                 embedding_provider_id, embedding_model, dimension, metric,
                 schema_version, status, created_at, updated_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, {created_at_expr}, {updated_at_expr}, $15)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, {created_at_expr}, {updated_at_expr}, $16)
             RETURNING id, tenant_id, space_id, index_kind, status
             "#,
         );
@@ -90,6 +99,7 @@ impl SqliteKnowledgeIndexStore {
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(space_id)
             .bind(collection_id)
             .bind(request.index_kind)
@@ -114,16 +124,18 @@ impl SqliteKnowledgeIndexStore {
         index_id: u64,
     ) -> Result<KnowledgeIndex, KnowledgeIndexStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let index_id = to_i64("index_id", index_id)?;
         let row = sqlx::query(
             r#"
             SELECT id, tenant_id, space_id, index_kind, status
             FROM kb_index
-            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = $4
             LIMIT 1
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(index_id)
         .bind(ACTIVE_STATUS)
         .fetch_optional(&self.pool)
@@ -141,17 +153,19 @@ impl SqliteKnowledgeIndexStore {
         limit: u32,
     ) -> Result<Vec<KnowledgeIndex>, KnowledgeIndexStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let limit = i64::from(limit.clamp(1, 500));
         let rows = sqlx::query(
             r#"
             SELECT id, tenant_id, space_id, index_kind, status
             FROM kb_index
-            WHERE tenant_id = $1 AND status = $2
+            WHERE tenant_id = $1 AND organization_id = $2 AND status = $3
             ORDER BY id DESC
-            LIMIT $3
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(ACTIVE_STATUS)
         .bind(limit)
         .fetch_all(&self.pool)
@@ -167,18 +181,23 @@ impl SqliteKnowledgeIndexStore {
         page_size: u32,
     ) -> Result<(Vec<KnowledgeIndex>, Option<String>, bool), KnowledgeIndexStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let cursor = cursor.map(|value| to_i64("cursor", value)).transpose()?;
         let page_size = page_size.clamp(1, 200) as usize;
         let rows = sqlx::query(
             r#"
             SELECT id, tenant_id, space_id, index_kind, status
             FROM kb_index
-            WHERE tenant_id = $1 AND status = $2 AND ($3 IS NULL OR id > $3)
+            WHERE tenant_id = $1
+              AND organization_id = $2
+              AND status = $3
+              AND ($4 IS NULL OR id > $4)
             ORDER BY id ASC
-            LIMIT $4
+            LIMIT $5
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(ACTIVE_STATUS)
         .bind(cursor)
         .bind((page_size + 1) as i64)
@@ -204,49 +223,79 @@ impl SqliteKnowledgeIndexStore {
         collection_id: u64,
     ) -> Result<KnowledgeIndex, KnowledgeIndexStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
         let collection_id = to_i64("collection_id", collection_id)?;
 
-        if let Some(row) = sqlx::query(
+        if let Some(index) = self
+            .find_active_vector_index(tenant_id, organization_id, space_id, collection_id)
+            .await?
+        {
+            return Ok(index);
+        }
+
+        let create_result = self
+            .create_index(KnowledgeIndexRequest {
+                tenant_id: self.tenant_id,
+                space_id: u64::try_from(space_id).map_err(|_| {
+                    KnowledgeIndexStoreError::Internal("space_id out of u64 range".to_string())
+                })?,
+                collection_id: if collection_id == 0 {
+                    None
+                } else {
+                    Some(u64::try_from(collection_id).map_err(|_| {
+                        KnowledgeIndexStoreError::Internal(
+                            "collection_id out of u64 range".to_string(),
+                        )
+                    })?)
+                },
+                index_kind: "vector".to_string(),
+                embedding_provider_id: None,
+                embedding_model: None,
+                dimension: Some(1536),
+                metric: Some("cosine".to_string()),
+            })
+            .await;
+        match create_result {
+            Ok(index) => Ok(index),
+            Err(create_error) => self
+                .find_active_vector_index(tenant_id, organization_id, space_id, collection_id)
+                .await?
+                .ok_or(create_error),
+        }
+    }
+
+    async fn find_active_vector_index(
+        &self,
+        tenant_id: i64,
+        organization_id: i64,
+        space_id: i64,
+        collection_id: i64,
+    ) -> Result<Option<KnowledgeIndex>, KnowledgeIndexStoreError> {
+        let row = sqlx::query(
             r#"
             SELECT id, tenant_id, space_id, index_kind, status
             FROM kb_index
-            WHERE tenant_id = $1 AND space_id = $2 AND collection_id = $3 AND index_kind = $4 AND status = $5
+            WHERE tenant_id = $1
+              AND organization_id = $2
+              AND space_id = $3
+              AND collection_id = $4
+              AND index_kind = $5
+              AND status = $6
             ORDER BY id DESC
             LIMIT 1
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(space_id)
         .bind(collection_id)
         .bind("vector")
         .bind(ACTIVE_STATUS)
         .fetch_optional(&self.pool)
         .await
-        .map_err(sqlx_error)?
-        {
-            return index_from_row(&row);
-        }
-
-        self.create_index(KnowledgeIndexRequest {
-            tenant_id: self.tenant_id,
-            space_id: u64::try_from(space_id).map_err(|_| {
-                KnowledgeIndexStoreError::Internal("space_id out of u64 range".to_string())
-            })?,
-            collection_id: if collection_id == 0 {
-                None
-            } else {
-                Some(u64::try_from(collection_id).map_err(|_| {
-                    KnowledgeIndexStoreError::Internal("collection_id out of u64 range".to_string())
-                })?)
-            },
-            index_kind: "vector".to_string(),
-            embedding_provider_id: None,
-            embedding_model: None,
-            dimension: Some(1536),
-            metric: Some("cosine".to_string()),
-        })
-        .await
+        .map_err(sqlx_error)?;
+        row.as_ref().map(index_from_row).transpose()
     }
 }
 

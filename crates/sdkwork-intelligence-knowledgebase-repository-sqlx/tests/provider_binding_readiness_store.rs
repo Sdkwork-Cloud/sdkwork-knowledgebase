@@ -9,8 +9,6 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_bindin
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_provider_binding_store::KnowledgeEngineProviderScope;
 use sqlx::AnyPool;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 const TENANT_ID: i64 = 100_001;
 const ORGANIZATION_ID: i64 = 7_001;
@@ -256,35 +254,8 @@ async fn insert_source_with_provider(
     .expect("insert historic source fixture");
 }
 
-async fn readiness_test_pool(test_name: &str) -> AnyPool {
-    let database_url = sqlite_test_database_url(test_name);
-    connect_knowledgebase_and_install_schema(&database_url)
+async fn readiness_test_pool(_test_name: &str) -> AnyPool {
+    connect_knowledgebase_and_install_schema("sqlite::memory:")
         .await
         .expect("install Provider Binding readiness schema")
-}
-
-fn sqlite_test_database_url(test_name: &str) -> String {
-    static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock before unix epoch")
-        .as_nanos();
-    let sequence = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let work_dir = std::env::current_dir().expect("current directory");
-    let test_root = work_dir
-        .join("target")
-        .join("repository-sqlite-tests")
-        .join(format!(
-            "{test_name}-{}-{nanos}-{sequence}",
-            std::process::id()
-        ));
-    std::fs::create_dir_all(&test_root).expect("create readiness test directory");
-    let database_path = test_root.join("knowledgebase.db");
-    let relative_database_path = database_path
-        .strip_prefix(&work_dir)
-        .unwrap_or(&database_path)
-        .display()
-        .to_string()
-        .replace('\\', "/");
-    format!("sqlite://{relative_database_path}?mode=rwc")
 }

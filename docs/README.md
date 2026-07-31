@@ -14,7 +14,7 @@ SDKWork Knowledgebase maintainers.
 | --- | --- |
 | Product PRD | [product/prd/PRD.md](product/prd/PRD.md) |
 | MVP launch acceptance | [product/prd/PRD-mvp-launch.md](product/prd/PRD-mvp-launch.md) |
-| Phase 2 commercial SaaS | [product/prd/PRD-phase2-commercial-saas.md](product/prd/PRD-phase2-commercial-saas.md) |
+| Commercial release readiness | [product/prd/PRD-phase2-commercial-saas.md](product/prd/PRD-phase2-commercial-saas.md) |
 | Technical architecture | [architecture/tech/TECH_ARCHITECTURE.md](architecture/tech/TECH_ARCHITECTURE.md) |
 | Backend design (storage, crates, persistence, API envelope) | [architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md](architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md) |
 | OKF bundle operator summary | [architecture/tech/TECH-okf-knowledge-bundle.md](architecture/tech/TECH-okf-knowledge-bundle.md) |
@@ -37,7 +37,7 @@ SDKWork Knowledgebase maintainers.
 | Provider credential resolution runbook | [runbooks/RUNBOOK-provider-credential-resolution.md](runbooks/RUNBOOK-provider-credential-resolution.md) |
 | Tenant isolation | [runbooks/tenant-isolation.md](runbooks/tenant-isolation.md) |
 | Audit retention | [runbooks/audit-retention.md](runbooks/audit-retention.md) |
-| Phase 2 RLS ADR | [architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md](architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md) |
+| Dedicated tenant/organization runtime ADR | [architecture/decisions/ADR-20260731-dedicated-tenant-organization-runtime.md](architecture/decisions/ADR-20260731-dedicated-tenant-organization-runtime.md) |
 
 ## Operator runbooks (repository root)
 

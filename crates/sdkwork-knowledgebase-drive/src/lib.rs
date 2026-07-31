@@ -15,7 +15,10 @@ pub use adapter::{
     KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
     KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
 };
-pub use bootstrap::{connect_knowledgebase_drive_pool, knowledgebase_drive_health_check};
+pub use bootstrap::{
+    connect_knowledgebase_drive_pool, connect_knowledgebase_drive_pool_with_max_connections,
+    knowledgebase_drive_health_check,
+};
 pub use embedded_event_relay::{
     embedded_knowledgebase_raw_channel_id, KnowledgebaseDriveEmbeddedEventRelay,
 };

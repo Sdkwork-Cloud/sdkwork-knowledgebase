@@ -10,9 +10,11 @@ use async_trait::async_trait;
 use sdkwork_database_config::DatabaseEngine;
 use sdkwork_drive_storage_local::LocalDriveObjectStore;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_knowledgebase_and_install_schema, connect_postgres_pool, is_postgres_database_url,
-    knowledgebase_health_check, SqliteGroupKnowledgeSpaceBindingStore,
-    SqliteKnowledgeOkfBundleFileStore, SqliteKnowledgeSpaceStore, SqlxWikiPersistenceStore,
+    connect_knowledgebase_and_install_schema, database_config_from_url, is_postgres_database_url,
+    knowledgebase_health_check, knowledgebase_process_pool_budget_from_url,
+    require_postgres_rls_organization_id, require_postgres_rls_tenant_id,
+    SqliteGroupKnowledgeSpaceBindingStore, SqliteKnowledgeOkfBundleFileStore,
+    SqliteKnowledgeSpaceStore, SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_rpc::GroupKnowledgeSpaceLifecycleRuntime;
 use sdkwork_intelligence_knowledgebase_service::{
@@ -30,7 +32,7 @@ use sdkwork_knowledgebase_contract::group_space::{
     GroupKnowledgeSpaceBinding, SynchronizeGroupKnowledgeSpaceMembersRequest,
 };
 use sdkwork_knowledgebase_drive::{
-    connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
+    connect_knowledgebase_drive_pool_with_max_connections, knowledgebase_drive_health_check,
     resolve_cloud_knowledgebase_drive_storage, KnowledgebaseDriveNodeTreeAdapter,
     KnowledgebaseDriveRootScopeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
     KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
@@ -51,6 +53,8 @@ pub struct KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
     drive_pool: sqlx::PgPool,
     database_engine: DatabaseEngine,
     drive_storage: Arc<KnowledgebaseDriveStorageAdapter>,
+    tenant_id: u64,
+    organization_id: u64,
     operator_id: String,
     system_actor_id: u64,
 }
@@ -62,12 +66,26 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
         operator_id: String,
         system_actor_id: u64,
     ) -> Result<Self, KnowledgebaseGroupKnowledgeSpaceLifecycleRuntimeError> {
+        let tenant_id = require_postgres_rls_tenant_id()
+            .map_err(|_| dependency_unavailable("knowledgebase-tenant-scope"))?;
+        let organization_id = require_postgres_rls_organization_id()
+            .map_err(|_| dependency_unavailable("knowledgebase-organization-scope"))?;
         let pool = connect_knowledgebase_and_install_schema(database_url)
             .await
             .map_err(|_| dependency_unavailable("knowledgebase-schema-connect"))?;
-        let drive_pool = connect_knowledgebase_drive_pool(database_url)
-            .await
-            .map_err(|_| dependency_unavailable("drive-schema-connect"))?;
+        let database_config = database_config_from_url(database_url)
+            .map_err(|_| dependency_unavailable("knowledgebase-database-config"))?;
+        let pool_budget = knowledgebase_process_pool_budget_from_url(database_url)
+            .map_err(|_| dependency_unavailable("knowledgebase-pool-budget"))?;
+        let postgres_max_connections = pool_budget
+            .postgres_max_connections
+            .ok_or_else(|| dependency_unavailable("knowledgebase-postgres-required"))?;
+        let drive_pool = connect_knowledgebase_drive_pool_with_max_connections(
+            &database_config.url,
+            postgres_max_connections,
+        )
+        .await
+        .map_err(|_| dependency_unavailable("drive-schema-connect"))?;
         knowledgebase_health_check(&pool)
             .await
             .map_err(|_| dependency_unavailable("knowledgebase-health"))?;
@@ -90,12 +108,13 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
                 adapter
             }
             DriveStorageRuntimeConfig::CloudProvider(provider_id) => {
-                let postgres_pool = connect_postgres_pool(database_url)
-                    .await
-                    .map_err(|_| dependency_unavailable("cloud-object-store-postgres-pool"))?;
-                resolve_cloud_knowledgebase_drive_storage(postgres_pool, &provider_id, "deployment")
-                    .await
-                    .map_err(|_| dependency_unavailable("cloud-object-store-provider"))?
+                resolve_cloud_knowledgebase_drive_storage(
+                    drive_pool.clone(),
+                    &provider_id,
+                    "deployment",
+                )
+                .await
+                .map_err(|_| dependency_unavailable("cloud-object-store-provider"))?
             }
         };
         tokio::time::timeout(Duration::from_secs(5), drive_storage.readiness_check())
@@ -112,6 +131,8 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
                 DatabaseEngine::Sqlite
             },
             drive_storage: Arc::new(drive_storage),
+            tenant_id,
+            organization_id,
             operator_id,
             system_actor_id,
         })
@@ -155,8 +176,12 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
                     .with_database_engine(self.database_engine),
             ),
             bundle_file_store: Arc::new(
-                SqliteKnowledgeOkfBundleFileStore::new(self.pool.clone(), scope.tenant_id)
-                    .with_database_engine(self.database_engine),
+                SqliteKnowledgeOkfBundleFileStore::new(
+                    self.pool.clone(),
+                    scope.tenant_id,
+                    scope.organization_id,
+                )
+                .with_database_engine(self.database_engine),
             ),
             drive_storage: Arc::new(self.drive_storage.for_tenant(tenant_id.clone())),
             drive_space_provisioner: Arc::new(KnowledgebaseDriveSpaceProvisionerAdapter::new(
@@ -182,12 +207,25 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
         }
     }
 
+    fn ensure_deployment_scope(
+        &self,
+        scope: GroupKnowledgeSpaceScope,
+    ) -> Result<(), KnowledgeGroupKnowledgeSpaceServiceError> {
+        if scope.tenant_id != self.tenant_id || scope.organization_id != self.organization_id {
+            return Err(KnowledgeGroupKnowledgeSpaceServiceError::Denied(
+                "request scope does not match the fixed Knowledgebase deployment scope".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     async fn ensure_from_im(
         &self,
         scope: GroupKnowledgeSpaceScope,
         service_actor_id: &str,
         request: EnsureGroupKnowledgeSpaceRequest,
     ) -> Result<GroupKnowledgeSpaceOperation, KnowledgeGroupKnowledgeSpaceServiceError> {
+        self.ensure_deployment_scope(scope)?;
         let dependencies = self.dependencies_for_scope(scope);
         let registry = OkfBundleFileRegistryService::new(dependencies.bundle_file_store.as_ref());
         let initializer = OkfBundleInitializerService::new(dependencies.drive_storage.as_ref())
@@ -220,6 +258,7 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
         service_actor_id: &str,
         request: SynchronizeGroupKnowledgeSpaceMembersRequest,
     ) -> Result<GroupKnowledgeSpaceMembershipChange, KnowledgeGroupKnowledgeSpaceServiceError> {
+        self.ensure_deployment_scope(scope)?;
         let dependencies = self.dependencies_for_scope(scope);
         let registry = OkfBundleFileRegistryService::new(dependencies.bundle_file_store.as_ref());
         let initializer = OkfBundleInitializerService::new(dependencies.drive_storage.as_ref())
@@ -246,6 +285,7 @@ impl KnowledgebaseGroupKnowledgeSpaceLifecycleRuntime {
         archived_by: &str,
         request: ArchiveGroupKnowledgeSpaceRequest,
     ) -> Result<GroupKnowledgeSpaceBinding, KnowledgeGroupKnowledgeSpaceServiceError> {
+        self.ensure_deployment_scope(scope)?;
         let dependencies = self.dependencies_for_scope(scope);
         let registry = OkfBundleFileRegistryService::new(dependencies.bundle_file_store.as_ref());
         let initializer = OkfBundleInitializerService::new(dependencies.drive_storage.as_ref())

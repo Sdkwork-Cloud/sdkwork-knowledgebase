@@ -1,11 +1,13 @@
 use async_trait::async_trait;
+#[path = "support/okf_engine_deps.rs"]
+mod okf_engine_deps_support;
 #[path = "support/okf_pagination.rs"]
 mod okf_pagination_support;
 
+use okf_engine_deps_support::okf_test_deps;
 use okf_pagination_support::validated_okf_test_page_size;
 use sdkwork_intelligence_knowledgebase_service::knowledge_engine::{
     build_default_registry, KnowledgeEngineRuntimeDeps, KnowledgeEngineSpaceResolver,
-    OkfNativeKnowledgeEngineDeps,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_document_store::{
     CreateKnowledgeDocumentRecord, KnowledgeDocumentStore, KnowledgeDocumentStoreError,
@@ -619,10 +621,7 @@ impl KnowledgeEngine for ConcurrencyHealthEngine {
 async fn native_space_mode_is_not_overridden_by_provider_binding() {
     let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
-        okf: OkfNativeKnowledgeEngineDeps::minimal(
-            Arc::new(MockOkfConceptStore),
-            Arc::new(MockDriveStorage),
-        ),
+        okf: okf_test_deps(Arc::new(MockOkfConceptStore), Arc::new(MockDriveStorage)),
         rag_documents: Arc::new(MockDocumentStore),
         retrieval_backend: Arc::new(MockRetrievalBackend),
         retrieval_traces: Arc::new(MockRetrievalTraceStore),
@@ -671,10 +670,7 @@ async fn native_space_mode_is_not_overridden_by_provider_binding() {
 async fn explicit_native_override_wins_for_external_space() {
     let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
-        okf: OkfNativeKnowledgeEngineDeps::minimal(
-            Arc::new(MockOkfConceptStore),
-            Arc::new(MockDriveStorage),
-        ),
+        okf: okf_test_deps(Arc::new(MockOkfConceptStore), Arc::new(MockDriveStorage)),
         rag_documents: Arc::new(MockDocumentStore),
         retrieval_backend: Arc::new(MockRetrievalBackend),
         retrieval_traces: Arc::new(MockRetrievalTraceStore),
@@ -710,10 +706,7 @@ async fn explicit_native_override_wins_for_external_space() {
 async fn external_space_uses_the_single_active_binding_as_selection_authority() {
     let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
-        okf: OkfNativeKnowledgeEngineDeps::minimal(
-            Arc::new(MockOkfConceptStore),
-            Arc::new(MockDriveStorage),
-        ),
+        okf: okf_test_deps(Arc::new(MockOkfConceptStore), Arc::new(MockDriveStorage)),
         rag_documents: Arc::new(MockDocumentStore),
         retrieval_backend: Arc::new(MockRetrievalBackend),
         retrieval_traces: Arc::new(MockRetrievalTraceStore),
@@ -752,10 +745,7 @@ async fn external_space_uses_the_single_active_binding_as_selection_authority() 
 async fn resolve_for_external_mode_space_requires_active_provider_binding() {
     let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
-        okf: OkfNativeKnowledgeEngineDeps::minimal(
-            Arc::new(MockOkfConceptStore),
-            Arc::new(MockDriveStorage),
-        ),
+        okf: okf_test_deps(Arc::new(MockOkfConceptStore), Arc::new(MockDriveStorage)),
         rag_documents: Arc::new(MockDocumentStore),
         retrieval_backend: Arc::new(MockRetrievalBackend),
         retrieval_traces: Arc::new(MockRetrievalTraceStore),
@@ -824,10 +814,7 @@ async fn execution_authorization_precedes_credential_lookup_and_provider_http() 
     });
     let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
-        okf: OkfNativeKnowledgeEngineDeps::minimal(
-            Arc::new(MockOkfConceptStore),
-            Arc::new(MockDriveStorage),
-        ),
+        okf: okf_test_deps(Arc::new(MockOkfConceptStore), Arc::new(MockDriveStorage)),
         rag_documents: Arc::new(MockDocumentStore),
         retrieval_backend: Arc::new(MockRetrievalBackend),
         retrieval_traces: Arc::new(MockRetrievalTraceStore),
@@ -879,10 +866,7 @@ async fn active_binding_health_probes_are_concurrent_and_bounded() {
     let engine = Arc::new(ConcurrencyHealthEngine::default());
     let registry = Arc::new(build_default_registry(KnowledgeEngineRuntimeDeps {
         tenant_id: 1,
-        okf: OkfNativeKnowledgeEngineDeps::minimal(
-            Arc::new(MockOkfConceptStore),
-            Arc::new(MockDriveStorage),
-        ),
+        okf: okf_test_deps(Arc::new(MockOkfConceptStore), Arc::new(MockDriveStorage)),
         rag_documents: Arc::new(MockDocumentStore),
         retrieval_backend: Arc::new(MockRetrievalBackend),
         retrieval_traces: Arc::new(MockRetrievalTraceStore),

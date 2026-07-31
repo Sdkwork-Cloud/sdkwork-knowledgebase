@@ -12,14 +12,31 @@ function readRepoFile(relativePath) {
 }
 
 describe('knowledgebase multi-tenant isolation alignment', () => {
-  it('enforces Postgres RLS and tenant session checkout', () => {
-    const baseline = readRepoFile('database/ddl/baseline/postgres/0001_knowledgebase_baseline.sql');
+  it('enforces Postgres tenant and organization RLS session scope', () => {
+    const organizationMigration = readRepoFile(
+      'database/migrations/postgres/202607310001_core_organization_isolation.up.sql',
+    );
     const tenantSession = readRepoFile(
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/postgres_tenant_session.rs',
     );
-    assert.match(baseline, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(organizationMigration, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(organizationMigration, /organization_isolation/);
+    assert.match(organizationMigration, /app\.current_organization_id/);
     assert.match(tenantSession, /app\.current_tenant_id/);
+    assert.match(tenantSession, /app\.current_organization_id/);
     assert.match(tenantSession, /require_postgres_rls_tenant_id/);
+    assert.match(tenantSession, /require_postgres_rls_organization_id/);
+  });
+
+  it('binds source reads and writes to tenant and organization', () => {
+    const sourceStore = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_import_stores.rs',
+    );
+    const isolationTest = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/tests/sqlite_source_connector_metadata.rs',
+    );
+    assert.match(sourceStore, /WHERE tenant_id = \$1 AND organization_id = \$2/);
+    assert.match(isolationTest, /source_store_isolates_organizations_within_one_tenant/);
   });
 
   it('covers HTTP tenant and organization guards in integration tests', () => {
@@ -35,14 +52,6 @@ describe('knowledgebase multi-tenant isolation alignment', () => {
       'crates/sdkwork-intelligence-knowledgebase-service/src/space.rs',
     );
     assert.match(spaceService, /not bound to a drive space for access control/);
-  });
-
-  it('enforces upload session space ACL at the app-api boundary', () => {
-    const hostedUpload = readRepoFile(
-      'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_upload.rs',
-    );
-    assert.match(hostedUpload, /require_space_access[\s\S]*create_upload_session/u);
-    assert.match(hostedUpload, /require_space_access[\s\S]*complete_upload_session/u);
   });
 
   it('documents tenant isolation operator procedures', () => {

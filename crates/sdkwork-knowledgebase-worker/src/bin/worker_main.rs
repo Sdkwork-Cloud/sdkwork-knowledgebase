@@ -185,7 +185,7 @@ fn resolve_wiki_drive_event_config(tenant_id: u64) -> WikiDriveEventMaintenanceC
     WikiDriveEventMaintenanceConfig {
         tenant_id,
         organization_id:
-            sdkwork_routes_knowledgebase_app_api::bootstrap::resolve_deployment_tenant_id(),
+            sdkwork_routes_knowledgebase_app_api::bootstrap::resolve_deployment_organization_id(),
         actor_id,
         checkpoint_page_size: bounded_u32_env(
             "SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_CHECKPOINT_PAGE_SIZE",

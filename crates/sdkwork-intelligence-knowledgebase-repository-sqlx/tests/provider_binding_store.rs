@@ -19,8 +19,6 @@ use sdkwork_knowledgebase_contract::provider_binding::{
     RotateKnowledgeEngineProviderCredentialReferenceRequest,
     UpdateKnowledgeEngineProviderBindingRequest,
 };
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[tokio::test]
 async fn provider_binding_lifecycle_is_scoped_versioned_and_atomically_switchable() {
@@ -433,38 +431,8 @@ async fn create_tested_binding(
         .expect("record successful test")
 }
 
-async fn provider_test_pool(test_name: &str) -> sqlx::AnyPool {
-    let database_url = sqlite_test_database_url(test_name);
-    connect_knowledgebase_and_install_schema(&database_url)
+async fn provider_test_pool(_test_name: &str) -> sqlx::AnyPool {
+    connect_knowledgebase_and_install_schema("sqlite::memory:")
         .await
         .expect("install provider binding schema")
-}
-
-fn sqlite_test_database_url(test_name: &str) -> String {
-    static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock before unix epoch")
-        .as_nanos();
-    let sequence = TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let work_dir = std::env::current_dir().expect("current directory");
-    let test_root = work_dir
-        .join("target")
-        .join("repository-sqlite-tests")
-        .join(format!(
-            "{}-{}-{}-{}",
-            test_name,
-            std::process::id(),
-            nanos,
-            sequence
-        ));
-    std::fs::create_dir_all(&test_root).expect("create provider binding test directory");
-    let database_path = test_root.join("knowledgebase.db");
-    let relative_database_path = database_path
-        .strip_prefix(&work_dir)
-        .unwrap_or(&database_path)
-        .display()
-        .to_string()
-        .replace('\\', "/");
-    format!("sqlite://{relative_database_path}?mode=rwc")
 }

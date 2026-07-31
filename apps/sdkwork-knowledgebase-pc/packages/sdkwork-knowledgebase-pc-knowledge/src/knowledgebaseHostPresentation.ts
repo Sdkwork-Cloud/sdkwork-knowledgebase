@@ -6,22 +6,13 @@ export interface KnowledgebaseHostContext {
   groupName?: string;
 }
 
-type SdkworkTauriBridge = {
-  __TAURI__?: {
-    core?: {
-      invoke?: unknown;
-    };
-  };
-};
-
 function detectHostRuntimeTarget(): KnowledgebaseHostRuntimeTarget {
   const configured = import.meta.env.VITE_SDKWORK_KNOWLEDGEBASE_HOST_RUNTIME_TARGET;
   if (configured === 'desktop' || configured === 'browser') {
     return configured;
   }
 
-  const tauri = (globalThis as SdkworkTauriBridge).__TAURI__;
-  if (typeof tauri?.core?.invoke === 'function') {
+  if (isTauriDesktopRuntime()) {
     return 'desktop';
   }
 
@@ -56,3 +47,4 @@ export function resolveKnowledgebaseHostRuntimeTarget(): KnowledgebaseHostRuntim
 export function isKnowledgebaseHostDesktopRuntime(): boolean {
   return resolveKnowledgebaseHostRuntimeTarget() === 'desktop';
 }
+import { isTauriDesktopRuntime } from 'sdkwork-knowledgebase-pc-core/host';

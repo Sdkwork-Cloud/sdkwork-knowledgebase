@@ -47,7 +47,9 @@ Production deployment descriptors for the `cloud.production` topology profile.
 | `SDKWORK_KNOWLEDGEBASE_LOG_FORMAT` | Set to `json` for structured JSON logs in production aggregators |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | When set, API/worker processes export traces over OTLP/HTTP (requires `otel` feature build) |
 | `SDKWORK_NODE_INSTANCE_ID` | Stable per-process allocator identity; Kubernetes injects the pod UID |
-| `SDKWORK_DATABASE_MAX_CONNECTIONS` | Combined per-process connection budget shared by embedded modules and the temporary compatibility driver |
+| `SDKWORK_DATABASE_MAX_CONNECTIONS` | Combined per-process PostgreSQL connection budget; must be at least `2` and is split between the typed pool and temporary `AnyPool` compatibility pool |
+| `SDKWORK_KNOWLEDGEBASE_TENANT_ID` | Required canonical positive signed `BIGINT`; fixes the deployment tenant |
+| `SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID` | Required canonical positive signed `BIGINT`; fixes the deployment organization |
 | `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_PROVIDER_ID` | Required cloud Drive provider id; provider must be active, non-local, and bucket-ready |
 | `SDKWORK_KNOWLEDGEBASE_WORKER_INGESTION_JOB_LEASE_SECONDS` | Worker job lease TTL, 30-3600 seconds; default `300` |
 | `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_ACTOR_ID` | Required tenant-local service actor for auditable Wiki maintenance commands |
@@ -55,6 +57,7 @@ Production deployment descriptors for the `cloud.production` topology profile.
 | `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_LEASE_SECONDS` | Source-processing lease TTL, 1-3600 seconds; default `120` |
 | `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_RETRY_DELAY_SECONDS` | Delay before retrying a failed source, 1-86400 seconds; default `30` |
 | `SDKWORK_KNOWLEDGEBASE_WORKER_WIKI_SOURCE_MAX_ATTEMPTS` | Maximum processing attempts before quarantine, 1-100; default `10` |
+| `OTEL_SERVICE_NAME` | Overrides the default OpenTelemetry service name per process |
 
 Production ID generation uses the shared `sdkwork_node_registry` database table. The allocator heartbeats a fenced node lease and `/readyz` fails if the lease becomes unhealthy. Do not set `SDKWORK_KNOWLEDGEBASE_SNOWFLAKE_NODE_ID` in normal deployments; a static numeric override additionally requires `SDKWORK_KNOWLEDGEBASE_ALLOW_STATIC_SNOWFLAKE_NODE_ID=true` in production-like environments.
 
@@ -63,7 +66,6 @@ provider credential is referenced by Drive configuration and resolved only insid
 runtime. `local_filesystem` and `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_ROOT` are rejected as cloud
 storage authority. Provider lookup, version, active state, adapter creation, and bucket health are
 part of startup readiness.
-| `OTEL_SERVICE_NAME` | Overrides the default OpenTelemetry service name per process |
 
 HTTP APIs emit an `x-request-id` response header (or echo inbound `x-request-id`) for request correlation. Prometheus metrics are exposed at `GET /metrics` on API and worker health processes, including `knowledgebase_health_status` (updated by `/readyz`). **Do not expose `/metrics` on public ingress**; use in-cluster ServiceMonitor scraping only.
 
@@ -109,9 +111,23 @@ pnpm test:e2e:playwright
 
 ## Tenant isolation
 
-Each API/worker process is bound to a single runtime tenant via `SDKWORK_KNOWLEDGEBASE_TENANT_ID`. Authenticated request context must match that tenant; mismatches return `403` with `tenant_id_mismatch` (fail-closed). Optional `SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID` enforces the same pattern for organization scope.
+Each API/worker deployment is bound to exactly one runtime tenant and one non-zero organization
+through `SDKWORK_KNOWLEDGEBASE_TENANT_ID` and
+`SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID`. Authenticated request context must match both values;
+mismatches return `403` with `tenant_id_mismatch` or `organization_id_mismatch`.
 
-The supported production profile is **one process (or dedicated database schema) per tenant**. Tenant isolation uses SQL `tenant_id` filters, runtime guards, and deployment-bound PostgreSQL RLS context. A shared multi-tenant process is not approved until request-scoped `SET LOCAL app.current_tenant_id`, pooled-connection contamination tests, and release PostgreSQL evidence are complete.
+The supported production profile is **one dedicated deployment per tenant/organization pair**.
+Replicas in that deployment share its fixed identity. Multiple dedicated deployments may use the
+same PostgreSQL cluster and tables, but each pool sets both `app.current_tenant_id` and
+`app.current_organization_id`; ordinary repositories must also bind both columns. A process that
+switches scope per request is unsupported and must not receive production traffic.
+
+Each process owns exactly one scoped typed PostgreSQL pool and, until the prelaunch migration is
+complete, one scoped `AnyPool` compatibility pool. `SDKWORK_DATABASE_MAX_CONNECTIONS` is divided
+between them; an odd connection is assigned to the typed pool. Drive, pgvector, and cloud provider
+resolution clone the same typed pool handle and must not create another pool. Capacity planning must
+multiply this per-process budget by the maximum simultaneous replica count and retain PostgreSQL
+headroom for migrations, probes, administration, and failover.
 
 Integration coverage: `crates/sdkwork-routes-knowledgebase-app-api/tests/integration_tenant_isolation.rs`.
 

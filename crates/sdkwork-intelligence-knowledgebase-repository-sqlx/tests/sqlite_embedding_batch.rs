@@ -7,6 +7,8 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_embedding_store
 use sqlx::AnyPool;
 use std::sync::{Arc, Mutex};
 
+const ORGANIZATION_ID: u64 = 71;
+
 #[tokio::test]
 async fn sqlite_embedding_store_batch_upserts_and_updates_in_place() {
     let pool = sqlite_pool().await;
@@ -14,6 +16,7 @@ async fn sqlite_embedding_store_batch_upserts_and_updates_in_place() {
     let store = SqliteKnowledgeEmbeddingStore::with_id_generator(
         pool.clone(),
         9001,
+        ORGANIZATION_ID,
         fixed_id_generator([9101, 9102, 9103, 9104]),
         DatabaseEngine::Sqlite,
     );
@@ -42,10 +45,10 @@ async fn sqlite_embedding_store_batch_upserts_and_updates_in_place() {
         .await
         .unwrap();
 
-    let count = embedding_count(&pool, 9001).await;
+    let count = embedding_count(&pool, 9001, ORGANIZATION_ID as i64).await;
     assert_eq!(count, 2);
 
-    let version_101 = embedding_version(&pool, 9001, 101).await;
+    let version_101 = embedding_version(&pool, 9001, ORGANIZATION_ID as i64, 101).await;
     assert_eq!(version_101, 0);
 
     let vector_a_updated = vec![0.9_f32, 0.8, 0.7];
@@ -61,22 +64,80 @@ async fn sqlite_embedding_store_batch_upserts_and_updates_in_place() {
         .await
         .unwrap();
 
-    assert_eq!(embedding_count(&pool, 9001).await, 2);
-    assert_eq!(embedding_version(&pool, 9001, 101).await, 1);
+    assert_eq!(
+        embedding_count(&pool, 9001, ORGANIZATION_ID as i64).await,
+        2
+    );
+    assert_eq!(
+        embedding_version(&pool, 9001, ORGANIZATION_ID as i64, 101).await,
+        1
+    );
 
     let provider = sqlx::query_scalar::<_, String>(
         r#"
         SELECT provider_id
         FROM kb_embedding
-        WHERE tenant_id = $1 AND chunk_id = $2
+        WHERE tenant_id = $1 AND organization_id = $2 AND chunk_id = $3
         "#,
     )
     .bind(9001_i64)
+    .bind(ORGANIZATION_ID as i64)
     .bind(101_i64)
     .fetch_one(&pool)
     .await
     .unwrap();
     assert_eq!(provider, "custom-provider");
+}
+
+#[tokio::test]
+async fn sqlite_embedding_store_rejects_cross_organization_and_unbounded_vectors() {
+    let pool = sqlite_pool().await;
+    seed_index_and_chunks(&pool).await;
+    seed_cross_organization_index_and_chunk(&pool).await;
+    let store = SqliteKnowledgeEmbeddingStore::with_id_generator(
+        pool.clone(),
+        9001,
+        ORGANIZATION_ID,
+        fixed_id_generator([9201, 9202]),
+        DatabaseEngine::Sqlite,
+    );
+
+    let cross_organization = store
+        .upsert_chunk_embedding(ChunkEmbeddingUpsertRequest {
+            tenant_id: 9001,
+            index_id: 502,
+            chunk_id: 103,
+            vector: vec![0.1, 0.2, 0.3],
+            provider_id: None,
+            model: None,
+        })
+        .await;
+    assert!(cross_organization.is_err());
+
+    let oversized = store
+        .upsert_chunk_embedding(ChunkEmbeddingUpsertRequest {
+            tenant_id: 9001,
+            index_id: 501,
+            chunk_id: 101,
+            vector: vec![0.0; 16_385],
+            provider_id: None,
+            model: None,
+        })
+        .await;
+    assert!(oversized.is_err());
+
+    let non_finite = store
+        .upsert_chunk_embedding(ChunkEmbeddingUpsertRequest {
+            tenant_id: 9001,
+            index_id: 501,
+            chunk_id: 101,
+            vector: vec![f32::NAN],
+            provider_id: None,
+            model: None,
+        })
+        .await;
+    assert!(non_finite.is_err());
+    assert_eq!(embedding_count(&pool, 9001, 71).await, 0);
 }
 
 async fn sqlite_pool() -> AnyPool {
@@ -90,9 +151,9 @@ async fn seed_index_and_chunks(pool: &AnyPool) {
     sqlx::query(
         r#"
         INSERT INTO kb_index (
-            id, uuid, tenant_id, space_id, collection_id, index_kind, schema_version, status, created_at, updated_at, version
+            id, uuid, tenant_id, organization_id, space_id, collection_id, index_kind, schema_version, status, created_at, updated_at, version
         )
-        VALUES (501, 'index-501', 9001, 7, 0, 'vector', 'v1', 1, $1, $2, 0)
+        VALUES (501, 'index-501', 9001, 71, 7, 0, 'vector', 'v1', 1, $1, $2, 0)
         "#,
     )
     .bind(now)
@@ -104,12 +165,12 @@ async fn seed_index_and_chunks(pool: &AnyPool) {
     sqlx::query(
         r#"
         INSERT INTO kb_chunk (
-            id, uuid, tenant_id, space_id, collection_id, document_id, document_version_id,
+            id, uuid, tenant_id, organization_id, space_id, collection_id, document_id, document_version_id,
             chunk_index, content_text, content_hash, token_count, locator, status, created_at, updated_at, version
         )
         VALUES
-            (101, 'chunk-101', 9001, 7, 0, 201, 301, 1, 'first chunk', 'hash-101', 2, 'loc-1', 1, $1, $2, 0),
-            (102, 'chunk-102', 9001, 7, 0, 201, 301, 2, 'second chunk', 'hash-102', 2, 'loc-2', 1, $3, $4, 0)
+            (101, 'chunk-101', 9001, 71, 7, 0, 201, 301, 1, 'first chunk', 'hash-101', 2, 'loc-1', 1, $1, $2, 0),
+            (102, 'chunk-102', 9001, 71, 7, 0, 201, 301, 2, 'second chunk', 'hash-102', 2, 'loc-2', 1, $3, $4, 0)
         "#,
     )
     .bind(now)
@@ -121,29 +182,70 @@ async fn seed_index_and_chunks(pool: &AnyPool) {
     .unwrap();
 }
 
-async fn embedding_count(pool: &AnyPool, tenant_id: i64) -> i64 {
+async fn seed_cross_organization_index_and_chunk(pool: &AnyPool) {
+    let now = "2026-06-09T00:00:00Z";
+    sqlx::query(
+        r#"
+        INSERT INTO kb_index (
+            id, uuid, tenant_id, organization_id, space_id, collection_id,
+            index_kind, schema_version, status, created_at, updated_at, version
+        ) VALUES (502, 'index-502', 9001, 72, 7, 0, 'vector', 'v1', 1, $1, $2, 0)
+        "#,
+    )
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        r#"
+        INSERT INTO kb_chunk (
+            id, uuid, tenant_id, organization_id, space_id, collection_id,
+            document_id, document_version_id, chunk_index, content_text,
+            content_hash, token_count, locator, status, created_at, updated_at, version
+        ) VALUES (
+            103, 'chunk-103', 9001, 72, 7, 0,
+            203, 303, 1, 'private chunk', 'hash-103', 2, 'loc-3', 1, $1, $2, 0
+        )
+        "#,
+    )
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
+async fn embedding_count(pool: &AnyPool, tenant_id: i64, organization_id: i64) -> i64 {
     sqlx::query_scalar::<_, i64>(
         r#"
         SELECT COUNT(*)
         FROM kb_embedding
-        WHERE tenant_id = $1
+        WHERE tenant_id = $1 AND organization_id = $2
         "#,
     )
     .bind(tenant_id)
+    .bind(organization_id)
     .fetch_one(pool)
     .await
     .unwrap()
 }
 
-async fn embedding_version(pool: &AnyPool, tenant_id: i64, chunk_id: i64) -> i64 {
+async fn embedding_version(
+    pool: &AnyPool,
+    tenant_id: i64,
+    organization_id: i64,
+    chunk_id: i64,
+) -> i64 {
     sqlx::query_scalar::<_, i64>(
         r#"
         SELECT version
         FROM kb_embedding
-        WHERE tenant_id = $1 AND chunk_id = $2
+        WHERE tenant_id = $1 AND organization_id = $2 AND chunk_id = $3
         "#,
     )
     .bind(tenant_id)
+    .bind(organization_id)
     .bind(chunk_id)
     .fetch_one(pool)
     .await

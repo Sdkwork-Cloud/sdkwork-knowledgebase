@@ -14,12 +14,14 @@ use sdkwork_knowledgebase_contract::rag::{KnowledgeRetrievalBinding, KnowledgeRe
 use sqlx::{AnyPool, Row};
 use std::sync::{Arc, Mutex};
 
+const ORGANIZATION_ID: u64 = 71;
+
 #[tokio::test]
 async fn sqlite_chunk_store_lists_id_content_pairs_in_chunk_index_order() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     seed_documents_and_chunks(&pool).await;
-    let store = SqliteKnowledgeChunkStore::new(pool, 9001);
+    let store = SqliteKnowledgeChunkStore::new(pool, 9001, ORGANIZATION_ID);
 
     let pairs = store
         .list_chunk_id_content_for_document_version(301)
@@ -43,6 +45,7 @@ async fn sqlite_retrieval_backend_searches_active_chunks_with_tenant_and_binding
     let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
         pool.clone(),
         9001,
+        ORGANIZATION_ID,
         fixed_id_generator([7001, 7002, 7003]),
     );
 
@@ -107,6 +110,7 @@ async fn sqlite_retrieval_vector_method_requires_active_embedding_rows() {
     let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
         pool.clone(),
         9001,
+        ORGANIZATION_ID,
         fixed_id_generator([7001]),
     );
 
@@ -172,6 +176,7 @@ async fn sqlite_retrieval_vector_method_respects_collection_binding_scope() {
     let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
         pool.clone(),
         9001,
+        ORGANIZATION_ID,
         fixed_id_generator([7001, 7002]),
     );
 
@@ -237,6 +242,7 @@ async fn sqlite_retrieval_keyword_method_respects_document_language_filter() {
     let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
         pool.clone(),
         9001,
+        ORGANIZATION_ID,
         fixed_id_generator([7001, 7002]),
     );
 
@@ -301,6 +307,7 @@ async fn sqlite_retrieval_keyword_method_respects_source_type_filter() {
     let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
         pool.clone(),
         9001,
+        ORGANIZATION_ID,
         fixed_id_generator([7001, 7002]),
     );
 
@@ -363,6 +370,7 @@ async fn sqlite_retrieval_trace_store_persists_trace_and_ranked_hits() {
     let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
         pool.clone(),
         9001,
+        ORGANIZATION_ID,
         fixed_id_generator([8001, 8002, 8003]),
     );
 
@@ -415,7 +423,7 @@ async fn sqlite_retrieval_trace_store_persists_trace_and_ranked_hits() {
 
     let trace_row = sqlx::query(
         r#"
-        SELECT tenant_id, actor_id, retrieval_profile_id, result_count, status
+        SELECT tenant_id, organization_id, actor_id, retrieval_profile_id, result_count, status
         FROM kb_retrieval_trace
         WHERE id = $1
         "#,
@@ -425,6 +433,10 @@ async fn sqlite_retrieval_trace_store_persists_trace_and_ranked_hits() {
     .await
     .unwrap();
     assert_eq!(trace_row.get::<i64, _>("tenant_id"), 9001);
+    assert_eq!(
+        trace_row.get::<i64, _>("organization_id"),
+        ORGANIZATION_ID as i64
+    );
     assert_eq!(trace_row.get::<Option<i64>, _>("actor_id"), Some(30001));
     assert_eq!(
         trace_row.get::<Option<i64>, _>("retrieval_profile_id"),
@@ -460,6 +472,7 @@ async fn sqlite_retrieval_trace_store_reconstructs_trace_and_hits() {
     let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
         pool.clone(),
         9001,
+        ORGANIZATION_ID,
         fixed_id_generator([8101, 8102]),
     );
 
@@ -509,6 +522,96 @@ async fn sqlite_retrieval_trace_store_reconstructs_trace_and_hits() {
     assert_eq!(hits[0].result_rank, 1);
 }
 
+#[tokio::test]
+async fn sqlite_retrieval_store_denies_cross_organization_search_and_hit_writes_atomically() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    seed_documents_and_chunks(&pool).await;
+    seed_cross_organization_chunk(&pool).await;
+
+    let store = SqliteKnowledgeChunkRetrievalStore::with_id_generator(
+        pool.clone(),
+        9001,
+        ORGANIZATION_ID,
+        fixed_id_generator([8201, 8202, 8203]),
+    );
+    let hidden_hits = store
+        .search_chunks(KnowledgeChunkSearchRequest {
+            tenant_id: 9001,
+            query: "private organization secret".to_string(),
+            binding: KnowledgeRetrievalBinding {
+                space_id: 7,
+                collection_id: None,
+                source_filter: None,
+                document_filter: None,
+                priority: 0,
+                top_k: Some(5),
+                min_score: Some(0.0),
+            },
+            method: KnowledgeRetrievalMethod::Keyword,
+            query_embedding: None,
+            top_k: 5,
+        })
+        .await
+        .unwrap();
+    assert!(hidden_hits.is_empty());
+
+    let trace_id = store
+        .create_trace(CreateKnowledgeRetrievalTraceRecord {
+            tenant_id: 9001,
+            actor_id: Some(30001),
+            retrieval_profile_id: None,
+            query_hash_sha256_hex: "cross-organization-hit-write".to_string(),
+            query_text_redacted: None,
+            request_payload_json: None,
+            latency_ms: Some(1),
+            result_count: 2,
+            status: "succeeded".to_string(),
+        })
+        .await
+        .unwrap();
+    let result = store
+        .create_hits(vec![
+            CreateKnowledgeRetrievalHitRecord {
+                tenant_id: 9001,
+                retrieval_trace_id: trace_id,
+                chunk_id: 101,
+                document_id: 201,
+                document_version_id: Some(301),
+                score: Some(0.9),
+                result_rank: 1,
+                match_reason: Some("keyword".to_string()),
+                citation_json: None,
+                metadata_json: None,
+            },
+            CreateKnowledgeRetrievalHitRecord {
+                tenant_id: 9001,
+                retrieval_trace_id: trace_id,
+                chunk_id: 106,
+                document_id: 206,
+                document_version_id: Some(306),
+                score: Some(0.8),
+                result_rank: 2,
+                match_reason: Some("keyword".to_string()),
+                citation_json: None,
+                metadata_json: None,
+            },
+        ])
+        .await;
+    assert!(result.is_err());
+
+    let persisted_hits: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM kb_retrieval_hit WHERE tenant_id = $1 AND organization_id = $2 AND retrieval_trace_id = $3",
+    )
+    .bind(9001_i64)
+    .bind(ORGANIZATION_ID as i64)
+    .bind(trace_id as i64)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(persisted_hits, 0);
+}
+
 #[derive(Debug)]
 struct FixedIdGenerator {
     ids: Mutex<Vec<u64>>,
@@ -549,12 +652,12 @@ async fn seed_documents_and_chunks(pool: &AnyPool) {
     sqlx::query(
         r#"
         INSERT INTO kb_document (
-            id, uuid, tenant_id, space_id, collection_id, identity_scope, title,
+            id, uuid, tenant_id, organization_id, space_id, collection_id, identity_scope, title,
             visibility, content_state, index_state, status, created_at, updated_at, version
         )
         VALUES
-            (201, 'doc-201', 9001, 7, 0, 'source_and_original_drive_node', 'Support Playbook', 1, 1, 2, 1, $1, $2, 0),
-            (202, 'doc-202', 9001, 8, 0, 'source_and_original_drive_node', 'Billing Playbook', 1, 1, 2, 1, $3, $4, 0)
+            (201, 'doc-201', 9001, 71, 7, 0, 'source_and_original_drive_node', 'Support Playbook', 1, 1, 2, 1, $1, $2, 0),
+            (202, 'doc-202', 9001, 71, 8, 0, 'source_and_original_drive_node', 'Billing Playbook', 1, 1, 2, 1, $3, $4, 0)
         "#,
     )
     .bind(now)
@@ -568,12 +671,12 @@ async fn seed_documents_and_chunks(pool: &AnyPool) {
     sqlx::query(
         r#"
         INSERT INTO kb_document_version (
-            id, uuid, tenant_id, document_id, version_no, original_object_ref_id,
+            id, uuid, tenant_id, organization_id, document_id, version_no, original_object_ref_id,
             size_bytes, parse_state, index_state, submitted_at, status, created_at, updated_at, version
         )
         VALUES
-            (301, 'ver-301', 9001, 201, 1, 401, 100, 2, 2, $1, 1, $2, $3, 0),
-            (302, 'ver-302', 9001, 202, 1, 402, 100, 2, 2, $4, 1, $5, $6, 0)
+            (301, 'ver-301', 9001, 71, 201, 1, 401, 100, 2, 2, $1, 1, $2, $3, 0),
+            (302, 'ver-302', 9001, 71, 202, 1, 402, 100, 2, 2, $4, 1, $5, $6, 0)
         "#,
     )
     .bind(now)
@@ -598,15 +701,15 @@ async fn seed_documents_and_chunks(pool: &AnyPool) {
     sqlx::query(
         r#"
         INSERT INTO kb_chunk (
-            id, uuid, tenant_id, space_id, collection_id, document_id, document_version_id,
+            id, uuid, tenant_id, organization_id, space_id, collection_id, document_id, document_version_id,
             chunk_index, content_text, content_hash, token_count, locator, status, created_at, updated_at, version
         )
         VALUES
-            (101, 'chunk-101', 9001, 7, 0, 201, 301, 1, 'enterprise renewal support playbook for premium accounts', 'hash-101', 7, 'section:renewal', 1, $1, $2, 0),
-            (102, 'chunk-102', 9001, 7, 0, 201, 301, 2, 'support workflow for customer renewal escalations', 'hash-102', 6, 'section:workflow', 1, $3, $4, 0),
-            (103, 'chunk-103', 9001, 8, 0, 202, 302, 1, 'billing support escalation for invoices', 'hash-103', 5, 'section:billing', 1, $5, $6, 0),
-            (104, 'chunk-104', 9002, 7, 0, 201, 301, 1, 'other tenant enterprise renewal support', 'hash-104', 5, 'section:other', 1, $7, $8, 0),
-            (105, 'chunk-105', 9001, 7, 2, 201, 301, 3, 'billing collection scoped note', 'hash-105', 4, 'section:collection', 1, $9, $10, 0)
+            (101, 'chunk-101', 9001, 71, 7, 0, 201, 301, 1, 'enterprise renewal support playbook for premium accounts', 'hash-101', 7, 'section:renewal', 1, $1, $2, 0),
+            (102, 'chunk-102', 9001, 71, 7, 0, 201, 301, 2, 'support workflow for customer renewal escalations', 'hash-102', 6, 'section:workflow', 1, $3, $4, 0),
+            (103, 'chunk-103', 9001, 71, 8, 0, 202, 302, 1, 'billing support escalation for invoices', 'hash-103', 5, 'section:billing', 1, $5, $6, 0),
+            (104, 'chunk-104', 9002, 71, 7, 0, 201, 301, 1, 'other tenant enterprise renewal support', 'hash-104', 5, 'section:other', 1, $7, $8, 0),
+            (105, 'chunk-105', 9001, 71, 7, 2, 201, 301, 3, 'billing collection scoped note', 'hash-105', 4, 'section:collection', 1, $9, $10, 0)
         "#,
     )
     .bind(now)
@@ -625,10 +728,80 @@ async fn seed_documents_and_chunks(pool: &AnyPool) {
 
     sqlx::query(
         r#"
-        INSERT INTO kb_chunk_fts (content_text, chunk_id, tenant_id, space_id, document_id)
-        SELECT c.content_text, c.id, c.tenant_id, c.space_id, c.document_id
+        INSERT INTO kb_chunk_fts (
+            content_text, chunk_id, tenant_id, organization_id, space_id, document_id
+        )
+        SELECT c.content_text, c.id, c.tenant_id, c.organization_id, c.space_id, c.document_id
         FROM kb_chunk c
-        WHERE c.tenant_id = 9001
+        WHERE c.tenant_id = 9001 AND c.organization_id = 71
+        "#,
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+}
+
+async fn seed_cross_organization_chunk(pool: &AnyPool) {
+    let now = "2026-06-09T00:00:00Z";
+    sqlx::query(
+        r#"
+        INSERT INTO kb_document (
+            id, uuid, tenant_id, organization_id, space_id, collection_id,
+            identity_scope, title, visibility, content_state, index_state,
+            status, created_at, updated_at, version
+        ) VALUES (
+            206, 'doc-206', 9001, 72, 7, 0,
+            'source_and_original_drive_node', 'Private Organization', 1, 1, 2,
+            1, $1, $2, 0
+        )
+        "#,
+    )
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        r#"
+        INSERT INTO kb_document_version (
+            id, uuid, tenant_id, organization_id, document_id, version_no,
+            original_object_ref_id, size_bytes, parse_state, index_state,
+            submitted_at, status, created_at, updated_at, version
+        ) VALUES (
+            306, 'ver-306', 9001, 72, 206, 1,
+            406, 100, 2, 2, $1, 1, $2, $3, 0
+        )
+        "#,
+    )
+    .bind(now)
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        r#"
+        INSERT INTO kb_chunk (
+            id, uuid, tenant_id, organization_id, space_id, collection_id,
+            document_id, document_version_id, chunk_index, content_text,
+            content_hash, token_count, locator, status, created_at, updated_at, version
+        ) VALUES (
+            106, 'chunk-106', 9001, 72, 7, 0,
+            206, 306, 1, 'private organization secret',
+            'hash-106', 3, 'section:private', 1, $1, $2, 0
+        )
+        "#,
+    )
+    .bind(now)
+    .bind(now)
+    .execute(pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        r#"
+        INSERT INTO kb_chunk_fts (
+            content_text, chunk_id, tenant_id, organization_id, space_id, document_id
+        ) VALUES ('private organization secret', 106, 9001, 72, 7, 206)
         "#,
     )
     .execute(pool)
@@ -641,9 +814,9 @@ async fn seed_drive_source_binding(pool: &AnyPool, source_id: i64, document_id: 
     sqlx::query(
         r#"
         INSERT INTO kb_source (
-            id, uuid, tenant_id, space_id, source_type, provider, status, created_at, updated_at, version
+            id, uuid, tenant_id, organization_id, space_id, source_type, provider, status, created_at, updated_at, version
         )
-        VALUES ($1, $2, 9001, 7, 'drive', 'sdkwork-drive', 1, $3, $4, 0)
+        VALUES ($1, $2, 9001, 71, 7, 'drive', 'sdkwork-drive', 1, $3, $4, 0)
         "#,
     )
     .bind(source_id)
@@ -675,17 +848,23 @@ async fn seed_chunk_embedding_with_vector(
     vector_json: &str,
 ) {
     let now = "2026-06-09T00:00:00Z";
+    let collection_id: i64 = sqlx::query_scalar("SELECT collection_id FROM kb_chunk WHERE id = $1")
+        .bind(chunk_id)
+        .fetch_one(pool)
+        .await
+        .expect("embedding fixture chunk collection");
     sqlx::query(
         r#"
         INSERT INTO kb_index (
-            id, uuid, tenant_id, space_id, collection_id, index_kind, schema_version, status, created_at, updated_at, version
+            id, uuid, tenant_id, organization_id, space_id, collection_id, index_kind, schema_version, status, created_at, updated_at, version
         )
-        VALUES ($1, $2, 9001, 7, 0, 'vector', 'v1', 1, $3, $4, 0)
+        VALUES ($1, $2, 9001, 71, 7, $3, 'vector', 'v1', 1, $4, $5, 0)
         ON CONFLICT (id) DO NOTHING
         "#,
     )
     .bind(index_id)
     .bind(format!("index-{index_id}"))
+    .bind(collection_id)
     .bind(now)
     .bind(now)
     .execute(pool)
@@ -695,10 +874,10 @@ async fn seed_chunk_embedding_with_vector(
     sqlx::query(
         r#"
         INSERT INTO kb_embedding (
-            id, uuid, tenant_id, index_id, chunk_id, embedding_hash, vector_ref, vector_json, dimension,
+            id, uuid, tenant_id, organization_id, index_id, chunk_id, embedding_hash, vector_ref, vector_json, dimension,
             provider_id, model, metadata, status, created_at, updated_at, version
         )
-        VALUES ($1, $2, 9001, $3, $4, 'hash-emb', 'inline://vector_json', $5, 3, 'openai', 'text-embedding-3-small', NULL, 1, $6, $7, 0)
+        VALUES ($1, $2, 9001, 71, $3, $4, 'hash-emb', 'inline://vector_json', $5, 3, 'openai', 'text-embedding-3-small', NULL, 1, $6, $7, 0)
         "#,
     )
     .bind(embedding_id)

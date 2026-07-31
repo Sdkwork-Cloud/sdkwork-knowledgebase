@@ -267,6 +267,9 @@ test('knowledgebase dev orchestrator uses orchestration spec and gateway config'
   assert.doesNotMatch(devScript, /--config|sdkwork-api-cloud-gateway/);
   assert.match(devScript, /--deployment-profile/);
   assert.match(devScript, /--database/);
+  assert.match(devScript, /settings\.database !== 'postgres'/);
+  assert.doesNotMatch(devScript, /postgres\|sqlite|resolveDefaultSqliteDatabaseUrl/);
+  assert.doesNotMatch(devScript, /SDKWORK_DATABASE_ENGINE:\s*'sqlite'/);
   assert.doesNotMatch(devScript, /--hosting/);
   assert.doesNotMatch(devScript, /self-hosted|cloud-hosted|--service-layout|serviceLayout|unified-process|split-services/);
 });
@@ -290,8 +293,11 @@ test('default PostgreSQL development path is not blocked by SQLite-only runtime 
     `${gatewayMain}\n${gatewayAssembly}`,
     /KnowledgebaseSqliteRuntime::connect|initialize knowledgebase sqlite runtime/,
   );
-  assert.match(gatewayAssembly, /build_backend_business_router_with_web_framework/);
-  assert.match(gatewayAssembly, /build_open_business_router_with_web_framework/);
+  assert.match(gatewayAssembly, /build_backend_business_router\(\)/);
+  assert.match(gatewayAssembly, /build_open_business_router\(\)/);
+  assert.match(gatewayAssembly, /ApiAssemblyContribution::from_manifest/);
+  assert.doesNotMatch(gatewayAssembly, /_with_web_framework/);
+  assert.match(gatewayMain, /composed\.into_hosted\(framework\)/);
 });
 
 test('pc runtime config does not expose retired application deployment fields', async () => {
@@ -468,6 +474,8 @@ test('standalone gateway reads the single application ingress bind env key', asy
   const gatewayCargo = await read('crates/sdkwork-api-knowledgebase-standalone-gateway/Cargo.toml');
   const appMain = await read('crates/sdkwork-api-knowledgebase-standalone-gateway/src/bin/app_main.rs');
   const gatewayAssembly = await read('crates/sdkwork-api-knowledgebase-assembly/src/bootstrap.rs');
+  const routeRuntime = await read('crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs');
+  const routeBootstrap = await read('crates/sdkwork-routes-knowledgebase-app-api/src/bootstrap.rs');
 
   assert.match(gatewayCargo, /name = "sdkwork-api-knowledgebase-standalone-gateway"/);
   assert.match(gatewayCargo, /path = "src\/bin\/app_main\.rs"/);
@@ -475,5 +483,12 @@ test('standalone gateway reads the single application ingress bind env key', asy
   assert.match(appMain, /SDKWORK_KNOWLEDGEBASE_APPLICATION_PUBLIC_INGRESS_BIND/);
   assert.doesNotMatch(appMain, /SDKWORK_KNOWLEDGEBASE_APP_LISTEN/);
   assert.doesNotMatch(appMain, /SDKWORK_KNOWLEDGEBASE_BACKEND_LISTEN|SDKWORK_KNOWLEDGEBASE_OPEN_LISTEN/);
-  assert.match(gatewayAssembly, /assemble_multi_surface_router/);
+  assert.match(gatewayAssembly, /pub async fn assemble_api_router/);
+  assert.match(gatewayAssembly, /runtime\.build_full_app_router\(\)/);
+  assert.match(gatewayAssembly, /runtime\.build_backend_business_router\(\)/);
+  assert.match(gatewayAssembly, /runtime\.build_open_business_router\(\)/);
+  assert.match(appMain, /ComposedApiAssembly::try_compose/);
+  assert.match(appMain, /composed\.into_hosted\(framework\)/);
+  assert.doesNotMatch(routeRuntime, /build_[a-z_]+_router_with_web_framework/);
+  assert.doesNotMatch(routeBootstrap, /build_served_(?:app|backend|open)_router/);
 });

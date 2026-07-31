@@ -23,9 +23,9 @@ async fn sqlite_okf_candidate_store_lists_only_registered_open_candidates() {
     let tenant_id = 9002;
     insert_space(&pool, tenant_id, 8).await;
 
-    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id);
-    let candidates = SqliteKnowledgeOkfCandidateStore::new(pool, tenant_id);
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, 0);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id, 0);
+    let candidates = SqliteKnowledgeOkfCandidateStore::new(pool, tenant_id, 0);
 
     let concept = concepts
         .upsert_concept(UpsertKnowledgeOkfConceptRecord {

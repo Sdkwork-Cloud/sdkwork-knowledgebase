@@ -15,22 +15,26 @@ use typed `sqlx::PgPool`.
 
 ## Decision
 
-Every long-running Knowledgebase process enables `sdkwork-database-sqlx` process-pool reuse before
-the first database bootstrap. The first typed PostgreSQL pool is the canonical process pool. One
-temporary `sqlx::AnyPool` compatibility pool is allowed for the remaining repositories. The
-framework divides the single `SDKWORK_DATABASE_MAX_CONNECTIONS` process budget across those two
-drivers; modules may clone handles but may not construct independent pools.
+Every long-running Knowledgebase process owns one canonical typed PostgreSQL pool. Drive, pgvector,
+and cloud provider resolution clone that handle. One temporary `sqlx::AnyPool` compatibility pool
+is allowed for the remaining repositories. Runtime bootstrap divides the single
+`SDKWORK_DATABASE_MAX_CONNECTIONS` process budget across those two drivers; an odd connection is
+assigned to the typed pool, and values below two fail startup. Modules may clone handles but may not
+construct independent pools.
 
-PostgreSQL connection options include the deployment-owned `app.current_tenant_id`. Caller-supplied
-or duplicate `options` values that could override that context fail closed. This is valid only for
-the supported one-tenant-per-process deployment model. It does not approve request-shared
-multi-tenant pooling.
+PostgreSQL connection options include deployment-owned `app.current_tenant_id` and
+`app.current_organization_id`. Caller-supplied or duplicate `options` values that could override
+either value fail closed. The App API validates its runtime tenant argument against the same fixed
+scope before creating stores; internal RPC rejects scope mismatches before constructing repository
+or Drive dependencies. This is valid only for the supported one-tenant/organization-per-process
+deployment model. It does not approve request-shared multi-tenant pooling.
 
 ## Operational Contract
 
 - `SDKWORK_DATABASE_TEMPORARY_ANY_POOL_EXCEPTION=true` enables the declared compatibility driver.
 - `SDKWORK_DATABASE_TEMPORARY_DRIVER_POOL_COUNT=1` fixes the number of temporary driver pools.
 - `SDKWORK_DATABASE_MAX_CONNECTIONS` is the combined per-process budget, not a per-module value.
+- Drive, pgvector, and cloud provider resolution reuse the canonical typed pool handle.
 - A normalized database identity mismatch fails startup instead of creating another pool.
 - PostgreSQL pool or pgvector initialization failure fails readiness and startup.
 

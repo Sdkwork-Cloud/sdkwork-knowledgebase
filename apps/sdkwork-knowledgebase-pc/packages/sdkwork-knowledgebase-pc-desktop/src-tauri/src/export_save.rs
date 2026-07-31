@@ -1,6 +1,35 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
+use tokio::sync::Semaphore;
+
+pub const MAX_EXPORT_FILE_BYTES: usize = 64 * 1024 * 1024;
+const MAX_CONCURRENT_EXPORT_SAVES: usize = 1;
+static EXPORT_SAVE_LIMIT: LazyLock<Semaphore> =
+    LazyLock::new(|| Semaphore::new(MAX_CONCURRENT_EXPORT_SAVES));
+
+pub fn decode_bounded_base64(
+    payload: &str,
+    max_decoded_bytes: usize,
+    label: &str,
+) -> Result<Vec<u8>, String> {
+    let max_encoded_bytes = max_decoded_bytes
+        .checked_add(2)
+        .and_then(|value| value.checked_div(3))
+        .and_then(|value| value.checked_mul(4))
+        .ok_or_else(|| format!("{label} size limit is invalid"))?;
+    if payload.len() > max_encoded_bytes {
+        return Err(format!("{label} exceeds the maximum allowed size"));
+    }
+    let bytes = STANDARD
+        .decode(payload.as_bytes())
+        .map_err(|error| format!("invalid {label}: {error}"))?;
+    if bytes.len() > max_decoded_bytes {
+        return Err(format!("{label} exceeds the maximum allowed size"));
+    }
+    Ok(bytes)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -142,7 +171,7 @@ fn chrono_like_suffix() -> u128 {
         .unwrap_or(0)
 }
 
-pub fn save_bytes_to_export_path(
+fn save_bytes_to_export_path(
     bytes: Vec<u8>,
     suggested_name: &str,
     mode: ExportSaveMode,
@@ -186,6 +215,25 @@ pub fn save_bytes_to_export_path(
             })
         }
     }
+}
+
+pub async fn save_base64_to_export_path_async(
+    payload: String,
+    max_decoded_bytes: usize,
+    label: &'static str,
+    suggested_name: String,
+    mode: ExportSaveMode,
+) -> Result<SaveExportFileResponse, String> {
+    let _permit = EXPORT_SAVE_LIMIT
+        .acquire()
+        .await
+        .map_err(|_| "export save limiter is unavailable".to_string())?;
+    tokio::task::spawn_blocking(move || {
+        let bytes = decode_bounded_base64(&payload, max_decoded_bytes, label)?;
+        save_bytes_to_export_path(bytes, &suggested_name, mode)
+    })
+    .await
+    .map_err(|error| format!("export save task failed: {error}"))?
 }
 
 pub fn reveal_export_in_folder(raw_path: &str) -> Result<(), String> {
@@ -301,13 +349,38 @@ fn map_io_error(error: std::io::Error) -> String {
 }
 
 #[tauri::command]
-pub fn save_export_file(request: SaveExportFileRequest) -> Result<SaveExportFileResponse, String> {
+pub async fn save_export_file(
+    request: SaveExportFileRequest,
+) -> Result<SaveExportFileResponse, String> {
     let mode = ExportSaveMode::from_str(&request.mode)?;
-    let bytes = STANDARD
-        .decode(request.data_base64.as_bytes())
-        .map_err(|error| format!("invalid export payload: {error}"))?;
+    save_base64_to_export_path_async(
+        request.data_base64,
+        MAX_EXPORT_FILE_BYTES,
+        "export payload",
+        request.suggested_name,
+        mode,
+    )
+    .await
+}
 
-    save_bytes_to_export_path(bytes, &request.suggested_name, mode)
+#[cfg(test)]
+mod payload_tests {
+    use super::*;
+
+    #[test]
+    fn bounded_base64_rejects_encoded_input_before_decode() {
+        let oversized = "A".repeat(9);
+        assert!(decode_bounded_base64(&oversized, 3, "payload").is_err());
+    }
+
+    #[test]
+    fn bounded_base64_accepts_payload_at_limit() {
+        let payload = STANDARD.encode([1_u8, 2, 3]);
+        assert_eq!(
+            decode_bounded_base64(&payload, 3, "payload").expect("bounded payload"),
+            vec![1, 2, 3]
+        );
+    }
 }
 
 #[tauri::command]

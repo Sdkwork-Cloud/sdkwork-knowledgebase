@@ -2,7 +2,7 @@
 
 Status: active  
 Owner: SDKWork maintainers  
-Updated: 2026-07-30<br>
+Updated: 2026-07-31<br>
 Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
@@ -22,13 +22,13 @@ Specs: ARCHITECTURE_DECISION_SPEC.md, DOCUMENTATION_SPEC.md
 - [TECH-2026-06-12-knowledgebase-open-api-implementation.md](TECH-2026-06-12-knowledgebase-open-api-implementation.md)
 - [TECH-topology-standard.md](TECH-topology-standard.md)
 - [PRD-mvp-launch.md](../../product/prd/PRD-mvp-launch.md)
-- [ADR-20260624-phase2-postgres-rls-multi-tenant.md](../decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md)
+- [ADR-20260731-dedicated-tenant-organization-runtime.md](../decisions/ADR-20260731-dedicated-tenant-organization-runtime.md) (proposed; human approval required)
 - [ADR-20260713-group-knowledgebase-binding-and-launch.md](../decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md)
 - [ADR-20260720-knowledge-engine-provider-binding-spi-v2.md](../decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md) (accepted)
 
 ## 1. Architecture Overview
 
-SDKWork Knowledgebase is a Rust backend with a horizontally scalable application public-ingress process, a separately scalable worker process, and a PC React client (browser + optional Tauri desktop). The public ingress mounts app-api, backend-api, and open-api route surfaces on one application-plane listener. Each production deployment binds **one tenant per ingress/worker process** with fail-closed tenant and organization guards.
+SDKWork Knowledgebase is a Rust backend with a horizontally scalable application public-ingress process, a separately scalable worker process, and a PC React client (browser + optional Tauri desktop). The public ingress mounts app-api, backend-api, and open-api route surfaces on one application-plane listener. Each production deployment binds **one tenant and one non-zero organization** across every ingress/worker replica with fail-closed guards.
 
 | Surface | Prefix | SDK family | Auth |
 |---------|--------|------------|------|
@@ -76,12 +76,26 @@ per surface; generated transports are never API authority.
   migration maintenance)
 - Ingestion workers atomically claim Drive jobs with owner/token leases, renew leases during processing, reclaim expired work after crashes, and fence stale workers from success or failure commits. Chunk replacement, job completion, and outbox append remain one database transaction.
 - Production Snowflake generators obtain fenced node IDs from `sdkwork_node_registry`. Lease loss disables ID generation and fails runtime readiness; Kubernetes supplies only the pod UID identity, never a hashed node ID.
+- PostgreSQL is authoritative for server runtimes. Every process pool is created with fixed
+  `app.current_tenant_id` and `app.current_organization_id` connection settings. Business RLS
+  policies require both columns, use `FORCE ROW LEVEL SECURITY`, and are release-tested through a
+  non-owner role. Server repository bootstrap rejects file-backed SQLite; only in-memory SQLite is
+  retained as a deterministic test fixture. Client-owned local persistence must use its own bounded
+  storage adapter and is never an application-server profile or authoritative shared storage.
 - Gateway, worker, and internal RPC processes enable the SDKWork process-shared database pool before
-  module bootstrap. `SDKWORK_DATABASE_MAX_CONNECTIONS` is one combined process budget. The remaining
-  `AnyPool` compatibility driver is explicitly bounded and must be removed before the first
+  module bootstrap. `SDKWORK_DATABASE_MAX_CONNECTIONS` is one combined process budget split between
+  one scoped typed `PgPool` and one scoped `AnyPool` compatibility pool; odd budgets favor the typed
+  pool and values below two fail startup. Drive, pgvector, and cloud provider resolution reuse the
+  typed handle. The remaining `AnyPool` compatibility driver must be removed before the first
   commercial production release; see
   [ADR-20260730-knowledgebase-process-shared-database-pool.md](../decisions/ADR-20260730-knowledgebase-process-shared-database-pool.md).
 - Media tasks consume the generated `clawrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
+- WeChat account/applet configuration is a tenant-scoped Drive object with a 1 MiB read/write
+  boundary, encrypted secret fields, bounded unique entries, and fail-closed read-modify-write
+  behavior. Article publish and preview create one bounded multi-article WeChat draft per account.
+  The existing URL-only article `cover` field is not a trusted storage reference and is rejected;
+  commercial cover support requires an API/SDK migration to a managed Drive object reference and
+  server-side resolution through the Drive boundary.
 - Wiki publication projects Drive nodes under the fixed `sources/raw` root into per-file source,
   publication, visibility, route, render, and index state. The bounded worker validates pinned
   Drive versions, canonicalizes native routes, sanitizes Markdown/HTML/text pages, and executes
@@ -184,10 +198,12 @@ Tauri process, not an IM-owned iframe or Webview. See
 Production uses `cloud.production`; process decomposition remains an implementation detail inside
 that profile. Kubernetes runs one replicated `application.public-ingress` Deployment for all
 application HTTP route surfaces and one replicated worker Deployment. Every replica uses the same
-deployment-managed PostgreSQL identity and a shared Drive object-storage provider selected by
+deployment-managed tenant/organization identity, PostgreSQL pool scope, and shared Drive object-storage provider selected by
 `SDKWORK_KNOWLEDGEBASE_DRIVE_STORAGE_PROVIDER_ID`; pod-local files are not authoritative cloud
 content. The platform cloud gateway preserves distinct app/backend/open authorities while routing
 them to the same bounded public-ingress Service. See `deployments/README.md` and `etc/topology/`.
+Scope switching inside a process is unsupported. Separate tenant/organization deployments may
+share the PostgreSQL cluster and schema only because repository predicates and RLS bind both ids.
 
 ## 6. Verification
 
@@ -200,7 +216,7 @@ pnpm verify
 pnpm test
 ```
 
-Gates include architecture alignment, `verify-repo` native composition, PC app hygiene (SDK boundary), utils integration, API envelope, SDK generation, database contract, and Phase 1/2 readiness scripts.
+Gates include architecture alignment, `verify-repo` native composition, PC app hygiene (SDK boundary), utils integration, API envelope, SDK generation, database contract, isolation, and commercial release-readiness scripts.
 
-Phase 1.0 launch acceptance: [PRD-mvp-launch.md](../../product/prd/PRD-mvp-launch.md).  
-Phase 2 commercial SaaS: [PRD-phase2-commercial-saas.md](../../product/prd/PRD-phase2-commercial-saas.md).
+Launch acceptance: [PRD-mvp-launch.md](../../product/prd/PRD-mvp-launch.md).
+Commercial readiness: [PRD-phase2-commercial-saas.md](../../product/prd/PRD-phase2-commercial-saas.md).

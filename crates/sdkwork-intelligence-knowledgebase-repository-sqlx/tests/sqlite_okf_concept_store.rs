@@ -26,8 +26,8 @@ async fn sqlite_okf_concept_store_publishes_concepts_revisions_logs_and_projecti
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001;
     insert_space(&pool, tenant_id, 7).await;
-    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, tenant_id);
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, 0);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, tenant_id, 0);
 
     let concept = concepts
         .upsert_concept(UpsertKnowledgeOkfConceptRecord {
@@ -142,6 +142,28 @@ async fn sqlite_okf_concept_store_publishes_concepts_revisions_logs_and_projecti
 }
 
 #[tokio::test]
+async fn sqlite_okf_concept_store_denies_cross_organization_reads() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let tenant_id = 9001;
+    insert_space(&pool, tenant_id, 7).await;
+
+    let owner_store = SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id, 0);
+    let other_organization_store = SqliteKnowledgeOkfConceptStore::new(pool, tenant_id, 1);
+    let concept_row_id = upsert_published_concept(&owner_store, 7, "topics/private-concept").await;
+
+    assert!(other_organization_store
+        .get_concept_by_row_id(concept_row_id)
+        .await
+        .is_err());
+    assert!(other_organization_store
+        .list_all_concept_summaries()
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[tokio::test]
 async fn sqlite_okf_concept_store_pages_205_published_concepts_by_concept_id() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
@@ -149,8 +171,8 @@ async fn sqlite_okf_concept_store_pages_205_published_concepts_by_concept_id() {
     insert_space(&pool, 9001, 8).await;
     insert_space(&pool, 9002, 9).await;
 
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), 9001);
-    let other_tenant_concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9002);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), 9001, 0);
+    let other_tenant_concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9002, 0);
     let mut expected_ids = Vec::with_capacity(205);
     for index in 0..205 {
         let concept_id = format!("topics/concept-{index:04}");
@@ -201,7 +223,7 @@ async fn sqlite_okf_log_projection_keeps_the_latest_200_entries() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     insert_space(&pool, 9001, 7).await;
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9001);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9001, 0);
 
     for index in 0..205 {
         concepts
@@ -240,8 +262,8 @@ async fn sqlite_okf_concept_store_pages_205_revisions_by_revision_number() {
     insert_space(&pool, 9001, 8).await;
     insert_space(&pool, 9002, 9).await;
 
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), 9001);
-    let other_tenant_concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9002);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), 9001, 0);
+    let other_tenant_concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9002, 0);
     let concept_row_id = upsert_published_concept(&concepts, 7, "topics/main").await;
     let other_concept_row_id = upsert_published_concept(&concepts, 7, "topics/other-concept").await;
     let other_space_concept_row_id =
@@ -292,8 +314,9 @@ async fn sqlite_okf_concept_store_pages_more_than_200_rows_by_stable_business_ke
     insert_space(&pool, tenant_id, other_space_id).await;
     insert_space(&pool, other_tenant_id, 9).await;
 
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id);
-    let other_tenant_concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), other_tenant_id);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id, 0);
+    let other_tenant_concepts =
+        SqliteKnowledgeOkfConceptStore::new(pool.clone(), other_tenant_id, 0);
     let mut revision_concept_id = None;
 
     // Insert in reverse lexical order so an id-based query cannot accidentally pass.
@@ -415,7 +438,7 @@ async fn sqlite_okf_concept_store_reserves_revision_numbers_before_revision_inse
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     insert_space(&pool, 9001, 7).await;
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9001);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9001, 0);
 
     let concept = concepts
         .upsert_concept(UpsertKnowledgeOkfConceptRecord {
@@ -445,8 +468,8 @@ async fn sqlite_okf_concept_store_rejects_duplicate_revision_number_for_same_con
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001;
     insert_space(&pool, tenant_id, 7).await;
-    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, tenant_id);
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, 0);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, tenant_id, 0);
 
     let concept = concepts
         .upsert_concept(UpsertKnowledgeOkfConceptRecord {
@@ -542,7 +565,7 @@ async fn sqlite_okf_concept_store_rejects_unbounded_projection_batches() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     insert_space(&pool, 9001, 7).await;
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9001);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool, 9001, 0);
 
     let error = concepts
         .batch_concept_projections_by_paths(
@@ -564,8 +587,8 @@ async fn sqlite_okf_concept_revision_metadata_stages_object_ref_revision_and_cur
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001;
     insert_space(&pool, tenant_id, 7).await;
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id);
-    let metadata = SqliteOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id, 0);
+    let metadata = SqliteOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id, 0);
 
     let concept = concepts
         .upsert_concept(UpsertKnowledgeOkfConceptRecord {
@@ -650,8 +673,8 @@ async fn sqlite_okf_concept_revision_metadata_stages_candidate_with_revision_ato
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001;
     insert_space(&pool, tenant_id, 7).await;
-    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id);
-    let metadata = SqliteOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id, 0);
+    let metadata = SqliteOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id, 0);
 
     let concept = concepts
         .upsert_concept(UpsertKnowledgeOkfConceptRecord {
@@ -743,7 +766,7 @@ async fn sqlite_okf_concept_revision_slot_prepares_concept_and_revision_number_a
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001;
     insert_space(&pool, tenant_id, 7).await;
-    let metadata = SqliteOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id);
+    let metadata = SqliteOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id, 0);
 
     let concept_record = || UpsertKnowledgeOkfConceptRecord {
         space_id: 7,

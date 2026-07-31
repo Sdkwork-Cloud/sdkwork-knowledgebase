@@ -102,8 +102,10 @@ function parseArgs(argv) {
   if (!['browser', 'desktop'].includes(settings.target)) {
     throw new Error('target must be one of: browser, desktop');
   }
-  if (!['postgres', 'sqlite'].includes(settings.database)) {
-    throw new Error('database must be one of: postgres, sqlite');
+  if (settings.database !== 'postgres') {
+    throw new Error(
+      'Knowledgebase server development requires --database postgres; SQLite is client-local only.',
+    );
   }
 
   return settings;
@@ -116,11 +118,10 @@ Topology-aware Knowledgebase dev entry. Loads etc/topology profile env via @sdkw
 
 Database profiles:
   postgres (default)  IAM/login and Knowledgebase HTTP handlers share PostgreSQL from .env.postgres.
-  sqlite              Portable SQLite knowledge metadata profile without loading .env.postgres.
 
 Options:
   --deployment-profile <standalone|cloud>           Default: standalone
-  --database <postgres|sqlite>                      Default: postgres
+  --database <postgres>                             Default: postgres
   --target <browser|desktop>                        Default: browser
   --dev-env-file <path>                             Optional PostgreSQL override for IAM/login
   --dry-run                                         Print plan without executing
@@ -133,12 +134,6 @@ function resolvePostgresDevEnvFile(settings) {
     return settings.devEnvFile;
   }
   return fs.existsSync(path.join(REPO_ROOT, '.env.postgres')) ? '.env.postgres' : '.env.postgres.example';
-}
-
-function resolveDefaultSqliteDatabaseUrl() {
-  ensureKnowledgebaseDataDir();
-  const sqliteFile = path.join(REPO_ROOT, '.sdkwork', 'runtime', 'knowledgebase', 'knowledgebase.sqlite');
-  return `sqlite:///${sqliteFile.split(path.sep).join('/')}?mode=rwc`;
 }
 
 function resolveKnowledgebaseRuntimeTenantEnv(env = {}) {
@@ -235,26 +230,14 @@ function resolvePostgresKnowledgebaseDatabaseUrl(sourceEnv) {
   return `postgresql://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${encodeURIComponent(database)}?sslmode=${encodeURIComponent(sslMode)}`;
 }
 
-function resolveKnowledgebaseAppDatabaseEnv() {
+function databaseEnv(sourceEnv = {}) {
+  const databaseUrl = resolvePostgresKnowledgebaseDatabaseUrl(sourceEnv);
   return {
-    SDKWORK_DATABASE_ENGINE: 'sqlite',
-    SDKWORK_DATABASE_FILE: './.sdkwork/runtime/knowledgebase/knowledgebase.sqlite',
-    SDKWORK_DATABASE_URL: resolveDefaultSqliteDatabaseUrl(),
-    SDKWORK_DATABASE_MAX_CONNECTIONS: '1',
+    SDKWORK_DATABASE_ENGINE: 'postgresql',
+    SDKWORK_DATABASE_URL: databaseUrl,
+    SDKWORK_DATABASE_MAX_CONNECTIONS:
+      sourceEnv.SDKWORK_DATABASE_MAX_CONNECTIONS || '10',
   };
-}
-
-function databaseEnv(settings, sourceEnv = {}) {
-  if (settings.database === 'postgres') {
-    const databaseUrl = resolvePostgresKnowledgebaseDatabaseUrl(sourceEnv);
-    return {
-      SDKWORK_DATABASE_ENGINE: 'postgresql',
-      SDKWORK_DATABASE_URL: databaseUrl,
-      SDKWORK_DATABASE_MAX_CONNECTIONS:
-        sourceEnv.SDKWORK_DATABASE_MAX_CONNECTIONS || '10',
-    };
-  }
-  return resolveKnowledgebaseAppDatabaseEnv();
 }
 
 function createBrowserRendererProcess(env) {
@@ -331,15 +314,7 @@ function terminateProcessTree(child) {
   child.kill();
 }
 
-function ensureKnowledgebaseDataDir() {
-  const dataDir = path.join(REPO_ROOT, '.sdkwork', 'runtime', 'knowledgebase');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-}
-
 function createApiServerBinaryProcess(crate, binary, label, env) {
-  ensureKnowledgebaseDataDir();
   return {
     label,
     command: cargoCommand(),
@@ -397,8 +372,7 @@ async function main() {
   const profileId =
     resolveDevProfileId(settings.deploymentProfile) || DEFAULT_DEV_PROFILE_ID;
   const profileEnv = loadProfile(profileId);
-  const postgresDevEnv =
-    settings.database === 'postgres' ? loadEnvFile(resolvePostgresDevEnvFile(settings)) : {};
+  const postgresDevEnv = loadEnvFile(resolvePostgresDevEnvFile(settings));
   const iamSourceEnv = mergeRuntimeEnv(process.env, profileEnv, postgresDevEnv);
   const iamResolvedEnv = resolveIamDevEnv(iamSourceEnv);
   const runtimeEnv = materializeWorkspacePostgresSearchPath(mergeRepoDevBootstrapAccessTokenEnv({
@@ -407,7 +381,7 @@ async function main() {
     env: mergeRuntimeEnv(
       iamSourceEnv,
       iamResolvedEnv,
-      databaseEnv(settings, iamResolvedEnv),
+      databaseEnv(iamResolvedEnv),
       IAM_APPLICATION_BOOTSTRAP_ENV,
       resolveKnowledgebaseRuntimeTenantEnv(iamSourceEnv),
       {

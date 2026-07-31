@@ -8,12 +8,18 @@ use sdkwork_knowledgebase_contract::rag::{
 use sqlx::{AnyPool, Row};
 use std::sync::{Arc, Mutex};
 
+const ORGANIZATION_ID: u64 = 71;
+
 #[tokio::test]
 async fn sqlite_index_store_creates_and_retrieves_active_index() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let store =
-        SqliteKnowledgeIndexStore::with_id_generator(pool.clone(), 9001, fixed_id_generator([801]));
+    let store = SqliteKnowledgeIndexStore::with_id_generator(
+        pool.clone(),
+        9001,
+        ORGANIZATION_ID,
+        fixed_id_generator([801]),
+    );
 
     let created = store
         .create_index(KnowledgeIndexRequest {
@@ -40,7 +46,7 @@ async fn sqlite_index_store_creates_and_retrieves_active_index() {
 
     let row = sqlx::query(
         r#"
-        SELECT tenant_id, space_id, collection_id, index_kind, status
+        SELECT tenant_id, organization_id, space_id, collection_id, index_kind, status
         FROM kb_index
         WHERE id = ?
         "#,
@@ -50,6 +56,7 @@ async fn sqlite_index_store_creates_and_retrieves_active_index() {
     .await
     .unwrap();
     assert_eq!(row.get::<i64, _>("tenant_id"), 9001);
+    assert_eq!(row.get::<i64, _>("organization_id"), 71);
     assert_eq!(row.get::<i64, _>("space_id"), 7);
     assert_eq!(row.get::<i64, _>("collection_id"), 3);
     assert_eq!(row.get::<String, _>("index_kind"), "vector");
@@ -63,6 +70,7 @@ async fn sqlite_retrieval_profile_store_creates_and_updates_profile() {
     let store = SqliteKnowledgeRetrievalProfileStore::with_id_generator(
         pool.clone(),
         9001,
+        ORGANIZATION_ID,
         fixed_id_generator([901]),
     );
 
@@ -110,6 +118,39 @@ async fn sqlite_retrieval_profile_store_creates_and_updates_profile() {
 
     let loaded = store.get_profile(901).await.unwrap();
     assert_eq!(loaded, updated);
+}
+
+#[tokio::test]
+async fn sqlite_rag_configuration_stores_isolate_same_tenant_organizations() {
+    let pool = sqlite_pool().await;
+    apply_sqlite_migration(&pool).await;
+    let first = SqliteKnowledgeIndexStore::with_id_generator(
+        pool.clone(),
+        9001,
+        71,
+        fixed_id_generator([811]),
+    );
+    let second = SqliteKnowledgeIndexStore::with_id_generator(
+        pool.clone(),
+        9001,
+        72,
+        fixed_id_generator([812]),
+    );
+    let request = || KnowledgeIndexRequest {
+        tenant_id: 9001,
+        space_id: 7,
+        collection_id: Some(3),
+        index_kind: "vector".to_string(),
+        embedding_provider_id: None,
+        embedding_model: None,
+        dimension: Some(1536),
+        metric: Some("cosine".to_string()),
+    };
+
+    assert_eq!(first.create_index(request()).await.unwrap().index_id, 811);
+    assert_eq!(second.create_index(request()).await.unwrap().index_id, 812);
+    assert!(first.get_index(812).await.is_err());
+    assert!(second.get_index(811).await.is_err());
 }
 
 async fn sqlite_pool() -> AnyPool {

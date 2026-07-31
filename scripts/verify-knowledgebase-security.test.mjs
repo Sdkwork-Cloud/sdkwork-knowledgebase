@@ -12,6 +12,89 @@ function readRepoFile(relativePath) {
 }
 
 describe('knowledgebase security standard alignment', () => {
+  it('isolates untrusted desktop preview content from Tauri IPC', () => {
+    const tauriConfig = readRepoFile('apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-desktop/src-tauri/tauri.conf.json');
+    const editorPanel = readRepoFile('apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/CodeEditorPanel.tsx');
+    const preview = readRepoFile('apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-knowledgebase/src/services/sandboxedHtmlPreview.ts');
+    const secureStore = readRepoFile('apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-desktop/src-tauri/src/session_secure_store.rs');
+
+    assert.match(tauriConfig, /"withGlobalTauri": false/);
+    assert.doesNotMatch(tauriConfig, /script-src[^";]*'unsafe-inline'/);
+    assert.doesNotMatch(tauriConfig, /script-src[^";]*https?:/);
+    assert.match(editorPanel, /sandbox=""/);
+    assert.doesNotMatch(editorPanel, /allow-same-origin|allow-scripts/);
+    assert.match(preview, /default-src 'none'/);
+    assert.match(preview, /script-src 'none'/);
+    assert.match(secureStore, /read_secure_session_value/);
+    assert.doesNotMatch(secureStore, /pub fn read_secure_session_snapshot/);
+  });
+
+  it('bounds desktop resource reads and base64 decoding before allocation', () => {
+    const resourceBridge = readRepoFile('apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-desktop/src-tauri/src/resource_bridge.rs');
+    const exportSave = readRepoFile('apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-desktop/src-tauri/src/export_save.rs');
+
+    assert.match(resourceBridge, /while let Some\(chunk\)/);
+    assert.doesNotMatch(resourceBridge, /response\s*\.bytes\(\)/);
+    assert.match(resourceBridge, /MAX_CONCURRENT_RESOURCE_IO/);
+    assert.match(exportSave, /decode_bounded_base64/);
+    assert.match(exportSave, /payload\.len\(\) > max_encoded_bytes/);
+  });
+
+  it('bounds server secret files on the opened handle before allocation', () => {
+    const runtime = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs',
+    );
+    const secretCipher = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-service/src/wechat/secret_cipher.rs',
+    );
+
+    assert.match(runtime, /fn read_bounded_utf8_file/);
+    assert.match(runtime, /file\.take\(max_bytes\.saturating_add\(1\)\)/);
+    assert.doesNotMatch(runtime, /std::fs::read_to_string\(path\)/);
+    assert.match(secretCipher, /MAX_KEY_MATERIAL_FILE_BYTES/);
+    assert.match(secretCipher, /file\.take\(MAX_KEY_MATERIAL_FILE_BYTES \+ 1\)/);
+    assert.doesNotMatch(secretCipher, /std::fs::read_to_string\(path\.trim\(\)\)/);
+  });
+
+  it('bounds and redacts WeChat storage and upstream response handling', () => {
+    const apiClient = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-service/src/wechat/api_client.rs',
+    );
+    const configStore = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-service/src/wechat/config_store.rs',
+    );
+
+    assert.match(apiClient, /MAX_WECHAT_JSON_RESPONSE_BYTES/);
+    assert.match(apiClient, /read_bounded_http_body/);
+    assert.match(apiClient, /redacted_reqwest_error/);
+    assert.doesNotMatch(apiClient, /response\.json\(\)\.await/);
+    assert.doesNotMatch(apiClient, /Http\(\#\[from\] reqwest::Error\)/);
+    assert.doesNotMatch(apiClient, /unwrap_or_else\(\|_\| Client::new\(\)\)/);
+    assert.match(configStore, /MAX_WECHAT_CONFIG_BYTES/);
+    assert.match(configStore, /get_object_text_bounded/);
+    assert.doesNotMatch(configStore, /load_config\(\)\.await\.unwrap_or_default\(\)/);
+  });
+
+  it('redacts outbound import transport errors before persistence or API mapping', () => {
+    const boundedBody = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-service/src/bounded_http_body.rs',
+    );
+    const githubApi = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-service/src/imports/github_api.rs',
+    );
+    const webLinkFetch = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-service/src/ingest/web_link_fetch.rs',
+    );
+
+    assert.match(boundedBody, /redacted_reqwest_error_detail/);
+    assert.doesNotMatch(boundedBody, /Read\(\#\[source\] reqwest::Error\)/);
+    for (const source of [githubApi, webLinkFetch]) {
+      assert.match(source, /redacted_reqwest_error_detail/);
+      assert.doesNotMatch(source, /Upstream\(error\.to_string\(\)\)/);
+      assert.doesNotMatch(source, /BoundedHttpBodyError::Read\(error\)/);
+    }
+  });
+
   it('enforces fail-closed tenant and organization guards in hosted access', () => {
     const hostedAccess = readRepoFile(
       'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_access.rs',

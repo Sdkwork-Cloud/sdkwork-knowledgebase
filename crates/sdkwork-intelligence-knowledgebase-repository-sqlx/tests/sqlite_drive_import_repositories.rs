@@ -73,7 +73,7 @@ async fn sqlite_repositories_persist_drive_import_metadata_chain() {
         .await
         .unwrap();
 
-    let metadata = SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id);
+    let metadata = SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id, 0);
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let result = service
@@ -181,7 +181,7 @@ async fn sqlite_drive_import_quota_rolls_back_entire_metadata_chain() {
         ..KnowledgebaseTenantQuotaLimits::default()
     };
     let metadata =
-        SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id).with_quota_limits(limits);
+        SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id, 0).with_quota_limits(limits);
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let error = service
@@ -227,7 +227,7 @@ async fn sqlite_drive_import_replay_reuses_metadata_chain() {
         .await
         .unwrap();
 
-    let metadata = SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id);
+    let metadata = SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id, 0);
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let request = resolved_drive_import_request(
@@ -297,7 +297,7 @@ async fn sqlite_drive_import_rejects_same_idempotency_key_for_different_drive_ob
         .await
         .unwrap();
 
-    let metadata = SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id);
+    let metadata = SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id, 0);
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     service
@@ -365,7 +365,7 @@ async fn sqlite_drive_import_persists_drive_node_binding_for_browser_projection(
         .await
         .unwrap();
 
-    let metadata = SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id);
+    let metadata = SqliteDriveImportMetadataStore::new(pool.clone(), tenant_id, 0);
     let service = KnowledgeDriveImportService::new(&drive, &metadata);
 
     let result = service
@@ -428,7 +428,7 @@ async fn sqlite_drive_import_persists_drive_node_binding_for_browser_projection(
 async fn sqlite_ingestion_jobs_are_idempotent_per_space_not_whole_tenant() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let store = SqliteIngestionJobStore::new(pool.clone(), 9001);
+    let store = SqliteIngestionJobStore::new(pool.clone(), 9001, 0);
 
     let first = store
         .create_or_get_job(CreateIngestionJobRecord {
@@ -475,7 +475,7 @@ async fn sqlite_ingestion_jobs_are_idempotent_per_space_not_whole_tenant() {
 async fn sqlite_workers_claim_each_queued_ingestion_job_once() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let store = Arc::new(SqliteIngestionJobStore::new(pool, 9001));
+    let store = Arc::new(SqliteIngestionJobStore::new(pool, 9001, 0));
     let job = create_ingestion_job(&store, 7, "drive_object", "claim-once").await;
     let barrier = Arc::new(Barrier::new(3));
 
@@ -512,7 +512,7 @@ async fn sqlite_workers_claim_each_queued_ingestion_job_once() {
 async fn sqlite_expired_ingestion_lease_is_reclaimed_and_stale_worker_is_fenced() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let store = SqliteIngestionJobStore::new(pool.clone(), 9001);
+    let store = SqliteIngestionJobStore::new(pool.clone(), 9001, 0);
     let job = create_ingestion_job(&store, 7, "drive_object", "lease-reclaim").await;
 
     let first = store
@@ -580,7 +580,7 @@ async fn sqlite_inflight_count_recovers_stale_queued_and_running_upload_sessions
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001_u64;
-    let store = SqliteIngestionJobStore::new(pool.clone(), tenant_id);
+    let store = SqliteIngestionJobStore::new(pool.clone(), tenant_id, 0);
 
     let stale_queued = create_ingestion_job(&store, 7, "upload_session", "stale-queued").await;
     let stale_running = create_ingestion_job(&store, 7, "upload_session", "stale-running").await;
@@ -636,7 +636,7 @@ async fn sqlite_stale_upload_session_recovery_is_bounded_without_consuming_quota
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001_u64;
-    let store = SqliteIngestionJobStore::new(pool.clone(), tenant_id);
+    let store = SqliteIngestionJobStore::new(pool.clone(), tenant_id, 0);
 
     for job_number in 0..101_u64 {
         create_ingestion_job(
@@ -728,7 +728,7 @@ async fn sqlite_ingestion_job_quota_is_atomic_under_concurrent_creates() {
         max_concurrent_ingest_jobs: 2,
         ..KnowledgebaseTenantQuotaLimits::default()
     };
-    let store = Arc::new(SqliteIngestionJobStore::new(pool, 9001).with_quota_limits(limits));
+    let store = Arc::new(SqliteIngestionJobStore::new(pool, 9001, 0).with_quota_limits(limits));
     let barrier = Arc::new(Barrier::new(11));
     let mut tasks = Vec::new();
     for index in 0..10_u64 {
@@ -770,7 +770,8 @@ async fn sqlite_document_quota_is_atomic_under_concurrent_creates() {
         max_documents: 3,
         ..KnowledgebaseTenantQuotaLimits::default()
     };
-    let store = Arc::new(SqliteKnowledgeDocumentStore::new(pool, 9001).with_quota_limits(limits));
+    let store =
+        Arc::new(SqliteKnowledgeDocumentStore::new(pool, 9001, 0).with_quota_limits(limits));
     let barrier = Arc::new(Barrier::new(11));
     let mut tasks = Vec::new();
     for index in 0..10_u64 {
@@ -817,7 +818,7 @@ async fn sqlite_storage_quota_is_atomic_under_concurrent_object_refs() {
         ..KnowledgebaseTenantQuotaLimits::default()
     };
     let store =
-        Arc::new(SqliteKnowledgeDriveObjectRefStore::new(pool, 9001).with_quota_limits(limits));
+        Arc::new(SqliteKnowledgeDriveObjectRefStore::new(pool, 9001, 0).with_quota_limits(limits));
     let barrier = Arc::new(Barrier::new(11));
     let mut tasks = Vec::new();
     for index in 0..10_u64 {
@@ -866,7 +867,7 @@ async fn sqlite_storage_quota_is_atomic_under_concurrent_object_refs() {
 async fn sqlite_source_store_rejects_duplicate_source_identity() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let store = SqliteKnowledgeSourceStore::new(pool, 9001);
+    let store = SqliteKnowledgeSourceStore::new(pool, 9001, 0);
     let record = CreateKnowledgeSourceRecord {
         space_id: 7,
         source_type: KnowledgeSourceType::DriveObject,
@@ -889,7 +890,7 @@ async fn sqlite_source_store_rejects_duplicate_source_identity() {
 async fn sqlite_document_store_rejects_duplicate_document_identity() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let store = SqliteKnowledgeDocumentStore::new(pool.clone(), 9001);
+    let store = SqliteKnowledgeDocumentStore::new(pool.clone(), 9001, 0);
     let record = CreateKnowledgeDocumentRecord {
         space_id: 7,
         collection_id: 0,
@@ -915,7 +916,7 @@ async fn sqlite_document_store_rejects_duplicate_document_identity() {
 async fn sqlite_document_store_allows_same_source_with_different_drive_nodes() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let store = SqliteKnowledgeDocumentStore::new(pool.clone(), 9001);
+    let store = SqliteKnowledgeDocumentStore::new(pool.clone(), 9001, 0);
 
     let first = store
         .create_document(CreateKnowledgeDocumentRecord {
@@ -957,7 +958,7 @@ async fn sqlite_document_store_allows_same_source_with_different_drive_nodes() {
 async fn sqlite_document_store_rejects_source_only_identity_without_source_id() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let store = SqliteKnowledgeDocumentStore::new(pool.clone(), 9001);
+    let store = SqliteKnowledgeDocumentStore::new(pool.clone(), 9001, 0);
 
     let error = store
         .create_document(CreateKnowledgeDocumentRecord {
@@ -989,9 +990,9 @@ async fn sqlite_document_version_create_or_get_heals_missing_current_version_poi
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001_u64;
-    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id);
-    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
-    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id);
+    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id, 0);
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, 0);
+    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id, 0);
 
     let object_ref = object_refs
         .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
@@ -1065,10 +1066,10 @@ async fn sqlite_ingestion_job_store_completes_chunks_job_and_outbox_atomically()
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001_u64;
-    let jobs = SqliteIngestionJobStore::new(pool.clone(), tenant_id);
-    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id);
-    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id);
-    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
+    let jobs = SqliteIngestionJobStore::new(pool.clone(), tenant_id, 0);
+    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id, 0);
+    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id, 0);
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, 0);
 
     let object_ref = object_refs
         .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
@@ -1192,7 +1193,7 @@ async fn sqlite_markdown_index_metadata_persists_object_ref_document_version_cha
         .await
         .unwrap();
 
-    let metadata = SqliteMarkdownIndexMetadataStore::new(pool.clone(), tenant_id);
+    let metadata = SqliteMarkdownIndexMetadataStore::new(pool.clone(), tenant_id, 0);
     let indexer = KnowledgeApiMarkdownIndexService::new(&metadata);
     let prepared = indexer
         .prepare_payload_markdown_index(
@@ -1286,7 +1287,7 @@ async fn sqlite_markdown_index_metadata_replay_reuses_document_version_chain() {
         connector_metadata_json: None,
     });
 
-    let metadata = SqliteMarkdownIndexMetadataStore::new(pool.clone(), tenant_id);
+    let metadata = SqliteMarkdownIndexMetadataStore::new(pool.clone(), tenant_id, 0);
     let indexer = KnowledgeApiMarkdownIndexService::new(&metadata);
     let first = indexer
         .prepare_payload_markdown_index(
@@ -1346,7 +1347,7 @@ async fn sqlite_markdown_metadata_quota_allows_replay_and_rolls_back_new_documen
         ..KnowledgebaseTenantQuotaLimits::default()
     };
     let metadata =
-        SqliteMarkdownIndexMetadataStore::new(pool.clone(), tenant_id).with_quota_limits(limits);
+        SqliteMarkdownIndexMetadataStore::new(pool.clone(), tenant_id, 0).with_quota_limits(limits);
     let indexer = KnowledgeApiMarkdownIndexService::new(&metadata);
     let first_source = MarkdownIndexSourceBinding::Create(CreateKnowledgeSourceRecord {
         space_id: 7,

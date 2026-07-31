@@ -8,11 +8,18 @@ export interface InAppBrowserModalProps {
   onClose: () => void;
 }
 
-function normalizeUrl(raw: string) {
-  const trimmed = raw.trim();
-  if (!trimmed) return '';
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
+function normalizeUrl(raw: string): string {
+  const value = trim(raw);
+  if (isBlank(value)) {
+    return '';
+  }
+  const candidate = /^https?:\/\//iu.test(value) ? value : `https://${value}`;
+  try {
+    const parsed = new URL(candidate);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : '';
+  } catch {
+    return '';
+  }
 }
 
 export function InAppBrowserModal({ url, title, onClose }: InAppBrowserModalProps) {
@@ -111,7 +118,8 @@ export function InAppBrowserModal({ url, title, onClose }: InAppBrowserModalProp
               src={currentUrl}
               title={displayTitle}
               className="w-full h-full border-0 bg-white dark:bg-[var(--color-kb-editor)]"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+              referrerPolicy="no-referrer"
+              sandbox="allow-scripts allow-forms allow-popups"
               onError={() => setLoadError(true)}
             />
           )}

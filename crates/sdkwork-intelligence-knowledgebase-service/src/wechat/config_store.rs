@@ -8,9 +8,12 @@ use sdkwork_knowledgebase_contract::wechat::{
 };
 use sdkwork_utils_rust::{is_blank, sha256_hash};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 const CONFIG_LOGICAL_PATH: &str = "wechat/v1/config.json";
 const CONFIG_OBJECT_ROLE: &str = "wechat_config";
+const MAX_WECHAT_CONFIG_BYTES: u64 = 1024 * 1024;
+const MAX_WECHAT_CONFIG_ENTRIES_PER_KIND: usize = 100;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -50,7 +53,7 @@ impl<'a> WechatConfigStore<'a> {
         accounts: Vec<KnowledgeWechatOfficialAccount>,
     ) -> Result<Vec<KnowledgeWechatOfficialAccount>, KnowledgeStorageError> {
         validate_official_accounts(&accounts)?;
-        let existing = self.load_config().await.unwrap_or_default();
+        let existing = self.load_config().await?;
         let mut config = existing;
         config.official_accounts =
             merge_official_account_secrets(accounts, &config.official_accounts);
@@ -72,7 +75,7 @@ impl<'a> WechatConfigStore<'a> {
         applets: Vec<KnowledgeWechatApplet>,
     ) -> Result<Vec<KnowledgeWechatApplet>, KnowledgeStorageError> {
         validate_applets(&applets)?;
-        let existing = self.load_config().await.unwrap_or_default();
+        let existing = self.load_config().await?;
         let mut config = existing;
         config.applets = merge_applet_secrets(applets, &config.applets);
         self.save_config(&config).await?;
@@ -99,7 +102,10 @@ impl<'a> WechatConfigStore<'a> {
             Err(KnowledgeStorageError::NotFound(_)) => return Ok(TenantWechatConfig::default()),
             Err(error) => return Err(error),
         };
-        let body = self.drive.get_object_text(&object_ref).await?;
+        let body = self
+            .drive
+            .get_object_text_bounded(&object_ref, MAX_WECHAT_CONFIG_BYTES)
+            .await?;
         let mut config: TenantWechatConfig = serde_json::from_str(&body).map_err(|error| {
             KnowledgeStorageError::Internal(format!("invalid wechat config json: {error}"))
         })?;
@@ -113,6 +119,11 @@ impl<'a> WechatConfigStore<'a> {
         let body = serde_json::to_vec(&encrypted).map_err(|error| {
             KnowledgeStorageError::Internal(format!("failed to encode wechat config: {error}"))
         })?;
+        if body.len() as u64 > MAX_WECHAT_CONFIG_BYTES {
+            return Err(KnowledgeStorageError::InvalidRequest(format!(
+                "wechat config exceeds {MAX_WECHAT_CONFIG_BYTES} bytes"
+            )));
+        }
         let checksum = format!("sha256:{}", sha256_hash(&body));
         self.drive
             .put_object(PutKnowledgeObjectRequest {
@@ -135,22 +146,46 @@ fn tenant_config_space_uuid(tenant_id: &str) -> String {
 fn validate_official_accounts(
     accounts: &[KnowledgeWechatOfficialAccount],
 ) -> Result<(), KnowledgeStorageError> {
+    if accounts.len() > MAX_WECHAT_CONFIG_ENTRIES_PER_KIND {
+        return Err(KnowledgeStorageError::InvalidRequest(format!(
+            "official account count exceeds {MAX_WECHAT_CONFIG_ENTRIES_PER_KIND}"
+        )));
+    }
+    let mut ids = HashSet::with_capacity(accounts.len());
     for account in accounts {
         if is_blank(Some(account.id.as_str())) || is_blank(Some(account.app_id.as_str())) {
             return Err(KnowledgeStorageError::InvalidRequest(
                 "official account id and appId are required".to_string(),
             ));
         }
+        if !ids.insert(account.id.as_str()) {
+            return Err(KnowledgeStorageError::InvalidRequest(format!(
+                "duplicate official account id: {}",
+                account.id
+            )));
+        }
     }
     Ok(())
 }
 
 fn validate_applets(applets: &[KnowledgeWechatApplet]) -> Result<(), KnowledgeStorageError> {
+    if applets.len() > MAX_WECHAT_CONFIG_ENTRIES_PER_KIND {
+        return Err(KnowledgeStorageError::InvalidRequest(format!(
+            "applet count exceeds {MAX_WECHAT_CONFIG_ENTRIES_PER_KIND}"
+        )));
+    }
+    let mut ids = HashSet::with_capacity(applets.len());
     for applet in applets {
         if is_blank(Some(applet.id.as_str())) || is_blank(Some(applet.app_id.as_str())) {
             return Err(KnowledgeStorageError::InvalidRequest(
                 "applet id and appId are required".to_string(),
             ));
+        }
+        if !ids.insert(applet.id.as_str()) {
+            return Err(KnowledgeStorageError::InvalidRequest(format!(
+                "duplicate applet id: {}",
+                applet.id
+            )));
         }
     }
     Ok(())
@@ -273,6 +308,147 @@ fn cipher_storage_error(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct FailingHeadDrive {
+        put_calls: AtomicUsize,
+    }
+
+    struct OversizeConfigDrive;
+
+    #[async_trait]
+    impl KnowledgeDriveStorage for OversizeConfigDrive {
+        async fn put_object(
+            &self,
+            _request: PutKnowledgeObjectRequest,
+        ) -> Result<crate::ports::knowledge_drive_storage::KnowledgeObjectRef, KnowledgeStorageError>
+        {
+            Err(KnowledgeStorageError::Internal(
+                "unexpected config write".to_string(),
+            ))
+        }
+
+        async fn head_object(
+            &self,
+            _request: HeadKnowledgeObjectRequest,
+        ) -> Result<crate::ports::knowledge_drive_storage::KnowledgeObjectRef, KnowledgeStorageError>
+        {
+            Ok(crate::ports::knowledge_drive_storage::KnowledgeObjectRef {
+                storage_provider_id: "test".to_string(),
+                bucket: "test".to_string(),
+                object_key: CONFIG_LOGICAL_PATH.to_string(),
+                logical_path: CONFIG_LOGICAL_PATH.to_string(),
+                object_role: CONFIG_OBJECT_ROLE.to_string(),
+                content_type: "application/json".to_string(),
+                size_bytes: MAX_WECHAT_CONFIG_BYTES + 1,
+                checksum_sha256_hex: None,
+                etag: None,
+                version_id: None,
+            })
+        }
+
+        async fn get_object_text(
+            &self,
+            _object_ref: &crate::ports::knowledge_drive_storage::KnowledgeObjectRef,
+        ) -> Result<String, KnowledgeStorageError> {
+            panic!("oversize config must be rejected before reading its body")
+        }
+    }
+
+    #[async_trait]
+    impl KnowledgeDriveStorage for FailingHeadDrive {
+        async fn put_object(
+            &self,
+            _request: PutKnowledgeObjectRequest,
+        ) -> Result<crate::ports::knowledge_drive_storage::KnowledgeObjectRef, KnowledgeStorageError>
+        {
+            self.put_calls.fetch_add(1, Ordering::SeqCst);
+            Err(KnowledgeStorageError::Internal(
+                "unexpected config write".to_string(),
+            ))
+        }
+
+        async fn head_object(
+            &self,
+            _request: HeadKnowledgeObjectRequest,
+        ) -> Result<crate::ports::knowledge_drive_storage::KnowledgeObjectRef, KnowledgeStorageError>
+        {
+            Err(KnowledgeStorageError::Upstream(
+                "test config read failure".to_string(),
+            ))
+        }
+
+        async fn get_object_text(
+            &self,
+            _object_ref: &crate::ports::knowledge_drive_storage::KnowledgeObjectRef,
+        ) -> Result<String, KnowledgeStorageError> {
+            Err(KnowledgeStorageError::Internal(
+                "unexpected config body read".to_string(),
+            ))
+        }
+    }
+
+    #[tokio::test]
+    async fn replacements_do_not_overwrite_config_when_existing_config_read_fails() {
+        let drive = FailingHeadDrive {
+            put_calls: AtomicUsize::new(0),
+        };
+        let store = WechatConfigStore::new(&drive, "tenant-1");
+
+        for error in [
+            store
+                .replace_official_accounts(Vec::new())
+                .await
+                .expect_err("official account replacement must fail closed"),
+            store
+                .replace_applets(Vec::new())
+                .await
+                .expect_err("applet replacement must fail closed"),
+        ] {
+            assert!(matches!(error, KnowledgeStorageError::Upstream(_)));
+        }
+        assert_eq!(drive.put_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn config_load_rejects_declared_oversize_before_body_read() {
+        let store = WechatConfigStore::new(&OversizeConfigDrive, "tenant-1");
+
+        let error = store
+            .load_official_accounts()
+            .await
+            .expect_err("oversize config must be rejected");
+
+        assert!(matches!(error, KnowledgeStorageError::InvalidRequest(_)));
+    }
+
+    #[test]
+    fn config_validation_rejects_duplicate_ids() {
+        let account = KnowledgeWechatOfficialAccount {
+            id: "duplicate".to_string(),
+            name: "A".to_string(),
+            account_type: "subscription".to_string(),
+            avatar: String::new(),
+            description: None,
+            app_id: "wx1".to_string(),
+            app_secret: None,
+            server_url: None,
+            token: None,
+            encoding_aes_key: None,
+            encrypt_mode: None,
+            domain_verify_file_name: None,
+            domain_verify_file_content: None,
+            js_secure_domains: None,
+            web_auth_domains: None,
+            business_domains: None,
+            group: None,
+        };
+
+        let error = validate_official_accounts(&[account.clone(), account])
+            .expect_err("duplicate account ids must be rejected");
+        assert!(matches!(error, KnowledgeStorageError::InvalidRequest(_)));
+    }
 
     #[test]
     fn merge_official_account_secrets_preserves_existing_secret() {

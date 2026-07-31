@@ -15,6 +15,7 @@ async fn sqlite_agent_profile_store_persists_profile_and_knowledge_bindings() {
     let store = SqliteKnowledgeAgentProfileStore::with_id_generator(
         pool.clone(),
         9001,
+        0,
         fixed_id_generator([501, 601, 602]),
     );
 
@@ -73,6 +74,7 @@ async fn sqlite_agent_profile_store_updates_and_soft_deletes_bindings() {
     let store = SqliteKnowledgeAgentProfileStore::with_id_generator(
         pool.clone(),
         9001,
+        0,
         fixed_id_generator([501, 601]),
     );
     let created = store

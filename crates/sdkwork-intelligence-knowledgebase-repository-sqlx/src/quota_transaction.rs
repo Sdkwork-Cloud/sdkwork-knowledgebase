@@ -13,13 +13,17 @@ pub(crate) async fn begin_tenant_quota_transaction(
     pool: &AnyPool,
     database_engine: DatabaseEngine,
     tenant_id: i64,
+    organization_id: i64,
 ) -> Result<Transaction<'static, Any>, sqlx::Error> {
     let mut transaction = pool.begin().await?;
     match database_engine {
         DatabaseEngine::Postgres => {
-            let lock_key = tenant_id ^ KNOWLEDGEBASE_QUOTA_LOCK_NAMESPACE;
-            sqlx::query("SELECT pg_advisory_xact_lock($1)")
-                .bind(lock_key)
+            sqlx::query(
+                "SELECT pg_advisory_xact_lock(hashtextextended(CAST($1 AS TEXT) || ':' || CAST($2 AS TEXT), $3))",
+            )
+                .bind(tenant_id)
+                .bind(organization_id)
+                .bind(KNOWLEDGEBASE_QUOTA_LOCK_NAMESPACE)
                 .execute(&mut *transaction)
                 .await?;
         }
@@ -27,9 +31,10 @@ pub(crate) async fn begin_tenant_quota_transaction(
             // A write statement acquires SQLite's cross-connection write reservation
             // before quota usage is read. The impossible id keeps the lock rowless.
             sqlx::query(
-                "UPDATE kb_ingestion_job SET version = version WHERE tenant_id = $1 AND id = -1",
+                "UPDATE kb_ingestion_job SET version = version WHERE tenant_id = $1 AND organization_id = $2 AND id = -1",
             )
             .bind(tenant_id)
+            .bind(organization_id)
             .execute(&mut *transaction)
             .await?;
         }
@@ -51,13 +56,16 @@ pub(crate) async fn enforce_tenant_quotas_after_write(
     connection: &mut AnyConnection,
     database_engine: DatabaseEngine,
     tenant_id: i64,
+    organization_id: i64,
     limits: KnowledgebaseTenantQuotaLimits,
 ) -> Result<(), TenantQuotaTransactionError> {
-    let document_count: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM kb_document WHERE tenant_id = $1 AND status = 1")
-            .bind(tenant_id)
-            .fetch_one(&mut *connection)
-            .await?;
+    let document_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM kb_document WHERE tenant_id = $1 AND organization_id = $2 AND status = 1",
+    )
+    .bind(tenant_id)
+    .bind(organization_id)
+    .fetch_one(&mut *connection)
+    .await?;
     let document_count = u64::try_from(document_count.max(0))
         .map_err(|error| TenantQuotaTransactionError::Invalid(error.to_string()))?;
     if document_count > limits.max_documents {
@@ -79,21 +87,23 @@ pub(crate) async fn enforce_tenant_quotas_after_write(
         .format(&Rfc3339)
         .map_err(|error| TenantQuotaTransactionError::Invalid(error.to_string()))?;
     let cutoff_expr = match database_engine {
-        DatabaseEngine::Sqlite => "$6",
-        DatabaseEngine::Postgres => "CAST($6 AS TIMESTAMP)",
+        DatabaseEngine::Sqlite => "$7",
+        DatabaseEngine::Postgres => "CAST($7 AS TIMESTAMP)",
     };
     let query = format!(
         r#"
         SELECT COUNT(*)
         FROM kb_ingestion_job
         WHERE tenant_id = $1
-          AND status = $2
-          AND state IN ($3, $4)
-          AND NOT (job_type = $5 AND created_at <= {cutoff_expr})
+          AND organization_id = $2
+          AND status = $3
+          AND state IN ($4, $5)
+          AND NOT (job_type = $6 AND created_at <= {cutoff_expr})
         "#,
     );
     let inflight_count: i64 = sqlx::query_scalar(&query)
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(1_i64)
         .bind(0_i64)
         .bind(1_i64)
@@ -113,9 +123,10 @@ pub(crate) async fn enforce_tenant_quotas_after_write(
     }
 
     let storage_bytes: i64 = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(size_bytes), 0) FROM kb_drive_object_ref WHERE tenant_id = $1 AND status = 1",
+        "SELECT COALESCE(SUM(size_bytes), 0) FROM kb_drive_object_ref WHERE tenant_id = $1 AND organization_id = $2 AND status = 1",
     )
     .bind(tenant_id)
+    .bind(organization_id)
     .fetch_one(connection)
     .await?;
     let storage_bytes = u64::try_from(storage_bytes.max(0))

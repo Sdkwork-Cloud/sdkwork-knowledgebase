@@ -71,7 +71,7 @@ async fn postgres_ingest_quota_advisory_lock_is_atomic_when_database_url_configu
         ..KnowledgebaseTenantQuotaLimits::default()
     };
     let store = Arc::new(
-        SqliteIngestionJobStore::new(pool.clone(), tenant_id)
+        SqliteIngestionJobStore::new(pool.clone(), tenant_id, 0)
             .with_database_engine(DatabaseEngine::Postgres)
             .with_quota_limits(limits),
     );
@@ -123,7 +123,7 @@ async fn postgres_audit_event_table_accepts_append_when_database_url_configured(
     let pool = connect_postgres_and_install_schema(&database_url)
         .await
         .expect("connect postgres knowledgebase schema");
-    let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001);
+    let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001, 7);
     let request_id = format!(
         "req-postgres-audit-{}",
         SystemTime::now()
@@ -175,7 +175,7 @@ async fn postgres_agent_profile_create_when_database_url_configured() {
     let pool = connect_postgres_and_install_schema(&database_url)
         .await
         .expect("connect postgres knowledgebase schema");
-    let store = SqliteKnowledgeAgentProfileStore::new(pool, 100_001);
+    let store = SqliteKnowledgeAgentProfileStore::new(pool, 100_001, 0);
     let created = store
         .create_profile(KnowledgeAgentProfileRequest {
             tenant_id: 100_001,
@@ -242,10 +242,10 @@ async fn postgres_browser_projection_batches_document_status_when_database_url_c
         .await
         .expect("connect postgres knowledgebase schema");
     let tenant_id = 100_001;
-    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id);
-    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
-    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id);
-    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, tenant_id);
+    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id, 0);
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, 0);
+    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id, 0);
+    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, tenant_id, 0);
 
     let object_ref = object_refs
         .create_object_ref(CreateKnowledgeDriveObjectRefRecord {

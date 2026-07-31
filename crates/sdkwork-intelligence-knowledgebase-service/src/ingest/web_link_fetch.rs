@@ -1,6 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use crate::bounded_http_body::{read_bounded_http_body, BoundedHttpBodyError};
+use crate::bounded_http_body::{
+    read_bounded_http_body, redacted_reqwest_error_detail, BoundedHttpBodyError,
+};
 use reqwest::header::LOCATION;
 use reqwest::redirect::Policy;
 use reqwest::Url;
@@ -103,7 +105,7 @@ async fn send_pinned_get(url: &Url) -> Result<reqwest::Response, WebLinkFetchErr
         )
         .send()
         .await
-        .map_err(|error| WebLinkFetchError::Upstream(error.to_string()))
+        .map_err(|error| WebLinkFetchError::Upstream(redacted_reqwest_error_detail(&error)))
 }
 
 fn pinned_get_request(
@@ -124,7 +126,7 @@ fn pinned_get_request(
     };
     let client = client_builder
         .build()
-        .map_err(|error| WebLinkFetchError::Upstream(error.to_string()))?;
+        .map_err(|error| WebLinkFetchError::Upstream(redacted_reqwest_error_detail(&error)))?;
     Ok(client.get(url.clone()))
 }
 
@@ -134,7 +136,7 @@ fn map_web_body_error(error: BoundedHttpBodyError) -> WebLinkFetchError {
             "web page exceeds {} KB import limit",
             MAX_WEB_LINK_BYTES / 1024
         )),
-        BoundedHttpBodyError::Read(error) => WebLinkFetchError::Upstream(error.to_string()),
+        BoundedHttpBodyError::Read { detail } => WebLinkFetchError::Upstream(detail),
     }
 }
 

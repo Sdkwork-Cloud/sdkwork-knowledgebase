@@ -22,7 +22,7 @@ use resource_bridge::{
 };
 use serde::Deserialize;
 use session_secure_store::{
-    clear_secure_session_values, init_secure_session_state, read_secure_session_snapshot,
+    clear_secure_session_values, init_secure_session_state, read_secure_session_value,
     remove_secure_session_value, write_secure_session_value,
 };
 use tauri::{AppHandle, Manager, WindowEvent};
@@ -134,7 +134,7 @@ fn main() {
             write_secure_session_value,
             remove_secure_session_value,
             clear_secure_session_values,
-            read_secure_session_snapshot,
+            read_secure_session_value,
             group_launch_deep_link::take_pending_group_knowledgebase_launch
         ])
         .run(tauri::generate_context!())

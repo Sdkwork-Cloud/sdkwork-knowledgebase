@@ -60,13 +60,17 @@ describe('knowledgebase tenant quota and GDPR compliance alignment', () => {
     assert.match(tenantStatus, /KnowledgeTenantQuotaStatus/);
   });
 
-  it('enforces tenant business quotas in app-api routes', () => {
+  it('enforces tenant business quotas at app, service, and repository boundaries', () => {
     const enforcement = readRepoFile(
       'crates/sdkwork-routes-knowledgebase-app-api/src/tenant_quota_enforcement.rs',
     );
     const hosted = readRepoFile('crates/sdkwork-routes-knowledgebase-app-api/src/hosted.rs');
-    const hostedUpload = readRepoFile(
-      'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_upload.rs',
+    const runtime = readRepoFile('crates/sdkwork-routes-knowledgebase-app-api/src/runtime.rs');
+    const objectRefStore = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/drive_object_ref_store.rs',
+    );
+    const driveImportTests = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/tests/sqlite_drive_import_repositories.rs',
     );
     const appError = readRepoFile('crates/sdkwork-routes-knowledgebase-app-api/src/error.rs');
     const observability = readRepoFile('crates/sdkwork-knowledgebase-observability/src/tenant_quota.rs');
@@ -77,10 +81,12 @@ describe('knowledgebase tenant quota and GDPR compliance alignment', () => {
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/sqlite_import_stores.rs',
     );
     assert.match(ingestionStore, /create_or_get_job_with_quota|ensure_ingest_quota_on/);
-    assert.match(enforcement, /ensure_storage_capacity/);
-    assert.match(enforcement, /ensure_tenant_can_add_storage/);
     assert.match(hosted, /ensure_tenant_can_create_document/);
-    assert.match(hostedUpload, /ensure_tenant_can_add_storage/);
+    assert.match(runtime, /with_quota_limits\(quota_limits\)/);
+    assert.match(objectRefStore, /ensure_storage_quota_on/);
+    assert.match(objectRefStore, /ensure_storage_capacity\(total, additional_bytes, &limits\)/);
+    assert.match(objectRefStore, /tenant_id = \$1 AND organization_id = \$2/);
+    assert.match(driveImportTests, /sqlite_storage_quota_is_atomic_under_concurrent_object_refs/);
     assert.match(observability, /SDKWORK_KNOWLEDGEBASE_TENANT_MAX_DOCUMENTS/);
     assert.match(observability, /SDKWORK_KNOWLEDGEBASE_TENANT_MAX_CONCURRENT_INGEST_JOBS/);
     assert.match(observability, /SDKWORK_KNOWLEDGEBASE_TENANT_MAX_RETRIEVALS_PER_MINUTE/);

@@ -31,7 +31,7 @@ async fn context_binding_store_round_trips_after_migration_install() {
         .await
         .expect("create space");
 
-    let store = SqliteContextBindingStore::new(pool);
+    let store = SqliteContextBindingStore::new(pool, organization_id);
     let service = KnowledgeContextBindingService::new(&store);
     let binding = service
         .bind_context(
@@ -74,7 +74,7 @@ async fn context_binding_store_pages_by_id_cursor() {
         .await
         .expect("create space");
 
-    let store = SqliteContextBindingStore::new(pool);
+    let store = SqliteContextBindingStore::new(pool, organization_id);
     for context_id in ["ctx-a", "ctx-b", "ctx-c"] {
         store
             .create_binding(
@@ -141,7 +141,7 @@ async fn generic_context_binding_store_hides_legacy_chat_group_rows_before_pagin
         })
         .await
         .expect("create space");
-    let store = SqliteContextBindingStore::new(pool.clone());
+    let store = SqliteContextBindingStore::new(pool.clone(), organization_id);
 
     assert!(matches!(
         store
@@ -184,14 +184,15 @@ async fn generic_context_binding_store_hides_legacy_chat_group_rows_before_pagin
         sqlx::query(
             r#"
             INSERT INTO kb_space_context_binding (
-                id, tenant_id, space_id, context_type, context_id, context_name,
+                id, tenant_id, organization_id, space_id, context_type, context_id, context_name,
                 access_level, status, created_by, created_at, updated_at, version
-            ) VALUES ($1, $2, $3, 'chat_group', $4, NULL, 'reader', 1, 'legacy',
+            ) VALUES ($1, $2, $3, $4, 'chat_group', $5, NULL, 'reader', 1, 'legacy',
                       '2026-07-13T00:00:00Z', '2026-07-13T00:00:00Z', 0)
             "#,
         )
         .bind(id)
         .bind(tenant_id as i64)
+        .bind(organization_id as i64)
         .bind(space.id as i64)
         .bind(context_id)
         .execute(&pool)
@@ -252,6 +253,75 @@ async fn generic_context_binding_store_hides_legacy_chat_group_rows_before_pagin
         .await
         .expect("legacy group lookup must be hidden")
         .is_empty());
+}
+
+#[tokio::test]
+async fn context_binding_store_rejects_same_tenant_cross_organization_access() {
+    let pool = sqlite_pool().await;
+    let tenant_id = 100005_u64;
+    let organization_a = 7005_u64;
+    let organization_b = 7006_u64;
+    let spaces = SqliteKnowledgeSpaceStore::new(pool.clone(), tenant_id, organization_a);
+    let space = spaces
+        .create_space(CreateKnowledgeSpaceRecord {
+            name: "Organization A Space".to_string(),
+            description: None,
+            okf_bundle_initialized: false,
+            knowledge_mode: Default::default(),
+        })
+        .await
+        .expect("create organization A space");
+    let store_a = SqliteContextBindingStore::new(pool.clone(), organization_a);
+    let store_b = SqliteContextBindingStore::new(pool, organization_b);
+    let binding = store_a
+        .create_binding(
+            tenant_id,
+            "operator-a",
+            CreateKnowledgeSpaceContextBindingRequest {
+                space_id: space.id,
+                context_type: KnowledgeContextType::Organization,
+                context_id: "org-a".to_string(),
+                context_name: None,
+                access_level: None,
+            },
+        )
+        .await
+        .expect("create organization A binding");
+
+    assert!(matches!(
+        store_b.get_binding(tenant_id, binding.id).await,
+        Err(KnowledgeContextBindingStoreError::NotFound(_))
+    ));
+    assert!(store_b
+        .list_space_bindings(
+            tenant_id,
+            ListKnowledgeSpaceContextBindingsRequest {
+                space_id: space.id,
+                context_type: None,
+                cursor: None,
+                page_size: Some(20),
+            },
+        )
+        .await
+        .expect("list organization B bindings")
+        .items
+        .is_empty());
+    assert!(matches!(
+        store_b
+            .create_binding(
+                tenant_id,
+                "operator-b",
+                CreateKnowledgeSpaceContextBindingRequest {
+                    space_id: space.id,
+                    context_type: KnowledgeContextType::Organization,
+                    context_id: "org-b".to_string(),
+                    context_name: None,
+                    access_level: None,
+                },
+            )
+            .await,
+        Err(KnowledgeContextBindingStoreError::InvalidRequest(_))
+    ));
 }
 
 async fn sqlite_pool() -> AnyPool {

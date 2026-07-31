@@ -16,15 +16,17 @@ const MAX_CHUNKS_PER_DOCUMENT_LOAD: i64 = 2000;
 pub struct SqliteKnowledgeChunkStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     keyword_backend: KeywordSearchBackend,
 }
 
 impl SqliteKnowledgeChunkStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_keyword_backend(
             pool,
             tenant_id,
+            organization_id,
             KeywordSearchBackend::SqliteFts5,
             default_knowledge_id_generator(),
         )
@@ -33,11 +35,13 @@ impl SqliteKnowledgeChunkStore {
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self::with_keyword_backend(
             pool,
             tenant_id,
+            organization_id,
             KeywordSearchBackend::SqliteFts5,
             id_generator,
         )
@@ -46,12 +50,14 @@ impl SqliteKnowledgeChunkStore {
     pub fn with_keyword_backend(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         keyword_backend: KeywordSearchBackend,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
             id_generator,
             keyword_backend,
         }
@@ -68,6 +74,7 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
         replace_version_chunks_with_pool(
             &self.pool,
             self.tenant_id,
+            self.organization_id,
             &self.id_generator,
             self.keyword_backend,
             document_version_id,
@@ -81,18 +88,23 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
         document_version_id: u64,
     ) -> Result<Vec<u64>, KnowledgeChunkStoreError> {
         let tenant_id = chunk_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = chunk_to_i64("organization_id", self.organization_id)?;
         let version_id = chunk_to_i64("document_version_id", document_version_id)?;
         const ACTIVE_STATUS: i64 = 1;
         let rows = sqlx::query_scalar::<_, i64>(
             r#"
             SELECT id
             FROM kb_chunk
-            WHERE tenant_id = $1 AND document_version_id = $2 AND status = $3
+            WHERE tenant_id = $1
+              AND organization_id = $2
+              AND document_version_id = $3
+              AND status = $4
             ORDER BY chunk_index ASC
-            LIMIT $4
+            LIMIT $5
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(version_id)
         .bind(ACTIVE_STATUS)
         .bind(MAX_CHUNKS_PER_DOCUMENT_LOAD)
@@ -114,18 +126,23 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
         document_version_id: u64,
     ) -> Result<Vec<String>, KnowledgeChunkStoreError> {
         let tenant_id = chunk_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = chunk_to_i64("organization_id", self.organization_id)?;
         let version_id = chunk_to_i64("document_version_id", document_version_id)?;
         const ACTIVE_STATUS: i64 = 1;
         let rows = sqlx::query_scalar::<_, String>(
             r#"
             SELECT content_text
             FROM kb_chunk
-            WHERE tenant_id = $1 AND document_version_id = $2 AND status = $3
+            WHERE tenant_id = $1
+              AND organization_id = $2
+              AND document_version_id = $3
+              AND status = $4
             ORDER BY chunk_index ASC
-            LIMIT $4
+            LIMIT $5
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(version_id)
         .bind(ACTIVE_STATUS)
         .bind(MAX_CHUNKS_PER_DOCUMENT_LOAD)
@@ -141,18 +158,23 @@ impl KnowledgeChunkStore for SqliteKnowledgeChunkStore {
         document_version_id: u64,
     ) -> Result<Vec<(u64, String)>, KnowledgeChunkStoreError> {
         let tenant_id = chunk_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = chunk_to_i64("organization_id", self.organization_id)?;
         let version_id = chunk_to_i64("document_version_id", document_version_id)?;
         const ACTIVE_STATUS: i64 = 1;
         let rows = sqlx::query(
             r#"
             SELECT id, content_text
             FROM kb_chunk
-            WHERE tenant_id = $1 AND document_version_id = $2 AND status = $3
+            WHERE tenant_id = $1
+              AND organization_id = $2
+              AND document_version_id = $3
+              AND status = $4
             ORDER BY chunk_index ASC
-            LIMIT $4
+            LIMIT $5
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(version_id)
         .bind(ACTIVE_STATUS)
         .bind(MAX_CHUNKS_PER_DOCUMENT_LOAD)

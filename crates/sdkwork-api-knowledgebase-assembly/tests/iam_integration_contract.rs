@@ -1,8 +1,22 @@
 #[test]
-fn embedded_iam_preserves_router_manifest_framework_binding() {
-    let source = include_str!("../src/bootstrap.rs");
+fn host_neutral_assembly_excludes_dependency_owned_iam() {
+    let bootstrap = include_str!("../src/bootstrap.rs");
+    let cargo_toml = include_str!("../Cargo.toml");
 
-    assert!(source.contains("bootstrap_iam_for_application"));
-    assert!(source.contains("wrap_router_with_iam_owner_web_framework"));
-    assert!(!source.contains("assemble_api_router().await.router"));
+    assert!(!bootstrap.contains("sdkwork_api_iam_assembly"));
+    assert!(!cargo_toml.contains("sdkwork_api_iam_assembly"));
+    assert!(!cargo_toml.contains("sdkwork-api-iam-assembly"));
+    assert!(!cargo_toml.contains("sdkwork-routes-iam-app-api"));
+}
+
+#[test]
+fn standalone_gateway_composes_iam_assembly_contribution() {
+    let gateway_main =
+        include_str!("../../sdkwork-api-knowledgebase-standalone-gateway/src/bin/app_main.rs");
+    let gateway_cargo =
+        include_str!("../../sdkwork-api-knowledgebase-standalone-gateway/Cargo.toml");
+
+    assert!(gateway_main.contains("sdkwork_api_iam_assembly::assemble_app_api_contribution"));
+    assert!(gateway_main.contains("ComposedApiAssembly::try_compose"));
+    assert!(gateway_cargo.contains("sdkwork_api_iam_assembly.workspace = true"));
 }

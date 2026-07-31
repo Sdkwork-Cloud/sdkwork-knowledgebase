@@ -1,5 +1,4 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
     connect_knowledgebase_and_install_schema, SqliteKnowledgeSpaceStore,
@@ -432,35 +431,8 @@ async fn create_tested_binding(
         .expect("record successful test")
 }
 
-async fn migration_test_pool(test_name: &str) -> sqlx::AnyPool {
-    connect_knowledgebase_and_install_schema(&sqlite_test_database_url(test_name))
+async fn migration_test_pool(_test_name: &str) -> sqlx::AnyPool {
+    connect_knowledgebase_and_install_schema("sqlite::memory:")
         .await
         .expect("install Provider migration schema")
-}
-
-fn sqlite_test_database_url(test_name: &str) -> String {
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock")
-        .as_nanos();
-    let root = std::env::current_dir()
-        .expect("cwd")
-        .join("target")
-        .join("repository-sqlite-tests")
-        .join(format!(
-            "{test_name}-{}-{nanos}-{}",
-            std::process::id(),
-            COUNTER.fetch_add(1, Ordering::Relaxed)
-        ));
-    std::fs::create_dir_all(&root).expect("create test directory");
-    let cwd = std::env::current_dir().expect("cwd");
-    let database_path = root.join("knowledgebase.db");
-    let path = database_path
-        .strip_prefix(&cwd)
-        .unwrap_or(&database_path)
-        .display()
-        .to_string()
-        .replace('\\', "/");
-    format!("sqlite://{path}?mode=rwc")
 }

@@ -6,10 +6,14 @@ use aes_gcm::{
 };
 use sdkwork_utils_rust::is_blank;
 use sha2::{Digest, Sha256};
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
 use thiserror::Error;
 
 const ENCRYPTED_PREFIX: &str = "kbenc:v1:";
 const NONCE_LEN: usize = 12;
+const MAX_KEY_MATERIAL_FILE_BYTES: u64 = 4 * 1024;
 
 #[cfg(test)]
 pub(crate) static SECRET_CIPHER_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -104,11 +108,8 @@ pub fn decrypt_optional_secret(value: Option<String>) -> Result<Option<String>, 
 fn resolve_key_material() -> Option<Vec<u8>> {
     if let Ok(path) = std::env::var("SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY_FILE") {
         if !is_blank(Some(path.as_str())) {
-            if let Ok(contents) = std::fs::read_to_string(path.trim()) {
-                let trimmed = contents.trim();
-                if !is_blank(Some(trimmed)) {
-                    return Some(trimmed.as_bytes().to_vec());
-                }
+            if let Some(contents) = read_bounded_key_material(Path::new(path.trim())) {
+                return Some(contents);
             }
         }
     }
@@ -117,6 +118,24 @@ fn resolve_key_material() -> Option<Vec<u8>> {
         .ok()
         .filter(|value| !is_blank(Some(value.as_str())))
         .map(|value| value.trim().as_bytes().to_vec())
+}
+
+fn read_bounded_key_material(path: &Path) -> Option<Vec<u8>> {
+    let file = File::open(path).ok()?;
+    let metadata = file.metadata().ok()?;
+    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > MAX_KEY_MATERIAL_FILE_BYTES {
+        return None;
+    }
+
+    let mut contents = String::with_capacity(metadata.len() as usize);
+    file.take(MAX_KEY_MATERIAL_FILE_BYTES + 1)
+        .read_to_string(&mut contents)
+        .ok()?;
+    if contents.len() as u64 > MAX_KEY_MATERIAL_FILE_BYTES {
+        return None;
+    }
+    let trimmed = contents.trim();
+    (!is_blank(Some(trimmed))).then(|| trimmed.as_bytes().to_vec())
 }
 
 fn derive_aes256_key(material: &[u8]) -> [u8; 32] {
@@ -178,6 +197,22 @@ mod tests {
         let _guard = TestEncryptionKeyGuard::without_key();
         let error = encrypt_secret("super-secret").expect_err("encrypt without key");
         assert!(matches!(error, SecretCipherError::MissingKey));
+    }
+
+    #[test]
+    fn key_file_is_bounded_before_reading() {
+        let _guard = TestEncryptionKeyGuard::without_key();
+        let path = std::env::temp_dir().join(format!(
+            "sdkwork-knowledgebase-secret-key-{}",
+            std::process::id()
+        ));
+        std::fs::write(&path, "bounded-integration-test-master-key").unwrap();
+        std::env::set_var("SDKWORK_KNOWLEDGEBASE_SECRETS_ENCRYPTION_KEY_FILE", &path);
+        assert!(encryption_key_configured());
+
+        std::fs::write(&path, vec![b'x'; MAX_KEY_MATERIAL_FILE_BYTES as usize + 1]).unwrap();
+        assert!(!encryption_key_configured());
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]

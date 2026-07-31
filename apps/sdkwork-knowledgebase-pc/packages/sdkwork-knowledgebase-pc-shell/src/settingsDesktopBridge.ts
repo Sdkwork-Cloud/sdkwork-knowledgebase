@@ -1,4 +1,9 @@
 import { SETTINGS_STORAGE_KEYS } from './settingsModalConstants';
+import {
+  invokeDesktopCommand,
+  isTauriDesktopRuntime,
+  listenDesktopEvent,
+} from 'sdkwork-knowledgebase-pc-core/host';
 
 export interface DesktopPreferencesSnapshot {
   autoStart: boolean;
@@ -26,27 +31,10 @@ export interface TrayLocaleSnapshot {
   tooltip: string;
 }
 
-interface TauriInvokeGlobal {
-  core?: {
-    invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
-  };
-  event?: {
-    listen(event: string, handler: () => void): Promise<() => void>;
-  };
-}
-
 const OPEN_SETTINGS_EVENT = 'open-settings';
 
-function getTauriGlobal(): TauriInvokeGlobal | undefined {
-  return (globalThis as typeof globalThis & { __TAURI__?: TauriInvokeGlobal }).__TAURI__;
-}
-
-function getTauriInvoke(): TauriInvokeGlobal['core'] | undefined {
-  return getTauriGlobal()?.core;
-}
-
 export function isDesktopHostAvailable(): boolean {
-  return Boolean(getTauriInvoke()?.invoke);
+  return isTauriDesktopRuntime();
 }
 
 function normalizeDesktopPlatform(value: string | undefined): DesktopPlatform {
@@ -76,13 +64,12 @@ export function readStoredDesktopPreferences(): DesktopPreferencesSnapshot {
 export async function syncDesktopPreferences(
   preferences: DesktopPreferencesSnapshot,
 ): Promise<DesktopPreferenceSyncResult> {
-  const invoke = getTauriInvoke()?.invoke;
-  if (!invoke) {
+  if (!isTauriDesktopRuntime()) {
     return { ok: true };
   }
 
   try {
-    await invoke('sync_desktop_preferences', {
+    await invokeDesktopCommand('sync_desktop_preferences', {
       request: {
         hideToTray: preferences.hideToTray,
         autoStart: preferences.autoStart,
@@ -96,13 +83,12 @@ export async function syncDesktopPreferences(
 }
 
 export async function readDesktopHostStatus(): Promise<DesktopHostStatus | null> {
-  const invoke = getTauriInvoke()?.invoke;
-  if (!invoke) {
+  if (!isTauriDesktopRuntime()) {
     return null;
   }
 
   try {
-    const response = await invoke<{
+    const response = await invokeDesktopCommand<{
       enabled: boolean;
       supported: boolean;
       platform: string;
@@ -121,13 +107,12 @@ export async function readDesktopHostStatus(): Promise<DesktopHostStatus | null>
 }
 
 export async function syncTrayLocale(locale: TrayLocaleSnapshot): Promise<void> {
-  const invoke = getTauriInvoke()?.invoke;
-  if (!invoke) {
+  if (!isTauriDesktopRuntime()) {
     return;
   }
 
   try {
-    await invoke('sync_tray_locale', {
+    await invokeDesktopCommand('sync_tray_locale', {
       request: {
         showLabel: locale.showLabel,
         settingsLabel: locale.settingsLabel,
@@ -141,13 +126,12 @@ export async function syncTrayLocale(locale: TrayLocaleSnapshot): Promise<void> 
 }
 
 export async function listenDesktopOpenSettings(handler: () => void): Promise<() => void> {
-  const listen = getTauriGlobal()?.event?.listen;
-  if (!listen) {
+  if (!isTauriDesktopRuntime()) {
     return () => {};
   }
 
   try {
-    return await listen(OPEN_SETTINGS_EVENT, handler);
+    return await listenDesktopEvent(OPEN_SETTINGS_EVENT, handler);
   } catch {
     return () => {};
   }

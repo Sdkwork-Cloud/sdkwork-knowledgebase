@@ -1,4 +1,8 @@
 import { isBlank } from '@sdkwork/utils';
+import {
+  invokeDesktopCommand,
+  isTauriDesktopRuntime,
+} from 'sdkwork-knowledgebase-pc-core/host';
 
 const WECHAT_CREDENTIAL_NAMESPACE = 'sdkwork.knowledgebase.pc.wechat.credentials.v1';
 
@@ -10,18 +14,8 @@ type WechatCredentialPayload = {
   msgEncodingAESKey?: string;
 };
 
-interface TauriGlobal {
-  core?: {
-    invoke<T>(command: string, args?: Record<string, unknown>): Promise<T>;
-  };
-}
-
-function getTauriGlobal(): TauriGlobal | undefined {
-  return (globalThis as typeof globalThis & { __TAURI__?: TauriGlobal }).__TAURI__;
-}
-
 export function isDesktopSecureStorageAvailable(): boolean {
-  return Boolean(getTauriGlobal()?.core?.invoke);
+  return isTauriDesktopRuntime();
 }
 
 function credentialKey(kind: 'official-account' | 'applet', id: string, field: keyof WechatCredentialPayload): string {
@@ -29,13 +23,13 @@ function credentialKey(kind: 'official-account' | 'applet', id: string, field: k
 }
 
 async function readSecureValue(key: string): Promise<string | undefined> {
-  const tauri = getTauriGlobal();
-  if (!tauri?.core) {
+  if (!isTauriDesktopRuntime()) {
     return undefined;
   }
   try {
-    const snapshot = await tauri.core.invoke<Record<string, string>>('read_secure_session_snapshot');
-    const value = snapshot[key];
+    const value = await invokeDesktopCommand<string | null>('read_secure_session_value', {
+      request: { key },
+    });
     return value && value.length > 0 ? value : undefined;
   } catch {
     return undefined;
@@ -43,15 +37,14 @@ async function readSecureValue(key: string): Promise<string | undefined> {
 }
 
 async function writeSecureValue(key: string, value: string | undefined): Promise<void> {
-  const tauri = getTauriGlobal();
-  if (!tauri?.core) {
+  if (!isTauriDesktopRuntime()) {
     return;
   }
   if (isBlank(value)) {
-    await tauri.core.invoke('remove_secure_session_value', { request: { key } }).catch(() => undefined);
+    await invokeDesktopCommand('remove_secure_session_value', { request: { key } }).catch(() => undefined);
     return;
   }
-  await tauri.core.invoke('write_secure_session_value', {
+  await invokeDesktopCommand('write_secure_session_value', {
     request: { key, value: value.trim() },
   }).catch(() => undefined);
 }

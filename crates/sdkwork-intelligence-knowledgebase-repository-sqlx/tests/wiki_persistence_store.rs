@@ -3,7 +3,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_sqlite_pool, KnowledgeIdGenerator, KnowledgeIdGeneratorError, SqlxWikiPersistenceStore,
+    connect_sqlite_and_install_schema, KnowledgeIdGenerator, KnowledgeIdGeneratorError,
+    SqlxWikiPersistenceStore,
 };
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistence::{
     AdvanceWikiReconciliationRequest, ApplyWikiDriveEventRequest, BindWikiSourceScopeRequest,
@@ -23,10 +24,6 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_wiki_persistenc
     WikiSourceProjectionUpsertDisposition, WikiSourceState,
 };
 use sdkwork_utils_rust::sha256_hash;
-
-const SQLITE_BASELINE: &str = include_str!(
-    "../../../tests/fixtures/database/sqlite/ddl/baseline/0001_knowledgebase_baseline.sql"
-);
 
 const SCOPE: WikiPersistenceScope = WikiPersistenceScope {
     tenant_id: 101,
@@ -942,17 +939,13 @@ async fn dead_lettered_gap_can_be_reconciled_with_a_fenced_bounded_checkpoint() 
 }
 
 async fn test_store() -> (sqlx::AnyPool, SqlxWikiPersistenceStore) {
-    let pool = connect_sqlite_pool("sqlite::memory:")
+    let pool = connect_sqlite_and_install_schema("sqlite::memory:")
         .await
-        .expect("connect SQLite");
+        .expect("install SQLite test schema");
     sqlx::query("PRAGMA foreign_keys = ON")
         .execute(&pool)
         .await
         .expect("enable foreign keys");
-    sqlx::raw_sql(SQLITE_BASELINE)
-        .execute(&pool)
-        .await
-        .expect("install application-root baseline");
     let generator = Arc::new(TestIdGenerator::new(10_000));
     let store = SqlxWikiPersistenceStore::with_id_generator(pool.clone(), generator);
     (pool, store)

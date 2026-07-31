@@ -548,6 +548,9 @@ impl From<KnowledgeBrowserServiceError> for ApiError {
 impl From<KnowledgeSourceStoreError> for ApiError {
     fn from(error: KnowledgeSourceStoreError) -> Self {
         match error {
+            KnowledgeSourceStoreError::Unsupported(detail) => {
+                Self::internal("knowledge_source_store_unsupported", detail)
+            }
             KnowledgeSourceStoreError::Internal(detail) => {
                 Self::internal("knowledge_source_store_failed", detail)
             }

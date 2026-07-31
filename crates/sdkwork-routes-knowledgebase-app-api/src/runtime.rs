@@ -2,13 +2,14 @@ use async_trait::async_trait;
 use sdkwork_database_id::{NodeAllocatorConfig, NodeLease, SnowflakeNodeAllocator};
 use sdkwork_drive_storage_local::LocalDriveObjectStore;
 use sdkwork_intelligence_knowledgebase_repository_sqlx::{
-    connect_knowledgebase_and_install_schema, connect_postgres_pool,
+    connect_knowledgebase_and_install_schema, database_config_from_url,
     default_knowledge_id_generator, install_default_knowledge_id_generator,
     is_postgres_database_url, keyword_search_backend_for_database_url, knowledgebase_health_check,
-    KnowledgeAuditEventRecord, KnowledgeAuditEventStore, PgVectorKnowledgeRetrievalBackend,
-    PgVectorLayeredRetrievalBackend, SnowflakeKnowledgeIdGenerator, SqliteCommerceStore,
-    SqliteContextBindingStore, SqliteDriveImportMetadataStore,
-    SqliteGroupKnowledgeSpaceBindingStore, SqliteIngestionJobStore,
+    knowledgebase_process_pool_budget_from_url, require_postgres_rls_organization_id,
+    require_postgres_rls_tenant_id, KnowledgeAuditEventRecord, KnowledgeAuditEventStore,
+    PgVectorKnowledgeRetrievalBackend, PgVectorLayeredRetrievalBackend,
+    SnowflakeKnowledgeIdGenerator, SqliteCommerceStore, SqliteContextBindingStore,
+    SqliteDriveImportMetadataStore, SqliteGroupKnowledgeSpaceBindingStore, SqliteIngestionJobStore,
     SqliteKnowledgeAgentProfileStore, SqliteKnowledgeAuditEventStore,
     SqliteKnowledgeBrowserProjectionStore, SqliteKnowledgeChunkRetrievalStore,
     SqliteKnowledgeChunkStore, SqliteKnowledgeDocumentStore, SqliteKnowledgeDocumentVersionStore,
@@ -50,14 +51,13 @@ use sdkwork_intelligence_knowledgebase_service::{
 use sdkwork_knowledgebase_contract::agent_chat::{
     KnowledgeAgentChatRequest, KnowledgeAgentChatResponse,
 };
-use sdkwork_knowledgebase_contract::parse_canonical_nonnegative_signed_i64;
 use sdkwork_knowledgebase_contract::rag::{
     KnowledgeAgentBinding, KnowledgeAgentBindingList, KnowledgeAgentBindingRequest,
     KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeContextPack,
     KnowledgeContextPackRequest, KnowledgeRetrievalRequest, KnowledgeRetrievalResult,
 };
 use sdkwork_knowledgebase_drive::{
-    connect_knowledgebase_drive_pool, knowledgebase_drive_health_check,
+    connect_knowledgebase_drive_pool_with_max_connections, knowledgebase_drive_health_check,
     resolve_cloud_knowledgebase_drive_storage, KnowledgebaseDriveEmbeddedEventRelay,
     KnowledgebaseDriveEmbeddedWikiSourceAdapter, KnowledgebaseDriveEventDeliveryConfig,
     KnowledgebaseDriveInternalSdkAdapter, KnowledgebaseDriveNodeTreeAdapter,
@@ -72,7 +72,9 @@ use sdkwork_utils_rust::is_blank;
 use sdkwork_web_bootstrap::{ReadinessCheck as FrameworkReadinessCheck, ReadinessFuture};
 use sqlx::{AnyPool, PgPool};
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::fs::File;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 
@@ -498,20 +500,9 @@ fn read_optional_bounded_secret_file(
         };
     }
     let path = PathBuf::from(value.trim());
-    let metadata = std::fs::metadata(&path).map_err(|_| {
+    let secret = read_bounded_utf8_file(&path, MAX_WEBHOOK_SECRET_FILE_BYTES).map_err(|_| {
         configuration_error(format!(
-            "{environment_key} must reference a readable secret file"
-        ))
-    })?;
-    if !metadata.is_file() || metadata.len() < 32 || metadata.len() > MAX_WEBHOOK_SECRET_FILE_BYTES
-    {
-        return Err(configuration_error(format!(
-            "{environment_key} must reference a bounded high-entropy secret file"
-        )));
-    }
-    let secret = std::fs::read_to_string(path).map_err(|_| {
-        configuration_error(format!(
-            "{environment_key} must reference a UTF-8 secret file"
+            "{environment_key} must reference a readable bounded UTF-8 secret file"
         ))
     })?;
     if secret.len() < 32
@@ -584,19 +575,9 @@ fn read_drive_internal_api_ingress_token_file(path: PathBuf) -> Result<String, s
             "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} must not be blank"
         )));
     }
-    let metadata = std::fs::metadata(&path).map_err(|_| {
+    let token = read_bounded_utf8_file(&path, MAX_INGRESS_TOKEN_FILE_BYTES).map_err(|_| {
         configuration_error(format!(
-            "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} must reference a readable secret file"
-        ))
-    })?;
-    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > MAX_INGRESS_TOKEN_FILE_BYTES {
-        return Err(configuration_error(format!(
-            "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} must reference a non-empty bounded secret file"
-        )));
-    }
-    let token = std::fs::read_to_string(&path).map_err(|_| {
-        configuration_error(format!(
-            "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} must reference a UTF-8 secret file"
+            "{DRIVE_INTERNAL_API_INGRESS_TOKEN_FILE_ENV} must reference a readable bounded UTF-8 secret file"
         ))
     })?;
     if token.len() < 16 || token.len() > 4_096 || token.chars().any(char::is_whitespace) {
@@ -605,6 +586,28 @@ fn read_drive_internal_api_ingress_token_file(path: PathBuf) -> Result<String, s
         )));
     }
     Ok(token.to_string())
+}
+
+fn read_bounded_utf8_file(path: &Path, max_bytes: u64) -> std::io::Result<String> {
+    let file = File::open(path)?;
+    let metadata = file.metadata()?;
+    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > max_bytes {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "file size is outside the configured bound",
+        ));
+    }
+
+    let mut value = String::with_capacity(metadata.len() as usize);
+    file.take(max_bytes.saturating_add(1))
+        .read_to_string(&mut value)?;
+    if value.len() as u64 > max_bytes {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "file grew beyond the configured bound while reading",
+        ));
+    }
+    Ok(value)
 }
 
 fn default_provider_credential_resolver(
@@ -762,18 +765,30 @@ impl KnowledgebaseRuntime {
         tenant_id: u64,
         provider_credential_resolver: Arc<dyn KnowledgeEngineProviderCredentialResolver>,
     ) -> Result<Self, sqlx::Error> {
+        let deployment_tenant_id = require_postgres_rls_tenant_id()
+            .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
+        if tenant_id != deployment_tenant_id {
+            return Err(configuration_error(format!(
+                "runtime tenant_id {tenant_id} does not match fixed PostgreSQL RLS tenant_id {deployment_tenant_id}"
+            )));
+        }
+        let organization_id = require_postgres_rls_organization_id()
+            .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
         let pool = connect_knowledgebase_and_install_schema(database_url).await?;
         let snowflake_node_lease = initialize_runtime_id_generator(database_url).await?;
-        let drive_pool = connect_knowledgebase_drive_pool(database_url).await?;
-        let pg_pool: Option<sqlx::PgPool> = if is_postgres_database_url(database_url) {
-            Some(
-                connect_postgres_pool(database_url)
-                    .await
-                    .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?,
-            )
-        } else {
-            None
-        };
+        let database_config = database_config_from_url(database_url)
+            .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
+        let pool_budget = knowledgebase_process_pool_budget_from_url(database_url)
+            .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
+        let postgres_max_connections = pool_budget.postgres_max_connections.ok_or_else(|| {
+            configuration_error("server Knowledgebase runtime requires PostgreSQL")
+        })?;
+        let drive_pool = connect_knowledgebase_drive_pool_with_max_connections(
+            &database_config.url,
+            postgres_max_connections,
+        )
+        .await?;
+        let pg_pool = Some(drive_pool.clone());
         let keyword_backend = keyword_search_backend_for_database_url(database_url);
         let database_engine = if is_postgres_database_url(database_url) {
             sdkwork_database_config::DatabaseEngine::Postgres
@@ -784,7 +799,7 @@ impl KnowledgebaseRuntime {
             pool,
             drive_pool,
             tenant_id,
-            default_organization_id(),
+            organization_id,
             default_operator_id(),
             default_drive_storage_root(),
             keyword_backend,
@@ -876,6 +891,7 @@ impl KnowledgebaseRuntime {
             SqliteKnowledgeChunkRetrievalStore::with_keyword_backend(
                 pool.clone(),
                 tenant_id,
+                organization_id,
                 keyword_backend,
                 default_knowledge_id_generator(),
             )
@@ -885,7 +901,11 @@ impl KnowledgebaseRuntime {
         let base_retrieval: SharedKnowledgeRetrievalBackend = if let Some(pg_pool) = pg_pool {
             Arc::new(PgVectorLayeredRetrievalBackend::new(
                 retrieval_store.clone(),
-                Arc::new(PgVectorKnowledgeRetrievalBackend::new(pg_pool, tenant_id)),
+                Arc::new(PgVectorKnowledgeRetrievalBackend::new(
+                    pg_pool,
+                    tenant_id,
+                    organization_id,
+                )),
             ))
         } else {
             retrieval_store.clone()
@@ -905,7 +925,7 @@ impl KnowledgebaseRuntime {
                 .unwrap_or(base_retrieval);
 
         let okf_concept_store = Arc::new(
-            SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id)
+            SqliteKnowledgeOkfConceptStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let space_store = Arc::new(
@@ -933,43 +953,44 @@ impl KnowledgebaseRuntime {
                 .with_database_engine(database_engine),
         );
         let okf_bundle_file_store = Arc::new(
-            SqliteKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id)
+            SqliteKnowledgeOkfBundleFileStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let okf_concept_link_store = Arc::new(
-            SqliteKnowledgeOkfConceptLinkStore::new(pool.clone(), tenant_id)
+            SqliteKnowledgeOkfConceptLinkStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let okf_candidate_store = Arc::new(
-            SqliteKnowledgeOkfCandidateStore::new(pool.clone(), tenant_id)
+            SqliteKnowledgeOkfCandidateStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let okf_revision_metadata_store = Arc::new(
-            SqliteOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id)
+            SqliteOkfConceptRevisionMetadataStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine)
                 .with_quota_limits(quota_limits),
         );
         let source_store = Arc::new(
-            SqliteKnowledgeSourceStore::new(pool.clone(), tenant_id)
+            SqliteKnowledgeSourceStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let object_ref_store = Arc::new(
-            SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id)
+            SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine)
                 .with_quota_limits(quota_limits),
         );
         let document_store = Arc::new(
-            SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id)
+            SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine)
                 .with_quota_limits(quota_limits),
         );
         let index_store = Arc::new(
-            SqliteKnowledgeIndexStore::new(pool.clone(), tenant_id)
+            SqliteKnowledgeIndexStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let embedding_store = Arc::new(SqliteKnowledgeEmbeddingStore::new(
             pool.clone(),
             tenant_id,
+            organization_id,
             database_engine,
         ));
         let rag_embedder = resolve_claw_router_client_from_env()
@@ -1001,7 +1022,7 @@ impl KnowledgebaseRuntime {
         }));
 
         let audit_event_store = Arc::new(
-            SqliteKnowledgeAuditEventStore::new(pool.clone(), tenant_id)
+            SqliteKnowledgeAuditEventStore::new(pool.clone(), tenant_id, organization_id)
                 .with_database_engine(database_engine),
         );
         let audit_hook_store = audit_event_store.clone();
@@ -1040,6 +1061,7 @@ impl KnowledgebaseRuntime {
             retrieval_profile_store: Arc::new(SqliteKnowledgeRetrievalProfileStore::new(
                 pool.clone(),
                 tenant_id,
+                organization_id,
             )
             .with_database_engine(database_engine)),
             index_store,
@@ -1047,6 +1069,7 @@ impl KnowledgebaseRuntime {
             agent_store: Arc::new(SqliteKnowledgeAgentProfileStore::new(
                 pool.clone(),
                 tenant_id,
+                organization_id,
             )
             .with_database_engine(database_engine)),
             space_store,
@@ -1063,12 +1086,14 @@ impl KnowledgebaseRuntime {
             version_store: Arc::new(SqliteKnowledgeDocumentVersionStore::new(
                 pool.clone(),
                 tenant_id,
+                organization_id,
             )
             .with_database_engine(database_engine)),
             object_ref_store,
             ingestion_job_store: Arc::new(SqliteIngestionJobStore::with_keyword_backend(
                 pool.clone(),
                 tenant_id,
+                organization_id,
                 keyword_backend,
                 default_knowledge_id_generator(),
             )
@@ -1077,17 +1102,24 @@ impl KnowledgebaseRuntime {
             drive_import_metadata_store: Arc::new(SqliteDriveImportMetadataStore::new(
                 pool.clone(),
                 tenant_id,
+                organization_id,
             )
             .with_database_engine(database_engine)
             .with_quota_limits(quota_limits)),
             markdown_index_metadata_store: Arc::new(SqliteMarkdownIndexMetadataStore::new(
                 pool.clone(),
                 tenant_id,
+                organization_id,
             )
             .with_database_engine(database_engine)
             .with_quota_limits(quota_limits)),
             outbox_store: Arc::new(
-                SqliteKnowledgeOutboxStore::new(pool.clone(), tenant_id)
+                SqliteKnowledgeOutboxStore::new(
+                    pool.clone(),
+                    tenant_id,
+                    organization_id,
+                    default_outbox_claim_owner(),
+                )
                     .with_database_engine(database_engine)
                     .with_postgres_skip_locked_claim(
                         database_engine == sdkwork_database_config::DatabaseEngine::Postgres,
@@ -1098,11 +1130,13 @@ impl KnowledgebaseRuntime {
             chunk_store: Arc::new(SqliteKnowledgeChunkStore::with_keyword_backend(
                 pool.clone(),
                 tenant_id,
+                organization_id,
                 keyword_backend,
                 default_knowledge_id_generator(),
             )),
             context_binding_store: Arc::new(
-                SqliteContextBindingStore::new(pool.clone()).with_database_engine(database_engine),
+                SqliteContextBindingStore::new(pool.clone(), organization_id)
+                    .with_database_engine(database_engine),
             ),
             group_space_binding_store: Arc::new(
                 SqliteGroupKnowledgeSpaceBindingStore::new(pool.clone())
@@ -1112,6 +1146,7 @@ impl KnowledgebaseRuntime {
             browser_projection_store: Arc::new(SqliteKnowledgeBrowserProjectionStore::new(
                 pool.clone(),
                 tenant_id,
+                organization_id,
             )),
             audit_event_store,
             pool: pool.clone(),
@@ -1133,7 +1168,8 @@ impl KnowledgebaseRuntime {
             access_control,
             knowledge_engines,
             commerce_store: Arc::new(
-                SqliteCommerceStore::new(pool.clone()).with_database_engine(database_engine),
+                SqliteCommerceStore::new(pool.clone(), organization_id)
+                    .with_database_engine(database_engine),
             ),
             snowflake_node_lease,
         })
@@ -1256,11 +1292,6 @@ impl KnowledgebaseRuntime {
         )
     }
 
-    pub async fn build_full_app_router_with_web_framework(&self) -> axum::Router {
-        crate::web_bootstrap::wrap_router_with_web_framework_from_env(self.build_full_app_router())
-            .await
-    }
-
     pub fn build_backend_business_router(&self) -> axum::Router {
         sdkwork_routes_knowledgebase_backend_api::build_business_router_with_shared_backend_api(
             Arc::new(HostedBackendApi::new(self.clone())),
@@ -1288,13 +1319,6 @@ impl KnowledgebaseRuntime {
         )
     }
 
-    pub async fn build_agent_and_retrieval_router_with_web_framework(&self) -> axum::Router {
-        crate::web_bootstrap::wrap_router_with_web_framework_from_env(
-            self.build_agent_and_retrieval_router(),
-        )
-        .await
-    }
-
     pub fn build_backend_router(&self) -> axum::Router {
         sdkwork_routes_knowledgebase_backend_api::build_router_with_shared_backend_api_and_readiness(
             Arc::new(HostedBackendApi::new(self.clone())),
@@ -1308,49 +1332,6 @@ impl KnowledgebaseRuntime {
             Arc::new(HostedOpenApi::new(self.clone())),
             Some(self.readiness_check_adapter()),
         )
-    }
-
-    pub async fn build_backend_business_router_with_web_framework(&self) -> axum::Router {
-        sdkwork_routes_knowledgebase_backend_api::wrap_router_with_web_framework_from_env(
-            self.build_backend_business_router(),
-        )
-        .await
-    }
-
-    pub async fn build_open_business_router_with_web_framework(&self) -> axum::Router {
-        sdkwork_routes_knowledgebase_open_api::wrap_router_with_web_framework_from_env(
-            self.build_open_business_router(),
-        )
-        .await
-    }
-
-    pub async fn build_internal_business_router_with_web_framework(&self) -> axum::Router {
-        sdkwork_routes_knowledgebase_internal_api::wrap_router_with_web_framework_from_env(
-            Arc::new(KnowledgebaseRuntimeWikiDriveEventReceiver {
-                runtime: self.clone(),
-            }),
-            Arc::new(KnowledgeWikiPublicProviderService::new(
-                self.wiki_store.clone(),
-                self.wiki_drive_source.clone(),
-            )),
-            self.wiki_event_caller_app_id.to_string(),
-            self.wiki_provider_caller_app_id.to_string(),
-        )
-        .await
-    }
-
-    pub async fn build_backend_router_with_web_framework(&self) -> axum::Router {
-        sdkwork_routes_knowledgebase_backend_api::wrap_router_with_web_framework_from_env(
-            self.build_backend_router(),
-        )
-        .await
-    }
-
-    pub async fn build_open_api_router_with_web_framework(&self) -> axum::Router {
-        sdkwork_routes_knowledgebase_open_api::wrap_router_with_web_framework_from_env(
-            self.build_open_api_router(),
-        )
-        .await
     }
 
     pub(crate) fn retrieval_store(&self) -> &SqliteKnowledgeChunkRetrievalStore {
@@ -2133,18 +2114,14 @@ fn build_document_content_version(
     format!("{content_source}:v{}:{}", version.id, version.version_no)
 }
 
-fn default_organization_id() -> u64 {
-    std::env::var("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID")
-        .ok()
-        .map(|value| {
-            parse_canonical_nonnegative_signed_i64(&value)
-                .expect("SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID must be a canonical signed BIGINT")
-        })
-        .unwrap_or(0)
-}
-
 fn default_operator_id() -> String {
     std::env::var("SDKWORK_KNOWLEDGEBASE_OPERATOR_ID").unwrap_or_else(|_| "system".to_string())
+}
+
+fn default_outbox_claim_owner() -> String {
+    std::env::var("SDKWORK_KNOWLEDGEBASE_WORKER_ID")
+        .or_else(|_| std::env::var("SDKWORK_NODE_INSTANCE_ID"))
+        .unwrap_or_else(|_| format!("knowledgebase-runtime-{}", std::process::id()))
 }
 
 fn default_drive_storage_root() -> PathBuf {

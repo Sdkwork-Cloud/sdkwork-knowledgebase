@@ -152,6 +152,7 @@
                       "configKeys":  [
 
                                      ],
+                      "organizationScopeInventory": "specs/organization-scope-inventory.json",
                       "sdkDependencies":  [
 
                                           ],
@@ -167,6 +168,7 @@
                                           "cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx --test wiki_persistence_store",
                                           "cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx --test wiki_public_provider_store",
                                           "cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx --test wiki_publication_lifecycle_store",
+                                          "pnpm check:organization-scope-sql",
                                           "cargo test -p sdkwork-intelligence-knowledgebase-repository-sqlx"
                                       ]
                      }

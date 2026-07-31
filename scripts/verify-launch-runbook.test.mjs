@@ -109,7 +109,8 @@ describe('knowledgebase launch runbook alignment', () => {
 
   it('keeps the app manifest prelaunch-gated until release evidence exists', () => {
     const manifest = readJson('sdkwork.app.config.json');
-    assert.equal(manifest.publish.status, 'INACTIVE');
+    assert.equal(manifest.publish.status, 'DRAFT');
+    assert.equal(manifest.publish.preLaunch, true);
     assert.equal(manifest.publish.metadata?.releaseStatus, 'prelaunch-gated');
     assert.equal(manifest.release.defaultChannel, 'DEV');
     assert.deepEqual(Object.keys(manifest.release.latest).sort(), ['DEV']);
@@ -168,12 +169,13 @@ describe('knowledgebase launch runbook alignment', () => {
     }
   });
 
-  it('indexes all three SDK families for release consumption', () => {
+  it('indexes all four SDK families for release consumption', () => {
     const componentSpec = readJson('specs/component.spec.json');
     const families = componentSpec.contracts.sdkClients.map((entry) => entry.family).sort();
     assert.deepEqual(families, [
       'sdkwork-knowledgebase-app-sdk',
       'sdkwork-knowledgebase-backend-sdk',
+      'sdkwork-knowledgebase-internal-sdk',
       'sdkwork-knowledgebase-sdk',
     ]);
   });

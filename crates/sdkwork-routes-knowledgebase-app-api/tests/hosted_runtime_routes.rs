@@ -767,7 +767,7 @@ async fn hosted_app_pages_okf_concepts_and_revisions_with_standard_list_envelope
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let space_id = create_space(&app, "OKF Pagination Space").await;
-    let concepts = SqliteKnowledgeOkfConceptStore::new(runtime.pool().clone(), 1);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(runtime.pool().clone(), 1, 0);
     let mut revision_concept_id = None;
     let mut other_concept_id = None;
 
@@ -944,7 +944,7 @@ async fn hosted_app_okf_lists_reject_invalid_and_noncanonical_pagination_queries
     let runtime = test_runtime().await;
     let app = dev_auth::with_dev_app_auth(runtime.build_full_app_router(), 1, Some(42));
     let space_id = create_space(&app, "OKF Invalid Pagination Space").await;
-    let concepts = SqliteKnowledgeOkfConceptStore::new(runtime.pool().clone(), 1);
+    let concepts = SqliteKnowledgeOkfConceptStore::new(runtime.pool().clone(), 1, 0);
     let concept = concepts
         .upsert_concept(UpsertKnowledgeOkfConceptRecord {
             space_id,

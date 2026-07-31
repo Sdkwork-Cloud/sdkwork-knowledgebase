@@ -11,26 +11,81 @@ pub use sdkwork_knowledgebase_database_host::{
 };
 
 use crate::db::postgres_tenant_session::{
-    require_postgres_rls_tenant_id, POSTGRES_TENANT_SESSION_KEY,
+    require_postgres_rls_organization_id, require_postgres_rls_tenant_id,
+    POSTGRES_ORGANIZATION_SESSION_KEY, POSTGRES_TENANT_SESSION_KEY,
 };
 
 pub type KnowledgebaseDatabasePool = DatabasePool;
 
-const KNOWLEDGEBASE_POOL_MAX_CONNECTIONS: u32 = 5;
+const DEFAULT_SQLITE_POOL_MAX_CONNECTIONS: u32 = 5;
+const DEFAULT_POSTGRES_PROCESS_MAX_CONNECTIONS: u32 = 10;
 
-fn resolve_max_connections(engine: DatabaseEngine, database_url: &str) -> u32 {
-    std::env::var("SDKWORK_DATABASE_MAX_CONNECTIONS")
-        .ok()
-        .and_then(|value| value.trim().parse::<u32>().ok())
-        .filter(|value| *value > 0)
-        .unwrap_or_else(|| max_connections_for_url(engine, database_url))
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KnowledgebaseProcessPoolBudget {
+    pub any_max_connections: u32,
+    pub postgres_max_connections: Option<u32>,
 }
 
-fn max_connections_for_url(engine: DatabaseEngine, database_url: &str) -> u32 {
-    if engine == DatabaseEngine::Sqlite && database_url.trim() == "sqlite::memory:" {
-        return 1;
+fn configured_process_max_connections() -> Result<Option<u32>, PoolError> {
+    let Some(value) = std::env::var("SDKWORK_DATABASE_MAX_CONNECTIONS").ok() else {
+        return Ok(None);
+    };
+    let max_connections = value.trim().parse::<u32>().map_err(|_| {
+        PoolError::DatabaseConfig(
+            "SDKWORK_DATABASE_MAX_CONNECTIONS must be a positive integer".to_string(),
+        )
+    })?;
+    if max_connections == 0 {
+        return Err(PoolError::DatabaseConfig(
+            "SDKWORK_DATABASE_MAX_CONNECTIONS must be greater than zero".to_string(),
+        ));
     }
-    KNOWLEDGEBASE_POOL_MAX_CONNECTIONS
+    Ok(Some(max_connections))
+}
+
+fn process_pool_budget(
+    engine: DatabaseEngine,
+    database_url: &str,
+    configured_max_connections: Option<u32>,
+) -> Result<KnowledgebaseProcessPoolBudget, PoolError> {
+    if engine == DatabaseEngine::Sqlite && database_url.trim() == "sqlite::memory:" {
+        return Ok(KnowledgebaseProcessPoolBudget {
+            any_max_connections: 1,
+            postgres_max_connections: None,
+        });
+    }
+    if engine == DatabaseEngine::Sqlite {
+        return Ok(KnowledgebaseProcessPoolBudget {
+            any_max_connections: configured_max_connections
+                .unwrap_or(DEFAULT_SQLITE_POOL_MAX_CONNECTIONS),
+            postgres_max_connections: None,
+        });
+    }
+
+    let total = configured_max_connections.unwrap_or(DEFAULT_POSTGRES_PROCESS_MAX_CONNECTIONS);
+    if total < 2 {
+        return Err(PoolError::DatabaseConfig(
+            "PostgreSQL Knowledgebase requires SDKWORK_DATABASE_MAX_CONNECTIONS >= 2 because the process owns one typed pool and one compatibility pool"
+                .to_string(),
+        ));
+    }
+    let postgres_max_connections = total.div_ceil(2);
+    Ok(KnowledgebaseProcessPoolBudget {
+        any_max_connections: total - postgres_max_connections,
+        postgres_max_connections: Some(postgres_max_connections),
+    })
+}
+
+pub fn knowledgebase_process_pool_budget_from_url(
+    database_url: &str,
+) -> Result<KnowledgebaseProcessPoolBudget, PoolError> {
+    let normalized = database_url.trim();
+    let engine = DatabaseEngine::from_url(normalized).ok_or_else(|| {
+        PoolError::InvalidUrl(format!(
+            "unsupported knowledgebase database url: {normalized}"
+        ))
+    })?;
+    process_pool_budget(engine, normalized, configured_process_max_connections()?)
 }
 
 pub fn database_config_from_url(database_url: &str) -> Result<DatabaseConfig, PoolError> {
@@ -46,14 +101,20 @@ pub fn database_config_from_url(database_url: &str) -> Result<DatabaseConfig, Po
                 normalized,
             )
             .map_err(|error| PoolError::InvalidUrl(error.to_string()))?;
-        postgres_url_with_deployment_tenant(&normalized_url, require_postgres_rls_tenant_id()?)?
+        postgres_url_with_deployment_scope(
+            &normalized_url,
+            require_postgres_rls_tenant_id()?,
+            require_postgres_rls_organization_id()?,
+        )?
     } else {
         normalized.to_string()
     };
+    let pool_budget =
+        process_pool_budget(engine, normalized, configured_process_max_connections()?)?;
     let mut config = DatabaseConfig {
         engine,
         url,
-        max_connections: resolve_max_connections(engine, normalized),
+        max_connections: pool_budget.any_max_connections,
         ..DatabaseConfig::default()
     };
     if engine == DatabaseEngine::Postgres {
@@ -62,9 +123,10 @@ pub fn database_config_from_url(database_url: &str) -> Result<DatabaseConfig, Po
     Ok(config)
 }
 
-fn postgres_url_with_deployment_tenant(
+fn postgres_url_with_deployment_scope(
     database_url: &str,
     tenant_id: u64,
+    organization_id: u64,
 ) -> Result<String, PoolError> {
     let mut url = Url::parse(database_url)
         .map_err(|error| PoolError::InvalidUrl(format!("invalid PostgreSQL URL: {error}")))?;
@@ -82,26 +144,29 @@ fn postgres_url_with_deployment_tenant(
                 "PostgreSQL URL must not contain duplicate options parameters".to_string(),
             ));
         }
-        if value
-            .to_ascii_lowercase()
-            .contains(POSTGRES_TENANT_SESSION_KEY)
+        let normalized_options = value.to_ascii_lowercase();
+        if normalized_options.contains(POSTGRES_TENANT_SESSION_KEY)
+            || normalized_options.contains(POSTGRES_ORGANIZATION_SESSION_KEY)
         {
-            return Err(PoolError::DatabaseConfig(format!(
-                "PostgreSQL URL must not set {POSTGRES_TENANT_SESSION_KEY}; it is deployment-owned"
-            )));
+            return Err(PoolError::DatabaseConfig(
+                "PostgreSQL URL must not set deployment-owned tenant or organization scope"
+                    .to_string(),
+            ));
         }
     }
 
-    let tenant_option = format!("-c {POSTGRES_TENANT_SESSION_KEY}={tenant_id}");
+    let scope_options = format!(
+        "-c {POSTGRES_TENANT_SESSION_KEY}={tenant_id} -c {POSTGRES_ORGANIZATION_SESSION_KEY}={organization_id}"
+    );
     if let Some(index) = options_index {
         let existing = query_pairs[index].1.trim();
         query_pairs[index].1 = if existing.is_empty() {
-            tenant_option
+            scope_options
         } else {
-            format!("{existing} {tenant_option}")
+            format!("{existing} {scope_options}")
         };
     } else {
-        query_pairs.push(("options".to_string(), tenant_option));
+        query_pairs.push(("options".to_string(), scope_options));
     }
 
     url.query_pairs_mut().clear().extend_pairs(query_pairs);
@@ -159,8 +224,11 @@ async fn connect_knowledgebase_any_pool_from_config(
 pub async fn connect_knowledgebase_pool_from_env() -> Result<KnowledgebaseDatabasePool, PoolError> {
     let mut config = DatabaseConfig::from_env("KNOWLEDGEBASE")?;
     if config.engine == DatabaseEngine::Postgres {
-        config.url =
-            postgres_url_with_deployment_tenant(&config.url, require_postgres_rls_tenant_id()?)?;
+        config.url = postgres_url_with_deployment_scope(
+            &config.url,
+            require_postgres_rls_tenant_id()?,
+            require_postgres_rls_organization_id()?,
+        )?;
     }
     connect_knowledgebase_pool_from_config(config).await
 }
@@ -224,15 +292,53 @@ pub async fn create_and_bootstrap_knowledgebase_database_pool_from_env(
 
 #[cfg(test)]
 mod tests {
-    use super::{postgres_url_with_deployment_tenant, resolve_postgres_ssl_mode};
-    use sdkwork_database_config::PgSslMode;
+    use super::{
+        postgres_url_with_deployment_scope, process_pool_budget, resolve_postgres_ssl_mode,
+        KnowledgebaseProcessPoolBudget,
+    };
+    use sdkwork_database_config::{DatabaseEngine, PgSslMode};
     use url::Url;
 
     #[test]
+    fn postgres_process_pool_budget_is_bounded_and_prefers_the_typed_pool() {
+        assert_eq!(
+            process_pool_budget(
+                DatabaseEngine::Postgres,
+                "postgresql://localhost/db",
+                Some(5)
+            )
+            .expect("allocate pool budget"),
+            KnowledgebaseProcessPoolBudget {
+                any_max_connections: 2,
+                postgres_max_connections: Some(3),
+            }
+        );
+        assert!(process_pool_budget(
+            DatabaseEngine::Postgres,
+            "postgresql://localhost/db",
+            Some(1)
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn in_memory_sqlite_pool_is_forced_to_one_connection() {
+        assert_eq!(
+            process_pool_budget(DatabaseEngine::Sqlite, "sqlite::memory:", Some(100))
+                .expect("allocate SQLite pool budget"),
+            KnowledgebaseProcessPoolBudget {
+                any_max_connections: 1,
+                postgres_max_connections: None,
+            }
+        );
+    }
+
+    #[test]
     fn postgres_tenant_option_preserves_existing_connection_options() {
-        let configured = postgres_url_with_deployment_tenant(
+        let configured = postgres_url_with_deployment_scope(
             "postgresql://app:secret@localhost/sdkwork_ai_dev?sslmode=verify-full&options=-c%20search_path%3Dsdkwork_ai_dev%2Cpublic",
             42,
+            7,
         )
         .expect("tenant-scoped URL");
         let parsed = Url::parse(&configured).expect("valid URL");
@@ -243,7 +349,7 @@ mod tests {
             .expect("options parameter");
         assert_eq!(
             options,
-            "-c search_path=sdkwork_ai_dev,public -c app.current_tenant_id=42"
+            "-c search_path=sdkwork_ai_dev,public -c app.current_tenant_id=42 -c app.current_organization_id=7"
         );
         assert_eq!(
             resolve_postgres_ssl_mode(&configured).expect("SSL mode"),
@@ -254,19 +360,19 @@ mod tests {
     #[test]
     fn postgres_tenant_option_is_added_when_options_are_absent() {
         let configured =
-            postgres_url_with_deployment_tenant("postgresql://app@localhost/sdkwork_ai_dev", 7)
+            postgres_url_with_deployment_scope("postgresql://app@localhost/sdkwork_ai_dev", 7, 11)
                 .expect("tenant-scoped URL");
         let parsed = Url::parse(&configured).expect("valid URL");
-        assert!(parsed
-            .query_pairs()
-            .any(|(key, value)| key == "options" && value == "-c app.current_tenant_id=7"));
+        assert!(parsed.query_pairs().any(|(key, value)| key == "options"
+            && value == "-c app.current_tenant_id=7 -c app.current_organization_id=11"));
     }
 
     #[test]
     fn caller_owned_postgres_tenant_option_is_rejected() {
-        let error = postgres_url_with_deployment_tenant(
+        let error = postgres_url_with_deployment_scope(
             "postgresql://app@localhost/sdkwork_ai_dev?options=-c%20app.current_tenant_id%3D99",
             7,
+            11,
         )
         .expect_err("caller tenant option must fail closed");
         assert!(error.to_string().contains("deployment-owned"));
@@ -274,9 +380,10 @@ mod tests {
 
     #[test]
     fn duplicate_postgres_options_are_rejected() {
-        let error = postgres_url_with_deployment_tenant(
+        let error = postgres_url_with_deployment_scope(
             "postgresql://app@localhost/sdkwork_ai_dev?options=-c%20timezone%3DUTC&options=-c%20search_path%3Dsdkwork_ai_dev",
             7,
+            11,
         )
         .expect_err("duplicate options must fail closed");
         assert!(error.to_string().contains("duplicate options"));

@@ -30,16 +30,18 @@ const MAX_RETRIEVAL_TRACE_HITS: i64 = 256;
 pub struct SqliteKnowledgeChunkRetrievalStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     keyword_backend: KeywordSearchBackend,
     timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeChunkRetrievalStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
         Self::with_keyword_backend(
             pool,
             tenant_id,
+            organization_id,
             KeywordSearchBackend::SqliteFts5,
             default_knowledge_id_generator(),
         )
@@ -48,11 +50,13 @@ impl SqliteKnowledgeChunkRetrievalStore {
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self::with_keyword_backend(
             pool,
             tenant_id,
+            organization_id,
             KeywordSearchBackend::SqliteFts5,
             id_generator,
         )
@@ -61,12 +65,14 @@ impl SqliteKnowledgeChunkRetrievalStore {
     pub fn with_keyword_backend(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         keyword_backend: KeywordSearchBackend,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
             id_generator,
             keyword_backend,
             timestamp_dialect: SqlTimestampDialect::default(),
@@ -85,6 +91,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
         limit: u32,
     ) -> Result<Vec<KnowledgeRetrievalTraceRecord>, KnowledgeRetrievalTraceStoreError> {
         let tenant_id = trace_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = trace_to_i64("organization_id", self.organization_id)?;
         let limit = i64::from(limit.clamp(1, 200));
         let rows = sqlx::query(
             r#"
@@ -98,12 +105,13 @@ impl SqliteKnowledgeChunkRetrievalStore {
                 result_count,
                 status
             FROM kb_retrieval_trace
-            WHERE tenant_id = $1
+            WHERE tenant_id = $1 AND organization_id = $2
             ORDER BY id DESC
-            LIMIT $2
+            LIMIT $3
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(limit)
         .fetch_all(&self.pool)
         .await
@@ -121,6 +129,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
         KnowledgeRetrievalTraceStoreError,
     > {
         let tenant_id = trace_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = trace_to_i64("organization_id", self.organization_id)?;
         let cursor = cursor
             .map(|value| trace_to_i64("cursor", value))
             .transpose()?;
@@ -130,12 +139,15 @@ impl SqliteKnowledgeChunkRetrievalStore {
             SELECT tenant_id, id AS retrieval_trace_id, actor_id, retrieval_profile_id,
                    query_text_redacted, latency_ms, result_count, status
             FROM kb_retrieval_trace
-            WHERE tenant_id = $1 AND ($2 IS NULL OR id > $2)
+            WHERE tenant_id = $1
+              AND organization_id = $2
+              AND ($3 IS NULL OR id > $3)
             ORDER BY id ASC
-            LIMIT $3
+            LIMIT $4
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(cursor)
         .bind((page_size + 1) as i64)
         .fetch_all(&self.pool)
@@ -215,6 +227,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
         term_operator: TermMatchOperator,
     ) -> Result<Vec<KnowledgeChunkSearchHit>, KnowledgeRetrievalBackendError> {
         let tenant_id = backend_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = backend_to_i64("organization_id", self.organization_id)?;
         let space_id = backend_to_i64("space_id", request.binding.space_id)?;
         let collection_id = request
             .binding
@@ -247,13 +260,22 @@ impl SqliteKnowledgeChunkRetrievalStore {
                 "kb://documents/" || c.document_id AS source_uri,
             "#,
         );
-        push_keyword_score_expression(&mut query, &query_terms, &fts_match, keyword_backend);
+        push_keyword_score_expression(
+            &mut query,
+            &query_terms,
+            tenant_id,
+            organization_id,
+            space_id,
+            &fts_match,
+            keyword_backend,
+        );
         query.push(
             r#"
                 AS score
             FROM kb_chunk c
             JOIN kb_document d
               ON d.tenant_id = c.tenant_id
+             AND d.organization_id = c.organization_id
              AND d.id = c.document_id
              AND d.status =
             "#,
@@ -265,6 +287,8 @@ impl SqliteKnowledgeChunkRetrievalStore {
             "#,
         );
         query.push_bind(tenant_id);
+        query.push(" AND c.organization_id = ");
+        query.push_bind(organization_id);
         query.push(" AND c.space_id = ");
         query.push_bind(space_id);
         query.push(" AND c.status = ");
@@ -273,13 +297,20 @@ impl SqliteKnowledgeChunkRetrievalStore {
             query.push(" AND c.collection_id = ");
             query.push_bind(collection_id);
         }
-        push_binding_scope_filters(&mut query, tenant_id, space_id, &request.binding)?;
+        push_binding_scope_filters(
+            &mut query,
+            tenant_id,
+            organization_id,
+            space_id,
+            &request.binding,
+        )?;
         query.push(" AND (");
         push_keyword_or_title_filter(
             &mut query,
             &query_terms,
             term_operator,
             tenant_id,
+            organization_id,
             space_id,
             &fts_match,
             keyword_backend,
@@ -305,6 +336,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
         term_operator: TermMatchOperator,
     ) -> Result<Vec<KnowledgeChunkSearchHit>, KnowledgeRetrievalBackendError> {
         let tenant_id = backend_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = backend_to_i64("organization_id", self.organization_id)?;
         let space_id = backend_to_i64("space_id", request.binding.space_id)?;
         let collection_id = request
             .binding
@@ -337,13 +369,22 @@ impl SqliteKnowledgeChunkRetrievalStore {
                 "kb://documents/" || c.document_id AS source_uri,
             "#,
         );
-        push_keyword_score_expression(&mut query, &query_terms, &fts_match, keyword_backend);
+        push_keyword_score_expression(
+            &mut query,
+            &query_terms,
+            tenant_id,
+            organization_id,
+            space_id,
+            &fts_match,
+            keyword_backend,
+        );
         query.push(
             r#"
                 AS score
             FROM kb_chunk c
             JOIN kb_document d
               ON d.tenant_id = c.tenant_id
+             AND d.organization_id = c.organization_id
              AND d.id = c.document_id
              AND d.status =
             "#,
@@ -353,6 +394,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
             r#"
             INNER JOIN kb_embedding e
               ON e.tenant_id = c.tenant_id
+             AND e.organization_id = c.organization_id
              AND e.chunk_id = c.id
              AND e.status =
             "#,
@@ -364,6 +406,8 @@ impl SqliteKnowledgeChunkRetrievalStore {
             "#,
         );
         query.push_bind(tenant_id);
+        query.push(" AND c.organization_id = ");
+        query.push_bind(organization_id);
         query.push(" AND c.space_id = ");
         query.push_bind(space_id);
         query.push(" AND c.status = ");
@@ -372,13 +416,20 @@ impl SqliteKnowledgeChunkRetrievalStore {
             query.push(" AND c.collection_id = ");
             query.push_bind(collection_id);
         }
-        push_binding_scope_filters(&mut query, tenant_id, space_id, &request.binding)?;
+        push_binding_scope_filters(
+            &mut query,
+            tenant_id,
+            organization_id,
+            space_id,
+            &request.binding,
+        )?;
         query.push(" AND (");
         push_keyword_or_title_filter(
             &mut query,
             &query_terms,
             term_operator,
             tenant_id,
+            organization_id,
             space_id,
             &fts_match,
             keyword_backend,
@@ -453,6 +504,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
         term_operator: TermMatchOperator,
     ) -> Result<Vec<EmbeddingCandidateRow>, KnowledgeRetrievalBackendError> {
         let tenant_id = backend_to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = backend_to_i64("organization_id", self.organization_id)?;
         let space_id = backend_to_i64("space_id", request.binding.space_id)?;
         let collection_id = request
             .binding
@@ -479,6 +531,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
             FROM kb_chunk c
             JOIN kb_document d
               ON d.tenant_id = c.tenant_id
+             AND d.organization_id = c.organization_id
              AND d.id = c.document_id
              AND d.status =
             "#,
@@ -488,6 +541,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
             r#"
             INNER JOIN kb_embedding e
               ON e.tenant_id = c.tenant_id
+             AND e.organization_id = c.organization_id
              AND e.chunk_id = c.id
              AND e.status =
             "#,
@@ -499,6 +553,8 @@ impl SqliteKnowledgeChunkRetrievalStore {
             "#,
         );
         query.push_bind(tenant_id);
+        query.push(" AND c.organization_id = ");
+        query.push_bind(organization_id);
         query.push(" AND c.space_id = ");
         query.push_bind(space_id);
         query.push(" AND c.status = ");
@@ -508,7 +564,13 @@ impl SqliteKnowledgeChunkRetrievalStore {
             query.push(" AND c.collection_id = ");
             query.push_bind(collection_id);
         }
-        push_binding_scope_filters(&mut query, tenant_id, space_id, &request.binding)?;
+        push_binding_scope_filters(
+            &mut query,
+            tenant_id,
+            organization_id,
+            space_id,
+            &request.binding,
+        )?;
         if !query_terms.is_empty() {
             let keyword_backend = self.keyword_backend;
             let fts_match =
@@ -519,6 +581,7 @@ impl SqliteKnowledgeChunkRetrievalStore {
                 &query_terms,
                 term_operator,
                 tenant_id,
+                organization_id,
                 space_id,
                 &fts_match,
                 keyword_backend,
@@ -569,6 +632,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
 
         let id = next_i64_id(&self.id_generator).map_err(trace_id_error)?;
         let tenant_id = trace_to_i64("tenant_id", record.tenant_id)?;
+        let organization_id = trace_to_i64("organization_id", self.organization_id)?;
         let actor_id = record
             .actor_id
             .map(|value| trace_to_i64("actor_id", value))
@@ -581,9 +645,9 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
         let latency_ms = record.latency_ms.map(|value| value as i64);
         let status = trace_status_code(&record.status)?;
         let now = now_rfc3339().map_err(KnowledgeRetrievalTraceStoreError::Internal)?;
-        let request_payload_expr = self.timestamp_dialect.sql_json_expr("$8");
-        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
-        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let request_payload_expr = self.timestamp_dialect.sql_json_expr("$9");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
 
         let query = format!(
             r#"
@@ -591,6 +655,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 id,
                 uuid,
                 tenant_id,
+                organization_id,
                 actor_id,
                 retrieval_profile_id,
                 query_hash,
@@ -603,13 +668,14 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, {request_payload_expr}, $9, $10, $11, {created_at_expr}, {updated_at_expr}, $14)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, {request_payload_expr}, $10, $11, $12, {created_at_expr}, {updated_at_expr}, $15)
             "#,
         );
         sqlx::query(&query)
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(actor_id)
             .bind(retrieval_profile_id)
             .bind(record.query_hash_sha256_hex)
@@ -636,6 +702,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
         &self,
         records: Vec<CreateKnowledgeRetrievalHitRecord>,
     ) -> Result<(), KnowledgeRetrievalTraceStoreError> {
+        let mut transaction = self.pool.begin().await.map_err(trace_sqlx_error)?;
         for record in records {
             if record.tenant_id != self.tenant_id {
                 return Err(KnowledgeRetrievalTraceStoreError::Internal(
@@ -645,6 +712,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
 
             let id = next_i64_id(&self.id_generator).map_err(trace_id_error)?;
             let tenant_id = trace_to_i64("tenant_id", record.tenant_id)?;
+            let organization_id = trace_to_i64("organization_id", self.organization_id)?;
             let retrieval_trace_id = trace_to_i64("retrieval_trace_id", record.retrieval_trace_id)?;
             let chunk_id = trace_to_i64("chunk_id", record.chunk_id)?;
             let document_id = trace_to_i64("document_id", record.document_id)?;
@@ -654,10 +722,10 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 .transpose()?;
             let result_rank = i64::from(record.result_rank);
             let now = now_rfc3339().map_err(KnowledgeRetrievalTraceStoreError::Internal)?;
-            let citation_expr = self.timestamp_dialect.sql_json_expr("$11");
-            let metadata_expr = self.timestamp_dialect.sql_json_expr("$12");
-            let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$14");
-            let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$15");
+            let citation_expr = self.timestamp_dialect.sql_json_expr("$12");
+            let metadata_expr = self.timestamp_dialect.sql_json_expr("$13");
+            let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$15");
+            let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$16");
 
             let query = format!(
                 r#"
@@ -665,6 +733,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                     id,
                     uuid,
                     tenant_id,
+                    organization_id,
                     retrieval_trace_id,
                     chunk_id,
                     document_id,
@@ -679,13 +748,38 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                     updated_at,
                     version
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, {citation_expr}, {metadata_expr}, $13, {created_at_expr}, {updated_at_expr}, $16)
+                SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {citation_expr}, {metadata_expr}, $14, {created_at_expr}, {updated_at_expr}, $17
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM kb_retrieval_trace trace
+                    JOIN kb_chunk chunk
+                      ON chunk.tenant_id = trace.tenant_id
+                     AND chunk.organization_id = trace.organization_id
+                     AND chunk.id = $6
+                     AND chunk.document_id = $7
+                    JOIN kb_document document
+                      ON document.tenant_id = chunk.tenant_id
+                     AND document.organization_id = chunk.organization_id
+                     AND document.id = chunk.document_id
+                    WHERE trace.tenant_id = $3
+                      AND trace.organization_id = $4
+                      AND trace.id = $5
+                      AND ($8 IS NULL OR EXISTS (
+                          SELECT 1
+                          FROM kb_document_version document_version
+                          WHERE document_version.tenant_id = trace.tenant_id
+                            AND document_version.organization_id = trace.organization_id
+                            AND document_version.id = $8
+                            AND document_version.document_id = document.id
+                      ))
+                )
                 "#,
             );
-            sqlx::query(&query)
+            let result = sqlx::query(&query)
                 .bind(id)
                 .bind(Uuid::new_v4().to_string())
                 .bind(tenant_id)
+                .bind(organization_id)
                 .bind(retrieval_trace_id)
                 .bind(chunk_id)
                 .bind(document_id)
@@ -699,11 +793,17 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 .bind(now.clone())
                 .bind(now)
                 .bind(INITIAL_VERSION)
-                .execute(&self.pool)
+                .execute(&mut *transaction)
                 .await
                 .map_err(trace_sqlx_error)?;
+            if result.rows_affected() != 1 {
+                return Err(KnowledgeRetrievalTraceStoreError::NotFound(
+                    record.retrieval_trace_id,
+                ));
+            }
         }
 
+        transaction.commit().await.map_err(trace_sqlx_error)?;
         Ok(())
     }
 
@@ -730,10 +830,11 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 result_count,
                 status
             FROM kb_retrieval_trace
-            WHERE tenant_id = $1 AND id = $2
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3
             "#,
         )
         .bind(trace_to_i64("tenant_id", tenant_id)?)
+        .bind(trace_to_i64("organization_id", self.organization_id)?)
         .bind(trace_to_i64("retrieval_trace_id", retrieval_trace_id)?)
         .fetch_optional(&self.pool)
         .await
@@ -774,16 +875,21 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
             FROM kb_retrieval_hit h
             JOIN kb_chunk c
               ON c.tenant_id = h.tenant_id
+             AND c.organization_id = h.organization_id
              AND c.id = h.chunk_id
             JOIN kb_document d
               ON d.tenant_id = h.tenant_id
+             AND d.organization_id = h.organization_id
              AND d.id = h.document_id
-            WHERE h.tenant_id = $1 AND h.retrieval_trace_id = $2
+            WHERE h.tenant_id = $1
+              AND h.organization_id = $2
+              AND h.retrieval_trace_id = $3
             ORDER BY h.result_rank ASC, h.id ASC
-            LIMIT $3
+            LIMIT $4
             "#,
         )
         .bind(trace_to_i64("tenant_id", tenant_id)?)
+        .bind(trace_to_i64("organization_id", self.organization_id)?)
         .bind(trace_to_i64("retrieval_trace_id", retrieval_trace_id)?)
         .bind(MAX_RETRIEVAL_TRACE_HITS)
         .fetch_all(&self.pool)
@@ -922,6 +1028,9 @@ fn cosine_similarity_f32(left: &[f32], right: &[f32]) -> f64 {
 fn push_keyword_score_expression(
     query: &mut QueryBuilder<'_, sqlx::Any>,
     terms: &[String],
+    tenant_id: i64,
+    organization_id: i64,
+    space_id: i64,
     keyword_match: &str,
     backend: KeywordSearchBackend,
 ) {
@@ -931,6 +1040,12 @@ fn push_keyword_score_expression(
                 "COALESCE((SELECT -bm25(kb_chunk_fts) FROM kb_chunk_fts WHERE chunk_id = c.id AND kb_chunk_fts MATCH ",
             );
             query.push_bind(keyword_match.to_string());
+            query.push(" AND tenant_id = ");
+            query.push_bind(tenant_id);
+            query.push(" AND organization_id = ");
+            query.push_bind(organization_id);
+            query.push(" AND space_id = ");
+            query.push_bind(space_id);
             query.push(" LIMIT 1), 0.0)");
         }
         KeywordSearchBackend::PostgresTsVector => {
@@ -951,6 +1066,7 @@ fn push_keyword_or_title_filter(
     terms: &[String],
     term_operator: TermMatchOperator,
     tenant_id: i64,
+    organization_id: i64,
     space_id: i64,
     keyword_match: &str,
     backend: KeywordSearchBackend,
@@ -961,6 +1077,7 @@ fn push_keyword_or_title_filter(
             terms,
             term_operator,
             tenant_id,
+            organization_id,
             space_id,
             keyword_match,
         ),
@@ -975,6 +1092,7 @@ fn push_sqlite_fts_or_title_filter(
     terms: &[String],
     term_operator: TermMatchOperator,
     tenant_id: i64,
+    organization_id: i64,
     space_id: i64,
     fts_match: &str,
 ) {
@@ -984,6 +1102,8 @@ fn push_sqlite_fts_or_title_filter(
             query.push_bind(fts_match.to_string());
             query.push(" AND tenant_id = ");
             query.push_bind(tenant_id);
+            query.push(" AND organization_id = ");
+            query.push_bind(organization_id);
             query.push(" AND space_id = ");
             query.push_bind(space_id);
             query.push(")");
@@ -1001,6 +1121,8 @@ fn push_sqlite_fts_or_title_filter(
                 query.push_bind(escape_fts5_term(term));
                 query.push(" AND tenant_id = ");
                 query.push_bind(tenant_id);
+                query.push(" AND organization_id = ");
+                query.push_bind(organization_id);
                 query.push(" AND space_id = ");
                 query.push_bind(space_id);
                 query.push(") OR LOWER(d.title) LIKE ");

@@ -1,14 +1,15 @@
 # Tenant Isolation Architecture Specification
 
-Status: active
+Status: active, prelaunch-gated
 Owner: SDKWork Knowledgebase architecture team
 
 ## 1. Design Principle
 
 **Tenant identity is derived from the authenticated principal, never from HTTP request
 parameters.** The IAM-token-derived tenant is the security boundary. Application-layer
-`tenant_id` filters on every query are the default guard; Postgres RLS is added on top
-for shared SaaS deployments (Phase 2+).
+`tenant_id` and `organization_id` filters are the application guard; PostgreSQL RLS
+enforces the same deployment-bound pair as defense in depth. Shared request pooling is
+not a supported runtime profile.
 
 ## 2. Identity Flow
 
@@ -29,7 +30,7 @@ WebRequestContext { principal: WebRequestPrincipal }
   │
   ├─ tenant_id()     -> Snowflake u64
   ├─ user_id()       -> Snowflake u64 (actor/operator)
-  ├─ organization_id -> Snowflake u64 (optional)
+  ├─ organization_id -> Snowflake u64 claim (required for production organization scope)
   ├─ session_id      -> Option<String>
   └─ scopes          -> Vec<String>
   │
@@ -38,7 +39,7 @@ KnowledgeAppRequestContext  /  KnowledgeBackendRequestContext
   │
   ├─ tenant_id: u64           (from principal - never from client body/headers)
   ├─ actor_id / operator_id: Option<u64>
-  ├─ organization_id: Option<u64>
+  ├─ organization_id: Option<u64> (framework shape; production guard requires a match)
   └─ session_id / permission_scope
 ```
 
@@ -62,41 +63,56 @@ Each API/worker deployment binds to ONE tenant via environment variable:
 
 ```bash
 SDKWORK_KNOWLEDGEBASE_TENANT_ID=<tenant_id>               # required in production
-SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID=<org_id>            # optional
+SDKWORK_KNOWLEDGEBASE_ORGANIZATION_ID=<org_id>            # required and non-zero in production
 ```
 
 - `ensure_runtime_tenant(context)` compares `context.tenant_id` against the
   configured deployment tenant. Mismatch → `403 tenant_id_mismatch`.
 - `ensure_runtime_organization(context)` checks organization scoping.
-- Production-like environments **fail closed** when `SDKWORK_KNOWLEDGEBASE_TENANT_ID`
-  is unset: no DB pool is created.
+- Production-like environments **fail closed** when either deployment scope is absent,
+  zero, non-canonical, or outside signed PostgreSQL `BIGINT` range: no server pool is created.
+- Domain `organization_id=0` means personal scope and is never a wildcard. The current
+  production profile requires an explicit non-zero organization deployment.
 
 ### 3.3 Application-Layer Query Filters (Layer 3)
 
-Every SQLx repository store is constructed with the deployment-bound `tenant_id`.
-All queries include `WHERE tenant_id = <store.tenant_id>` as a mandatory filter.
+Every organization-owned SQLx repository operation must bind the deployment `tenant_id`
+and `organization_id`. Queries and mutations must include both predicates; RLS is not a
+substitute for repository-local scope. Cross-organization identifiers must be rejected
+even when they belong to the same tenant.
 
 Additional guard functions enforce scope at the handler level:
 - `ensure_tenant_scope(request_tenant_id, store_tenant_id)` — rejects mismatches
 - `require_space_access(space_id, tenant_id, actor_id)` — validates membership
 
-### 3.4 Postgres RLS (Layer 4, Phase 2+)
+### 3.4 PostgreSQL RLS (Layer 4)
 
-**Phase 1 (deployment-dedicated):** each API/worker process binds one tenant via
-`SDKWORK_KNOWLEDGEBASE_TENANT_ID`. Postgres pool `after_connect` sets
-`app.current_tenant_id` to that deployment tenant.
+Each API/worker process binds exactly one tenant and one organization. PostgreSQL
+connection options set both variables before the process-shared pool is created:
 
-**Phase 2 (shared SaaS):** authenticated request tenant must be applied with `SET LOCAL`
-inside every tenant-scoped transaction. The current `after_connect` behavior binds a
-deployment tenant and does not implement shared request checkout. Deployment env tenant
-remains the fail-closed mode for dedicated API and worker processes.
+```text
+app.current_tenant_id
+app.current_organization_id
+```
 
-RLS policy `tenant_isolation` on all tenant-scoped tables:
+RLS policies on organization-owned tables use both values:
   ```sql
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::bigint)
-  WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::bigint)
+  USING (
+    tenant_id = current_setting('app.current_tenant_id', true)::bigint
+    AND organization_id = current_setting('app.current_organization_id', true)::bigint
+  )
+  WITH CHECK (
+    tenant_id = current_setting('app.current_tenant_id', true)::bigint
+    AND organization_id = current_setting('app.current_organization_id', true)::bigint
+  )
   ```
-- `FORCE RLS` on all tenant tables to prevent superuser bypass
+- `FORCE ROW LEVEL SECURITY` applies to business tables.
+- Release verification uses a non-owner, non-superuser application role; owner/superuser
+  connections are not isolation evidence.
+- Request-scoped `SET LOCAL` and cross-tenant connection checkout are deliberately absent.
+- The process-wide connection budget is split between one scoped typed PostgreSQL pool and the
+  temporary scoped `AnyPool`; Drive, pgvector, and cloud provider resolution reuse the typed handle.
+  The compatibility pool remains a prelaunch removal gate.
 
 ### 3.5 Drive Object Store (Layer 5)
 
@@ -155,11 +171,12 @@ knowledgebase statistics:
 
 ### 5.3 Cross-Deployment Isolation
 
-- Each tenant runs in its own API/worker process (Phase 1)
-- Shared Postgres requires request-scoped transaction context and pooled-connection contamination tests; this profile is not yet enabled
+- Each tenant/organization pair runs in its own API/worker deployment.
+- Deployments may share a PostgreSQL cluster and tables because RLS and repository predicates
+  isolate the pair; they do not share an authenticated request-processing pool.
 - No cross-tenant data access is possible even if token validation is bypassed
 
-### 5.4 Tenant Business Quotas (Phase 2+)
+### 5.4 Tenant Business Quotas
 
 Business quotas are enforced in app-api handlers and surfaced to operators through
 `KnowledgeTenantStatus.quota` on the backend admin API and `/admin` console.
@@ -169,7 +186,7 @@ Business quotas are enforced in app-api handlers and surfaced to operators throu
 | `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_DOCUMENTS` | platform default | Document create |
 | `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_CONCURRENT_INGEST_JOBS` | platform default | Ingest start / post-enqueue verify |
 | `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_RETRIEVALS_PER_MINUTE` | platform default | Retrieval rate limit store |
-| `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_STORAGE_BYTES` | 100 GiB | Measured upload/object-ref writes; Drive import projected-size reservation remains required before shared SaaS release |
+| `SDKWORK_KNOWLEDGEBASE_TENANT_MAX_STORAGE_BYTES` | 100 GiB | Measured upload/object-ref writes; Drive import projected-size reservation is a commercial release gate |
 
 Quota violations return `ProblemDetail` with code `60002` (`knowledge_tenant_quota_exceeded`).
 
@@ -184,11 +201,11 @@ See [audit-retention.md](../docs/runbooks/audit-retention.md) for operator proce
 
 | Scenario | Expected Behavior |
 |---|---|
-| `SDKWORK_KNOWLEDGEBASE_TENANT_ID` unset in production-like env | App boot fails; no DB pool |
+| tenant or organization deployment scope absent/zero in production-like env | App boot fails; no DB pool |
 | `tenant_id` in token != `SDKWORK_KNOWLEDGEBASE_TENANT_ID` | `403 tenant_id_mismatch` |
 | `organization_id` mismatch | `403 organization_id_mismatch` |
 | Unauthenticated request | `401` |
-| RLS session variable missing (Postgres) | No rows returned (empty result set) |
+| Either RLS session variable missing (PostgreSQL) | No business rows are visible or writable |
 | Client sends `tenantId` in request body | Silently overridden with token-derived value |
 | Tenant status = `Suspended` | All API calls return `403` |
 
@@ -197,20 +214,21 @@ See [audit-retention.md](../docs/runbooks/audit-retention.md) for operator proce
 Context bindings (`kb_space_context_binding`) associate agent profiles with spaces. Isolation must enforce:
 1. Space access check before binding creation
 2. No blind retrieval of bindings — caller must have space access
-3. tenant_id is bounded by the space membership check
+3. tenant_id and organization_id are bounded by the space membership check
 
 ## 8. Observability
 
 - Metric: `knowledge_api_auth_failures_total` (401/403 counter)
 - Structured audit events: `knowledge.backend.admin_operation` with tenant context
 - Log field: `deployment_tenant_id` for platform-level events
-- **Future**: per-tenant breakdown metric for `tenant_id_mismatch` events
+- Mismatch counters use bounded reason labels; raw tenant/organization ids remain log fields,
+  not metric labels.
 
 ## 9. References
 
-- ADR: `docs/architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md`
+- ADR: `docs/architecture/decisions/ADR-20260731-dedicated-tenant-organization-runtime.md`
 - Runbook: `docs/runbooks/tenant-isolation.md`
-- RLS Migration: `database/migrations/postgres/0007_knowledgebase_postgres_rls.up.sql`
+- RLS Migration: `database/migrations/postgres/202607310001_core_organization_isolation.up.sql`
 - Contract: `crates/sdkwork-knowledgebase-contract/src/tenant.rs`
 - Backend Auth Guards: `crates/sdkwork-routes-knowledgebase-backend-api/src/auth.rs`
 - App API Context: `crates/sdkwork-routes-knowledgebase-app-api/src/web_bootstrap.rs`

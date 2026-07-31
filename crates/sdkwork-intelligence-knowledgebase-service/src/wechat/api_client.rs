@@ -1,11 +1,16 @@
+use crate::bounded_http_body::{
+    read_bounded_http_body, redacted_reqwest_error_detail, BoundedHttpBodyError,
+};
 use reqwest::Client;
 use reqwest::Url;
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::time::Duration;
 use thiserror::Error;
 
 const WECHAT_API_HOST: &str = "api.weixin.qq.com";
 const WECHAT_API_TIMEOUT_SECS: u64 = 30;
+const MAX_WECHAT_JSON_RESPONSE_BYTES: usize = 512 * 1024;
 const DEFAULT_THUMB_PNG: &[u8] = &[
     0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
     0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
@@ -70,8 +75,16 @@ pub struct WechatUserTag {
     pub count: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WechatDraftArticle {
+    pub title: String,
+    pub author: String,
+    pub digest: String,
+    pub content: String,
+}
+
 pub struct WechatApiClient {
-    http: Client,
+    http: Result<Client, String>,
 }
 
 impl Default for WechatApiClient {
@@ -81,7 +94,7 @@ impl Default for WechatApiClient {
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(Duration::from_secs(WECHAT_API_TIMEOUT_SECS))
                 .build()
-                .unwrap_or_else(|_| Client::new()),
+                .map_err(|error| redacted_reqwest_error_detail(&error)),
         }
     }
 }
@@ -89,6 +102,12 @@ impl Default for WechatApiClient {
 impl WechatApiClient {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    fn http(&self) -> Result<&Client, WechatApiClientError> {
+        self.http
+            .as_ref()
+            .map_err(|detail| WechatApiClientError::Configuration(detail.clone()))
     }
 
     pub async fn fetch_access_token(
@@ -101,8 +120,13 @@ impl WechatApiClient {
             urlencoding::encode(app_id),
             urlencoding::encode(app_secret),
         ))?;
-        let response = self.http.get(url).send().await?;
-        let body: AccessTokenResponse = response.json().await?;
+        let response = self
+            .http()?
+            .get(url)
+            .send()
+            .await
+            .map_err(redacted_reqwest_error)?;
+        let body: AccessTokenResponse = parse_wechat_json(response).await?;
         if let Some(token) = body.access_token.filter(|value| !value.is_empty()) {
             return Ok(token);
         }
@@ -123,10 +147,17 @@ impl WechatApiClient {
             "media",
             reqwest::multipart::Part::bytes(DEFAULT_THUMB_PNG.to_vec())
                 .file_name("thumb.png")
-                .mime_str("image/png")?,
+                .mime_str("image/png")
+                .map_err(redacted_reqwest_error)?,
         );
-        let response = self.http.post(url).multipart(form).send().await?;
-        let body: MediaUploadResponse = response.json().await?;
+        let response = self
+            .http()?
+            .post(url)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(redacted_reqwest_error)?;
+        let body: MediaUploadResponse = parse_wechat_json(response).await?;
         if let Some(media_id) = body.media_id.filter(|value| !value.is_empty()) {
             return Ok(media_id);
         }
@@ -135,33 +166,30 @@ impl WechatApiClient {
         )))
     }
 
-    pub async fn add_draft_article(
+    pub async fn add_draft_articles(
         &self,
         access_token: &str,
         thumb_media_id: &str,
-        title: &str,
-        author: &str,
-        digest: &str,
-        content: &str,
+        articles: &[WechatDraftArticle],
     ) -> Result<String, WechatApiClientError> {
+        if articles.is_empty() {
+            return Err(WechatApiClientError::InvalidRequest(
+                "at least one WeChat draft article is required".to_string(),
+            ));
+        }
         let url = build_wechat_url(&format!(
             "/cgi-bin/draft/add?access_token={}",
             urlencoding::encode(access_token),
         ))?;
-        let payload = serde_json::json!({
-            "articles": [{
-                "title": title,
-                "author": author,
-                "digest": digest,
-                "content": content,
-                "content_source_url": "",
-                "thumb_media_id": thumb_media_id,
-                "need_open_comment": 0,
-                "only_fans_can_comment": 0
-            }]
-        });
-        let response = self.http.post(url).json(&payload).send().await?;
-        let body: DraftAddResponse = response.json().await?;
+        let payload = build_draft_payload(thumb_media_id, articles);
+        let response = self
+            .http()?
+            .post(url)
+            .json(&payload)
+            .send()
+            .await
+            .map_err(redacted_reqwest_error)?;
+        let body: DraftAddResponse = parse_wechat_json(response).await?;
         if let Some(media_id) = body.media_id.filter(|value| !value.is_empty()) {
             return Ok(media_id);
         }
@@ -187,9 +215,15 @@ impl WechatApiClient {
                 "media_id": media_id
             }
         });
-        let response = self.http.post(url).json(&payload).send().await?;
-        let body: PreviewResponse = response.json().await?;
-        if body.errcode.unwrap_or(0) == 0 {
+        let response = self
+            .http()?
+            .post(url)
+            .json(&payload)
+            .send()
+            .await
+            .map_err(redacted_reqwest_error)?;
+        let body: PreviewResponse = parse_wechat_json(response).await?;
+        if body.errcode == Some(0) {
             return Ok(());
         }
         Err(WechatApiClientError::Api(body.errmsg.unwrap_or_else(
@@ -205,8 +239,13 @@ impl WechatApiClient {
             "/cgi-bin/tags/get?access_token={}",
             urlencoding::encode(access_token),
         ))?;
-        let response = self.http.get(url).send().await?;
-        let body: TagsResponse = response.json().await?;
+        let response = self
+            .http()?
+            .get(url)
+            .send()
+            .await
+            .map_err(redacted_reqwest_error)?;
+        let body: TagsResponse = parse_wechat_json(response).await?;
         if let Some(errcode) = body.errcode.filter(|code| *code != 0) {
             return Err(WechatApiClientError::Api(body.errmsg.unwrap_or_else(
                 || format!("wechat tag list failed with code {errcode}"),
@@ -259,9 +298,15 @@ impl WechatApiClient {
             },
             "send_ignore_reprint": 0
         });
-        let response = self.http.post(url).json(&payload).send().await?;
-        let body: MassSendResponse = response.json().await?;
-        if body.errcode.unwrap_or(0) == 0 {
+        let response = self
+            .http()?
+            .post(url)
+            .json(&payload)
+            .send()
+            .await
+            .map_err(redacted_reqwest_error)?;
+        let body: MassSendResponse = parse_wechat_json(response).await?;
+        if body.errcode == Some(0) {
             let _message_ids = (&body.msg_id, &body.msg_data_id);
             return Ok(());
         }
@@ -271,9 +316,31 @@ impl WechatApiClient {
     }
 }
 
+fn build_draft_payload(thumb_media_id: &str, articles: &[WechatDraftArticle]) -> serde_json::Value {
+    let articles = articles
+        .iter()
+        .map(|article| {
+            serde_json::json!({
+                "title": article.title,
+                "author": article.author,
+                "digest": article.digest,
+                "content": article.content,
+                "content_source_url": "",
+                "thumb_media_id": thumb_media_id,
+                "need_open_comment": 0,
+                "only_fans_can_comment": 0
+            })
+        })
+        .collect::<Vec<_>>();
+    serde_json::json!({ "articles": articles })
+}
+
 fn build_wechat_url(path_and_query: &str) -> Result<Url, WechatApiClientError> {
-    let url = Url::parse(&format!("https://{WECHAT_API_HOST}{path_and_query}"))
-        .map_err(|error| WechatApiClientError::InvalidRequest(error.to_string()))?;
+    let url = Url::parse(&format!("https://{WECHAT_API_HOST}{path_and_query}")).map_err(|_| {
+        WechatApiClientError::InvalidRequest(
+            "failed to construct allowlisted WeChat API URL".to_string(),
+        )
+    })?;
     if url.host_str() != Some(WECHAT_API_HOST) {
         return Err(WechatApiClientError::InvalidRequest(
             "wechat api host is not allowlisted".to_string(),
@@ -282,12 +349,83 @@ fn build_wechat_url(path_and_query: &str) -> Result<Url, WechatApiClientError> {
     Ok(url)
 }
 
+fn redacted_reqwest_error(error: reqwest::Error) -> WechatApiClientError {
+    WechatApiClientError::Http(redacted_reqwest_error_detail(&error))
+}
+
+async fn parse_wechat_json<T: DeserializeOwned>(
+    response: reqwest::Response,
+) -> Result<T, WechatApiClientError> {
+    let body = read_bounded_http_body(response, MAX_WECHAT_JSON_RESPONSE_BYTES)
+        .await
+        .map_err(|error| match error {
+            BoundedHttpBodyError::TooLarge { max_bytes } => {
+                WechatApiClientError::Api(format!("wechat response exceeds {max_bytes} bytes"))
+            }
+            BoundedHttpBodyError::Read { detail } => WechatApiClientError::Http(detail),
+        })?;
+    serde_json::from_slice(&body)
+        .map_err(|_| WechatApiClientError::Http("upstream response decoding failed".to_string()))
+}
+
 #[derive(Debug, Error)]
 pub enum WechatApiClientError {
     #[error("invalid wechat api request: {0}")]
     InvalidRequest(String),
+    #[error("wechat api client configuration failed: {0}")]
+    Configuration(String),
     #[error("wechat api call failed: {0}")]
     Api(String),
-    #[error(transparent)]
-    Http(#[from] reqwest::Error),
+    #[error("wechat api transport failed: {0}")]
+    Http(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn draft_payload_contains_every_selected_article() {
+        let payload = build_draft_payload(
+            "thumb-1",
+            &[
+                WechatDraftArticle {
+                    title: "First".to_string(),
+                    author: "Author".to_string(),
+                    digest: "First digest".to_string(),
+                    content: "<p>First</p>".to_string(),
+                },
+                WechatDraftArticle {
+                    title: "Second".to_string(),
+                    author: "Author".to_string(),
+                    digest: "Second digest".to_string(),
+                    content: "<p>Second</p>".to_string(),
+                },
+            ],
+        );
+
+        let articles = payload["articles"]
+            .as_array()
+            .expect("draft articles array");
+        assert_eq!(articles.len(), 2);
+        assert_eq!(articles[0]["title"], "First");
+        assert_eq!(articles[1]["title"], "Second");
+        assert!(articles
+            .iter()
+            .all(|article| article["thumb_media_id"] == "thumb-1"));
+    }
+
+    #[test]
+    fn reqwest_errors_are_rendered_without_request_urls_or_credentials() {
+        let error = Client::new()
+            .get("http://[::1?access_token=super-secret")
+            .build()
+            .expect_err("invalid URL must fail request construction");
+
+        let rendered = redacted_reqwest_error(error).to_string();
+
+        assert!(!rendered.contains("super-secret"));
+        assert!(!rendered.contains("access_token"));
+        assert!(!rendered.contains("http://"));
+    }
 }

@@ -20,24 +20,27 @@ pub trait KnowledgeSourceStore: Send + Sync {
         &self,
         space_id: u64,
     ) -> Result<Option<String>, KnowledgeSourceStoreError> {
-        let _ = space_id;
-        Ok(None)
+        Err(KnowledgeSourceStoreError::Unsupported(format!(
+            "newest_lineage_activity_at is unsupported for space {space_id}"
+        )))
     }
 
     async fn list_space_source_lineage(
         &self,
         space_id: u64,
     ) -> Result<Vec<KnowledgeSourceLineageSnapshot>, KnowledgeSourceStoreError> {
-        let _ = space_id;
-        Ok(Vec::new())
+        Err(KnowledgeSourceStoreError::Unsupported(format!(
+            "list_space_source_lineage is unsupported for space {space_id}"
+        )))
     }
 
     async fn list_sources_for_space(
         &self,
         space_id: u64,
     ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
-        let _ = space_id;
-        Ok(Vec::new())
+        Err(KnowledgeSourceStoreError::Unsupported(format!(
+            "list_sources_for_space is unsupported for space {space_id}"
+        )))
     }
 }
 
@@ -63,6 +66,48 @@ pub struct KnowledgeSourceLineageSnapshot {
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum KnowledgeSourceStoreError {
+    #[error("knowledge source store unsupported operation: {0}")]
+    Unsupported(String),
     #[error("knowledge source store internal error: {0}")]
     Internal(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct CreateOnlySourceStore;
+
+    #[async_trait]
+    impl KnowledgeSourceStore for CreateOnlySourceStore {
+        async fn create_source(
+            &self,
+            _record: CreateKnowledgeSourceRecord,
+        ) -> Result<KnowledgeSource, KnowledgeSourceStoreError> {
+            Err(KnowledgeSourceStoreError::Unsupported(
+                "create_source is not used by this test".to_string(),
+            ))
+        }
+    }
+
+    #[tokio::test]
+    async fn optional_reads_fail_closed_when_store_does_not_implement_them() {
+        let store = CreateOnlySourceStore;
+        for error in [
+            store
+                .newest_lineage_activity_at(42)
+                .await
+                .expect_err("lineage activity must not silently return none"),
+            store
+                .list_space_source_lineage(42)
+                .await
+                .expect_err("lineage list must not silently return empty"),
+            store
+                .list_sources_for_space(42)
+                .await
+                .expect_err("source list must not silently return empty"),
+        ] {
+            assert!(matches!(error, KnowledgeSourceStoreError::Unsupported(_)));
+        }
+    }
 }

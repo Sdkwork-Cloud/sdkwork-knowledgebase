@@ -1,11 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { BookOpen, Moon, Sun, X } from 'lucide-react';
+import { isTauriDesktopRuntime } from 'sdkwork-knowledgebase-pc-core';
 
 type AuthThemeMode = 'dark' | 'light';
-
-function isDesktopRuntime(): boolean {
-  return typeof window !== 'undefined' && !!(globalThis as Record<string, unknown>).__TAURI__;
-}
 
 export function KnowledgebaseAuthShell({ children }: { children: ReactNode }) {
   const [themeMode, setThemeMode] = useState<AuthThemeMode>(() => {
@@ -16,7 +13,7 @@ export function KnowledgebaseAuthShell({ children }: { children: ReactNode }) {
   });
 
   const isLightMode = themeMode === 'light';
-  const shouldRenderDesktopHeader = isDesktopRuntime();
+  const shouldRenderDesktopHeader = isTauriDesktopRuntime();
 
   useEffect(() => {
     document.documentElement.classList.toggle('light-mode', isLightMode);

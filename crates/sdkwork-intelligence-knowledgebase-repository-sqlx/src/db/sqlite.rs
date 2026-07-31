@@ -253,16 +253,6 @@ fn is_idempotent_sqlite_schema_error(message: &str) -> bool {
     message.contains("duplicate column name") || message.contains("already exists")
 }
 
-async fn bootstrap_sqlite_file_database(database_url: &str) -> Result<(), sqlx::Error> {
-    let pool = crate::db::bootstrap::connect_knowledgebase_pool_from_url(database_url)
-        .await
-        .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
-    crate::db::bootstrap::bootstrap_knowledgebase_database(pool)
-        .await
-        .map_err(|error| sqlx::Error::Configuration(error.into()))?;
-    Ok(())
-}
-
 fn migration_contains_trigger_program(migration: &str) -> bool {
     migration.contains("CREATE TRIGGER")
 }
@@ -273,13 +263,15 @@ fn is_memory_sqlite_database_url(database_url: &str) -> bool {
 }
 
 pub async fn connect_sqlite_and_install_schema(database_url: &str) -> Result<AnyPool, sqlx::Error> {
-    if is_memory_sqlite_database_url(database_url) {
-        let pool = connect_sqlite_pool(database_url).await?;
-        install_sqlite_core_schema(&pool).await?;
-        return Ok(pool);
+    if !is_memory_sqlite_database_url(database_url) {
+        return Err(sqlx::Error::Configuration(
+            "file-backed SQLite is not a Knowledgebase server database; client-local SQLite must be owned by a native/client persistence module"
+                .into(),
+        ));
     }
-    bootstrap_sqlite_file_database(database_url).await?;
-    connect_sqlite_pool(database_url).await
+    let pool = connect_sqlite_pool(database_url).await?;
+    install_sqlite_core_schema(&pool).await?;
+    Ok(pool)
 }
 
 pub async fn sqlite_health_check(pool: &AnyPool) -> Result<(), sqlx::Error> {

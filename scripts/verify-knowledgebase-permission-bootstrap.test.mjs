@@ -62,14 +62,27 @@ describe('knowledgebase permission bootstrap alignment', () => {
     }
   });
 
-  it('application assembly embeds IAM through sdkwork-api-iam-assembly export', () => {
-    const bootstrap = readText('crates/sdkwork-api-knowledgebase-assembly/src/bootstrap.rs');
-    const cargoToml = readText('crates/sdkwork-api-knowledgebase-assembly/Cargo.toml');
+  it('standalone gateway composes IAM without coupling the host-neutral assembly', () => {
+    const gatewayMain = readText(
+      'crates/sdkwork-api-knowledgebase-standalone-gateway/src/bin/app_main.rs',
+    );
+    const gatewayCargo = readText(
+      'crates/sdkwork-api-knowledgebase-standalone-gateway/Cargo.toml',
+    );
+    const assemblyBootstrap = readText(
+      'crates/sdkwork-api-knowledgebase-assembly/src/bootstrap.rs',
+    );
+    const assemblyCargo = readText('crates/sdkwork-api-knowledgebase-assembly/Cargo.toml');
 
-    assert.match(bootstrap, /sdkwork_api_iam_assembly::assemble_api_router/);
-    assert.match(bootstrap, /SDKWORK_IAM_APP_API_HOST_MOUNTED/);
-    assert.doesNotMatch(cargoToml, /sdkwork-routes-iam-app-api/);
-    assert.match(cargoToml, /sdkwork_api_iam_assembly/);
+    assert.match(
+      gatewayMain,
+      /sdkwork_api_iam_assembly::assemble_app_api_contribution/,
+    );
+    assert.match(gatewayMain, /ComposedApiAssembly::try_compose/);
+    assert.match(gatewayCargo, /^sdkwork_api_iam_assembly\.workspace\s*=\s*true$/m);
+    assert.doesNotMatch(assemblyBootstrap, /sdkwork_api_iam_assembly/);
+    assert.doesNotMatch(assemblyCargo, /sdkwork[_-]api[_-]iam[_-]assembly/);
+    assert.doesNotMatch(assemblyCargo, /sdkwork-routes-iam-app-api/);
   });
 
   it('pc surface declares permissionComposition inheritance', () => {

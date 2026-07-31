@@ -782,20 +782,24 @@ async fn append_lifecycle_event(
     });
     let payload_json = serde_json::to_string(&payload)
         .map_err(|error| WikiPersistenceError::Internal(error.to_string()))?;
-    let payload_expr = store.dialect.sql_json_expr("$7");
-    let created_at = store.dialect.sql_timestamp_expr("$9");
+    let payload_expr = store.dialect.sql_json_expr("$8");
+    let created_at = store.dialect.sql_timestamp_expr("$10");
     let query = format!(
         r#"
         INSERT INTO kb_outbox_event (
-            id, uuid, tenant_id, aggregate_type, aggregate_id, event_type,
+            id, uuid, tenant_id, organization_id, aggregate_type, aggregate_id, event_type,
             payload, status, created_at, version
-        ) VALUES ($1, $2, $3, $4, $5, $6, {payload_expr}, $8, {created_at}, 0)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, {payload_expr}, $9, {created_at}, 0)
         "#,
     );
     sqlx::query(&query)
         .bind(outbox_id)
         .bind(event_uuid)
         .bind(to_i64("tenant_id", event.publication.scope.tenant_id)?)
+        .bind(to_i64(
+            "organization_id",
+            event.publication.scope.organization_id,
+        )?)
         .bind("wiki_publication")
         .bind(to_i64("aggregate_id", event.publication.id)?)
         .bind(event.event_type)
@@ -838,17 +842,17 @@ async fn append_lifecycle_audit(
     });
     let payload_json = serde_json::to_string(&payload)
         .map_err(|error| WikiPersistenceError::Internal(error.to_string()))?;
-    let payload_expr = store.dialect.sql_json_expr("$12");
-    let created_at = store.dialect.sql_timestamp_expr("$13");
+    let payload_expr = store.dialect.sql_json_expr("$13");
+    let created_at = store.dialect.sql_timestamp_expr("$14");
     let query = format!(
         r#"
         INSERT INTO kb_audit_event (
-            id, uuid, tenant_id, event_type, actor_type, actor_id,
+            id, uuid, tenant_id, organization_id, event_type, actor_type, actor_id,
             resource_type, resource_id, result, request_id, trace_id,
             payload, created_at, version
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-            {payload_expr}, {created_at}, $14
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+            {payload_expr}, {created_at}, $15
         )
         "#,
     );
@@ -862,6 +866,10 @@ async fn append_lifecycle_audit(
         .bind(store.next_id()?)
         .bind(uuid())
         .bind(to_i64("tenant_id", publication.scope.tenant_id)?)
+        .bind(to_i64(
+            "organization_id",
+            publication.scope.organization_id,
+        )?)
         .bind(event_type)
         .bind("user")
         .bind(actor_id.to_string())

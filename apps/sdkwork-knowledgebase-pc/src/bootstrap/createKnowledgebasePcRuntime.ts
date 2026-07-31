@@ -11,6 +11,8 @@ import {
   bindKnowledgebaseSessionStore,
   setKnowledgebaseApiEnabled,
   isKnowledgebaseAppApiConfigured,
+  invokeDesktopCommand,
+  isTauriDesktopRuntime,
   type KnowledgebasePcRuntime,
   type SessionStorageLike,
 } from 'sdkwork-knowledgebase-pc-core';
@@ -26,7 +28,14 @@ import { primePcReactRuntimeSessionCache } from './sdkworkCorePcReactShim';
 
 export function createKnowledgebasePcRuntime(): KnowledgebasePcRuntime {
   const config = createRuntimeConfig(import.meta.env);
-  const session = createSessionStore(resolveSessionStorage(config.auth.tokenStorage));
+  const resolvedStorage = resolveSessionStorage(config.auth.tokenStorage);
+  const session = createSessionStore(resolvedStorage.storage);
+  void resolvedStorage.hydrated?.then(() => {
+    const current = session.getSnapshot();
+    if (!current.authToken && !current.accessToken && !current.refreshToken) {
+      session.refreshSession();
+    }
+  });
   const tokenManager = createKnowledgebaseSessionTokenManager(session);
   const appSdkClient = createKnowledgebaseAppSdkClient({
     config,
@@ -79,20 +88,25 @@ export function createKnowledgebasePcRuntime(): KnowledgebasePcRuntime {
   };
 }
 
+interface ResolvedSessionStorage {
+  storage?: SessionStorageLike;
+  hydrated?: Promise<void>;
+}
+
 function resolveSessionStorage(
   tokenStorage: KnowledgebasePcRuntime['config']['auth']['tokenStorage'],
-): SessionStorageLike | undefined {
+): ResolvedSessionStorage {
   if (typeof window === 'undefined') {
-    return undefined;
+    return {};
   }
   if (tokenStorage === 'browser-local' || tokenStorage === 'browser-session') {
     migrateLegacyBrowserSession();
-    return window.localStorage;
+    return { storage: window.localStorage };
   }
   if (tokenStorage === 'os-secure-storage') {
-    return createDesktopSecureSessionStorage();
+    return createDesktopSecureSessionStorage() ?? {};
   }
-  return undefined;
+  return {};
 }
 
 function migrateLegacyBrowserSession(): void {
@@ -105,36 +119,42 @@ function migrateLegacyBrowserSession(): void {
   }
 }
 
-function createDesktopSecureSessionStorage(): SessionStorageLike | undefined {
-  const tauri = (globalThis as typeof globalThis & {
-    __TAURI__?: { core?: { invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> } };
-  }).__TAURI__;
-  if (!tauri?.core?.invoke) {
+function createDesktopSecureSessionStorage(): ResolvedSessionStorage | undefined {
+  if (!isTauriDesktopRuntime()) {
     return undefined;
   }
 
   const memory = new Map<string, string>();
-  void tauri.core!.invoke<Record<string, string>>('read_secure_session_snapshot')
-    .then((snapshot) => {
-      for (const [key, value] of Object.entries(snapshot ?? {})) {
-        memory.set(key, value);
+  let mutationVersion = 0;
+  const hydrated = invokeDesktopCommand<string | null>('read_secure_session_value', {
+    request: { key: DEFAULT_SESSION_STORAGE_KEY },
+  })
+    .then((value) => {
+      if (value && mutationVersion === 0) {
+        memory.set(DEFAULT_SESSION_STORAGE_KEY, value);
       }
     })
-    .catch(() => undefined);
+    .catch(() => undefined)
+    .then(() => undefined);
 
   return {
-    getItem(key: string) {
-      return memory.get(key) ?? null;
-    },
-    setItem(key: string, value: string) {
-      memory.set(key, value);
-      void tauri.core!.invoke('write_secure_session_value', { request: { key, value } }).catch(() => {
+    hydrated,
+    storage: {
+      getItem(key: string) {
+        return memory.get(key) ?? null;
+      },
+      setItem(key: string, value: string) {
+        mutationVersion += 1;
+        memory.set(key, value);
+        void invokeDesktopCommand('write_secure_session_value', { request: { key, value } }).catch(() => {
+          memory.delete(key);
+        });
+      },
+      removeItem(key: string) {
+        mutationVersion += 1;
         memory.delete(key);
-      });
-    },
-    removeItem(key: string) {
-      memory.delete(key);
-      void tauri.core!.invoke('remove_secure_session_value', { request: { key } }).catch(() => undefined);
+        void invokeDesktopCommand('remove_secure_session_value', { request: { key } }).catch(() => undefined);
+      },
     },
   };
 }

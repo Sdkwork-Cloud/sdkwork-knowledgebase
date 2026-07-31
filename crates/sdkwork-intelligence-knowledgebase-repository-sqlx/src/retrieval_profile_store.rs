@@ -25,23 +25,31 @@ pub enum KnowledgeRetrievalProfileStoreError {
 pub struct SqliteKnowledgeRetrievalProfileStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeRetrievalProfileStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
-        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
+        Self::with_id_generator(
+            pool,
+            tenant_id,
+            organization_id,
+            default_knowledge_id_generator(),
+        )
     }
 
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
         }
@@ -65,20 +73,21 @@ impl SqliteKnowledgeRetrievalProfileStore {
 
         let id = next_i64_id(&self.id_generator).map_err(id_error)?;
         let tenant_id = to_i64("tenant_id", request.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let top_k = i64::from(request.top_k);
         let rerank_enabled = i64::from(request.rerank_enabled);
         let context_budget_tokens = i64::from(request.context_budget_tokens);
         let now = now_rfc3339()?;
 
-        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$11");
-        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$12");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$13");
         let query = format!(
             r#"
             INSERT INTO kb_retrieval_profile (
-                id, uuid, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
+                id, uuid, tenant_id, organization_id, name, strategy, top_k, min_score, rerank_enabled,
                 context_budget_tokens, status, created_at, updated_at, version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, {created_at_expr}, {updated_at_expr}, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {created_at_expr}, {updated_at_expr}, $14)
             RETURNING id, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                       context_budget_tokens, status
             "#,
@@ -87,6 +96,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(request.name)
             .bind(request.strategy)
             .bind(top_k)
@@ -109,17 +119,19 @@ impl SqliteKnowledgeRetrievalProfileStore {
         profile_id: u64,
     ) -> Result<KnowledgeRetrievalProfile, KnowledgeRetrievalProfileStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let profile_id = to_i64("profile_id", profile_id)?;
         let row = sqlx::query(
             r#"
             SELECT id, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                    context_budget_tokens, status
             FROM kb_retrieval_profile
-            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = $4
             LIMIT 1
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(profile_id)
         .bind(ACTIVE_STATUS)
         .fetch_optional(&self.pool)
@@ -141,6 +153,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
     ) -> Result<KnowledgeRetrievalProfile, KnowledgeRetrievalProfileStoreError> {
         ensure_tenant_scope(self.tenant_id, request.tenant_id)?;
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let profile_id = to_i64("profile_id", profile_id)?;
         let top_k = i64::from(request.top_k);
         let rerank_enabled = i64::from(request.rerank_enabled);
@@ -153,7 +166,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
             UPDATE kb_retrieval_profile
             SET name = $1, strategy = $2, top_k = $3, min_score = $4, rerank_enabled = $5,
                 context_budget_tokens = $6, status = $7, updated_at = {updated_at_expr}, version = version + 1
-            WHERE tenant_id = $9 AND id = $10 AND status = $11
+            WHERE tenant_id = $9 AND organization_id = $10 AND id = $11 AND status = $12
             RETURNING id, tenant_id, name, strategy, top_k, min_score, rerank_enabled,
                       context_budget_tokens, status
             "#,
@@ -168,6 +181,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
             .bind(profile_status_code(&request.status))
             .bind(now)
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(profile_id)
             .bind(ACTIVE_STATUS)
             .fetch_optional(&self.pool)

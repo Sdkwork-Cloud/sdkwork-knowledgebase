@@ -13,11 +13,16 @@ const MAX_PROJECTION_BATCH_SIZE: usize = 200;
 pub struct SqliteKnowledgeBrowserProjectionStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
 }
 
 impl SqliteKnowledgeBrowserProjectionStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
-        Self { pool, tenant_id }
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
+        Self {
+            pool,
+            tenant_id,
+            organization_id,
+        }
     }
 }
 
@@ -34,10 +39,10 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
         validate_batch_size("drive_node_ids", drive_node_ids.len())?;
 
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
-        // Build $N placeholders for the IN clause. Fixed bind params occupy $1..$3
-        // (tenant_id, space_id, ACTIVE_STATUS); drive node ids start at $4.
-        let in_placeholders = build_in_placeholders(drive_node_ids.len(), 3);
+        // Fixed scope/status bind params occupy $1..$4.
+        let in_placeholders = build_in_placeholders(drive_node_ids.len(), 4);
         let sql = format!(
             r#"
             SELECT
@@ -49,17 +54,20 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
             FROM kb_document d
             LEFT JOIN kb_document_version v
               ON v.tenant_id = d.tenant_id
+             AND v.organization_id = d.organization_id
              AND v.id = d.current_version_id
              AND v.status = 1
             WHERE d.tenant_id = $1
-              AND d.space_id = $2
-              AND d.status = $3
+              AND d.organization_id = $2
+              AND d.space_id = $3
+              AND d.status = $4
               AND d.original_file_drive_node_id IN ({in_placeholders})
             "#
         );
 
         let mut query = sqlx::query(&sql)
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(space_id)
             .bind(ACTIVE_STATUS);
         for drive_node_id in drive_node_ids {
@@ -121,23 +129,25 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
         validate_batch_size("logical_paths", logical_paths.len())?;
 
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
-        // Build $N placeholders for the IN clause. Fixed bind params occupy $1..$3
-        // (tenant_id, space_id, ACTIVE_STATUS); logical paths start at $4.
-        let in_placeholders = build_in_placeholders(logical_paths.len(), 3);
+        // Fixed scope/status bind params occupy $1..$4.
+        let in_placeholders = build_in_placeholders(logical_paths.len(), 4);
         let sql = format!(
             r#"
             SELECT logical_path, id, current_revision_id, publish_state
             FROM kb_okf_concept
             WHERE tenant_id = $1
-              AND space_id = $2
-              AND status = $3
+              AND organization_id = $2
+              AND space_id = $3
+              AND status = $4
               AND logical_path IN ({in_placeholders})
             "#
         );
 
         let mut query = sqlx::query(&sql)
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(space_id)
             .bind(ACTIVE_STATUS);
         for logical_path in logical_paths {
@@ -263,10 +273,8 @@ mod tests {
 
     #[test]
     fn build_in_placeholders_starts_after_reserved_params() {
-        // 3 fixed params (tenant_id, space_id, ACTIVE_STATUS) occupy $1..$3,
-        // so the IN clause must start at $4.
-        let placeholders = build_in_placeholders(3, 3);
-        assert_eq!(placeholders, "$4, $5, $6");
+        let placeholders = build_in_placeholders(3, 4);
+        assert_eq!(placeholders, "$5, $6, $7");
     }
 
     #[test]
@@ -275,7 +283,7 @@ mod tests {
         // that previously caused "syntax error at or near AND" is correct:
         // the active-version join filter (`v.status = 1`) must stay in the ON clause,
         // not leak into the WHERE clause.
-        let in_placeholders = build_in_placeholders(1, 3);
+        let in_placeholders = build_in_placeholders(1, 4);
         let sql = format!(
             r#"
             SELECT
@@ -287,11 +295,13 @@ mod tests {
             FROM kb_document d
             LEFT JOIN kb_document_version v
               ON v.tenant_id = d.tenant_id
+             AND v.organization_id = d.organization_id
              AND v.id = d.current_version_id
              AND v.status = 1
             WHERE d.tenant_id = $1
-              AND d.space_id = $2
-              AND d.status = $3
+              AND d.organization_id = $2
+              AND d.space_id = $3
+              AND d.status = $4
               AND d.original_file_drive_node_id IN ({in_placeholders})
             "#
         );

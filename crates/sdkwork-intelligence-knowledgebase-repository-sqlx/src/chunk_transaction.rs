@@ -30,6 +30,7 @@ struct PreparedChunkRow {
 pub async fn replace_version_chunks_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
     keyword_backend: KeywordSearchBackend,
     timestamp_dialect: SqlTimestampDialect,
@@ -37,6 +38,7 @@ pub async fn replace_version_chunks_in_transaction(
     chunks: &[CreateKnowledgeChunkRecord],
 ) -> Result<usize, KnowledgeChunkStoreError> {
     let tenant_id_i64 = chunk_to_i64("tenant_id", tenant_id)?;
+    let organization_id_i64 = chunk_to_i64("organization_id", organization_id)?;
     let version_id = chunk_to_i64("document_version_id", document_version_id)?;
     let now = chunk_now()?;
     let use_sqlite_fts = keyword_backend == KeywordSearchBackend::SqliteFts5;
@@ -45,14 +47,19 @@ pub async fn replace_version_chunks_in_transaction(
         sqlx::query(
             r#"
             DELETE FROM kb_chunk_fts
-            WHERE chunk_id IN (
+            WHERE tenant_id = $1
+              AND organization_id = $2
+              AND chunk_id IN (
                 SELECT id
                 FROM kb_chunk
-                WHERE tenant_id = $1 AND document_version_id = $2
+                WHERE tenant_id = $1
+                  AND organization_id = $2
+                  AND document_version_id = $3
             )
             "#,
         )
         .bind(tenant_id_i64)
+        .bind(organization_id_i64)
         .bind(version_id)
         .execute(&mut **transaction)
         .await
@@ -62,10 +69,11 @@ pub async fn replace_version_chunks_in_transaction(
     sqlx::query(
         r#"
         DELETE FROM kb_chunk
-        WHERE tenant_id = $1 AND document_version_id = $2
+        WHERE tenant_id = $1 AND organization_id = $2 AND document_version_id = $3
         "#,
     )
     .bind(tenant_id_i64)
+    .bind(organization_id_i64)
     .bind(version_id)
     .execute(&mut **transaction)
     .await
@@ -99,13 +107,22 @@ pub async fn replace_version_chunks_in_transaction(
 
     for batch in prepared.chunks(CHUNK_INSERT_BATCH_SIZE) {
         if use_sqlite_fts {
-            bulk_insert_kb_chunks_sqlite(transaction, tenant_id_i64, version_id, &now, batch)
+            bulk_insert_kb_chunks_sqlite(
+                transaction,
+                tenant_id_i64,
+                organization_id_i64,
+                version_id,
+                &now,
+                batch,
+            )
+            .await?;
+            bulk_insert_kb_chunk_fts(transaction, tenant_id_i64, organization_id_i64, batch)
                 .await?;
-            bulk_insert_kb_chunk_fts(transaction, tenant_id_i64, batch).await?;
         } else {
             bulk_insert_kb_chunks_postgres(
                 transaction,
                 tenant_id_i64,
+                organization_id_i64,
                 version_id,
                 timestamp_dialect,
                 &now,
@@ -121,6 +138,7 @@ pub async fn replace_version_chunks_in_transaction(
 async fn bulk_insert_kb_chunks_sqlite(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: i64,
+    organization_id: i64,
     version_id: i64,
     now: &str,
     batch: &[PreparedChunkRow],
@@ -128,7 +146,7 @@ async fn bulk_insert_kb_chunks_sqlite(
     let mut builder = QueryBuilder::new(
         r#"
         INSERT INTO kb_chunk (
-            id, uuid, tenant_id, space_id, collection_id, document_id,
+            id, uuid, tenant_id, organization_id, space_id, collection_id, document_id,
             document_version_id, chunk_index, content_text, content_hash,
             token_count, locator, status, created_at, updated_at, version
         )
@@ -138,6 +156,7 @@ async fn bulk_insert_kb_chunks_sqlite(
         row.push_bind(chunk.id)
             .push_bind(chunk.uuid.as_str())
             .push_bind(tenant_id)
+            .push_bind(organization_id)
             .push_bind(chunk.space_id)
             .push_bind(chunk.collection_id)
             .push_bind(chunk.document_id)
@@ -164,6 +183,7 @@ async fn bulk_insert_kb_chunks_sqlite(
 async fn bulk_insert_kb_chunks_postgres(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: i64,
+    organization_id: i64,
     version_id: i64,
     timestamp_dialect: SqlTimestampDialect,
     now: &str,
@@ -172,7 +192,7 @@ async fn bulk_insert_kb_chunks_postgres(
     let mut builder = QueryBuilder::new(
         r#"
         INSERT INTO kb_chunk (
-            id, uuid, tenant_id, space_id, collection_id, document_id,
+            id, uuid, tenant_id, organization_id, space_id, collection_id, document_id,
             document_version_id, chunk_index, content_text, content_hash,
             token_count, locator, status, created_at, updated_at, version,
             search_vector
@@ -183,6 +203,7 @@ async fn bulk_insert_kb_chunks_postgres(
         row.push_bind(chunk.id)
             .push_bind(chunk.uuid.as_str())
             .push_bind(tenant_id)
+            .push_bind(organization_id)
             .push_bind(chunk.space_id)
             .push_bind(chunk.collection_id)
             .push_bind(chunk.document_id)
@@ -212,12 +233,13 @@ async fn bulk_insert_kb_chunks_postgres(
 async fn bulk_insert_kb_chunk_fts(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: i64,
+    organization_id: i64,
     batch: &[PreparedChunkRow],
 ) -> Result<(), KnowledgeChunkStoreError> {
     let mut builder = QueryBuilder::new(
         r#"
         INSERT INTO kb_chunk_fts (
-            content_text, chunk_id, tenant_id, space_id, document_id
+            content_text, chunk_id, tenant_id, organization_id, space_id, document_id
         )
         "#,
     );
@@ -225,6 +247,7 @@ async fn bulk_insert_kb_chunk_fts(
         row.push_bind(chunk.content_text.as_str())
             .push_bind(chunk.id)
             .push_bind(tenant_id)
+            .push_bind(organization_id)
             .push_bind(chunk.space_id)
             .push_bind(chunk.document_id);
     });
@@ -240,6 +263,7 @@ async fn bulk_insert_kb_chunk_fts(
 pub async fn replace_version_chunks_with_pool(
     pool: &AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
     keyword_backend: KeywordSearchBackend,
     document_version_id: u64,
@@ -252,6 +276,7 @@ pub async fn replace_version_chunks_with_pool(
     let count = replace_version_chunks_in_transaction(
         &mut tx,
         tenant_id,
+        organization_id,
         id_generator,
         keyword_backend,
         SqlTimestampDialect::default(),

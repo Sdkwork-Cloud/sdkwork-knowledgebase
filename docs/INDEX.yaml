@@ -20,6 +20,7 @@ canon:
   sitePublicationDecision: docs/architecture/decisions/ADR-20260721-live-mounted-wiki-publication.md
   liveWikiImplementationPlan: docs/engineering/plans/PLAN-2026-0721-live-wiki-cloud-publication.md
   liveWikiReadinessReview: docs/engineering/reviews/REVIEW-20260721-live-wiki-deployment-integration-readiness.md
+  tenantOrganizationRuntimeDecision: docs/architecture/decisions/ADR-20260731-dedicated-tenant-organization-runtime.md
 entries:
   - id: prd
     path: docs/product/prd/PRD.md
@@ -47,6 +48,9 @@ entries:
     kind: architecture
   - id: adr-20260624-phase2-postgres-rls-multi-tenant
     path: docs/architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md
+    kind: architecture-decision
+  - id: ADR-20260731
+    path: docs/architecture/decisions/ADR-20260731-dedicated-tenant-organization-runtime.md
     kind: architecture-decision
   - id: REQ-2026-0713
     path: docs/product/requirements/REQ-2026-0713-group-knowledgebase.md

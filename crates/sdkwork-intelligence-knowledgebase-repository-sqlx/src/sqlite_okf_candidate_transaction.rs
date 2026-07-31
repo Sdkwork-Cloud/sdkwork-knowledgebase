@@ -18,11 +18,13 @@ pub(crate) const OKF_CANDIDATE_INITIAL_VERSION: i64 = 0;
 pub(crate) async fn upsert_okf_candidate_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: &Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
     record: UpsertKnowledgeOkfCandidateRecord,
 ) -> Result<(), KnowledgeOkfCandidateStoreError> {
     let tenant_id = to_i64("tenant_id", tenant_id)?;
+    let organization_id = to_i64("organization_id", organization_id)?;
     let space_id = to_i64("space_id", record.space_id)?;
     let _concept_row_id = to_i64("concept_row_id", record.concept_row_id)?;
     let markdown_object_ref_id = to_i64("markdown_object_ref_id", record.markdown_object_ref_id)?;
@@ -32,10 +34,11 @@ pub(crate) async fn upsert_okf_candidate_in_transaction(
         r#"
         SELECT id
         FROM kb_okf_candidate
-        WHERE tenant_id = $1 AND space_id = $2 AND concept_id = $3 AND status = $4
+        WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND concept_id = $4 AND status = $5
         "#,
     )
     .bind(tenant_id)
+    .bind(organization_id)
     .bind(space_id)
     .bind(&record.concept_id)
     .bind(OKF_CANDIDATE_ACTIVE_STATUS)
@@ -53,7 +56,7 @@ pub(crate) async fn upsert_okf_candidate_in_transaction(
                 markdown_object_ref_id = $3,
                 updated_at = {updated_at_expr},
                 version = version + 1
-            WHERE tenant_id = $5 AND id = $6 AND status = $7
+            WHERE tenant_id = $5 AND organization_id = $6 AND id = $7 AND status = $8
             "#,
         );
         sqlx::query(&query)
@@ -62,6 +65,7 @@ pub(crate) async fn upsert_okf_candidate_in_transaction(
             .bind(markdown_object_ref_id)
             .bind(&now)
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(candidate_id)
             .bind(OKF_CANDIDATE_ACTIVE_STATUS)
             .execute(&mut **transaction)
@@ -71,21 +75,22 @@ pub(crate) async fn upsert_okf_candidate_in_transaction(
     }
 
     let id = next_i64_id(id_generator).map_err(id_error)?;
-    let created_at_expr = timestamp_dialect.sql_timestamp_expr("$10");
-    let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$11");
+    let created_at_expr = timestamp_dialect.sql_timestamp_expr("$11");
+    let updated_at_expr = timestamp_dialect.sql_timestamp_expr("$12");
     let query = format!(
         r#"
         INSERT INTO kb_okf_candidate (
-            id, uuid, tenant_id, space_id, concept_id, candidate_type, state,
+            id, uuid, tenant_id, organization_id, space_id, concept_id, candidate_type, state,
             markdown_object_ref_id, reviewer_id, review_note, status,
             created_at, updated_at, version
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, NULL, $9, {created_at_expr}, {updated_at_expr}, $12)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL, NULL, $10, {created_at_expr}, {updated_at_expr}, $13)
         "#,
     );
     sqlx::query(&query)
         .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(space_id)
         .bind(&record.concept_id)
         .bind(record.candidate_type.as_str())
@@ -104,6 +109,7 @@ pub(crate) async fn upsert_okf_candidate_in_transaction(
 pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
     transaction: &mut Transaction<'_, Any>,
     tenant_id: u64,
+    organization_id: u64,
     timestamp_dialect: SqlTimestampDialect,
     concept_row_id: u64,
     state: OkfConceptPublishState,
@@ -111,15 +117,17 @@ pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
     review_note: Option<String>,
 ) -> Result<(), KnowledgeOkfCandidateStoreError> {
     let tenant_id = to_i64("tenant_id", tenant_id)?;
+    let organization_id = to_i64("organization_id", organization_id)?;
     let concept_row_id = to_i64("concept_row_id", concept_row_id)?;
     let concept_id: String = sqlx::query_scalar(
         r#"
         SELECT concept_id
         FROM kb_okf_concept
-        WHERE tenant_id = $1 AND id = $2 AND status = $3
+        WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = $4
         "#,
     )
     .bind(tenant_id)
+    .bind(organization_id)
     .bind(concept_row_id)
     .bind(OKF_CANDIDATE_ACTIVE_STATUS)
     .fetch_optional(&mut **transaction)
@@ -134,10 +142,11 @@ pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
         r#"
         SELECT space_id
         FROM kb_okf_concept
-        WHERE tenant_id = $1 AND id = $2 AND status = $3
+        WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = $4
         "#,
     )
     .bind(tenant_id)
+    .bind(organization_id)
     .bind(concept_row_id)
     .bind(OKF_CANDIDATE_ACTIVE_STATUS)
     .fetch_one(&mut **transaction)
@@ -157,7 +166,7 @@ pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
             review_note = $3,
             updated_at = {updated_at_expr},
             version = version + 1
-        WHERE tenant_id = $5 AND space_id = $6 AND concept_id = $7 AND status = $8
+        WHERE tenant_id = $5 AND organization_id = $6 AND space_id = $7 AND concept_id = $8 AND status = $9
         "#,
     );
     sqlx::query(&query)
@@ -166,6 +175,7 @@ pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
         .bind(review_note)
         .bind(&now)
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(space_id)
         .bind(concept_id)
         .bind(OKF_CANDIDATE_ACTIVE_STATUS)

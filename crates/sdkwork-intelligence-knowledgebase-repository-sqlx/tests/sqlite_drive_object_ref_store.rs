@@ -9,7 +9,7 @@ use sqlx::{AnyPool, Row};
 async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_secrets() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let store = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), 9001);
+    let store = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), 9001, 0);
 
     let object_ref = store
         .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
@@ -112,7 +112,7 @@ async fn sqlite_drive_object_ref_store_persists_stable_locator_without_delivery_
 async fn sqlite_drive_object_ref_store_keeps_content_versions_for_stable_okf_paths() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let store = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), 9001);
+    let store = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), 9001, 0);
 
     let first = store
         .create_or_get_object_ref(stable_okf_object_ref_record(

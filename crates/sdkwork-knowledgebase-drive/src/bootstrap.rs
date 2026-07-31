@@ -10,13 +10,27 @@ const DEPLOYMENT_PROFILE_ENV: &str = "SDKWORK_KNOWLEDGEBASE_DEPLOYMENT_PROFILE";
 const KNOWLEDGEBASE_DRIVE_POOL_MAX_CONNECTIONS: u32 = 5;
 
 pub async fn connect_knowledgebase_drive_pool(database_url: &str) -> Result<PgPool, sqlx::Error> {
-    let normalized = normalize_workspace_postgres_url(database_url.trim())
-        .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
-    let drive_config = DriveDatabaseConfig::from_url_with_max_connections(
-        normalized.as_str(),
+    connect_knowledgebase_drive_pool_with_max_connections(
+        database_url,
         KNOWLEDGEBASE_DRIVE_POOL_MAX_CONNECTIONS,
     )
-    .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
+    .await
+}
+
+pub async fn connect_knowledgebase_drive_pool_with_max_connections(
+    database_url: &str,
+    max_connections: u32,
+) -> Result<PgPool, sqlx::Error> {
+    if max_connections == 0 {
+        return Err(sqlx::Error::Configuration(
+            "Knowledgebase Drive pool max_connections must be greater than zero".into(),
+        ));
+    }
+    let normalized = normalize_workspace_postgres_url(database_url.trim())
+        .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
+    let drive_config =
+        DriveDatabaseConfig::from_url_with_max_connections(normalized.as_str(), max_connections)
+            .map_err(|error| sqlx::Error::Configuration(error.to_string().into()))?;
     let pool = connect_postgres_database_and_install_schema(&drive_config).await?;
     if should_seed_standalone_local_provider()? {
         seed_default_drive_storage_provider(&pool).await?;

@@ -24,23 +24,31 @@ const INITIAL_VERSION: i64 = 0;
 pub struct SqliteKnowledgeOkfConceptLinkStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
 }
 
 impl SqliteKnowledgeOkfConceptLinkStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
-        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
+        Self::with_id_generator(
+            pool,
+            tenant_id,
+            organization_id,
+            default_knowledge_id_generator(),
+        )
     }
 
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
         }
@@ -59,6 +67,7 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
         record: ReplaceKnowledgeOkfConceptLinksRecord,
     ) -> Result<(), KnowledgeOkfConceptLinkStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", record.space_id)?;
         let now = now_rfc3339()?;
 
@@ -73,12 +82,13 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
             r#"
             UPDATE kb_okf_concept_link
             SET status = 0, updated_at = {updated_at_expr}, version = version + 1
-            WHERE tenant_id = $2 AND space_id = $3 AND from_concept_id = $4 AND status = $5
+            WHERE tenant_id = $2 AND organization_id = $3 AND space_id = $4 AND from_concept_id = $5 AND status = $6
             "#,
         );
         sqlx::query(&update_query)
             .bind(&now)
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(space_id)
             .bind(&record.from_concept_id)
             .bind(ACTIVE_STATUS)
@@ -88,20 +98,21 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
 
         for link in record.links {
             let id = next_i64_id(&self.id_generator).map_err(id_error)?;
-            let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$9");
-            let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$10");
+            let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$10");
+            let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$11");
             let insert_query = format!(
                 r#"
                 INSERT INTO kb_okf_concept_link (
-                    id, uuid, tenant_id, space_id, from_concept_id, to_concept_id,
+                    id, uuid, tenant_id, organization_id, space_id, from_concept_id, to_concept_id,
                     anchor_text, status, created_at, updated_at, version
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, {created_at_expr}, {updated_at_expr}, $11)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, {created_at_expr}, {updated_at_expr}, $12)
                 "#,
             );
             sqlx::query(&insert_query)
                 .bind(id)
                 .bind(Uuid::new_v4().to_string())
                 .bind(tenant_id)
+                .bind(organization_id)
                 .bind(space_id)
                 .bind(&record.from_concept_id)
                 .bind(&link.to_concept_id)
@@ -128,17 +139,19 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
         to_concept_id: &str,
     ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
         let rows = sqlx::query_scalar::<_, String>(
             r#"
             SELECT DISTINCT from_concept_id
             FROM kb_okf_concept_link
-            WHERE tenant_id = $1 AND space_id = $2 AND to_concept_id = $3 AND status = $4
+            WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND to_concept_id = $4 AND status = $5
             ORDER BY from_concept_id ASC
             LIMIT 200
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(space_id)
         .bind(to_concept_id)
         .bind(ACTIVE_STATUS)
@@ -154,16 +167,18 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
         published_concept_ids: &[String],
     ) -> Result<Vec<String>, KnowledgeOkfConceptLinkStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
         let inbound_targets = sqlx::query_scalar::<_, String>(
             r#"
             SELECT DISTINCT to_concept_id
             FROM kb_okf_concept_link
-            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
-            LIMIT $4
+            WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = $4
+            LIMIT $5
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(space_id)
         .bind(ACTIVE_STATUS)
         .bind(MAX_OKF_ORPHAN_LINK_TARGETS)
@@ -183,17 +198,19 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
         space_id: u64,
     ) -> Result<Vec<KnowledgeOkfConceptLinkEdge>, KnowledgeOkfConceptLinkStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
         let rows = sqlx::query(
             r#"
             SELECT from_concept_id, to_concept_id, anchor_text
             FROM kb_okf_concept_link
-            WHERE tenant_id = $1 AND space_id = $2 AND status = $3
+            WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = $4
             ORDER BY from_concept_id ASC, to_concept_id ASC, anchor_text ASC
             LIMIT 2000
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(space_id)
         .bind(ACTIVE_STATUS)
         .fetch_all(&self.pool)

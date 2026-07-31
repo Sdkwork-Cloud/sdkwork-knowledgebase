@@ -5,10 +5,18 @@ use reqwest::Url;
 use serde::Deserialize;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Component, Path, PathBuf};
+use std::sync::LazyLock;
 use tauri::Manager;
+use tokio::io::AsyncReadExt;
+use tokio::sync::Semaphore;
+
+use crate::export_save::MAX_EXPORT_FILE_BYTES;
 
 const MAX_REMOTE_RESOURCE_BYTES: usize = 32 * 1024 * 1024;
 const MAX_REMOTE_REDIRECTS: usize = 5;
+const MAX_CONCURRENT_RESOURCE_IO: usize = 2;
+static RESOURCE_IO_LIMIT: LazyLock<Semaphore> =
+    LazyLock::new(|| Semaphore::new(MAX_CONCURRENT_RESOURCE_IO));
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -82,7 +90,7 @@ fn validate_remote_url(raw: &str) -> Result<Url, String> {
     if is_blocked_hostname(host) {
         return Err("resource URL host is not allowed".to_string());
     }
-    if let Ok(ip) = host.parse::<IpAddr>() {
+    if let Some(ip) = parse_url_ip_host(host) {
         if is_blocked_ip(ip) {
             return Err("resource URL must not target private or loopback addresses".to_string());
         }
@@ -100,34 +108,39 @@ fn validate_external_url(raw: &str) -> Result<Url, String> {
     }
 }
 
-async fn ensure_public_resolved_target(url: &Url) -> Result<(), String> {
+async fn pinned_client_for_url(url: &Url) -> Result<reqwest::Client, String> {
     let host = url
         .host_str()
         .ok_or_else(|| "resource URL host is required".to_string())?;
     let port = url.port_or_known_default().unwrap_or(443);
-    if let Ok(ip) = host.parse::<IpAddr>() {
+    let mut builder = reqwest::Client::builder()
+        .redirect(Policy::none())
+        .timeout(std::time::Duration::from_secs(30));
+    if let Some(ip) = parse_url_ip_host(host) {
         if is_blocked_ip(ip) {
             return Err("resource URL must not target private or loopback addresses".to_string());
         }
-        return Ok(());
+        return builder
+            .build()
+            .map_err(|error| format!("HTTP client init failed: {error}"));
     }
 
-    let authority = format!("{host}:{port}");
-    let mut resolved_any = false;
-    let addresses: Vec<std::net::SocketAddr> = tokio::net::lookup_host(authority.as_str())
+    let addresses: Vec<std::net::SocketAddr> = tokio::net::lookup_host((host, port))
         .await
         .map_err(|error| format!("resource URL DNS lookup failed: {error}"))?
         .collect();
-    for address in addresses {
-        resolved_any = true;
+    if addresses.is_empty() {
+        return Err("resource URL host could not be resolved".to_string());
+    }
+    for address in &addresses {
         if is_blocked_ip(address.ip()) {
             return Err("resource URL resolves to a private or loopback address".to_string());
         }
     }
-    if !resolved_any {
-        return Err("resource URL host could not be resolved".to_string());
-    }
-    Ok(())
+    builder = builder.resolve_to_addrs(host, &addresses);
+    builder
+        .build()
+        .map_err(|error| format!("HTTP client init failed: {error}"))
 }
 
 fn is_blocked_hostname(host: &str) -> bool {
@@ -140,6 +153,13 @@ fn is_blocked_hostname(host: &str) -> bool {
         || normalized.ends_with(".internal")
 }
 
+fn parse_url_ip_host(host: &str) -> Option<IpAddr> {
+    host.trim_start_matches('[')
+        .trim_end_matches(']')
+        .parse()
+        .ok()
+}
+
 fn is_blocked_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(value) => is_blocked_ipv4(value),
@@ -148,23 +168,36 @@ fn is_blocked_ip(ip: IpAddr) -> bool {
 }
 
 fn is_blocked_ipv4(ip: Ipv4Addr) -> bool {
-    ip.is_loopback()
-        || ip.is_private()
-        || ip.is_link_local()
-        || ip.is_unspecified()
-        || ip.is_broadcast()
-        || ip.octets()[0] == 169 && ip.octets()[1] == 254
+    let [first, second, third, _] = ip.octets();
+    first == 0
+        || first == 10
+        || first == 127
+        || (first == 100 && (second & 0xc0) == 64)
+        || (first == 169 && second == 254)
+        || (first == 172 && (16..=31).contains(&second))
+        || (first == 192 && second == 168)
+        || (first == 192 && second == 0 && matches!(third, 0 | 2))
+        || (first == 198 && matches!(second, 18 | 19))
+        || (first == 198 && second == 51 && third == 100)
+        || (first == 203 && second == 0 && third == 113)
+        || first >= 224
 }
 
 fn is_blocked_ipv6(ip: Ipv6Addr) -> bool {
-    ip.is_loopback() || ip.is_unspecified() || ip.segments()[0] & 0xfe00 == 0xfc00
+    if let Some(mapped) = ip.to_ipv4_mapped() {
+        return is_blocked_ipv4(mapped);
+    }
+    let segments = ip.segments();
+    ip.is_loopback()
+        || ip.is_unspecified()
+        || segments[0] & 0xfe00 == 0xfc00
+        || segments[0] & 0xffc0 == 0xfe80
+        || segments[0] & 0xff00 == 0xff00
+        || (segments[0] == 0x2001 && segments[1] == 0x0db8)
 }
 
 fn allowed_local_roots(app: &tauri::AppHandle) -> Result<Vec<PathBuf>, String> {
     let mut roots = Vec::new();
-    if let Ok(home) = app.path().home_dir() {
-        roots.push(home);
-    }
     if let Ok(app_data) = app.path().app_data_dir() {
         roots.push(app_data);
     }
@@ -217,17 +250,16 @@ pub fn binary_payload_from_bytes(
 pub async fn fetch_binary_resource(
     request: FetchBinaryResourceRequest,
 ) -> Result<BinaryResourcePayload, String> {
-    let client = reqwest::Client::builder()
-        .redirect(Policy::none())
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .map_err(|error| format!("HTTP client init failed: {error}"))?;
-
+    let _permit = RESOURCE_IO_LIMIT
+        .acquire()
+        .await
+        .map_err(|_| "resource IO limiter is unavailable".to_string())?;
     let mut current_url = validate_remote_url(&request.url)?;
-    ensure_public_resolved_target(&current_url).await?;
 
     let mut response = None;
     for redirect_count in 0..=MAX_REMOTE_REDIRECTS {
+        // Pin each hop to the public addresses that were validated for that exact URL.
+        let client = pinned_client_for_url(&current_url).await?;
         let next = client
             .get(current_url.clone())
             .send()
@@ -247,7 +279,6 @@ pub async fn fetch_binary_resource(
                 .join(location)
                 .map_err(|error| format!("invalid redirect location: {error}"))?;
             current_url = validate_remote_url(current_url.as_str())?;
-            ensure_public_resolved_target(&current_url).await?;
             continue;
         }
 
@@ -269,26 +300,49 @@ pub async fn fetch_binary_resource(
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .map(str::to_string);
-
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|error| format!("resource body read failed: {error}"))?
-        .to_vec();
-    if bytes.len() > MAX_REMOTE_RESOURCE_BYTES {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_REMOTE_RESOURCE_BYTES as u64)
+    {
         return Err(format!(
             "resource exceeds maximum allowed size of {MAX_REMOTE_RESOURCE_BYTES} bytes"
         ));
+    }
+    let initial_capacity = response
+        .content_length()
+        .unwrap_or(0)
+        .min(MAX_REMOTE_RESOURCE_BYTES as u64) as usize;
+    let mut response = response;
+    let mut bytes = Vec::with_capacity(initial_capacity);
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| format!("resource body read failed: {error}"))?
+    {
+        let next_len = bytes
+            .len()
+            .checked_add(chunk.len())
+            .ok_or_else(|| "resource size overflow".to_string())?;
+        if next_len > MAX_REMOTE_RESOURCE_BYTES {
+            return Err(format!(
+                "resource exceeds maximum allowed size of {MAX_REMOTE_RESOURCE_BYTES} bytes"
+            ));
+        }
+        bytes.extend_from_slice(&chunk);
     }
 
     Ok(payload_from_bytes(bytes, mime_type))
 }
 
 #[tauri::command]
-pub fn read_local_resource(
+pub async fn read_local_resource(
     app: tauri::AppHandle,
     request: ReadLocalResourceRequest,
 ) -> Result<BinaryResourcePayload, String> {
+    let _permit = RESOURCE_IO_LIMIT
+        .acquire()
+        .await
+        .map_err(|_| "resource IO limiter is unavailable".to_string())?;
     let path = normalize_local_path(&request.path)?;
     if !path.exists() {
         return Err(format!("local resource not found: {}", path.display()));
@@ -298,14 +352,22 @@ pub fn read_local_resource(
     }
 
     let path = validate_local_read_path(&app, &path)?;
-    let metadata = std::fs::metadata(&path).map_err(map_io_error)?;
+    let file = tokio::fs::File::open(&path).await.map_err(map_io_error)?;
+    let metadata = file.metadata().await.map_err(map_io_error)?;
     if metadata.len() as usize > MAX_REMOTE_RESOURCE_BYTES {
         return Err(format!(
             "local resource exceeds maximum allowed size of {MAX_REMOTE_RESOURCE_BYTES} bytes"
         ));
     }
 
-    let bytes = std::fs::read(&path).map_err(map_io_error)?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    let mut reader = file.take((MAX_REMOTE_RESOURCE_BYTES + 1) as u64);
+    reader.read_to_end(&mut bytes).await.map_err(map_io_error)?;
+    if bytes.len() > MAX_REMOTE_RESOURCE_BYTES {
+        return Err(format!(
+            "local resource exceeds maximum allowed size of {MAX_REMOTE_RESOURCE_BYTES} bytes"
+        ));
+    }
     let mime_type = match path.extension().and_then(|value| value.to_str()) {
         Some("pdf") => Some("application/pdf".to_string()),
         Some("png") => Some("image/png".to_string()),
@@ -323,15 +385,21 @@ pub fn open_external_url(request: OpenExternalUrlRequest) -> Result<(), String> 
 }
 
 #[tauri::command]
-pub fn save_binary_resource(request: SaveBinaryResourceRequest) -> Result<bool, String> {
-    use crate::export_save::{save_bytes_to_export_path, ExportSaveMode};
+pub async fn save_binary_resource(request: SaveBinaryResourceRequest) -> Result<bool, String> {
+    use crate::export_save::{save_base64_to_export_path_async, ExportSaveMode};
 
-    let bytes = STANDARD
-        .decode(request.data_base64.as_bytes())
-        .map_err(|error| format!("invalid save payload: {error}"))?;
-
-    let response =
-        save_bytes_to_export_path(bytes, &request.suggested_name, ExportSaveMode::Downloads)?;
+    let _permit = RESOURCE_IO_LIMIT
+        .acquire()
+        .await
+        .map_err(|_| "resource IO limiter is unavailable".to_string())?;
+    let response = save_base64_to_export_path_async(
+        request.data_base64,
+        MAX_EXPORT_FILE_BYTES,
+        "save payload",
+        request.suggested_name,
+        ExportSaveMode::Downloads,
+    )
+    .await?;
     Ok(response.saved)
 }
 
@@ -357,5 +425,21 @@ mod tests {
     #[test]
     fn rejects_metadata_host() {
         assert!(validate_remote_url("http://metadata.google.internal/file").is_err());
+    }
+
+    #[test]
+    fn rejects_non_public_address_ranges() {
+        for address in [
+            "100.64.0.1",
+            "198.18.0.1",
+            "224.0.0.1",
+            "[fe80::1]",
+            "[::ffff:127.0.0.1]",
+        ] {
+            assert!(
+                validate_remote_url(&format!("http://{address}/file")).is_err(),
+                "expected {address} to be rejected"
+            );
+        }
     }
 }

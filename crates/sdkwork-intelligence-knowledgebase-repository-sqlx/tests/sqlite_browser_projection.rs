@@ -151,10 +151,10 @@ async fn sqlite_browser_projection_batches_document_status_by_drive_node_id() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
     let tenant_id = 9001;
-    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id);
-    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id);
-    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id);
-    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, tenant_id);
+    let documents = SqliteKnowledgeDocumentStore::new(pool.clone(), tenant_id, 0);
+    let object_refs = SqliteKnowledgeDriveObjectRefStore::new(pool.clone(), tenant_id, 0);
+    let versions = SqliteKnowledgeDocumentVersionStore::new(pool.clone(), tenant_id, 0);
+    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, tenant_id, 0);
 
     let object_ref = object_refs
         .create_object_ref(CreateKnowledgeDriveObjectRefRecord {
@@ -225,8 +225,9 @@ async fn sqlite_browser_projection_batches_okf_concept_status_by_logical_path() 
         sdkwork_intelligence_knowledgebase_repository_sqlx::SqliteKnowledgeOkfConceptStore::new(
             pool.clone(),
             tenant_id,
+            0,
         );
-    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, tenant_id);
+    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, tenant_id, 0);
 
     let concept = concepts
         .upsert_concept(UpsertKnowledgeOkfConceptRecord {
@@ -264,7 +265,7 @@ async fn sqlite_browser_projection_batches_okf_concept_status_by_logical_path() 
 async fn sqlite_browser_projection_rejects_unbounded_document_projection_batches() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, 9001);
+    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, 9001, 0);
 
     let error = projections
         .batch_document_projections(
@@ -283,7 +284,7 @@ async fn sqlite_browser_projection_rejects_unbounded_document_projection_batches
 async fn sqlite_browser_projection_rejects_unbounded_okf_projection_batches() {
     let pool = sqlite_pool().await;
     apply_sqlite_migration(&pool).await;
-    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, 9001);
+    let projections = SqliteKnowledgeBrowserProjectionStore::new(pool, 9001, 0);
 
     let error = projections
         .batch_okf_concept_projections(

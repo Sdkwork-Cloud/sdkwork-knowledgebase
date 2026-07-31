@@ -62,38 +62,11 @@ pub struct OkfNativeKnowledgeEngineDeps {
     pub space_store: Arc<dyn KnowledgeSpaceStore>,
 }
 
-impl OkfNativeKnowledgeEngineDeps {
-    pub fn minimal(
-        concepts: Arc<dyn KnowledgeOkfConceptStore>,
-        drive: Arc<dyn KnowledgeDriveStorage>,
-    ) -> Self {
-        Self {
-            concepts,
-            drive,
-            revision_metadata: Arc::new(UnsupportedOkfConceptRevisionMetadataStore),
-            object_refs: Arc::new(UnsupportedObjectRefStore),
-            link_store: Arc::new(UnsupportedLinkStore),
-            candidate_store: Arc::new(UnsupportedCandidateStore),
-            bundle_file_store: Arc::new(UnsupportedBundleFileStore),
-            drive_workspace: Arc::new(UnsupportedDriveWorkspace),
-            source_store: Arc::new(UnsupportedSourceStore),
-            space_store: Arc::new(UnsupportedSpaceStore),
-        }
-    }
-}
-
 pub struct OkfNativeKnowledgeEngine {
     deps: OkfNativeKnowledgeEngineDeps,
 }
 
 impl OkfNativeKnowledgeEngine {
-    pub fn new(
-        concepts: Arc<dyn KnowledgeOkfConceptStore>,
-        drive: Arc<dyn KnowledgeDriveStorage>,
-    ) -> Self {
-        Self::from_deps(OkfNativeKnowledgeEngineDeps::minimal(concepts, drive))
-    }
-
     pub fn from_deps(deps: OkfNativeKnowledgeEngineDeps) -> Self {
         Self { deps }
     }
@@ -227,22 +200,21 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
         let candidate_limit = request.top_k.saturating_mul(4).max(8) as usize;
         let mut ranked = rank_okf_concepts_with_tokens(pages, &tokens);
 
-        if let Ok(edges) = self
+        let edges = self
             .deps
             .link_store
             .list_active_link_edges(request.space_id)
             .await
-        {
-            ranked = expand_ranked_with_link_edges(
-                ranked,
-                &edges,
-                &summaries_by_id,
-                &tokens,
-                candidate_limit,
-            );
-        }
+            .map_err(|error| KnowledgeEngineError::Internal(error.to_string()))?;
+        ranked = expand_ranked_with_link_edges(
+            ranked,
+            &edges,
+            &summaries_by_id,
+            &tokens,
+            candidate_limit,
+        );
 
-        let drive_space_id = self.drive_space_id(request.space_id).await.ok().flatten();
+        let drive_space_id = self.drive_space_id(request.space_id).await?;
         let candidates: Vec<_> = ranked.into_iter().take(candidate_limit).collect();
         let drive = Arc::clone(&self.deps.drive);
         let mut hits = Vec::with_capacity(candidates.len().min(request.top_k as usize));
@@ -345,7 +317,7 @@ impl KnowledgeEngine for OkfNativeKnowledgeEngine {
                 ))
             })?;
 
-        let drive_space_id = self.drive_space_id(request.space_id).await.ok().flatten();
+        let drive_space_id = self.drive_space_id(request.space_id).await?;
         let content = read_managed_markdown(
             self.deps.drive.as_ref(),
             &concept.logical_path,
@@ -565,321 +537,5 @@ fn map_concept_service_error(error: OkfConceptServiceError) -> KnowledgeEngineEr
             other => KnowledgeEngineError::Internal(other.to_string()),
         },
         other => KnowledgeEngineError::Internal(other.to_string()),
-    }
-}
-
-struct UnsupportedOkfConceptRevisionMetadataStore;
-
-#[async_trait::async_trait]
-impl crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStore
-    for UnsupportedOkfConceptRevisionMetadataStore
-{
-    async fn prepare_concept_revision_slot(
-        &self,
-        _concept: crate::ports::knowledge_okf_concept_store::UpsertKnowledgeOkfConceptRecord,
-    ) -> Result<
-        crate::ports::okf_concept_revision_metadata_store::PreparedOkfConceptRevisionSlot,
-        crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError,
-    > {
-        Err(
-            crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError::internal(
-                "okf native engine missing revision metadata store wiring".to_string(),
-            ),
-        )
-    }
-
-    async fn stage_concept_revision_metadata(
-        &self,
-        _record: crate::ports::okf_concept_revision_metadata_store::StageOkfConceptRevisionMetadataRecord,
-    ) -> Result<
-        crate::ports::okf_concept_revision_metadata_store::StagedOkfConceptRevisionMetadata,
-        crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError,
-    > {
-        Err(
-            crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError::internal(
-                "okf native engine missing revision metadata store wiring".to_string(),
-            ),
-        )
-    }
-
-    async fn publish_existing_revision_metadata(
-        &self,
-        _record: crate::ports::okf_concept_revision_metadata_store::PublishOkfConceptRevisionMetadataRecord,
-    ) -> Result<
-        crate::ports::okf_concept_revision_metadata_store::PublishedOkfConceptRevisionMetadata,
-        crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError,
-    > {
-        Err(
-            crate::ports::okf_concept_revision_metadata_store::OkfConceptRevisionMetadataStoreError::internal(
-                "okf native engine missing revision metadata store wiring".to_string(),
-            ),
-        )
-    }
-}
-
-struct UnsupportedObjectRefStore;
-
-#[async_trait::async_trait]
-impl KnowledgeDriveObjectRefStore for UnsupportedObjectRefStore {
-    async fn create_object_ref(
-        &self,
-        _record: crate::ports::knowledge_drive_object_ref_store::CreateKnowledgeDriveObjectRefRecord,
-    ) -> Result<
-        sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef,
-        crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError,
-    > {
-        Err(crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError::Internal(
-            "okf native engine missing object ref store wiring".to_string(),
-        ))
-    }
-
-    async fn list_object_refs_by_logical_path_prefix(
-        &self,
-        _space_id: u64,
-        _prefix: &str,
-    ) -> Result<
-        Vec<sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef>,
-        crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError,
-    > {
-        Err(crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError::Internal(
-            "okf native engine missing object ref store wiring".to_string(),
-        ))
-    }
-
-    async fn get_object_ref_by_id(
-        &self,
-        _object_ref_id: u64,
-    ) -> Result<
-        sdkwork_knowledgebase_contract::KnowledgeDriveObjectRef,
-        crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError,
-    > {
-        Err(crate::ports::knowledge_drive_object_ref_store::KnowledgeDriveObjectRefStoreError::Internal(
-            "okf native engine missing object ref store wiring".to_string(),
-        ))
-    }
-}
-
-struct UnsupportedLinkStore;
-
-#[async_trait::async_trait]
-impl KnowledgeOkfConceptLinkStore for UnsupportedLinkStore {
-    async fn replace_outbound_links(
-        &self,
-        _record: crate::ports::knowledge_okf_concept_link_store::ReplaceKnowledgeOkfConceptLinksRecord,
-    ) -> Result<(), crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkStoreError>
-    {
-        Err(crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkStoreError::Internal(
-            "okf native engine missing link store wiring".to_string(),
-        ))
-    }
-
-    async fn list_inbound_concept_ids(
-        &self,
-        _space_id: u64,
-        _to_concept_id: &str,
-    ) -> Result<
-        Vec<String>,
-        crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkStoreError,
-    > {
-        Ok(Vec::new())
-    }
-
-    async fn list_orphan_concept_ids(
-        &self,
-        _space_id: u64,
-        _published_concept_ids: &[String],
-    ) -> Result<
-        Vec<String>,
-        crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkStoreError,
-    > {
-        Ok(Vec::new())
-    }
-
-    async fn list_active_link_edges(
-        &self,
-        _space_id: u64,
-    ) -> Result<
-        Vec<crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkEdge>,
-        crate::ports::knowledge_okf_concept_link_store::KnowledgeOkfConceptLinkStoreError,
-    > {
-        Ok(Vec::new())
-    }
-}
-
-struct UnsupportedCandidateStore;
-
-#[async_trait::async_trait]
-impl KnowledgeOkfCandidateStore for UnsupportedCandidateStore {
-    async fn upsert_candidate(
-        &self,
-        _record: crate::ports::knowledge_okf_candidate_store::UpsertKnowledgeOkfCandidateRecord,
-    ) -> Result<(), crate::ports::knowledge_okf_candidate_store::KnowledgeOkfCandidateStoreError>
-    {
-        Err(
-            crate::ports::knowledge_okf_candidate_store::KnowledgeOkfCandidateStoreError::Internal(
-                "okf native engine missing candidate store wiring".to_string(),
-            ),
-        )
-    }
-
-    async fn update_candidate_state_by_concept_row_id(
-        &self,
-        _concept_row_id: u64,
-        _state: sdkwork_knowledgebase_contract::OkfConceptPublishState,
-        _reviewer_id: Option<u64>,
-        _review_note: Option<String>,
-    ) -> Result<(), crate::ports::knowledge_okf_candidate_store::KnowledgeOkfCandidateStoreError>
-    {
-        Err(
-            crate::ports::knowledge_okf_candidate_store::KnowledgeOkfCandidateStoreError::Internal(
-                "okf native engine missing candidate store wiring".to_string(),
-            ),
-        )
-    }
-
-    async fn list_open_candidates(
-        &self,
-        _space_id: Option<u64>,
-    ) -> Result<
-        Vec<crate::ports::knowledge_okf_candidate_store::KnowledgeOkfCandidateListItem>,
-        crate::ports::knowledge_okf_candidate_store::KnowledgeOkfCandidateStoreError,
-    > {
-        Ok(Vec::new())
-    }
-}
-
-struct UnsupportedBundleFileStore;
-
-#[async_trait::async_trait]
-impl KnowledgeOkfBundleFileStore for UnsupportedBundleFileStore {
-    async fn create_file_entry(
-        &self,
-        _record: CreateKnowledgeOkfBundleFileRecord,
-    ) -> Result<
-        KnowledgeOkfBundleFile,
-        crate::ports::knowledge_okf_bundle_file_store::KnowledgeOkfBundleFileStoreError,
-    > {
-        Err(crate::ports::knowledge_okf_bundle_file_store::KnowledgeOkfBundleFileStoreError::Internal(
-            "okf native engine missing bundle file store wiring".to_string(),
-        ))
-    }
-}
-
-struct UnsupportedDriveWorkspace;
-
-#[async_trait::async_trait]
-impl KnowledgeDriveWorkspace for UnsupportedDriveWorkspace {
-    async fn ensure_nodes(
-        &self,
-        _request: crate::ports::knowledge_drive_workspace::EnsureKnowledgeDriveNodesRequest,
-    ) -> Result<(), crate::ports::knowledge_drive_workspace::KnowledgeDriveWorkspaceError> {
-        Ok(())
-    }
-}
-
-struct UnsupportedSourceStore;
-
-#[async_trait::async_trait]
-impl KnowledgeSourceStore for UnsupportedSourceStore {
-    async fn create_source(
-        &self,
-        _record: crate::ports::knowledge_source_store::CreateKnowledgeSourceRecord,
-    ) -> Result<
-        sdkwork_knowledgebase_contract::source::KnowledgeSource,
-        crate::ports::knowledge_source_store::KnowledgeSourceStoreError,
-    > {
-        Err(
-            crate::ports::knowledge_source_store::KnowledgeSourceStoreError::Internal(
-                "okf native engine missing source store wiring".to_string(),
-            ),
-        )
-    }
-}
-
-struct UnsupportedSpaceStore;
-
-#[async_trait::async_trait]
-impl KnowledgeSpaceStore for UnsupportedSpaceStore {
-    async fn create_space(
-        &self,
-        _record: crate::ports::knowledge_space_store::CreateKnowledgeSpaceRecord,
-    ) -> Result<
-        sdkwork_knowledgebase_contract::space::KnowledgeSpace,
-        crate::ports::knowledge_space_store::KnowledgeSpaceStoreError,
-    > {
-        Err(
-            crate::ports::knowledge_space_store::KnowledgeSpaceStoreError::Internal(
-                "okf native engine missing space store wiring".to_string(),
-            ),
-        )
-    }
-
-    async fn get_space(
-        &self,
-        _space_id: u64,
-    ) -> Result<
-        sdkwork_knowledgebase_contract::space::KnowledgeSpace,
-        crate::ports::knowledge_space_store::KnowledgeSpaceStoreError,
-    > {
-        Err(
-            crate::ports::knowledge_space_store::KnowledgeSpaceStoreError::Internal(
-                "okf native engine missing space store wiring".to_string(),
-            ),
-        )
-    }
-
-    async fn mark_drive_space_bound(
-        &self,
-        _space_id: u64,
-        _record: crate::ports::knowledge_space_store::BindKnowledgeDriveSpaceRecord,
-    ) -> Result<
-        sdkwork_knowledgebase_contract::space::KnowledgeSpace,
-        crate::ports::knowledge_space_store::KnowledgeSpaceStoreError,
-    > {
-        Err(
-            crate::ports::knowledge_space_store::KnowledgeSpaceStoreError::Internal(
-                "okf native engine missing space store wiring".to_string(),
-            ),
-        )
-    }
-
-    async fn mark_okf_bundle_initialized(
-        &self,
-        _space_id: u64,
-    ) -> Result<
-        sdkwork_knowledgebase_contract::space::KnowledgeSpace,
-        crate::ports::knowledge_space_store::KnowledgeSpaceStoreError,
-    > {
-        Err(
-            crate::ports::knowledge_space_store::KnowledgeSpaceStoreError::Internal(
-                "okf native engine missing space store wiring".to_string(),
-            ),
-        )
-    }
-
-    async fn update_space(
-        &self,
-        _space_id: u64,
-        _record: crate::ports::knowledge_space_store::UpdateKnowledgeSpaceRecord,
-    ) -> Result<
-        sdkwork_knowledgebase_contract::space::KnowledgeSpace,
-        crate::ports::knowledge_space_store::KnowledgeSpaceStoreError,
-    > {
-        Err(
-            crate::ports::knowledge_space_store::KnowledgeSpaceStoreError::Internal(
-                "okf native engine missing space store wiring".to_string(),
-            ),
-        )
-    }
-
-    async fn mark_space_deleted(
-        &self,
-        _space_id: u64,
-    ) -> Result<(), crate::ports::knowledge_space_store::KnowledgeSpaceStoreError> {
-        Err(
-            crate::ports::knowledge_space_store::KnowledgeSpaceStoreError::Internal(
-                "okf native engine missing space store wiring".to_string(),
-            ),
-        )
     }
 }

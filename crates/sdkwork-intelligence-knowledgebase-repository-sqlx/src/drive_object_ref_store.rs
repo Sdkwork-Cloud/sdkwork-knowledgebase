@@ -22,6 +22,7 @@ const ACTIVE_STATUS: i64 = 1;
 pub struct SqliteKnowledgeDriveObjectRefStore {
     pool: AnyPool,
     tenant_id: u64,
+    organization_id: u64,
     id_generator: Arc<dyn KnowledgeIdGenerator>,
     timestamp_dialect: SqlTimestampDialect,
     database_engine: DatabaseEngine,
@@ -29,18 +30,25 @@ pub struct SqliteKnowledgeDriveObjectRefStore {
 }
 
 impl SqliteKnowledgeDriveObjectRefStore {
-    pub fn new(pool: AnyPool, tenant_id: u64) -> Self {
-        Self::with_id_generator(pool, tenant_id, default_knowledge_id_generator())
+    pub fn new(pool: AnyPool, tenant_id: u64, organization_id: u64) -> Self {
+        Self::with_id_generator(
+            pool,
+            tenant_id,
+            organization_id,
+            default_knowledge_id_generator(),
+        )
     }
 
     pub fn with_id_generator(
         pool: AnyPool,
         tenant_id: u64,
+        organization_id: u64,
         id_generator: Arc<dyn KnowledgeIdGenerator>,
     ) -> Self {
         Self {
             pool,
             tenant_id,
+            organization_id,
             id_generator,
             timestamp_dialect: SqlTimestampDialect::default(),
             database_engine: DatabaseEngine::Sqlite,
@@ -106,6 +114,7 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
         object_ref_id: u64,
     ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let object_ref_id = to_i64("object_ref_id", object_ref_id)?;
         let row = sqlx::query(
             r#"
@@ -127,10 +136,11 @@ impl KnowledgeDriveObjectRefStore for SqliteKnowledgeDriveObjectRefStore {
                 object_role,
                 access_mode
             FROM kb_drive_object_ref
-            WHERE tenant_id = $1 AND id = $2 AND status = $3
+            WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = $4
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(object_ref_id)
         .bind(ACTIVE_STATUS)
         .fetch_optional(&self.pool)
@@ -153,10 +163,15 @@ impl SqliteKnowledgeDriveObjectRefStore {
         limits: KnowledgebaseTenantQuotaLimits,
     ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
-        let mut transaction =
-            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
-                .await
-                .map_err(sqlx_error)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
+        let mut transaction = begin_tenant_quota_transaction(
+            &self.pool,
+            self.database_engine,
+            tenant_id,
+            organization_id,
+        )
+        .await
+        .map_err(sqlx_error)?;
         self.ensure_storage_quota_on(&mut transaction, record.size_bytes, limits)
             .await?;
         let object_ref = self
@@ -177,10 +192,15 @@ impl SqliteKnowledgeDriveObjectRefStore {
         limits: KnowledgebaseTenantQuotaLimits,
     ) -> Result<KnowledgeDriveObjectRef, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
-        let mut transaction =
-            begin_tenant_quota_transaction(&self.pool, self.database_engine, tenant_id)
-                .await
-                .map_err(sqlx_error)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
+        let mut transaction = begin_tenant_quota_transaction(
+            &self.pool,
+            self.database_engine,
+            tenant_id,
+            organization_id,
+        )
+        .await
+        .map_err(sqlx_error)?;
 
         if let Some(object_ref) = self
             .find_object_ref_by_locator_on(&record, &mut transaction)
@@ -225,10 +245,12 @@ impl SqliteKnowledgeDriveObjectRefStore {
         limits: KnowledgebaseTenantQuotaLimits,
     ) -> Result<(), KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let total: i64 = sqlx::query_scalar(
-            "SELECT COALESCE(SUM(size_bytes), 0) FROM kb_drive_object_ref WHERE tenant_id = $1 AND status = $2",
+            "SELECT COALESCE(SUM(size_bytes), 0) FROM kb_drive_object_ref WHERE tenant_id = $1 AND organization_id = $2 AND status = $3",
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(ACTIVE_STATUS)
         .fetch_one(connection)
         .await
@@ -259,6 +281,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
         connection: &mut AnyConnection,
     ) -> Result<Option<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", record.space_id)?;
         let row = sqlx::query(
             r#"
@@ -281,17 +304,19 @@ impl SqliteKnowledgeDriveObjectRefStore {
                 access_mode
             FROM kb_drive_object_ref
             WHERE tenant_id = $1
-              AND space_id = $2
-              AND drive_storage_provider_id = $3
-              AND drive_bucket = $4
-              AND drive_object_key = $5
-              AND COALESCE(drive_object_version, '') = COALESCE($6, '')
-              AND object_role = $7
-              AND status = $8
+              AND organization_id = $2
+              AND space_id = $3
+              AND drive_storage_provider_id = $4
+              AND drive_bucket = $5
+              AND drive_object_key = $6
+              AND COALESCE(drive_object_version, '') = COALESCE($7, '')
+              AND object_role = $8
+              AND status = $9
             LIMIT 1
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(space_id)
         .bind(&record.drive_storage_provider_id)
         .bind(&record.drive_bucket)
@@ -322,6 +347,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
         }
 
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let object_ref_id = to_i64("object_ref_id", object_ref.id)?;
         let now = now_rfc3339()?;
         let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$4");
@@ -333,7 +359,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
                 logical_path = COALESCE(logical_path, $3),
                 updated_at = {updated_at_expr},
                 version = version + 1
-            WHERE tenant_id = $5 AND id = $6 AND status = $7
+            WHERE tenant_id = $5 AND organization_id = $6 AND id = $7 AND status = $8
             RETURNING
                 id,
                 space_id,
@@ -359,6 +385,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
             .bind(&record.logical_path)
             .bind(now)
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(object_ref_id)
             .bind(ACTIVE_STATUS)
             .fetch_one(&self.pool)
@@ -374,6 +401,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
         prefix: &str,
     ) -> Result<Vec<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", space_id)?;
         let prefix = escape_sql_like_prefix(prefix.trim_end_matches('/'));
         let rows = sqlx::query(
@@ -397,14 +425,16 @@ impl SqliteKnowledgeDriveObjectRefStore {
                 access_mode
             FROM kb_drive_object_ref
             WHERE tenant_id = $1
-              AND space_id = $2
-              AND logical_path LIKE $3 ESCAPE '\'
-              AND status = $4
+              AND organization_id = $2
+              AND space_id = $3
+              AND logical_path LIKE $4 ESCAPE '\'
+              AND status = $5
             ORDER BY logical_path ASC
             LIMIT 200
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(space_id)
         .bind(prefix)
         .bind(ACTIVE_STATUS)
@@ -453,18 +483,20 @@ impl SqliteKnowledgeDriveObjectRefStore {
         connection: &mut AnyConnection,
     ) -> Result<Option<KnowledgeDriveObjectRef>, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let space_id = to_i64("space_id", record.space_id)?;
         let size_bytes = to_i64("size_bytes", record.size_bytes)?;
         let id = next_i64_id(&self.id_generator).map_err(id_error)?;
         let now = now_rfc3339()?;
-        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$20");
-        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$21");
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$21");
+        let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$22");
         let query = format!(
             r#"
             INSERT INTO kb_drive_object_ref (
                 id,
                 uuid,
                 tenant_id,
+                organization_id,
                 space_id,
                 drive_provider_kind,
                 drive_space_id,
@@ -485,7 +517,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
                 updated_at,
                 version
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, {created_at_expr}, {updated_at_expr}, 0)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, {created_at_expr}, {updated_at_expr}, 0)
             {conflict_clause}
             RETURNING
                 id,
@@ -511,6 +543,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
+            .bind(organization_id)
             .bind(space_id)
             .bind(record.drive_provider_kind)
             .bind(record.drive_space_id)
@@ -538,15 +571,18 @@ impl SqliteKnowledgeDriveObjectRefStore {
 
     pub async fn sum_active_storage_bytes(&self) -> Result<u64, KnowledgeDriveObjectRefStoreError> {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
+        let organization_id = to_i64("organization_id", self.organization_id)?;
         let total: Option<i64> = sqlx::query_scalar(
             r#"
             SELECT COALESCE(SUM(size_bytes), 0)
             FROM kb_drive_object_ref
             WHERE tenant_id = $1
-              AND status = $2
+              AND organization_id = $2
+              AND status = $3
             "#,
         )
         .bind(tenant_id)
+        .bind(organization_id)
         .bind(ACTIVE_STATUS)
         .fetch_one(&self.pool)
         .await

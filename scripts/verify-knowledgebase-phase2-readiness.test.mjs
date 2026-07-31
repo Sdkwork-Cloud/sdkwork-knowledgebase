@@ -12,15 +12,18 @@ function readRepoFile(relativePath) {
 }
 
 describe('knowledgebase Phase 2 commercial readiness alignment', () => {
-  it('documents Postgres RLS multi-tenant isolation decision', () => {
+  it('documents the proposed dedicated tenant and organization isolation decision', () => {
     const adr = readRepoFile(
-      'docs/architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md',
+      'docs/architecture/decisions/ADR-20260731-dedicated-tenant-organization-runtime.md',
     );
-    assert.match(adr, /Row Level Security \(RLS\)/);
+    assert.match(adr, /Status: proposed/);
     assert.match(adr, /app\.current_tenant_id/);
+    assert.match(adr, /app\.current_organization_id/);
+    assert.match(adr, /FORCE ROW LEVEL SECURITY/);
+    assert.match(adr, /Shared request-scoped tenant\/organization pooling is unsupported/);
   });
 
-  it('indexes the RLS ADR through the standard architecture decisions directory', () => {
+  it('indexes the dedicated runtime ADR through the standard architecture decisions directory', () => {
     const activeDocuments = [
       'docs/README.md',
       'docs/INDEX.yaml',
@@ -34,7 +37,7 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
       const source = readRepoFile(relativePath);
       assert.match(
         source,
-        /docs\/architecture\/decisions\/ADR-20260624-phase2-postgres-rls-multi-tenant\.md|architecture\/decisions\/ADR-20260624-phase2-postgres-rls-multi-tenant\.md|decisions\/ADR-20260624-phase2-postgres-rls-multi-tenant\.md|\.\.\/architecture\/decisions\/ADR-20260624-phase2-postgres-rls-multi-tenant\.md/,
+        /docs\/architecture\/decisions\/ADR-20260731-dedicated-tenant-organization-runtime\.md|architecture\/decisions\/ADR-20260731-dedicated-tenant-organization-runtime\.md|decisions\/ADR-20260731-dedicated-tenant-organization-runtime\.md|\.\.\/architecture\/decisions\/ADR-20260731-dedicated-tenant-organization-runtime\.md/,
         `${relativePath} must point to the standard ADR path`,
       );
       assert.doesNotMatch(
@@ -50,13 +53,19 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
     const crateMigration = readRepoFile(
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/migrations/postgres/V202606260001__knowledgebase_postgres_rls.sql',
     );
+    const organizationMigration = readRepoFile(
+      'database/migrations/postgres/202607310001_core_organization_isolation.up.sql',
+    );
     assert.match(baseline, /ENABLE ROW LEVEL SECURITY/);
     assert.match(baseline, /tenant_isolation/);
     assert.match(baseline, /kb_audit_event/);
     assert.match(crateMigration, /app\.current_tenant_id/);
+    assert.match(organizationMigration, /app\.current_organization_id/);
+    assert.match(organizationMigration, /FORCE ROW LEVEL SECURITY/);
+    assert.match(organizationMigration, /CREATE POLICY organization_isolation/);
   });
 
-  it('keeps Postgres tenant session deployment-bound until shared checkout is implemented', () => {
+  it('keeps Postgres scope deployment-bound and rejects request-scoped checkout', () => {
     const bootstrap = readRepoFile(
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/bootstrap.rs',
     );
@@ -64,13 +73,15 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
       'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/db/postgres_tenant_session.rs',
     );
     const phase2Prd = readRepoFile('docs/product/prd/PRD-phase2-commercial-saas.md');
-    assert.match(bootstrap, /postgres_url_with_deployment_tenant/);
+    assert.match(bootstrap, /postgres_url_with_deployment_scope/);
+    assert.match(bootstrap, /require_postgres_rls_organization_id/);
     assert.match(bootstrap, /POSTGRES_TENANT_SESSION_KEY/);
     assert.match(bootstrap, /create_pool_from_config/);
     assert.doesNotMatch(bootstrap, /PgPoolOptions|after_connect/);
     assert.match(tenantSession, /deployment-bound tenant id/);
-    assert.match(phase2Prd, /Shared request checkout uses a transaction-scoped `SET LOCAL/);
-    assert.match(phase2Prd, /\[ \] Shared request checkout/);
+    assert.match(phase2Prd, /One dedicated API\/worker deployment serves one tenant and one non-zero organization/);
+    assert.match(phase2Prd, /does not authorize or\s+promise shared request-scoped multi-tenancy/);
+    assert.doesNotMatch(phase2Prd, /Shared request checkout uses a transaction-scoped `SET LOCAL/);
     assert.match(tenantSession, /require_postgres_rls_tenant_id/);
     const processPoolSpec = readRepoFile('specs/process-database-pool.spec.json');
     assert.match(processPoolSpec, /one-tenant-per-process|one tenant per process/i);
@@ -112,11 +123,13 @@ describe('knowledgebase Phase 2 commercial readiness alignment', () => {
     assert.match(runbook, /compliance\.auditEvents\.anonymizeActor/);
   });
 
-  it('indexes Phase 2 commercial criteria in product PRD map', () => {
+  it('indexes current commercial release criteria in the product PRD map', () => {
     const prd = readRepoFile('docs/product/prd/PRD.md');
     const phase2 = readRepoFile('docs/product/prd/PRD-phase2-commercial-saas.md');
     assert.match(prd, /PRD-phase2-commercial-saas\.md/);
-    assert.match(phase2, /Usage metering and tenant status are exposed to operators/);
-    assert.match(phase2, /ADR-20260624-phase2-postgres-rls-multi-tenant/);
+    assert.match(phase2, /These foundations are implementation evidence, not commercial release approval/);
+    assert.match(phase2, /Subscription, entitlement, suspension, and payment authority belong to the SDKWork platform/);
+    assert.match(phase2, /ADR-20260731-dedicated-tenant-organization-runtime/);
+    assert.doesNotMatch(phase2, /ADR-20260624-phase2-postgres-rls-multi-tenant/);
   });
 });

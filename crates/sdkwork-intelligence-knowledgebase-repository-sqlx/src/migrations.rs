@@ -101,6 +101,19 @@ pub const SQLITE_INGESTION_JOB_LEASE_MIGRATION: &str =
 pub const POSTGRES_INGESTION_JOB_LEASE_MIGRATION: &str =
     include_str!("../migrations/postgres/V202607160002__ingestion_job_lease.sql");
 
+pub const SQLITE_CORE_ORGANIZATION_SCOPE_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202607310001__core_organization_scope.sql");
+
+pub const SQLITE_OUTBOX_CLAIM_FENCING_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202607310002__outbox_claim_fencing.sql");
+
+pub const SQLITE_EMBEDDING_SCOPE_TRIGGERS_MIGRATION: &str =
+    include_str!("../migrations/sqlite/V202607310003__embedding_scope_triggers.sql");
+
+pub const SQLITE_PROVIDER_BINDING_MIGRATION: &str = include_str!(
+    "../../../tests/fixtures/database/sqlite/migrations/202607200001_knowledge_engine_provider_binding.up.sql"
+);
+
 pub const SQLITE_LIVE_WIKI_PUBLICATION_MIGRATION: &str = include_str!(
     "../../../tests/fixtures/database/sqlite/migrations/202607210001_live_wiki_publication.up.sql"
 );
@@ -126,7 +139,11 @@ pub const SQLITE_MIGRATIONS: &[&str] = &[
     SQLITE_GROUP_ARCHIVE_SAGA_MIGRATION,
     SQLITE_GROUP_ARCHIVE_SAGA_SCOPE_TRIGGERS_MIGRATION,
     SQLITE_INGESTION_JOB_LEASE_MIGRATION,
+    SQLITE_PROVIDER_BINDING_MIGRATION,
     SQLITE_LIVE_WIKI_PUBLICATION_MIGRATION,
+    SQLITE_CORE_ORGANIZATION_SCOPE_MIGRATION,
+    SQLITE_OUTBOX_CLAIM_FENCING_MIGRATION,
+    SQLITE_EMBEDDING_SCOPE_TRIGGERS_MIGRATION,
 ];
 
 pub const POSTGRES_MIGRATIONS: &[&str] = &[

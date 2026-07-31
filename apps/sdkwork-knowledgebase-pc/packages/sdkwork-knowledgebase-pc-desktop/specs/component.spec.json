@@ -67,6 +67,10 @@
       {
         "name": "knowledgebasePcDesktopHostMetadata",
         "export": "."
+      },
+      {
+        "name": "knowledgebasePcDesktopNativeHost",
+        "export": "."
       }
     ],
     "requiredPorts": [],
@@ -83,11 +87,67 @@
     "configKeys": [
       "src-tauri/tauri.conf.json",
       "src-tauri/capabilities/default.json"
-    ]
+    ],
+    "hostBoundary": {
+      "commandAllowlist": [
+        "window_control",
+        "fetch_binary_resource",
+        "read_local_resource",
+        "open_external_url",
+        "save_binary_resource",
+        "save_export_file",
+        "reveal_export_file",
+        "open_export_file",
+        "locate_export_file",
+        "export_document_pdf",
+        "sync_desktop_preferences",
+        "get_desktop_host_status",
+        "get_autostart_enabled",
+        "sync_tray_locale",
+        "write_secure_session_value",
+        "remove_secure_session_value",
+        "clear_secure_session_values",
+        "read_secure_session_value",
+        "take_pending_group_knowledgebase_launch"
+      ],
+      "contentSecurityPolicySource": "src-tauri/tauri.conf.json#app.security.csp",
+      "scriptSourcePolicy": "self-only",
+      "remoteResource": {
+        "protocols": [
+          "https",
+          "http"
+        ],
+        "privateNetworkDenied": true,
+        "dnsPinnedPerRedirect": true,
+        "maxBytes": 33554432,
+        "maxRedirects": 5,
+        "timeoutSeconds": 30,
+        "maxConcurrentOperations": 2
+      },
+      "localResource": {
+        "sandboxRootsOnly": true,
+        "maxBytes": 33554432
+      },
+      "export": {
+        "maxBytes": 67108864,
+        "maxConcurrentSaves": 1,
+        "maxConcurrentPdfRenders": 1,
+        "maxDocumentSourceBytes": 16777216,
+        "blockingFileIoOffloaded": true
+      },
+      "secureStore": {
+        "maxKeyBytes": 256,
+        "maxValueBytes": 262144,
+        "maxTrackedKeys": 512,
+        "plaintextSnapshotMigrationOnly": true
+      }
+    }
   },
   "verification": {
     "commands": [
-      "pnpm --dir apps/sdkwork-knowledgebase-pc lint"
+      "pnpm --dir apps/sdkwork-knowledgebase-pc lint",
+      "cargo test --manifest-path apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-desktop/src-tauri/Cargo.toml",
+      "cargo fmt --manifest-path apps/sdkwork-knowledgebase-pc/packages/sdkwork-knowledgebase-pc-desktop/src-tauri/Cargo.toml --check"
     ]
   }
 }

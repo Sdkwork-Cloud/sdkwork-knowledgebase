@@ -50,10 +50,8 @@ pub(crate) fn ensure_runtime_organization(
     context: &KnowledgeAppRequestContext,
 ) -> ApiResult<()> {
     let runtime_org = runtime.organization_id();
-    if runtime_org == 0 {
-        return Ok(());
-    }
-    let Some(context_org) = context.organization_id else {
+    let context_org = context.organization_id.unwrap_or(0);
+    if runtime_org != 0 && context_org == 0 {
         return Err(ApiError::new(
             StatusCode::FORBIDDEN,
             "missing_organization_id",

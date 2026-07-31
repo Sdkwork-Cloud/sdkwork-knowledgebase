@@ -3,13 +3,13 @@
 Status: active
 Owner: SDKWork maintainers
 Application: sdkwork-knowledgebase
-Updated: 2026-07-30
+Updated: 2026-07-31
 Specs: REQUIREMENTS_SPEC.md, DOCUMENTATION_SPEC.md
 
 ## Document Map
 
 - [PRD-mvp-launch.md](PRD-mvp-launch.md) - MVP launch scope and acceptance criteria
-- [PRD-phase2-commercial-saas.md](PRD-phase2-commercial-saas.md) - Phase 2 multi-tenant commercial SaaS criteria
+- [PRD-phase2-commercial-saas.md](PRD-phase2-commercial-saas.md) - commercial release readiness gates (compatibility path)
 - [PRD-live-wiki-publication.md](PRD-live-wiki-publication.md) - active live `sources/raw` Wiki,
   per-file state, reader/author/admin experience, Deploy integration, quotas, and launch gates.
 
@@ -46,7 +46,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 **Non-Goals (MVP)**
 
-- Shared multi-tenant SaaS billing (Stripe/seat metering) - delegated to SDKWork platform or Phase 2
+- Shared request-scoped multi-tenant process pooling
+- Product billing/subscription ownership, which remains delegated to the SDKWork platform
 - Real-time collaborative editing
 - Mobile native clients
 - Full enterprise compliance program (SOC2) - platform-level concern
@@ -110,7 +111,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 | Metric | MVP target |
 |--------|------------|
-| API availability (per tenant deployment) | 99.5% monthly |
+| API availability (per tenant deployment) | >= 99.9% monthly after commercial launch |
 | P95 retrieval latency (warm index) | < 2s |
 | Authz failures correctly return 403 (no data leak) | 100% in integration tests |
 | Critical security alignment tests | Pass in CI |
@@ -125,15 +126,15 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 | Phase | Focus | Exit criteria |
 |-------|-------|---------------|
-| **1.0 (current, prelaunch)** | Production launch (single-tenant-per-process) | Postgres release evidence, shared Drive provider, runbooks, PRD acceptance, E2E on real API, and removal of the temporary AnyPool driver exception |
-| **2.0** | Commercial SaaS and Live Wiki | Shared multi-tenant, billing, quotas, GDPR workflows, and approved live Wiki publication |
+| **1.0 (current, prelaunch)** | Dedicated commercial deployment | PostgreSQL release evidence, dual tenant/organization isolation, shared Drive provider, runbooks, real-API E2E, durable worker recovery, and removal of the temporary `AnyPool` exception |
+| **2.0** | Commercial operations and Live Wiki | Capacity/SLO evidence, platform billing integration, bounded privacy workflows, signed release artifacts, and approved live Wiki publication |
 | **3.0** | Industry parity | Real-time collab, analytics, mobile |
 
 ## 8. Linked Requirements
 
 - `docs/architecture/tech/TECH-2026-06-01-knowledgebase-backend-design.md`
 - `docs/architecture/tech/TECH-2026-06-09-knowledgebase-agent-rag-design.md`
-- `docs/architecture/decisions/ADR-20260624-phase2-postgres-rls-multi-tenant.md`
+- `docs/architecture/decisions/ADR-20260731-dedicated-tenant-organization-runtime.md`
 - `docs/product/requirements/REQ-2026-0713-group-knowledgebase.md`
 - `docs/architecture/decisions/ADR-20260713-group-knowledgebase-binding-and-launch.md`
 - `docs/product/requirements/REQ-2026-0720-knowledge-engine-provider-commercialization.md`
@@ -147,8 +148,10 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 ## 9. Resolved And Open Questions
 
-- **Multi-tenant data model:** PostgreSQL tenant columns and deployment-bound RLS are implemented;
-  shared-tenant request pooling is not approved until transaction-local context and contamination
-  tests are complete. Current production scope remains one tenant per process/deployment.
-- **Billing owner:** SDKWork platform vs standalone Stripe - open; decide before Phase 2 commercial launch
-- **Minimum enterprise audit retention period:** documented in [audit-retention.md](../../runbooks/audit-retention.md); automated purge/export jobs remain Phase 2.4
+- **Deployment isolation:** the only supported production model is one fixed tenant/organization
+  pair per API/worker deployment. Shared request-scoped pooling is outside product scope.
+- **Billing owner:** SDKWork platform integration remains a commercial release dependency; this
+  application does not implement an independent subscription authority.
+- **Minimum enterprise audit retention period:** policy is documented in
+  [audit-retention.md](../../runbooks/audit-retention.md); bounded export, anonymization, and
+  automated purge require release evidence before commercial launch.

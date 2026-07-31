@@ -12,7 +12,8 @@ pub mod sqlite;
 pub use bootstrap::{
     connect_knowledgebase_any_pool_from_url, connect_knowledgebase_pool_from_env,
     connect_knowledgebase_pool_from_url, database_config_from_url,
-    knowledgebase_database_engine_from_url, KnowledgebaseDatabasePool,
+    knowledgebase_database_engine_from_url, knowledgebase_process_pool_budget_from_url,
+    KnowledgebaseDatabasePool, KnowledgebaseProcessPoolBudget,
 };
 pub use postgres::{
     connect_postgres_and_install_schema, connect_postgres_pool,
@@ -20,8 +21,9 @@ pub use postgres::{
     PostgresRepositoryError,
 };
 pub use postgres_tenant_session::{
-    require_postgres_rls_tenant_id, resolve_postgres_rls_tenant_id, set_postgres_session_tenant_id,
-    POSTGRES_TENANT_SESSION_KEY,
+    require_postgres_rls_organization_id, require_postgres_rls_tenant_id,
+    resolve_postgres_rls_tenant_id, set_postgres_session_organization_id,
+    set_postgres_session_tenant_id, POSTGRES_ORGANIZATION_SESSION_KEY, POSTGRES_TENANT_SESSION_KEY,
 };
 pub use sqlite::{
     connect_sqlite_and_install_schema, connect_sqlite_pool, install_sqlite_core_schema,

@@ -206,6 +206,13 @@ impl KnowledgeSourceStore for MemorySourceStore {
             "unsupported in test fake".to_string(),
         ))
     }
+
+    async fn list_sources_for_space(
+        &self,
+        _space_id: u64,
+    ) -> Result<Vec<KnowledgeSource>, KnowledgeSourceStoreError> {
+        Ok(Vec::new())
+    }
 }
 
 #[derive(Default)]

@@ -649,20 +649,21 @@ async fn append_provider_event(
     });
     let payload_json = serde_json::to_string(&payload)
         .map_err(|error| WikiPersistenceError::Internal(error.to_string()))?;
-    let payload_expr = store.dialect.sql_json_expr("$7");
-    let timestamp = store.dialect.sql_timestamp_expr("$9");
+    let payload_expr = store.dialect.sql_json_expr("$8");
+    let timestamp = store.dialect.sql_timestamp_expr("$10");
     let query = format!(
         r#"
         INSERT INTO kb_outbox_event (
-            id, uuid, tenant_id, aggregate_type, aggregate_id, event_type,
+            id, uuid, tenant_id, organization_id, aggregate_type, aggregate_id, event_type,
             payload, status, created_at, version
-        ) VALUES ($1, $2, $3, $4, $5, $6, {payload_expr}, 0, {timestamp}, 0)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, {payload_expr}, $9, {timestamp}, 0)
         "#,
     );
     sqlx::query(&query)
         .bind(outbox_id)
         .bind(event_uuid)
         .bind(to_i64("tenant_id", event.scope.tenant_id)?)
+        .bind(to_i64("organization_id", event.scope.organization_id)?)
         .bind("wiki_publication")
         .bind(to_i64("aggregate_id", event.site_publication_id)?)
         .bind(event_type)
