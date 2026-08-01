@@ -4,6 +4,10 @@ import type { ApiRequestOptions, HttpClient } from '../http/client';
 import type { ChangeKnowledgeWikiSourceFileVisibilityRequest, ConsumeGroupKnowledgebaseLaunchTicketRequest, CreateKnowledgeDocumentRequest, CreateKnowledgeDocumentVersionRequest, CreateKnowledgeSpaceContextBindingRequest, CreateKnowledgeSpaceRequest, GrantKnowledgeSpaceMemberRequest, GroupKnowledgebaseLaunchTarget, IngestionJob, KnowledgeAgentBinding, KnowledgeAgentBindingRequest, KnowledgeAgentChatRequest, KnowledgeAgentChatResponse, KnowledgeAgentProfile, KnowledgeAgentProfileRequest, KnowledgeBrowserListData, KnowledgeBrowserView, KnowledgeContextPack, KnowledgeContextPackRequest, KnowledgeDocument, KnowledgeDocumentContent, KnowledgeDocumentVersion, KnowledgeDriveImportRequest, KnowledgeDriveImportResult, KnowledgeGitImportRequest, KnowledgeGitImportResult, KnowledgeGitSyncRequest, KnowledgeGitSyncResult, KnowledgeIngestRequest, KnowledgeMarketCatalogItem, KnowledgeMarketSubscriptionRequest, KnowledgeMarketSubscriptionResult, KnowledgeMediaTaskRequest, KnowledgeMediaTaskResult, KnowledgeOkfBundleFile, KnowledgeOkfConceptRevisionList, KnowledgeRetrievalRequest, KnowledgeRetrievalResult, KnowledgeSpace, KnowledgeSpaceContextBinding, KnowledgeSpaceMember, KnowledgeSpaceMemberSubjectType, KnowledgeWechatAppletList, KnowledgeWechatArticlesPreviewRequest, KnowledgeWechatArticlesPublishRequest, KnowledgeWechatFanTagList, KnowledgeWechatOfficialAccountList, KnowledgeWechatOperationResult, KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest, KnowledgeWikiPublication, KnowledgeWikiPublicationVersionCommandRequest, KnowledgeWikiSourceFileCommandResult, KnowledgeWikiSourceFileVersionCommandRequest, OkfBundleExportRequest, OkfBundleImportRequest, OkfBundleImportResult, OkfConceptSummary, OkfConceptSummaryList, OkfConceptUpsertRequest, OkfContextPackRequest, OkfFileAnswerRequest, OkfIndexDocument, OkfLogDocument, OkfProfileDocument, OkfQualityRun, OkfQualityRunRequest, OkfQueryRequest, OkfQueryResult, PageInfo, PublishKnowledgeWikiSourceFileRequest, SdkWorkCommandData, UpdateKnowledgeSpaceContextBindingRequest, UpdateKnowledgeSpaceRequest } from '../types';
 
 
+export interface KnowledgeWikiSourceFilesVisibilityUpdateParams {
+  idempotencyKey: string;
+}
+
 export class KnowledgeWikiSourceFilesVisibilityApi {
   private client: HttpClient;
 
@@ -13,9 +17,23 @@ export class KnowledgeWikiSourceFilesVisibilityApi {
 
 
 /** Change Wiki source file visibility */
-  async update(spaceId: string, sourceFileUuid: string, body: ChangeKnowledgeWikiSourceFileVisibilityRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiSourceFileCommandResult> {
-    return this.client.request<KnowledgeWikiSourceFileCommandResult>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_source_files/${serializePathParameter(sourceFileUuid, { name: 'sourceFileUuid', style: 'simple', explode: false })}/visibility`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json' });
+  async update(spaceId: string, sourceFileUuid: string, body: ChangeKnowledgeWikiSourceFileVisibilityRequest, params: KnowledgeWikiSourceFilesVisibilityUpdateParams, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiSourceFileCommandResult> {
+    const requestHeaders = buildRequestHeaders(
+      {
+        'Idempotency-Key': { value: params.idempotencyKey, style: 'simple', explode: false },
+      },
+      {}
+    );
+    return this.client.request<KnowledgeWikiSourceFileCommandResult>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_source_files/${serializePathParameter(sourceFileUuid, { name: 'sourceFileUuid', style: 'simple', explode: false })}/visibility`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, headers: requestHeaders, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
+}
+
+export interface KnowledgeWikiSourceFilesPublishParams {
+  idempotencyKey: string;
+}
+
+export interface KnowledgeWikiSourceFilesUnpublishParams {
+  idempotencyKey: string;
 }
 
 export class KnowledgeWikiSourceFilesApi {
@@ -29,14 +47,34 @@ export class KnowledgeWikiSourceFilesApi {
 
 
 /** Publish Wiki source file */
-  async publish(spaceId: string, sourceFileUuid: string, body: PublishKnowledgeWikiSourceFileRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiSourceFileCommandResult> {
-    return this.client.request<KnowledgeWikiSourceFileCommandResult>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_source_files/${serializePathParameter(sourceFileUuid, { name: 'sourceFileUuid', style: 'simple', explode: false })}/publish`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+  async publish(spaceId: string, sourceFileUuid: string, body: PublishKnowledgeWikiSourceFileRequest, params: KnowledgeWikiSourceFilesPublishParams, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiSourceFileCommandResult> {
+    const requestHeaders = buildRequestHeaders(
+      {
+        'Idempotency-Key': { value: params.idempotencyKey, style: 'simple', explode: false },
+      },
+      {}
+    );
+    return this.client.request<KnowledgeWikiSourceFileCommandResult>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_source_files/${serializePathParameter(sourceFileUuid, { name: 'sourceFileUuid', style: 'simple', explode: false })}/publish`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, headers: requestHeaders, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Unpublish Wiki source file */
-  async unpublish(spaceId: string, sourceFileUuid: string, body: KnowledgeWikiSourceFileVersionCommandRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiSourceFileCommandResult> {
-    return this.client.request<KnowledgeWikiSourceFileCommandResult>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_source_files/${serializePathParameter(sourceFileUuid, { name: 'sourceFileUuid', style: 'simple', explode: false })}/unpublish`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+  async unpublish(spaceId: string, sourceFileUuid: string, body: KnowledgeWikiSourceFileVersionCommandRequest, params: KnowledgeWikiSourceFilesUnpublishParams, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiSourceFileCommandResult> {
+    const requestHeaders = buildRequestHeaders(
+      {
+        'Idempotency-Key': { value: params.idempotencyKey, style: 'simple', explode: false },
+      },
+      {}
+    );
+    return this.client.request<KnowledgeWikiSourceFileCommandResult>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_source_files/${serializePathParameter(sourceFileUuid, { name: 'sourceFileUuid', style: 'simple', explode: false })}/unpublish`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, headers: requestHeaders, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
+}
+
+export interface KnowledgeWikiPublicationsActivateParams {
+  idempotencyKey: string;
+}
+
+export interface KnowledgeWikiPublicationsPauseParams {
+  idempotencyKey: string;
 }
 
 export class KnowledgeWikiPublicationsApi {
@@ -49,17 +87,29 @@ export class KnowledgeWikiPublicationsApi {
 
 /** Retrieve Wiki publication */
   async retrieve(spaceId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiPublication> {
-    return this.client.request<KnowledgeWikiPublication>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_publication`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeWikiPublication>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_publication`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 
 /** Activate Wiki publication */
-  async activate(spaceId: string, body: KnowledgeWikiPublicationVersionCommandRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiPublication> {
-    return this.client.request<KnowledgeWikiPublication>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_publication/activate`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+  async activate(spaceId: string, body: KnowledgeWikiPublicationVersionCommandRequest, params: KnowledgeWikiPublicationsActivateParams, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiPublication> {
+    const requestHeaders = buildRequestHeaders(
+      {
+        'Idempotency-Key': { value: params.idempotencyKey, style: 'simple', explode: false },
+      },
+      {}
+    );
+    return this.client.request<KnowledgeWikiPublication>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_publication/activate`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, headers: requestHeaders, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Pause Wiki publication */
-  async pause(spaceId: string, body: KnowledgeWikiPublicationVersionCommandRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiPublication> {
-    return this.client.request<KnowledgeWikiPublication>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_publication/pause`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+  async pause(spaceId: string, body: KnowledgeWikiPublicationVersionCommandRequest, params: KnowledgeWikiPublicationsPauseParams, requestOptions?: ApiRequestOptions): Promise<KnowledgeWikiPublication> {
+    const requestHeaders = buildRequestHeaders(
+      {
+        'Idempotency-Key': { value: params.idempotencyKey, style: 'simple', explode: false },
+      },
+      {}
+    );
+    return this.client.request<KnowledgeWikiPublication>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/wiki_publication/pause`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, headers: requestHeaders, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -73,7 +123,7 @@ export class KnowledgeMediaTasksApi {
 
 /** Create a knowledge media task (image generation or speech-to-text) */
   async create(body: KnowledgeMediaTaskRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeMediaTaskResult> {
-    return this.client.request<KnowledgeMediaTaskResult>(appApiPath(`/knowledge/media_tasks`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeMediaTaskResult>(appApiPath(`/knowledge/media_tasks`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
   }
 }
 
@@ -87,7 +137,7 @@ export class KnowledgeMarketSubscriptionsApi {
 
 /** Subscribe to a knowledge market listing */
   async create(body: KnowledgeMarketSubscriptionRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeMarketSubscriptionResult> {
-    return this.client.request<KnowledgeMarketSubscriptionResult>(appApiPath(`/knowledge/market/subscriptions`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeMarketSubscriptionResult>(appApiPath(`/knowledge/market/subscriptions`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
   }
 
 /** Unsubscribe from a knowledge market listing */
@@ -115,7 +165,7 @@ export class KnowledgeMarketListingsApi {
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<{ items: KnowledgeMarketCatalogItem[]; pageInfo: PageInfo; }>(appendQueryString(appApiPath(`/knowledge/market/listings`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<{ items: KnowledgeMarketCatalogItem[]; pageInfo: PageInfo; }>(appendQueryString(appApiPath(`/knowledge/market/listings`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 }
 
@@ -142,7 +192,7 @@ export class KnowledgeGitSyncsApi {
 
 /** Sync knowledge space documents to a Git repository */
   async create(body: KnowledgeGitSyncRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeGitSyncResult> {
-    return this.client.request<KnowledgeGitSyncResult>(appApiPath(`/knowledge/git_syncs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeGitSyncResult>(appApiPath(`/knowledge/git_syncs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
   }
 }
 
@@ -156,12 +206,12 @@ export class KnowledgeWechatArticlesApi {
 
 /** Publish WeChat articles */
   async publish(body: KnowledgeWechatArticlesPublishRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeWechatOperationResult> {
-    return this.client.request<KnowledgeWechatOperationResult>(appApiPath(`/knowledge/wechat/articles/publish`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeWechatOperationResult>(appApiPath(`/knowledge/wechat/articles/publish`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
   }
 
 /** Preview WeChat articles */
   async preview(body: KnowledgeWechatArticlesPreviewRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeWechatOperationResult> {
-    return this.client.request<KnowledgeWechatOperationResult>(appApiPath(`/knowledge/wechat/articles/preview`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeWechatOperationResult>(appApiPath(`/knowledge/wechat/articles/preview`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
   }
 }
 
@@ -175,12 +225,12 @@ export class KnowledgeWechatAppletsApi {
 
 /** List WeChat applets */
   async list(requestOptions?: ApiRequestOptions): Promise<KnowledgeWechatAppletList> {
-    return this.client.request<KnowledgeWechatAppletList>(appApiPath(`/knowledge/wechat/applets`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeWechatAppletList>(appApiPath(`/knowledge/wechat/applets`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 
 /** Replace WeChat applets */
   async update(body: KnowledgeWechatReplaceAppletsRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeWechatAppletList> {
-    return this.client.request<KnowledgeWechatAppletList>(appApiPath(`/knowledge/wechat/applets`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PUT' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeWechatAppletList>(appApiPath(`/knowledge/wechat/applets`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PUT' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -194,7 +244,7 @@ export class KnowledgeWechatOfficialAccountsFanTagsApi {
 
 /** List WeChat official account fan tags */
   async list(accountId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeWechatFanTagList> {
-    return this.client.request<KnowledgeWechatFanTagList>(appApiPath(`/knowledge/wechat/official_accounts/${serializePathParameter(accountId, { name: 'accountId', style: 'simple', explode: false })}/fan_tags`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeWechatFanTagList>(appApiPath(`/knowledge/wechat/official_accounts/${serializePathParameter(accountId, { name: 'accountId', style: 'simple', explode: false })}/fan_tags`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -210,12 +260,12 @@ export class KnowledgeWechatOfficialAccountsApi {
 
 /** List WeChat official accounts */
   async list(requestOptions?: ApiRequestOptions): Promise<KnowledgeWechatOfficialAccountList> {
-    return this.client.request<KnowledgeWechatOfficialAccountList>(appApiPath(`/knowledge/wechat/official_accounts`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeWechatOfficialAccountList>(appApiPath(`/knowledge/wechat/official_accounts`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 
 /** Replace WeChat official accounts */
   async update(body: KnowledgeWechatReplaceOfficialAccountsRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeWechatOfficialAccountList> {
-    return this.client.request<KnowledgeWechatOfficialAccountList>(appApiPath(`/knowledge/wechat/official_accounts`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PUT' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeWechatOfficialAccountList>(appApiPath(`/knowledge/wechat/official_accounts`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PUT' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -244,12 +294,12 @@ export class KnowledgeContextBindingsApi {
 
 /** Retrieve a knowledge space context binding */
   async retrieve(bindingId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeSpaceContextBinding> {
-    return this.client.request<KnowledgeSpaceContextBinding>(appApiPath(`/knowledge/context_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeSpaceContextBinding>(appApiPath(`/knowledge/context_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 
 /** Update a knowledge space context binding */
   async update(bindingId: string, body: UpdateKnowledgeSpaceContextBindingRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeSpaceContextBinding> {
-    return this.client.request<KnowledgeSpaceContextBinding>(appApiPath(`/knowledge/context_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeSpaceContextBinding>(appApiPath(`/knowledge/context_bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Delete a knowledge space context binding */
@@ -268,7 +318,7 @@ export class KnowledgeAgentProfilesChatApi {
 
 /** Chat with a knowledge-backed agent profile */
   async chat(profileId: string, body: KnowledgeAgentChatRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeAgentChatResponse> {
-    return this.client.request<KnowledgeAgentChatResponse>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/chat`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeAgentChatResponse>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/chat`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -282,7 +332,7 @@ export class KnowledgeAgentProfilesRetrievalPreviewApi {
 
 /** Preview retrieval for an agent profile */
   async retrievalPreview(profileId: string, body: KnowledgeRetrievalRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeRetrievalResult> {
-    return this.client.request<KnowledgeRetrievalResult>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/retrieval_preview`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeRetrievalResult>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/retrieval_preview`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -296,17 +346,17 @@ export class KnowledgeAgentProfilesBindingsApi {
 
 /** List agent profile bindings */
   async list(profileId: string, requestOptions?: ApiRequestOptions): Promise<unknown> {
-    return this.client.request<unknown>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<unknown>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 
 /** Create an agent profile binding */
   async bindings(profileId: string, body: KnowledgeAgentBindingRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeAgentBinding> {
-    return this.client.request<KnowledgeAgentBinding>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeAgentBinding>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Update an agent profile binding */
   async update(profileId: string, bindingId: string, body: KnowledgeAgentBindingRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeAgentBinding> {
-    return this.client.request<KnowledgeAgentBinding>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeAgentBinding>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}/bindings/${serializePathParameter(bindingId, { name: 'bindingId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Delete an agent profile binding */
@@ -331,17 +381,17 @@ export class KnowledgeAgentProfilesApi {
 
 /** Create a knowledge agent profile */
   async create(body: KnowledgeAgentProfileRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeAgentProfile> {
-    return this.client.request<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Retrieve a knowledge agent profile */
   async retrieve(profileId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeAgentProfile> {
-    return this.client.request<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 
 /** Update a knowledge agent profile */
   async update(profileId: string, body: KnowledgeAgentProfileRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeAgentProfile> {
-    return this.client.request<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeAgentProfile>(appApiPath(`/knowledge/agent_profiles/${serializePathParameter(profileId, { name: 'profileId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Delete a knowledge agent profile */
@@ -360,7 +410,7 @@ export class KnowledgeContextPacksApi {
 
 /** Create a knowledge context pack */
   async create(body: KnowledgeContextPackRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeContextPack> {
-    return this.client.request<KnowledgeContextPack>(appApiPath(`/knowledge/context_packs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeContextPack>(appApiPath(`/knowledge/context_packs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -374,12 +424,12 @@ export class KnowledgeRetrievalsApi {
 
 /** Create a knowledge retrieval */
   async create(body: KnowledgeRetrievalRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeRetrievalResult> {
-    return this.client.request<KnowledgeRetrievalResult>(appApiPath(`/knowledge/retrievals`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeRetrievalResult>(appApiPath(`/knowledge/retrievals`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Retrieve a knowledge retrieval result */
   async retrieve(retrievalId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeRetrievalResult> {
-    return this.client.request<KnowledgeRetrievalResult>(appApiPath(`/knowledge/retrievals/${serializePathParameter(retrievalId, { name: 'retrievalId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeRetrievalResult>(appApiPath(`/knowledge/retrievals/${serializePathParameter(retrievalId, { name: 'retrievalId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -393,7 +443,7 @@ export class KnowledgeOkfLintRunsApi {
 
 /** Create an OKF bundle lint run */
   async create(body: OkfQualityRunRequest, requestOptions?: ApiRequestOptions): Promise<OkfQualityRun> {
-    return this.client.request<OkfQualityRun>(appApiPath(`/knowledge/okf/lint_runs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<OkfQualityRun>(appApiPath(`/knowledge/okf/lint_runs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -407,7 +457,7 @@ export class KnowledgeOkfContextPacksApi {
 
 /** Create an OKF context pack */
   async create(body: OkfContextPackRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
-    return this.client.request<KnowledgeOkfBundleFile>(appApiPath(`/knowledge/okf/context_packs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeOkfBundleFile>(appApiPath(`/knowledge/okf/context_packs`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -421,12 +471,12 @@ export class KnowledgeOkfQueriesApi {
 
 /** Create an OKF query */
   async create(body: OkfQueryRequest, requestOptions?: ApiRequestOptions): Promise<OkfQueryResult> {
-    return this.client.request<OkfQueryResult>(appApiPath(`/knowledge/okf/queries`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<OkfQueryResult>(appApiPath(`/knowledge/okf/queries`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** File an answer for an OKF query */
   async fileAnswer(queryId: string, body: OkfFileAnswerRequest, requestOptions?: ApiRequestOptions): Promise<OkfQueryResult> {
-    return this.client.request<OkfQueryResult>(appApiPath(`/knowledge/okf/queries/${serializePathParameter(queryId, { name: 'queryId', style: 'simple', explode: false })}/file_answer`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<OkfQueryResult>(appApiPath(`/knowledge/okf/queries/${serializePathParameter(queryId, { name: 'queryId', style: 'simple', explode: false })}/file_answer`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -440,7 +490,7 @@ export class KnowledgeOkfBundleImportApi {
 
 /** Import an OKF bundle from drive staging */
   async create(body: OkfBundleImportRequest, requestOptions?: ApiRequestOptions): Promise<OkfBundleImportResult> {
-    return this.client.request<OkfBundleImportResult>(appApiPath(`/knowledge/okf/imports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<OkfBundleImportResult>(appApiPath(`/knowledge/okf/imports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -454,12 +504,12 @@ export class KnowledgeOkfBundleExportApi {
 
 /** Create an OKF bundle export */
   async create(body: OkfBundleExportRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
-    return this.client.request<KnowledgeOkfBundleFile>(appApiPath(`/knowledge/okf/exports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeOkfBundleFile>(appApiPath(`/knowledge/okf/exports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Retrieve an OKF bundle export */
   async retrieve(exportId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeOkfBundleFile> {
-    return this.client.request<KnowledgeOkfBundleFile>(appApiPath(`/knowledge/okf/exports/${serializePathParameter(exportId, { name: 'exportId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeOkfBundleFile>(appApiPath(`/knowledge/okf/exports/${serializePathParameter(exportId, { name: 'exportId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -473,7 +523,7 @@ export class KnowledgeOkfBundleProfileApi {
 
 /** Retrieve the OKF bundle profile */
   async list(requestOptions?: ApiRequestOptions): Promise<OkfProfileDocument> {
-    return this.client.request<OkfProfileDocument>(appApiPath(`/knowledge/okf/profile`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<OkfProfileDocument>(appApiPath(`/knowledge/okf/profile`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -487,7 +537,7 @@ export class KnowledgeOkfBundleLogApi {
 
 /** Retrieve the OKF bundle log */
   async list(requestOptions?: ApiRequestOptions): Promise<OkfLogDocument> {
-    return this.client.request<OkfLogDocument>(appApiPath(`/knowledge/okf/log`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<OkfLogDocument>(appApiPath(`/knowledge/okf/log`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -501,7 +551,7 @@ export class KnowledgeOkfBundleIndexApi {
 
 /** Retrieve the OKF bundle index */
   async list(requestOptions?: ApiRequestOptions): Promise<OkfIndexDocument> {
-    return this.client.request<OkfIndexDocument>(appApiPath(`/knowledge/okf/index`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<OkfIndexDocument>(appApiPath(`/knowledge/okf/index`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -543,7 +593,7 @@ export class KnowledgeOkfConceptsRevisionsApi {
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<KnowledgeOkfConceptRevisionList>(appendQueryString(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}/revisions`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeOkfConceptRevisionList>(appendQueryString(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}/revisions`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 }
 
@@ -570,12 +620,12 @@ export class KnowledgeOkfConceptsApi {
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<OkfConceptSummaryList>(appendQueryString(appApiPath(`/knowledge/okf/concepts`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<OkfConceptSummaryList>(appendQueryString(appApiPath(`/knowledge/okf/concepts`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 
 /** Retrieve an OKF concept */
   async retrieve(conceptId: string, requestOptions?: ApiRequestOptions): Promise<OkfConceptSummary> {
-    return this.client.request<OkfConceptSummary>(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<OkfConceptSummary>(appApiPath(`/knowledge/okf/concepts/${serializePathParameter(conceptId, { name: 'conceptId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 
 /** Delete an OKF concept */
@@ -585,7 +635,7 @@ export class KnowledgeOkfConceptsApi {
 
 /** Upsert an OKF concept revision */
   async update(body: OkfConceptUpsertRequest, requestOptions?: ApiRequestOptions): Promise<OkfConceptSummary> {
-    return this.client.request<OkfConceptSummary>(appApiPath(`/knowledge/okf/concepts/upsert`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PUT' as any, body, contentType: 'application/json' });
+    return this.client.request<OkfConceptSummary>(appApiPath(`/knowledge/okf/concepts/upsert`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PUT' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -627,12 +677,12 @@ export class KnowledgeDocumentsVersionsApi {
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<{ items: KnowledgeDocumentVersion[]; pageInfo: PageInfo; }>(appendQueryString(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/versions`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<{ items: KnowledgeDocumentVersion[]; pageInfo: PageInfo; }>(appendQueryString(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/versions`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 
 /** Create a document version */
   async versions(documentId: string, body: CreateKnowledgeDocumentVersionRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeDocumentVersion> {
-    return this.client.request<KnowledgeDocumentVersion>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/versions`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeDocumentVersion>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/versions`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -646,7 +696,7 @@ export class KnowledgeDocumentsContentApi {
 
 /** Retrieve authoritative knowledge document content */
   async list(documentId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeDocumentContent> {
-    return this.client.request<KnowledgeDocumentContent>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/content`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeDocumentContent>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}/content`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -675,22 +725,22 @@ export class KnowledgeDocumentsApi {
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<{ items: KnowledgeDocument[]; pageInfo: PageInfo; }>(appendQueryString(appApiPath(`/knowledge/documents`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<{ items: KnowledgeDocument[]; pageInfo: PageInfo; }>(appendQueryString(appApiPath(`/knowledge/documents`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 
 /** Create a knowledge document */
   async create(body: CreateKnowledgeDocumentRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeDocument> {
-    return this.client.request<KnowledgeDocument>(appApiPath(`/knowledge/documents`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeDocument>(appApiPath(`/knowledge/documents`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Retrieve a knowledge document */
   async retrieve(documentId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeDocument> {
-    return this.client.request<KnowledgeDocument>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeDocument>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 
 /** Update a knowledge document */
   async update(documentId: string, body: CreateKnowledgeDocumentRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeDocument> {
-    return this.client.request<KnowledgeDocument>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeDocument>(appApiPath(`/knowledge/documents/${serializePathParameter(documentId, { name: 'documentId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Delete a knowledge document */
@@ -709,12 +759,12 @@ export class KnowledgeIngestsApi {
 
 /** Create an ingestion job */
   async create(body: KnowledgeIngestRequest, requestOptions?: ApiRequestOptions): Promise<IngestionJob> {
-    return this.client.request<IngestionJob>(appApiPath(`/knowledge/ingests`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<IngestionJob>(appApiPath(`/knowledge/ingests`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Retrieve an ingestion job */
   async retrieve(ingestId: string, requestOptions?: ApiRequestOptions): Promise<IngestionJob> {
-    return this.client.request<IngestionJob>(appApiPath(`/knowledge/ingests/${serializePathParameter(ingestId, { name: 'ingestId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<IngestionJob>(appApiPath(`/knowledge/ingests/${serializePathParameter(ingestId, { name: 'ingestId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -728,7 +778,7 @@ export class KnowledgeGitImportsApi {
 
 /** Import a Git repository into knowledgebase */
   async create(body: KnowledgeGitImportRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeGitImportResult> {
-    return this.client.request<KnowledgeGitImportResult>(appApiPath(`/knowledge/git_imports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeGitImportResult>(appApiPath(`/knowledge/git_imports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -742,7 +792,7 @@ export class KnowledgeDriveImportsApi {
 
 /** Import a drive object into knowledgebase */
   async create(body: KnowledgeDriveImportRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeDriveImportResult> {
-    return this.client.request<KnowledgeDriveImportResult>(appApiPath(`/knowledge/drive_imports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeDriveImportResult>(appApiPath(`/knowledge/drive_imports`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -770,12 +820,12 @@ export class KnowledgeSpacesMembersApi {
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<{ items: KnowledgeSpaceMember[]; pageInfo: PageInfo; }>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<{ items: KnowledgeSpaceMember[]; pageInfo: PageInfo; }>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 
 /** Grant knowledge space member access */
   async members(spaceId: string, body: GrantKnowledgeSpaceMemberRequest, requestOptions?: ApiRequestOptions): Promise<SdkWorkCommandData> {
-    return this.client.request<SdkWorkCommandData>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<SdkWorkCommandData>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/members`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'command' });
   }
 
 /** Revoke knowledge space member access */
@@ -807,12 +857,12 @@ export class KnowledgeSpacesContextBindingsApi {
       { name: 'cursor', value: params?.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params?.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<{ items: KnowledgeSpaceContextBinding[]; pageInfo: PageInfo; }>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/context_bindings`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<{ items: KnowledgeSpaceContextBinding[]; pageInfo: PageInfo; }>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/context_bindings`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 
 /** Create a knowledge space context binding */
   async contextBindings(spaceId: string, body: CreateKnowledgeSpaceContextBindingRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeSpaceContextBinding> {
-    return this.client.request<KnowledgeSpaceContextBinding>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/context_bindings`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeSpaceContextBinding>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/context_bindings`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 
@@ -839,7 +889,7 @@ export class KnowledgeSpacesBrowserApi {
       { name: 'cursor', value: params.cursor, style: 'form', explode: true, allowReserved: false },
       { name: 'page_size', value: params.pageSize, style: 'form', explode: true, allowReserved: false },
     ]);
-    return this.client.request<KnowledgeBrowserListData>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/browser`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeBrowserListData>(appendQueryString(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}/browser`), query), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'page' });
   }
 }
 
@@ -859,17 +909,17 @@ export class KnowledgeSpacesApi {
 
 /** Create a knowledge space */
   async create(body: CreateKnowledgeSpaceRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeSpace> {
-    return this.client.request<KnowledgeSpace>(appApiPath(`/knowledge/spaces`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeSpace>(appApiPath(`/knowledge/spaces`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Retrieve a knowledge space */
   async retrieve(spaceId: string, requestOptions?: ApiRequestOptions): Promise<KnowledgeSpace> {
-    return this.client.request<KnowledgeSpace>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any });
+    return this.client.request<KnowledgeSpace>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'GET' as any, sdkworkUnwrapKind: 'item' });
   }
 
 /** Update a knowledge space */
   async update(spaceId: string, body: UpdateKnowledgeSpaceRequest, requestOptions?: ApiRequestOptions): Promise<KnowledgeSpace> {
-    return this.client.request<KnowledgeSpace>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json' });
+    return this.client.request<KnowledgeSpace>(appApiPath(`/knowledge/spaces/${serializePathParameter(spaceId, { name: 'spaceId', style: 'simple', explode: false })}`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'PATCH' as any, body, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 
 /** Delete a knowledge space */
@@ -898,7 +948,7 @@ export class KnowledgeGroupLaunchesApi {
       },
       {}
     );
-    return this.client.request<GroupKnowledgebaseLaunchTarget>(appApiPath(`/knowledge/group_launches/consume`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, headers: requestHeaders, contentType: 'application/json' });
+    return this.client.request<GroupKnowledgebaseLaunchTarget>(appApiPath(`/knowledge/group_launches/consume`), { signal: requestOptions?.signal, timeout: requestOptions?.timeout, method: 'POST' as any, body, headers: requestHeaders, contentType: 'application/json', sdkworkUnwrapKind: 'item' });
   }
 }
 

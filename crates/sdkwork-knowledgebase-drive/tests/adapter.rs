@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use sdkwork_drive_config::DatabaseEngine;
 use sdkwork_drive_storage_contract::{
     AbortMultipartUploadRequest, CompleteMultipartUploadRequest, CompleteMultipartUploadResponse,
     CopyObjectRequest, CopyObjectResponse, CreateBucketRequest, CreateBucketResponse,
@@ -17,7 +16,6 @@ use sdkwork_drive_workspace_service::application::space_service::{
     GetSpaceCommand, SqlDriveSpaceService,
 };
 use sdkwork_drive_workspace_service::domain::space::DriveSpaceType;
-use sdkwork_drive_workspace_service::infrastructure::sql::install_any_schema;
 use sdkwork_drive_workspace_service::DriveServiceError;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_drive_node_tree::{
     DriveNodeKind, KnowledgeDriveNodeTree, ListKnowledgeDriveNodeChildrenRequest,
@@ -100,7 +98,9 @@ fn knowledgebase_drive_adapter_does_not_reference_drive_physical_tables() {
 
 #[tokio::test]
 async fn space_provisioner_adapter_creates_dedicated_drive_knowledge_space_idempotently() {
-    let pool = sqlite_drive_pool().await;
+    let Some((pool, _database_guard)) = postgres_drive_pool().await else {
+        return;
+    };
     let adapter = KnowledgebaseDriveSpaceProvisionerAdapter::new(pool.clone());
     let request = CreateKnowledgeDriveSpaceRequest {
         tenant_id: "tenant-001".to_string(),
@@ -140,7 +140,9 @@ async fn space_provisioner_adapter_creates_dedicated_drive_knowledge_space_idemp
 
 #[tokio::test]
 async fn space_provisioner_adapter_creates_distinct_drive_spaces_for_same_user_owner() {
-    let pool = sqlite_drive_pool().await;
+    let Some((pool, _database_guard)) = postgres_drive_pool().await else {
+        return;
+    };
     let adapter = KnowledgebaseDriveSpaceProvisionerAdapter::new(pool.clone());
 
     let first = adapter
@@ -175,7 +177,9 @@ async fn space_provisioner_adapter_creates_distinct_drive_spaces_for_same_user_o
 
 #[tokio::test]
 async fn space_provisioner_adapter_deletes_only_matching_knowledge_space_idempotently() {
-    let pool = sqlite_drive_pool().await;
+    let Some((pool, _database_guard)) = postgres_drive_pool().await else {
+        return;
+    };
     let adapter = KnowledgebaseDriveSpaceProvisionerAdapter::new(pool.clone());
     let create_request = CreateKnowledgeDriveSpaceRequest {
         tenant_id: "tenant-001".to_string(),
@@ -462,7 +466,9 @@ async fn adapter_reads_empty_text_object_without_requesting_invalid_range() {
 
 #[tokio::test]
 async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_bindings() {
-    let pool = sqlite_drive_pool().await;
+    let Some((pool, _database_guard)) = postgres_drive_pool().await else {
+        return;
+    };
     seed_drive_space(&pool, "tenant-001", "kb-drv-kb-001").await;
     seed_storage_provider(&pool, "provider-kb", "kb-bucket").await;
     let adapter = KnowledgebaseDriveWorkspaceAdapter::new(pool.clone(), "tenant-001", "system");
@@ -530,7 +536,7 @@ async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_b
     let stored_provider_id: String = sqlx::query_scalar(
         "SELECT storage_provider_id
          FROM dr_drive_storage_object
-         WHERE tenant_id = ?1 AND bucket = ?2 AND object_key = ?3",
+         WHERE tenant_id = $1 AND bucket = $2 AND object_key = $3",
     )
     .bind("tenant-001")
     .bind("kb-bucket")
@@ -543,7 +549,9 @@ async fn workspace_adapter_creates_browser_visible_drive_nodes_and_file_object_b
 
 #[tokio::test]
 async fn workspace_adapter_is_idempotent_for_repeated_initialization() {
-    let pool = sqlite_drive_pool().await;
+    let Some((pool, _database_guard)) = postgres_drive_pool().await else {
+        return;
+    };
     seed_drive_space(&pool, "tenant-001", "kb-drv-kb-001").await;
     seed_storage_provider(&pool, "provider-kb", "kb-bucket").await;
     let adapter = KnowledgebaseDriveWorkspaceAdapter::new(pool.clone(), "tenant-001", "system");
@@ -591,7 +599,9 @@ async fn workspace_adapter_is_idempotent_for_repeated_initialization() {
 
 #[tokio::test]
 async fn node_tree_adapter_resolves_paths_and_pages_children_from_drive_nodes() {
-    let pool = sqlite_drive_pool().await;
+    let Some((pool, _database_guard)) = postgres_drive_pool().await else {
+        return;
+    };
     seed_drive_space(&pool, "tenant-001", "kb-drv-kb-001").await;
     seed_storage_provider(&pool, "provider-kb", "kb-bucket").await;
     let workspace = KnowledgebaseDriveWorkspaceAdapter::new(pool.clone(), "tenant-001", "system");
@@ -1329,20 +1339,14 @@ impl DriveObjectStore for BlankVersionDriveObjectStore {
     }
 }
 
-async fn sqlite_drive_pool() -> sqlx::AnyPool {
-    sqlx::any::install_default_drivers();
-    let pool = sqlx::any::AnyPoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap();
-    install_any_schema(&pool, DatabaseEngine::Sqlite)
-        .await
-        .unwrap();
-    pool
+async fn postgres_drive_pool() -> Option<(
+    sqlx::PgPool,
+    sdkwork_drive_test_support::PostgresTestDatabaseGuard,
+)> {
+    sdkwork_drive_test_support::postgres_test_database().await
 }
 
-async fn seed_drive_space(pool: &sqlx::AnyPool, tenant_id: &str, drive_space_id: &str) {
+async fn seed_drive_space(pool: &sqlx::PgPool, tenant_id: &str, drive_space_id: &str) {
     let knowledge_space_uuid = drive_space_id
         .strip_prefix("kb-")
         .unwrap_or(drive_space_id)
@@ -1362,15 +1366,15 @@ async fn seed_drive_space(pool: &sqlx::AnyPool, tenant_id: &str, drive_space_id:
     assert_eq!(binding.drive_space_id, drive_space_id);
 }
 
-async fn seed_storage_provider(pool: &sqlx::AnyPool, provider_id: &str, bucket: &str) {
+async fn seed_storage_provider(pool: &sqlx::PgPool, provider_id: &str, bucket: &str) {
     sqlx::query(
         "INSERT INTO dr_drive_storage_provider (
             id, provider_kind, name, endpoint_url, region, bucket, path_style,
             strict_tls, credential_ref, server_side_encryption_mode, default_storage_class,
             status, version, created_by, updated_by
         ) VALUES (
-            ?1, 's3_compatible', ?1, 'https://s3.example.com', 'us-east-1',
-            ?2, 1, 1, 'plain:test-access:test-secret', NULL, NULL,
+            $1, 's3_compatible', $1, 'https://s3.example.com', 'us-east-1',
+            $2, TRUE, TRUE, 'plain:test-access:test-secret', NULL, NULL,
             'active', 1, 'test', 'test'
         )",
     )

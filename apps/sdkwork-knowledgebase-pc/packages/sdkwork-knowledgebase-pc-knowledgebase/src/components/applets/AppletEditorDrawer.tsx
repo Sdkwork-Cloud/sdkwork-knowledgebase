@@ -3,6 +3,11 @@ import { isBlank, trim } from '@sdkwork/utils';
 import { X, Smartphone, Edit3, Globe, Server, Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { WechatAppletConfig } from '../../services/wechat';
+import {
+  formatFileSizeLimit,
+  isFileWithinSizeLimit,
+  MAX_DOMAIN_VERIFICATION_TEXT_BYTES,
+} from '../../services/fileInputLimits';
 import { toast } from '../ui/toast-manager';
 
 interface Props {
@@ -49,7 +54,6 @@ export function AppletEditorDrawer({
   const [appMsgDataFormat, setAppMsgDataFormat] = useState<'json' | 'xml'>('json');
   const [appMsgEncryptMode, setAppMsgEncryptMode] = useState<'plain' | 'compatible' | 'safe'>('plain');
 
-  const avatarInputRef = useRef<HTMLInputElement>(null);
   const domainVerifyInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -159,33 +163,37 @@ export function AppletEditorDrawer({
     await onSave(newApplet);
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast.error(t('errors.invalidImage'));
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        setAppAvatar(evt.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleDomainVerifyFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.currentTarget;
+    const file = input.files?.[0];
     if (file) {
-      if (!file.name.endsWith('.txt')) {
+      if (!file.name.toLowerCase().endsWith('.txt')) {
         toast.error(t('errors.invalidTxt'));
+        input.value = '';
+        return;
+      }
+      if (!isFileWithinSizeLimit(file, MAX_DOMAIN_VERIFICATION_TEXT_BYTES)) {
+        toast.error(t('errors.verificationFileTooLarge', {
+          maxSize: formatFileSizeLimit(MAX_DOMAIN_VERIFICATION_TEXT_BYTES),
+        }));
+        input.value = '';
         return;
       }
       const reader = new FileReader();
       reader.onload = (evt) => {
-        setAppDomainVerifyFileContent(evt.target?.result as string);
-        setAppDomainVerifyFileName(file.name);
-        toast.success(t('errors.uploadSuccess'));
+        const result = evt.target?.result;
+        if (typeof result === 'string') {
+          setAppDomainVerifyFileContent(result);
+          setAppDomainVerifyFileName(file.name);
+          toast.success(t('errors.uploadSuccess'));
+        } else {
+          toast.error(t('errors.verificationFileReadFailed'));
+        }
+        input.value = '';
+      };
+      reader.onerror = () => {
+        toast.error(t('errors.verificationFileReadFailed'));
+        input.value = '';
       };
       reader.readAsText(file);
     }
@@ -287,42 +295,6 @@ export function AppletEditorDrawer({
                 <div>
                   <label className="block text-[12px] font-bold text-[var(--color-kb-text-heading)] mb-2">{t('avatarLabel')}</label>
                   <div className="flex flex-col gap-3 p-3 bg-[var(--color-kb-editor)] rounded-lg border border-[var(--color-kb-panel-border)]">
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => avatarInputRef.current?.click()}
-                        className="px-3 h-10 flex items-center justify-center gap-2 text-[12px] font-bold text-[var(--color-kb-text-muted)] hover:text-[#07c160] rounded-md border border-dashed border-[var(--color-kb-panel-border)] hover:border-[#07c160] hover:bg-[#07c160]/5 transition-all w-fit"
-                        title={t('uploadLocalImageHint')}
-                      >
-                        <Plus size={16} /> {t('uploadLocalImage')}
-                      </button>
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        ref={avatarInputRef}
-                        className="hidden"
-                        onChange={handleAvatarUpload}
-                      />
-                      
-                      {appAvatar && appAvatar.startsWith('data:image/') && (
-                        <div className="relative group shrink-0">
-                          <div className="w-10 h-10 rounded-md border-2 border-[#07c160] shadow-sm overflow-hidden flex items-center justify-center bg-white p-0.5">
-                            <img src={appAvatar} alt="avatar" className="w-full h-full object-cover rounded-sm" />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setAppAvatar('📱'); }}
-                            className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                            title={t('cancel')}
-                          >
-                            <X size={10} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="w-full h-[1px] bg-[var(--color-kb-panel-border)]"></div>
-                    
                     <div className="grid grid-cols-7 sm:grid-cols-9 gap-2">
                       {['📱', '🛒', '🎮', '🛠️', '🛍️', '📚', '⚡', '✨', '🎁'].map((emoji) => (
                         <button

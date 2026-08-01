@@ -192,8 +192,12 @@ Quota violations return `ProblemDetail` with code `60002` (`knowledge_tenant_quo
 
 GDPR subject export and anonymization for `kb_audit_event` are available through:
 
-- `POST /backend/v3/api/knowledge/compliance/audit_events/export` (`compliance.auditEvents.export`)
-- `POST /backend/v3/api/knowledge/compliance/audit_events/anonymize_actor` (`compliance.auditEvents.anonymizeActor`)
+- `POST /backend/v3/api/knowledge/compliance/audit_events/export` (`compliance.auditEvents.export.create`)
+- `POST /backend/v3/api/knowledge/compliance/audit_events/anonymize_actor` (`compliance.auditEvents.anonymizeActor.create`)
+
+The synchronous export returns a complete result only up to 5,000 rows and returns
+`413 audit_export_limit_exceeded` above that bound. It never returns a partial result. A larger
+export requires a future SDK-governed cursor or asynchronous job contract.
 
 See [audit-retention.md](../docs/runbooks/audit-retention.md) for operator procedures.
 

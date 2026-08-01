@@ -60,7 +60,7 @@
     },
     {
       "path": "src/api/knowledge.ts",
-      "sha256": "641a77eded24913c4a1790bdc0fc4b130d7167f605ac8d26102924108fa8a81d"
+      "sha256": "b7d52345863717b30929e78b1828a2e812e3486aea8afa4fc8ecab2e85d31c57"
     },
     {
       "path": "src/api/paths.ts",
@@ -72,7 +72,7 @@
     },
     {
       "path": "src/http/client.ts",
-      "sha256": "a400aaa79494485aecb46e21b6662c0bbb9315fe2bd4cbef86abe82b96964dda"
+      "sha256": "a04a08a939fa910f73d5af99fe47ddf56b39ee3c7e0e3839ca6d5b34f5c5fca2"
     },
     {
       "path": "src/http/index.ts",
@@ -540,7 +540,7 @@
     },
     {
       "path": "src/types/knowledge-wechat-applet.ts",
-      "sha256": "0744ad3741cfe414870caa93bed8d3385d3d7c4f71272b1f2316980adf142449"
+      "sha256": "95a0acc46922d79fd6ef7ef27e7afb838e238af5c39ce47371b28d813dc59285"
     },
     {
       "path": "src/types/knowledge-wechat-article.ts",
@@ -568,7 +568,7 @@
     },
     {
       "path": "src/types/knowledge-wechat-official-account.ts",
-      "sha256": "ede12a2b005b2ea03bd3079166f0a4f4d75ba9b92cb0e2f4c710c014d7c111a5"
+      "sha256": "149110001f6734343e81cc92a902946f5a0bf197872d9b9105473e53272ca3de"
     },
     {
       "path": "src/types/knowledge-wechat-operation-result.ts",

@@ -32,4 +32,15 @@ describe('knowledgebase verification pipeline output hygiene', () => {
     assert.equal(packageJson.scripts.check, 'pnpm exec sdkwork-app check');
     assert.match(packageJson.scripts['_sdkwork:check'], /pnpm check:verification-pipeline/);
   });
+
+  it('validates the declared cloud deploy profile without calling a platform cloud gateway command', () => {
+    const packageJson = readJson('package.json');
+    const verifyCommand = packageJson.scripts['_sdkwork:verify'];
+    assert.match(verifyCommand, /pnpm deploy:validate(?:\s|$)/);
+    assert.doesNotMatch(verifyCommand, /(?:gateway|deploy):validate:cloud/);
+    assert.equal(packageJson.scripts['gateway:validate:cloud'], undefined);
+
+    const deployManifest = readRepoFile('deployments/deploy.yaml');
+    assert.match(deployManifest, /^defaultProfile: cloud\.production$/mu);
+  });
 });

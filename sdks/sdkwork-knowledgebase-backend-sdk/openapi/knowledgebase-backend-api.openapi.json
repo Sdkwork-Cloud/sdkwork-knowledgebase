@@ -5499,7 +5499,7 @@
           "knowledge"
         ],
         "summary": "Export knowledge audit events for a subject",
-        "description": "Export tenant-scoped kb_audit_event rows for GDPR data subject requests",
+        "description": "Export at most 5,000 tenant-scoped kb_audit_event rows for a GDPR data-subject request. Results above the synchronous bound fail with HTTP 413 and are never silently truncated.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5606,6 +5606,21 @@
           },
           "409": {
             "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Audit export exceeds the 5,000-event synchronous response bound",
             "content": {
               "application/json": {
                 "schema": {
@@ -11751,7 +11766,11 @@
         ],
         "properties": {
           "actorId": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "\\S",
+            "description": "Non-blank IAM subject identifier."
           }
         }
       },
@@ -11768,37 +11787,63 @@
         ],
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
           },
           "eventType": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
           },
           "actorType": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
           },
           "actorId": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
           },
           "resourceType": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
           },
           "resourceId": {
-            "type": [
-              "string",
-              "null"
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uint64",
+                "pattern": "^[0-9]+$",
+                "x-sdkwork-int64-string": true
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "result": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
           },
           "traceId": {
-            "type": [
-              "string",
-              "null"
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "createdAt": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time",
+            "maxLength": 64
           }
         }
       },
@@ -11812,7 +11857,9 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/KnowledgeAuditEventItem"
-            }
+            },
+            "maxItems": 5000,
+            "description": "Complete synchronous result for the subject. Requests matching more than 5,000 events fail with HTTP 413 and never return a truncated array."
           }
         }
       },
@@ -11823,7 +11870,11 @@
         ],
         "properties": {
           "actorId": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "\\S",
+            "description": "Non-blank IAM subject identifier."
           }
         }
       },

@@ -42,6 +42,11 @@ materialized into `apis/` by `pnpm api:materialize`. The internal Wiki provider 
 `apis/internal-api/knowledgebase/`, mirrored into its SDK family by the canonical generation
 workflow, and consumed through generated TypeScript and Rust transports. The direction is explicit
 per surface; generated transports are never API authority.
+For the app surface, the authored source is
+`sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json`; materialization
+derives `apis/app-api/knowledgebase-app-api.openapi.json`, and the generator derives only
+`sdks/sdkwork-knowledgebase-app-sdk/sdkwork-knowledgebase-app-sdk-typescript/generated/server-openapi`.
+Derived copies are never edited as competing contract authorities.
 
 ## 2. Technology Choices
 
@@ -91,11 +96,23 @@ per surface; generated transports are never API authority.
   [ADR-20260730-knowledgebase-process-shared-database-pool.md](../decisions/ADR-20260730-knowledgebase-process-shared-database-pool.md).
 - Media tasks consume the generated `clawrouter-open-sdk` through the existing credential-resolving provider boundary. Image requests require URL output to keep base64 image payloads out of process memory; transcription accepts bounded HTTPS references and rejects local/private hosts.
 - WeChat account/applet configuration is a tenant-scoped Drive object with a 1 MiB read/write
-  boundary, encrypted secret fields, bounded unique entries, and fail-closed read-modify-write
-  behavior. Article publish and preview create one bounded multi-article WeChat draft per account.
-  The existing URL-only article `cover` field is not a trusted storage reference and is rejected;
-  commercial cover support requires an API/SDK migration to a managed Drive object reference and
-  server-side resolution through the Drive boundary.
+  boundary, encrypted secret fields, bounded unique entries, and fail-closed storage errors. A
+  replacement contains at most 100 resources and each domain array at most 50 values. IDs/names are
+  capped at 128 characters, avatar icons at 32, App IDs at 64, descriptions at 2,048,
+  secrets/tokens at 256, AES keys at 43, verification filenames at 255, verification content
+  at 64 KiB UTF-8, Official Account domains at 255, and Applet endpoints/paths at 2,048/1,024.
+  Unknown fields, unsupported enums, embedded media identities, and overflow fail with canonical
+  Problem Details before Drive I/O. Secret replacement merges each write-only field independently,
+  so rotating an App secret does not clear an omitted token or AES key. See
+  [REQ-2026-0731](../../product/requirements/REQ-2026-0731-wechat-config-input-boundaries.md). The
+  current read-modify-write replacement has no Drive version/checksum precondition, so concurrent
+  writers can lose updates; optimistic concurrency and conflict responses are required before
+  commercial activation. Article publish and preview fail closed before upstream mutation because
+  the existing URL-only `cover` field is not a trusted storage reference. The previous embedded
+  fallback thumbnail has been removed. Re-enabling these operations requires an approved API/SDK
+  migration to a managed Drive object reference, bounded server-side cover resolution, durable
+  idempotency, per-target outcomes, retry/reconciliation, partial-failure recovery, and live WeChat
+  evidence.
 - Wiki publication projects Drive nodes under the fixed `sources/raw` root into per-file source,
   publication, visibility, route, render, and index state. The bounded worker validates pinned
   Drive versions, canonicalizes native routes, sanitizes Markdown/HTML/text pages, and executes
@@ -107,6 +124,14 @@ per surface; generated transports are never API authority.
   [ADR-20260721-live-mounted-wiki-publication.md](../decisions/ADR-20260721-live-mounted-wiki-publication.md)
   and [TECH-live-wiki-resource-provider.md](TECH-live-wiki-resource-provider.md).
 - Backend administrative list handlers use cursor page contracts and push ordering, filtering, and limits into database queries; full-list downloads are not a production path.
+- The compliance audit export is a deliberately bounded synchronous exception: it loads at most
+  5,000 events plus one overflow probe and returns `413 audit_export_limit_exceeded` when the result
+  cannot be complete. It never returns a silently truncated archive. Larger data-subject exports
+  require a future cursor-based or asynchronous contract with generated SDK support. Automated
+  retention and legal-hold-aware batch purge are not implemented and remain commercial launch
+  gates; the 365/90/30-day retention values are policy targets only. SQLite has the matching
+  organization/actor/order composite index, but PostgreSQL does not yet; a reviewed PostgreSQL
+  migration plus query-plan and concurrency evidence is required before commercial activation.
 - The persistence contract stores only write-only Provider credential references, never plaintext
   credentials. Binding lifecycle and Provider-to-Provider migration checkpoints are
   tenant/organization scoped, version-fenced, RLS protected, and retain predecessors for rollback.
@@ -167,6 +192,14 @@ per surface; generated transports are never API authority.
 - Backend OpenAPI declares `x-sdkwork-permission: knowledge.platform.manage` on all protected operations
 - Public ingress exposes API paths only; `/metrics` is scraped via ServiceMonitor inside the cluster
 - PC production builds disable demo/mock API fallbacks
+- Knowledgebase, Official Account, and Applet configuration surfaces expose icon/emoji selection,
+  not browser Data URL avatar persistence. Custom media remains unavailable until an app-api/Drive
+  contract can store a stable managed object reference and resolve bounded delivery URLs. WeChat
+  domain-verification TXT selection enforces a 64 KiB metadata limit before `FileReader`, reports
+  read failure, and resets the input after every accepted or rejected selection.
+- Desktop native resource and export bridges enforce component-declared byte and concurrency limits.
+  Generated PDF files are metadata-checked, then read through a 64 MiB plus one-byte overflow probe,
+  so oversized output is rejected during bounded IO instead of after an unbounded allocation.
 - Managed group spaces use `kb_group_knowledge_space_binding` instead of generic context binding.
   The binding is scoped by tenant, organization, and IM Conversation id; group spaces are hidden
   from generic resource routes and resolved only through the specialized launch path.
@@ -217,6 +250,11 @@ pnpm test
 ```
 
 Gates include architecture alignment, `verify-repo` native composition, PC app hygiene (SDK boundary), utils integration, API envelope, SDK generation, database contract, isolation, and commercial release-readiness scripts.
+
+The repository-level deploy validator currently resolves the declared `cloud.production` default.
+Full `pnpm verify` and profile-specific deploy facade evidence remain prelaunch-gated by the
+cross-repository blockers recorded in [PRD-mvp-launch.md](../../product/prd/PRD-mvp-launch.md); a
+successful generic deploy validation must not be represented as complete release verification.
 
 Launch acceptance: [PRD-mvp-launch.md](../../product/prd/PRD-mvp-launch.md).
 Commercial readiness: [PRD-phase2-commercial-saas.md](../../product/prd/PRD-phase2-commercial-saas.md).

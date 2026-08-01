@@ -1,7 +1,7 @@
 export interface KnowledgeWechatOfficialAccount {
   id: string;
   name: string;
-  type: string;
+  type: 'subscription' | 'service';
   avatar: string;
   description?: string;
   appId: string;
@@ -9,8 +9,9 @@ export interface KnowledgeWechatOfficialAccount {
   serverUrl?: string;
   token?: string;
   encodingAesKey?: string;
-  encryptMode?: string;
+  encryptMode?: 'plain' | 'compatible' | 'safe';
   domainVerifyFileName?: string;
+  /** WeChat domain verification text. The service also enforces a 65,536 UTF-8 byte limit. */
   domainVerifyFileContent?: string;
   jsSecureDomains?: string[];
   webAuthDomains?: string[];

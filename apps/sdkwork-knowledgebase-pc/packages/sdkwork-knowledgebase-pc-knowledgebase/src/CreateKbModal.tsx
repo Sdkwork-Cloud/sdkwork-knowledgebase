@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
-import { X, Plus, Upload, GitBranch, FolderGit2, BookPlus, Loader2 } from 'lucide-react';
+import { X, Plus, GitBranch, FolderGit2, BookPlus, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export interface CreateKbModalProps {
@@ -10,8 +10,6 @@ export interface CreateKbModalProps {
   setNewKbType: (val: 'team' | 'personal' | 'public') => void;
   newKbIcon: string;
   setNewKbIcon: (val: string) => void;
-  newKbAvatar: string;
-  setNewKbAvatar: (val: string) => void;
   onCancel: () => void;
   onCreate: (gitUrl?: string, gitBranch?: string) => void;
 }
@@ -22,30 +20,14 @@ export function CreateKbModal({
   newKbTitle, setNewKbTitle,
   newKbType, setNewKbType,
   newKbIcon, setNewKbIcon,
-  newKbAvatar, setNewKbAvatar,
   onCancel, onCreate
 }: CreateKbModalProps) {
   const { t } = useTranslation(['kb', 'common']);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [creationMode, setCreationMode] = useState<'blank' | 'git'>('blank');
   const [gitUrl, setGitUrl] = useState('');
   const [gitBranch, setGitBranch] = useState('main');
   const [isImporting, setIsImporting] = useState(false);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setNewKbAvatar(event.target.result as string);
-          setNewKbIcon('');
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleCreate = async () => {
     if (creationMode === 'git') {
@@ -131,23 +113,8 @@ export function CreateKbModal({
           <div className="flex flex-col space-y-2">
             <label className="text-[13px] font-semibold text-[var(--color-kb-text-heading)]">{t('kbIconAvatar')}</label>
             <div className="flex items-start gap-4">
-              <div 
-                className="w-[72px] h-[72px] rounded-xl border border-dashed border-[var(--color-kb-panel-border)] bg-[var(--color-kb-panel-hover)] flex items-center justify-center cursor-pointer hover:border-[var(--color-kb-accent)] hover:bg-[var(--color-kb-accent)]/5 transition-all overflow-hidden shadow-sm flex-shrink-0 group relative"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {newKbAvatar ? (
-                  <img src={newKbAvatar} alt="avatar" className="w-full h-full object-cover" />
-                ) : newKbIcon && !predefinedIcons.includes(newKbIcon) ? (
-                   <span className="text-[32px]">{newKbIcon}</span>
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-[var(--color-kb-text-muted)] group-hover:text-[var(--color-kb-accent)]">
-                    <Upload size={20} className="mb-1 opacity-70" />
-                  </div>
-                )}
-                {/* Overlay for hover */}
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                   <Upload size={18} className="text-white" />
-                </div>
+              <div className="w-[72px] h-[72px] rounded-xl border border-[var(--color-kb-panel-border)] bg-[var(--color-kb-panel-hover)] flex items-center justify-center shadow-sm flex-shrink-0">
+                <span className="text-[32px]">{newKbIcon || '📘'}</span>
               </div>
               
               <div className="flex-1 flex flex-col justify-center">
@@ -155,21 +122,14 @@ export function CreateKbModal({
                    {predefinedIcons.map(icon => (
                        <button
                            key={icon}
-                           onClick={() => { setNewKbIcon(icon); setNewKbAvatar(''); }}
-                           className={`w-9 h-9 flex items-center justify-center text-[18px] rounded-lg border transition-all ${newKbIcon === icon && !newKbAvatar ? 'border-[var(--color-kb-accent)] bg-[var(--color-kb-accent)]/10 shadow-sm' : 'border-[var(--color-kb-panel-border)] bg-[var(--color-kb-panel)] hover:bg-[var(--color-kb-panel-hover)]'}`}
+                           type="button"
+                           onClick={() => setNewKbIcon(icon)}
+                           className={`w-9 h-9 flex items-center justify-center text-[18px] rounded-lg border transition-all ${newKbIcon === icon ? 'border-[var(--color-kb-accent)] bg-[var(--color-kb-accent)]/10 shadow-sm' : 'border-[var(--color-kb-panel-border)] bg-[var(--color-kb-panel)] hover:bg-[var(--color-kb-panel-hover)]'}`}
                        >
                            {icon}
                        </button>
                    ))}
                 </div>
-                <div className="text-[12px] text-[var(--color-kb-text-muted)]">{t('suggestedSize')}</div>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleImageUpload} 
-                  accept="image/*" 
-                  className="hidden" 
-                />
               </div>
             </div>
           </div>

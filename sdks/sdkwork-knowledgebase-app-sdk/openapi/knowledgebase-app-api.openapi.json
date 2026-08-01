@@ -16074,6 +16074,7 @@
       },
       "KnowledgeWechatOfficialAccount": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "id",
           "name",
@@ -16083,75 +16084,122 @@
         ],
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "maxLength": 128
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "maxLength": 128
           },
           "type": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "subscription",
+              "service"
+            ]
           },
           "avatar": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^(?!\\s*$)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*[/\\\\]).+$"
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 2048
           },
           "appId": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "maxLength": 64
           },
           "appSecret": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 256,
+            "writeOnly": true
           },
           "serverUrl": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 2048
           },
           "token": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 256,
+            "writeOnly": true
           },
           "encodingAesKey": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 43,
+            "writeOnly": true
           },
           "encryptMode": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "plain",
+              "compatible",
+              "safe"
+            ]
           },
           "domainVerifyFileName": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 255
           },
           "domainVerifyFileContent": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 65536,
+            "description": "WeChat domain verification text. The service also enforces a 65,536 UTF-8 byte limit."
           },
           "jsSecureDomains": {
             "type": "array",
+            "maxItems": 50,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 255
             }
           },
           "webAuthDomains": {
             "type": "array",
+            "maxItems": 50,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 255
             }
           },
           "businessDomains": {
             "type": "array",
+            "maxItems": 50,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 255
             }
           },
           "group": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128
           }
         }
       },
       "KnowledgeWechatOfficialAccountList": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "accounts"
         ],
         "properties": {
           "accounts": {
             "type": "array",
+            "maxItems": 100,
             "items": {
               "$ref": "#/components/schemas/KnowledgeWechatOfficialAccount"
             }
@@ -16196,12 +16244,14 @@
       },
       "KnowledgeWechatReplaceOfficialAccountsRequest": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "accounts"
         ],
         "properties": {
           "accounts": {
             "type": "array",
+            "maxItems": 100,
             "items": {
               "$ref": "#/components/schemas/KnowledgeWechatOfficialAccount"
             }
@@ -16210,6 +16260,7 @@
       },
       "KnowledgeWechatApplet": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "id",
           "name",
@@ -16219,102 +16270,166 @@
         ],
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "maxLength": 128
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "maxLength": 128
           },
           "appId": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S",
+            "maxLength": 64
           },
           "originalId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128
           },
           "appSecret": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 256,
+            "writeOnly": true
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 1024
           },
           "avatar": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^(?!\\s*$)(?![A-Za-z][A-Za-z0-9+.-]*:)(?!.*[/\\\\]).+$"
           },
           "group": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 2048
           },
           "requestDomain": {
             "type": "array",
+            "maxItems": 50,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 2048
             }
           },
           "socketDomain": {
             "type": "array",
+            "maxItems": 50,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 2048
             }
           },
           "uploadDomain": {
             "type": "array",
+            "maxItems": 50,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 2048
             }
           },
           "downloadDomain": {
             "type": "array",
+            "maxItems": 50,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 2048
             }
           },
           "udpDomain": {
             "type": "array",
+            "maxItems": 50,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 2048
             }
           },
           "tcpDomain": {
             "type": "array",
+            "maxItems": 50,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 2048
             }
           },
           "businessDomain": {
             "type": "array",
+            "maxItems": 50,
             "items": {
-              "type": "string"
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 2048
             }
           },
           "domainVerifyFileName": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 255
           },
           "domainVerifyFileContent": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 65536,
+            "description": "WeChat domain verification text. The service also enforces a 65,536 UTF-8 byte limit."
           },
           "msgToken": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 256,
+            "writeOnly": true
           },
           "msgEncodingAESKey": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 43,
+            "writeOnly": true
           },
           "msgDataFormat": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "json",
+              "xml"
+            ]
           },
           "msgEncryptMode": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "plain",
+              "compatible",
+              "safe"
+            ]
           }
         }
       },
       "KnowledgeWechatAppletList": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "applets"
         ],
         "properties": {
           "applets": {
             "type": "array",
+            "maxItems": 100,
             "items": {
               "$ref": "#/components/schemas/KnowledgeWechatApplet"
             }
@@ -16323,12 +16438,14 @@
       },
       "KnowledgeWechatReplaceAppletsRequest": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "applets"
         ],
         "properties": {
           "applets": {
             "type": "array",
+            "maxItems": 100,
             "items": {
               "$ref": "#/components/schemas/KnowledgeWechatApplet"
             }

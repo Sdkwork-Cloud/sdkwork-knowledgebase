@@ -21,8 +21,6 @@ export interface KnowledgeBaseAppModalsProps {
   setNewKbType: (type: 'team' | 'personal' | 'public') => void;
   newKbIcon: string;
   setNewKbIcon: (icon: string) => void;
-  newKbAvatar: string;
-  setNewKbAvatar: (avatar: string) => void;
   onCreateKb: () => void | Promise<void>;
   isPublishModalOpen: boolean;
   setIsPublishModalOpen: (open: boolean) => void;
@@ -59,8 +57,6 @@ export function KnowledgeBaseAppModals(props: KnowledgeBaseAppModalsProps) {
     setNewKbType,
     newKbIcon,
     setNewKbIcon,
-    newKbAvatar,
-    setNewKbAvatar,
     onCreateKb,
     isPublishModalOpen,
     setIsPublishModalOpen,
@@ -95,8 +91,6 @@ export function KnowledgeBaseAppModals(props: KnowledgeBaseAppModalsProps) {
           setNewKbType={setNewKbType}
           newKbIcon={newKbIcon}
           setNewKbIcon={setNewKbIcon}
-          newKbAvatar={newKbAvatar}
-          setNewKbAvatar={setNewKbAvatar}
           onCancel={() => setIsCreateKbModalOpen(false)}
           onCreate={onCreateKb}
         />

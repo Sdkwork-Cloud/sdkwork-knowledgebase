@@ -422,6 +422,9 @@ impl From<KnowledgeWechatServiceError> for ApiError {
             KnowledgeWechatServiceError::InvalidRequest(detail) => {
                 Self::invalid_request("invalid_wechat_request", detail)
             }
+            KnowledgeWechatServiceError::UnsupportedOperation(operation_id) => {
+                Self::unsupported_operation(operation_id)
+            }
             KnowledgeWechatServiceError::Storage(error) => error.into(),
             KnowledgeWechatServiceError::Api(error) => {
                 Self::internal("wechat_upstream_failed", error.to_string())

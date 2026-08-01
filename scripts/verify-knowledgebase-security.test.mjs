@@ -63,6 +63,9 @@ describe('knowledgebase security standard alignment', () => {
     const configStore = readRepoFile(
       'crates/sdkwork-intelligence-knowledgebase-service/src/wechat/config_store.rs',
     );
+    const service = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-service/src/wechat/service.rs',
+    );
 
     assert.match(apiClient, /MAX_WECHAT_JSON_RESPONSE_BYTES/);
     assert.match(apiClient, /read_bounded_http_body/);
@@ -70,9 +73,97 @@ describe('knowledgebase security standard alignment', () => {
     assert.doesNotMatch(apiClient, /response\.json\(\)\.await/);
     assert.doesNotMatch(apiClient, /Http\(\#\[from\] reqwest::Error\)/);
     assert.doesNotMatch(apiClient, /unwrap_or_else\(\|_\| Client::new\(\)\)/);
+    assert.doesNotMatch(apiClient, /DEFAULT_THUMB_PNG|upload_thumb_media/);
     assert.match(configStore, /MAX_WECHAT_CONFIG_BYTES/);
     assert.match(configStore, /get_object_text_bounded/);
     assert.doesNotMatch(configStore, /load_config\(\)\.await\.unwrap_or_default\(\)/);
+    assert.match(service, /UnsupportedOperation\(\s*"wechat\.articles\.publish"/);
+    assert.match(service, /UnsupportedOperation\(\s*"wechat\.articles\.preview"/);
+    assert.doesNotMatch(service, /status: "completed"\.to_string\(\)/);
+  });
+
+  it('bounds WeChat configuration contracts in authority and materialized OpenAPI', () => {
+    for (const relativePath of [
+      'sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json',
+      'apis/app-api/knowledgebase-app-api.openapi.json',
+    ]) {
+      const openApi = JSON.parse(readRepoFile(relativePath));
+      const schemas = openApi.components.schemas;
+      const account = schemas.KnowledgeWechatOfficialAccount;
+      const applet = schemas.KnowledgeWechatApplet;
+
+      assert.equal(account.additionalProperties, false, relativePath);
+      assert.equal(account.properties.id.maxLength, 128, relativePath);
+      assert.equal(account.properties.id.pattern, '\\S', relativePath);
+      assert.deepEqual(account.properties.type.enum, ['subscription', 'service'], relativePath);
+      assert.equal(account.properties.avatar.maxLength, 32, relativePath);
+      assert.match(account.properties.avatar.pattern, /A-Za-z0-9/);
+      assert.equal(account.properties.appSecret.writeOnly, true, relativePath);
+      assert.equal(account.properties.domainVerifyFileContent.maxLength, 65_536, relativePath);
+      assert.equal(account.properties.jsSecureDomains.maxItems, 50, relativePath);
+      assert.equal(account.properties.jsSecureDomains.items.pattern, '\\S', relativePath);
+
+      assert.equal(applet.additionalProperties, false, relativePath);
+      assert.equal(applet.properties.path.maxLength, 1024, relativePath);
+      assert.equal(applet.properties.requestDomain.maxItems, 50, relativePath);
+      assert.deepEqual(applet.properties.msgDataFormat.enum, ['json', 'xml'], relativePath);
+      assert.deepEqual(
+        applet.properties.msgEncryptMode.enum,
+        ['plain', 'compatible', 'safe'],
+        relativePath,
+      );
+      assert.equal(applet.properties.msgToken.writeOnly, true, relativePath);
+
+      assert.equal(
+        schemas.KnowledgeWechatReplaceOfficialAccountsRequest.properties.accounts.maxItems,
+        100,
+        relativePath,
+      );
+      assert.equal(
+        schemas.KnowledgeWechatReplaceAppletsRequest.properties.applets.maxItems,
+        100,
+        relativePath,
+      );
+      for (const schemaName of [
+        'KnowledgeWechatOfficialAccountList',
+        'KnowledgeWechatReplaceOfficialAccountsRequest',
+        'KnowledgeWechatAppletList',
+        'KnowledgeWechatReplaceAppletsRequest',
+      ]) {
+        assert.equal(
+          schemas[schemaName].additionalProperties,
+          false,
+          `${relativePath} ${schemaName}`,
+        );
+      }
+    }
+  });
+
+  it('keeps idempotency headers on Wiki mutation authorities', () => {
+    const openApi = JSON.parse(readRepoFile(
+      'sdks/sdkwork-knowledgebase-app-sdk/openapi/knowledgebase-app-api.openapi.json',
+    ));
+    const operationIds = new Set([
+      'wikiPublications.activate',
+      'wikiPublications.pause',
+      'wikiSourceFiles.publish',
+      'wikiSourceFiles.unpublish',
+      'wikiSourceFiles.visibility.update',
+    ]);
+    const operations = Object.values(openApi.paths)
+      .flatMap((pathItem) => Object.values(pathItem))
+      .filter((operation) => operationIds.has(operation?.operationId));
+
+    assert.equal(operations.length, operationIds.size);
+    for (const operation of operations) {
+      assert.equal(operation['x-sdkwork-idempotent'], true, operation.operationId);
+      assert.ok(
+        operation.parameters.some(
+          (parameter) => parameter.$ref === '#/components/parameters/IdempotencyKeyHeader',
+        ),
+        operation.operationId,
+      );
+    }
   });
 
   it('redacts outbound import transport errors before persistence or API mapping', () => {
@@ -158,6 +249,27 @@ describe('knowledgebase security standard alignment', () => {
     assert.match(baseline, /kb_audit_event/);
     const audit = readRepoFile('crates/sdkwork-knowledgebase-observability/src/audit.rs');
     assert.match(audit, /install_audit_persistence/);
+    const auditStore = readRepoFile(
+      'crates/sdkwork-intelligence-knowledgebase-repository-sqlx/src/audit_event_store.rs',
+    );
+    assert.match(auditStore, /MAX_AUDIT_PAYLOAD_BYTES/);
+    assert.match(auditStore, /DataIntegrity/);
+    assert.match(auditStore, /ExportLimitExceeded/);
+    assert.match(auditStore, /let query_limit = i64::from\(limit\) \+ 1/);
+    assert.match(auditStore, /sql_timestamp_text_expr\("created_at"\)/);
+    assert.doesNotMatch(
+      auditStore,
+      /result, request_id, trace_id, CAST\(created_at AS TEXT\) AS created_at/,
+    );
+    assert.match(auditStore, /try_get::<Option<String>, _>\("request_id"\)/);
+    assert.doesNotMatch(auditStore, /try_get\("request_id"\)\.ok\(\)/);
+    assert.doesNotMatch(auditStore, /map\(\|value\| value as u64\)/);
+    const hostedBackend = readRepoFile(
+      'crates/sdkwork-routes-knowledgebase-app-api/src/hosted_backend.rs',
+    );
+    assert.match(hostedBackend, /StatusCode::PAYLOAD_TOO_LARGE/);
+    assert.match(hostedBackend, /audit_export_limit_exceeded/);
+    assert.match(hostedBackend, /BackendApiError::sanitized_internal/);
   });
 
   it('wires framework web_audit_event persistence across HTTP surfaces', () => {

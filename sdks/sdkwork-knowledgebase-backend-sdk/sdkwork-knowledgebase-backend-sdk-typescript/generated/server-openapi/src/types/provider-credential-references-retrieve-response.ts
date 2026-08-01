@@ -2,7 +2,7 @@ import type { KnowledgeEngineProviderCredentialReference } from './knowledge-eng
 
 export interface ProviderCredentialReferencesRetrieveResponse {
   code: 0;
-  data: unknown & Record<string, unknown>;
+  data: unknown & { item: KnowledgeEngineProviderCredentialReference; };
   /** Server-owned request correlation id. */
   traceId: string;
 }

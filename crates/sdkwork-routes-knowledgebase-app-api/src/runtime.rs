@@ -58,11 +58,12 @@ use sdkwork_knowledgebase_contract::rag::{
 };
 use sdkwork_knowledgebase_drive::{
     connect_knowledgebase_drive_pool_with_max_connections, knowledgebase_drive_health_check,
-    resolve_cloud_knowledgebase_drive_storage, KnowledgebaseDriveEmbeddedEventRelay,
-    KnowledgebaseDriveEmbeddedWikiSourceAdapter, KnowledgebaseDriveEventDeliveryConfig,
-    KnowledgebaseDriveInternalSdkAdapter, KnowledgebaseDriveNodeTreeAdapter,
-    KnowledgebaseDriveSpaceProvisionerAdapter, KnowledgebaseDriveStorageAdapter,
-    KnowledgebaseDriveWorkspaceAdapter, KnowledgebaseKnowledgeAccessControlAdapter,
+    resolve_cloud_knowledgebase_drive_storage, DomainOutboxDispatchResult,
+    KnowledgebaseDriveEmbeddedEventRelay, KnowledgebaseDriveEmbeddedWikiSourceAdapter,
+    KnowledgebaseDriveEventDeliveryConfig, KnowledgebaseDriveInternalSdkAdapter,
+    KnowledgebaseDriveNodeTreeAdapter, KnowledgebaseDriveSpaceProvisionerAdapter,
+    KnowledgebaseDriveStorageAdapter, KnowledgebaseDriveWorkspaceAdapter,
+    KnowledgebaseKnowledgeAccessControlAdapter,
 };
 use sdkwork_knowledgebase_provider_secret_adapter::{
     KnowledgebaseProviderCredentialEnvironment, KnowledgebaseProviderCredentialResolver,
@@ -1858,18 +1859,11 @@ impl KnowledgebaseRuntime {
 
     pub async fn relay_embedded_wiki_drive_outbox_events(
         &self,
-    ) -> Result<
-        sdkwork_drive_workspace_service::infrastructure::outbox_dispatch::DomainOutboxDispatchResult,
-        String,
-    >{
+    ) -> Result<DomainOutboxDispatchResult, String> {
         let Some(relay) = self.embedded_wiki_drive_event_relay.as_deref() else {
             return Ok(Default::default());
         };
-        sdkwork_drive_workspace_service::infrastructure::outbox_dispatch::dispatch_pending_outbox_events_with_relay(
-            &self.drive_pool,
-            relay,
-        )
-        .await
+        relay.relay_pending_outbox_events(&self.drive_pool).await
     }
 
     pub async fn process_wiki_drive_event_checkpoint_page(

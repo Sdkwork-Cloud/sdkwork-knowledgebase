@@ -4,6 +4,7 @@ use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_s
     KnowledgeOkfCandidateListItem, KnowledgeOkfCandidateStore, KnowledgeOkfCandidateStoreError,
     UpsertKnowledgeOkfCandidateRecord,
 };
+use sdkwork_intelligence_knowledgebase_service::ports::okf_concept_revision_metadata_store::UpdateOkfConceptCandidateStateRecord;
 use sdkwork_knowledgebase_contract::OkfConceptPublishState;
 use sqlx::AnyPool;
 use std::sync::Arc;
@@ -90,10 +91,12 @@ impl KnowledgeOkfCandidateStore for SqliteKnowledgeOkfCandidateStore {
             self.tenant_id,
             self.organization_id,
             self.timestamp_dialect,
-            concept_row_id,
-            state,
-            reviewer_id,
-            review_note,
+            UpdateOkfConceptCandidateStateRecord {
+                concept_row_id,
+                state,
+                reviewer_id,
+                review_note,
+            },
         )
         .await?;
         transaction.commit().await.map_err(sqlx_error)?;

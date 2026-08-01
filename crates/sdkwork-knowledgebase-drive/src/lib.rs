@@ -20,7 +20,8 @@ pub use bootstrap::{
     knowledgebase_drive_health_check,
 };
 pub use embedded_event_relay::{
-    embedded_knowledgebase_raw_channel_id, KnowledgebaseDriveEmbeddedEventRelay,
+    embedded_knowledgebase_raw_channel_id, DomainOutboxDispatchResult,
+    KnowledgebaseDriveEmbeddedEventRelay,
 };
 pub use embedded_wiki_source_adapter::KnowledgebaseDriveEmbeddedWikiSourceAdapter;
 pub use internal_sdk_adapter::{

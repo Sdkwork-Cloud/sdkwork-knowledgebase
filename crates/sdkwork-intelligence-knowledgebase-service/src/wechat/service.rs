@@ -1,5 +1,5 @@
 use crate::ports::knowledge_drive_storage::KnowledgeDriveStorage;
-use crate::wechat::api_client::{WechatApiClient, WechatApiClientError, WechatDraftArticle};
+use crate::wechat::api_client::{WechatApiClient, WechatApiClientError};
 use crate::wechat::config_store::WechatConfigStore;
 use sdkwork_knowledgebase_contract::wechat::{
     KnowledgeWechatApplet, KnowledgeWechatArticlesPreviewRequest,
@@ -100,30 +100,12 @@ impl<'a> KnowledgeWechatService<'a> {
             ));
         }
 
-        let send_notification = request.send_notification.unwrap_or(false);
         let group_notification = request.group_notification.unwrap_or(false);
-        let tag_id = resolve_fan_tag_id(request.selected_group_id.as_deref(), group_notification)?;
-        let articles = validated_draft_articles(&request.articles)?;
-
-        for account_id in &request.account_ids {
-            let access_token = self.resolve_account_access_token(account_id).await?;
-            let thumb_media_id = self.api_client.upload_thumb_media(&access_token).await?;
-            let media_id = self
-                .api_client
-                .add_draft_articles(&access_token, &thumb_media_id, &articles)
-                .await?;
-
-            if send_notification {
-                self.api_client
-                    .mass_send_mpnews(&access_token, &media_id, tag_id.is_none(), tag_id)
-                    .await?;
-            }
-        }
-
-        Ok(KnowledgeWechatOperationResult {
-            accepted: true,
-            status: "completed".to_string(),
-        })
+        resolve_fan_tag_id(request.selected_group_id.as_deref(), group_notification)?;
+        validate_articles(&request.articles)?;
+        Err(KnowledgeWechatServiceError::UnsupportedOperation(
+            "wechat.articles.publish",
+        ))
     }
 
     pub async fn preview_articles(
@@ -150,24 +132,10 @@ impl<'a> KnowledgeWechatService<'a> {
                 "at least one article is required".to_string(),
             ));
         }
-        let articles = validated_draft_articles(&request.articles)?;
-        let access_token = self
-            .resolve_account_access_token(&request.account_id)
-            .await?;
-        let thumb_media_id = self.api_client.upload_thumb_media(&access_token).await?;
-        let media_id = self
-            .api_client
-            .add_draft_articles(&access_token, &thumb_media_id, &articles)
-            .await?;
-        for recipient in &request.wechat_ids {
-            self.api_client
-                .preview_mpnews(&access_token, recipient, &media_id)
-                .await?;
-        }
-        Ok(KnowledgeWechatOperationResult {
-            accepted: true,
-            status: "completed".to_string(),
-        })
+        validate_articles(&request.articles)?;
+        Err(KnowledgeWechatServiceError::UnsupportedOperation(
+            "wechat.articles.preview",
+        ))
     }
 
     async fn resolve_account_access_token(
@@ -196,42 +164,28 @@ impl<'a> KnowledgeWechatService<'a> {
     }
 }
 
-fn validated_draft_articles(
+fn validate_articles(
     articles: &[sdkwork_knowledgebase_contract::wechat::KnowledgeWechatArticle],
-) -> Result<Vec<WechatDraftArticle>, KnowledgeWechatServiceError> {
+) -> Result<(), KnowledgeWechatServiceError> {
     if articles.is_empty() || articles.len() > MAX_WECHAT_ARTICLES_PER_OPERATION {
         return Err(KnowledgeWechatServiceError::InvalidRequest(format!(
             "articles must contain 1 to {MAX_WECHAT_ARTICLES_PER_OPERATION} items"
         )));
     }
-    articles
-        .iter()
-        .map(|article| {
-            let content = article.content.as_deref().unwrap_or_default();
-            if is_blank(Some(article.title.as_str())) || is_blank(Some(content)) {
-                return Err(KnowledgeWechatServiceError::InvalidRequest(
-                    "article title and content must not be empty".to_string(),
-                ));
-            }
-            if content.len() > MAX_WECHAT_ARTICLE_CONTENT_BYTES {
-                return Err(KnowledgeWechatServiceError::InvalidRequest(format!(
-                    "article content exceeds {MAX_WECHAT_ARTICLE_CONTENT_BYTES} bytes"
-                )));
-            }
-            if !is_blank(article.cover.as_deref()) {
-                return Err(KnowledgeWechatServiceError::InvalidRequest(
-                    "article cover publishing requires a managed Drive object reference and is not available for URL-only cover values"
-                        .to_string(),
-                ));
-            }
-            Ok(WechatDraftArticle {
-                title: article.title.clone(),
-                author: article.author.clone(),
-                digest: article.r#abstract.clone().unwrap_or_default(),
-                content: content.to_string(),
-            })
-        })
-        .collect()
+    for article in articles {
+        let content = article.content.as_deref().unwrap_or_default();
+        if is_blank(Some(article.title.as_str())) || is_blank(Some(content)) {
+            return Err(KnowledgeWechatServiceError::InvalidRequest(
+                "article title and content must not be empty".to_string(),
+            ));
+        }
+        if content.len() > MAX_WECHAT_ARTICLE_CONTENT_BYTES {
+            return Err(KnowledgeWechatServiceError::InvalidRequest(format!(
+                "article content exceeds {MAX_WECHAT_ARTICLE_CONTENT_BYTES} bytes"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn validate_publish_request(
@@ -280,6 +234,8 @@ fn resolve_fan_tag_id(
 pub enum KnowledgeWechatServiceError {
     #[error("invalid wechat request: {0}")]
     InvalidRequest(String),
+    #[error("unsupported wechat operation: {0}")]
+    UnsupportedOperation(&'static str),
     #[error(transparent)]
     Storage(#[from] crate::ports::knowledge_drive_storage::KnowledgeStorageError),
     #[error(transparent)]
@@ -303,26 +259,22 @@ mod tests {
     }
 
     #[test]
-    fn draft_validation_rejects_url_only_cover_instead_of_ignoring_it() {
-        let mut article = article();
-        article.cover = Some("https://drive.example.test/cover.png".to_string());
+    fn publish_capability_reports_the_canonical_unsupported_operation() {
+        let error = KnowledgeWechatServiceError::UnsupportedOperation("wechat.articles.publish");
 
-        let error = validated_draft_articles(&[article])
-            .expect_err("URL-only cover must not be silently discarded");
-
-        assert!(matches!(
-            error,
-            KnowledgeWechatServiceError::InvalidRequest(_)
-        ));
+        assert_eq!(
+            error.to_string(),
+            "unsupported wechat operation: wechat.articles.publish"
+        );
     }
 
     #[test]
-    fn draft_validation_bounds_article_count_and_content_bytes() {
+    fn article_validation_bounds_article_count_and_content_bytes() {
         let too_many = vec![article(); MAX_WECHAT_ARTICLES_PER_OPERATION + 1];
-        assert!(validated_draft_articles(&too_many).is_err());
+        assert!(validate_articles(&too_many).is_err());
 
         let mut oversize = article();
         oversize.content = Some("x".repeat(MAX_WECHAT_ARTICLE_CONTENT_BYTES + 1));
-        assert!(validated_draft_articles(&[oversize]).is_err());
+        assert!(validate_articles(&[oversize]).is_err());
     }
 }

@@ -51,7 +51,7 @@ sdkwork-web-store-sqlx = { path = "../sdkwork-web-framework/crates/sdkwork-web-s
 sdkwork-web-bootstrap = { path = "../sdkwork-web-framework/crates/sdkwork-web-bootstrap" }
 sdkwork-web-store-redis = { path = "../sdkwork-web-framework/crates/sdkwork-web-store-redis" }
 sdkwork-drive-storage-local = { path = "../sdkwork-drive/crates/sdkwork-drive-storage-local" }
-sdkwork-database-id = { path = "../sdkwork-database/crates/sdkwork-database-id", package = "sdkwork-database-id" }
+sdkwork-database-id = { path = "../sdkwork-database/crates/sdkwork-database-id", package = "sdkwork-database-id", features = ["postgres", "sqlite"] }
 async-trait = "0.1"
 ammonia = "4"
 axum = { version = "0.8", features = ["ws"] }
@@ -130,6 +130,7 @@ sdkwork-knowledgebase-engine-haystack = { path = "crates/sdkwork-knowledgebase-e
 sdkwork-drive-workspace-service = { path = "../sdkwork-drive/crates/sdkwork-drive-workspace-service" }
 sdkwork-drive-uploader-service = { path = "../sdkwork-drive/crates/sdkwork-drive-uploader-service" }
 sdkwork-drive-config = { path = "../sdkwork-drive/crates/sdkwork-drive-config" }
+sdkwork-drive-test-support = { path = "../sdkwork-drive/crates/sdkwork-drive-test-support" }
 sdkwork-drive-internal-sdk-generated-rust = { path = "../sdkwork-drive/sdks/sdkwork-drive-internal-sdk/sdkwork-drive-internal-sdk-rust/generated/server-openapi" }
 sdkwork-memory-spi = { path = "../sdkwork-memory/crates/sdkwork-memory-spi" }
 sdkwork-id-core = { path = "../sdkwork-id/packages/sdkwork-id-core" }

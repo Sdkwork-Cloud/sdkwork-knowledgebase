@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use sdkwork_drive_workspace_service::infrastructure::outbox_dispatch::dispatch_pending_outbox_events_with_relay;
+pub use sdkwork_drive_workspace_service::infrastructure::outbox_dispatch::DomainOutboxDispatchResult;
 use sdkwork_drive_workspace_service::ports::domain_outbox_embedded_relay::{
     DeliverDriveDomainOutboxEmbeddedEventRequest, DriveDomainOutboxEmbeddedRelay,
     DriveDomainOutboxEmbeddedRelayError, DriveDomainOutboxEmbeddedTarget,
@@ -54,6 +56,13 @@ impl KnowledgebaseDriveEmbeddedEventRelay {
             self.inbox_store.as_ref(),
             self.drive_source.as_ref(),
         )
+    }
+
+    pub async fn relay_pending_outbox_events(
+        &self,
+        pool: &sqlx::PgPool,
+    ) -> Result<DomainOutboxDispatchResult, String> {
+        dispatch_pending_outbox_events_with_relay(pool, self).await
     }
 }
 

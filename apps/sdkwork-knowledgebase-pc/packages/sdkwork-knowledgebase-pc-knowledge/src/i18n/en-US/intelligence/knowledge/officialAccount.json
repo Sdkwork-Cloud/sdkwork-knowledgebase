@@ -44,9 +44,7 @@
   "accountTypeLabel": "Account Type",
   "defaultGroupLabel": "Default Category",
 
-  "avatarLabel": "Avatar / Icon",
-  "uploadLocalImage": "Local Image",
-  "uploadLocalImageHint": "Upload local image",
+  "avatarLabel": "Icon",
   "remove": "Remove",
 
   "developerHint": "Please get the Developer ID (AppID) and Password (AppSecret) from 'Settings & Development - Basic Settings' on WeChat Official Accounts Platform.",
@@ -87,8 +85,9 @@
     "confirmDeleteGroup": "Are you sure you want to delete the group '{{group}}'? Apps under this group will be moved to 'Unassigned'.",
     "groupExists": "Group already exists",
     "invalidTxt": "Only TXT files are allowed",
+    "verificationFileTooLarge": "Verification file size cannot exceed {{maxSize}}",
+    "verificationFileReadFailed": "The verification file could not be read",
     "uploadSuccess": "File uploaded successfully",
-    "invalidImage": "Please upload an image file",
     "fillRequired": "Please enter a complete Official Account Name",
     "invalidDomains": "There are invalid domain formats.",
     "domainFormatError": "Invalid domain format",

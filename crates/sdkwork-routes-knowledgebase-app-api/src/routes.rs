@@ -1,5 +1,5 @@
 use axum::{
-    extract::{OriginalUri, Path, Query, State},
+    extract::{rejection::JsonRejection, OriginalUri, Path, Query, State},
     http::StatusCode,
     response::Response,
     routing::{delete, get, patch, post, put},
@@ -33,11 +33,11 @@ use crate::{
         RetrievalOnlyAppApi,
     },
     auth::{require_app_context, RequiredAppContext},
-    paths, ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi, KnowledgeBrowserApi,
-    KnowledgeCommerceAppService, KnowledgeDocumentAppService, KnowledgeDriveImportAppService,
-    KnowledgeGitImportAppService, KnowledgeGroupLaunchAppService, KnowledgeIngestAppService,
-    KnowledgeOkfAppService, KnowledgeRetrievalAppService, KnowledgeSpaceAppService,
-    KnowledgeWikiPublicationAppService,
+    paths, ApiError, ApiProblem, ApiResult, KnowledgeAgentAppService, KnowledgeAppApi,
+    KnowledgeBrowserApi, KnowledgeCommerceAppService, KnowledgeDocumentAppService,
+    KnowledgeDriveImportAppService, KnowledgeGitImportAppService, KnowledgeGroupLaunchAppService,
+    KnowledgeIngestAppService, KnowledgeOkfAppService, KnowledgeRetrievalAppService,
+    KnowledgeSpaceAppService, KnowledgeWikiPublicationAppService,
 };
 use sdkwork_routes_knowledgebase_backend_api::KnowledgebaseReadinessCheck;
 
@@ -560,9 +560,10 @@ async fn list_wechat_official_accounts(
 async fn replace_wechat_official_accounts(
     State(state): State<AppState>,
     context: RequiredAppContext,
-    Json(request): Json<KnowledgeWechatReplaceOfficialAccountsRequest>,
+    payload: Result<Json<KnowledgeWechatReplaceOfficialAccountsRequest>, JsonRejection>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    let request = parse_wechat_config_json(payload)?;
     ok_json(
         state
             .api
@@ -596,10 +597,21 @@ async fn list_wechat_applets(
 async fn replace_wechat_applets(
     State(state): State<AppState>,
     context: RequiredAppContext,
-    Json(request): Json<KnowledgeWechatReplaceAppletsRequest>,
+    payload: Result<Json<KnowledgeWechatReplaceAppletsRequest>, JsonRejection>,
 ) -> Result<Response, ApiProblem> {
     let context = require_app_context(context)?;
+    let request = parse_wechat_config_json(payload)?;
     ok_json(state.api.replace_wechat_applets(context, request).await)
+}
+
+fn parse_wechat_config_json<T>(payload: Result<Json<T>, JsonRejection>) -> Result<T, ApiProblem> {
+    payload.map(|Json(value)| value).map_err(|_| {
+        ApiError::invalid_request(
+            "invalid_wechat_request",
+            "request body must match the WeChat configuration schema",
+        )
+        .into()
+    })
 }
 
 async fn publish_wechat_articles(

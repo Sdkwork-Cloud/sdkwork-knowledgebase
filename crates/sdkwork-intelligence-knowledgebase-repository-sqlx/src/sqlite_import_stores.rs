@@ -36,7 +36,9 @@ use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 
-use crate::chunk_transaction::replace_version_chunks_in_transaction;
+use crate::chunk_transaction::{
+    replace_version_chunks_in_transaction, ReplaceVersionChunksContext,
+};
 use crate::db::sql_timestamp::SqlTimestampDialect;
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 use crate::keyword_search::KeywordSearchBackend;
@@ -1863,12 +1865,14 @@ impl SqliteIngestionJobStore {
 
         let chunk_count = replace_version_chunks_in_transaction(
             &mut transaction,
-            self.tenant_id,
-            self.organization_id,
-            &self.id_generator,
-            self.keyword_backend,
-            self.timestamp_dialect,
-            record.document_version_id,
+            ReplaceVersionChunksContext {
+                tenant_id: self.tenant_id,
+                organization_id: self.organization_id,
+                id_generator: &self.id_generator,
+                keyword_backend: self.keyword_backend,
+                timestamp_dialect: self.timestamp_dialect,
+                document_version_id: record.document_version_id,
+            },
             &record.chunks,
         )
         .await

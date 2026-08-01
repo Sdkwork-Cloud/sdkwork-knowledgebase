@@ -7,8 +7,6 @@ pub use sdkwork_knowledgebase_observability::{
     is_development_environment, is_production_like_environment, knowledgebase_environment,
 };
 
-use crate::KnowledgebaseRuntime;
-
 /// Resolves the authoritative PostgreSQL URL and fails closed on missing or SQLite config.
 pub fn resolve_database_url() -> String {
     match std::env::var("SDKWORK_DATABASE_URL") {

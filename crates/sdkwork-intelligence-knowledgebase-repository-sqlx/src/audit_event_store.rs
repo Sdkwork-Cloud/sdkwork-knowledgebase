@@ -11,6 +11,17 @@ use crate::db::sql_timestamp::{utc_sql_timestamp_text, SqlTimestampDialect};
 use crate::id::{default_knowledge_id_generator, next_i64_id, KnowledgeIdGenerator};
 
 const INITIAL_VERSION: i64 = 0;
+const MAX_AUDIT_EVENT_TYPE_CHARS: usize = 128;
+const MAX_AUDIT_ACTOR_TYPE_CHARS: usize = 64;
+const MAX_AUDIT_ACTOR_ID_CHARS: usize = 128;
+const MAX_AUDIT_RESOURCE_TYPE_CHARS: usize = 64;
+const MAX_AUDIT_RESULT_CHARS: usize = 64;
+const MAX_AUDIT_REQUEST_ID_CHARS: usize = 64;
+const MAX_AUDIT_TRACE_ID_CHARS: usize = 128;
+const MAX_AUDIT_UUID_CHARS: usize = 64;
+const MAX_AUDIT_CREATED_AT_CHARS: usize = 64;
+const MAX_AUDIT_PAYLOAD_BYTES: usize = 64 * 1024;
+const MAX_AUDIT_EXPORT_EVENTS: u32 = 5_000;
 
 #[derive(Debug, Clone)]
 pub struct KnowledgeAuditEventRecord {
@@ -32,6 +43,10 @@ pub struct KnowledgeAuditEventRecord {
 pub enum KnowledgeAuditEventStoreError {
     #[error("invalid audit event: {0}")]
     InvalidRequest(String),
+    #[error("audit export exceeds the maximum of {max_events} events")]
+    ExportLimitExceeded { max_events: u32 },
+    #[error("audit event data integrity error: {0}")]
+    DataIntegrity(String),
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
     #[error("id generation error: {0}")]
@@ -89,21 +104,32 @@ impl SqliteKnowledgeAuditEventStore {
         &self,
         event: KnowledgeAuditEventRecord,
     ) -> Result<(), KnowledgeAuditEventStoreError> {
-        if is_blank(Some(event.event_type.as_str())) {
-            return Err(KnowledgeAuditEventStoreError::InvalidRequest(
-                "event_type is required".to_string(),
-            ));
-        }
-        if is_blank(Some(event.actor_type.as_str())) || is_blank(Some(event.actor_id.as_str())) {
-            return Err(KnowledgeAuditEventStoreError::InvalidRequest(
-                "actor_type and actor_id are required".to_string(),
-            ));
-        }
-        if is_blank(Some(event.resource_type.as_str())) {
-            return Err(KnowledgeAuditEventStoreError::InvalidRequest(
-                "resource_type is required".to_string(),
-            ));
-        }
+        validate_required_audit_text("event_type", &event.event_type, MAX_AUDIT_EVENT_TYPE_CHARS)
+            .map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
+        validate_required_audit_text("actor_type", &event.actor_type, MAX_AUDIT_ACTOR_TYPE_CHARS)
+            .map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
+        validate_required_audit_text("actor_id", &event.actor_id, MAX_AUDIT_ACTOR_ID_CHARS)
+            .map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
+        validate_required_audit_text(
+            "resource_type",
+            &event.resource_type,
+            MAX_AUDIT_RESOURCE_TYPE_CHARS,
+        )
+        .map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
+        validate_required_audit_text("result", &event.result, MAX_AUDIT_RESULT_CHARS)
+            .map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
+        validate_optional_audit_text(
+            "request_id",
+            event.request_id.as_deref(),
+            MAX_AUDIT_REQUEST_ID_CHARS,
+        )
+        .map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
+        validate_optional_audit_text(
+            "trace_id",
+            event.trace_id.as_deref(),
+            MAX_AUDIT_TRACE_ID_CHARS,
+        )
+        .map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
 
         let id = next_i64_id(&self.id_generator)
             .map_err(|error| KnowledgeAuditEventStoreError::IdGeneration(error.to_string()))?;
@@ -120,6 +146,14 @@ impl SqliteKnowledgeAuditEventStore {
                 KnowledgeAuditEventStoreError::InvalidRequest("resource_id".to_string())
             })?;
         let payload = event.payload.as_ref().map(ToString::to_string);
+        if payload
+            .as_ref()
+            .is_some_and(|value| value.len() > MAX_AUDIT_PAYLOAD_BYTES)
+        {
+            return Err(KnowledgeAuditEventStoreError::InvalidRequest(format!(
+                "payload exceeds {MAX_AUDIT_PAYLOAD_BYTES} bytes"
+            )));
+        }
         let now =
             utc_sql_timestamp_text().map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
 
@@ -162,66 +196,137 @@ impl SqliteKnowledgeAuditEventStore {
         actor_id: &str,
         limit: u32,
     ) -> Result<Vec<KnowledgeAuditEventRecord>, KnowledgeAuditEventStoreError> {
-        if is_blank(Some(actor_id)) {
-            return Err(KnowledgeAuditEventStoreError::InvalidRequest(
-                "actor_id is required".to_string(),
-            ));
+        validate_required_audit_text("actor_id", actor_id, MAX_AUDIT_ACTOR_ID_CHARS)
+            .map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
+        if !(1..=MAX_AUDIT_EXPORT_EVENTS).contains(&limit) {
+            return Err(KnowledgeAuditEventStoreError::InvalidRequest(format!(
+                "limit must be between 1 and {MAX_AUDIT_EXPORT_EVENTS}"
+            )));
         }
         let tenant_id = i64::try_from(self.tenant_id)
             .map_err(|_| KnowledgeAuditEventStoreError::InvalidRequest("tenant_id".to_string()))?;
         let organization_id = i64::try_from(self.organization_id).map_err(|_| {
             KnowledgeAuditEventStoreError::InvalidRequest("organization_id".to_string())
         })?;
-        let limit = i64::from(limit.clamp(1, 5_000));
-        let rows = sqlx::query(
+        let requested_limit = usize::try_from(limit).map_err(|_| {
+            KnowledgeAuditEventStoreError::InvalidRequest("limit is unsupported".to_string())
+        })?;
+        let query_limit = i64::from(limit) + 1;
+        let created_at_expr = self.timestamp_dialect.sql_timestamp_text_expr("created_at");
+        let query = format!(
             r#"
             SELECT id, uuid, event_type, actor_type, actor_id, resource_type, resource_id,
-                   result, request_id, trace_id, CAST(created_at AS TEXT) AS created_at
+                   result, request_id, trace_id, {created_at_expr} AS created_at
             FROM kb_audit_event
             WHERE tenant_id = $1 AND organization_id = $2 AND actor_id = $3
             ORDER BY created_at DESC, id DESC
             LIMIT $4
             "#,
-        )
-        .bind(tenant_id)
-        .bind(organization_id)
-        .bind(actor_id)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
+        );
+        let rows = sqlx::query(&query)
+            .bind(tenant_id)
+            .bind(organization_id)
+            .bind(actor_id)
+            .bind(query_limit)
+            .fetch_all(&self.pool)
+            .await?;
+
+        if rows.len() > requested_limit {
+            return Err(KnowledgeAuditEventStoreError::ExportLimitExceeded { max_events: limit });
+        }
 
         rows.into_iter()
             .map(|row| {
                 let id = row
                     .try_get::<i64, _>("id")
                     .map_err(KnowledgeAuditEventStoreError::Database)?;
+                if id <= 0 {
+                    return Err(KnowledgeAuditEventStoreError::DataIntegrity(
+                        "id must be positive".to_string(),
+                    ));
+                }
+                let uuid = row
+                    .try_get::<String, _>("uuid")
+                    .map_err(KnowledgeAuditEventStoreError::Database)?;
+                validate_required_audit_text("uuid", &uuid, MAX_AUDIT_UUID_CHARS)
+                    .map_err(KnowledgeAuditEventStoreError::DataIntegrity)?;
                 let created_at = row
                     .try_get::<String, _>("created_at")
                     .map_err(KnowledgeAuditEventStoreError::Database)?;
+                validate_required_audit_text("created_at", &created_at, MAX_AUDIT_CREATED_AT_CHARS)
+                    .map_err(KnowledgeAuditEventStoreError::DataIntegrity)?;
+                let event_type = row
+                    .try_get::<String, _>("event_type")
+                    .map_err(KnowledgeAuditEventStoreError::Database)?;
+                validate_required_audit_text("event_type", &event_type, MAX_AUDIT_EVENT_TYPE_CHARS)
+                    .map_err(KnowledgeAuditEventStoreError::DataIntegrity)?;
+                let actor_type = row
+                    .try_get::<String, _>("actor_type")
+                    .map_err(KnowledgeAuditEventStoreError::Database)?;
+                validate_required_audit_text("actor_type", &actor_type, MAX_AUDIT_ACTOR_TYPE_CHARS)
+                    .map_err(KnowledgeAuditEventStoreError::DataIntegrity)?;
+                let decoded_actor_id = row
+                    .try_get::<String, _>("actor_id")
+                    .map_err(KnowledgeAuditEventStoreError::Database)?;
+                validate_required_audit_text(
+                    "actor_id",
+                    &decoded_actor_id,
+                    MAX_AUDIT_ACTOR_ID_CHARS,
+                )
+                .map_err(KnowledgeAuditEventStoreError::DataIntegrity)?;
+                let resource_type = row
+                    .try_get::<String, _>("resource_type")
+                    .map_err(KnowledgeAuditEventStoreError::Database)?;
+                validate_required_audit_text(
+                    "resource_type",
+                    &resource_type,
+                    MAX_AUDIT_RESOURCE_TYPE_CHARS,
+                )
+                .map_err(KnowledgeAuditEventStoreError::DataIntegrity)?;
+                let result = row
+                    .try_get::<String, _>("result")
+                    .map_err(KnowledgeAuditEventStoreError::Database)?;
+                validate_required_audit_text("result", &result, MAX_AUDIT_RESULT_CHARS)
+                    .map_err(KnowledgeAuditEventStoreError::DataIntegrity)?;
+                let request_id = row
+                    .try_get::<Option<String>, _>("request_id")
+                    .map_err(KnowledgeAuditEventStoreError::Database)?;
+                validate_optional_audit_text(
+                    "request_id",
+                    request_id.as_deref(),
+                    MAX_AUDIT_REQUEST_ID_CHARS,
+                )
+                .map_err(KnowledgeAuditEventStoreError::DataIntegrity)?;
+                let trace_id = row
+                    .try_get::<Option<String>, _>("trace_id")
+                    .map_err(KnowledgeAuditEventStoreError::Database)?;
+                validate_optional_audit_text(
+                    "trace_id",
+                    trace_id.as_deref(),
+                    MAX_AUDIT_TRACE_ID_CHARS,
+                )
+                .map_err(KnowledgeAuditEventStoreError::DataIntegrity)?;
+                let resource_id = row
+                    .try_get::<Option<i64>, _>("resource_id")
+                    .map_err(KnowledgeAuditEventStoreError::Database)?
+                    .map(u64::try_from)
+                    .transpose()
+                    .map_err(|_| {
+                        KnowledgeAuditEventStoreError::DataIntegrity(
+                            "resource_id must not be negative".to_string(),
+                        )
+                    })?;
                 Ok(KnowledgeAuditEventRecord {
                     id: Some(id),
-                    uuid: row.try_get("uuid").ok(),
-                    event_type: row
-                        .try_get("event_type")
-                        .map_err(KnowledgeAuditEventStoreError::Database)?,
-                    actor_type: row
-                        .try_get("actor_type")
-                        .map_err(KnowledgeAuditEventStoreError::Database)?,
-                    actor_id: row
-                        .try_get("actor_id")
-                        .map_err(KnowledgeAuditEventStoreError::Database)?,
-                    resource_type: row
-                        .try_get("resource_type")
-                        .map_err(KnowledgeAuditEventStoreError::Database)?,
-                    resource_id: row
-                        .try_get::<Option<i64>, _>("resource_id")
-                        .map_err(KnowledgeAuditEventStoreError::Database)?
-                        .map(|value| value as u64),
-                    result: row
-                        .try_get("result")
-                        .map_err(KnowledgeAuditEventStoreError::Database)?,
-                    request_id: row.try_get("request_id").ok(),
-                    trace_id: row.try_get("trace_id").ok(),
+                    uuid: Some(uuid),
+                    event_type,
+                    actor_type,
+                    actor_id: decoded_actor_id,
+                    resource_type,
+                    resource_id,
+                    result,
+                    request_id,
+                    trace_id,
                     payload: None,
                     created_at: Some(created_at),
                 })
@@ -233,11 +338,8 @@ impl SqliteKnowledgeAuditEventStore {
         &self,
         actor_id: &str,
     ) -> Result<u64, KnowledgeAuditEventStoreError> {
-        if is_blank(Some(actor_id)) {
-            return Err(KnowledgeAuditEventStoreError::InvalidRequest(
-                "actor_id is required".to_string(),
-            ));
-        }
+        validate_required_audit_text("actor_id", actor_id, MAX_AUDIT_ACTOR_ID_CHARS)
+            .map_err(KnowledgeAuditEventStoreError::InvalidRequest)?;
         let tenant_id = i64::try_from(self.tenant_id)
             .map_err(|_| KnowledgeAuditEventStoreError::InvalidRequest("tenant_id".to_string()))?;
         let organization_id = i64::try_from(self.organization_id).map_err(|_| {
@@ -259,6 +361,30 @@ impl SqliteKnowledgeAuditEventStore {
     }
 }
 
+fn validate_required_audit_text(field: &str, value: &str, max_chars: usize) -> Result<(), String> {
+    if is_blank(Some(value)) {
+        return Err(format!("{field} is required"));
+    }
+    if value.chars().nth(max_chars).is_some() {
+        return Err(format!("{field} exceeds {max_chars} characters"));
+    }
+    Ok(())
+}
+
+fn validate_optional_audit_text(
+    field: &str,
+    value: Option<&str>,
+    max_chars: usize,
+) -> Result<(), String> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    if value.chars().nth(max_chars).is_some() {
+        return Err(format!("{field} exceeds {max_chars} characters"));
+    }
+    Ok(())
+}
+
 #[async_trait]
 impl KnowledgeAuditEventStore for SqliteKnowledgeAuditEventStore {
     async fn record(
@@ -274,6 +400,7 @@ mod tests {
     use super::*;
     use crate::db::connect_sqlite_and_install_schema;
     use serde_json::json;
+    use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
     #[tokio::test]
     async fn append_audit_event_persists_row() {
@@ -309,6 +436,55 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn append_audit_event_enforces_cross_engine_text_and_payload_bounds() {
+        let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+            .await
+            .expect("sqlite pool");
+        let store = SqliteKnowledgeAuditEventStore::new(pool, 100_001, 7);
+
+        let mut oversized_actor = test_audit_event("42");
+        oversized_actor.actor_id = "x".repeat(MAX_AUDIT_ACTOR_ID_CHARS + 1);
+        assert!(matches!(
+            store.append_event(oversized_actor).await,
+            Err(KnowledgeAuditEventStoreError::InvalidRequest(_))
+        ));
+
+        let mut oversized_payload = test_audit_event("42");
+        oversized_payload.payload = Some(json!({
+            "value": "x".repeat(MAX_AUDIT_PAYLOAD_BYTES),
+        }));
+        assert!(matches!(
+            store.append_event(oversized_payload).await,
+            Err(KnowledgeAuditEventStoreError::InvalidRequest(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn actor_operations_reject_invalid_bounds_instead_of_clamping() {
+        let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+            .await
+            .expect("sqlite pool");
+        let store = SqliteKnowledgeAuditEventStore::new(pool, 100_001, 7);
+
+        assert!(matches!(
+            store.list_events_by_actor("42", 0).await,
+            Err(KnowledgeAuditEventStoreError::InvalidRequest(_))
+        ));
+        assert!(matches!(
+            store
+                .list_events_by_actor("42", MAX_AUDIT_EXPORT_EVENTS + 1)
+                .await,
+            Err(KnowledgeAuditEventStoreError::InvalidRequest(_))
+        ));
+        assert!(matches!(
+            store
+                .anonymize_actor(&"x".repeat(MAX_AUDIT_ACTOR_ID_CHARS + 1))
+                .await,
+            Err(KnowledgeAuditEventStoreError::InvalidRequest(_))
+        ));
+    }
+
+    #[tokio::test]
     async fn list_events_by_actor_returns_matching_rows() {
         let pool = connect_sqlite_and_install_schema("sqlite::memory:")
             .await
@@ -337,6 +513,91 @@ mod tests {
         let events = store.list_events_by_actor("42", 100).await.expect("list");
         assert_eq!(events.len(), 2);
         assert!(events.iter().all(|event| event.actor_id == "42"));
+        assert!(events.iter().all(|event| event.uuid.is_some()));
+        assert!(events.iter().all(|event| event.request_id.is_none()));
+        assert!(events.iter().all(|event| event.trace_id.is_none()));
+        assert!(events.iter().all(|event| event.created_at.is_some()));
+        assert!(events.iter().all(|event| {
+            OffsetDateTime::parse(event.created_at.as_deref().expect("created_at"), &Rfc3339)
+                .is_ok()
+        }));
+    }
+
+    #[tokio::test]
+    async fn list_events_by_actor_fails_when_export_would_be_truncated() {
+        let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+            .await
+            .expect("sqlite pool");
+        let store = SqliteKnowledgeAuditEventStore::new(pool, 100_001, 7);
+        for _ in 0..2 {
+            store
+                .append_event(test_audit_event("42"))
+                .await
+                .expect("append");
+        }
+
+        let error = store
+            .list_events_by_actor("42", 1)
+            .await
+            .expect_err("bounded export must not silently truncate");
+
+        assert!(matches!(
+            error,
+            KnowledgeAuditEventStoreError::ExportLimitExceeded { max_events: 1 }
+        ));
+    }
+
+    #[tokio::test]
+    async fn list_events_rejects_negative_persisted_resource_id() {
+        let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+            .await
+            .expect("sqlite pool");
+        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001, 7);
+        store
+            .append_event(test_audit_event("42"))
+            .await
+            .expect("append");
+        sqlx::query(
+            "UPDATE kb_audit_event SET resource_id = -1 WHERE tenant_id = 100001 AND organization_id = 7",
+        )
+        .execute(&pool)
+        .await
+        .expect("corrupt resource id");
+
+        let error = store
+            .list_events_by_actor("42", 100)
+            .await
+            .expect_err("negative resource id must fail closed");
+
+        assert!(matches!(
+            error,
+            KnowledgeAuditEventStoreError::DataIntegrity(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn list_events_propagates_optional_text_decode_failure() {
+        let pool = connect_sqlite_and_install_schema("sqlite::memory:")
+            .await
+            .expect("sqlite pool");
+        let store = SqliteKnowledgeAuditEventStore::new(pool.clone(), 100_001, 7);
+        store
+            .append_event(test_audit_event("42"))
+            .await
+            .expect("append");
+        sqlx::query(
+            "UPDATE kb_audit_event SET request_id = X'80' WHERE tenant_id = 100001 AND organization_id = 7",
+        )
+        .execute(&pool)
+        .await
+        .expect("corrupt request id");
+
+        let error = store
+            .list_events_by_actor("42", 100)
+            .await
+            .expect_err("invalid request id encoding must fail closed");
+
+        assert!(matches!(error, KnowledgeAuditEventStoreError::Database(_)));
     }
 
     #[tokio::test]
@@ -442,5 +703,22 @@ mod tests {
             .expect_err("closed pool must fail synchronously");
 
         assert!(matches!(error, KnowledgeAuditEventStoreError::Database(_)));
+    }
+
+    fn test_audit_event(actor_id: &str) -> KnowledgeAuditEventRecord {
+        KnowledgeAuditEventRecord {
+            id: None,
+            uuid: None,
+            event_type: "knowledge.space.member_granted".to_string(),
+            actor_type: "user".to_string(),
+            actor_id: actor_id.to_string(),
+            resource_type: "space".to_string(),
+            resource_id: Some(7),
+            result: "success".to_string(),
+            request_id: None,
+            trace_id: None,
+            payload: None,
+            created_at: None,
+        }
     }
 }

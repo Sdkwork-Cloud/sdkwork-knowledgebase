@@ -32,6 +32,15 @@ impl SqlTimestampDialect {
             Self::Sqlite => placeholder.to_string(),
         }
     }
+
+    pub fn sql_timestamp_text_expr(self, column: &str) -> String {
+        match self {
+            Self::Postgres => {
+                format!("TO_CHAR({column}, 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
+            }
+            Self::Sqlite => format!("CAST({column} AS TEXT)"),
+        }
+    }
 }
 
 pub fn utc_sql_timestamp_text() -> Result<String, String> {
@@ -73,11 +82,19 @@ mod tests {
             SqlTimestampDialect::Postgres.sql_json_expr("$2"),
             "CAST($2 AS JSONB)"
         );
+        assert_eq!(
+            SqlTimestampDialect::Postgres.sql_timestamp_text_expr("created_at"),
+            "TO_CHAR(created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')"
+        );
     }
 
     #[test]
     fn sqlite_dialect_preserves_text_bindings() {
         assert_eq!(SqlTimestampDialect::Sqlite.sql_timestamp_expr("$1"), "$1");
         assert_eq!(SqlTimestampDialect::Sqlite.sql_json_expr("$2"), "$2");
+        assert_eq!(
+            SqlTimestampDialect::Sqlite.sql_timestamp_text_expr("created_at"),
+            "CAST(created_at AS TEXT)"
+        );
     }
 }

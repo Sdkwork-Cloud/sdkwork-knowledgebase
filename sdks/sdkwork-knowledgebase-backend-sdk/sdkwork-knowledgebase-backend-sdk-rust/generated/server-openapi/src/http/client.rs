@@ -53,6 +53,8 @@ pub enum SdkworkError {
     ResponseBodyTooLarge { maximum_bytes: usize },
     #[error("SDKWork API returned code {code} (traceId={trace_id})")]
     ApiStatus { code: i64, trace_id: String },
+    #[error("access-token-only request requires Access-Token before request dispatch")]
+    MissingAccessToken,
 }
 
 #[derive(Clone)]
@@ -109,7 +111,7 @@ impl SdkworkHttpClient {
     where
         T: DeserializeOwned,
     {
-        self.request(Method::GET, path, query, Option::<&Value>::None, headers, None, false).await
+        self.request(Method::GET, path, query, Option::<&Value>::None, headers, None, false, false).await
     }
 
     pub async fn post<T, B>(
@@ -124,7 +126,7 @@ impl SdkworkHttpClient {
         T: DeserializeOwned,
         B: Serialize + ?Sized,
     {
-        self.request(Method::POST, path, query, body, headers, content_type, false).await
+        self.request(Method::POST, path, query, body, headers, content_type, false, false).await
     }
 
     pub async fn put<T, B>(
@@ -139,7 +141,7 @@ impl SdkworkHttpClient {
         T: DeserializeOwned,
         B: Serialize + ?Sized,
     {
-        self.request(Method::PUT, path, query, body, headers, content_type, false).await
+        self.request(Method::PUT, path, query, body, headers, content_type, false, false).await
     }
 
     pub async fn patch<T, B>(
@@ -154,7 +156,7 @@ impl SdkworkHttpClient {
         T: DeserializeOwned,
         B: Serialize + ?Sized,
     {
-        self.request(Method::PATCH, path, query, body, headers, content_type, false).await
+        self.request(Method::PATCH, path, query, body, headers, content_type, false, false).await
     }
 
     pub async fn delete<T>(
@@ -166,7 +168,7 @@ impl SdkworkHttpClient {
     where
         T: DeserializeOwned,
     {
-        self.request(Method::DELETE, path, query, Option::<&Value>::None, headers, None, false).await
+        self.request(Method::DELETE, path, query, Option::<&Value>::None, headers, None, false, false).await
     }
 
     pub async fn request_method<T, B>(
@@ -178,12 +180,13 @@ impl SdkworkHttpClient {
         headers: Option<&RequestHeaders>,
         content_type: Option<&str>,
         skip_auth: bool,
+        access_token_only: bool,
     ) -> Result<T, SdkworkError>
     where
         T: DeserializeOwned,
         B: Serialize + ?Sized,
     {
-        self.request(method, path, query, body, headers, content_type, skip_auth).await
+        self.request(method, path, query, body, headers, content_type, skip_auth, access_token_only).await
     }
 
     pub async fn request_bytes<B>(
@@ -195,6 +198,7 @@ impl SdkworkHttpClient {
         headers: Option<&RequestHeaders>,
         content_type: Option<&str>,
         skip_auth: bool,
+        access_token_only: bool,
     ) -> Result<Vec<u8>, SdkworkError>
     where
         B: Serialize + ?Sized,
@@ -203,7 +207,7 @@ impl SdkworkHttpClient {
         if let Some(query_values) = query {
             request = request.query(&normalize_query(query_values));
         }
-        request = request.headers(self.merge_headers(headers, skip_auth)?);
+        request = request.headers(self.merge_headers(headers, skip_auth, access_token_only)?);
         if let Some(payload) = body {
             request = apply_body(request, payload, content_type)?;
         }
@@ -220,6 +224,7 @@ impl SdkworkHttpClient {
         headers: Option<&RequestHeaders>,
         content_type: Option<&str>,
         skip_auth: bool,
+        access_token_only: bool,
     ) -> Result<SseStream<T>, SdkworkError>
     where
         T: DeserializeOwned,
@@ -230,7 +235,7 @@ impl SdkworkHttpClient {
             request = request.query(&normalize_query(query_values));
         }
 
-        let mut merged_headers = self.merge_headers(headers, skip_auth)?;
+        let mut merged_headers = self.merge_headers(headers, skip_auth, access_token_only)?;
         merged_headers.insert(ACCEPT, HeaderValue::from_static("text/event-stream"));
         request = request.headers(merged_headers);
 
@@ -274,6 +279,7 @@ impl SdkworkHttpClient {
         headers: Option<&RequestHeaders>,
         content_type: Option<&str>,
         skip_auth: bool,
+        access_token_only: bool,
     ) -> Result<T, SdkworkError>
     where
         T: DeserializeOwned,
@@ -284,7 +290,7 @@ impl SdkworkHttpClient {
             request = request.query(&normalize_query(query_values));
         }
 
-        let merged_headers = self.merge_headers(headers, skip_auth)?;
+        let merged_headers = self.merge_headers(headers, skip_auth, access_token_only)?;
         request = request.headers(merged_headers);
 
         if let Some(payload) = body {
@@ -305,20 +311,51 @@ impl SdkworkHttpClient {
         format!("{}/{}", self.base_url, path)
     }
 
-    fn merge_headers(&self, headers: Option<&RequestHeaders>, skip_auth: bool) -> Result<HeaderMap, SdkworkError> {
+    fn merge_headers(
+        &self,
+        headers: Option<&RequestHeaders>,
+        skip_auth: bool,
+        access_token_only: bool,
+    ) -> Result<HeaderMap, SdkworkError> {
         let mut merged = HeaderMap::new();
-        if !skip_auth {
-            for (key, value) in self.headers.read().expect("sdk headers poisoned").iter() {
+        let stored_headers = self.headers.read().expect("sdk headers poisoned");
+        if !skip_auth && !access_token_only {
+            for (key, value) in stored_headers.iter() {
                 insert_header(&mut merged, key, value)?;
             }
         }
         if let Some(values) = headers {
             for (key, value) in values {
-                insert_header(&mut merged, key, value)?;
+                if (!skip_auth && !access_token_only) || !is_credential_header(key) {
+                    insert_header(&mut merged, key, value)?;
+                }
             }
+        }
+        if access_token_only {
+            let access_token = stored_headers.iter()
+                .find(|(key, value)| key.eq_ignore_ascii_case("Access-Token") && !value.trim().is_empty())
+                .map(|(_, value)| value.trim())
+                .ok_or(SdkworkError::MissingAccessToken)?;
+            insert_header(&mut merged, "Access-Token", access_token)?;
         }
         Ok(merged)
     }
+}
+
+fn is_credential_header(key: &str) -> bool {
+    matches!(
+        key.to_ascii_lowercase().as_str(),
+        "authorization"
+            | "access-token"
+            | "x-api-key"
+            | "x-tenant-id"
+            | "x-organization-id"
+            | "x-platform"
+            | "x-user-id"
+            | "x-sdkwork-tenant-id"
+            | "x-sdkwork-organization-id"
+            | "x-sdkwork-user-id"
+    )
 }
 
 fn apply_body<B>(

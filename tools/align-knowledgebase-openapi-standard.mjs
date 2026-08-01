@@ -691,7 +691,12 @@ function registerWikiOperation(spec, method, routePath, options) {
     tags: ['knowledge'],
     summary: options.summary,
     description: options.summary,
-    parameters: structuredClone(options.parameters),
+    parameters: [
+      ...(method === 'get'
+        ? []
+        : [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]),
+      ...structuredClone(options.parameters),
+    ],
     ...(options.requestSchema
       ? {
           requestBody: {
@@ -1229,6 +1234,7 @@ async function alignFile(filePath, operationAlignments) {
   }
   if (filePath === backendOpenApiPath) {
     ensureProviderManagementContracts(spec);
+    ensureAuditComplianceContracts(spec);
   }
   normalizeQueryParameterNames(spec);
   for (const alignment of operationAlignments) {
@@ -1238,6 +1244,70 @@ async function alignFile(filePath, operationAlignments) {
   alignCommandResultSchemas(spec);
   alignBrowserContracts(spec);
   await writeJsonIfChanged(filePath, spec);
+}
+
+function ensureAuditComplianceContracts(spec) {
+  const schemas = spec.components?.schemas;
+  if (!schemas || typeof schemas !== 'object') {
+    throw new Error('Backend OpenAPI components.schemas is required');
+  }
+
+  for (const schemaName of [
+    'ExportKnowledgeAuditEventsRequest',
+    'AnonymizeKnowledgeAuditSubjectRequest',
+  ]) {
+    const actorId = schemas[schemaName]?.properties?.actorId;
+    if (!actorId) {
+      throw new Error(`Missing Backend OpenAPI ${schemaName}.actorId`);
+    }
+    schemas[schemaName].properties.actorId = {
+      type: 'string',
+      minLength: 1,
+      maxLength: 128,
+      pattern: '\\S',
+      description: 'Non-blank IAM subject identifier.',
+    };
+  }
+
+  const auditEventProperties = schemas.KnowledgeAuditEventItem?.properties;
+  if (!auditEventProperties) {
+    throw new Error('Missing Backend OpenAPI KnowledgeAuditEventItem properties');
+  }
+  Object.assign(auditEventProperties, {
+    id: { type: 'string', minLength: 1, maxLength: 64 },
+    eventType: { type: 'string', minLength: 1, maxLength: 128 },
+    actorType: { type: 'string', minLength: 1, maxLength: 64 },
+    actorId: { type: 'string', minLength: 1, maxLength: 128 },
+    resourceType: { type: 'string', minLength: 1, maxLength: 64 },
+    resourceId: nullableSchema(int64StringSchema()),
+    result: { type: 'string', minLength: 1, maxLength: 64 },
+    traceId: nullableSchema({ type: 'string', maxLength: 128 }),
+    createdAt: { type: 'string', format: 'date-time', maxLength: 64 },
+  });
+
+  const exportItems = schemas.KnowledgeAuditEventExport?.properties?.items;
+  if (!exportItems) {
+    throw new Error('Missing Backend OpenAPI KnowledgeAuditEventExport.items');
+  }
+  exportItems.maxItems = 5_000;
+  exportItems.description =
+    'Complete synchronous result for the subject. Requests matching more than 5,000 events fail with HTTP 413 and never return a truncated array.';
+
+  const operation =
+    spec.paths?.['/backend/v3/api/knowledge/compliance/audit_events/export']?.post;
+  if (!operation) {
+    throw new Error('Missing Backend OpenAPI compliance audit export operation');
+  }
+  operation.description =
+    'Export at most 5,000 tenant-scoped kb_audit_event rows for a GDPR data-subject request. Results above the synchronous bound fail with HTTP 413 and are never silently truncated.';
+  const problemResponse = operation.responses?.['400'];
+  if (!problemResponse) {
+    throw new Error('Compliance audit export requires the standard 400 problem response template');
+  }
+  operation.responses['413'] = {
+    ...structuredClone(problemResponse),
+    description: 'Audit export exceeds the 5,000-event synchronous response bound',
+  };
 }
 
 function alignOkfPaginationSchemas(spec) {

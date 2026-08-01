@@ -54,6 +54,7 @@
                       "layerRole":  "backend-provider",
                       "publicExports":  [
                                             ".",
+                                            "DomainOutboxDispatchResult",
                                             "KnowledgebaseDriveInternalSdkAdapter",
                                             "KnowledgebaseDriveEmbeddedEventRelay",
                                             "KnowledgebaseDriveEmbeddedWikiSourceAdapter",

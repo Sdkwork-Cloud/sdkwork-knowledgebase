@@ -26,6 +26,13 @@ const INITIAL_VERSION: i64 = 0;
 /// Maximum hits returned per retrieval trace (bounded to avoid OOM).
 const MAX_RETRIEVAL_TRACE_HITS: i64 = 256;
 
+#[derive(Debug, Clone, Copy)]
+struct RetrievalSqlScope {
+    tenant_id: i64,
+    organization_id: i64,
+    space_id: i64,
+}
+
 #[derive(Debug, Clone)]
 pub struct SqliteKnowledgeChunkRetrievalStore {
     pool: AnyPool,
@@ -309,9 +316,11 @@ impl SqliteKnowledgeChunkRetrievalStore {
             &mut query,
             &query_terms,
             term_operator,
-            tenant_id,
-            organization_id,
-            space_id,
+            RetrievalSqlScope {
+                tenant_id,
+                organization_id,
+                space_id,
+            },
             &fts_match,
             keyword_backend,
         );
@@ -428,9 +437,11 @@ impl SqliteKnowledgeChunkRetrievalStore {
             &mut query,
             &query_terms,
             term_operator,
-            tenant_id,
-            organization_id,
-            space_id,
+            RetrievalSqlScope {
+                tenant_id,
+                organization_id,
+                space_id,
+            },
             &fts_match,
             keyword_backend,
         );
@@ -580,9 +591,11 @@ impl SqliteKnowledgeChunkRetrievalStore {
                 &mut query,
                 &query_terms,
                 term_operator,
-                tenant_id,
-                organization_id,
-                space_id,
+                RetrievalSqlScope {
+                    tenant_id,
+                    organization_id,
+                    space_id,
+                },
                 &fts_match,
                 keyword_backend,
             );
@@ -1065,9 +1078,7 @@ fn push_keyword_or_title_filter(
     query: &mut QueryBuilder<'_, sqlx::Any>,
     terms: &[String],
     term_operator: TermMatchOperator,
-    tenant_id: i64,
-    organization_id: i64,
-    space_id: i64,
+    scope: RetrievalSqlScope,
     keyword_match: &str,
     backend: KeywordSearchBackend,
 ) {
@@ -1076,9 +1087,9 @@ fn push_keyword_or_title_filter(
             query,
             terms,
             term_operator,
-            tenant_id,
-            organization_id,
-            space_id,
+            scope.tenant_id,
+            scope.organization_id,
+            scope.space_id,
             keyword_match,
         ),
         KeywordSearchBackend::PostgresTsVector => {

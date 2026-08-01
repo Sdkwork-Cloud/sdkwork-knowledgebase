@@ -76,31 +76,23 @@ impl MarkdownIndexMetadataStore for SqliteMarkdownIndexMetadataStore {
         &self,
         record: PrepareMarkdownIndexMetadataRecord,
     ) -> Result<PreparedMarkdownIndexMetadata, MarkdownIndexMetadataStoreError> {
-        sqlite_create_or_prepare_markdown_index_metadata(
-            &self.pool,
-            self.tenant_id,
-            self.organization_id,
-            &self.id_generator,
-            self.timestamp_dialect,
-            self.database_engine,
-            self.quota_limits,
-            record,
-        )
-        .await
+        sqlite_create_or_prepare_markdown_index_metadata(self, record).await
     }
 }
 
 async fn sqlite_create_or_prepare_markdown_index_metadata(
-    pool: &AnyPool,
-    tenant_id: u64,
-    organization_id: u64,
-    id_generator: &Arc<dyn KnowledgeIdGenerator>,
-    timestamp_dialect: SqlTimestampDialect,
-    database_engine: DatabaseEngine,
-    quota_limits: Option<KnowledgebaseTenantQuotaLimits>,
+    store: &SqliteMarkdownIndexMetadataStore,
     record: PrepareMarkdownIndexMetadataRecord,
 ) -> Result<PreparedMarkdownIndexMetadata, MarkdownIndexMetadataStoreError> {
     use sdkwork_intelligence_knowledgebase_service::ports::markdown_index_metadata_store::validate_markdown_index_document_identity;
+
+    let pool = &store.pool;
+    let tenant_id = store.tenant_id;
+    let organization_id = store.organization_id;
+    let id_generator = &store.id_generator;
+    let timestamp_dialect = store.timestamp_dialect;
+    let database_engine = store.database_engine;
+    let quota_limits = store.quota_limits;
 
     validate_markdown_index_document_identity(&record.document, &record.source)?;
 

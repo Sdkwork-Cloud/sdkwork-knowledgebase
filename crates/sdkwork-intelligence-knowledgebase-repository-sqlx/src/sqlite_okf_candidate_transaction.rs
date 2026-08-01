@@ -3,7 +3,7 @@
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_okf_candidate_store::{
     KnowledgeOkfCandidateStoreError, UpsertKnowledgeOkfCandidateRecord,
 };
-use sdkwork_knowledgebase_contract::OkfConceptPublishState;
+use sdkwork_intelligence_knowledgebase_service::ports::okf_concept_revision_metadata_store::UpdateOkfConceptCandidateStateRecord;
 use sqlx::{Any, Transaction};
 use std::sync::Arc;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -111,14 +111,11 @@ pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
     tenant_id: u64,
     organization_id: u64,
     timestamp_dialect: SqlTimestampDialect,
-    concept_row_id: u64,
-    state: OkfConceptPublishState,
-    reviewer_id: Option<u64>,
-    review_note: Option<String>,
+    record: UpdateOkfConceptCandidateStateRecord,
 ) -> Result<(), KnowledgeOkfCandidateStoreError> {
     let tenant_id = to_i64("tenant_id", tenant_id)?;
     let organization_id = to_i64("organization_id", organization_id)?;
-    let concept_row_id = to_i64("concept_row_id", concept_row_id)?;
+    let concept_row_id = to_i64("concept_row_id", record.concept_row_id)?;
     let concept_id: String = sqlx::query_scalar(
         r#"
         SELECT concept_id
@@ -153,7 +150,8 @@ pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
     .await
     .map_err(sqlx_error)?;
 
-    let reviewer_id = reviewer_id
+    let reviewer_id = record
+        .reviewer_id
         .map(|value| to_i64("reviewer_id", value))
         .transpose()?;
     let now = now_rfc3339()?;
@@ -170,9 +168,9 @@ pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
         "#,
     );
     sqlx::query(&query)
-        .bind(state.as_str())
+        .bind(record.state.as_str())
         .bind(reviewer_id)
-        .bind(review_note)
+        .bind(record.review_note)
         .bind(&now)
         .bind(tenant_id)
         .bind(organization_id)

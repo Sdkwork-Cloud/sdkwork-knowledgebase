@@ -307,10 +307,7 @@ impl OkfConceptRevisionMetadataStore for SqliteOkfConceptRevisionMetadataStore {
                 self.tenant_id,
                 self.organization_id,
                 self.timestamp_dialect,
-                candidate_state_update.concept_row_id,
-                candidate_state_update.state,
-                candidate_state_update.reviewer_id,
-                candidate_state_update.review_note,
+                candidate_state_update,
             )
             .await
             .map_err(map_candidate_store_error)?;

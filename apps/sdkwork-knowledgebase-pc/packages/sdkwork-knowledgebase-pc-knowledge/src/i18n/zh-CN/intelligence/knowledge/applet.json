@@ -34,9 +34,7 @@
   "appSecretPlaceholder": "小程序密钥",
   "originalIdLabel": "原始 ID (gh_开头的ID)",
   "originalIdPlaceholder": "gh_xxxxxxxxx",
-  "avatarLabel": "图标头像 (Avatar)",
-  "uploadLocalImage": "本地图片",
-  "uploadLocalImageHint": "上传本地图片",
+  "avatarLabel": "图标",
   "defaultPagePath": "默认页面路径 (选填)",
   "defaultPagePathPlaceholder": "pages/index/index",
   "defaultGroupLabel": "默认分类",
@@ -75,8 +73,9 @@
 
   "errors": {
     "groupExists": "该分组已存在",
-    "invalidImage": "请上传图片文件",
     "invalidTxt": "只能上传 TXT 验证文件",
+    "verificationFileTooLarge": "验证文件大小不能超过 {{maxSize}}",
+    "verificationFileReadFailed": "无法读取所选验证文件",
     "fillRequired": "请填写完整的小程序名称和 AppID",
     "invalidDomains": "存在格式不正确的域名或URL路径，请检查红框部分",
     "uploadSuccess": "文件上传成功",

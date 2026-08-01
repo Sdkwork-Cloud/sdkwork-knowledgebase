@@ -34,9 +34,7 @@
   "appSecretPlaceholder": "Applet Secret Key",
   "originalIdLabel": "Original ID (starts with gh_)",
   "originalIdPlaceholder": "gh_xxxxxxxxx",
-  "avatarLabel": "Avatar / Icon",
-  "uploadLocalImage": "Local Image",
-  "uploadLocalImageHint": "Upload local image",
+  "avatarLabel": "Icon",
   "defaultPagePath": "Default Page Path (Optional)",
   "defaultPagePathPlaceholder": "pages/index/index",
   "defaultGroupLabel": "Default Category",
@@ -75,8 +73,9 @@
 
   "errors": {
     "groupExists": "Group already exists",
-    "invalidImage": "Please upload an image file",
     "invalidTxt": "Only TXT files are allowed",
+    "verificationFileTooLarge": "Verification file size cannot exceed {{maxSize}}",
+    "verificationFileReadFailed": "The verification file could not be read",
     "fillRequired": "Please enter a valid Applet Name and AppID",
     "invalidDomains": "There are invalid domain/URL formats.",
     "uploadSuccess": "File uploaded successfully",

@@ -45,6 +45,35 @@ describe('knowledgebase tenant quota and GDPR compliance alignment', () => {
     ]) {
       assert.ok(spec.components.schemas[schemaName], `missing schema ${schemaName}`);
     }
+
+    const exportOperation =
+      spec.paths['/backend/v3/api/knowledge/compliance/audit_events/export'].post;
+    assert.ok(exportOperation.responses['413']);
+    assert.match(exportOperation.description, /5,000/);
+    assert.equal(
+      spec.components.schemas.ExportKnowledgeAuditEventsRequest.properties.actorId.minLength,
+      1,
+    );
+    assert.equal(
+      spec.components.schemas.ExportKnowledgeAuditEventsRequest.properties.actorId.maxLength,
+      128,
+    );
+    assert.equal(
+      spec.components.schemas.AnonymizeKnowledgeAuditSubjectRequest.properties.actorId.maxLength,
+      128,
+    );
+    assert.equal(
+      spec.components.schemas.KnowledgeAuditEventExport.properties.items.maxItems,
+      5_000,
+    );
+    assert.equal(
+      spec.components.schemas.KnowledgeAuditEventItem.properties.createdAt.format,
+      'date-time',
+    );
+    assert.equal(
+      spec.components.schemas.KnowledgeAuditEventItem.properties.actorId.maxLength,
+      128,
+    );
   });
 
   it('ships backend SDK types and compliance client for quota and GDPR workflows', () => {
@@ -114,8 +143,9 @@ describe('knowledgebase tenant quota and GDPR compliance alignment', () => {
 
   it('documents GDPR compliance API in audit retention runbook', () => {
     const runbook = readRepoFile('docs/runbooks/audit-retention.md');
-    assert.match(runbook, /compliance\.auditEvents\.export/);
-    assert.match(runbook, /compliance\.auditEvents\.anonymizeActor/);
+    assert.match(runbook, /compliance\.auditEvents\.export\.create/);
+    assert.match(runbook, /compliance\.auditEvents\.anonymizeActor\.create/);
+    assert.match(runbook, /audit_export_limit_exceeded/);
     assert.match(runbook, /POST \/backend\/v3\/api\/knowledge\/compliance/);
   });
 });

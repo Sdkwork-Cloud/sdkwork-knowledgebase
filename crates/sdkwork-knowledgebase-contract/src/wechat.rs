@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct KnowledgeWechatOfficialAccount {
     pub id: String,
     pub name: String,
@@ -36,19 +36,19 @@ pub struct KnowledgeWechatOfficialAccount {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct KnowledgeWechatOfficialAccountList {
     pub accounts: Vec<KnowledgeWechatOfficialAccount>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct KnowledgeWechatReplaceOfficialAccountsRequest {
     pub accounts: Vec<KnowledgeWechatOfficialAccount>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct KnowledgeWechatApplet {
     pub id: String,
     pub name: String,
@@ -92,13 +92,13 @@ pub struct KnowledgeWechatApplet {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct KnowledgeWechatAppletList {
     pub applets: Vec<KnowledgeWechatApplet>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct KnowledgeWechatReplaceAppletsRequest {
     pub applets: Vec<KnowledgeWechatApplet>,
 }
@@ -159,4 +159,38 @@ pub struct KnowledgeWechatFanTag {
 #[serde(rename_all = "camelCase")]
 pub struct KnowledgeWechatFanTagList {
     pub tags: Vec<KnowledgeWechatFanTag>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        KnowledgeWechatReplaceAppletsRequest, KnowledgeWechatReplaceOfficialAccountsRequest,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn replacement_contracts_reject_unknown_fields() {
+        let official_account = json!({
+            "accounts": [{
+                "id": "oa-1",
+                "name": "Account",
+                "type": "subscription",
+                "avatar": "OA",
+                "appId": "wx-account",
+                "unexpected": true
+            }]
+        });
+        assert!(
+            serde_json::from_value::<KnowledgeWechatReplaceOfficialAccountsRequest>(
+                official_account
+            )
+            .is_err()
+        );
+
+        let applet = json!({
+            "applets": [],
+            "unexpected": true
+        });
+        assert!(serde_json::from_value::<KnowledgeWechatReplaceAppletsRequest>(applet).is_err());
+    }
 }

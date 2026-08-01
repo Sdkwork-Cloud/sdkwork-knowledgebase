@@ -56,7 +56,13 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 
 **In scope**
 
-- App API: spaces, documents, browser, ingest, retrieval, agent chat, WeChat, market, and Wiki publication management
+- App API: spaces, documents, browser, ingest, retrieval, agent chat, bounded WeChat configuration,
+  market, and Wiki publication management
+- Official Account and Applet replacement accepts at most 100 entries of each kind and at most 50
+  values per domain list. Unknown fields, oversized verification text, unsupported enum values, and
+  browser/media URL avatar identities fail before persistence; secret inputs are write-only and
+  responses are redacted. See
+  [REQ-2026-0731](../requirements/REQ-2026-0731-wechat-config-input-boundaries.md).
 - Provider-backed media tasks: ClawRouter SDK image generation and speech-to-text; requests fail closed when provider configuration is absent
 - Backend API: sources, OKF compile/candidates, indexes, retrieval profiles/traces
 - Backend Provider management: explicit tenant/organization/space bindings, capability-aware
@@ -82,6 +88,8 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - Payment/subscription product billing
 - SCIM/SAML beyond platform IAM
 - Page-level real-time co-editing
+- WeChat article publish/preview until managed Drive cover identity, optimistic configuration
+  concurrency, durable idempotency, recovery, and live-provider evidence pass release review
 
 ## 5. User Scenarios
 
@@ -115,6 +123,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 | P95 retrieval latency (warm index) | < 2s |
 | Authz failures correctly return 403 (no data leak) | 100% in integration tests |
 | Critical security alignment tests | Pass in CI |
+| Rejected WeChat configuration persisted | 0 |
 | PC shell smoke (login + load) | Pass in CI Playwright |
 | Document save success when online | > 99% |
 | Eligible Wiki public-version commit to Web visibility | p95 <= 5s, p99 <= 30s; >= 99% within objective |
@@ -141,6 +150,7 @@ Teams need a knowledge platform that combines structured documentation, retrieva
 - `docs/architecture/decisions/ADR-20260720-knowledge-engine-provider-binding-spi-v2.md`
 - `docs/product/requirements/REQ-2026-0721-live-wiki-cloud-publication.md`
 - `docs/architecture/decisions/ADR-20260721-live-mounted-wiki-publication.md`
+- `docs/product/requirements/REQ-2026-0731-wechat-config-input-boundaries.md`
 - `specs/okf-knowledge-bundle.spec.json` - OKF bundle layers, browser views, and raw source file list contract
 - `specs/live-wiki-publication.spec.json` - active Wiki eligibility, state, provider, routing, and freshness contract
 - `../sdkwork-specs/SECURITY_SPEC.md`, `IAM_SPEC.md`, `APP_SDK_INTEGRATION_SPEC.md`

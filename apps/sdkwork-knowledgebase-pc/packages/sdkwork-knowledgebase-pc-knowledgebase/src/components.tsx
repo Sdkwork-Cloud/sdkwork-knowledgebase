@@ -128,7 +128,6 @@ export function KnowledgeBaseApp({
   const [newKbTitle, setNewKbTitle] = useState('');
   const [newKbType, setNewKbType] = useState<'team' | 'personal' | 'public'>('personal');
   const [newKbIcon, setNewKbIcon] = useState('📘');
-  const [newKbAvatar, setNewKbAvatar] = useState('');
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [gitModalMode, setGitModalMode] = useState<'import' | 'sync' | null>(null);
   const [gitModalKb, setGitModalKb] = useState<KnowledgeBase | null>(null);
@@ -455,7 +454,6 @@ export function KnowledgeBaseApp({
     const newKbParams: Partial<KnowledgeBase> = {
       title: newKbTitle,
       icon: newKbIcon,
-      avatar: newKbAvatar,
       type: newKbType,
     };
     try {
@@ -471,7 +469,6 @@ export function KnowledgeBaseApp({
       }));
       setNewKbTitle('');
       setNewKbIcon('📘');
-      setNewKbAvatar('');
       setIsCreateKbModalOpen(false);
     } catch (e) {
       toastKnowledgebaseError(e, t);
@@ -770,7 +767,6 @@ export function KnowledgeBaseApp({
           newKbTitle={newKbTitle} setNewKbTitle={setNewKbTitle}
           newKbType={newKbType} setNewKbType={setNewKbType}
           newKbIcon={newKbIcon} setNewKbIcon={setNewKbIcon}
-          newKbAvatar={newKbAvatar} setNewKbAvatar={setNewKbAvatar}
           onCancel={() => setIsCreateKbModalOpen(false)}
           onCreate={handleCreateKb}
         />

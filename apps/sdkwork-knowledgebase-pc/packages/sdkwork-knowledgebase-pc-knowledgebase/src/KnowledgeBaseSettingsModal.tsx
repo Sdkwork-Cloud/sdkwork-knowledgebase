@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isBlank, trim } from '@sdkwork/utils';
 import { useTranslation } from 'react-i18next';
-import { X, Shield, Settings, Sliders, Upload, UserPlus, Globe, Check, AlertCircle } from 'lucide-react';
+import { X, Shield, Settings, Sliders, UserPlus, Globe, Check, AlertCircle } from 'lucide-react';
 import { isKnowledgebaseApiAvailable } from 'sdkwork-knowledgebase-pc-core';
 import { KnowledgeBase, DocumentService } from './services/document';
 import type { KnowledgeSpaceMemberUi } from './services/knowledgeSpaceMembersService';
@@ -30,7 +30,6 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
   const [icon, setIcon] = useState(kb.icon || '📁');
   const [avatar, setAvatar] = useState(kb.avatar || '');
   const [type, setType] = useState<'team' | 'personal' | 'public'>(kb.type || 'team');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Permissions Settings States
   const [publicPermission, setPublicPermission] = useState<'none' | 'read' | 'write' | 'admin'>(kb.publicPermission || 'none');
@@ -86,20 +85,6 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
   const [temperature, setTemperature] = useState(kb.temperature !== undefined ? kb.temperature : 0.7);
   const [maxTokens, setMaxTokens] = useState(kb.maxTokens || 2048);
   const [systemPrompt, setSystemPrompt] = useState(kb.systemPrompt || '你是一个资深的知识库智脑助手。请基于已知文档回答用户的问题。如果问题不在文档中，请友好地指出。');
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setAvatar(event.target.result as string);
-          setIcon('');
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,18 +251,12 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
                 <div className="flex flex-col space-y-3">
                   <label className="text-[13px] font-bold text-zinc-800 dark:text-[var(--color-kb-text-heading)]">{t('iconAvatarSelection')}</label>
                   <div className="flex items-start gap-5">
-                    <div 
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-[72px] h-[72px] rounded-2xl border-2 border-dashed border-zinc-300 dark:border-[var(--color-kb-panel-border)] bg-[#fafafa] dark:bg-[var(--color-kb-panel-hover)] flex items-center justify-center cursor-pointer hover:border-zinc-900 dark:hover:border-[var(--color-kb-accent)] hover:bg-zinc-50 dark:hover:bg-[var(--color-kb-accent)]/5 transition-all overflow-hidden flex-shrink-0 group relative shadow-inner"
-                    >
+                    <div className="w-[72px] h-[72px] rounded-2xl border border-zinc-300 dark:border-[var(--color-kb-panel-border)] bg-[#fafafa] dark:bg-[var(--color-kb-panel-hover)] flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
                       {avatar ? (
                         <img src={avatar} alt="Avatar Preview" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-[32px] drop-shadow-sm group-hover:scale-110 transition-transform">{icon}</span>
+                        <span className="text-[32px] drop-shadow-sm">{icon}</span>
                       )}
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[2px]">
-                        <Upload size={18} className="text-white drop-shadow-md" />
-                      </div>
                     </div>
                     
                     <div className="flex-1 mt-1">
@@ -293,13 +272,6 @@ export function KnowledgeBaseSettingsModal({ kb, onClose, onSave }: KnowledgeBas
                           </button>
                         ))}
                       </div>
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={handleImageUpload} 
-                        accept="image/*" 
-                        className="hidden" 
-                      />
                     </div>
                   </div>
                 </div>

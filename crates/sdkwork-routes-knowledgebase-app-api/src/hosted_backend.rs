@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sdkwork_intelligence_knowledgebase_repository_sqlx::KnowledgeAuditEventStoreError;
 use sdkwork_intelligence_knowledgebase_service::ports::knowledge_space_store::KnowledgeSpaceStore;
 use sdkwork_intelligence_knowledgebase_service::{
     ports::{
@@ -1392,24 +1393,32 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .audit_event_store()
             .list_events_by_actor(&request.actor_id, 5_000)
             .await
-            .map_err(|error| map_internal(error.to_string()))?;
+            .map_err(|error| map_audit_event_store_error(error, "invalid_audit_export_request"))?;
         let items = records
             .into_iter()
-            .map(|record| KnowledgeAuditEventItem {
-                id: record
+            .map(|record| {
+                let id = record
                     .uuid
                     .or_else(|| record.id.map(|value| value.to_string()))
-                    .unwrap_or_default(),
-                event_type: record.event_type,
-                actor_type: record.actor_type,
-                actor_id: record.actor_id,
-                resource_type: record.resource_type,
-                resource_id: record.resource_id.map(|value| value.to_string()),
-                result: record.result,
-                trace_id: record.trace_id.or(record.request_id),
-                created_at: record.created_at.unwrap_or_default(),
+                    .filter(|value| !is_blank(Some(value.as_str())))
+                    .ok_or_else(|| map_internal("audit event id is missing".to_string()))?;
+                let created_at = record
+                    .created_at
+                    .filter(|value| !is_blank(Some(value.as_str())))
+                    .ok_or_else(|| map_internal("audit event created_at is missing".to_string()))?;
+                Ok(KnowledgeAuditEventItem {
+                    id,
+                    event_type: record.event_type,
+                    actor_type: record.actor_type,
+                    actor_id: record.actor_id,
+                    resource_type: record.resource_type,
+                    resource_id: record.resource_id.map(|value| value.to_string()),
+                    result: record.result,
+                    trace_id: record.trace_id.or(record.request_id),
+                    created_at,
+                })
             })
-            .collect();
+            .collect::<BackendApiResult<Vec<_>>>()?;
         Ok(sdkwork_knowledgebase_contract::KnowledgeAuditEventExport { items })
     }
 
@@ -1432,7 +1441,9 @@ impl KnowledgeBackendApi for HostedBackendApi {
             .audit_event_store()
             .anonymize_actor(&request.actor_id)
             .await
-            .map_err(|error| map_internal(error.to_string()))?;
+            .map_err(|error| {
+                map_audit_event_store_error(error, "invalid_audit_anonymize_request")
+            })?;
         Ok(
             sdkwork_knowledgebase_contract::AnonymizeKnowledgeAuditSubjectResult {
                 anonymized_count,
@@ -1458,6 +1469,30 @@ fn map_internal(detail: String) -> BackendApiError {
         "knowledgebase_store_failed",
         detail,
     )
+}
+
+fn map_audit_event_store_error(
+    error: KnowledgeAuditEventStoreError,
+    invalid_request_code: &'static str,
+) -> BackendApiError {
+    match error {
+        KnowledgeAuditEventStoreError::InvalidRequest(detail) => BackendApiError::new(
+            axum::http::StatusCode::BAD_REQUEST,
+            invalid_request_code,
+            detail,
+        ),
+        KnowledgeAuditEventStoreError::ExportLimitExceeded { max_events } => BackendApiError::new(
+            axum::http::StatusCode::PAYLOAD_TOO_LARGE,
+            "audit_export_limit_exceeded",
+            format!(
+                "audit export exceeds {max_events} events; use an approved paginated or asynchronous export workflow"
+            ),
+        ),
+        internal_error => BackendApiError::sanitized_internal(
+            "knowledgebase_store_failed",
+            internal_error.to_string(),
+        ),
+    }
 }
 
 fn provider_command(resource_id: u64, status: &str) -> SdkWorkCommandData {

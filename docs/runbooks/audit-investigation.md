@@ -33,8 +33,8 @@ Production-like HTTP surfaces fail closed when no framework audit emitter is ava
 
 ## Investigation steps
 
-1. Collect `x-request-id`, tenant id, actor id, and approximate timestamp from the reporter.
-2. Query `kb_audit_event` filtered by `tenant_id`, `event_type`, and `created_at`.
+1. Collect `x-request-id`, tenant id, organization id, actor id, and approximate timestamp from the reporter.
+2. Query `kb_audit_event` filtered by `tenant_id`, `organization_id`, `event_type`, and `created_at`.
 3. Correlate with API access logs and IAM audit events for the same session.
 4. For permission changes, inspect:
    - `knowledge.document.visibility_changed`
@@ -48,10 +48,15 @@ Production-like HTTP surfaces fail closed when no framework audit emitter is ava
 SELECT event_type, actor_type, actor_id, resource_type, resource_id, result, payload, created_at
 FROM kb_audit_event
 WHERE tenant_id = $1
-  AND created_at >= $2
+  AND organization_id = $2
+  AND created_at >= $3
 ORDER BY created_at DESC
 LIMIT 200;
 ```
+
+Always retain the explicit organization predicate even when PostgreSQL RLS is active. It documents
+the intended scope, keeps maintenance-role or incident-response queries from crossing organization
+boundaries, and makes the query plan eligible for organization-scoped indexes.
 
 ## Escalation
 

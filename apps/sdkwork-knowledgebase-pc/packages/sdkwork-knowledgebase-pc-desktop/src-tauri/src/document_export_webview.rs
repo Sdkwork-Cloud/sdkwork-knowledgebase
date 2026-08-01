@@ -1,6 +1,7 @@
 use crate::document_export_html::build_html_document;
+use crate::export_save::MAX_EXPORT_FILE_BYTES;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use std::sync::mpsc;
+use std::{fs::File, io::Read, path::Path, sync::mpsc};
 use tauri::{AppHandle, Url, WebviewUrl, WebviewWindowBuilder};
 
 #[cfg(windows)]
@@ -133,17 +134,80 @@ fn export_html_to_pdf_on_main_thread(
         rx.recv()
             .map_err(|error| format!("PrintToPdf result channel failed: {error}"))??;
 
-        let bytes = std::fs::read(&pdf_path)
-            .map_err(|error| format!("failed to read exported pdf: {error}"))?;
-
-        if bytes.starts_with(b"%PDF") {
-            Ok(bytes)
-        } else {
-            Err("exported file is not a valid PDF".to_string())
-        }
+        read_bounded_pdf_file(&pdf_path)
     })();
 
     window.close().ok();
     std::fs::remove_file(&pdf_path).ok();
     export_result
+}
+
+fn read_bounded_pdf_file(path: &Path) -> Result<Vec<u8>, String> {
+    let file = File::open(path).map_err(|error| format!("failed to read exported pdf: {error}"))?;
+    let metadata = file
+        .metadata()
+        .map_err(|error| format!("failed to inspect exported pdf: {error}"))?;
+    if !metadata.is_file() {
+        return Err("exported PDF is not a regular file".to_string());
+    }
+    if metadata.len() > MAX_EXPORT_FILE_BYTES as u64 {
+        return Err("generated PDF exceeds the maximum allowed size".to_string());
+    }
+
+    let initial_capacity = usize::try_from(metadata.len())
+        .map_err(|_| "generated PDF size is not supported on this platform".to_string())?;
+    read_pdf_with_limit(file, initial_capacity, MAX_EXPORT_FILE_BYTES)
+}
+
+fn read_pdf_with_limit(
+    file: impl Read,
+    initial_capacity: usize,
+    maximum_bytes: usize,
+) -> Result<Vec<u8>, String> {
+    let read_limit = maximum_bytes
+        .checked_add(1)
+        .and_then(|value| u64::try_from(value).ok())
+        .ok_or_else(|| "generated PDF size limit is invalid".to_string())?;
+    let mut bytes = Vec::with_capacity(initial_capacity.min(maximum_bytes));
+    file.take(read_limit)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("failed to read exported pdf: {error}"))?;
+    if bytes.len() > maximum_bytes {
+        return Err("generated PDF exceeds the maximum allowed size".to_string());
+    }
+    if !bytes.starts_with(b"%PDF") {
+        return Err("exported file is not a valid PDF".to_string());
+    }
+    Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_pdf_with_limit;
+    use std::io::Cursor;
+
+    #[test]
+    fn bounded_pdf_reader_accepts_a_pdf_within_the_limit() {
+        let pdf = b"%PDF-1.7\nbody";
+
+        let bytes = read_pdf_with_limit(Cursor::new(pdf), pdf.len(), pdf.len()).expect("pdf");
+
+        assert_eq!(bytes, pdf);
+    }
+
+    #[test]
+    fn bounded_pdf_reader_rejects_content_that_grows_past_the_limit() {
+        let error = read_pdf_with_limit(Cursor::new(b"%PDF-over-limit"), 4, 8)
+            .expect_err("oversized pdf must fail");
+
+        assert_eq!(error, "generated PDF exceeds the maximum allowed size");
+    }
+
+    #[test]
+    fn bounded_pdf_reader_rejects_non_pdf_content() {
+        let error = read_pdf_with_limit(Cursor::new(b"not-a-pdf"), 9, 16)
+            .expect_err("non-pdf content must fail");
+
+        assert_eq!(error, "exported file is not a valid PDF");
+    }
 }

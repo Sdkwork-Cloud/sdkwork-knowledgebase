@@ -27,21 +27,25 @@ struct PreparedChunkRow {
     locator: Option<String>,
 }
 
-pub async fn replace_version_chunks_in_transaction(
+pub(crate) struct ReplaceVersionChunksContext<'a> {
+    pub tenant_id: u64,
+    pub organization_id: u64,
+    pub id_generator: &'a Arc<dyn KnowledgeIdGenerator>,
+    pub keyword_backend: KeywordSearchBackend,
+    pub timestamp_dialect: SqlTimestampDialect,
+    pub document_version_id: u64,
+}
+
+pub(crate) async fn replace_version_chunks_in_transaction(
     transaction: &mut Transaction<'_, Any>,
-    tenant_id: u64,
-    organization_id: u64,
-    id_generator: &Arc<dyn KnowledgeIdGenerator>,
-    keyword_backend: KeywordSearchBackend,
-    timestamp_dialect: SqlTimestampDialect,
-    document_version_id: u64,
+    context: ReplaceVersionChunksContext<'_>,
     chunks: &[CreateKnowledgeChunkRecord],
 ) -> Result<usize, KnowledgeChunkStoreError> {
-    let tenant_id_i64 = chunk_to_i64("tenant_id", tenant_id)?;
-    let organization_id_i64 = chunk_to_i64("organization_id", organization_id)?;
-    let version_id = chunk_to_i64("document_version_id", document_version_id)?;
+    let tenant_id_i64 = chunk_to_i64("tenant_id", context.tenant_id)?;
+    let organization_id_i64 = chunk_to_i64("organization_id", context.organization_id)?;
+    let version_id = chunk_to_i64("document_version_id", context.document_version_id)?;
     let now = chunk_now()?;
-    let use_sqlite_fts = keyword_backend == KeywordSearchBackend::SqliteFts5;
+    let use_sqlite_fts = context.keyword_backend == KeywordSearchBackend::SqliteFts5;
 
     if use_sqlite_fts {
         sqlx::query(
@@ -85,14 +89,14 @@ pub async fn replace_version_chunks_in_transaction(
 
     let mut prepared = Vec::with_capacity(chunks.len());
     for record in chunks {
-        if record.document_version_id != document_version_id {
+        if record.document_version_id != context.document_version_id {
             return Err(KnowledgeChunkStoreError::InvalidRecord(
                 "chunk document_version_id must match replace target".to_string(),
             ));
         }
 
         prepared.push(PreparedChunkRow {
-            id: next_i64_id(id_generator).map_err(chunk_id_error)?,
+            id: next_i64_id(context.id_generator).map_err(chunk_id_error)?,
             uuid: Uuid::new_v4().to_string(),
             space_id: chunk_to_i64("space_id", record.space_id)?,
             collection_id: chunk_to_i64("collection_id", record.collection_id)?,
@@ -124,7 +128,7 @@ pub async fn replace_version_chunks_in_transaction(
                 tenant_id_i64,
                 organization_id_i64,
                 version_id,
-                timestamp_dialect,
+                context.timestamp_dialect,
                 &now,
                 batch,
             )
@@ -275,12 +279,14 @@ pub async fn replace_version_chunks_with_pool(
         .map_err(|error| KnowledgeChunkStoreError::Internal(error.to_string()))?;
     let count = replace_version_chunks_in_transaction(
         &mut tx,
-        tenant_id,
-        organization_id,
-        id_generator,
-        keyword_backend,
-        SqlTimestampDialect::default(),
-        document_version_id,
+        ReplaceVersionChunksContext {
+            tenant_id,
+            organization_id,
+            id_generator,
+            keyword_backend,
+            timestamp_dialect: SqlTimestampDialect::default(),
+            document_version_id,
+        },
         &chunks,
     )
     .await?;

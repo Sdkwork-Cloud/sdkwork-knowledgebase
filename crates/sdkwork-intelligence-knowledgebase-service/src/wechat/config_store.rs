@@ -14,6 +14,26 @@ const CONFIG_LOGICAL_PATH: &str = "wechat/v1/config.json";
 const CONFIG_OBJECT_ROLE: &str = "wechat_config";
 const MAX_WECHAT_CONFIG_BYTES: u64 = 1024 * 1024;
 const MAX_WECHAT_CONFIG_ENTRIES_PER_KIND: usize = 100;
+const MAX_WECHAT_DOMAIN_VALUES: usize = 50;
+const MAX_WECHAT_ID_CHARS: usize = 128;
+const MAX_WECHAT_NAME_CHARS: usize = 128;
+const MAX_WECHAT_AVATAR_CHARS: usize = 32;
+const MAX_WECHAT_DESCRIPTION_CHARS: usize = 2048;
+const MAX_WECHAT_APP_ID_CHARS: usize = 64;
+const MAX_WECHAT_SECRET_CHARS: usize = 256;
+const MAX_WECHAT_SERVER_URL_CHARS: usize = 2048;
+const MAX_WECHAT_TOKEN_CHARS: usize = 256;
+const MAX_WECHAT_AES_KEY_CHARS: usize = 43;
+const MAX_WECHAT_VERIFY_FILE_NAME_CHARS: usize = 255;
+const MAX_WECHAT_VERIFY_FILE_CONTENT_BYTES: usize = 65_536;
+const MAX_WECHAT_OFFICIAL_ACCOUNT_DOMAIN_CHARS: usize = 255;
+const MAX_WECHAT_APPLET_ENDPOINT_CHARS: usize = 2048;
+const MAX_WECHAT_GROUP_CHARS: usize = 128;
+const MAX_WECHAT_APPLET_ORIGINAL_ID_CHARS: usize = 128;
+const MAX_WECHAT_APPLET_PATH_CHARS: usize = 1024;
+const WECHAT_ACCOUNT_TYPES: &[&str] = &["subscription", "service"];
+const WECHAT_ENCRYPT_MODES: &[&str] = &["plain", "compatible", "safe"];
+const WECHAT_MESSAGE_DATA_FORMATS: &[&str] = &["json", "xml"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -153,11 +173,83 @@ fn validate_official_accounts(
     }
     let mut ids = HashSet::with_capacity(accounts.len());
     for account in accounts {
-        if is_blank(Some(account.id.as_str())) || is_blank(Some(account.app_id.as_str())) {
-            return Err(KnowledgeStorageError::InvalidRequest(
-                "official account id and appId are required".to_string(),
-            ));
-        }
+        validate_required_text(
+            account.id.as_str(),
+            "official account id",
+            MAX_WECHAT_ID_CHARS,
+        )?;
+        validate_required_text(
+            account.name.as_str(),
+            "official account name",
+            MAX_WECHAT_NAME_CHARS,
+        )?;
+        validate_enum(
+            account.account_type.as_str(),
+            "official account type",
+            WECHAT_ACCOUNT_TYPES,
+        )?;
+        validate_avatar(account.avatar.as_str(), "official account avatar")?;
+        validate_optional_text(
+            account.description.as_deref(),
+            "official account description",
+            MAX_WECHAT_DESCRIPTION_CHARS,
+        )?;
+        validate_required_text(
+            account.app_id.as_str(),
+            "official account appId",
+            MAX_WECHAT_APP_ID_CHARS,
+        )?;
+        validate_optional_text(
+            account.app_secret.as_deref(),
+            "official account appSecret",
+            MAX_WECHAT_SECRET_CHARS,
+        )?;
+        validate_optional_text(
+            account.server_url.as_deref(),
+            "official account serverUrl",
+            MAX_WECHAT_SERVER_URL_CHARS,
+        )?;
+        validate_optional_text(
+            account.token.as_deref(),
+            "official account token",
+            MAX_WECHAT_TOKEN_CHARS,
+        )?;
+        validate_optional_text(
+            account.encoding_aes_key.as_deref(),
+            "official account encodingAesKey",
+            MAX_WECHAT_AES_KEY_CHARS,
+        )?;
+        validate_optional_enum(
+            account.encrypt_mode.as_deref(),
+            "official account encryptMode",
+            WECHAT_ENCRYPT_MODES,
+        )?;
+        validate_verification_file(
+            account.domain_verify_file_name.as_deref(),
+            account.domain_verify_file_content.as_deref(),
+            "official account domainVerifyFileName",
+            "official account domainVerifyFileContent",
+        )?;
+        validate_text_values(
+            account.js_secure_domains.as_deref(),
+            "official account jsSecureDomains",
+            MAX_WECHAT_OFFICIAL_ACCOUNT_DOMAIN_CHARS,
+        )?;
+        validate_text_values(
+            account.web_auth_domains.as_deref(),
+            "official account webAuthDomains",
+            MAX_WECHAT_OFFICIAL_ACCOUNT_DOMAIN_CHARS,
+        )?;
+        validate_text_values(
+            account.business_domains.as_deref(),
+            "official account businessDomains",
+            MAX_WECHAT_OFFICIAL_ACCOUNT_DOMAIN_CHARS,
+        )?;
+        validate_optional_text(
+            account.group.as_deref(),
+            "official account group",
+            MAX_WECHAT_GROUP_CHARS,
+        )?;
         if !ids.insert(account.id.as_str()) {
             return Err(KnowledgeStorageError::InvalidRequest(format!(
                 "duplicate official account id: {}",
@@ -176,11 +268,76 @@ fn validate_applets(applets: &[KnowledgeWechatApplet]) -> Result<(), KnowledgeSt
     }
     let mut ids = HashSet::with_capacity(applets.len());
     for applet in applets {
-        if is_blank(Some(applet.id.as_str())) || is_blank(Some(applet.app_id.as_str())) {
-            return Err(KnowledgeStorageError::InvalidRequest(
-                "applet id and appId are required".to_string(),
-            ));
+        validate_required_text(applet.id.as_str(), "applet id", MAX_WECHAT_ID_CHARS)?;
+        validate_required_text(applet.name.as_str(), "applet name", MAX_WECHAT_NAME_CHARS)?;
+        validate_required_text(
+            applet.app_id.as_str(),
+            "applet appId",
+            MAX_WECHAT_APP_ID_CHARS,
+        )?;
+        validate_optional_text(
+            applet.original_id.as_deref(),
+            "applet originalId",
+            MAX_WECHAT_APPLET_ORIGINAL_ID_CHARS,
+        )?;
+        validate_optional_text(
+            applet.app_secret.as_deref(),
+            "applet appSecret",
+            MAX_WECHAT_SECRET_CHARS,
+        )?;
+        validate_text_length(
+            applet.path.as_str(),
+            "applet path",
+            MAX_WECHAT_APPLET_PATH_CHARS,
+        )?;
+        validate_avatar(applet.avatar.as_str(), "applet avatar")?;
+        validate_optional_text(
+            applet.group.as_deref(),
+            "applet group",
+            MAX_WECHAT_GROUP_CHARS,
+        )?;
+        validate_optional_text(
+            applet.description.as_deref(),
+            "applet description",
+            MAX_WECHAT_DESCRIPTION_CHARS,
+        )?;
+        for (values, field) in [
+            (applet.request_domain.as_deref(), "applet requestDomain"),
+            (applet.socket_domain.as_deref(), "applet socketDomain"),
+            (applet.upload_domain.as_deref(), "applet uploadDomain"),
+            (applet.download_domain.as_deref(), "applet downloadDomain"),
+            (applet.udp_domain.as_deref(), "applet udpDomain"),
+            (applet.tcp_domain.as_deref(), "applet tcpDomain"),
+            (applet.business_domain.as_deref(), "applet businessDomain"),
+        ] {
+            validate_text_values(values, field, MAX_WECHAT_APPLET_ENDPOINT_CHARS)?;
         }
+        validate_verification_file(
+            applet.domain_verify_file_name.as_deref(),
+            applet.domain_verify_file_content.as_deref(),
+            "applet domainVerifyFileName",
+            "applet domainVerifyFileContent",
+        )?;
+        validate_optional_text(
+            applet.msg_token.as_deref(),
+            "applet msgToken",
+            MAX_WECHAT_TOKEN_CHARS,
+        )?;
+        validate_optional_text(
+            applet.msg_encoding_aes_key.as_deref(),
+            "applet msgEncodingAESKey",
+            MAX_WECHAT_AES_KEY_CHARS,
+        )?;
+        validate_optional_enum(
+            applet.msg_data_format.as_deref(),
+            "applet msgDataFormat",
+            WECHAT_MESSAGE_DATA_FORMATS,
+        )?;
+        validate_optional_enum(
+            applet.msg_encrypt_mode.as_deref(),
+            "applet msgEncryptMode",
+            WECHAT_ENCRYPT_MODES,
+        )?;
         if !ids.insert(applet.id.as_str()) {
             return Err(KnowledgeStorageError::InvalidRequest(format!(
                 "duplicate applet id: {}",
@@ -191,6 +348,123 @@ fn validate_applets(applets: &[KnowledgeWechatApplet]) -> Result<(), KnowledgeSt
     Ok(())
 }
 
+fn validate_required_text(
+    value: &str,
+    field: &str,
+    max_chars: usize,
+) -> Result<(), KnowledgeStorageError> {
+    if is_blank(Some(value)) {
+        return Err(invalid_config(format!("{field} is required")));
+    }
+    validate_text_length(value, field, max_chars)
+}
+
+fn validate_optional_text(
+    value: Option<&str>,
+    field: &str,
+    max_chars: usize,
+) -> Result<(), KnowledgeStorageError> {
+    if let Some(value) = value {
+        validate_text_length(value, field, max_chars)?;
+    }
+    Ok(())
+}
+
+fn validate_text_length(
+    value: &str,
+    field: &str,
+    max_chars: usize,
+) -> Result<(), KnowledgeStorageError> {
+    if value.chars().count() > max_chars {
+        return Err(invalid_config(format!(
+            "{field} exceeds {max_chars} characters"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_enum(value: &str, field: &str, allowed: &[&str]) -> Result<(), KnowledgeStorageError> {
+    if !allowed.contains(&value) {
+        return Err(invalid_config(format!("{field} is not supported")));
+    }
+    Ok(())
+}
+
+fn validate_optional_enum(
+    value: Option<&str>,
+    field: &str,
+    allowed: &[&str],
+) -> Result<(), KnowledgeStorageError> {
+    if let Some(value) = value {
+        validate_enum(value, field, allowed)?;
+    }
+    Ok(())
+}
+
+fn validate_avatar(value: &str, field: &str) -> Result<(), KnowledgeStorageError> {
+    validate_required_text(value, field, MAX_WECHAT_AVATAR_CHARS)?;
+    let value = value.trim();
+    if value.contains('/') || value.contains('\\') || has_uri_scheme(value) {
+        return Err(invalid_config(format!(
+            "{field} must be an icon value, not a media URI"
+        )));
+    }
+    Ok(())
+}
+
+fn has_uri_scheme(value: &str) -> bool {
+    let Some((scheme, _)) = value.split_once(':') else {
+        return false;
+    };
+    let mut characters = scheme.chars();
+    characters
+        .next()
+        .is_some_and(|value| value.is_ascii_alphabetic())
+        && characters.all(|value| value.is_ascii_alphanumeric() || matches!(value, '+' | '-' | '.'))
+}
+
+fn validate_verification_file(
+    file_name: Option<&str>,
+    content: Option<&str>,
+    file_name_field: &str,
+    content_field: &str,
+) -> Result<(), KnowledgeStorageError> {
+    validate_optional_text(
+        file_name,
+        file_name_field,
+        MAX_WECHAT_VERIFY_FILE_NAME_CHARS,
+    )?;
+    if content.is_some_and(|value| value.len() > MAX_WECHAT_VERIFY_FILE_CONTENT_BYTES) {
+        return Err(invalid_config(format!(
+            "{content_field} exceeds {MAX_WECHAT_VERIFY_FILE_CONTENT_BYTES} UTF-8 bytes"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_text_values(
+    values: Option<&[String]>,
+    field: &str,
+    max_item_chars: usize,
+) -> Result<(), KnowledgeStorageError> {
+    let Some(values) = values else {
+        return Ok(());
+    };
+    if values.len() > MAX_WECHAT_DOMAIN_VALUES {
+        return Err(invalid_config(format!(
+            "{field} count exceeds {MAX_WECHAT_DOMAIN_VALUES}"
+        )));
+    }
+    for value in values {
+        validate_required_text(value, field, max_item_chars)?;
+    }
+    Ok(())
+}
+
+fn invalid_config(detail: String) -> KnowledgeStorageError {
+    KnowledgeStorageError::InvalidRequest(detail)
+}
+
 fn merge_official_account_secrets(
     incoming: Vec<KnowledgeWechatOfficialAccount>,
     existing: &[KnowledgeWechatOfficialAccount],
@@ -198,11 +472,10 @@ fn merge_official_account_secrets(
     incoming
         .into_iter()
         .map(|mut account| {
-            if secret_present(account.app_secret.as_deref()) {
-                return account;
-            }
             if let Some(previous) = existing.iter().find(|item| item.id == account.id) {
-                account.app_secret = previous.app_secret.clone();
+                if !secret_present(account.app_secret.as_deref()) {
+                    account.app_secret = previous.app_secret.clone();
+                }
                 if !secret_present(account.token.as_deref()) {
                     account.token = previous.token.clone();
                 }
@@ -222,11 +495,10 @@ fn merge_applet_secrets(
     incoming
         .into_iter()
         .map(|mut applet| {
-            if secret_present(applet.app_secret.as_deref()) {
-                return applet;
-            }
             if let Some(previous) = existing.iter().find(|item| item.id == applet.id) {
-                applet.app_secret = previous.app_secret.clone();
+                if !secret_present(applet.app_secret.as_deref()) {
+                    applet.app_secret = previous.app_secret.clone();
+                }
                 if !secret_present(applet.msg_token.as_deref()) {
                     applet.msg_token = previous.msg_token.clone();
                 }
@@ -315,6 +587,11 @@ mod tests {
         put_calls: AtomicUsize,
     }
 
+    struct NoIoDrive {
+        head_calls: AtomicUsize,
+        put_calls: AtomicUsize,
+    }
+
     struct OversizeConfigDrive;
 
     #[async_trait]
@@ -389,6 +666,127 @@ mod tests {
         }
     }
 
+    #[async_trait]
+    impl KnowledgeDriveStorage for NoIoDrive {
+        async fn put_object(
+            &self,
+            _request: PutKnowledgeObjectRequest,
+        ) -> Result<crate::ports::knowledge_drive_storage::KnowledgeObjectRef, KnowledgeStorageError>
+        {
+            self.put_calls.fetch_add(1, Ordering::SeqCst);
+            Err(KnowledgeStorageError::Internal(
+                "unexpected config write".to_string(),
+            ))
+        }
+
+        async fn head_object(
+            &self,
+            _request: HeadKnowledgeObjectRequest,
+        ) -> Result<crate::ports::knowledge_drive_storage::KnowledgeObjectRef, KnowledgeStorageError>
+        {
+            self.head_calls.fetch_add(1, Ordering::SeqCst);
+            Err(KnowledgeStorageError::NotFound(
+                "test config is absent".to_string(),
+            ))
+        }
+
+        async fn get_object_text(
+            &self,
+            _object_ref: &crate::ports::knowledge_drive_storage::KnowledgeObjectRef,
+        ) -> Result<String, KnowledgeStorageError> {
+            panic!("invalid config must be rejected before reading Drive")
+        }
+    }
+
+    fn official_account(id: &str) -> KnowledgeWechatOfficialAccount {
+        KnowledgeWechatOfficialAccount {
+            id: id.to_string(),
+            name: "Account".to_string(),
+            account_type: "subscription".to_string(),
+            avatar: "OA".to_string(),
+            description: None,
+            app_id: format!("wx-{id}"),
+            app_secret: None,
+            server_url: None,
+            token: None,
+            encoding_aes_key: None,
+            encrypt_mode: Some("safe".to_string()),
+            domain_verify_file_name: None,
+            domain_verify_file_content: None,
+            js_secure_domains: None,
+            web_auth_domains: None,
+            business_domains: None,
+            group: None,
+        }
+    }
+
+    fn applet(id: &str) -> KnowledgeWechatApplet {
+        KnowledgeWechatApplet {
+            id: id.to_string(),
+            name: "Applet".to_string(),
+            app_id: format!("wx-{id}"),
+            original_id: None,
+            app_secret: None,
+            path: "pages/index".to_string(),
+            avatar: "AP".to_string(),
+            group: None,
+            description: None,
+            request_domain: None,
+            socket_domain: None,
+            upload_domain: None,
+            download_domain: None,
+            udp_domain: None,
+            tcp_domain: None,
+            business_domain: None,
+            domain_verify_file_name: None,
+            domain_verify_file_content: None,
+            msg_token: None,
+            msg_encoding_aes_key: None,
+            msg_data_format: Some("json".to_string()),
+            msg_encrypt_mode: Some("safe".to_string()),
+        }
+    }
+
+    #[test]
+    fn secret_merge_preserves_omitted_tokens_when_app_secret_rotates() {
+        let mut existing_account = official_account("oa-secret-rotation");
+        existing_account.app_secret = Some("old-account-secret".to_string());
+        existing_account.token = Some("account-token".to_string());
+        existing_account.encoding_aes_key = Some("A".repeat(MAX_WECHAT_AES_KEY_CHARS));
+
+        let mut incoming_account = official_account("oa-secret-rotation");
+        incoming_account.app_secret = Some("new-account-secret".to_string());
+        let merged_accounts =
+            merge_official_account_secrets(vec![incoming_account], &[existing_account]);
+        assert_eq!(
+            merged_accounts[0].app_secret.as_deref(),
+            Some("new-account-secret")
+        );
+        assert_eq!(merged_accounts[0].token.as_deref(), Some("account-token"));
+        assert_eq!(
+            merged_accounts[0].encoding_aes_key.as_deref(),
+            Some("A".repeat(MAX_WECHAT_AES_KEY_CHARS).as_str())
+        );
+
+        let mut existing_applet = applet("applet-secret-rotation");
+        existing_applet.app_secret = Some("old-applet-secret".to_string());
+        existing_applet.msg_token = Some("applet-token".to_string());
+        existing_applet.msg_encoding_aes_key = Some("B".repeat(MAX_WECHAT_AES_KEY_CHARS));
+
+        let mut incoming_applet = applet("applet-secret-rotation");
+        incoming_applet.app_secret = Some("new-applet-secret".to_string());
+        let merged_applets = merge_applet_secrets(vec![incoming_applet], &[existing_applet]);
+        assert_eq!(
+            merged_applets[0].app_secret.as_deref(),
+            Some("new-applet-secret")
+        );
+        assert_eq!(merged_applets[0].msg_token.as_deref(), Some("applet-token"));
+        assert_eq!(
+            merged_applets[0].msg_encoding_aes_key.as_deref(),
+            Some("B".repeat(MAX_WECHAT_AES_KEY_CHARS).as_str())
+        );
+    }
+
     #[tokio::test]
     async fn replacements_do_not_overwrite_config_when_existing_config_read_fails() {
         let drive = FailingHeadDrive {
@@ -424,12 +822,135 @@ mod tests {
     }
 
     #[test]
+    fn config_validation_accepts_declared_boundaries() {
+        let accounts = (0..MAX_WECHAT_CONFIG_ENTRIES_PER_KIND)
+            .map(|index| official_account(format!("oa-{index}").as_str()))
+            .collect::<Vec<_>>();
+        validate_official_accounts(&accounts).expect("100 official accounts should be accepted");
+
+        let mut account = official_account("oa-boundary");
+        account.avatar = "A".repeat(MAX_WECHAT_AVATAR_CHARS);
+        account.domain_verify_file_name = Some("f".repeat(MAX_WECHAT_VERIFY_FILE_NAME_CHARS));
+        account.domain_verify_file_content = Some("x".repeat(MAX_WECHAT_VERIFY_FILE_CONTENT_BYTES));
+        account.js_secure_domains = Some(
+            (0..MAX_WECHAT_DOMAIN_VALUES)
+                .map(|index| format!("{index}.example.com"))
+                .collect(),
+        );
+        validate_official_accounts(&[account])
+            .expect("official account field boundaries should be accepted");
+
+        let mut applet = applet("applet-boundary");
+        applet.request_domain = Some(
+            (0..MAX_WECHAT_DOMAIN_VALUES)
+                .map(|index| format!("https://api-{index}.example.com/path"))
+                .collect(),
+        );
+        applet.domain_verify_file_content = Some("x".repeat(MAX_WECHAT_VERIFY_FILE_CONTENT_BYTES));
+        validate_applets(&[applet]).expect("applet field boundaries should be accepted");
+    }
+
+    #[test]
+    fn config_validation_rejects_collection_and_text_overflow() {
+        let accounts = (0..=MAX_WECHAT_CONFIG_ENTRIES_PER_KIND)
+            .map(|index| official_account(format!("oa-{index}").as_str()))
+            .collect::<Vec<_>>();
+        assert!(matches!(
+            validate_official_accounts(&accounts),
+            Err(KnowledgeStorageError::InvalidRequest(_))
+        ));
+
+        let mut account = official_account("oa-overflow");
+        account.name = "n".repeat(MAX_WECHAT_NAME_CHARS + 1);
+        assert!(matches!(
+            validate_official_accounts(&[account]),
+            Err(KnowledgeStorageError::InvalidRequest(_))
+        ));
+
+        let mut domain_overflow_applet = applet("applet-domain-overflow");
+        domain_overflow_applet.request_domain = Some(vec![
+            "api.example.com".to_string();
+            MAX_WECHAT_DOMAIN_VALUES + 1
+        ]);
+        assert!(matches!(
+            validate_applets(&[domain_overflow_applet]),
+            Err(KnowledgeStorageError::InvalidRequest(_))
+        ));
+
+        let mut content_overflow_applet = applet("applet-content-overflow");
+        content_overflow_applet.domain_verify_file_content =
+            Some("界".repeat(MAX_WECHAT_VERIFY_FILE_CONTENT_BYTES / 3 + 1));
+        assert!(matches!(
+            validate_applets(&[content_overflow_applet]),
+            Err(KnowledgeStorageError::InvalidRequest(_))
+        ));
+    }
+
+    #[test]
+    fn config_validation_rejects_unsupported_enums_and_media_uris() {
+        for avatar in [
+            "data:image/png;base64,AAAA",
+            "https://cdn.example.com/avatar.png",
+            "images/avatar.png",
+        ] {
+            let mut account = official_account("oa-media");
+            account.avatar = avatar.to_string();
+            assert!(matches!(
+                validate_official_accounts(&[account]),
+                Err(KnowledgeStorageError::InvalidRequest(_))
+            ));
+        }
+
+        let mut account = official_account("oa-enum");
+        account.account_type = "enterprise".to_string();
+        assert!(matches!(
+            validate_official_accounts(&[account]),
+            Err(KnowledgeStorageError::InvalidRequest(_))
+        ));
+
+        let mut applet = applet("applet-enum");
+        applet.msg_data_format = Some("yaml".to_string());
+        assert!(matches!(
+            validate_applets(&[applet]),
+            Err(KnowledgeStorageError::InvalidRequest(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn rejected_config_performs_no_drive_io() {
+        let drive = NoIoDrive {
+            head_calls: AtomicUsize::new(0),
+            put_calls: AtomicUsize::new(0),
+        };
+        let store = WechatConfigStore::new(&drive, "tenant-1");
+
+        let mut account = official_account("oa-invalid");
+        account.avatar = "data:image/png;base64,AAAA".to_string();
+        let error = store
+            .replace_official_accounts(vec![account])
+            .await
+            .expect_err("invalid account must be rejected");
+        assert!(matches!(error, KnowledgeStorageError::InvalidRequest(_)));
+
+        let mut applet = applet("applet-invalid");
+        applet.msg_encrypt_mode = Some("unsupported".to_string());
+        let error = store
+            .replace_applets(vec![applet])
+            .await
+            .expect_err("invalid applet must be rejected");
+        assert!(matches!(error, KnowledgeStorageError::InvalidRequest(_)));
+
+        assert_eq!(drive.head_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(drive.put_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
     fn config_validation_rejects_duplicate_ids() {
         let account = KnowledgeWechatOfficialAccount {
             id: "duplicate".to_string(),
             name: "A".to_string(),
             account_type: "subscription".to_string(),
-            avatar: String::new(),
+            avatar: "A".to_string(),
             description: None,
             app_id: "wx1".to_string(),
             app_secret: None,

@@ -16,9 +16,10 @@ export interface KnowledgeWechatApplet {
   tcpDomain?: string[];
   businessDomain?: string[];
   domainVerifyFileName?: string;
+  /** WeChat domain verification text. The service also enforces a 65,536 UTF-8 byte limit. */
   domainVerifyFileContent?: string;
   msgToken?: string;
   msgEncodingAESKey?: string;
-  msgDataFormat?: string;
-  msgEncryptMode?: string;
+  msgDataFormat?: 'json' | 'xml';
+  msgEncryptMode?: 'plain' | 'compatible' | 'safe';
 }
