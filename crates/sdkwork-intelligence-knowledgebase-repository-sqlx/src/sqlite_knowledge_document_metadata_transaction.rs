@@ -56,7 +56,7 @@ pub(crate) async fn create_or_get_object_ref_in_transaction(
             drive_etag, content_type, size_bytes, checksum_sha256_hex, object_role, access_mode
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id_i64)
@@ -170,7 +170,7 @@ async fn enrich_object_ref_drive_binding_in_transaction(
             drive_etag, content_type, size_bytes, checksum_sha256_hex, object_role, access_mode
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(&record.drive_space_id)
         .bind(&record.drive_node_id)
         .bind(&record.logical_path)
@@ -220,7 +220,7 @@ pub(crate) async fn create_or_get_document_in_transaction(
                   current_version_id, visibility, content_state, index_state
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
@@ -329,7 +329,7 @@ async fn enrich_document_drive_node_binding_in_transaction(
                   current_version_id, visibility, content_state, index_state
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(original_file_drive_node_id)
         .bind(now)
         .bind(tenant_id)
@@ -376,7 +376,7 @@ pub(crate) async fn create_or_get_document_version_in_transaction(
             size_bytes, mime_type, parse_state, index_state
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(generated_id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
@@ -447,7 +447,7 @@ pub(crate) async fn bind_document_current_version_in_transaction(
           AND (current_version_id IS NULL OR current_version_id <= $1)
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(version_id)
         .bind(now)
         .bind(tenant_id)
@@ -489,7 +489,7 @@ pub(crate) async fn create_or_get_source_in_transaction(
         RETURNING id, space_id, source_type, provider, drive_bucket, drive_prefix, CAST(metadata AS TEXT) AS metadata
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)

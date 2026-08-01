@@ -100,7 +100,7 @@ impl WikiPublicationLifecycleStore for SqlxWikiPersistenceStore {
             RETURNING {PUBLICATION_COLUMNS}
             "#,
         );
-        let updated = sqlx::query(&query)
+        let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(to_i64("site_publication_id", current.id)?)
@@ -607,7 +607,7 @@ async fn update_page(
         RETURNING {PROJECTION_COLUMNS}
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(to_i64("tenant_id", current.scope.tenant_id)?)
         .bind(to_i64("organization_id", current.scope.organization_id)?)
         .bind(to_i64("site_publication_id", current.site_publication_id)?)
@@ -654,7 +654,7 @@ async fn advance_navigation_and_search_generations(
         RETURNING {PUBLICATION_COLUMNS}
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(to_i64("tenant_id", publication.scope.tenant_id)?)
         .bind(to_i64(
             "organization_id",
@@ -684,7 +684,7 @@ async fn load_publication_for_space(
     let query = format!(
         "SELECT {PUBLICATION_COLUMNS} FROM kb_site_publication WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = 1",
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(to_i64("tenant_id", scope.tenant_id)?)
         .bind(to_i64("organization_id", scope.organization_id)?)
         .bind(require_id("space_id", space_id)?)
@@ -707,7 +707,7 @@ async fn load_page(
     let query = format!(
         "SELECT {PROJECTION_COLUMNS} FROM kb_source_file_projection WHERE tenant_id = $1 AND organization_id = $2 AND site_publication_id = $3 AND uuid = $4 AND status = 1",
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(to_i64("tenant_id", scope.tenant_id)?)
         .bind(to_i64("organization_id", scope.organization_id)?)
         .bind(to_i64("site_publication_id", site_publication_id)?)
@@ -792,7 +792,7 @@ async fn append_lifecycle_event(
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, {payload_expr}, $9, {created_at}, 0)
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(outbox_id)
         .bind(event_uuid)
         .bind(to_i64("tenant_id", event.publication.scope.tenant_id)?)
@@ -862,7 +862,7 @@ async fn append_lifecycle_audit(
     } else {
         "wiki_publication"
     };
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(store.next_id()?)
         .bind(uuid())
         .bind(to_i64("tenant_id", publication.scope.tenant_id)?)

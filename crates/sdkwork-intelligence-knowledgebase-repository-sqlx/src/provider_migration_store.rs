@@ -73,7 +73,7 @@ impl SqlxKnowledgeEngineProviderMigrationStore {
             "SELECT {MIGRATION_COLUMNS} FROM kb_provider_migration_operation \
              WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1"
         );
-        sqlx::query(&sql)
+        sqlx::query(sqlx::AssertSqlSafe(sql.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(to_i64("operation_id", operation_id)?)
@@ -171,7 +171,7 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
              ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'dry_run', $8, {checkpoint_expr}, $10,\
                 {created_at_expr}, {updated_at_expr}, 0, 1)"
         );
-        sqlx::query(&sql)
+        sqlx::query(sqlx::AssertSqlSafe(sql.as_str()))
             .bind(id)
             .bind(&operation_uuid)
             .bind(to_i64("tenant_id", scope.tenant_id)?)
@@ -225,7 +225,7 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
                AND ($4 IS NULL OR operation_state = $4) AND ($5 IS NULL OR id < $5) \
              ORDER BY id DESC LIMIT $6"
         );
-        let rows = sqlx::query(&sql)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(sql.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(to_i64("space_id", request.space_id)?)
@@ -259,14 +259,14 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
         require_text("actor_id", actor_id, 128)?;
         let now = now()?;
         let updated_at = self.dialect.sql_timestamp_expr("$6");
-        let result = sqlx::query(&format!(
+        let result = sqlx::query(sqlx::AssertSqlSafe(format!(
             "UPDATE kb_provider_migration_operation SET operation_state = 'rolling_back',\
              claim_owner = NULL, claim_token = NULL, lease_expires_at = NULL,\
              requested_by = $5, completed_at = NULL, updated_at = {updated_at}, version = version + 1 \
              WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND version = $4 \
                AND operation_state IN ('dry_run','preparing','validating','cutover','observing','failed')\
                AND status = 1"
-        ))
+        )))
         .bind(to_i64("tenant_id", scope.tenant_id)?)
         .bind(to_i64("organization_id", scope.organization_id)?)
         .bind(to_i64("operation_id", operation_id)?)
@@ -311,14 +311,14 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
                     })?,
             )?;
             let now_expr = self.dialect.sql_timestamp_expr("$3");
-            let candidate = sqlx::query(&format!(
+            let candidate = sqlx::query(sqlx::AssertSqlSafe(format!(
                 "SELECT id, version FROM kb_provider_migration_operation \
                  WHERE tenant_id = $1 AND organization_id = $2 AND status = 1 \
                    AND operation_state NOT IN ('completed','rolled_back','failed') \
                    AND (operation_state <> 'observing' OR observation_until IS NULL OR observation_until <= {now_expr}) \
                    AND (claim_token IS NULL OR lease_expires_at IS NULL OR lease_expires_at <= {now_expr}) \
                  ORDER BY updated_at, id LIMIT 1"
-            ))
+            )))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(&now)
@@ -333,14 +333,14 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
             let claim_token = uuid();
             let lease_expr = self.dialect.sql_timestamp_expr("$7");
             let updated_expr = self.dialect.sql_timestamp_expr("$8");
-            let result = sqlx::query(&format!(
+            let result = sqlx::query(sqlx::AssertSqlSafe(format!(
                 "UPDATE kb_provider_migration_operation SET claim_owner = $5, claim_token = $6,\
                  lease_expires_at = {lease_expr}, attempt_count = attempt_count + 1,\
                  updated_at = {updated_expr}, version = version + 1 \
                  WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND version = $4 \
                    AND (claim_token IS NULL OR lease_expires_at IS NULL OR lease_expires_at <= {})",
                 self.dialect.sql_timestamp_expr("$9")
-            ))
+            )))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(id)
@@ -401,14 +401,14 @@ impl KnowledgeEngineProviderMigrationStore for SqlxKnowledgeEngineProviderMigrat
         )
         .then_some(now.as_str());
         let error = transition.error_category.map(error_category_str);
-        let result = sqlx::query(&format!(
+        let result = sqlx::query(sqlx::AssertSqlSafe(format!(
             "UPDATE kb_provider_migration_operation SET operation_state = $7, checkpoint = {checkpoint_expr},\
              observation_until = {observation_expr}, completed_at = {completed_expr},\
              last_error_category = $11, claim_owner = NULL, claim_token = NULL, lease_expires_at = NULL,\
              updated_at = {updated_expr}, version = version + 1 \
              WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND claim_token = $4 \
                AND version = $5 AND operation_state = $6 AND lease_expires_at > {lease_now_expr}"
-        ))
+        )))
         .bind(to_i64("tenant_id", scope.tenant_id)?)
         .bind(to_i64("organization_id", scope.organization_id)?)
         .bind(to_i64("operation_id", operation_id)?)
@@ -592,7 +592,7 @@ async fn operation_by_id(
     scope: KnowledgeEngineProviderScope,
     id: u64,
 ) -> Result<KnowledgeEngineProviderMigrationOperation, KnowledgeEngineProviderMigrationStoreError> {
-    let row = sqlx::query(&format!("SELECT {MIGRATION_COLUMNS} FROM kb_provider_migration_operation WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1"))
+    let row = sqlx::query(sqlx::AssertSqlSafe(format!("SELECT {MIGRATION_COLUMNS} FROM kb_provider_migration_operation WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1")))
         .bind(to_i64("tenant_id", scope.tenant_id)?).bind(to_i64("organization_id", scope.organization_id)?).bind(to_i64("id", id)?).fetch_optional(&mut **tx).await.map_err(sql_error)?;
     row.map(map_operation)
         .transpose()?
@@ -607,7 +607,7 @@ async fn operation_by_idempotency_key(
     Option<KnowledgeEngineProviderMigrationOperation>,
     KnowledgeEngineProviderMigrationStoreError,
 > {
-    let row = sqlx::query(&format!("SELECT {MIGRATION_COLUMNS} FROM kb_provider_migration_operation WHERE tenant_id = $1 AND organization_id = $2 AND idempotency_key = $3 AND status = 1"))
+    let row = sqlx::query(sqlx::AssertSqlSafe(format!("SELECT {MIGRATION_COLUMNS} FROM kb_provider_migration_operation WHERE tenant_id = $1 AND organization_id = $2 AND idempotency_key = $3 AND status = 1")))
         .bind(to_i64("tenant_id", scope.tenant_id)?).bind(to_i64("organization_id", scope.organization_id)?).bind(key).fetch_optional(&mut **tx).await.map_err(sql_error)?;
     row.map(map_operation).transpose()
 }
@@ -644,7 +644,7 @@ async fn claimed_operation(
     dialect: SqlTimestampDialect,
 ) -> Result<KnowledgeEngineProviderMigrationOperation, KnowledgeEngineProviderMigrationStoreError> {
     let now = now()?;
-    let row = sqlx::query(&format!("SELECT {MIGRATION_COLUMNS} FROM kb_provider_migration_operation WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND claim_token = $4 AND version = $5 AND operation_state = $6 AND lease_expires_at > {} AND status = 1", dialect.sql_timestamp_expr("$7")))
+    let row = sqlx::query(sqlx::AssertSqlSafe(format!("SELECT {MIGRATION_COLUMNS} FROM kb_provider_migration_operation WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND claim_token = $4 AND version = $5 AND operation_state = $6 AND lease_expires_at > {} AND status = 1", dialect.sql_timestamp_expr("$7"))))
         .bind(to_i64("tenant_id", scope.tenant_id)?).bind(to_i64("organization_id", scope.organization_id)?).bind(to_i64("id", id)?).bind(token).bind(to_i64("version", version)?).bind(state.as_str()).bind(now).fetch_optional(&mut **tx).await.map_err(sql_error)?;
     row.map(map_operation)
         .transpose()?
@@ -710,7 +710,7 @@ async fn switch_bindings(
         (first_id, first_version, first_from, first_to),
         (second_id, second_version, second_from, second_to),
     ] {
-        let result = sqlx::query(&format!("UPDATE kb_provider_binding SET lifecycle_state = $6, updated_by = $7, updated_at = {updated}, version = version + 1 WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND id = $4 AND version = $5 AND lifecycle_state = $9 AND status = 1"))
+        let result = sqlx::query(sqlx::AssertSqlSafe(format!("UPDATE kb_provider_binding SET lifecycle_state = $6, updated_by = $7, updated_at = {updated}, version = version + 1 WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND id = $4 AND version = $5 AND lifecycle_state = $9 AND status = 1")))
             .bind(to_i64("tenant_id", scope.tenant_id)?).bind(to_i64("organization_id", scope.organization_id)?).bind(to_i64("space_id", operation.space_id)?).bind(to_i64("binding_id", id)?).bind(to_i64("version", version)?).bind(to).bind(actor).bind(&now).bind(from).execute(&mut **tx).await.map_err(migration_sql_error)?;
         if result.rows_affected() != 1 {
             return Err(KnowledgeEngineProviderMigrationStoreError::Conflict(
@@ -756,7 +756,7 @@ async fn update_claimed_operation(
     let observation_expr = dialect.sql_timestamp_expr("$10");
     let completed_expr = dialect.sql_timestamp_expr("$11");
     let updated_expr = dialect.sql_timestamp_expr("$12");
-    let result = sqlx::query(&format!("UPDATE kb_provider_migration_operation SET operation_state = $7, checkpoint = {checkpoint_expr}, cutover_at = COALESCE(cutover_at, {cutover_expr}), observation_until = {observation_expr}, completed_at = {completed_expr}, claim_owner = NULL, claim_token = NULL, lease_expires_at = NULL, updated_at = {updated_expr}, version = version + 1 WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND claim_token = $4 AND version = $5 AND operation_state = $6"))
+    let result = sqlx::query(sqlx::AssertSqlSafe(format!("UPDATE kb_provider_migration_operation SET operation_state = $7, checkpoint = {checkpoint_expr}, cutover_at = COALESCE(cutover_at, {cutover_expr}), observation_until = {observation_expr}, completed_at = {completed_expr}, claim_owner = NULL, claim_token = NULL, lease_expires_at = NULL, updated_at = {updated_expr}, version = version + 1 WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND claim_token = $4 AND version = $5 AND operation_state = $6")))
         .bind(to_i64("tenant_id", scope.tenant_id)?).bind(to_i64("organization_id", scope.organization_id)?).bind(to_i64("id", id)?).bind(token).bind(to_i64("version", version)?).bind(from.as_str()).bind(to.as_str()).bind(checkpoint.to_string()).bind(set_cutover.then_some(now.as_str())).bind(observation_until).bind(set_completed.then_some(now.as_str())).bind(&now).execute(&mut **tx).await.map_err(sql_error)?;
     if result.rows_affected() != 1 {
         return Err(KnowledgeEngineProviderMigrationStoreError::ClaimLost(id));

@@ -379,7 +379,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
                 access_mode
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(&record.drive_space_id)
             .bind(&record.drive_node_id)
             .bind(&record.logical_path)
@@ -539,7 +539,7 @@ impl SqliteKnowledgeDriveObjectRefStore {
             "#
         );
 
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)

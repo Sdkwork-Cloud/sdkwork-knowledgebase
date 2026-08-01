@@ -83,7 +83,7 @@ impl WikiPublicationStore for SqlxWikiPersistenceStore {
             RETURNING {PUBLICATION_COLUMNS}
             "#,
         );
-        let insert_result = sqlx::query(&query)
+        let insert_result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(publication_uuid)
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
@@ -130,7 +130,7 @@ impl WikiPublicationStore for SqlxWikiPersistenceStore {
         let query = format!(
             "SELECT {PUBLICATION_COLUMNS} FROM kb_site_publication WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1",
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(require_id("site_publication_id", site_publication_id)?)
@@ -153,7 +153,7 @@ impl WikiPublicationStore for SqlxWikiPersistenceStore {
         let query = format!(
             "SELECT {PUBLICATION_COLUMNS} FROM kb_site_publication WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = 1",
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(require_id("space_id", space_id)?)
@@ -209,7 +209,7 @@ impl WikiPublicationStore for SqlxWikiPersistenceStore {
             RETURNING {PUBLICATION_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id(
@@ -297,7 +297,7 @@ impl WikiPublicationStore for SqlxWikiPersistenceStore {
             RETURNING {PUBLICATION_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id(

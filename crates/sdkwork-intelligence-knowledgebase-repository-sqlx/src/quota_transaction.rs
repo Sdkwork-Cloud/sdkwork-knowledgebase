@@ -101,7 +101,7 @@ pub(crate) async fn enforce_tenant_quotas_after_write(
           AND NOT (job_type = $6 AND created_at <= {cutoff_expr})
         "#,
     );
-    let inflight_count: i64 = sqlx::query_scalar(&query)
+    let inflight_count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(query.as_str()))
         .bind(tenant_id)
         .bind(organization_id)
         .bind(1_i64)

@@ -169,7 +169,7 @@ impl SqliteKnowledgeAuditEventStore {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, {payload_expr}, {created_at_expr}, $15)
             "#,
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -223,7 +223,7 @@ impl SqliteKnowledgeAuditEventStore {
             LIMIT $4
             "#,
         );
-        let rows = sqlx::query(&query)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(tenant_id)
             .bind(organization_id)
             .bind(actor_id)

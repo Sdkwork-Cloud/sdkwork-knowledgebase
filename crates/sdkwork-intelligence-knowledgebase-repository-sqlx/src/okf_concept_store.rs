@@ -304,7 +304,7 @@ impl SqliteKnowledgeOkfConceptStore {
                 CAST(updated_at AS TEXT) AS updated_at
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(publish_state.as_str())
             .bind(now)
             .bind(tenant_id)
@@ -387,7 +387,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 CAST(created_at AS TEXT) AS created_at
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -449,7 +449,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 CAST(updated_at AS TEXT) AS updated_at
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(revision_id)
             .bind(record.publish_state.as_str())
             .bind(now)
@@ -624,7 +624,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
             RETURNING okf_log_sequence_counter
             "#,
         );
-        let sequence_no: i64 = sqlx::query_scalar(&sequence_query)
+        let sequence_no: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(sequence_query.as_str()))
             .bind(now.clone())
             .bind(tenant_id)
             .bind(organization_id)
@@ -672,7 +672,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 CAST(metadata AS TEXT) AS metadata
             "#,
         );
-        let row = sqlx::query(&insert_query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(insert_query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -799,7 +799,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
                 CAST(updated_at AS TEXT) AS updated_at
             "#,
         );
-        let row = sqlx::query(&update_concept_query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(update_concept_query.as_str()))
             .bind(DELETED_STATUS)
             .bind(&now)
             .bind(tenant_id)
@@ -823,7 +823,7 @@ impl KnowledgeOkfConceptStore for SqliteKnowledgeOkfConceptStore {
             WHERE tenant_id = $3 AND organization_id = $4 AND concept_row_id = $5 AND status = $6
             "#,
         );
-        sqlx::query(&update_revision_query)
+        sqlx::query(sqlx::AssertSqlSafe(update_revision_query.as_str()))
             .bind(DELETED_STATUS)
             .bind(now)
             .bind(tenant_id)

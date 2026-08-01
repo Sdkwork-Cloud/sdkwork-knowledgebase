@@ -127,7 +127,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
             VALUES ($1, $2, $3, $4, $5, $6, $7, {payload_expr}, $9, {created_at_expr}, $11)
             "#,
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -226,7 +226,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                           CAST(payload AS TEXT) AS payload
                 "#,
             );
-            sqlx::query(&query)
+            sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
                 .bind(OUTBOX_STATUS_CLAIMED)
                 .bind(&now)
                 .bind(&self.claim_owner)
@@ -255,7 +255,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
                           CAST(payload AS TEXT) AS payload
                 "#,
             );
-            sqlx::query(&query)
+            sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
                 .bind(OUTBOX_STATUS_CLAIMED)
                 .bind(&now)
                 .bind(&self.claim_owner)
@@ -308,7 +308,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
               AND claimed_at < {cutoff_expr}
             "#,
         );
-        let updated = sqlx::query(&query)
+        let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(OUTBOX_STATUS_PENDING)
             .bind(tenant_id)
             .bind(organization_id)
@@ -339,7 +339,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
               AND claim_owner = $7 AND claim_token = $8
             "#,
         );
-        let updated = sqlx::query(&query)
+        let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(OUTBOX_STATUS_PUBLISHED)
             .bind(now)
             .bind(tenant_id)
@@ -425,7 +425,7 @@ impl KnowledgeOutboxStore for SqliteKnowledgeOutboxStore {
               AND retry_count >= $6
             "#,
         );
-        sqlx::query(&dead_letter_query)
+        sqlx::query(sqlx::AssertSqlSafe(dead_letter_query.as_str()))
             .bind(OUTBOX_STATUS_DEAD_LETTER)
             .bind(now)
             .bind(tenant_id)

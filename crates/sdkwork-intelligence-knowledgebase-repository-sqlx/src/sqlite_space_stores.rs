@@ -278,7 +278,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -376,7 +376,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(&drive_space_id)
             .bind(&now)
             .bind(tenant_id)
@@ -402,7 +402,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             ON CONFLICT (tenant_id, space_id) DO NOTHING
             "#,
         );
-        sqlx::query(&publication_query)
+        sqlx::query(sqlx::AssertSqlSafe(publication_query.as_str()))
             .bind(publication_id)
             .bind(publication_uuid)
             .bind(tenant_id)
@@ -458,7 +458,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(now)
             .bind(tenant_id)
             .bind(organization_id)
@@ -497,7 +497,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(space_status_code(KnowledgeSpaceStatus::Active))
             .bind(now)
             .bind(tenant_id)
@@ -573,7 +573,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(name)
             .bind(description)
             .bind(now)
@@ -615,7 +615,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(description)
             .bind(now)
             .bind(tenant_id)
@@ -645,7 +645,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
               AND status IN ($6, $7)
             "#,
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(space_status_code(KnowledgeSpaceStatus::Deleted))
             .bind(&now)
             .bind(tenant_id)
@@ -666,7 +666,7 @@ impl KnowledgeSpaceStore for SqliteKnowledgeSpaceStore {
             WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND status = 1
             "#,
         );
-        sqlx::query(&publication_query)
+        sqlx::query(sqlx::AssertSqlSafe(publication_query.as_str()))
             .bind(tenant_id)
             .bind(organization_id)
             .bind(space_id_i64)
@@ -708,7 +708,7 @@ impl SqliteKnowledgeSpaceStore {
             RETURNING id, uuid, name, description, drive_space_id, status, okf_bundle_initialized, knowledge_mode
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(space_status_code(next_status))
             .bind(now)
             .bind(tenant_id)
@@ -913,7 +913,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 checksum_sha256_hex
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -989,7 +989,7 @@ impl SqliteKnowledgeOkfBundleFileStore {
                 checksum_sha256_hex
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)

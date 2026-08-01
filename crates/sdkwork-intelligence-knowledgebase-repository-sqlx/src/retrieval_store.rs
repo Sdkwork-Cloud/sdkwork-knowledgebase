@@ -684,7 +684,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, {request_payload_expr}, $10, $11, $12, {created_at_expr}, {updated_at_expr}, $15)
             "#,
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -788,7 +788,7 @@ impl KnowledgeRetrievalTraceStore for SqliteKnowledgeChunkRetrievalStore {
                 )
                 "#,
             );
-            let result = sqlx::query(&query)
+            let result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
                 .bind(id)
                 .bind(Uuid::new_v4().to_string())
                 .bind(tenant_id)
@@ -1039,7 +1039,7 @@ fn cosine_similarity_f32(left: &[f32], right: &[f32]) -> f64 {
 }
 
 fn push_keyword_score_expression(
-    query: &mut QueryBuilder<'_, sqlx::Any>,
+    query: &mut QueryBuilder<sqlx::Any>,
     terms: &[String],
     tenant_id: i64,
     organization_id: i64,
@@ -1075,7 +1075,7 @@ fn push_keyword_score_expression(
 }
 
 fn push_keyword_or_title_filter(
-    query: &mut QueryBuilder<'_, sqlx::Any>,
+    query: &mut QueryBuilder<sqlx::Any>,
     terms: &[String],
     term_operator: TermMatchOperator,
     scope: RetrievalSqlScope,
@@ -1099,7 +1099,7 @@ fn push_keyword_or_title_filter(
 }
 
 fn push_sqlite_fts_or_title_filter(
-    query: &mut QueryBuilder<'_, sqlx::Any>,
+    query: &mut QueryBuilder<sqlx::Any>,
     terms: &[String],
     term_operator: TermMatchOperator,
     tenant_id: i64,
@@ -1145,7 +1145,7 @@ fn push_sqlite_fts_or_title_filter(
 }
 
 fn push_postgres_ts_or_title_filter(
-    query: &mut QueryBuilder<'_, sqlx::Any>,
+    query: &mut QueryBuilder<sqlx::Any>,
     terms: &[String],
     term_operator: TermMatchOperator,
     tsquery: &str,

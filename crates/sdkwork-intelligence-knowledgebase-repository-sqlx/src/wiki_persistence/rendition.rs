@@ -45,7 +45,7 @@ impl WikiRenditionStore for SqlxWikiPersistenceStore {
         let query = format!(
             "SELECT {RENDITION_COLUMNS} FROM kb_source_file_rendition WHERE tenant_id = $1 AND organization_id = $2 AND source_file_projection_id = $3 AND rendition_key_sha256 = $4 AND status = 1",
         );
-        if let Some(row) = sqlx::query(&query)
+        if let Some(row) = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id(
@@ -131,7 +131,7 @@ impl WikiRenditionStore for SqlxWikiPersistenceStore {
             RETURNING {RENDITION_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(self.next_id()?)
             .bind(uuid())
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
@@ -182,7 +182,7 @@ impl WikiRenditionStore for SqlxWikiPersistenceStore {
             LIMIT $6
             "#,
         );
-        let candidates = sqlx::query(&candidate_query)
+        let candidates = sqlx::query(sqlx::AssertSqlSafe(candidate_query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id(
@@ -225,7 +225,7 @@ impl WikiRenditionStore for SqlxWikiPersistenceStore {
         for candidate in candidates {
             let rendition_id: i64 = candidate.try_get("id").map_err(row_error)?;
             let expected_version: i64 = candidate.try_get("version").map_err(row_error)?;
-            if let Some(row) = sqlx::query(&update_query)
+            if let Some(row) = sqlx::query(sqlx::AssertSqlSafe(update_query.as_str()))
                 .bind(to_i64("tenant_id", request.scope.tenant_id)?)
                 .bind(to_i64("organization_id", request.scope.organization_id)?)
                 .bind(rendition_id)
@@ -295,7 +295,7 @@ impl WikiRenditionStore for SqlxWikiPersistenceStore {
             RETURNING {RENDITION_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("rendition_id", request.rendition_id)?)

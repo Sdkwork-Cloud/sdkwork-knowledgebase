@@ -11,7 +11,7 @@ use tonic::{
     service::interceptor::InterceptedService,
     transport::Server,
 };
-use tonic_health::{pb::health_check_response::ServingStatus, server::HealthReporter};
+use tonic_health::{server::HealthReporter, ServingStatus};
 
 use crate::{
     config::{

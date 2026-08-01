@@ -136,7 +136,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
             RETURNING {CREDENTIAL_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(uuid)
             .bind(to_i64("tenant_id", scope.tenant_id)?)
@@ -203,7 +203,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
         let query = format!(
             "SELECT {CREDENTIAL_COLUMNS} FROM kb_provider_credential_reference WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1",
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(to_i64("credential_reference_id", credential_reference_id)?)
@@ -248,7 +248,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
             LIMIT $6
             "#,
         );
-        let rows = sqlx::query(&query)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(implementation_id)
@@ -300,7 +300,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
             RETURNING {CREDENTIAL_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(to_i64("credential_reference_id", credential_reference_id)?)
@@ -343,7 +343,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
             RETURNING {CREDENTIAL_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(to_i64("credential_reference_id", credential_reference_id)?)
@@ -399,7 +399,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
             RETURNING {BINDING_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(uuid)
             .bind(to_i64("tenant_id", scope.tenant_id)?)
@@ -432,7 +432,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
         let query = format!(
             "SELECT {BINDING_COLUMNS} FROM kb_provider_binding WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1",
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(to_i64("binding_id", binding_id)?)
@@ -455,7 +455,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
         let query = format!(
             "SELECT {BINDING_COLUMNS} FROM kb_provider_binding WHERE tenant_id = $1 AND organization_id = $2 AND space_id = $3 AND lifecycle_state = 'active' AND status = 1",
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(to_i64("space_id", space_id)?)
@@ -491,7 +491,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
             LIMIT $6
             "#,
         );
-        let rows = sqlx::query(&query)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(space_id)
@@ -562,7 +562,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
             RETURNING {BINDING_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(request.remote_resource_type.as_deref().map(str::trim))
             .bind(request.remote_resource_id.as_deref().map(str::trim))
             .bind(optional_to_i64(
@@ -635,7 +635,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
             RETURNING {BINDING_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(capabilities_json)
             .bind(state)
             .bind(error_category)
@@ -707,7 +707,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
               AND id <> $6 AND lifecycle_state = 'active' AND status = 1
             "#,
         );
-        sqlx::query(&deactivate_query)
+        sqlx::query(sqlx::AssertSqlSafe(deactivate_query.as_str()))
             .bind(&now)
             .bind(actor_id.trim())
             .bind(to_i64("tenant_id", scope.tenant_id)?)
@@ -729,7 +729,7 @@ impl KnowledgeEngineProviderBindingStore for SqlxKnowledgeEngineProviderBindingS
               AND lifecycle_state = 'testing' AND version = $6 AND status = 1
             "#,
         );
-        let updated = sqlx::query(&activate_query)
+        let updated = sqlx::query(sqlx::AssertSqlSafe(activate_query.as_str()))
             .bind(&now)
             .bind(actor_id.trim())
             .bind(to_i64("tenant_id", scope.tenant_id)?)
@@ -794,7 +794,7 @@ async fn transition_binding(
         RETURNING {BINDING_COLUMNS}
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(target_state)
         .bind(&now)
         .bind(actor_id.trim())

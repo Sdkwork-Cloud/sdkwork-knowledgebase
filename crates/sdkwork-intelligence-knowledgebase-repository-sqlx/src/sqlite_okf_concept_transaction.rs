@@ -85,7 +85,7 @@ pub(crate) async fn upsert_okf_concept_in_transaction(
             updated_at
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
@@ -131,7 +131,7 @@ pub(crate) async fn next_okf_revision_no_in_transaction(
         RETURNING revision_counter
         "#,
     );
-    let next: i64 = sqlx::query_scalar(&query)
+    let next: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(query.as_str()))
         .bind(now_rfc3339()?)
         .bind(tenant_id)
         .bind(organization_id)

@@ -49,21 +49,21 @@ pub fn utc_sql_timestamp_text() -> Result<String, String> {
         .map_err(|error| error.to_string())
 }
 
-pub fn push_sql_timestamp_bind<'args, Sep>(
-    row: &mut sqlx::query_builder::Separated<'_, 'args, sqlx::Any, Sep>,
+pub fn push_sql_timestamp_bind<Sep>(
+    row: &mut sqlx::query_builder::Separated<'_, sqlx::Any, Sep>,
     dialect: SqlTimestampDialect,
-    value: &'args str,
+    value: &str,
 ) where
     Sep: Display,
 {
     match dialect {
         SqlTimestampDialect::Postgres => {
             row.push("CAST(");
-            row.push_bind_unseparated(value);
+            row.push_bind_unseparated(value.to_owned());
             row.push_unseparated(" AS TIMESTAMP)");
         }
         SqlTimestampDialect::Sqlite => {
-            row.push_bind(value);
+            row.push_bind(value.to_owned());
         }
     }
 }

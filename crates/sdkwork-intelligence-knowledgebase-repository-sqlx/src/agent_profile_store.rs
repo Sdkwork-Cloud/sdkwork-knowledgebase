@@ -99,7 +99,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$19");
         let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$20");
         let returning_columns = profile_json_returning_columns();
-        let row = sqlx::query(&format!(
+        let row = sqlx::query(sqlx::AssertSqlSafe(format!(
             r#"
             INSERT INTO kb_agent_profile (
                 id,
@@ -139,7 +139,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 status
             "#,
             returning_columns,
-        ))
+        )))
         .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
@@ -202,7 +202,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         let answer_policy_expr = self.timestamp_dialect.sql_json_expr("$11");
         let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$15");
         let returning_columns = profile_json_returning_columns();
-        let row = sqlx::query(&format!(
+        let row = sqlx::query(sqlx::AssertSqlSafe(format!(
             r#"
             UPDATE kb_agent_profile
             SET name = $1,
@@ -236,7 +236,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 status
             "#,
             returning_columns,
-        ))
+        )))
         .bind(request.name)
         .bind(request.description)
         .bind(request.system_instruction)
@@ -284,7 +284,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status != $6
             "#,
         );
-        let result = sqlx::query(&query)
+        let result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(agent_status_code(KnowledgeAgentStatus::Archived))
             .bind(now.clone())
             .bind(tenant_id)
@@ -309,7 +309,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
             WHERE tenant_id = $3 AND organization_id = $4 AND profile_id = $5 AND status = $6
             "#,
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(DELETED_ROW_STATUS)
             .bind(now)
             .bind(tenant_id)
@@ -331,7 +331,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let profile_id_i64 = to_i64("profile_id", profile_id)?;
 
-        let rows = sqlx::query(&format!(
+        let rows = sqlx::query(sqlx::AssertSqlSafe(format!(
             r#"
             SELECT
                 id,
@@ -350,7 +350,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
             LIMIT $5
             "#,
             binding_json_returning_columns(),
-        ))
+        )))
         .bind(tenant_id)
         .bind(organization_id)
         .bind(profile_id_i64)
@@ -388,7 +388,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         let created_at_expr = self.timestamp_dialect.sql_timestamp_expr("$15");
         let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$16");
         let returning_columns = binding_json_returning_columns();
-        let row = sqlx::query(&format!(
+        let row = sqlx::query(sqlx::AssertSqlSafe(format!(
             r#"
             INSERT INTO kb_agent_knowledge_binding (
                 id,
@@ -423,7 +423,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 enabled
             "#,
             returning_columns,
-        ))
+        )))
         .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
@@ -478,7 +478,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
         let document_filter_expr = self.timestamp_dialect.sql_json_expr("$4");
         let updated_at_expr = self.timestamp_dialect.sql_timestamp_expr("$9");
         let returning_columns = binding_json_returning_columns();
-        let row = sqlx::query(&format!(
+        let row = sqlx::query(sqlx::AssertSqlSafe(format!(
             r#"
             UPDATE kb_agent_knowledge_binding
             SET space_id = $1,
@@ -505,7 +505,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
                 enabled
             "#,
             returning_columns,
-        ))
+        )))
         .bind(space_id)
         .bind(collection_id)
         .bind(source_filter)
@@ -549,7 +549,7 @@ impl KnowledgeAgentProfileStore for SqliteKnowledgeAgentProfileStore {
             WHERE tenant_id = $3 AND organization_id = $4 AND profile_id = $5 AND id = $6 AND status = $7
             "#,
         );
-        let result = sqlx::query(&query)
+        let result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(DELETED_ROW_STATUS)
             .bind(now)
             .bind(tenant_id)
@@ -613,7 +613,7 @@ impl SqliteKnowledgeAgentProfileStore {
         let tenant_id = to_i64("tenant_id", self.tenant_id)?;
         let organization_id = to_i64("organization_id", self.organization_id)?;
         let profile_id_i64 = to_i64("profile_id", profile_id)?;
-        let row = sqlx::query(&format!(
+        let row = sqlx::query(sqlx::AssertSqlSafe(format!(
             r#"
             SELECT
                 id,
@@ -631,7 +631,7 @@ impl SqliteKnowledgeAgentProfileStore {
             WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status != $4
             "#,
             profile_json_returning_columns(),
-        ))
+        )))
         .bind(tenant_id)
         .bind(organization_id)
         .bind(profile_id_i64)

@@ -122,7 +122,7 @@ impl WikiPublicProviderStore for SqlxWikiPersistenceStore {
             LIMIT 2
             "#,
         );
-        let rows = sqlx::query(&query)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(publication_id)
@@ -173,7 +173,7 @@ impl WikiPublicProviderStore for SqlxWikiPersistenceStore {
             LIMIT 1
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(publication_id)
@@ -223,7 +223,7 @@ impl WikiPublicProviderStore for SqlxWikiPersistenceStore {
             LIMIT $7
             "#,
         );
-        let rows = sqlx::query(&query)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(publication_id)
@@ -283,7 +283,7 @@ impl WikiPublicProviderStore for SqlxWikiPersistenceStore {
             LIMIT $8
             "#,
         );
-        let rows = sqlx::query(&query)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(publication_id)

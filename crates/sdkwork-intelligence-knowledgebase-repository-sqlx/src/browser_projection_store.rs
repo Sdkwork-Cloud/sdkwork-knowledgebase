@@ -65,7 +65,7 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
             "#
         );
 
-        let mut query = sqlx::query(&sql)
+        let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.as_str()))
             .bind(tenant_id)
             .bind(organization_id)
             .bind(space_id)
@@ -145,7 +145,7 @@ impl KnowledgeBrowserProjectionStore for SqliteKnowledgeBrowserProjectionStore {
             "#
         );
 
-        let mut query = sqlx::query(&sql)
+        let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.as_str()))
             .bind(tenant_id)
             .bind(organization_id)
             .bind(space_id)

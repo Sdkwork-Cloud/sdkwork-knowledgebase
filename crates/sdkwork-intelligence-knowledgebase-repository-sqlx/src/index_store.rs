@@ -95,7 +95,7 @@ impl SqliteKnowledgeIndexStore {
             RETURNING id, tenant_id, space_id, index_kind, status
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)

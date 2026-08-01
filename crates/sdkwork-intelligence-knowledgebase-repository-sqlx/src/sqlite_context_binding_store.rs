@@ -102,7 +102,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                       created_at, updated_at
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(tenant_i64)
             .bind(organization_i64)
@@ -198,7 +198,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
                       created_at, updated_at
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(&request.context_name)
             .bind(request.access_level.map(|l| l.as_str()))
             .bind(&now)
@@ -235,7 +235,7 @@ impl KnowledgeContextBindingStore for SqliteContextBindingStore {
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6 AND context_type <> $7
             "#,
         );
-        let result = sqlx::query(&query)
+        let result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(DELETED_STATUS)
             .bind(&now)
             .bind(tenant_i64)

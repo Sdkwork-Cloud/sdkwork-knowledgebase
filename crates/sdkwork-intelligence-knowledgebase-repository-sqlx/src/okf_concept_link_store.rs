@@ -85,7 +85,7 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
             WHERE tenant_id = $2 AND organization_id = $3 AND space_id = $4 AND from_concept_id = $5 AND status = $6
             "#,
         );
-        sqlx::query(&update_query)
+        sqlx::query(sqlx::AssertSqlSafe(update_query.as_str()))
             .bind(&now)
             .bind(tenant_id)
             .bind(organization_id)
@@ -108,7 +108,7 @@ impl KnowledgeOkfConceptLinkStore for SqliteKnowledgeOkfConceptLinkStore {
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, {created_at_expr}, {updated_at_expr}, $12)
                 "#,
             );
-            sqlx::query(&insert_query)
+            sqlx::query(sqlx::AssertSqlSafe(insert_query.as_str()))
                 .bind(id)
                 .bind(Uuid::new_v4().to_string())
                 .bind(tenant_id)

@@ -7,7 +7,7 @@ use sqlx::{Any, Postgres, QueryBuilder};
 const ACTIVE_STATUS: i64 = 1;
 
 pub fn push_binding_scope_filters(
-    query: &mut QueryBuilder<'_, Any>,
+    query: &mut QueryBuilder<Any>,
     tenant_id: i64,
     organization_id: i64,
     space_id: i64,
@@ -27,7 +27,7 @@ pub fn push_binding_scope_filters(
 }
 
 pub fn push_binding_scope_filters_postgres(
-    query: &mut QueryBuilder<'_, Postgres>,
+    query: &mut QueryBuilder<Postgres>,
     tenant_id: i64,
     organization_id: i64,
     space_id: i64,
@@ -47,7 +47,7 @@ pub fn push_binding_scope_filters_postgres(
 }
 
 fn push_source_scope_filter(
-    query: &mut QueryBuilder<'_, Any>,
+    query: &mut QueryBuilder<Any>,
     tenant_id: i64,
     organization_id: i64,
     space_id: i64,
@@ -97,7 +97,7 @@ fn push_source_scope_filter(
 }
 
 fn push_source_scope_filter_postgres(
-    query: &mut QueryBuilder<'_, Postgres>,
+    query: &mut QueryBuilder<Postgres>,
     tenant_id: i64,
     organization_id: i64,
     space_id: i64,
@@ -147,7 +147,7 @@ fn push_source_scope_filter_postgres(
 }
 
 fn push_document_scope_filter(
-    query: &mut QueryBuilder<'_, Any>,
+    query: &mut QueryBuilder<Any>,
     filter: &KnowledgeFilter,
 ) -> Result<(), KnowledgeRetrievalBackendError> {
     match classify_document_filter_key(&filter.key) {
@@ -183,7 +183,7 @@ fn push_document_scope_filter(
 }
 
 fn push_document_scope_filter_postgres(
-    query: &mut QueryBuilder<'_, Postgres>,
+    query: &mut QueryBuilder<Postgres>,
     filter: &KnowledgeFilter,
 ) -> Result<(), KnowledgeRetrievalBackendError> {
     match classify_document_filter_key(&filter.key) {

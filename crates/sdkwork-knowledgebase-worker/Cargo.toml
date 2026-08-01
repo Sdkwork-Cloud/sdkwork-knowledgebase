@@ -39,6 +39,6 @@ thiserror.workspace = true
 time.workspace = true
 
 [dev-dependencies]
-sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "any", "sqlite"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "any", "sqlite"] }
 tower.workspace = true
 sdkwork-routes-knowledgebase-backend-api.workspace = true

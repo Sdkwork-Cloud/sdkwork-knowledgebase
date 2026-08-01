@@ -17,10 +17,11 @@ path = "src/bin/rpc_main.rs"
 async-trait.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["signal", "time"] }
+tracing = { version = "0.1", features = ["attributes"] }
 tonic = { version = "0.14", features = ["transport"] }
 tonic-health = "0.14"
 rustls.workspace = true
-sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any", "migrate"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any", "migrate"] }
 sdkwork-drive-storage-local.workspace = true
 sdkwork-database-config.workspace = true
 sdkwork-database-sqlx.workspace = true

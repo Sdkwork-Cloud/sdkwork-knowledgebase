@@ -138,7 +138,7 @@ impl SqliteGroupKnowledgeSpaceBindingStore {
                 LIMIT $4
                 "#,
             );
-            sqlx::query(&query)
+            sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
                 .bind(group_to_i64("tenant_id", tenant_id)?)
                 .bind(group_to_i64("organization_id", organization_id)?)
                 .bind(&now)
@@ -170,7 +170,7 @@ impl SqliteGroupKnowledgeSpaceBindingStore {
                 LIMIT $3
                 "#,
             );
-            sqlx::query(&query)
+            sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
                 .bind(group_to_i64("tenant_id", tenant_id)?)
                 .bind(&now)
                 .bind(i64::from(limit))
@@ -417,7 +417,7 @@ impl SqliteGroupKnowledgeSpaceBindingStore {
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, {lease_until_expr}, $14, $15, $16, $17, {created_at_expr}, {updated_at_expr}, $20)
                     "#,
                 );
-                sqlx::query(&query)
+                sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
                     .bind(group_to_i64("binding_id", binding_id)?)
                     .bind(Uuid::new_v4().to_string())
                     .bind(tenant_id)
@@ -668,7 +668,7 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
               AND projection_lease_until >= {expiry_expr}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(group_to_i64("tenant_id", scope.tenant_id)?)
             .bind(group_to_i64("organization_id", scope.organization_id)?)
             .bind(group_to_i64("binding_id", binding_id)?)
@@ -719,7 +719,7 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
               AND lifecycle_state = $8 AND provisioning_lease_token = $9
             "#,
         );
-        let result = sqlx::query(&query)
+        let result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(&now)
             .bind(GroupKnowledgeSpaceLifecycleState::Active.as_str())
             .bind(GroupKnowledgeSpaceAclProjectionState::Active.as_str())
@@ -801,7 +801,7 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
               AND lifecycle_state = $9 AND provisioning_lease_token = $10
             "#,
         );
-        let result = sqlx::query(&query)
+        let result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(&now)
             .bind(GroupKnowledgeSpaceLifecycleState::Failed.as_str())
             .bind(GroupKnowledgeSpaceAclProjectionState::Failed.as_str())
@@ -828,7 +828,7 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
             WHERE tenant_id = $3 AND organization_id = $4 AND binding_id = $5 AND status = $6
             "#,
         );
-        sqlx::query(&member_query)
+        sqlx::query(sqlx::AssertSqlSafe(member_query.as_str()))
             .bind(INACTIVE_STATUS)
             .bind(&now)
             .bind(group_to_i64("tenant_id", scope.tenant_id)?)
@@ -1008,7 +1008,7 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
             WHERE tenant_id = $8 AND organization_id = $9 AND id = $10
             "#,
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(&command.group_name)
             .bind(group_to_i64("membership_epoch", command.membership_epoch)?)
             .bind(group_to_i64(
@@ -1864,7 +1864,7 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
                       AND lifecycle_state = $13
                     "#,
                 );
-                let updated = sqlx::query(&query)
+                let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
                     .bind(GroupKnowledgeSpaceLifecycleState::Archiving.as_str())
                     .bind(GroupKnowledgeSpaceAclProjectionState::Pending.as_str())
                     .bind(&command.source_event_id)
@@ -1968,7 +1968,7 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
               AND projection_lease_until >= {active_projection_expiry_expr}
             "#,
         );
-        let active_projection_row = sqlx::query(&active_projection_query)
+        let active_projection_row = sqlx::query(sqlx::AssertSqlSafe(active_projection_query.as_str()))
             .bind(group_to_i64("tenant_id", scope.tenant_id)?)
             .bind(group_to_i64("organization_id", scope.organization_id)?)
             .bind(group_to_i64("binding_id", binding.id)?)
@@ -2007,7 +2007,7 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
               AND lifecycle_state = $9 AND archive_lease_token = $10
             "#,
         );
-        let updated = sqlx::query(&query)
+        let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(GroupKnowledgeSpaceLifecycleState::Archived.as_str())
             .bind(GroupKnowledgeSpaceAclProjectionState::Pending.as_str())
             .bind(&command.source_event_id)
@@ -2136,7 +2136,7 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
               AND lifecycle_state = $8 AND archive_lease_token = $9
             "#,
         );
-        let updated = sqlx::query(&query)
+        let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(next_cursor)
             .bind(if cleanup_completed { 1_i64 } else { 0_i64 })
             .bind(&command.archived_by)
@@ -2210,7 +2210,7 @@ impl KnowledgeGroupSpaceBindingStore for SqliteGroupKnowledgeSpaceBindingStore {
               AND lifecycle_state = $7 AND archive_lease_token = $8
             "#,
         );
-        let updated = sqlx::query(&query)
+        let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(truncate_error_code(error_code))
             .bind(&now)
             .bind(&command.archived_by)
@@ -2281,7 +2281,7 @@ async fn reset_binding_for_provisioning(
         WHERE tenant_id = $12 AND organization_id = $13 AND id = $14
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(operation_context.now)
         .bind(group_to_i64("space_id", space.id)?)
         .bind(&space.uuid)
@@ -2344,7 +2344,7 @@ async fn claim_provisioning_lease(
           AND (provisioning_lease_until IS NULL OR provisioning_lease_until < {lease_expiry_expr})
         "#,
     );
-    let updated = sqlx::query(&query)
+    let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(now)
         .bind(&token)
         .bind(lease_until)
@@ -2380,7 +2380,7 @@ async fn insert_group_space(
         VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $8, {created_at_expr}, {updated_at_expr}, $11)
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(group_to_i64("space_id", id)?)
         .bind(&uuid)
         .bind(group_to_i64("tenant_id", scope.tenant_id)?)
@@ -2423,7 +2423,7 @@ async fn replace_active_members(
         WHERE tenant_id = $3 AND organization_id = $4 AND binding_id = $5 AND status = $6
         "#,
     );
-    sqlx::query(&deactivate_query)
+    sqlx::query(sqlx::AssertSqlSafe(deactivate_query.as_str()))
         .bind(INACTIVE_STATUS)
         .bind(operation_context.now)
         .bind(group_to_i64(
@@ -2457,7 +2457,7 @@ async fn replace_active_members(
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, {created_at_expr}, {updated_at_expr}, $14)
             "#,
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(group_to_i64("member_id", id)?)
             .bind(Uuid::new_v4().to_string())
             .bind(group_to_i64(
@@ -2504,7 +2504,7 @@ async fn append_inbox_event(
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, {applied_at_expr})
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(group_to_i64("inbox_id", id)?)
         .bind(Uuid::new_v4().to_string())
         .bind(group_to_i64(
@@ -2580,7 +2580,7 @@ async fn cancel_membership_projections_for_archive(
           )
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(MEMBERSHIP_PROJECTION_COMPLETED)
         .bind(now)
         .bind("group_space_archive_started")
@@ -2612,7 +2612,7 @@ async fn deactivate_group_members_for_archive(
         WHERE tenant_id = $3 AND organization_id = $4 AND binding_id = $5 AND status = $6
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(INACTIVE_STATUS)
         .bind(now)
         .bind(group_to_i64("tenant_id", scope.tenant_id)?)
@@ -2652,7 +2652,7 @@ async fn claim_group_space_archive_lease(
           AND (archive_lease_until IS NULL OR archive_lease_until < {expiry_expr})
         "#,
     );
-    let updated = sqlx::query(&query)
+    let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(&lease_token)
         .bind(lease_until)
         .bind(operation_context.now)
@@ -2706,7 +2706,7 @@ async fn insert_membership_projection(
                 {created_at_expr}, {updated_at_expr}, $15)
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(group_to_i64("membership_projection_id", id)?)
         .bind(Uuid::new_v4().to_string())
         .bind(group_to_i64(
@@ -2764,7 +2764,7 @@ async fn claim_membership_projection_lease(
           AND (projection_lease_until IS NULL OR projection_lease_until < {expiry_expr})
         "#,
     );
-    let updated = sqlx::query(&query)
+    let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(MEMBERSHIP_PROJECTION_PENDING)
         .bind(&lease_token)
         .bind(lease_until)
@@ -2807,7 +2807,7 @@ async fn mark_membership_projection_completed(
           AND projection_lease_until >= {expiry_expr}
         "#,
     );
-    let updated = sqlx::query(&query)
+    let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(now)
         .bind(MEMBERSHIP_PROJECTION_COMPLETED)
         .bind(group_to_i64("tenant_id", scope.tenant_id)?)
@@ -2850,7 +2850,7 @@ async fn mark_membership_projection_failed(
           AND projection_lease_token = $9
         "#,
     );
-    let updated = sqlx::query(&query)
+    let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(MEMBERSHIP_PROJECTION_FAILED)
         .bind(truncate_error_code(error_code))
         .bind(operation_context.now)
@@ -2903,7 +2903,7 @@ async fn update_binding_membership_metadata(
           AND lifecycle_state = $10 AND acl_projection_state = $11
         "#,
     );
-    let updated = sqlx::query(&query)
+    let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(group_name)
         .bind(group_to_i64("membership_epoch", membership_epoch)?)
         .bind(group_to_i64(
@@ -2957,7 +2957,7 @@ async fn update_binding_membership_projection_error(
           AND lifecycle_state = $7 AND acl_projection_state = $8
         "#,
     );
-    let updated = sqlx::query(&query)
+    let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(truncate_error_code(error_code))
         .bind(now)
         .bind("group-membership-projection")
@@ -3049,7 +3049,7 @@ async fn append_outbox_event(
         VALUES ($1, $2, $3, $4, $5, $6, $7, {payload_expr}, $9, {created_at_expr}, $11)
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(group_to_i64("outbox_id", id)?)
         .bind(Uuid::new_v4().to_string())
         .bind(group_to_i64(
@@ -3256,7 +3256,7 @@ async fn update_acl_projection_state(
           AND (lifecycle_state <> 'active' OR $2 = 'active')
         "#,
     );
-    let updated = sqlx::query(&query)
+    let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(&now)
         .bind(state.as_str())
         .bind(error_code.map(truncate_error_code))

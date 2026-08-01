@@ -59,7 +59,7 @@ pub(crate) async fn upsert_okf_candidate_in_transaction(
             WHERE tenant_id = $5 AND organization_id = $6 AND id = $7 AND status = $8
             "#,
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(record.candidate_type.as_str())
             .bind(record.state.as_str())
             .bind(markdown_object_ref_id)
@@ -86,7 +86,7 @@ pub(crate) async fn upsert_okf_candidate_in_transaction(
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL, NULL, $10, {created_at_expr}, {updated_at_expr}, $13)
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
@@ -167,7 +167,7 @@ pub(crate) async fn update_okf_candidate_state_by_concept_row_id_in_transaction(
         WHERE tenant_id = $5 AND organization_id = $6 AND space_id = $7 AND concept_id = $8 AND status = $9
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(record.state.as_str())
         .bind(reviewer_id)
         .bind(record.review_note)

@@ -41,7 +41,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
         let checkpoint_query = format!(
             "SELECT {CHECKPOINT_COLUMNS} FROM kb_drive_source_checkpoint WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1",
         );
-        let checkpoint_row = sqlx::query(&checkpoint_query)
+        let checkpoint_row = sqlx::query(sqlx::AssertSqlSafe(checkpoint_query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("checkpoint_id", request.checkpoint_id)?)
@@ -68,7 +68,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
             LIMIT 1
             "#,
         );
-        if let Some(existing_row) = sqlx::query(&existing_query)
+        if let Some(existing_row) = sqlx::query(sqlx::AssertSqlSafe(existing_query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("checkpoint_id", request.checkpoint_id)?)
@@ -133,7 +133,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
             RETURNING {INBOX_COLUMNS}
             "#,
         );
-        let event_row = sqlx::query(&insert_query)
+        let event_row = sqlx::query(sqlx::AssertSqlSafe(insert_query.as_str()))
             .bind(self.next_id()?)
             .bind(uuid())
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
@@ -182,7 +182,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
                   AND version = $6 AND status = 1
                 "#,
             );
-            let updated = sqlx::query(&checkpoint_update)
+            let updated = sqlx::query(sqlx::AssertSqlSafe(checkpoint_update.as_str()))
                 .bind(to_i64("tenant_id", request.scope.tenant_id)?)
                 .bind(to_i64("organization_id", request.scope.organization_id)?)
                 .bind(require_id("checkpoint_id", request.checkpoint_id)?)
@@ -235,7 +235,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
             LIMIT $6
             "#,
         );
-        let candidates = sqlx::query(&candidate_query)
+        let candidates = sqlx::query(sqlx::AssertSqlSafe(candidate_query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("checkpoint_id", request.checkpoint_id)?)
@@ -273,7 +273,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
         for candidate in candidates {
             let event_id: i64 = candidate.try_get("id").map_err(row_error)?;
             let event_version: i64 = candidate.try_get("version").map_err(row_error)?;
-            if let Some(row) = sqlx::query(&update_query)
+            if let Some(row) = sqlx::query(sqlx::AssertSqlSafe(update_query.as_str()))
                 .bind(to_i64("tenant_id", request.scope.tenant_id)?)
                 .bind(to_i64("organization_id", request.scope.organization_id)?)
                 .bind(event_id)
@@ -318,7 +318,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
         let event_query = format!(
             "SELECT {INBOX_COLUMNS} FROM kb_drive_event_inbox WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND lease_token = $4",
         );
-        let event_row = sqlx::query(&event_query)
+        let event_row = sqlx::query(sqlx::AssertSqlSafe(event_query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("event_id", request.event_id)?)
@@ -337,7 +337,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
         let checkpoint_query = format!(
             "SELECT {CHECKPOINT_COLUMNS} FROM kb_drive_source_checkpoint WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1",
         );
-        let checkpoint_row = sqlx::query(&checkpoint_query)
+        let checkpoint_row = sqlx::query(sqlx::AssertSqlSafe(checkpoint_query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(to_i64("checkpoint_id", event.checkpoint_id)?)
@@ -383,7 +383,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
             RETURNING {INBOX_COLUMNS}
             "#,
         );
-        let applied_row = sqlx::query(&event_update)
+        let applied_row = sqlx::query(sqlx::AssertSqlSafe(event_update.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("event_id", request.event_id)?)
@@ -420,7 +420,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
               AND version = $12 AND status = 1
             "#,
         );
-        let checkpoint_updated = sqlx::query(&checkpoint_update)
+        let checkpoint_updated = sqlx::query(sqlx::AssertSqlSafe(checkpoint_update.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(to_i64("checkpoint_id", event.checkpoint_id)?)
@@ -462,7 +462,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
               AND last_projected_drive_checkpoint < $4 AND status = 1
             "#,
         );
-        let publication_updated = sqlx::query(&publication_update)
+        let publication_updated = sqlx::query(sqlx::AssertSqlSafe(publication_update.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(to_i64("site_publication_id", event.site_publication_id)?)
@@ -526,7 +526,7 @@ impl WikiDriveEventInboxStore for SqlxWikiPersistenceStore {
             RETURNING {INBOX_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("event_id", request.event_id)?)

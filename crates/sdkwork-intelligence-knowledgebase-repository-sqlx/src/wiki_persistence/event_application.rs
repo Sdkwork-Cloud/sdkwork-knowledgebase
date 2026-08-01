@@ -199,7 +199,7 @@ async fn load_projection(
     let query = format!(
         "SELECT {PROJECTION_COLUMNS} FROM kb_source_file_projection WHERE tenant_id = $1 AND organization_id = $2 AND site_publication_id = $3 AND drive_node_uuid = $4 AND status = 1",
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(to_i64("tenant_id", event.scope.tenant_id)?)
         .bind(to_i64("organization_id", event.scope.organization_id)?)
         .bind(to_i64("site_publication_id", event.site_publication_id)?)
@@ -249,7 +249,7 @@ async fn upsert_version(
             RETURNING {PROJECTION_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", event.scope.tenant_id)?)
             .bind(to_i64("organization_id", event.scope.organization_id)?)
             .bind(to_i64("projection_id", existing.id)?)
@@ -301,7 +301,7 @@ async fn upsert_version(
         ) RETURNING {PROJECTION_COLUMNS}
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(store.next_id()?)
         .bind(uuid())
         .bind(to_i64("tenant_id", event.scope.tenant_id)?)
@@ -364,7 +364,7 @@ async fn move_projection(
         RETURNING {PROJECTION_COLUMNS}
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(to_i64("tenant_id", event.scope.tenant_id)?)
         .bind(to_i64("organization_id", event.scope.organization_id)?)
         .bind(to_i64("projection_id", existing.id)?)
@@ -419,7 +419,7 @@ async fn mark_eligible(
         RETURNING {PROJECTION_COLUMNS}
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(to_i64("tenant_id", event.scope.tenant_id)?)
         .bind(to_i64("organization_id", event.scope.organization_id)?)
         .bind(to_i64("projection_id", existing.id)?)
@@ -471,7 +471,7 @@ async fn revoke_projection(
         RETURNING {PROJECTION_COLUMNS}
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(to_i64("tenant_id", event.scope.tenant_id)?)
         .bind(to_i64("organization_id", event.scope.organization_id)?)
         .bind(to_i64("projection_id", existing.id)?)
@@ -587,7 +587,7 @@ async fn advance_public_collection_generations(
         RETURNING navigation_generation, search_generation
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(to_i64("tenant_id", event.scope.tenant_id)?)
         .bind(to_i64("organization_id", event.scope.organization_id)?)
         .bind(to_i64("publication_id", publication_id)?)
@@ -659,7 +659,7 @@ async fn append_provider_event(
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, {payload_expr}, $9, {timestamp}, 0)
         "#,
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(outbox_id)
         .bind(event_uuid)
         .bind(to_i64("tenant_id", event.scope.tenant_id)?)

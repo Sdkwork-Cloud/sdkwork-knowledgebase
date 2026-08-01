@@ -209,7 +209,7 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
             ) VALUES ($1, $2, $3, $4, $5, {created_at_expr}, $7)
             "#,
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(tenant_id)
             .bind(organization_id)
@@ -234,7 +234,7 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
         let query = format!(
             "UPDATE kb_market_listing SET subscribers_count = subscribers_count + 1, updated_at = {updated_at_expr} WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1",
         );
-        let result = sqlx::query(&query)
+        let result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(tenant_id)
             .bind(organization_id)
             .bind(listing_id)
@@ -294,7 +294,7 @@ impl KnowledgeMarketStore for SqliteCommerceStore {
         let query = format!(
             "UPDATE kb_market_listing SET subscribers_count = CASE WHEN subscribers_count > 0 THEN subscribers_count - 1 ELSE 0 END, updated_at = {updated_at_expr} WHERE tenant_id = $1 AND organization_id = $2 AND id = $3",
         );
-        let result = sqlx::query(&query)
+        let result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(tenant_id)
             .bind(organization_id)
             .bind(listing_id)

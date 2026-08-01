@@ -135,7 +135,7 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
                 RETURNING {PROJECTION_COLUMNS}
                 "#,
             );
-            let row = sqlx::query(&query)
+            let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
                 .bind(to_i64("tenant_id", request.scope.tenant_id)?)
                 .bind(to_i64("organization_id", request.scope.organization_id)?)
                 .bind(to_i64("projection_id", existing.id)?)
@@ -183,7 +183,7 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
             RETURNING {PROJECTION_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(self.next_id()?)
             .bind(uuid())
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
@@ -231,7 +231,7 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
         let query = format!(
             "SELECT {PROJECTION_COLUMNS} FROM kb_source_file_projection WHERE tenant_id = $1 AND organization_id = $2 AND site_publication_id = $3 AND drive_node_uuid = $4 AND status = 1",
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(require_id("site_publication_id", site_publication_id)?)
@@ -285,7 +285,7 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
             LIMIT $6
             "#,
         );
-        let candidates = sqlx::query(&candidate_query)
+        let candidates = sqlx::query(sqlx::AssertSqlSafe(candidate_query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id(
@@ -327,7 +327,7 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
             let projection_id: i64 = candidate.try_get("id").map_err(row_error)?;
             let expected_version: i64 = candidate.try_get("version").map_err(row_error)?;
             let lease_token = new_lease_token();
-            if let Some(row) = sqlx::query(&update_query)
+            if let Some(row) = sqlx::query(sqlx::AssertSqlSafe(update_query.as_str()))
                 .bind(to_i64("tenant_id", request.scope.tenant_id)?)
                 .bind(to_i64("organization_id", request.scope.organization_id)?)
                 .bind(projection_id)
@@ -418,7 +418,7 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
             RETURNING {PROJECTION_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("projection_id", request.projection_id)?)
@@ -483,7 +483,7 @@ impl WikiSourceProjectionStore for SqlxWikiPersistenceStore {
             RETURNING {PROJECTION_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("projection_id", request.projection_id)?)

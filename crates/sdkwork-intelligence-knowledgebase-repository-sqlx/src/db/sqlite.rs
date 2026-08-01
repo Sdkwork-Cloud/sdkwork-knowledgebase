@@ -72,7 +72,7 @@ async fn apply_sqlite_migration(pool: &AnyPool, migration: &str) -> Result<(), s
         // SQLite trigger bodies contain statement delimiters between BEGIN and END. The migration
         // source is compile-time-owned, so execute it as one raw program rather than splitting a
         // valid trigger into incomplete SQL fragments.
-        sqlx::raw_sql(migration).execute(pool).await?;
+        sqlx::raw_sql(sqlx::AssertSqlSafe(migration)).execute(pool).await?;
         return Ok(());
     }
     for statement in migration.split(';') {
@@ -112,7 +112,7 @@ async fn rebuild_group_binding_lifecycle_constraint(pool: &AnyPool) -> Result<()
     let rebuild_result = async {
         validate_group_binding_rebuild_columns(&mut connection).await?;
         let mut transaction = connection.begin().await?;
-        sqlx::raw_sql(&group_binding_rebuild_create_sql()?)
+        sqlx::raw_sql(sqlx::AssertSqlSafe(group_binding_rebuild_create_sql()?))
             .execute(&mut *transaction)
             .await?;
         for statement in SQLITE_GROUP_ARCHIVE_SAGA_MIGRATION.split(';') {
@@ -121,20 +121,20 @@ async fn rebuild_group_binding_lifecycle_constraint(pool: &AnyPool) -> Result<()
                 continue;
             };
             let statement = statement.replace(GROUP_BINDING_TABLE, GROUP_BINDING_REBUILD_TABLE);
-            sqlx::query(&statement).execute(&mut *transaction).await?;
+            sqlx::query(sqlx::AssertSqlSafe(statement.as_str())).execute(&mut *transaction).await?;
         }
         let columns = GROUP_BINDING_REBUILD_COLUMNS.join(", ");
         let copy_sql = format!(
             "INSERT INTO {GROUP_BINDING_REBUILD_TABLE} ({columns}) SELECT {columns} FROM {GROUP_BINDING_TABLE}"
         );
-        sqlx::query(&copy_sql).execute(&mut *transaction).await?;
+        sqlx::query(sqlx::AssertSqlSafe(copy_sql.as_str())).execute(&mut *transaction).await?;
         drop_group_space_triggers(&mut transaction).await?;
-        sqlx::query(&format!("DROP TABLE {GROUP_BINDING_TABLE}"))
+        sqlx::query(sqlx::AssertSqlSafe(format!("DROP TABLE {GROUP_BINDING_TABLE}")))
             .execute(&mut *transaction)
             .await?;
-        sqlx::query(&format!(
+        sqlx::query(sqlx::AssertSqlSafe(format!(
             "ALTER TABLE {GROUP_BINDING_REBUILD_TABLE} RENAME TO {GROUP_BINDING_TABLE}"
-        ))
+        )))
         .execute(&mut *transaction)
         .await?;
         transaction.commit().await
@@ -182,7 +182,7 @@ async fn drop_group_space_triggers(
                 "group binding lifecycle upgrade found an unsafe trigger name",
             ));
         }
-        sqlx::query(&format!("DROP TRIGGER {trigger_name}"))
+        sqlx::query(sqlx::AssertSqlSafe(format!("DROP TRIGGER {trigger_name}")))
             .execute(&mut **transaction)
             .await?;
     }
@@ -192,7 +192,7 @@ async fn drop_group_space_triggers(
 async fn validate_group_binding_rebuild_columns(
     connection: &mut sqlx::AnyConnection,
 ) -> Result<(), sqlx::Error> {
-    let rows = sqlx::query(&format!("PRAGMA table_info({GROUP_BINDING_TABLE})"))
+    let rows = sqlx::query(sqlx::AssertSqlSafe(format!("PRAGMA table_info({GROUP_BINDING_TABLE})")))
         .fetch_all(&mut *connection)
         .await?;
     let columns = rows
@@ -240,7 +240,7 @@ async fn execute_idempotent_sqlite_statement(
     pool: &AnyPool,
     statement: &str,
 ) -> Result<(), sqlx::Error> {
-    match sqlx::query(statement).execute(pool).await {
+    match sqlx::query(sqlx::AssertSqlSafe(statement)).execute(pool).await {
         Ok(_) => Ok(()),
         Err(sqlx::Error::Database(error)) if is_idempotent_sqlite_schema_error(error.message()) => {
             Ok(())
@@ -433,7 +433,7 @@ mod tests {
             "kb_group_knowledge_space_member",
             "kb_group_knowledge_space_event_inbox",
         ] {
-            let count: i64 = sqlx::query_scalar(&format!("SELECT COUNT(*) FROM {table}"))
+            let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT COUNT(*) FROM {table}")))
                 .fetch_one(&pool)
                 .await
                 .expect("preserved group rows");

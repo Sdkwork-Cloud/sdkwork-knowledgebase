@@ -226,7 +226,7 @@ impl SqliteKnowledgeSourceStore {
             "#
         );
 
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -877,7 +877,7 @@ impl SqliteKnowledgeDocumentStore {
                       current_version_id, visibility, content_state, index_state
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(title)
             .bind(mime_type)
             .bind(language)
@@ -918,7 +918,7 @@ impl SqliteKnowledgeDocumentStore {
             WHERE tenant_id = $2 AND organization_id = $3 AND id = $4 AND status = $5
             "#,
         );
-        let rows = sqlx::query(&query)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(now)
             .bind(tenant_id)
             .bind(organization_id)
@@ -976,7 +976,7 @@ impl SqliteKnowledgeDocumentStore {
                 index_state
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(original_file_drive_node_id)
             .bind(now)
             .bind(tenant_id)
@@ -1080,7 +1080,7 @@ impl SqliteKnowledgeDocumentStore {
             "#
         );
 
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(generated_id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -1198,7 +1198,7 @@ impl SqliteKnowledgeDocumentVersionStore {
                       checksum_sha256_hex, size_bytes, mime_type, parse_state, index_state
             "#
         );
-        let row = sqlx::query(&insert_query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(insert_query.as_str()))
             .bind(generated_id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -1231,7 +1231,7 @@ impl SqliteKnowledgeDocumentVersionStore {
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
             "#
         );
-        sqlx::query(&update_document_query)
+        sqlx::query(sqlx::AssertSqlSafe(update_document_query.as_str()))
             .bind(generated_id)
             .bind(now)
             .bind(tenant_id)
@@ -1440,7 +1440,7 @@ impl SqliteKnowledgeDocumentVersionStore {
             "#
         );
 
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(generated_id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -1512,7 +1512,7 @@ impl SqliteKnowledgeDocumentVersionStore {
               )
             "#,
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(version_id)
             .bind(now)
             .bind(tenant_id)
@@ -1751,7 +1751,7 @@ impl SqliteIngestionJobStore {
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
         );
-        let updated_row = sqlx::query(&update_query)
+        let updated_row = sqlx::query(sqlx::AssertSqlSafe(update_query.as_str()))
             .bind(ingestion_state_code(IngestionJobState::Succeeded))
             .bind(&now)
             .bind(tenant_id)
@@ -1778,7 +1778,7 @@ impl SqliteIngestionJobStore {
             VALUES ($1, $2, $3, $4, $5, $6, $7, {payload_expr}, $9, {created_at_expr}, $11)
             "#,
         );
-        sqlx::query(&outbox_query)
+        sqlx::query(sqlx::AssertSqlSafe(outbox_query.as_str()))
             .bind(outbox_id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -1899,7 +1899,7 @@ impl SqliteIngestionJobStore {
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
         );
-        let updated_row = sqlx::query(&update_query)
+        let updated_row = sqlx::query(sqlx::AssertSqlSafe(update_query.as_str()))
             .bind(ingestion_state_code(IngestionJobState::Succeeded))
             .bind(&now)
             .bind(tenant_id)
@@ -1932,7 +1932,7 @@ impl SqliteIngestionJobStore {
             VALUES ($1, $2, $3, $4, $5, $6, $7, {payload_expr}, $9, {created_at_expr}, $11)
             "#,
         );
-        sqlx::query(&outbox_query)
+        sqlx::query(sqlx::AssertSqlSafe(outbox_query.as_str()))
             .bind(outbox_id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -2060,7 +2060,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(ingestion_state_code(state))
             .bind(error_message)
             .bind(now)
@@ -2113,7 +2113,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
             WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
             "#,
         );
-        let updated = sqlx::query(&query)
+        let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(metadata)
             .bind(now)
             .bind(tenant_id)
@@ -2223,7 +2223,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
             LIMIT $8
             "#,
         );
-        let candidate_rows = sqlx::query(&candidates_query)
+        let candidate_rows = sqlx::query(sqlx::AssertSqlSafe(candidates_query.as_str()))
             .bind(tenant_id)
             .bind(organization_id)
             .bind(ACTIVE_STATUS)
@@ -2273,7 +2273,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
         for candidate in candidate_rows {
             let job_id: i64 = candidate.try_get("id").map_err(job_sqlx_error)?;
             let claim_token = Uuid::new_v4().to_string();
-            let row = sqlx::query(&update_query)
+            let row = sqlx::query(sqlx::AssertSqlSafe(update_query.as_str()))
                 .bind(ingestion_state_code(IngestionJobState::Running))
                 .bind(&request.claim_owner)
                 .bind(&claim_token)
@@ -2341,7 +2341,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
               AND lease_expires_at > {now_expr}
             "#,
         );
-        let result = sqlx::query(&query)
+        let result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(&lease_expires_at_text)
             .bind(&now_text)
             .bind(tenant_id)
@@ -2395,7 +2395,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
                       CAST(metadata AS TEXT) AS metadata
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(ingestion_state_code(IngestionJobState::Failed))
             .bind(truncate(&error_message, 4000, Some("")))
             .bind(&now)
@@ -2457,7 +2457,7 @@ impl IngestionJobStore for SqliteIngestionJobStore {
               AND id IN (SELECT id FROM stale_upload_sessions)
             "#,
         );
-        let result = sqlx::query(&query)
+        let result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(expired_before)
             .bind(now)
             .bind(tenant_id)
@@ -2581,7 +2581,7 @@ impl SqliteIngestionJobStore {
               )
             "#,
         );
-        let count: i64 = sqlx::query_scalar(&query)
+        let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(query.as_str()))
             .bind(tenant_id)
             .bind(organization_id)
             .bind(ACTIVE_STATUS)
@@ -2630,7 +2630,7 @@ impl SqliteIngestionJobStore {
               )
             "#,
         );
-        let row: (i64,) = sqlx::query_as(&query)
+        let row: (i64,) = sqlx::query_as(sqlx::AssertSqlSafe(query.as_str()))
             .bind(tenant_id)
             .bind(organization_id)
             .bind(ACTIVE_STATUS)
@@ -2731,7 +2731,7 @@ impl SqliteIngestionJobStore {
             RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)

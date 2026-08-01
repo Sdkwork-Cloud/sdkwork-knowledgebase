@@ -19,7 +19,7 @@ sdkwork-utils-rust.workspace = true
 uuid.workspace = true
 time.workspace = true
 url = "2"
-sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "any"] }
 
 [dev-dependencies]
 sdkwork-drive-test-support.workspace = true

@@ -349,7 +349,7 @@ async fn create_or_get_job_in_transaction(
         RETURNING id, space_id, job_type, idempotency_key, state, error_detail, CAST(metadata AS TEXT) AS metadata
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
@@ -418,7 +418,7 @@ async fn attach_drive_import_linkage_in_transaction(
         WHERE tenant_id = $3 AND organization_id = $4 AND id = $5 AND status = $6
         "#,
     );
-    let updated = sqlx::query(&query)
+    let updated = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(metadata)
         .bind(now)
         .bind(tenant_id)

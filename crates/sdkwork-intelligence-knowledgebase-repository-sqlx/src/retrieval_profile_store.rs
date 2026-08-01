@@ -92,7 +92,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
                       context_budget_tokens, status
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(Uuid::new_v4().to_string())
             .bind(tenant_id)
@@ -171,7 +171,7 @@ impl SqliteKnowledgeRetrievalProfileStore {
                       context_budget_tokens, status
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(request.name)
             .bind(request.strategy)
             .bind(top_k)

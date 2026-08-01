@@ -372,7 +372,7 @@ async fn create_okf_revision_in_transaction(
             review_state, created_at
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(id)
         .bind(Uuid::new_v4().to_string())
         .bind(tenant_id)
@@ -420,7 +420,7 @@ async fn mark_okf_current_revision_in_transaction(
             source_count, CAST(tags AS TEXT) AS tags, current_revision_id, publish_state, updated_at
         "#,
     );
-    let row = sqlx::query(&query)
+    let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(revision_id)
         .bind(record.publish_state.as_str())
         .bind(now)

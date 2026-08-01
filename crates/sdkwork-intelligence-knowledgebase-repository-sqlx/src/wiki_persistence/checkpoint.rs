@@ -91,7 +91,7 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
             RETURNING {CHECKPOINT_COLUMNS}
             "#,
         );
-        let insert_result = sqlx::query(&query)
+        let insert_result = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(id)
             .bind(checkpoint_uuid)
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
@@ -134,7 +134,7 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
         let query = format!(
             "SELECT {CHECKPOINT_COLUMNS} FROM kb_drive_source_checkpoint WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND status = 1",
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(require_id("checkpoint_id", checkpoint_id)?)
@@ -164,7 +164,7 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
                AND drive_space_uuid = $3 AND source_scope_uuid = $4 AND status = 1
              ORDER BY id ASC LIMIT 1",
         );
-        sqlx::query(&query)
+        sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", scope.tenant_id)?)
             .bind(to_i64("organization_id", scope.organization_id)?)
             .bind(drive_space_uuid)
@@ -192,7 +192,7 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
              WHERE tenant_id = $1 AND organization_id = $2 AND status = 1 AND id > $3 \
              ORDER BY id ASC LIMIT $4",
         );
-        let rows = sqlx::query(&query)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(to_i64("after_checkpoint_id", after_checkpoint_id)?)
@@ -247,7 +247,7 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
             RETURNING {CHECKPOINT_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("checkpoint_id", request.checkpoint_id)?)
@@ -296,7 +296,7 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
             RETURNING {CHECKPOINT_COLUMNS}
             "#,
         );
-        let row = sqlx::query(&query)
+        let row = sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("checkpoint_id", request.checkpoint_id)?)
@@ -330,7 +330,7 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
         let current_query = format!(
             "SELECT {CHECKPOINT_COLUMNS} FROM kb_drive_source_checkpoint WHERE tenant_id = $1 AND organization_id = $2 AND id = $3 AND lease_token = $4 AND fence_token = $5 AND stream_state = 'RECONCILING' AND status = 1",
         );
-        let current_row = sqlx::query(&current_query)
+        let current_row = sqlx::query(sqlx::AssertSqlSafe(current_query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("checkpoint_id", request.checkpoint_id)?)
@@ -370,7 +370,7 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
               AND sequence_no <= $4 AND processing_state <> 'APPLIED'
             "#,
         );
-        sqlx::query(&inbox_reconcile_query)
+        sqlx::query(sqlx::AssertSqlSafe(inbox_reconcile_query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("checkpoint_id", request.checkpoint_id)?)
@@ -410,7 +410,7 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
             RETURNING {CHECKPOINT_COLUMNS}
             "#,
         );
-        let completed_row = sqlx::query(&update_query)
+        let completed_row = sqlx::query(sqlx::AssertSqlSafe(update_query.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(require_id("checkpoint_id", request.checkpoint_id)?)
@@ -440,7 +440,7 @@ impl WikiDriveCheckpointStore for SqlxWikiPersistenceStore {
               AND last_projected_drive_checkpoint < $4 AND status = 1
             "#,
         );
-        sqlx::query(&publication_update)
+        sqlx::query(sqlx::AssertSqlSafe(publication_update.as_str()))
             .bind(to_i64("tenant_id", request.scope.tenant_id)?)
             .bind(to_i64("organization_id", request.scope.organization_id)?)
             .bind(to_i64("site_publication_id", current.site_publication_id)?)
@@ -467,7 +467,7 @@ async fn find_checkpoint_for_publication(
     let query = format!(
         "SELECT {CHECKPOINT_COLUMNS} FROM kb_drive_source_checkpoint WHERE tenant_id = $1 AND organization_id = $2 AND site_publication_id = $3 AND status = 1",
     );
-    sqlx::query(&query)
+    sqlx::query(sqlx::AssertSqlSafe(query.as_str()))
         .bind(to_i64("tenant_id", scope.tenant_id)?)
         .bind(to_i64("organization_id", scope.organization_id)?)
         .bind(require_id("site_publication_id", site_publication_id)?)
