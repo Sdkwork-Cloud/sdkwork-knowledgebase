@@ -48,7 +48,7 @@ pub async fn connect_knowledgebase_and_install_schema(
 }
 
 pub async fn knowledgebase_health_check(pool: &sqlx::AnyPool) -> Result<(), sqlx::Error> {
-    sqlx::query_scalar::<_, i64>("SELECT 1")
+    sqlx::query_scalar::<_, i64>("SELECT 1::bigint")
         .fetch_one(pool)
         .await
         .map(|_| ())

@@ -39,7 +39,7 @@ pub async fn connect_knowledgebase_drive_pool_with_max_connections(
 }
 
 pub async fn knowledgebase_drive_health_check(pool: &PgPool) -> Result<(), sqlx::Error> {
-    sqlx::query_scalar::<_, i64>("SELECT 1")
+    sqlx::query_scalar::<_, i64>("SELECT 1::bigint")
         .fetch_one(pool)
         .await
         .map(|_| ())
@@ -61,7 +61,7 @@ fn should_seed_standalone_local_provider() -> Result<bool, sqlx::Error> {
 
 async fn seed_default_drive_storage_provider(pool: &PgPool) -> Result<(), sqlx::Error> {
     let exists: Option<i64> =
-        sqlx::query_scalar("SELECT 1 FROM dr_drive_storage_provider WHERE id = $1")
+        sqlx::query_scalar("SELECT 1::bigint FROM dr_drive_storage_provider WHERE id = $1")
             .bind(DEFAULT_DRIVE_PROVIDER_ID)
             .fetch_optional(pool)
             .await?;

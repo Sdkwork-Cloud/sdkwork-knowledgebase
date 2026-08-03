@@ -66,7 +66,7 @@ pub async fn connect_postgres_and_install_schema(
 }
 
 pub async fn postgres_health_check(pool: &PgPool) -> Result<(), PostgresRepositoryError> {
-    sqlx::query_scalar::<_, i64>("SELECT 1")
+    sqlx::query_scalar::<_, i64>("SELECT 1::bigint")
         .fetch_one(pool)
         .await
         .map_err(|error| PostgresRepositoryError::Sqlx(error.to_string()))
